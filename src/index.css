@@ -1,0 +1,426 @@
+/* 📁 frontend/src/index.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   VARIABLES GLOBALES — MODE CLAIR
+============================================================ */
+
+:root {
+  /* Senior / Corporate - Default */
+  --color-primary: #1a4a3a;
+  --color-primary-dark: #0d2a22;
+  --color-primary-light: #2a6a4a;
+  --color-secondary: #c9a84c;
+  --color-secondary-light: #dcc07a;
+  --color-background: #f5f0e8;
+  --color-surface: #ffffff;
+  --color-surface-soft: #faf7f1;
+  --color-text: #2d2d2d;
+  --color-text-light: #6b7280;
+  --color-accent: #c9a84c;
+  --color-border: #e5e0d8;
+  --color-gold: #c9a84c;
+
+  --shadow-soft: 0 4px 16px rgba(26, 74, 58, 0.08);
+  --shadow-strong: 0 8px 32px rgba(26, 74, 58, 0.12);
+}
+
+/* ============================================================
+   VARIABLES — MODE SOMBRE
+============================================================ */
+
+html.dark,
+html[data-theme='dark'] {
+  --color-background: #0f1713;
+  --color-surface: #17231d;
+  --color-surface-soft: #1d2d25;
+  --color-text: #f4f7f5;
+  --color-text-light: #a8b6b0;
+  --color-border: #2c3f35;
+
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --shadow-strong: 0 14px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   BASE
+============================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background-color: var(--color-background);
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+/* ============================================================
+   DARK MODE — OVERRIDES POUR TAILWIND
+============================================================ */
+
+html.dark .bg-white,
+html[data-theme='dark'] .bg-white {
+  background-color: var(--color-surface) !important;
+}
+
+html.dark .bg-gray-50,
+html[data-theme='dark'] .bg-gray-50 {
+  background-color: var(--color-surface-soft) !important;
+}
+
+html.dark .bg-gray-100,
+html[data-theme='dark'] .bg-gray-100 {
+  background-color: #24362d !important;
+}
+
+html.dark .text-gray-900,
+html[data-theme='dark'] .text-gray-900 {
+  color: var(--color-text) !important;
+}
+
+html.dark .text-gray-800,
+html[data-theme='dark'] .text-gray-800,
+html.dark .text-gray-700,
+html[data-theme='dark'] .text-gray-700 {
+  color: #dce6e1 !important;
+}
+
+html.dark .text-gray-600,
+html[data-theme='dark'] .text-gray-600,
+html.dark .text-gray-500,
+html[data-theme='dark'] .text-gray-500 {
+  color: var(--color-text-light) !important;
+}
+
+html.dark .text-gray-400,
+html[data-theme='dark'] .text-gray-400 {
+  color: #83958d !important;
+}
+
+html.dark .border-gray-200,
+html[data-theme='dark'] .border-gray-200,
+html.dark .border-black\/5,
+html[data-theme='dark'] .border-black\/5,
+html.dark .border,
+html[data-theme='dark'] .border {
+  border-color: var(--color-border) !important;
+}
+
+html.dark .shadow-sm,
+html[data-theme='dark'] .shadow-sm {
+  box-shadow: var(--shadow-soft) !important;
+}
+
+/* ============================================================
+   COMPOSANTS
+============================================================ */
+
+@layer components {
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-primary-dark);
+    transform: translateY(-2px);
+  }
+
+  .card {
+    background: var(--color-surface);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--color-border);
+    transition: all 0.3s;
+  }
+
+  .card:hover {
+    box-shadow: var(--shadow-strong);
+    transform: translateY(-4px);
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: 2px solid var(--color-border);
+    outline: none;
+    transition: all 0.2s;
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  .input-field:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(26, 74, 58, 0.1);
+  }
+}
+
+/* ============================================================
+   SCROLLBAR MASQUÉE
+============================================================ */
+
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
+
+* {
+  scrollbar-width: none;
+}
+
+* {
+  -ms-overflow-style: none;
+}
+
+html,
+body {
+  overflow-y: scroll;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar {
+  display: none;
+  width: 0px;
+  height: 0px;
+}
+
+/* ============================================================
+   FIX LEAFLET MAP Z-INDEX
+============================================================ */
+
+.map-page-shell {
+  position: relative;
+  z-index: 0;
+}
+
+.map-page-shell .leaflet-container {
+  position: relative;
+  z-index: 0 !important;
+}
+
+.map-page-shell .leaflet-pane {
+  z-index: 1 !important;
+}
+
+.map-page-shell .leaflet-tile-pane {
+  z-index: 1 !important;
+}
+
+.map-page-shell .leaflet-overlay-pane {
+  z-index: 2 !important;
+}
+
+.map-page-shell .leaflet-shadow-pane {
+  z-index: 2 !important;
+}
+
+.map-page-shell .leaflet-marker-pane {
+  z-index: 3 !important;
+}
+
+.map-page-shell .leaflet-tooltip-pane {
+  z-index: 4 !important;
+}
+
+.map-page-shell .leaflet-popup-pane {
+  z-index: 5 !important;
+}
+
+.map-page-shell .leaflet-control-container,
+.map-page-shell .leaflet-top,
+.map-page-shell .leaflet-bottom {
+  z-index: 6 !important;
+}
+
+.map-page-shell .leaflet-control {
+  z-index: 6 !important;
+}
+
+/* ============================================================
+   ANIMATIONS
+============================================================ */
+
+@keyframes pulse-marker {
+  0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+  70% { box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+}
+
+.animate-pulse-marker {
+  animation: pulse-marker 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   DARK MODE GLOBAL
+============================================================ */
+
+html.dark,
+html[data-theme='dark'] {
+  color-scheme: dark;
+  background: #0f1713;
+}
+
+html.dark body,
+html[data-theme='dark'] body,
+html.dark #root,
+html[data-theme='dark'] #root {
+  background: #0f1713 !important;
+  color: #f4f7f5 !important;
+}
+
+html.dark main,
+html[data-theme='dark'] main,
+html.dark section,
+html[data-theme='dark'] section {
+  color: var(--color-text) !important;
+}
+
+html.dark .bg-white,
+html[data-theme='dark'] .bg-white {
+  background-color: #17231d !important;
+  color: #f4f7f5 !important;
+}
+
+html.dark .bg-white\/80,
+html[data-theme='dark'] .bg-white\/80 {
+  background-color: rgba(23, 35, 29, 0.82) !important;
+}
+
+html.dark .bg-white\/70,
+html[data-theme='dark'] .bg-white\/70 {
+  background-color: rgba(23, 35, 29, 0.72) !important;
+}
+
+html.dark .bg-gray-50,
+html[data-theme='dark'] .bg-gray-50 {
+  background-color: #1d2d25 !important;
+}
+
+html.dark .bg-gray-100,
+html[data-theme='dark'] .bg-gray-100 {
+  background-color: #24362d !important;
+}
+
+html.dark .text-gray-900,
+html[data-theme='dark'] .text-gray-900,
+html.dark .text-gray-800,
+html[data-theme='dark'] .text-gray-800,
+html.dark .text-gray-700,
+html[data-theme='dark'] .text-gray-700 {
+  color: #f4f7f5 !important;
+}
+
+html.dark .text-gray-600,
+html[data-theme='dark'] .text-gray-600,
+html.dark .text-gray-500,
+html[data-theme='dark'] .text-gray-500 {
+  color: #a8b6b0 !important;
+}
+
+html.dark .text-gray-400,
+html[data-theme='dark'] .text-gray-400 {
+  color: #7f9189 !important;
+}
+
+html.dark .border,
+html[data-theme='dark'] .border,
+html.dark .border-black\/5,
+html[data-theme='dark'] .border-black\/5,
+html.dark .border-gray-100,
+html[data-theme='dark'] .border-gray-100,
+html.dark .border-gray-200,
+html[data-theme='dark'] .border-gray-200 {
+  border-color: #2c3f35 !important;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select,
+html[data-theme='dark'] input,
+html[data-theme='dark'] textarea,
+html[data-theme='dark'] select {
+  background-color: #1d2d25 !important;
+  color: #f4f7f5 !important;
+  border-color: #2c3f35 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+  color: #7f9189 !important;
+}
+
+html.dark .hover\:bg-gray-50:hover,
+html[data-theme='dark'] .hover\:bg-gray-50:hover,
+html.dark .hover\:bg-gray-100:hover,
+html[data-theme='dark'] .hover\:bg-gray-100:hover {
+  background-color: #1d2d25 !important;
+}
+
+html.dark .fixed .bg-white,
+html[data-theme='dark'] .fixed .bg-white {
+  background-color: #17231d !important;
+  color: #f4f7f5 !important;
+}
+
+html.dark .bg-red-50,
+html[data-theme='dark'] .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+html.dark .card,
+html[data-theme='dark'] .card {
+  background-color: #17231d !important;
+  color: #f4f7f5 !important;
+  border-color: #2c3f35 !important;
+}
+
+html.dark [class*="shadow"],
+html[data-theme='dark'] [class*="shadow"] {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28) !important;
+}
