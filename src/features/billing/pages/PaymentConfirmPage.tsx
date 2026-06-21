@@ -14,6 +14,7 @@ const PaymentConfirmPage = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [isChecking, setIsChecking] = useState(false);
+  const [redirectCountdown, setRedirectCountdown] = useState(5);
 
   const colors = getThemeColors('senior');
 
@@ -35,17 +36,25 @@ const PaymentConfirmPage = () => {
       if (paymentStatus === 'approved' || paymentStatus === 'success' || paymentStatus === 'paid') {
         console.log('✅ Paiement approuvé !');
         setStatus('success');
-        setMessage('✅ Votre paiement a été confirmé avec succès ! La commande est en cours de création.');
+        setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
 
         // ✅ Nettoyer les données en attente (le webhook fait le travail)
         sessionStorage.removeItem('pending_ponctual_order');
         localStorage.removeItem('pending_ponctual_order');
 
-        // ✅ Rediriger après 3 secondes
-        setTimeout(() => {
-          navigate('/app/orders');
-        }, 3000);
-        return;
+        // ✅ Démarrer le compte à rebours
+        let countdown = 5;
+        setRedirectCountdown(countdown);
+        const interval = setInterval(() => {
+          countdown--;
+          setRedirectCountdown(countdown);
+          if (countdown <= 0) {
+            clearInterval(interval);
+            navigate('/app/orders');
+          }
+        }, 1000);
+
+        return () => clearInterval(interval);
       }
 
       // ❌ Si le paiement a échoué
@@ -77,7 +86,7 @@ const PaymentConfirmPage = () => {
               if (data.success) {
                 console.log('✅ Paiement vérifié avec succès !');
                 setStatus('success');
-                setMessage('✅ Votre paiement a été confirmé avec succès !');
+                setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
                 sessionStorage.removeItem('pending_ponctual_order');
                 localStorage.removeItem('pending_ponctual_order');
                 setIsChecking(false);
@@ -122,7 +131,7 @@ const PaymentConfirmPage = () => {
             if (data.success) {
               console.log('✅ Paiement vérifié avec succès !');
               setStatus('success');
-              setMessage('✅ Votre paiement a été confirmé avec succès ! La commande est en cours de création.');
+              setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
               sessionStorage.removeItem('pending_ponctual_order');
               localStorage.removeItem('pending_ponctual_order');
               setIsChecking(false);
@@ -168,13 +177,6 @@ const PaymentConfirmPage = () => {
     checkPaymentStatus();
   }, [searchParams, navigate]);
 
-  // ✅ Nettoyer les données en attente au démontage
-  useEffect(() => {
-    return () => {
-      // Ne pas nettoyer ici pour permettre au webhook de faire son travail
-    };
-  }, []);
-
   // ✅ Rendu : État de chargement
   if (status === 'loading' || isChecking) {
     return (
@@ -209,9 +211,14 @@ const PaymentConfirmPage = () => {
           <p className="text-sm mt-2" style={{ color: colors.text + '60' }}>
             {message}
           </p>
-          <p className="text-xs mt-2" style={{ color: colors.text + '40' }}>
-            📦 La commande est en cours de création par notre système
-          </p>
+          <div className="mt-3 p-3 rounded-xl" style={{ background: colors.primary + '08' }}>
+            <p className="text-sm" style={{ color: colors.text }}>
+              📦 Votre commande a été créée avec succès
+            </p>
+            <p className="text-xs mt-1" style={{ color: colors.text + '40' }}>
+              Vous recevrez une notification lorsque votre commande sera prise en charge
+            </p>
+          </div>
           <div className="mt-6 flex flex-col gap-3">
             <button
               onClick={() => navigate('/app/orders')}
@@ -229,6 +236,9 @@ const PaymentConfirmPage = () => {
               Retour au tableau de bord
             </button>
           </div>
+          <p className="text-xs mt-4" style={{ color: colors.text + '30' }}>
+            Redirection dans {redirectCountdown} secondes...
+          </p>
         </div>
       </div>
     );
