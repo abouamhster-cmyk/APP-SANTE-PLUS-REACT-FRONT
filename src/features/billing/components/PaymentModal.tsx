@@ -186,15 +186,15 @@ export const PaymentModal = ({
       console.log('📤 Données envoyées au backend:', orderDataForBackend);
 
       // ✅ Appeler createPayment
-      const result = await createPayment({
-        plan_id: selectedOffer?.id,
-        abonnement_id: selectedOffer?.id,
-        amount,
-        description: planName,
-        email: profile?.email,
-        is_ponctual: isPonctual,
-        order_data: orderDataForBackend,
-      });
+     const result = await createPayment({
+      plan_id: selectedOffer?.id,
+      abonnement_id: isPonctual ? null : selectedOffer?.id,  // ← NULL pour ponctuel
+      amount,
+      description: planName,
+      email: profile?.email,
+      is_ponctual: isPonctual,
+      order_data: orderDataForBackend,
+    });
 
       const paymentUrl = result?.payment_url || result?.url || result?.checkout_url;
 
