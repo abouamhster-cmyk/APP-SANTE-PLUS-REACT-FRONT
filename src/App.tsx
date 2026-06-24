@@ -19,6 +19,7 @@ import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage';
+import AdminSetupPage from '@/features/admin/pages/AdminSetupPage';
 
 // ✅ Dashboard & Main
 import DashboardPage from '@/features/dashboard/pages/DashboardPage';
@@ -44,6 +45,7 @@ import MessagesPage from '@/features/messages/pages/MessagesPage';
 
 // ✅ Billing
 import BillingPage from '@/features/billing/pages/BillingPage';
+import PaymentConfirmPage from '@/features/billing/pages/PaymentConfirmPage';
 
 // ✅ Map
 import MapPage from '@/features/map/pages/MapPage';
@@ -71,22 +73,21 @@ import UsersPage from '@/features/admin/pages/UsersPage';
 import OffersPage from '@/features/admin/pages/OffersPage';
 import SettingsPage from '@/features/admin/pages/SettingsPage';
 import RegistrationDetailsPage from '@/features/admin/pages/RegistrationDetailsPage';
-import AdminSetupPage from '@/features/admin/pages/AdminSetupPage';
 
 // ✅ Journal
 import JournalPage from '@/features/journal/pages/JournalPage';
 
-// ✅ Payment Confirm
-import PaymentConfirmPage from '@/features/billing/pages/PaymentConfirmPage';
-
 // ✅ Discharge
 import DischargePage from '@/features/discharge/pages/DischargePage';
 
+// ✅ Stores
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { useOfferStore } from '@/stores/offerStore';  
+import { useOfferStore } from '@/stores/offerStore';
 
-
+// ============================================================
+// QUERY CLIENT
+// ============================================================
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -99,45 +100,45 @@ const queryClient = new QueryClient({
   },
 });
 
+// ============================================================
+// APP COMPONENT
+// ============================================================
 function App() {
-
-    const { fetchOffers, isInitialized, offers } = useOfferStore();
-
-  // ✅ Charger les offres au démarrage
-  useEffect(() => {
-    if (!isInitialized) {
-      fetchOffers();
-    }
-  }, [isInitialized, fetchOffers]);
-  
+  // ============================================================
+  // STORES
+  // ============================================================
   const {
     initialize,
-    isLoading,
+    isLoading: isAuthLoading,
     isAuthenticated,
-    isInitialized,
+    isInitialized: isAuthInitialized,
   } = useAuthStore();
 
   const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
 
-  // ✅ Référence pour suivre si l'initialisation a déjà été faite
-  const hasInitialized = useRef(false);
+  const {
+    fetchOffers,
+    isInitialized: isOffersInitialized,
+  } = useOfferStore();
 
-  // ✅ Empêcher le rechargement automatique de la page
+  // ============================================================
+  // REFS
+  // ============================================================
+  const hasInitialized = useRef(false);
+  const hasLoadedOffers = useRef(false);
+
+  // ============================================================
+  // EFFETS - GESTION DU RECHARGEMENT
+  // ============================================================
   useEffect(() => {
-    // ✅ Désactiver le rechargement automatique au focus
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         console.log('👀 Page visible - pas de rechargement automatique');
       }
     };
 
-    // ✅ Empêcher le rechargement par défaut (Ctrl+R, F5)
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.ctrlKey || e.metaKey) && 
-        (e.key === 'r' || e.key === 'R' || e.key === 'f5')
-      ) {
-        // Laisser l'utilisateur recharger manuellement
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R' || e.key === 'f5')) {
         console.log('🔄 Rechargement manuel');
       }
     };
@@ -151,12 +152,13 @@ function App() {
     };
   }, []);
 
-  // ✅ Initialisation de l'auth au montage (une seule fois)
+  // ============================================================
+  // EFFETS - INITIALISATION DE L'AUTH
+  // ============================================================
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
-      // ✅ Éviter les doubles initialisations
       if (hasInitialized.current) {
         console.log('ℹ️ Auth déjà initialisé, skip...');
         return;
@@ -177,18 +179,34 @@ function App() {
     };
   }, [initialize]);
 
-  // ✅ Logging de l'état
+  // ============================================================
+  // EFFETS - CHARGEMENT DES OFFRES
+  // ============================================================
+  useEffect(() => {
+    if (isAuthInitialized && !isOffersInitialized && !hasLoadedOffers.current) {
+      console.log('🔄 Chargement des offres...');
+      hasLoadedOffers.current = true;
+      fetchOffers();
+    }
+  }, [isAuthInitialized, isOffersInitialized, fetchOffers]);
+
+  // ============================================================
+  // EFFETS - LOGS
+  // ============================================================
   useEffect(() => {
     console.log('🔍 App state:', {
-      isLoading,
-      isInitialized,
+      isAuthLoading,
+      isAuthInitialized,
       isAuthenticated,
+      isOffersInitialized,
     });
-  }, [isLoading, isInitialized, isAuthenticated]);
+  }, [isAuthLoading, isAuthInitialized, isAuthenticated, isOffersInitialized]);
 
-  // ✅ Notifications si connecté
+  // ============================================================
+  // EFFETS - NOTIFICATIONS
+  // ============================================================
   useEffect(() => {
-    if (!isAuthenticated || !isInitialized) return;
+    if (!isAuthenticated || !isAuthInitialized) return;
 
     console.log('🔔 Fetching notifications...');
     fetchNotifications();
@@ -197,30 +215,33 @@ function App() {
     return () => {
       unsubscribe();
     };
-  }, [isAuthenticated, isInitialized, fetchNotifications, subscribe, unsubscribe]);
+  }, [isAuthenticated, isAuthInitialized, fetchNotifications, subscribe, unsubscribe]);
 
-  // ✅ Écran de chargement - utilise le logo dynamique
-  if (!isInitialized || isLoading) {
+  // ============================================================
+  // ÉCRAN DE CHARGEMENT
+  // ============================================================
+  if (!isAuthInitialized || isAuthLoading) {
     return (
       <div
         className="min-h-screen w-full flex items-center justify-center"
         style={{ background: 'var(--color-background, #f5f0e8)' }}
       >
-        <LoadingSpinner 
-          size="lg" 
-          text="Chargement..." 
-          fullScreen={false}
-        />
+        <LoadingSpinner size="lg" text="Chargement..." fullScreen={false} />
       </div>
     );
   }
 
+  // ============================================================
+  // RENDU PRINCIPAL
+  // ============================================================
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ThemeProvider>
           <Routes>
-            {/* Routes publiques */}
+            {/* ============================================================
+                ROUTES PUBLIQUES
+                ============================================================ */}
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
@@ -230,7 +251,9 @@ function App() {
               <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
             </Route>
 
-            {/* Routes protégées */}
+            {/* ============================================================
+                ROUTES PROTÉGÉES
+                ============================================================ */}
             <Route
               element={
                 <ProtectedRoute>
@@ -238,28 +261,55 @@ function App() {
                 </ProtectedRoute>
               }
             >
+              {/* Dashboard */}
               <Route path="/app" element={<DashboardPage />} />
               <Route path="/app/dashboard" element={<DashboardPage />} />
+
+              {/* Patients / Proches */}
               <Route path="/app/patients" element={<PatientsPage />} />
               <Route path="/app/patients/:id" element={<PatientDetailPage />} />
+
+              {/* Visites */}
               <Route path="/app/visits" element={<VisitsPage />} />
               <Route path="/app/visits/:id" element={<VisitDetailPage />} />
+
+              {/* Commandes */}
               <Route path="/app/orders" element={<OrdersPage />} />
               <Route path="/app/orders/create" element={<CreateOrderPage />} />
               <Route path="/app/orders/:id" element={<OrderDetailPage />} />
+
+              {/* Messages */}
               <Route path="/app/messages" element={<MessagesPage />} />
+
+              {/* Paiements / Abonnements */}
               <Route path="/app/billing" element={<BillingPage />} />
+
+              {/* Carte / Radar */}
               <Route path="/app/map" element={<MapPage />} />
+
+              {/* Notifications */}
               <Route path="/app/notifications" element={<NotificationsPage />} />
+
+              {/* Profil */}
               <Route path="/app/profile" element={<ProfilePage />} />
+
+              {/* Aidant - Missions */}
               <Route path="/app/missions" element={<MissionsPage />} />
               <Route path="/app/planning" element={<PlanningPage />} />
               <Route path="/app/history" element={<HistoryPage />} />
+
+              {/* Éducation */}
               <Route path="/app/education" element={<EducationPage />} />
+
+              {/* Journal de bord */}
               <Route path="/app/journal" element={<JournalPage />} />
+
+              {/* Sortie d'hôpital */}
               <Route path="/app/discharge" element={<DischargePage />} />
-              
-              {/* Admin */}
+
+              {/* ============================================================
+                  ROUTES ADMIN
+                  ============================================================ */}
               <Route path="/app/admin" element={<AdminDashboardPage />} />
               <Route path="/app/admin-payments" element={<AdminPaymentsPage />} />
               <Route path="/app/admin-subscriptions" element={<AdminSubscriptionsPage />} />
@@ -273,7 +323,9 @@ function App() {
               <Route path="/app/settings" element={<SettingsPage />} />
             </Route>
 
-            {/* Redirections */}
+            {/* ============================================================
+                REDIRECTIONS
+                ============================================================ */}
             <Route
               path="/"
               element={<Navigate to={isAuthenticated ? '/app' : '/login'} replace />}
@@ -284,9 +336,15 @@ function App() {
             />
           </Routes>
 
+          {/* ============================================================
+              COMPOSANTS GLOBAUX
+              ============================================================ */}
           <InstallPrompt />
           <OnboardingTour />
 
+          {/* ============================================================
+              TOASTER
+              ============================================================ */}
           <Toaster
             position="top-center"
             reverseOrder={false}
