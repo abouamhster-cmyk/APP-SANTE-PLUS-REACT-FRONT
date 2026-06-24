@@ -98,6 +98,16 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+
+    const { fetchOffers, isInitialized, offers } = useOfferStore();
+
+  // ✅ Charger les offres au démarrage
+  useEffect(() => {
+    if (!isInitialized) {
+      fetchOffers();
+    }
+  }, [isInitialized, fetchOffers]);
+  
   const {
     initialize,
     isLoading,
