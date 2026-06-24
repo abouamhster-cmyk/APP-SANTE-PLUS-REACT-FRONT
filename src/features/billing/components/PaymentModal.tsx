@@ -188,7 +188,7 @@ export const PaymentModal = ({
       // ✅ Appeler createPayment
      const result = await createPayment({
       plan_id: selectedOffer?.id,
-      abonnement_id: isPonctual ? null : selectedOffer?.id,  // ← NULL pour ponctuel
+      abonnement_id: isPonctual ? null : selectedOffer?.id, 
       amount,
       description: planName,
       email: profile?.email,
