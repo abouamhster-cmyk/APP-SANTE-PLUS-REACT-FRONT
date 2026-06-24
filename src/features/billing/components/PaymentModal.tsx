@@ -64,14 +64,13 @@ export const PaymentModal = ({
     period === 'intervention' || 
     selectedOffer?.category === 'ponctuelle' ||
     selectedOffer?.id?.startsWith('ponctual-') ||
-    (selectedOffer?.price === 100 && selectedOffer?.period === 'intervention');
+    selectedOffer?.id === 'b4b01a84-1b0c-4973-9e58-43945c1c4991' || // Intervention Ponctuelle
+    selectedOffer?.id === '6e4ba26d-98c5-4e29-a129-f33a828f0b44'; // Intervention Ponctuelle (duplicata)
 
   console.log('🔍 ===== PAYMENT MODAL =====');
   console.log('🔍 forcePonctual:', forcePonctual);
   console.log('🔍 selectedOffer:', selectedOffer);
-  console.log('🔍 selectedOffer.category:', selectedOffer?.category);
   console.log('🔍 selectedOffer.id:', selectedOffer?.id);
-  console.log('🔍 period:', period);
   console.log('🔍 isPonctual calculé:', isPonctual);
   console.log('🔍 orderData:', orderData);
   console.log('🔍 =========================');
@@ -114,32 +113,18 @@ export const PaymentModal = ({
       return false;
     }
 
-    // ✅ Vérifier que patient_id est présent (sauf si c'est une commande sans proche)
-    // Note : selon votre logique métier, patient_id peut être null si la commande est sans proche
-    // Dans ce cas, supprimez cette validation
-    if (!orderData.patient_id) {
-      console.warn('⚠️ patient_id est null - commande sans proche');
-      // ✅ Pour les commandes sans proche, on continue
-      // Si vous voulez forcer un proche, décommentez les lignes ci-dessous :
-      // toast.error('Veuillez sélectionner un proche');
-      // return false;
-    }
-
-    // ✅ Vérifier la description
     if (!orderData.description || orderData.description.trim() === '') {
       console.error('❌ description manquante');
       toast.error('Veuillez ajouter une description');
       return false;
     }
 
-    // ✅ Vérifier l'adresse
     if (!orderData.address || orderData.address.trim() === '') {
       console.error('❌ address manquante');
       toast.error('Veuillez ajouter une adresse de livraison');
       return false;
     }
 
-    // ✅ Vérifier le type
     if (!orderData.type) {
       console.error('❌ type manquant');
       toast.error('Veuillez sélectionner un type de commande');
@@ -161,12 +146,10 @@ export const PaymentModal = ({
           return;
         }
 
-        // ✅ Sauvegarder les données pour la page de confirmation (fallback)
         sessionStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
         localStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
         console.log('📦 Données de commande sauvegardées:', orderData);
       } else {
-        // ✅ Si ce n'est pas ponctuel, on s'assure qu'il n'y a pas de données en attente
         sessionStorage.removeItem('pending_ponctual_order');
         localStorage.removeItem('pending_ponctual_order');
       }
@@ -183,18 +166,21 @@ export const PaymentModal = ({
         prescription_url: orderData.prescription_url || null,
       } : null;
 
-      console.log('📤 Données envoyées au backend:', orderDataForBackend);
+      // ✅ CRITIQUE : abonnement_id = UUID de l'offre (ou null pour ponctuel)
+      const offerId = selectedOffer?.id || null;
+      const subscriptionId = isPonctual ? null : offerId;
 
-      // ✅ Appeler createPayment
-     const result = await createPayment({
-      plan_id: selectedOffer?.id,
-      abonnement_id: isPonctual ? null : selectedOffer?.id, 
-      amount,
-      description: planName,
-      email: profile?.email,
-      is_ponctual: isPonctual,
-      order_data: orderDataForBackend,
-    });
+      console.log('📤 abonnement_id envoyé:', subscriptionId);
+
+      const result = await createPayment({
+        plan_id: offerId,
+        abonnement_id: subscriptionId,
+        amount,
+        description: planName,
+        email: profile?.email,
+        is_ponctual: isPonctual,
+        order_data: orderDataForBackend,
+      });
 
       const paymentUrl = result?.payment_url || result?.url || result?.checkout_url;
 
@@ -205,7 +191,6 @@ export const PaymentModal = ({
       console.log('✅ Redirection vers FedaPay:', paymentUrl);
       toast.success('Redirection vers FedaPay...');
       
-      // ✅ Redirection vers FedaPay
       window.location.href = paymentUrl;
       
     } catch (error: any) {
