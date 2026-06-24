@@ -1,4 +1,5 @@
 // 📁 src/lib/constants.ts
+// VERSION PRODUCTION - Offres dynamiques avec fallback UUID réels
 
 import { Offer, OfferCategory } from '@/types';
 
@@ -42,22 +43,15 @@ export const getLogoByRole = (
   role?: string | null,
   patientCategory?: string | null
 ): { icon: string; text: string; whiteBg: string } => {
-  // Maman & Bébé → Logo Maman
   if (role === 'family' && patientCategory === 'maman_bebe') {
     return LOGO_CONFIG.maman;
   }
-  
-  // Aidant → Logo général (mais thème aidant)
   if (role === 'aidant') {
     return LOGO_CONFIG.aidant;
   }
-  
-  // Coordinator / Admin → Logo général
   if (role === 'coordinator' || role === 'admin') {
     return LOGO_CONFIG.coordinator;
   }
-  
-  // Senior ou défaut → Logo général
   return LOGO_CONFIG.general;
 };
 
@@ -128,15 +122,15 @@ export const REGISTRATION_FIELDS = {
 };
 
 // =============================================
-// 🚨 IMPORTANT : Utiliser les UUID réels de votre base de données
+// OFFRES - FALLBACK AVEC UUID RÉELS
+// Ces offres servent de fallback si le chargement dynamique échoue.
+// Les IDs doivent correspondre EXACTEMENT à ceux dans votre base de données.
 // =============================================
-// Ces IDs doivent correspondre EXACTEMENT à ceux dans votre table 'offres'
-// Récupérez-les avec : SELECT id, name FROM offres;
 
 // 🟢 SANTÉ PLUS SERVICES (Senior)
 const SENIOR_OFFERS: Offer[] = [
   {
-    id: '34e37740-85bc-4839-a2b6-2a073a80606e', // ✅ UUID réel pour "Essentiel"
+    id: '34e37740-85bc-4839-a2b6-2a073a80606e',
     name: 'Essentiel',
     price: 100,
     period: 'mois',
@@ -147,7 +141,7 @@ const SENIOR_OFFERS: Offer[] = [
     category: 'senior',
   },
   {
-    id: '9c69961c-577f-4130-9e67-4fb18d29e82a', // ✅ UUID réel pour "Accompagnement"
+    id: '9c69961c-577f-4130-9e67-4fb18d29e82a',
     name: 'Accompagnement',
     price: 100,
     period: 'mois',
@@ -158,7 +152,7 @@ const SENIOR_OFFERS: Offer[] = [
     category: 'senior',
   },
   {
-    id: 'db103aad-36b3-419e-92a7-b48f5712cd32', // ✅ UUID réel pour "Sérénité Seniors"
+    id: 'db103aad-36b3-419e-92a7-b48f5712cd32',
     name: 'Sérénité Seniors',
     price: 100000,
     period: 'mois',
@@ -169,7 +163,7 @@ const SENIOR_OFFERS: Offer[] = [
     category: 'senior',
   },
   {
-    id: '61ad4bbf-4e29-43a8-b284-bdb54a704be9', // ✅ UUID réel pour "Privilège Famille"
+    id: '61ad4bbf-4e29-43a8-b284-bdb54a704be9',
     name: 'Privilège Famille',
     price: 200000,
     period: 'mois',
@@ -184,7 +178,7 @@ const SENIOR_OFFERS: Offer[] = [
 // 🩷 SANTÉ PLUS MAMAN & BÉBÉ
 const MAMAN_OFFERS: Offer[] = [
   {
-    id: '904c0d6e-b9c5-4931-ba7e-dc389cd06071', // ✅ UUID réel pour "Essentiel" Maman
+    id: '904c0d6e-b9c5-4931-ba7e-dc389cd06071',
     name: 'Essentiel',
     price: 100,
     period: '2 semaines',
@@ -195,7 +189,7 @@ const MAMAN_OFFERS: Offer[] = [
     category: 'maman_bebe',
   },
   {
-    id: '97e45dd3-7f43-4442-b034-d5d3afe49b20', // ✅ UUID réel pour "Confort" Maman
+    id: '97e45dd3-7f43-4442-b034-d5d3afe49b20',
     name: 'Confort',
     price: 100,
     period: '3 semaines',
@@ -206,7 +200,7 @@ const MAMAN_OFFERS: Offer[] = [
     category: 'maman_bebe',
   },
   {
-    id: 'c8e398e6-f721-47f1-8a4e-441aad073c47', // ✅ UUID réel pour "Sérénité" Maman
+    id: 'c8e398e6-f721-47f1-8a4e-441aad073c47',
     name: 'Sérénité',
     price: 140000,
     period: '4 semaines',
@@ -217,7 +211,7 @@ const MAMAN_OFFERS: Offer[] = [
     category: 'maman_bebe',
   },
   {
-    id: 'e54aeef0-de0f-442d-ab71-7e84cddcfd89', // ✅ UUID réel pour "Privilège" Maman
+    id: 'e54aeef0-de0f-442d-ab71-7e84cddcfd89',
     name: 'Privilège',
     price: 200000,
     period: '5 semaines',
@@ -232,7 +226,7 @@ const MAMAN_OFFERS: Offer[] = [
 // ⭐ PACKS CONFORT
 const PACK_CONFORT_OFFERS: Offer[] = [
   {
-    id: 'cfc4dd4c-5bf9-49e5-a28e-998cf92cff0b', // ✅ UUID réel pour "Pack Confort Mensuel"
+    id: 'cfc4dd4c-5bf9-49e5-a28e-998cf92cff0b',
     name: 'Pack Confort Mensuel',
     price: 100,
     period: 'mois',
@@ -243,7 +237,7 @@ const PACK_CONFORT_OFFERS: Offer[] = [
     category: 'pack_confort',
   },
   {
-    id: 'ee102cda-2639-4c85-bc7c-9f57b83bf81a', // ✅ UUID réel pour "Pack Confort Trimestriel"
+    id: 'ee102cda-2639-4c85-bc7c-9f57b83bf81a',
     name: 'Pack Confort Trimestriel',
     price: 100,
     period: 'trimestre',
@@ -254,7 +248,7 @@ const PACK_CONFORT_OFFERS: Offer[] = [
     category: 'pack_confort',
   },
   {
-    id: '85818a8f-2674-4ea3-8d9a-211cf3c452f3', // ✅ UUID réel pour "Pack Confort Annuel"
+    id: '85818a8f-2674-4ea3-8d9a-211cf3c452f3',
     name: 'Pack Confort Annuel',
     price: 480000,
     period: 'an',
@@ -269,7 +263,7 @@ const PACK_CONFORT_OFFERS: Offer[] = [
 // ⚡ INTERVENTIONS PONCTUELLES
 const PONCTUAL_OFFERS: Offer[] = [
   {
-    id: 'b4b01a84-1b0c-4973-9e58-43945c1c4991', // ✅ UUID réel pour "Intervention Ponctuelle"
+    id: 'b4b01a84-1b0c-4973-9e58-43945c1c4991',
     name: 'Intervention Ponctuelle',
     price: 100,
     period: 'intervention',
@@ -285,7 +279,7 @@ const PONCTUAL_OFFERS: Offer[] = [
     category: 'ponctuelle',
   },
   {
-    id: '6e4ba26d-98c5-4e29-a129-f33a828f0b44', // ✅ UUID réel pour "Intervention Ponctuelle" (duplicata)
+    id: '6e4ba26d-98c5-4e29-a129-f33a828f0b44',
     name: 'Intervention Ponctuelle',
     price: 100,
     period: 'intervention',
@@ -301,7 +295,7 @@ const PONCTUAL_OFFERS: Offer[] = [
     category: 'ponctuelle',
   },
   {
-    id: '5675ee69-7705-4687-8a7f-81c1501cae77', // ✅ UUID réel pour "Pack Sortie Maternité Sérénité"
+    id: '5675ee69-7705-4687-8a7f-81c1501cae77',
     name: "Sortie Maternité Sérénité",
     price: 100,
     period: 'intervention',
@@ -319,7 +313,7 @@ const PONCTUAL_OFFERS: Offer[] = [
 ];
 
 // =============================================
-// EXPORTS - PLANS (pour compatibilité)
+// EXPORTS - PLANS (Fallback)
 // =============================================
 
 export const PLANS = {
@@ -330,7 +324,7 @@ export const PLANS = {
 };
 
 // =============================================
-// EXPORTS - OFFERS (nouvelle nomenclature)
+// EXPORTS - OFFERS (Fallback)
 // =============================================
 
 export const OFFERS = {
@@ -341,7 +335,7 @@ export const OFFERS = {
 };
 
 // =============================================
-// HELPERS
+// HELPERS - Fallback
 // =============================================
 
 export const getOffersByCategory = (category: OfferCategory): Offer[] => {
@@ -374,7 +368,9 @@ export const getOffersByCategoryType = (category: OfferCategory): Offer[] => {
 // GET LOGO BY THEME
 // =============================================
 
-export const getLogoByTheme = (theme: 'senior' | 'maman' | 'aidant' | 'coordinator' | 'general'): { icon: string; text: string; whiteBg: string } => {
+export const getLogoByTheme = (
+  theme: 'senior' | 'maman' | 'aidant' | 'coordinator' | 'general'
+): { icon: string; text: string; whiteBg: string } => {
   switch (theme) {
     case 'maman':
       return LOGO_CONFIG.maman;
