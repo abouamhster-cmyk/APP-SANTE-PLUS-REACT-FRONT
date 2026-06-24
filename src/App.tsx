@@ -84,6 +84,8 @@ import DischargePage from '@/features/discharge/pages/DischargePage';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useOfferStore } from '@/stores/offerStore';  
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
