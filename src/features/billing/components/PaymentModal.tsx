@@ -25,7 +25,7 @@ interface PaymentModalProps {
   onSuccess: () => void;
   redirectPath?: string;
   orderData?: any;
-  forcePonctual?: boolean;  
+  forcePonctual?: boolean;
 }
 
 export const PaymentModal = ({
@@ -36,7 +36,7 @@ export const PaymentModal = ({
   onSuccess,
   redirectPath = '/app/orders',
   orderData,
-  forcePonctual = false,  
+  forcePonctual = false,
 }: PaymentModalProps) => {
   const { createPayment } = usePaymentStore();
   const { profile, role } = useAuthStore();
@@ -58,14 +58,15 @@ export const PaymentModal = ({
   const selectedOffer = offer || plan;
 
   const period = selectedOffer?.period || selectedOffer?.type || 'mois';
-  
-  const isPonctual = forcePonctual || 
-    period === 'ponctuelle' || 
-    period === 'intervention' || 
+
+  // ✅ Détection des offres ponctuelles
+  const isPonctual = forcePonctual ||
+    period === 'ponctuelle' ||
+    period === 'intervention' ||
     selectedOffer?.category === 'ponctuelle' ||
-    selectedOffer?.id?.startsWith('ponctual-') ||
-    selectedOffer?.id === 'b4b01a84-1b0c-4973-9e58-43945c1c4991' || // Intervention Ponctuelle
-    selectedOffer?.id === '6e4ba26d-98c5-4e29-a129-f33a828f0b44'; // Intervention Ponctuelle (duplicata)
+    selectedOffer?.type === 'ponctuelle' ||
+    selectedOffer?.id === 'b4b01a84-1b0c-4973-9e58-43945c1c4991' ||
+    selectedOffer?.id === '6e4ba26d-98c5-4e29-a129-f33a828f0b44';
 
   console.log('🔍 ===== PAYMENT MODAL =====');
   console.log('🔍 forcePonctual:', forcePonctual);
@@ -106,7 +107,7 @@ export const PaymentModal = ({
   // ✅ VALIDATION des données avant paiement
   const validateOrderData = (): boolean => {
     if (!isPonctual) return true;
-    
+
     if (!orderData) {
       console.error('❌ orderData est null ou undefined');
       toast.error('Erreur: données de commande manquantes');
@@ -190,9 +191,9 @@ export const PaymentModal = ({
 
       console.log('✅ Redirection vers FedaPay:', paymentUrl);
       toast.success('Redirection vers FedaPay...');
-      
+
       window.location.href = paymentUrl;
-      
+
     } catch (error: any) {
       console.error('❌ Payment error:', error);
       toast.error(error?.message || 'Erreur lors du lancement du paiement');
@@ -228,9 +229,9 @@ export const PaymentModal = ({
               </h2>
 
               <p className="text-sm mt-1 text-gray-500">
-                {isPonctual 
+                {isPonctual
                   ? 'Vous allez payer cette commande ponctuellement.'
-                  : isFamily 
+                  : isFamily
                     ? 'Vous allez être redirigé vers le checkout sécurisé FedaPay pour votre proche.'
                     : isAidant
                       ? 'Vous allez être redirigé vers le checkout sécurisé FedaPay pour la personne accompagnée.'
