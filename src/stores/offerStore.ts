@@ -9,7 +9,8 @@ interface OfferState {
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
-  
+  lastUpdated: number | null;
+
   // Actions
   fetchOffers: () => Promise<void>;
   getOfferById: (id: string) => Offer | undefined;
@@ -17,33 +18,48 @@ interface OfferState {
   getPonctualOffers: () => Offer[];
   getSubscriptionOffers: () => Offer[];
   refresh: () => Promise<void>;
+  clearCache: () => void;
 }
 
 // ✅ Clé pour le cache localStorage
 const OFFERS_CACHE_KEY = 'sante_plus_offers_cache';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// ✅ URL de l'API
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-sante-plus-react.onrender.com/api';
+
 export const useOfferStore = create<OfferState>((set, get) => ({
   offers: [],
   isLoading: false,
   error: null,
   isInitialized: false,
+  lastUpdated: null,
 
   fetchOffers: async () => {
+    const { isInitialized, lastUpdated } = get();
+
+    // ✅ Si déjà initialisé et que le cache est récent, ne pas recharger
+    if (isInitialized && lastUpdated && Date.now() - lastUpdated < CACHE_DURATION) {
+      console.log('📦 Offres déjà chargées et récentes');
+      return;
+    }
+
     try {
       set({ isLoading: true, error: null });
 
-      // ✅ Vérifier le cache
+      // ✅ Vérifier le cache localStorage
       const cached = localStorage.getItem(OFFERS_CACHE_KEY);
       if (cached) {
         try {
           const { data, timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < CACHE_DURATION) {
-            console.log('📦 Offres chargées depuis le cache');
-            set({ 
-              offers: data, 
-              isLoading: false, 
-              isInitialized: true 
+            console.log('📦 Offres chargées depuis le cache localStorage');
+            set({
+              offers: data,
+              isLoading: false,
+              isInitialized: true,
+              lastUpdated: timestamp,
+              error: null,
             });
             return;
           }
@@ -54,38 +70,23 @@ export const useOfferStore = create<OfferState>((set, get) => ({
 
       console.log('🔄 Chargement des offres depuis la base de données...');
 
-      const { data, error } = await supabase
-        .from('offres')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
+      // ✅ Appel API
+      const response = await fetch(`${API_BASE_URL}/offers`);
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors du chargement des offres');
+      }
 
-      // ✅ Transformer les données
-      const offers: Offer[] = (data || []).map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        category: item.category,
-        type: item.type || 'mensuelle',
-        description: item.description,
-        price: item.price || 0,
-        period: item.type === 'ponctuelle' ? 'intervention' : (item.type || 'mois'),
-        visitsPerWeek: item.visits_per_week || null,
-        durationDays: item.duration_days || null,
-        features: item.features || [],
-        badge: item.badge || null,
-        is_active: item.is_active ?? true,
-        is_public: item.is_public ?? true,
-        display_order: item.display_order || 0,
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-        total_visits: item.total_visits || item.visits_per_month || null,
-        visits_per_month: item.visits_per_month || null,
-        total_orders: item.total_orders || null,
-      }));
+      const result = await response.json();
 
-      // ✅ Mettre en cache
+      if (!result.success) {
+        throw new Error(result.error || 'Erreur inconnue');
+      }
+
+      const offers: Offer[] = result.data || [];
+
+      // ✅ Mettre en cache localStorage
       localStorage.setItem(OFFERS_CACHE_KEY, JSON.stringify({
         data: offers,
         timestamp: Date.now(),
@@ -93,19 +94,41 @@ export const useOfferStore = create<OfferState>((set, get) => ({
 
       console.log(`✅ ${offers.length} offres chargées`);
 
-      set({ 
-        offers, 
-        isLoading: false, 
+      set({
+        offers,
+        isLoading: false,
         isInitialized: true,
-        error: null 
+        lastUpdated: Date.now(),
+        error: null,
       });
 
     } catch (error: any) {
       console.error('❌ Fetch offers error:', error);
-      set({ 
-        error: error.message, 
+
+      // ✅ En cas d'erreur, essayer d'utiliser le cache même expiré
+      const cached = localStorage.getItem(OFFERS_CACHE_KEY);
+      if (cached) {
+        try {
+          const { data } = JSON.parse(cached);
+          if (data && data.length > 0) {
+            console.warn('⚠️ Utilisation du cache expiré en cas d\'erreur');
+            set({
+              offers: data,
+              isLoading: false,
+              isInitialized: true,
+              error: error.message,
+            });
+            return;
+          }
+        } catch (e) {
+          console.warn('Cache invalide');
+        }
+      }
+
+      set({
+        error: error.message,
         isLoading: false,
-        isInitialized: true 
+        isInitialized: true,
       });
     }
   },
@@ -122,19 +145,21 @@ export const useOfferStore = create<OfferState>((set, get) => ({
 
   getPonctualOffers: () => {
     const { offers } = get();
-    return offers.filter(offer => 
-      offer.category === 'ponctuelle' || 
+    return offers.filter(offer =>
+      offer.category === 'ponctuelle' ||
       offer.type === 'ponctuelle' ||
-      offer.id.startsWith('ponctual-')
+      offer.id?.startsWith('ponctual-') ||
+      offer.id === 'b4b01a84-1b0c-4973-9e58-43945c1c4991' ||
+      offer.id === '6e4ba26d-98c5-4e29-a129-f33a828f0b44'
     );
   },
 
   getSubscriptionOffers: () => {
     const { offers } = get();
-    return offers.filter(offer => 
-      offer.category !== 'ponctuelle' && 
+    return offers.filter(offer =>
+      offer.category !== 'ponctuelle' &&
       offer.type !== 'ponctuelle' &&
-      !offer.id.startsWith('ponctual-')
+      !offer.id?.startsWith('ponctual-')
     );
   },
 
@@ -142,5 +167,14 @@ export const useOfferStore = create<OfferState>((set, get) => ({
     // ✅ Forcer le rechargement (vider le cache)
     localStorage.removeItem(OFFERS_CACHE_KEY);
     await get().fetchOffers();
+  },
+
+  clearCache: () => {
+    localStorage.removeItem(OFFERS_CACHE_KEY);
+    set({
+      offers: [],
+      isInitialized: false,
+      lastUpdated: null,
+    });
   },
 }));
