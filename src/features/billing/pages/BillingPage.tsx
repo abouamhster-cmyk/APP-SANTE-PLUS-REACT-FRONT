@@ -1,5 +1,4 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-// 📌 Paiements et abonnements
 
 import { useEffect, useState } from 'react';
 import {
@@ -13,22 +12,22 @@ import {
 
 import { useAuthStore } from '@/stores/authStore';
 import { usePaymentStore } from '@/stores/paymentStore';
+import { useOfferStore } from '@/stores/offerStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { PaymentModal } from '../components/PaymentModal';
 import { SubscriptionCard } from '@/components/subscriptions/SubscriptionCard';
 import { VisitDaysPicker } from '@/components/subscriptions/VisitDaysPicker';
-import { OFFERS } from '@/lib/constants';
 import { Offer } from '@/types';
 import toast from 'react-hot-toast';
 
 const BillingPage = () => {
   const { profile, role } = useAuthStore();
-  
+
   // ✅ Jargon dynamique selon le rôle
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
-    plural,          // "proches" / "personnes accompagnées" / "bénéficiaires"
+    singular,
+    plural,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -44,9 +43,16 @@ const BillingPage = () => {
     cancelSubscription,
   } = usePaymentStore();
 
-  const [offers, setOffers] = useState<Offer[]>([]);
+  const {
+    offers,
+    isLoading: offersLoading,
+    fetchOffers,
+    getOffersByCategory,
+    getPonctualOffers,
+    isInitialized: offersInitialized,
+  } = useOfferStore();
+
   const [filteredOffers, setFilteredOffers] = useState<Offer[]>([]);
-  const [isLoadingOffers, setIsLoadingOffers] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'senior' | 'maman_bebe' | 'ponctuelle'>('all');
@@ -57,67 +63,51 @@ const BillingPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Charger les offres depuis constants
+  // ✅ Charger les offres depuis le store
   useEffect(() => {
-    loadOffers();
+    if (!offersInitialized) {
+      fetchOffers();
+    }
+  }, [offersInitialized, fetchOffers]);
+
+  // ✅ Charger les abonnements et paiements
+  useEffect(() => {
     fetchSubscriptions();
     fetchPayments();
   }, []);
 
-  // ✅ Filtrer les offres
+  // ✅ Filtrer les offres selon l'onglet actif
   useEffect(() => {
-    filterOffers();
-  }, [offers, activeTab, profile?.patient_category]);
+    if (offers.length === 0) return;
 
-  const loadOffers = () => {
-    setIsLoadingOffers(true);
-    setTimeout(() => {
-      const allOffers: Offer[] = [
-        ...OFFERS.senior.map(o => ({ 
-          ...o, 
-          visits_per_month: o.visitsPerWeek ? o.visitsPerWeek * 4 : null, 
-          total_visits: o.visitsPerWeek ? o.visitsPerWeek * 4 : null 
-        })),
-        ...OFFERS.maman_bebe.map(o => ({ 
-          ...o, 
-          visits_per_month: o.visitsPerWeek ? o.visitsPerWeek * 4 : null, 
-          total_visits: o.visitsPerWeek ? o.visitsPerWeek * 4 : null 
-        })),
-        ...OFFERS.pack_confort.map(o => ({ 
-          ...o, 
-          visits_per_month: null, 
-          total_visits: null 
-        })),
-        ...OFFERS.ponctuelle.map(o => ({ 
-          ...o, 
-          visits_per_month: null, 
-          total_visits: null 
-        })),
-      ];
-      setOffers(allOffers);
-      setIsLoadingOffers(false);
-    }, 300);
-  };
+    let filtered: Offer[] = [];
 
-  const filterOffers = () => {
-    let filtered = [...offers];
-
-    if (activeTab === 'senior') {
-      filtered = filtered.filter(
-        (offer) => offer.id.startsWith('senior-') || offer.id.startsWith('pack-')
-      );
-    } else if (activeTab === 'maman_bebe') {
-      filtered = filtered.filter(
-        (offer) => offer.id.startsWith('maman-') || offer.id.startsWith('pack-')
-      );
-    } else if (activeTab === 'ponctuelle') {
-      filtered = filtered.filter(
-        (offer) => offer.id.startsWith('ponctuelle-')
-      );
+    switch (activeTab) {
+      case 'senior':
+        filtered = offers.filter(o => 
+          o.category === 'senior' || 
+          o.category === 'pack_confort'
+        );
+        break;
+      case 'maman_bebe':
+        filtered = offers.filter(o => 
+          o.category === 'maman_bebe' || 
+          o.category === 'pack_confort'
+        );
+        break;
+      case 'ponctuelle':
+        filtered = offers.filter(o => 
+          o.category === 'ponctuelle' || 
+          o.type === 'ponctuelle'
+        );
+        break;
+      default:
+        filtered = offers;
+        break;
     }
 
     setFilteredOffers(filtered);
-  };
+  }, [offers, activeTab]);
 
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
 
@@ -176,6 +166,8 @@ const BillingPage = () => {
   const handlePaymentSuccess = async () => {
     await fetchSubscriptions();
     await fetchPayments();
+    // Rafraîchir les offres au cas où
+    await fetchOffers();
     setIsPaymentOpen(false);
     toast.success('Paiement effectué avec succès !');
   };
@@ -197,12 +189,13 @@ const BillingPage = () => {
     setShowDayPicker(true);
   };
 
+  // ✅ Statistiques dynamiques
   const stats = {
     total: offers.length,
-    senior: offers.filter((o) => o.id.startsWith('senior-')).length,
-    maman: offers.filter((o) => o.id.startsWith('maman-')).length,
-    pack: offers.filter((o) => o.id.startsWith('pack-')).length,
-    ponctuelle: offers.filter((o) => o.id.startsWith('ponctuelle-')).length,
+    senior: offers.filter((o) => o.category === 'senior').length,
+    maman: offers.filter((o) => o.category === 'maman_bebe').length,
+    pack: offers.filter((o) => o.category === 'pack_confort').length,
+    ponctuelle: offers.filter((o) => o.category === 'ponctuelle' || o.type === 'ponctuelle').length,
   };
 
   const renderTabs = () => {
@@ -288,7 +281,9 @@ const BillingPage = () => {
     );
   };
 
-  if (storeLoading || isLoadingOffers) {
+  const isLoading = storeLoading || offersLoading;
+
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="h-20 bg-white rounded-2xl animate-pulse" />
@@ -326,6 +321,12 @@ const BillingPage = () => {
             <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
               {getPageDescription()}
             </p>
+
+            {offers.length === 0 && (
+              <p className="text-sm mt-2 text-yellow-600">
+                ⚠️ Aucune offre n'est actuellement disponible. Contactez l'administrateur.
+              </p>
+            )}
           </div>
         </section>
 
@@ -435,7 +436,7 @@ const BillingPage = () => {
               </h3>
               <p className="text-sm text-gray-500 mt-1">
                 {activeTab === 'all'
-                  ? "Aucune offre n'est disponible pour le moment."
+                  ? "Aucune offre n'est disponible pour le moment. Contactez l'administrateur."
                   : 'Aucune offre dans cette catégorie.'}
               </p>
             </div>
@@ -540,18 +541,18 @@ const OfferCard = ({
   onChoose,
   beneficiaryLabel = '',
 }: OfferCardProps) => {
-  const isPonctuelle = offer.category === 'ponctuelle';
+  const isPonctuelle = offer.category === 'ponctuelle' || offer.type === 'ponctuelle';
   const isDisabled = isPonctuelle ? false : (isSubscribed || hasActiveSubscription);
 
   const getIcon = () => {
-    if (offer.category === 'ponctuelle') return '⚡';
+    if (isPonctuelle) return '⚡';
     if (offer.category === 'maman_bebe') return '👶';
     if (offer.category === 'pack_confort') return '⭐';
     return '👴';
   };
 
   const getBadgeColor = () => {
-    if (offer.category === 'ponctuelle') return '#FF6B00';
+    if (isPonctuelle) return '#FF6B00';
     if (offer.category === 'maman_bebe') return '#E8B4B8';
     if (offer.category === 'pack_confort') return '#C9A84C';
     return color;
@@ -559,7 +560,6 @@ const OfferCard = ({
 
   const badgeColor = getBadgeColor();
 
-  // ✅ Texte du bouton adapté
   const getButtonText = () => {
     if (isPonctuelle) return 'Demander cette intervention';
     if (isSubscribed) return '✅ Déjà souscrit';
