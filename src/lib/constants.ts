@@ -128,13 +128,15 @@ export const REGISTRATION_FIELDS = {
 };
 
 // =============================================
-// SUBSCRIPTION PLANS - GRILLE TARIFAIRE OFFICIELLE
+// 🚨 IMPORTANT : Utiliser les UUID réels de votre base de données
 // =============================================
+// Ces IDs doivent correspondre EXACTEMENT à ceux dans votre table 'offres'
+// Récupérez-les avec : SELECT id, name FROM offres;
 
 // 🟢 SANTÉ PLUS SERVICES (Senior)
 const SENIOR_OFFERS: Offer[] = [
   {
-    id: 'senior-essentiel',
+    id: '34e37740-85bc-4839-a2b6-2a073a80606e', // ✅ UUID réel pour "Essentiel"
     name: 'Essentiel',
     price: 100,
     period: 'mois',
@@ -145,7 +147,7 @@ const SENIOR_OFFERS: Offer[] = [
     category: 'senior',
   },
   {
-    id: 'senior-accompagnement',
+    id: '9c69961c-577f-4130-9e67-4fb18d29e82a', // ✅ UUID réel pour "Accompagnement"
     name: 'Accompagnement',
     price: 100,
     period: 'mois',
@@ -156,7 +158,7 @@ const SENIOR_OFFERS: Offer[] = [
     category: 'senior',
   },
   {
-    id: 'senior-serenite',
+    id: 'db103aad-36b3-419e-92a7-b48f5712cd32', // ✅ UUID réel pour "Sérénité Seniors"
     name: 'Sérénité Seniors',
     price: 100000,
     period: 'mois',
@@ -167,7 +169,7 @@ const SENIOR_OFFERS: Offer[] = [
     category: 'senior',
   },
   {
-    id: 'senior-privilege',
+    id: '61ad4bbf-4e29-43a8-b284-bdb54a704be9', // ✅ UUID réel pour "Privilège Famille"
     name: 'Privilège Famille',
     price: 200000,
     period: 'mois',
@@ -182,7 +184,7 @@ const SENIOR_OFFERS: Offer[] = [
 // 🩷 SANTÉ PLUS MAMAN & BÉBÉ
 const MAMAN_OFFERS: Offer[] = [
   {
-    id: 'maman-essentiel',
+    id: '904c0d6e-b9c5-4931-ba7e-dc389cd06071', // ✅ UUID réel pour "Essentiel" Maman
     name: 'Essentiel',
     price: 100,
     period: '2 semaines',
@@ -193,7 +195,7 @@ const MAMAN_OFFERS: Offer[] = [
     category: 'maman_bebe',
   },
   {
-    id: 'maman-confort',
+    id: '97e45dd3-7f43-4442-b034-d5d3afe49b20', // ✅ UUID réel pour "Confort" Maman
     name: 'Confort',
     price: 100,
     period: '3 semaines',
@@ -204,7 +206,7 @@ const MAMAN_OFFERS: Offer[] = [
     category: 'maman_bebe',
   },
   {
-    id: 'maman-serenite',
+    id: 'c8e398e6-f721-47f1-8a4e-441aad073c47', // ✅ UUID réel pour "Sérénité" Maman
     name: 'Sérénité',
     price: 140000,
     period: '4 semaines',
@@ -215,7 +217,7 @@ const MAMAN_OFFERS: Offer[] = [
     category: 'maman_bebe',
   },
   {
-    id: 'maman-privilege',
+    id: 'e54aeef0-de0f-442d-ab71-7e84cddcfd89', // ✅ UUID réel pour "Privilège" Maman
     name: 'Privilège',
     price: 200000,
     period: '5 semaines',
@@ -230,7 +232,7 @@ const MAMAN_OFFERS: Offer[] = [
 // ⭐ PACKS CONFORT
 const PACK_CONFORT_OFFERS: Offer[] = [
   {
-    id: 'pack-mensuel',
+    id: 'cfc4dd4c-5bf9-49e5-a28e-998cf92cff0b', // ✅ UUID réel pour "Pack Confort Mensuel"
     name: 'Pack Confort Mensuel',
     price: 100,
     period: 'mois',
@@ -241,7 +243,7 @@ const PACK_CONFORT_OFFERS: Offer[] = [
     category: 'pack_confort',
   },
   {
-    id: 'pack-trimestriel',
+    id: 'ee102cda-2639-4c85-bc7c-9f57b83bf81a', // ✅ UUID réel pour "Pack Confort Trimestriel"
     name: 'Pack Confort Trimestriel',
     price: 100,
     period: 'trimestre',
@@ -252,7 +254,7 @@ const PACK_CONFORT_OFFERS: Offer[] = [
     category: 'pack_confort',
   },
   {
-    id: 'pack-annuel',
+    id: '85818a8f-2674-4ea3-8d9a-211cf3c452f3', // ✅ UUID réel pour "Pack Confort Annuel"
     name: 'Pack Confort Annuel',
     price: 480000,
     period: 'an',
@@ -267,7 +269,7 @@ const PACK_CONFORT_OFFERS: Offer[] = [
 // ⚡ INTERVENTIONS PONCTUELLES
 const PONCTUAL_OFFERS: Offer[] = [
   {
-    id: 'ponctuelle-base',
+    id: 'b4b01a84-1b0c-4973-9e58-43945c1c4991', // ✅ UUID réel pour "Intervention Ponctuelle"
     name: 'Intervention Ponctuelle',
     price: 100,
     period: 'intervention',
@@ -283,8 +285,24 @@ const PONCTUAL_OFFERS: Offer[] = [
     category: 'ponctuelle',
   },
   {
-    id: 'ponctuelle-sortie',
-    name: "Sortie d'hôpital",
+    id: '6e4ba26d-98c5-4e29-a129-f33a828f0b44', // ✅ UUID réel pour "Intervention Ponctuelle" (duplicata)
+    name: 'Intervention Ponctuelle',
+    price: 100,
+    period: 'intervention',
+    visitsPerWeek: null,
+    durationDays: 1,
+    features: [
+      'Présence à domicile',
+      'Coordination simple',
+      'Assistance ponctuelle',
+      'Durée : 2-3 heures'
+    ],
+    badge: '⚡ Rapide',
+    category: 'ponctuelle',
+  },
+  {
+    id: '5675ee69-7705-4687-8a7f-81c1501cae77', // ✅ UUID réel pour "Pack Sortie Maternité Sérénité"
+    name: "Sortie Maternité Sérénité",
     price: 100,
     period: 'intervention',
     visitsPerWeek: null,
@@ -295,23 +313,7 @@ const PONCTUAL_OFFERS: Offer[] = [
       'Coordination avec la famille',
       'Durée : 3-4 heures'
     ],
-    badge: '🏥 Sortie',
-    category: 'ponctuelle',
-  },
-  {
-    id: 'ponctuelle-urgence',
-    name: 'Urgence',
-    price: 100,
-    period: 'intervention',
-    visitsPerWeek: null,
-    durationDays: 1,
-    features: [
-      'Intervention en urgence',
-      'Disponibilité immédiate',
-      'Coordination rapide',
-      'Suivi personnalisé'
-    ],
-    badge: '🆘 Urgence',
+    badge: '🏥 Sortie Maternité',
     category: 'ponctuelle',
   },
 ];
