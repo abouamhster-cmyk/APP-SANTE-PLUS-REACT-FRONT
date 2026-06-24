@@ -12,7 +12,7 @@ interface CreatePaymentData {
   abonnement_id?: string;
   email?: string | null;
   is_ponctual?: boolean;
-  order_data?: any; // ✅ Données de commande pour les paiements ponctuels
+  order_data?: any;
 }
 
 interface PaymentState {
@@ -146,6 +146,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       const isPonctual = data.is_ponctual || false;
 
       console.log('📤 Envoi paiement avec is_ponctual:', isPonctual);
+      console.log('📤 Envoi paiement avec abonnement_id:', data.abonnement_id);
       console.log('📤 Envoi paiement avec order_data:', data.order_data);
 
       const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
@@ -155,7 +156,8 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          abonnement_id: data.abonnement_id || data.plan_id || null,
+          // ✅ CRITIQUE : abonnement_id = UUID ou null
+          abonnement_id: isPonctual ? null : (data.abonnement_id || data.plan_id || null),
           plan_id: data.plan_id || null,
           montant: amount,
           amount,
@@ -188,13 +190,13 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           user_id: user.id,
           amount,
           method: 'fedapay',
-          reference: result.transaction_id,
+          reference: String(result.transaction_id),
           status: 'en_attente',
-          abonnement_id: data.abonnement_id || null,
+          abonnement_id: isPonctual ? null : (data.abonnement_id || data.plan_id || null),
           metadata: {
             description: data.description,
             plan_id: data.plan_id || null,
-            transaction_id: result.transaction_id,
+            transaction_id: String(result.transaction_id),
             payment_url: paymentUrl,
             is_ponctual: isPonctual,
             order_data: data.order_data || null,
@@ -271,19 +273,19 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         throw new Error("Le lien de paiement n'a pas été généré");
       }
 
-      // Enregistrer le paiement
       const { data: payment, error: dbError } = await supabase
         .from('paiements')
         .insert({
           user_id: user.id,
           amount: data.amount,
           method: 'fedapay',
-          reference: result.transaction_id,
+          reference: String(result.transaction_id),
           status: 'en_attente',
           commande_id: data.orderId || null,
+          abonnement_id: null,
           metadata: {
             description: data.description,
-            transaction_id: result.transaction_id,
+            transaction_id: String(result.transaction_id),
             payment_url: paymentUrl,
             is_ponctual: true,
           },
