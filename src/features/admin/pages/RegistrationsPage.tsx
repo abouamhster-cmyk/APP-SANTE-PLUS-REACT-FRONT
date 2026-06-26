@@ -194,51 +194,57 @@ const RegistrationsPage = () => {
     setShowProcessModal(true);
   };
 
-  // ✅ Traiter une inscription
-  const handleProcess = async () => {
-    if (!selectedRegistration || !processAction) return;
 
-    setIsProcessing(true);
-    try {
-      const status = processAction === 'validate' ? 'validee' : 'refusee';
-      
-      const { error } = await supabase
-        .from('inscriptions')
-        .update({
-          status,
-          comments: processComment || null,
-          processed_by: profile?.id,
-          processed_at: new Date().toISOString(),
-        })
-        .eq('id', selectedRegistration.id);
 
-      if (error) throw error;
+// Remplacer la fonction handleProcess par :
+const handleProcess = async () => {
+  if (!selectedRegistration || !processAction) return;
 
-      // Notification à l'utilisateur
-      if (selectedRegistration.user_id) {
-        await supabase.from('notifications').insert({
-          user_id: selectedRegistration.user_id,
-          title: status === 'validee' ? '✅ Inscription validée' : '❌ Inscription refusée',
-          body: status === 'validee'
-            ? `Votre inscription a été validée. Bienvenue chez Santé Plus Services !`
-            : `Votre inscription a été refusée. ${processComment || 'Contactez-nous pour plus d\'informations.'}`,
-          type: 'system',
-          data: { registration_id: selectedRegistration.id, status },
-        });
-      }
+  setIsProcessing(true);
+  try {
+    const status = processAction === 'validate' ? 'validee' : 'refusee';
+    
+    // ✅ Utiliser l'API backend au lieu de Supabase direct
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
-      toast.success(`Inscription ${status === 'validee' ? 'validée' : 'refusée'} avec succès`);
-      setShowProcessModal(false);
-      setSelectedRegistration(null);
-      setProcessAction(null);
-      fetchRegistrations();
-    } catch (error) {
-      console.error('Process registration error:', error);
-      toast.error('Erreur lors du traitement');
-    } finally {
-      setIsProcessing(false);
+    const response = await fetch('/api/auth/admin/process-registration', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        registrationId: selectedRegistration.id,
+        status,
+        comments: processComment || null,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erreur lors du traitement');
     }
-  };
+
+    const result = await response.json();
+    
+    toast.success(result.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'} avec succès`);
+    
+    if (!result.email_sent) {
+      toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais l\'inscription a été traitée');
+    }
+    
+    setShowProcessModal(false);
+    setSelectedRegistration(null);
+    setProcessAction(null);
+    fetchRegistrations();
+  } catch (error: any) {
+    console.error('Process registration error:', error);
+    toast.error(error.message || 'Erreur lors du traitement');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // ✅ Voir les détails
   const handleViewDetails = (registration: Registration) => {
