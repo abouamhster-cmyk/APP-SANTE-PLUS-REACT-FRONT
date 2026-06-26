@@ -195,70 +195,65 @@ const RegistrationsPage = () => {
   };
 
   // =============================================
-  // ✅ TRAITER UNE INSCRIPTION - VERSION CORRIGÉE
+  // ✅ TRAITER UNE INSCRIPTION 
   // =============================================
   const handleProcess = async () => {
-    if (!selectedRegistration || !processAction) return;
+  if (!selectedRegistration || !processAction) return;
 
-    setIsProcessing(true);
-    try {
-      const status = processAction === 'validate' ? 'validee' : 'refusee';
-      
-      // ✅ Récupérer le token
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+  setIsProcessing(true);
+  try {
+    const status = processAction === 'validate' ? 'validee' : 'refusee';
+    
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
+    if (!token) {
+      throw new Error('Token manquant');
+    }
 
-      console.log('📤 Traitement inscription:', {
+    console.log('📤 [PROCESS] Appel backend pour inscription:', selectedRegistration.id);
+
+    // ✅ APPELER LE BACKEND
+    const response = await fetch('/api/auth/admin/process-registration', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
         registrationId: selectedRegistration.id,
         status,
-        comments: processComment,
-      });
+        comments: processComment || null,
+      }),
+    });
 
-      // ✅ Appeler le backend au lieu de Supabase direct
-      const response = await fetch('/api/auth/admin/process-registration', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          registrationId: selectedRegistration.id,
-          status,
-          comments: processComment || null,
-        }),
-      });
+    const data = await response.json();
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors du traitement');
-      }
-
-      console.log('✅ Réponse backend:', data);
-
-      toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'} avec succès`);
-      
-      if (data.email_sent === false) {
-        toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais l\'inscription a été traitée');
-      }
-      
-      setShowProcessModal(false);
-      setSelectedRegistration(null);
-      setProcessAction(null);
-      setProcessComment('');
-      fetchRegistrations();
-      
-    } catch (error: any) {
-      console.error('❌ Erreur traitement:', error);
-      toast.error(error.message || 'Erreur lors du traitement');
-    } finally {
-      setIsProcessing(false);
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors du traitement');
     }
-  };
+
+    console.log('✅ [PROCESS] Réponse:', data);
+
+    toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'}`);
+    
+    if (data.email_sent === false) {
+      toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
+    }
+    
+    setShowProcessModal(false);
+    setSelectedRegistration(null);
+    setProcessAction(null);
+    setProcessComment('');
+    fetchRegistrations();
+    
+  } catch (error: any) {
+    console.error('❌ Erreur:', error);
+    toast.error(error.message || 'Erreur lors du traitement');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // ✅ Voir les détails
   const handleViewDetails = (registration: Registration) => {
