@@ -1,4 +1,5 @@
 // 📁 src/features/admin/pages/AidantCandidatesPage.tsx
+// ✅ VERSION AVEC APPEL BACKEND
 
 import { useEffect, useState } from 'react';
 import {
@@ -148,7 +149,7 @@ const AidantCandidatesPage = () => {
   };
 
   // ============================================================
-  // ✅ APPROUVER - VERSION CORRIGÉE AVEC APPEL BACKEND
+  // ✅ APPROUVER - APPEL BACKEND
   // ============================================================
   const handleApprove = async (candidate: AidantCandidate) => {
     if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
@@ -202,7 +203,7 @@ const AidantCandidatesPage = () => {
   };
 
   // ============================================================
-  // ✅ REFUSER - VERSION CORRIGÉE AVEC APPEL BACKEND
+  // ✅ REFUSER - APPEL BACKEND
   // ============================================================
   const handleReject = async (candidate: AidantCandidate) => {
     const reason = prompt('Motif du refus :');
@@ -283,7 +284,6 @@ const AidantCandidatesPage = () => {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Header */}
       <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -306,35 +306,13 @@ const AidantCandidatesPage = () => {
         </div>
       </section>
 
-      {/* Statistiques */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Total candidats"
-          value={stats.total}
-          color={colors.primary}
-          icon={<Users size={20} />}
-        />
-        <StatCard
-          label="En attente"
-          value={stats.pending}
-          color="#FF9800"
-          icon={<Clock size={20} />}
-        />
-        <StatCard
-          label="Avec expérience"
-          value={stats.withExperience}
-          color="#2196F3"
-          icon={<Award size={20} />}
-        />
-        <StatCard
-          label="Avec bio"
-          value={stats.withBio}
-          color="#4CAF50"
-          icon={<FileText size={20} />}
-        />
+        <StatCard label="Total candidats" value={stats.total} color={colors.primary} icon={<Users size={20} />} />
+        <StatCard label="En attente" value={stats.pending} color="#FF9800" icon={<Clock size={20} />} />
+        <StatCard label="Avec expérience" value={stats.withExperience} color="#2196F3" icon={<Award size={20} />} />
+        <StatCard label="Avec bio" value={stats.withBio} color="#4CAF50" icon={<FileText size={20} />} />
       </section>
 
-      {/* Filtres */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
@@ -355,7 +333,6 @@ const AidantCandidatesPage = () => {
         </div>
       </section>
 
-      {/* Liste des candidats */}
       <section className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center">
@@ -365,13 +342,9 @@ const AidantCandidatesPage = () => {
         ) : filteredCandidates.length === 0 ? (
           <div className="p-12 text-center">
             <Users size={48} className="mx-auto mb-4 opacity-30" />
-            <h3 className="text-lg font-bold" style={{ color: colors.text }}>
-              Aucun candidat en attente
-            </h3>
+            <h3 className="text-lg font-bold" style={{ color: colors.text }}>Aucun candidat en attente</h3>
             <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {searchTerm
-                ? 'Aucun candidat ne correspond à votre recherche'
-                : 'Toutes les candidatures ont été traitées'}
+              {searchTerm ? 'Aucun candidat ne correspond à votre recherche' : 'Toutes les candidatures ont été traitées'}
             </p>
           </div>
         ) : (
@@ -392,7 +365,6 @@ const AidantCandidatesPage = () => {
         )}
       </section>
 
-      {/* Modal Détails */}
       {showDetailsModal && selectedCandidate && (
         <CandidateDetailsModal
           candidate={selectedCandidate}
@@ -427,12 +399,7 @@ const StatCard = ({ label, value, color, icon }: StatCardProps) => {
           <p className="text-2xl font-black" style={{ color }}>{value}</p>
           <p className="text-xs text-gray-500 mt-0.5">{label}</p>
         </div>
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: color + '15', color }}
-        >
-          {icon}
-        </div>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: color + '15', color }}>{icon}</div>
       </div>
     </div>
   );
@@ -452,43 +419,20 @@ interface CandidateCardProps {
   isProcessing: boolean;
 }
 
-const CandidateCard = ({
-  candidate,
-  colors,
-  onView,
-  onApprove,
-  onReject,
-  onRequestInfo,
-  isProcessing,
-}: CandidateCardProps) => {
+const CandidateCard = ({ candidate, colors, onView, onApprove, onReject, onRequestInfo, isProcessing }: CandidateCardProps) => {
   return (
-    <div
-      className="bg-white rounded-2xl p-5 border transition hover:shadow-md"
-      style={{ borderColor: colors.border }}
-    >
+    <div className="bg-white rounded-2xl p-5 border transition hover:shadow-md" style={{ borderColor: colors.border }}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
-            style={{ background: colors.primary }}
-          >
+          <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg" style={{ background: colors.primary }}>
             {candidate.user?.full_name?.charAt(0) || 'A'}
           </div>
           <div>
-            <h3 className="font-bold" style={{ color: colors.text }}>
-              {candidate.user?.full_name || 'Aidant inconnu'}
-            </h3>
-            <p className="text-xs" style={{ color: colors.text + '40' }}>
-              {candidate.user?.email || 'Email inconnu'}
-            </p>
+            <h3 className="font-bold" style={{ color: colors.text }}>{candidate.user?.full_name || 'Aidant inconnu'}</h3>
+            <p className="text-xs" style={{ color: colors.text + '40' }}>{candidate.user?.email || 'Email inconnu'}</p>
           </div>
         </div>
-        <span
-          className="px-2.5 py-1 rounded-full text-xs font-bold"
-          style={{ background: '#FF980015', color: '#FF9800' }}
-        >
-          ⏳ En attente
-        </span>
+        <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: '#FF980015', color: '#FF9800' }}>⏳ En attente</span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
@@ -512,47 +456,23 @@ const CandidateCard = ({
 
       {candidate.bio && (
         <div className="mt-3 p-3 rounded-xl" style={{ background: colors.primary + '05' }}>
-          <p className="text-sm line-clamp-2" style={{ color: colors.text + '70' }}>
-            {candidate.bio}
-          </p>
+          <p className="text-sm line-clamp-2" style={{ color: colors.text + '70' }}>{candidate.bio}</p>
         </div>
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          onClick={onView}
-          className="flex-1 py-2 rounded-xl text-sm font-medium transition hover:bg-gray-50 flex items-center justify-center gap-1.5"
-          style={{ border: `1px solid ${colors.border}`, color: colors.text }}
-        >
-          <Eye size={16} />
-          Détails
+        <button onClick={onView} className="flex-1 py-2 rounded-xl text-sm font-medium transition hover:bg-gray-50 flex items-center justify-center gap-1.5" style={{ border: `1px solid ${colors.border}`, color: colors.text }}>
+          <Eye size={16} /> Détails
         </button>
-        <button
-          onClick={onApprove}
-          disabled={isProcessing}
-          className="flex-1 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-80 flex items-center justify-center gap-1.5 disabled:opacity-50"
-          style={{ background: '#4CAF50' }}
-        >
-          <ThumbsUp size={16} />
-          Approuver
+        <button onClick={onApprove} disabled={isProcessing} className="flex-1 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-80 flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ background: '#4CAF50' }}>
+          <ThumbsUp size={16} /> Approuver
         </button>
-        <button
-          onClick={onReject}
-          disabled={isProcessing}
-          className="flex-1 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-80 flex items-center justify-center gap-1.5 disabled:opacity-50"
-          style={{ background: '#F44336' }}
-        >
-          <ThumbsDown size={16} />
-          Refuser
+        <button onClick={onReject} disabled={isProcessing} className="flex-1 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-80 flex items-center justify-center gap-1.5 disabled:opacity-50" style={{ background: '#F44336' }}>
+          <ThumbsDown size={16} /> Refuser
         </button>
       </div>
 
-      <button
-        onClick={onRequestInfo}
-        disabled={isProcessing}
-        className="w-full mt-2 py-1.5 rounded-xl text-xs font-medium transition hover:opacity-80 disabled:opacity-50"
-        style={{ background: colors.primary + '10', color: colors.primary }}
-      >
+      <button onClick={onRequestInfo} disabled={isProcessing} className="w-full mt-2 py-1.5 rounded-xl text-xs font-medium transition hover:opacity-80 disabled:opacity-50" style={{ background: colors.primary + '10', color: colors.primary }}>
         📧 Demander plus d'informations
       </button>
     </div>
@@ -573,30 +493,16 @@ interface CandidateDetailsModalProps {
   isProcessing: boolean;
 }
 
-const CandidateDetailsModal = ({
-  candidate,
-  onClose,
-  onApprove,
-  onReject,
-  onRequestInfo,
-  colors,
-  isProcessing,
-}: CandidateDetailsModalProps) => {
+const CandidateDetailsModal = ({ candidate, onClose, onApprove, onReject, onRequestInfo, colors, isProcessing }: CandidateDetailsModalProps) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.border }}>
           <div>
-            <h2 className="text-xl font-bold" style={{ color: colors.text }}>
-              🦸 Détails du candidat
-            </h2>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {candidate.user?.full_name || 'Aidant inconnu'}
-            </p>
+            <h2 className="text-xl font-bold" style={{ color: colors.text }}>🦸 Détails du candidat</h2>
+            <p className="text-sm" style={{ color: colors.text + '60' }}>{candidate.user?.full_name || 'Aidant inconnu'}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <X size={24} />
-          </button>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition"><X size={24} /></button>
         </div>
 
         <div className="p-6 space-y-4 overflow-y-auto">
@@ -611,13 +517,7 @@ const CandidateDetailsModal = ({
               <p className="text-sm font-medium" style={{ color: colors.text + '60' }}>Spécialités</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {candidate.specialties.map((spec) => (
-                  <span
-                    key={spec}
-                    className="text-xs px-2 py-1 rounded-full"
-                    style={{ background: colors.primary + '10', color: colors.primary }}
-                  >
-                    {spec}
-                  </span>
+                  <span key={spec} className="text-xs px-2 py-1 rounded-full" style={{ background: colors.primary + '10', color: colors.primary }}>{spec}</span>
                 ))}
               </div>
             </div>
@@ -628,13 +528,7 @@ const CandidateDetailsModal = ({
               <p className="text-sm font-medium" style={{ color: colors.text + '60' }}>Zones d'intervention</p>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {candidate.zones.map((zone) => (
-                  <span
-                    key={zone}
-                    className="text-xs px-2 py-1 rounded-full"
-                    style={{ background: '#2196F315', color: '#2196F3' }}
-                  >
-                    {zone}
-                  </span>
+                  <span key={zone} className="text-xs px-2 py-1 rounded-full" style={{ background: '#2196F315', color: '#2196F3' }}>{zone}</span>
                 ))}
               </div>
             </div>
@@ -652,33 +546,15 @@ const CandidateDetailsModal = ({
           <div className="space-y-3 pt-4 border-t" style={{ borderColor: colors.border }}>
             <p className="text-sm font-medium" style={{ color: colors.text }}>Actions</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => onApprove(candidate)}
-                disabled={isProcessing}
-                className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: '#4CAF50' }}
-              >
-                <ThumbsUp size={18} />
-                Approuver
+              <button onClick={() => onApprove(candidate)} disabled={isProcessing} className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: '#4CAF50' }}>
+                <ThumbsUp size={18} /> Approuver
               </button>
-              <button
-                onClick={() => onReject(candidate)}
-                disabled={isProcessing}
-                className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: '#F44336' }}
-              >
-                <ThumbsDown size={18} />
-                Refuser
+              <button onClick={() => onReject(candidate)} disabled={isProcessing} className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: '#F44336' }}>
+                <ThumbsDown size={18} /> Refuser
               </button>
             </div>
-            <button
-              onClick={() => onRequestInfo(candidate)}
-              disabled={isProcessing}
-              className="w-full py-2.5 rounded-xl font-medium transition hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
-              style={{ background: colors.primary + '10', color: colors.primary }}
-            >
-              <Mail size={18} />
-              Demander plus d'informations
+            <button onClick={() => onRequestInfo(candidate)} disabled={isProcessing} className="w-full py-2.5 rounded-xl font-medium transition hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: colors.primary + '10', color: colors.primary }}>
+              <Mail size={18} /> Demander plus d'informations
             </button>
           </div>
         </div>
