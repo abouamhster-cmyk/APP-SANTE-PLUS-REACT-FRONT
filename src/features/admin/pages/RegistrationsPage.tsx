@@ -197,28 +197,29 @@ const RegistrationsPage = () => {
   // =============================================
   // ✅ TRAITER UNE INSCRIPTION 
   // =============================================
-  const handleProcess = async () => {
+ 
+const handleProcess = async () => {
   if (!selectedRegistration || !processAction) return;
 
   setIsProcessing(true);
   try {
     const status = processAction === 'validate' ? 'validee' : 'refusee';
     
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-'));
+    if (!storageKey) throw new Error('Session non trouvée');
+    
+    const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    const token = session?.access_token;
 
-    if (!token) {
-      throw new Error('Token manquant');
-    }
+    if (!token) throw new Error('Token manquant');
 
-    console.log('📤 [PROCESS] Appel backend pour inscription:', selectedRegistration.id);
+    console.log('📤 [PROCESS] Appel backend:', selectedRegistration.id);
 
-    // ✅ APPELER LE BACKEND
-    const response = await fetch('/api/auth/admin/process-registration', {
+    const response = await fetch('https://app-sante-plus-react.onrender.com/api/auth/admin/process-registration', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         registrationId: selectedRegistration.id,
@@ -238,7 +239,7 @@ const RegistrationsPage = () => {
     toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'}`);
     
     if (data.email_sent === false) {
-      toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
+      toast.error('⚠️ L\'email n\'a pas pu être envoyé');
     }
     
     setShowProcessModal(false);
