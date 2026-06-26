@@ -69,36 +69,63 @@ const MissionsPage = () => {
   const colors = getThemeColors(themeName);
 
   // ✅ Vérifier si l'aidant est validé
-  useEffect(() => {
-    const checkAidantStatus = async () => {
-      if (!user) {
-        setIsChecking(false);
+
+useEffect(() => {
+  const checkAidantStatus = async () => {
+    if (!user) {
+      setIsChecking(false);
+      return;
+    }
+
+    try {
+      // ✅ Ne pas utiliser is_active sur la table aidants
+      // ✅ Récupérer le profil utilisateur à la place
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_active, role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error checking profile status:', profileError);
+        setIsVerified(false);
         return;
       }
 
-      try {
-        const { data, error } = await supabase
-          .from('aidants')
-          .select('is_verified, is_active')
-          .eq('user_id', user.id)
-          .single();
+      // ✅ Vérifier si l'utilisateur est actif ET a le rôle aidant
+      const isActiveAndAidant = profile?.is_active === true && profile?.role === 'aidant';
 
-        if (error) {
-          console.error('Error checking aidant status:', error);
-          setIsVerified(false);
-        } else {
-          setIsVerified(data?.is_verified && data?.is_active);
-        }
-      } catch (error) {
-        console.error('Error:', error);
+      // ✅ Vérifier aussi dans la table aidants
+      const { data: aidant, error: aidantError } = await supabase
+        .from('aidants')
+        .select('is_verified, status')
+        .eq('user_id', user.id)
+        .single();
+
+      if (aidantError) {
+        console.error('Error checking aidant status:', aidantError);
+        // Si l'aidant n'existe pas encore, c'est normal
         setIsVerified(false);
-      } finally {
-        setIsChecking(false);
+        return;
       }
-    };
 
-    checkAidantStatus();
-  }, [user]);
+      // ✅ L'aidant est vérifié si :
+      // - Le profil est actif ET a le rôle aidant
+      // - L'aidant est vérifié ET approuvé
+      const isVerified = isActiveAndAidant && aidant?.is_verified === true && aidant?.status === 'approved';
+      
+      setIsVerified(isVerified);
+
+    } catch (error) {
+      console.error('Error:', error);
+      setIsVerified(false);
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  checkAidantStatus();
+}, [user]);
 
   // ✅ Récupérer l'ID de l'aidant
   useEffect(() => {
