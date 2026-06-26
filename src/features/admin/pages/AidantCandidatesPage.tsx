@@ -155,17 +155,18 @@ const handleApprove = async (candidate: AidantCandidate) => {
 
   setIsProcessing(true);
   try {
-    // ✅ Récupérer le token CORRECTEMENT
-    const { data: { session } } = await supabase.auth.getSession();
+    // ✅ Récupérer le token avec la BONNE clé
+    const session = JSON.parse(localStorage.getItem('sb-mrsrogkjthtnppecndyc-auth-token'));
     const token = session?.access_token;
 
     if (!token) {
       throw new Error('Token manquant');
     }
 
-    console.log('📤 [APPROVE] Token récupéré:', token.substring(0, 30) + '...');
+    console.log('📤 [APPROVE] Appel backend pour:', candidate.id);
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/admin/approve-aidant`, {
+    // ✅ Utiliser l'URL complète
+    const response = await fetch('https://app-sante-plus-react.onrender.com/api/auth/admin/approve-aidant', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -182,6 +183,8 @@ const handleApprove = async (candidate: AidantCandidate) => {
     if (!response.ok) {
       throw new Error(data.error || 'Erreur lors de l\'approbation');
     }
+
+    console.log('✅ [APPROVE] Réponse:', data);
 
     toast.success(data.message || '✅ Aidant approuvé avec succès');
     
