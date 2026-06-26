@@ -1,6 +1,5 @@
 // 📁 src/features/admin/pages/AidantCandidatesPage.tsx
-// ✅ VERSION AVEC APPEL BACKEND
-
+ 
 import { useEffect, useState } from 'react';
 import {
   Users,
@@ -151,27 +150,26 @@ const AidantCandidatesPage = () => {
   // ============================================================
   // ✅ APPROUVER - APPEL BACKEND
   // ============================================================
- const handleApprove = async (candidate: AidantCandidate) => {
+const handleApprove = async (candidate: AidantCandidate) => {
   if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
 
   setIsProcessing(true);
   try {
-    // ✅ Récupérer le token
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    // ✅ Récupérer le token CORRECTEMENT
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
 
     if (!token) {
       throw new Error('Token manquant');
     }
 
-    console.log('📤 [APPROVE] Appel backend pour:', candidate.id);
+    console.log('📤 [APPROVE] Token récupéré:', token.substring(0, 30) + '...');
 
-    // ✅ APPELER LE BACKEND (pas Supabase direct)
-    const response = await fetch('/api/auth/admin/approve-aidant', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/admin/approve-aidant`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         aidantId: candidate.id,
@@ -185,8 +183,6 @@ const AidantCandidatesPage = () => {
       throw new Error(data.error || 'Erreur lors de l\'approbation');
     }
 
-    console.log('✅ [APPROVE] Réponse:', data);
-
     toast.success(data.message || '✅ Aidant approuvé avec succès');
     
     if (data.email_sent === false) {
@@ -197,7 +193,7 @@ const AidantCandidatesPage = () => {
     setShowDetailsModal(false);
     
   } catch (error: any) {
-    console.error('❌ Erreur:', error);
+    console.error('❌ Erreur approbation:', error);
     toast.error(error.message || 'Erreur lors de l\'approbation');
   } finally {
     setIsProcessing(false);
