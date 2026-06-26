@@ -10,6 +10,8 @@ import { InstallPrompt } from '@/components/PWA/InstallPrompt';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import AssignAidantPage from '@/features/admin/pages/AssignAidantPage';
+
 
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
@@ -318,6 +320,7 @@ function App() {
               <Route path="/app/registrations/:id" element={<RegistrationDetailsPage />} />
               <Route path="/app/aidants" element={<AidantsPage />} />
               <Route path="/app/aidant-candidates" element={<AidantCandidatesPage />} />
+              <Route path="/app/assign-aidants" element={<AssignAidantPage />} />
               <Route path="/app/users" element={<UsersPage />} />
               <Route path="/app/offers" element={<OffersPage />} />
               <Route path="/app/settings" element={<SettingsPage />} />
