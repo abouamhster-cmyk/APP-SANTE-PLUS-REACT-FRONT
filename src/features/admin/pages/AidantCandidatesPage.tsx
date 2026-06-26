@@ -50,13 +50,13 @@ const AidantCandidatesPage = () => {
       // Étape 1 : Récupérer les aidants en attente
       const { data: aidants, error: aidantsError } = await supabase
         .from('aidants')
-        select('*')
+        .select('*')
         .eq('status', 'pending');
 
       if (aidantsError) throw aidantsError;
 
       // Étape 2 : Récupérer les profils des utilisateurs
-      const userIds = aidants?.map(a => a.user_id).filter(Boolean) || [];
+      const userIds = (aidants || []).map((a: any) => a.user_id).filter(Boolean);
       let profilesMap: Record<string, any> = {};
 
       if (userIds.length > 0) {
@@ -66,15 +66,15 @@ const AidantCandidatesPage = () => {
           .in('id', userIds);
 
         if (!profilesError && profiles) {
-          profilesMap = profiles.reduce((acc, p) => {
+          profilesMap = profiles.reduce((acc: Record<string, any>, p: any) => {
             acc[p.id] = p;
             return acc;
-          }, {} as Record<string, any>);
+          }, {});
         }
       }
 
       // Étape 3 : Fusionner
-      const candidatesWithUser = (aidants || []).map(aidant => ({
+      const candidatesWithUser = (aidants || []).map((aidant: any) => ({
         ...aidant,
         user: aidant.user_id ? profilesMap[aidant.user_id] || null : null,
       }));
