@@ -154,67 +154,66 @@ const AidantCandidatesPage = () => {
     withBio: candidates.filter(c => c.bio).length,
   };
 
-  // ✅ Approuver un candidat
+  // =============================================
+  // ✅ APPROUVER UN CANDIDAT - VERSION CORRIGÉE
+  // =============================================
   const handleApprove = async (candidate: AidantCandidate) => {
     if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
 
     setIsProcessing(true);
     try {
-      // 1. Mettre à jour l'aidant
-      const { error: aidantError } = await supabase
-        .from('aidants')
-        .update({
-          status: 'approved',
-          is_verified: true,
-          available: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', candidate.id);
+      // ✅ Récupérer le token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      if (aidantError) throw aidantError;
+      if (!token) {
+        throw new Error('Token manquant');
+      }
 
-      // 2. Mettre à jour le profil
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          role: 'aidant',
-          is_active: true,
-        })
-        .eq('id', candidate.user_id);
+      console.log('📤 Approbation aidant:', candidate.id);
 
-      if (profileError) throw profileError;
-
-      // 3. Mettre à jour l'inscription
-      await supabase
-        .from('inscriptions')
-        .update({
-          status: 'validee',
-          comments: 'Candidature aidant approuvée',
-          processed_at: new Date().toISOString(),
-        })
-        .eq('user_id', candidate.user_id);
-
-      // 4. Notification
-      await supabase.from('notifications').insert({
-        user_id: candidate.user_id,
-        title: '✅ Candidature approuvée',
-        body: `Félicitations ${candidate.user?.full_name || 'Aidant'} ! Votre candidature a été approuvée. Vous pouvez maintenant commencer à accepter des missions.`,
-        type: 'system',
-        data: { aidant_id: candidate.id },
+      // ✅ Appeler le backend au lieu de Supabase direct
+      const response = await fetch('/api/auth/admin/approve-aidant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          aidantId: candidate.id,
+          comments: 'Compte aidant approuvé',
+        }),
       });
 
-      toast.success('✅ Candidat approuvé avec succès');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de l\'approbation');
+      }
+
+      console.log('✅ Réponse approbation:', data);
+
+      toast.success(data.message || '✅ Aidant approuvé avec succès');
+      
+      if (data.email_sent === false) {
+        toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais le compte est activé');
+      }
+
+      // ✅ Rafraîchir la liste
       fetchCandidates();
       setShowDetailsModal(false);
-    } catch (error) {
-      console.error('Approve candidate error:', error);
-      toast.error('Erreur lors de l\'approbation');
+      
+    } catch (error: any) {
+      console.error('❌ Erreur approbation:', error);
+      toast.error(error.message || 'Erreur lors de l\'approbation');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // ✅ Refuser un candidat
+  // =============================================
+  // ✅ REFUSER UN CANDIDAT - VERSION CORRIGÉE
+  // =============================================
   const handleReject = async (candidate: AidantCandidate) => {
     const reason = prompt('Motif du refus :');
     if (reason === null) return;
@@ -222,43 +221,49 @@ const AidantCandidatesPage = () => {
 
     setIsProcessing(true);
     try {
-      // 1. Mettre à jour l'aidant
-      const { error: aidantError } = await supabase
-        .from('aidants')
-        .update({
-          status: 'rejected',
-          is_verified: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', candidate.id);
+      // ✅ Récupérer le token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      if (aidantError) throw aidantError;
+      if (!token) {
+        throw new Error('Token manquant');
+      }
 
-      // 2. Mettre à jour l'inscription
-      await supabase
-        .from('inscriptions')
-        .update({
-          status: 'refusee',
+      console.log('📤 Refus aidant:', candidate.id);
+
+      // ✅ Appeler le backend (vous devrez ajouter cette route si elle n'existe pas)
+      const response = await fetch('/api/auth/admin/reject-aidant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          aidantId: candidate.id,
           comments: reason || 'Candidature refusée',
-          processed_at: new Date().toISOString(),
-        })
-        .eq('user_id', candidate.user_id);
-
-      // 3. Notification
-      await supabase.from('notifications').insert({
-        user_id: candidate.user_id,
-        title: '❌ Candidature non retenue',
-        body: `Bonjour ${candidate.user?.full_name || 'Aidant'}, votre candidature n'a pas été retenue. Motif : ${reason || 'Non spécifié'}`,
-        type: 'system',
-        data: { aidant_id: candidate.id },
+        }),
       });
 
-      toast.success('❌ Candidat refusé');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors du refus');
+      }
+
+      console.log('✅ Réponse refus:', data);
+
+      toast.success(data.message || '❌ Aidant refusé avec succès');
+      
+      if (data.email_sent === false) {
+        toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
+      }
+
       fetchCandidates();
       setShowDetailsModal(false);
-    } catch (error) {
-      console.error('Reject candidate error:', error);
-      toast.error('Erreur lors du refus');
+      
+    } catch (error: any) {
+      console.error('❌ Erreur refus:', error);
+      toast.error(error.message || 'Erreur lors du refus');
     } finally {
       setIsProcessing(false);
     }
