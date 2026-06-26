@@ -155,120 +155,112 @@ const AidantCandidatesPage = () => {
   };
 
   // =============================================
-  // ✅ APPROUVER UN CANDIDAT - VERSION CORRIGÉE
+  // ✅ APPROUVER UN CANDIDAT  
   // =============================================
-  const handleApprove = async (candidate: AidantCandidate) => {
-    if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
+ const handleApprove = async (candidate: AidantCandidate) => {
+  if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
 
-    setIsProcessing(true);
-    try {
-      // ✅ Récupérer le token
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+  setIsProcessing(true);
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
-
-      console.log('📤 Approbation aidant:', candidate.id);
-
-      // ✅ Appeler le backend au lieu de Supabase direct
-      const response = await fetch('/api/auth/admin/approve-aidant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          aidantId: candidate.id,
-          comments: 'Compte aidant approuvé',
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors de l\'approbation');
-      }
-
-      console.log('✅ Réponse approbation:', data);
-
-      toast.success(data.message || '✅ Aidant approuvé avec succès');
-      
-      if (data.email_sent === false) {
-        toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais le compte est activé');
-      }
-
-      // ✅ Rafraîchir la liste
-      fetchCandidates();
-      setShowDetailsModal(false);
-      
-    } catch (error: any) {
-      console.error('❌ Erreur approbation:', error);
-      toast.error(error.message || 'Erreur lors de l\'approbation');
-    } finally {
-      setIsProcessing(false);
+    if (!token) {
+      throw new Error('Token manquant');
     }
-  };
+
+    console.log('📤 Approbation aidant:', candidate.id);
+
+    const response = await fetch('/api/auth/admin/approve-aidant', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        aidantId: candidate.id,
+        comments: 'Compte aidant approuvé',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors de l\'approbation');
+    }
+
+    toast.success(data.message || '✅ Aidant approuvé avec succès');
+    
+    if (data.email_sent === false) {
+      toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais le compte est activé');
+    }
+
+    fetchCandidates();
+    setShowDetailsModal(false);
+    
+  } catch (error: any) {
+    console.error('❌ Erreur approbation:', error);
+    toast.error(error.message || 'Erreur lors de l\'approbation');
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   // =============================================
   // ✅ REFUSER UN CANDIDAT - VERSION CORRIGÉE
   // =============================================
   const handleReject = async (candidate: AidantCandidate) => {
-    const reason = prompt('Motif du refus :');
-    if (reason === null) return;
-    if (!window.confirm(`Êtes-vous sûr de vouloir refuser ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
+  const reason = prompt('Motif du refus :');
+  if (reason === null) return;
+  if (!window.confirm(`Êtes-vous sûr de vouloir refuser ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
 
-    setIsProcessing(true);
-    try {
-      // ✅ Récupérer le token
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+  setIsProcessing(true);
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
-
-      console.log('📤 Refus aidant:', candidate.id);
-
-      // ✅ Appeler le backend (vous devrez ajouter cette route si elle n'existe pas)
-      const response = await fetch('/api/auth/admin/reject-aidant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          aidantId: candidate.id,
-          comments: reason || 'Candidature refusée',
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors du refus');
-      }
-
-      console.log('✅ Réponse refus:', data);
-
-      toast.success(data.message || '❌ Aidant refusé avec succès');
-      
-      if (data.email_sent === false) {
-        toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
-      }
-
-      fetchCandidates();
-      setShowDetailsModal(false);
-      
-    } catch (error: any) {
-      console.error('❌ Erreur refus:', error);
-      toast.error(error.message || 'Erreur lors du refus');
-    } finally {
-      setIsProcessing(false);
+    if (!token) {
+      throw new Error('Token manquant');
     }
-  };
 
+    console.log('📤 Refus aidant:', candidate.id);
+
+    const response = await fetch('/api/auth/admin/reject-aidant', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        aidantId: candidate.id,
+        comments: reason || 'Candidature refusée',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors du refus');
+    }
+
+    toast.success(data.message || '❌ Aidant refusé avec succès');
+    
+    if (data.email_sent === false) {
+      toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
+    }
+
+    fetchCandidates();
+    setShowDetailsModal(false);
+    
+  } catch (error: any) {
+    console.error('❌ Erreur refus:', error);
+    toast.error(error.message || 'Erreur lors du refus');
+  } finally {
+    setIsProcessing(false);
+  }
+};
+
+  
   // ✅ Voir les détails
   const handleViewDetails = (candidate: AidantCandidate) => {
     setSelectedCandidate(candidate);
