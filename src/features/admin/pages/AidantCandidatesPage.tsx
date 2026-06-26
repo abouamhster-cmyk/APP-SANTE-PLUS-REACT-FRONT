@@ -42,19 +42,47 @@ const AidantCandidatesPage = () => {
     fetchCandidates();
   }, []);
 
+  // ✅ REQUÊTE CORRIGÉE - En deux étapes
   const fetchCandidates = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+
+      // Étape 1 : Récupérer les aidants en attente
+      const { data: aidants, error: aidantsError } = await supabase
         .from('aidants')
-        .select('*, user:profiles(*)')
+        select('*')
         .eq('status', 'pending');
-      
-      if (error) throw error;
-      setCandidates(data || []);
-    } catch (error) {
-      console.error('Erreur fetch:', error);
-      toast.error('Erreur lors du chargement');
+
+      if (aidantsError) throw aidantsError;
+
+      // Étape 2 : Récupérer les profils des utilisateurs
+      const userIds = aidants?.map(a => a.user_id).filter(Boolean) || [];
+      let profilesMap: Record<string, any> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, role, avatar_url')
+          .in('id', userIds);
+
+        if (!profilesError && profiles) {
+          profilesMap = profiles.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
+      // Étape 3 : Fusionner
+      const candidatesWithUser = (aidants || []).map(aidant => ({
+        ...aidant,
+        user: aidant.user_id ? profilesMap[aidant.user_id] || null : null,
+      }));
+
+      setCandidates(candidatesWithUser);
+    } catch (error: any) {
+      console.error('Erreur fetch candidates:', error);
+      toast.error(error.message || 'Erreur lors du chargement');
     } finally {
       setIsLoading(false);
     }
