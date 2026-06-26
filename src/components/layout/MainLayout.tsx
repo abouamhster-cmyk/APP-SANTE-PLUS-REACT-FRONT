@@ -163,6 +163,7 @@ const MainLayout = () => {
         { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
         { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
+        { icon: <Users size={20} />, label: 'Assigner aidants', path: '/app/assign-aidants' },
       ];
     }
 
@@ -173,6 +174,7 @@ const MainLayout = () => {
         { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', path: '/app/admin' },
         { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
         { icon: <UserCheck size={20} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
+        { icon: <Users size={20} />, label: 'Assigner aidants', path: '/app/assign-aidants' },
         { icon: <Users size={20} />, label: 'Aidants', path: '/app/aidants' },
         { icon: <Users size={20} />, label: 'Utilisateurs', path: '/app/users' },
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
