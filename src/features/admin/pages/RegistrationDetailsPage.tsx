@@ -166,16 +166,16 @@ const RegistrationDetailsPage = () => {
     }
   };
 
- // 📁 src/features/admin/pages/RegistrationsPage.tsx
+ 
 
 const handleProcess = async () => {
-  if (!selectedRegistration || !processAction) return;
+  if (!registration || !processAction) return;
 
   setIsProcessing(true);
   try {
     const status = processAction === 'validate' ? 'validee' : 'refusee';
     
-    // Récupérer le token
+    // ✅ Récupérer le token
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData?.session?.access_token;
 
@@ -183,13 +183,13 @@ const handleProcess = async () => {
       throw new Error('Token manquant');
     }
 
-    console.log('📤 Appel backend pour traiter l\'inscription:', {
-      registrationId: selectedRegistration.id,
+    console.log('📤 Traitement inscription (détail):', {
+      registrationId: registration.id,
       status,
-      comments: processComment,
+      comments: comment,
     });
 
-    // Appeler le backend
+    // ✅ Appeler le backend
     const response = await fetch('/api/auth/admin/process-registration', {
       method: 'POST',
       headers: {
@@ -197,9 +197,9 @@ const handleProcess = async () => {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        registrationId: selectedRegistration.id,
+        registrationId: registration.id,
         status,
-        comments: processComment || null,
+        comments: comment || null,
       }),
     });
 
@@ -209,7 +209,7 @@ const handleProcess = async () => {
       throw new Error(data.error || 'Erreur lors du traitement');
     }
 
-    console.log('✅ Réponse du backend:', data);
+    console.log('✅ Réponse backend:', data);
 
     toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'} avec succès`);
     
@@ -218,13 +218,12 @@ const handleProcess = async () => {
     }
     
     setShowProcessModal(false);
-    setSelectedRegistration(null);
     setProcessAction(null);
-    setProcessComment('');
-    fetchRegistrations();
+    setComment('');
+    fetchRegistration(registration.id);
     
   } catch (error: any) {
-    console.error('❌ Erreur traitement inscription:', error);
+    console.error('❌ Erreur traitement:', error);
     toast.error(error.message || 'Erreur lors du traitement');
   } finally {
     setIsProcessing(false);
