@@ -65,7 +65,6 @@ const AidantCandidatesPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Récupérer les candidats aidants
   useEffect(() => {
     fetchCandidates();
   }, []);
@@ -74,7 +73,6 @@ const AidantCandidatesPage = () => {
     try {
       setIsLoading(true);
 
-      // 1. Récupérer les aidants en attente
       const { data: aidantsData, error: aidantsError } = await supabase
         .from('aidants')
         .select('*')
@@ -83,7 +81,6 @@ const AidantCandidatesPage = () => {
 
       if (aidantsError) throw aidantsError;
 
-      // 2. Récupérer les profils
       const userIds = [...new Set(aidantsData?.map(a => a.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
 
@@ -101,7 +98,6 @@ const AidantCandidatesPage = () => {
         }
       }
 
-      // 3. Fusionner les données
       const candidatesWithUser = (aidantsData || []).map(candidate => ({
         ...candidate,
         user: candidate.user_id ? profileMap[candidate.user_id] || null : null,
@@ -117,7 +113,6 @@ const AidantCandidatesPage = () => {
     }
   };
 
-  // ✅ Filtrer les candidats
   const filteredCandidates = candidates.filter(candidate => {
     const matchesSearch =
       candidate.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,7 +122,6 @@ const AidantCandidatesPage = () => {
     return matchesSearch;
   });
 
-  // ✅ Obtenir la couleur du statut
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return '#FF9800';
@@ -146,7 +140,6 @@ const AidantCandidatesPage = () => {
     }
   };
 
-  // ✅ Statistiques
   const stats = {
     total: candidates.length,
     pending: candidates.filter(c => c.status === 'pending').length,
@@ -154,120 +147,121 @@ const AidantCandidatesPage = () => {
     withBio: candidates.filter(c => c.bio).length,
   };
 
-  // =============================================
-  // ✅ APPROUVER UN CANDIDAT  
-  // =============================================
- const handleApprove = async (candidate: AidantCandidate) => {
-  if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
+  // ============================================================
+  // ✅ APPROUVER - VERSION CORRIGÉE AVEC APPEL BACKEND
+  // ============================================================
+  const handleApprove = async (candidate: AidantCandidate) => {
+    if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
 
-  setIsProcessing(true);
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    setIsProcessing(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-    if (!token) {
-      throw new Error('Token manquant');
+      if (!token) {
+        throw new Error('Token manquant');
+      }
+
+      console.log('📤 [FRONTEND] Approbation aidant:', candidate.id);
+
+      const response = await fetch('/api/auth/admin/approve-aidant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          aidantId: candidate.id,
+          comments: 'Compte aidant approuvé',
+        }),
+      });
+
+      const data = await response.json();
+
+      console.log('📤 [FRONTEND] Réponse backend:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de l\'approbation');
+      }
+
+      toast.success(data.message || '✅ Aidant approuvé avec succès');
+      
+      if (data.email_sent === false) {
+        toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais le compte est activé');
+      }
+
+      fetchCandidates();
+      setShowDetailsModal(false);
+      
+    } catch (error: any) {
+      console.error('❌ Erreur approbation:', error);
+      toast.error(error.message || 'Erreur lors de l\'approbation');
+    } finally {
+      setIsProcessing(false);
     }
+  };
 
-    console.log('📤 Approbation aidant:', candidate.id);
-
-    const response = await fetch('/api/auth/admin/approve-aidant', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        aidantId: candidate.id,
-        comments: 'Compte aidant approuvé',
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Erreur lors de l\'approbation');
-    }
-
-    toast.success(data.message || '✅ Aidant approuvé avec succès');
-    
-    if (data.email_sent === false) {
-      toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais le compte est activé');
-    }
-
-    fetchCandidates();
-    setShowDetailsModal(false);
-    
-  } catch (error: any) {
-    console.error('❌ Erreur approbation:', error);
-    toast.error(error.message || 'Erreur lors de l\'approbation');
-  } finally {
-    setIsProcessing(false);
-  }
-};
-
-  // =============================================
-  // ✅ REFUSER UN CANDIDAT - VERSION CORRIGÉE
-  // =============================================
+  // ============================================================
+  // ✅ REFUSER - VERSION CORRIGÉE AVEC APPEL BACKEND
+  // ============================================================
   const handleReject = async (candidate: AidantCandidate) => {
-  const reason = prompt('Motif du refus :');
-  if (reason === null) return;
-  if (!window.confirm(`Êtes-vous sûr de vouloir refuser ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
+    const reason = prompt('Motif du refus :');
+    if (reason === null) return;
+    if (!window.confirm(`Êtes-vous sûr de vouloir refuser ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
 
-  setIsProcessing(true);
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    setIsProcessing(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-    if (!token) {
-      throw new Error('Token manquant');
+      if (!token) {
+        throw new Error('Token manquant');
+      }
+
+      console.log('📤 [FRONTEND] Refus aidant:', candidate.id);
+
+      const response = await fetch('/api/auth/admin/reject-aidant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          aidantId: candidate.id,
+          comments: reason || 'Candidature refusée',
+        }),
+      });
+
+      const data = await response.json();
+
+      console.log('📤 [FRONTEND] Réponse backend refus:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors du refus');
+      }
+
+      toast.success(data.message || '❌ Aidant refusé avec succès');
+      
+      if (data.email_sent === false) {
+        toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
+      }
+
+      fetchCandidates();
+      setShowDetailsModal(false);
+      
+    } catch (error: any) {
+      console.error('❌ Erreur refus:', error);
+      toast.error(error.message || 'Erreur lors du refus');
+    } finally {
+      setIsProcessing(false);
     }
+  };
 
-    console.log('📤 Refus aidant:', candidate.id);
-
-    const response = await fetch('/api/auth/admin/reject-aidant', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        aidantId: candidate.id,
-        comments: reason || 'Candidature refusée',
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Erreur lors du refus');
-    }
-
-    toast.success(data.message || '❌ Aidant refusé avec succès');
-    
-    if (data.email_sent === false) {
-      toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
-    }
-
-    fetchCandidates();
-    setShowDetailsModal(false);
-    
-  } catch (error: any) {
-    console.error('❌ Erreur refus:', error);
-    toast.error(error.message || 'Erreur lors du refus');
-  } finally {
-    setIsProcessing(false);
-  }
-};
-
-  
-  // ✅ Voir les détails
   const handleViewDetails = (candidate: AidantCandidate) => {
     setSelectedCandidate(candidate);
     setShowDetailsModal(true);
   };
 
-  // ✅ Notifier pour information complémentaire
   const handleRequestInfo = async (candidate: AidantCandidate) => {
     const message = prompt('Message à envoyer au candidat :');
     if (!message) return;
@@ -472,7 +466,6 @@ const CandidateCard = ({
       className="bg-white rounded-2xl p-5 border transition hover:shadow-md"
       style={{ borderColor: colors.border }}
     >
-      {/* En-tête */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
@@ -498,7 +491,6 @@ const CandidateCard = ({
         </span>
       </div>
 
-      {/* Infos */}
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
         <div className="flex items-center gap-1.5" style={{ color: colors.text + '60' }}>
           <Briefcase size={14} />
@@ -518,7 +510,6 @@ const CandidateCard = ({
         </div>
       </div>
 
-      {/* Bio */}
       {candidate.bio && (
         <div className="mt-3 p-3 rounded-xl" style={{ background: colors.primary + '05' }}>
           <p className="text-sm line-clamp-2" style={{ color: colors.text + '70' }}>
@@ -527,7 +518,6 @@ const CandidateCard = ({
         </div>
       )}
 
-      {/* Actions */}
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           onClick={onView}
@@ -595,7 +585,6 @@ const CandidateDetailsModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
         <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.border }}>
           <div>
             <h2 className="text-xl font-bold" style={{ color: colors.text }}>
@@ -610,7 +599,6 @@ const CandidateDetailsModal = ({
           </button>
         </div>
 
-        {/* Contenu */}
         <div className="p-6 space-y-4 overflow-y-auto">
           <InfoRow label="Nom complet" value={candidate.user?.full_name || 'N/A'} />
           <InfoRow label="Email" value={candidate.user?.email || 'N/A'} />
@@ -661,7 +649,6 @@ const CandidateDetailsModal = ({
 
           <InfoRow label="Date de candidature" value={formatDate(candidate.created_at)} />
 
-          {/* Actions */}
           <div className="space-y-3 pt-4 border-t" style={{ borderColor: colors.border }}>
             <p className="text-sm font-medium" style={{ color: colors.text }}>Actions</p>
             <div className="flex gap-3">
