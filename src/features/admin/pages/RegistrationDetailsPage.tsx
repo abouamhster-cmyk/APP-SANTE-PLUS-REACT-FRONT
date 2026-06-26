@@ -166,7 +166,7 @@ const RegistrationDetailsPage = () => {
     }
   };
 
- 
+
 
 const handleProcess = async () => {
   if (!registration || !processAction) return;
@@ -175,26 +175,22 @@ const handleProcess = async () => {
   try {
     const status = processAction === 'validate' ? 'validee' : 'refusee';
     
-    // ✅ Récupérer le token
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    // ✅ Récupérer le token depuis localStorage
+    const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-'));
+    if (!storageKey) throw new Error('Session non trouvée');
+    
+    const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    const token = session?.access_token;
 
-    if (!token) {
-      throw new Error('Token manquant');
-    }
+    if (!token) throw new Error('Token manquant');
 
-    console.log('📤 Traitement inscription (détail):', {
-      registrationId: registration.id,
-      status,
-      comments: comment,
-    });
+    console.log('📤 [PROCESS] Appel backend inscription:', registration.id);
 
-    // ✅ Appeler le backend
-    const response = await fetch('/api/auth/admin/process-registration', {
+    const response = await fetch('https://app-sante-plus-react.onrender.com/api/auth/admin/process-registration', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         registrationId: registration.id,
@@ -209,12 +205,12 @@ const handleProcess = async () => {
       throw new Error(data.error || 'Erreur lors du traitement');
     }
 
-    console.log('✅ Réponse backend:', data);
+    console.log('✅ [PROCESS] Réponse:', data);
 
-    toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'} avec succès`);
+    toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'}`);
     
     if (data.email_sent === false) {
-      toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais l\'inscription a été traitée');
+      toast.error('⚠️ L\'email n\'a pas pu être envoyé');
     }
     
     setShowProcessModal(false);
@@ -223,7 +219,7 @@ const handleProcess = async () => {
     fetchRegistration(registration.id);
     
   } catch (error: any) {
-    console.error('❌ Erreur traitement:', error);
+    console.error('❌ Erreur:', error);
     toast.error(error.message || 'Erreur lors du traitement');
   } finally {
     setIsProcessing(false);
