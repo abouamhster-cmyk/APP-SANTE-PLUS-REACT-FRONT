@@ -151,57 +151,58 @@ const AidantCandidatesPage = () => {
   // ============================================================
   // ✅ APPROUVER - APPEL BACKEND
   // ============================================================
-  const handleApprove = async (candidate: AidantCandidate) => {
-    if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
+ const handleApprove = async (candidate: AidantCandidate) => {
+  if (!window.confirm(`Êtes-vous sûr de vouloir approuver ${candidate.user?.full_name || 'ce candidat'} ?`)) return;
 
-    setIsProcessing(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+  setIsProcessing(true);
+  try {
+    // ✅ Récupérer le token
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
-
-      console.log('📤 [FRONTEND] Approbation aidant:', candidate.id);
-
-      const response = await fetch('/api/auth/admin/approve-aidant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          aidantId: candidate.id,
-          comments: 'Compte aidant approuvé',
-        }),
-      });
-
-      const data = await response.json();
-
-      console.log('📤 [FRONTEND] Réponse backend:', data);
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors de l\'approbation');
-      }
-
-      toast.success(data.message || '✅ Aidant approuvé avec succès');
-      
-      if (data.email_sent === false) {
-        toast.warning('⚠️ L\'email n\'a pas pu être envoyé, mais le compte est activé');
-      }
-
-      fetchCandidates();
-      setShowDetailsModal(false);
-      
-    } catch (error: any) {
-      console.error('❌ Erreur approbation:', error);
-      toast.error(error.message || 'Erreur lors de l\'approbation');
-    } finally {
-      setIsProcessing(false);
+    if (!token) {
+      throw new Error('Token manquant');
     }
-  };
 
+    console.log('📤 [APPROVE] Appel backend pour:', candidate.id);
+
+    // ✅ APPELER LE BACKEND (pas Supabase direct)
+    const response = await fetch('/api/auth/admin/approve-aidant', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        aidantId: candidate.id,
+        comments: 'Compte aidant approuvé',
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors de l\'approbation');
+    }
+
+    console.log('✅ [APPROVE] Réponse:', data);
+
+    toast.success(data.message || '✅ Aidant approuvé avec succès');
+    
+    if (data.email_sent === false) {
+      toast.warning('⚠️ L\'email n\'a pas pu être envoyé');
+    }
+
+    fetchCandidates();
+    setShowDetailsModal(false);
+    
+  } catch (error: any) {
+    console.error('❌ Erreur:', error);
+    toast.error(error.message || 'Erreur lors de l\'approbation');
+  } finally {
+    setIsProcessing(false);
+  }
+};
   // ============================================================
   // ✅ REFUSER - APPEL BACKEND
   // ============================================================
