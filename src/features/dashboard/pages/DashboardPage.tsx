@@ -1,5 +1,5 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -26,11 +26,8 @@ import {
   Bell,
   Package,
   LayoutDashboard,
-  UserPlus,
-  UsersRound,
   Handshake,
   FileCheck,
-  Eye,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -91,45 +88,29 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  // 👔 ADMIN / COORDINATEUR - Toutes les pages existantes
+  // 👔 ADMIN / COORDINATEUR
   if (role === 'admin' || role === 'coordinator') {
     tiles.push(
-      // 📊 Gestion globale
       { icon: <LayoutDashboard size={22} />, label: 'Dashboard Admin', color: '#9C27B0', path: '/app/admin' },
-      
-      // 👥 Gestion des utilisateurs
       { icon: <ClipboardList size={22} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations' },
       { icon: <UserCheck size={22} />, label: 'Candidatures Aidants', color: '#FF9800', path: '/app/aidant-candidates' },
       { icon: <Users size={22} />, label: 'Aidants', color: '#2196F3', path: '/app/aidants' },
       { icon: <Handshake size={22} />, label: 'Assigner aidant', color: '#00BCD4', path: '/app/assign-aidants' },
-      { icon: <UsersRound size={22} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
-      
-      // 📅 Visites
+      { icon: <Users size={22} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
       { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits' },
       { icon: <FileCheck size={22} />, label: 'Valider visites', color: '#8BC34A', path: '/app/admin/visits/validation' },
-      
-      // 🛒 Commandes
       { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders' },
-      
-      // 💰 Finances
       { icon: <CreditCard size={22} />, label: 'Paiements', color: '#9C27B0', path: '/app/admin-payments' },
       { icon: <Award size={22} />, label: 'Abonnements', color: '#795548', path: '/app/admin-subscriptions' },
-      
-      // 📦 Offres et paramètres
       { icon: <Package size={22} />, label: 'Offres', color: '#607D8B', path: '/app/offers' },
       { icon: <Settings size={22} />, label: 'Paramètres', color: '#455A64', path: '/app/settings' },
-      
-      // 🔔 Notifications
       { icon: <Bell size={22} />, label: 'Notifications Admin', color: '#FF5722', path: '/app/admin-notifications' },
-      
-      // 🗺️ Autres
       { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
       { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
     );
     return tiles;
   }
 
-  // 🔄 FALLBACK
   tiles.push(
     { icon: <LayoutDashboard size={22} />, label: 'Accueil', color: colors.primary, path: '/app' },
     { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
@@ -195,10 +176,13 @@ const DashboardPage = () => {
     completedVisits: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
   };
 
-  // ✅ TUILES
   const tiles = getTilesForRole(role, colors, stats, patients.length);
 
   const isLoading = patientsLoading || visitsLoading || ordersLoading;
+
+  const heroImage = isMaman
+    ? '/assets/images/banners/maman-banner.png'
+    : '/assets/images/banners/senior-banner.png';
 
   const heroTitle = () => {
     if (isMaman) return 'Votre espace maman & bébé.';
@@ -208,17 +192,25 @@ const DashboardPage = () => {
     return 'Bienvenue sur Santé Plus Services.';
   };
 
-  const heroSubtitle = () => {
-    if (isFamily) return 'Gérez les visites et commandes de vos proches.';
-    if (isAidant) return 'Consultez vos missions et livraisons.';
-    if (isAdminOrCoordinator) return 'Supervisez, gérez et validez toutes les activités.';
-    return 'Accompagnement humain et coordination à domicile.';
+  const heroDescription = () => {
+    if (isMaman) return 'Visites, messages et commandes réunis dans un espace simple.';
+    if (isFamily) return 'Gardez une vue rapide sur les visites, commandes et messages importants.';
+    if (isAidant) return 'Retrouvez vos missions, livraisons et communications en un seul endroit.';
+    if (isAdminOrCoordinator) return 'Supervisez l\'ensemble des activités de la plateforme.';
+    return 'Gérez vos accompagnements en toute simplicité.';
+  };
+
+  const getProchesTitle = () => {
+    if (isFamily) return 'Mes proches';
+    if (isAidant) return 'Mes personnes accompagnées';
+    if (isAdminOrCoordinator) return 'Bénéficiaires suivis';
+    return 'Personnes suivies';
   };
 
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-32 rounded-2xl bg-white/70 animate-pulse" />
+        <div className="h-40 rounded-2xl bg-white/70 animate-pulse" />
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
             <div key={i} className="aspect-square bg-white rounded-2xl animate-pulse" />
@@ -230,27 +222,125 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HERO */}
+      {/* ========================================== */}
+      {/* HERO - Bannière avec image dynamique (style ancienne version) */}
+      {/* ========================================== */}
       <section
-        className="relative overflow-hidden rounded-2xl p-4 shadow-sm border"
+        className="relative overflow-hidden rounded-2xl min-h-[170px] md:min-h-[185px] shadow-sm border border-black/5"
         style={{
-          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark || colors.primary} 100%)`,
+          backgroundImage: `
+            linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.62) 42%, rgba(0,0,0,0.18) 100%),
+            url('${heroImage}')
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
-        <div className="relative z-10">
-          <p className="text-white/80 text-xs font-medium">
-            {greeting}, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
-          </p>
-          <h1 className="text-xl font-black text-white mt-0.5">
-            {heroTitle()}
-          </h1>
-          <p className="text-white/70 text-xs mt-1 max-w-xs">
-            {heroSubtitle()}
-          </p>
+        <div className="absolute inset-0 bg-black/10" />
+        <div
+          className="absolute -top-24 -right-24 w-56 h-56 rounded-full blur-3xl opacity-30"
+          style={{ background: colors.secondary }}
+        />
+
+        <div className="relative z-10 min-h-[170px] md:min-h-[185px] p-5 md:p-6 flex flex-col justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/18 border border-white/25 backdrop-blur-md px-3 py-1.5 text-white text-xs font-semibold">
+              <Sparkles size={14} />
+              Santé Plus Services
+            </div>
+          </div>
+
+          <div className="max-w-xl">
+            <p className="text-white text-sm mb-1.5 font-medium drop-shadow">
+              {greeting}, {profile?.full_name || 'Bienvenue'} 👋
+            </p>
+
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight drop-shadow">
+              {heroTitle()}
+            </h1>
+
+            <p className="text-white mt-2 text-sm max-w-lg leading-relaxed drop-shadow-sm">
+              {heroDescription()}
+            </p>
+
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button
+                onClick={() => navigate('/app/visits')}
+                className="inline-flex items-center gap-2 bg-white text-sm font-bold px-4 py-2.5 rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition"
+                style={{ color: colors.primary }}
+              >
+                Voir les visites
+                <ArrowRight size={16} />
+              </button>
+
+              <button
+                onClick={() => navigate('/app/messages')}
+                className="inline-flex items-center gap-2 bg-white/18 text-white border border-white/25 backdrop-blur-md text-sm font-bold px-4 py-2.5 rounded-2xl hover:bg-white/25 transition"
+              >
+                Messages
+                <MessageCircle size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
+      {/* ========================================== */}
+      {/* MESSAGE - Compte sans proche */}
+      {/* ========================================== */}
+      {(isFamily || isAidant) && patients.length === 0 && (
+        <section
+          className="bg-white rounded-2xl p-4 border shadow-sm"
+          style={{ borderColor: colors.primary + '18' }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+              style={{
+                background: colors.primary + '12',
+                color: colors.primary,
+              }}
+            >
+              <User size={24} />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h3 className="font-black text-lg" style={{ color: colors.text }}>
+                Bienvenue {profile?.full_name || ''} 👋
+              </h3>
+              <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
+                {isFamily 
+                  ? 'Vous avez créé un compte sans proche. Ajoutez une personne à accompagner ou consultez les offres disponibles pour commencer.'
+                  : 'Vous avez créé un compte aidant. Les personnes à accompagner vous seront assignées prochainement.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mt-4">
+            {isFamily && (
+              <button
+                onClick={() => navigate('/app/patients')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90"
+                style={{ background: colors.primary }}
+              >
+                <UserPlus size={16} />
+                Ajouter un proche
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/app/billing')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition hover:bg-gray-50"
+              style={{ borderColor: colors.border || '#e5e0d8', color: colors.text }}
+            >
+              Voir les offres
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* ========================================== */}
       {/* STATS */}
+      {/* ========================================== */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <StatCard
           label={isFamily ? 'Proches' : isAidant ? 'Personnes' : 'Bénéficiaires'}
@@ -282,7 +372,9 @@ const DashboardPage = () => {
         />
       </section>
 
-      {/* TUILES */}
+      {/* ========================================== */}
+      {/* TUILES STYLE UNPIX */}
+      {/* ========================================== */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold" style={{ color: colors.text }}>
@@ -322,13 +414,13 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* PROCHES (si existants) */}
+      {/* PROCHES */}
       {/* ========================================== */}
       {patients.length > 0 && (
         <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold" style={{ color: colors.text }}>
-              {isFamily ? 'Mes proches' : isAidant ? 'Personnes accompagnées' : 'Bénéficiaires'}
+              {getProchesTitle()}
             </h2>
             <button
               onClick={() => navigate('/app/patients')}
