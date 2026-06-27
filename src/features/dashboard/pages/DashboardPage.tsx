@@ -507,7 +507,14 @@ const DashboardPage = () => {
         </section>
       </div>
 
- 
+      {/* ========================================== */}
+      {/* FOOTER DISCRET */}
+      {/* ========================================== */}
+      <footer className="text-center py-4">
+         <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
+          <Heart size={10} className="text-red-400" />
+         </p>
+      </footer>
     </div>
   );
 };
