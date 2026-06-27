@@ -42,12 +42,11 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      // ✅ CORRECTION : Requête simplifiée sans la relation problématique
       const { data, error } = await supabase
         .from('visites')
         .select(`
           *,
-          patient:patients(*)
+          patient:patients!visites_patient_id_fkey(*)
         `)
         .eq('status', 'en_cours');
 
