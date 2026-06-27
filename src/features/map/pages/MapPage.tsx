@@ -1,6 +1,5 @@
 // 📁 src/features/map/pages/MapPage.tsx
-// ✅ Version compacte
-
+ 
 import { useEffect, useRef, useState } from 'react';
 import {
   MapPin,
