@@ -1,5 +1,6 @@
 // 📁 src/features/map/pages/MapPage.tsx
- 
+// ✅ Version compacte
+
 import { useEffect, useRef, useState } from 'react';
 import {
   MapPin,
@@ -430,4 +431,274 @@ const MapPage = () => {
               🗺️ Carte / Radar
             </h1>
 
-            <p className="text-xs mt-0.5" style={{ color
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {activeVisits.length} visite(s) en cours
+              {isAdmin && <span className="ml-1 text-[10px] text-gray-400">• Admin</span>}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                setUserTracking((prev) => {
+                  const next = !prev;
+                  if (userLocation && next) setCenter(userLocation);
+                  return next;
+                });
+              }}
+              className={`p-1.5 rounded-lg text-xs font-bold transition ${
+                userTracking ? 'text-white' : 'text-gray-600'
+              }`}
+              style={{
+                background: userTracking ? colors.primary : 'transparent',
+              }}
+            >
+              <Compass size={16} />
+            </button>
+
+            <button
+              onClick={handleRefresh}
+              className="p-1.5 rounded-lg text-xs font-bold"
+              style={{ background: colors.primary + '12', color: colors.primary }}
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* FILTRES COMPACTS */}
+      <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowPatients(!showPatients)}
+            className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+              showPatients ? 'text-white' : 'text-gray-600'
+            }`}
+            style={{
+              background: showPatients ? colors.primary : 'transparent',
+            }}
+          >
+            {showPatients ? <Eye size={12} /> : <EyeOff size={12} />}
+            {getPatientLabel()}s
+          </button>
+
+          {(isAdmin || isFamilyRole) && (
+            <button
+              onClick={() => setShowAidants(!showAidants)}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+                showAidants ? 'text-white' : 'text-gray-600'
+              }`}
+              style={{
+                background: showAidants ? colors.primary : 'transparent',
+              }}
+            >
+              {showAidants ? <Eye size={12} /> : <EyeOff size={12} />}
+              Aidants
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowActiveVisits(!showActiveVisits)}
+            className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${
+              showActiveVisits ? 'text-white' : 'text-gray-600'
+            }`}
+            style={{
+              background: showActiveVisits ? '#FF0000' : 'transparent',
+            }}
+          >
+            {showActiveVisits ? <Eye size={12} /> : <EyeOff size={12} />}
+            Actives
+          </button>
+        </div>
+      </section>
+
+      {/* CARTE */}
+      <div className="map-page-shell bg-white rounded-2xl overflow-hidden shadow-sm h-[320px] relative z-0 border border-black/5">
+        {!leafletLoaded && !mapError && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+            <div className="text-center p-4">
+              <MapPin size={32} className="mx-auto mb-2 opacity-30" style={{ color: colors.primary }} />
+              <p className="text-xs text-gray-400">Chargement de la carte...</p>
+            </div>
+          </div>
+        )}
+
+        {mapError && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+            <div className="text-center p-4">
+              <MapPin size={32} className="mx-auto mb-2 opacity-30" style={{ color: colors.primary }} />
+              <p className="text-sm font-bold" style={{ color: colors.text }}>{mapError}</p>
+              <p className="text-xs text-gray-400">Vérifiez votre connexion internet.</p>
+            </div>
+          </div>
+        )}
+
+        <div ref={mapContainerRef} className="w-full h-full relative z-0" />
+      </div>
+
+      {/* ITINÉRAIRE */}
+      {selectedPatient && routeInfo && (
+        <div className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-bold truncate" style={{ color: colors.text }}>
+                {selectedPatient.first_name} {selectedPatient.last_name}
+              </p>
+              <p className="text-[10px] text-gray-400 truncate">{selectedPatient.address || ''}</p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedPatient(null);
+                setRouteInfo(null);
+                if (routeLayerRef.current) routeLayerRef.current.clearLayers();
+              }}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mt-2">
+            <div className="text-center p-2 rounded-lg" style={{ background: colors.primary + '08' }}>
+              <Navigation size={16} className="mx-auto mb-0.5" style={{ color: colors.primary }} />
+              <p className="text-sm font-bold" style={{ color: colors.primary }}>
+                {isLoadingRoute ? '...' : `${routeInfo.distance.toFixed(1)} km`}
+              </p>
+              <p className="text-[8px] text-gray-400">Distance</p>
+            </div>
+
+            <div className="text-center p-2 rounded-lg" style={{ background: colors.primary + '08' }}>
+              <Clock size={16} className="mx-auto mb-0.5" style={{ color: colors.primary }} />
+              <p className="text-sm font-bold" style={{ color: colors.primary }}>
+                {isLoadingRoute ? '...' : `${routeInfo.duration} min`}
+              </p>
+              <p className="text-[8px] text-gray-400">Temps</p>
+            </div>
+
+            <div className="text-center p-2 rounded-lg" style={{ background: colors.primary + '08' }}>
+              <Route size={16} className="mx-auto mb-0.5" style={{ color: colors.primary }} />
+              <p className="text-sm font-bold" style={{ color: colors.primary }}>
+                {routeInfo.distance > 5 ? '🚗' : '🚶'}
+              </p>
+              <p className="text-[8px] text-gray-400">
+                {routeInfo.distance > 5 ? 'Voiture' : 'À pied'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              const lat = selectedPatient?.latitude;
+              const lng = selectedPatient?.longitude;
+              if (lat && lng) {
+                window.open(`https://www.openstreetmap.org/directions?from=&to=${lat}%2C${lng}`, '_blank');
+              } else {
+                toast.error('Coordonnées non disponibles');
+              }
+            }}
+            className="w-full mt-2 py-1.5 rounded-lg text-white text-xs font-medium"
+            style={{ background: colors.primary }}
+          >
+            <Navigation size={14} className="inline mr-1" />
+            Ouvrir l’itinéraire
+          </button>
+        </div>
+      )}
+
+      {/* PROCHES À PROXIMITÉ */}
+      {userLocation && getPatientsToShow().length > 0 && (
+        <div className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+          <h3 className="text-xs font-bold mb-2" style={{ color: colors.text }}>
+            {getNearbyTitle()} ({getPatientsToShow().length})
+          </h3>
+
+          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+            {getPatientsToShow().slice(0, 5).map((patient: any) => {
+              const patientLat = Number(patient.latitude || DEFAULT_CENTER[0]);
+              const patientLng = Number(patient.longitude || DEFAULT_CENTER[1]);
+
+              const distance = calculateDistance(
+                userLocation[0],
+                userLocation[1],
+                patientLat,
+                patientLng
+              );
+
+              const hasActiveVisit = activeVisits.some((v: any) =>
+                v.patient_id === patient.id && v.status === 'en_cours'
+              );
+
+              return (
+                <button
+                  key={patient.id}
+                  onClick={() => setSelectedPatient(patient)}
+                  className={`w-full flex items-center justify-between p-2 rounded-lg transition ${
+                    selectedPatient?.id === patient.id
+                      ? 'border-2'
+                      : 'border hover:bg-gray-50'
+                  }`}
+                  style={{
+                    borderColor: selectedPatient?.id === patient.id ? colors.primary : 'transparent',
+                    background: selectedPatient?.id === patient.id ? colors.primary + '05' : 'transparent',
+                  }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[8px] font-bold shrink-0"
+                      style={{ background: hasActiveVisit ? '#FF0000' : colors.primary }}
+                    >
+                      {patient.first_name?.charAt(0) || 'P'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: colors.text }}>
+                        {patient.first_name} {patient.last_name}
+                        {hasActiveVisit && <span className="ml-1 text-[8px] text-red-500">🔴</span>}
+                      </p>
+                      <p className="text-[8px] text-gray-400 truncate">{patient.address || ''}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-bold" style={{ color: colors.primary }}>
+                      {distance.toFixed(1)} km
+                    </p>
+                    <p className="text-[8px] text-gray-400">~{calculateEstimatedTime(distance)} min</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* LÉGENDE */}
+      <div className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
+        <div className="flex flex-wrap gap-3 justify-center">
+          <span className="flex items-center gap-1 text-[10px] text-gray-500">
+            <span className="w-3 h-3 rounded-full" style={{ background: '#4CAF50' }} />
+            {getPatientLabel()}
+          </span>
+          {(showAidants && (isAdmin || isFamilyRole)) && (
+            <span className="flex items-center gap-1 text-[10px] text-gray-500">
+              <span className="w-3 h-3 rounded-full" style={{ background: '#FF9800' }} />
+              Aidant
+            </span>
+          )}
+          <span className="flex items-center gap-1 text-[10px] text-gray-500">
+            <span className="w-3 h-3 rounded-full" style={{ background: colors.primary }} />
+            Ma position
+          </span>
+          {showActiveVisits && (
+            <span className="flex items-center gap-1 text-[10px] text-gray-500">
+              <span className="w-3 h-3 rounded-full animate-pulse" style={{ background: '#FF0000' }} />
+              Visite en cours
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MapPage;
