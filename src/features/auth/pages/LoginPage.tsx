@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/LoginPage.tsx
-// 📌 Connexion 
+// 📌 Connexion - VERSION AVEC MARGES MINIMALES
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -43,7 +43,6 @@ const LoginPage = () => {
     try {
       console.log('🔐 Tentative de connexion pour:', cleanEmail);
 
-      // 1. Connexion avec Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password,
@@ -63,7 +62,6 @@ const LoginPage = () => {
 
       console.log('✅ Utilisateur connecté:', data.user.id);
 
-      // 2. Récupérer le profil
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -76,15 +74,13 @@ const LoginPage = () => {
         return;
       }
 
-      // ✅ 3. Vérifier si c'est un aidant non validé
       if (profile?.role === 'aidant' && !profile?.is_active) {
-        toast.error('⏳ Votre compte aidant est en attente de validation. Vous recevrez un email lorsque votre compte sera activé.');
+        toast.error('⏳ Votre compte aidant est en attente de validation.');
         await supabase.auth.signOut();
         setIsLoading(false);
         return;
       }
 
-      // 4. Si le profil n'existe pas, le créer
       if (!profile) {
         console.log('📝 Création du profil...');
 
@@ -116,7 +112,6 @@ const LoginPage = () => {
         return;
       }
 
-      // ✅ 5. Vérification supplémentaire pour les aidants (profil inactif)
       if (profile.role === 'aidant' && !profile.is_active) {
         toast.error('⏳ Votre compte aidant est en attente de validation.');
         await supabase.auth.signOut();
@@ -126,7 +121,6 @@ const LoginPage = () => {
 
       console.log('✅ Profil récupéré:', profile);
 
-      // 6. Mettre à jour le store
       setUser(data.user, profile);
 
       toast.success('Bienvenue !');
@@ -140,30 +134,25 @@ const LoginPage = () => {
     }
   };
 
-  // ✅ Déterminer le rôle pour le logo et couleurs
   const logoRole = savedTheme === 'maman' ? 'maman' : 'general';
-  
-  // Couleurs unifiées basées sur le nouveau système de marque
   const primaryBrandColor = savedTheme === 'maman' ? '#db4a6d' : '#113f30';
   const textBrandColor = savedTheme === 'maman' ? '#371e24' : '#1f2937';
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6"
+      className="min-h-screen w-full flex items-center justify-center p-3"
       style={{ background: 'var(--color-background, #faf9f6)' }}
     >
-      <div className="w-full max-w-md my-8">
+      <div className="w-full max-w-md">
         <div
-          className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border relative transition-all"
+          className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border relative"
           style={{ borderColor: 'var(--color-border, #e5e7eb)' }}
         >
-          {/* ✅ Logo dynamique dans un cercle élégant */}
-          <div className="absolute -top-10 left-1/2 -translate-x-1/2">
+          {/* Logo plus petit */}
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2">
             <div
-              className="w-20 h-20 rounded-xl bg-white shadow-sm border flex items-center justify-center transition-all"
-              style={{ 
-                borderColor: primaryBrandColor 
-              }}
+              className="w-14 h-14 rounded-xl bg-white shadow-sm border flex items-center justify-center"
+              style={{ borderColor: primaryBrandColor }}
             >
               <Logo
                 size="sm"
@@ -175,46 +164,43 @@ const LoginPage = () => {
             </div>
           </div>
 
-          <div className="h-10" />
+          <div className="h-8" />
 
-          {/* En-tête de page */}
-          <div className="text-center mb-6">
+          {/* En-tête */}
+          <div className="text-center mb-4">
             <h1
-              className="text-xl font-extrabold tracking-tight"
+              className="text-lg font-extrabold"
               style={{ color: textBrandColor }}
             >
               Santé Plus Services
             </h1>
-
             <p
-              className="text-xs mt-1"
+              className="text-[11px] mt-0.5"
               style={{ color: 'var(--color-text-light, #4b5563)' }}
             >
               Accompagnement de confiance & coordination à domicile
             </p>
           </div>
 
-          {/* Formulaire de connexion */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Formulaire compact */}
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label
-                className="block text-xs font-semibold mb-1"
+                className="block text-[11px] font-semibold mb-0.5"
                 style={{ color: textBrandColor }}
               >
                 Adresse e-mail
               </label>
-
               <div className="relative">
                 <Mail
-                  className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5"
                   style={{ color: 'var(--color-text-light, #4b5563)' }}
                 />
-
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs transition-all focus:ring-1 focus:ring-[var(--color-primary)]"
+                  className="w-full pl-8 pr-3 py-2 rounded-xl border outline-none text-xs"
                   style={{
                     borderColor: 'var(--color-border, #e5e7eb)',
                     background: '#ffffff',
@@ -222,30 +208,27 @@ const LoginPage = () => {
                   }}
                   placeholder="exemple@email.com"
                   disabled={isLoading}
-                  autoComplete="email"
                 />
               </div>
             </div>
 
             <div>
               <label
-                className="block text-xs font-semibold mb-1"
+                className="block text-[11px] font-semibold mb-0.5"
                 style={{ color: textBrandColor }}
               >
                 Mot de passe
               </label>
-
               <div className="relative">
                 <Lock
-                  className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5"
                   style={{ color: 'var(--color-text-light, #4b5563)' }}
                 />
-
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-9 py-2.5 rounded-xl border outline-none text-xs transition-all focus:ring-1 focus:ring-[var(--color-primary)]"
+                  className="w-full pl-8 pr-8 py-2 rounded-xl border outline-none text-xs"
                   style={{
                     borderColor: 'var(--color-border, #e5e7eb)',
                     background: '#ffffff',
@@ -253,9 +236,7 @@ const LoginPage = () => {
                   }}
                   placeholder="••••••••"
                   disabled={isLoading}
-                  autoComplete="current-password"
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -263,29 +244,25 @@ const LoginPage = () => {
                   style={{ color: 'var(--color-text-light, #4b5563)' }}
                   disabled={isLoading}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
             </div>
 
-            {/* Lien mot de passe oublié */}
             <div className="text-right">
               <Link
                 to="/forgot-password"
-                className="text-xs font-medium hover:underline transition-colors"
+                className="text-[11px] font-medium hover:underline"
                 style={{ color: primaryBrandColor }}
               >
                 Mot de passe oublié ?
               </Link>
             </div>
 
-            {/* Bouton de soumission */}
             <button
               type="submit"
-              className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75 disabled:cursor-not-allowed"
-              style={{ 
-                background: primaryBrandColor 
-              }}
+              className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75"
+              style={{ background: primaryBrandColor }}
               disabled={isLoading}
             >
               {isLoading ? (
@@ -299,16 +276,14 @@ const LoginPage = () => {
             </button>
           </form>
 
-          {/* Lien d'inscription */}
-          <div className="mt-6 text-center text-xs">
+          {/* Lien d'inscription compact */}
+          <div className="mt-4 text-center text-[11px]">
             <p style={{ color: 'var(--color-text-light, #4b5563)' }}>
-              Nouveau sur Santé Plus ?{' '}
+              Nouveau ?{' '}
               <Link
                 to="/register"
-                className="font-bold hover:underline transition-colors"
-                style={{ 
-                  color: primaryBrandColor 
-                }}
+                className="font-bold hover:underline"
+                style={{ color: primaryBrandColor }}
               >
                 S'inscrire
               </Link>
