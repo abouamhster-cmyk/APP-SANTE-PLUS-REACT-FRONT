@@ -1,15 +1,8 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
-// 📌 Page : Liste des personnes (proches/bénéficiaires/personnes accompagnées)
-
+ 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  User,
-  Plus,
-  Search,
-  Users,
-  ArrowRight,
-} from 'lucide-react';
+import { User, Plus, Search, Users, Filter } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -21,30 +14,25 @@ import toast from 'react-hot-toast';
 
 const PatientsPage = () => {
   const navigate = useNavigate();
-
   const { profile, role } = useAuthStore();
-  
-  // ✅ Jargon dynamique selon le rôle
+
   const {
-    plural,          // "proches" / "personnes accompagnées" / "bénéficiaires"
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
-    add,             // "Ajouter un proche" / "Ajouter une personne" / "Ajouter un bénéficiaire"
-    list,            // "Mes proches" / "Mes personnes accompagnées" / "Bénéficiaires"
-    listTitle,       // "Liste des proches" / "Liste des personnes accompagnées" / "Liste des bénéficiaires"
-    empty,           // "Aucun proche" / "Aucune personne accompagnée" / "Aucun bénéficiaire"
-    emptyAction,     // "Ajoutez une personne à accompagner" / "Ajoutez un bénéficiaire"
-    emoji,           // 👨‍👩‍👦 / 🤝 / 👤
-    getCountLabel,   // "2 proches" / "2 personnes accompagnées" / "2 bénéficiaires"
+    plural,
+    singular,
+    add,
+    list,
+    empty,
+    emptyAction,
+    getCountLabel,
+    isFamily,
+    isAidant,
+    isAdminOrCoordinator,
   } = useTerminology();
 
-  const {
-    patients,
-    isLoading,
-    fetchPatients,
-    deletePatient,
-  } = usePatientStore();
+  const { patients, isLoading, fetchPatients, deletePatient } = usePatientStore();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
@@ -56,74 +44,79 @@ const PatientsPage = () => {
     fetchPatients();
   }, []);
 
-  // Filtrer par recherche
+  // ✅ Filtrer par recherche et catégorie
   const filteredPatients = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
 
-    if (!search) return patients;
-
     return patients.filter((patient: any) => {
-      const firstName = patient.first_name || '';
-      const lastName = patient.last_name || '';
-      const address = patient.address || '';
+      const matchSearch =
+        !search ||
+        patient.first_name?.toLowerCase().includes(search) ||
+        patient.last_name?.toLowerCase().includes(search) ||
+        patient.address?.toLowerCase().includes(search);
 
-      return (
-        firstName.toLowerCase().includes(search) ||
-        lastName.toLowerCase().includes(search) ||
-        address.toLowerCase().includes(search) ||
-        `${firstName} ${lastName}`.toLowerCase().includes(search)
-      );
+      const matchCategory =
+        categoryFilter === 'all' || patient.category === categoryFilter;
+
+      return matchSearch && matchCategory;
     });
-  }, [patients, searchTerm]);
+  }, [patients, searchTerm, categoryFilter]);
 
-  // Supprimer
   const handleDelete = async (id: string) => {
     if (!window.confirm(`Voulez-vous vraiment supprimer ce ${singular} ?`)) return;
 
     try {
       await deletePatient(id);
-      toast.success(`${singular.charAt(0).toUpperCase() + singular.slice(1)} supprimé${singular === 'personne accompagnée' ? 'e' : ''}`);
+      toast.success(`${singular.charAt(0).toUpperCase() + singular.slice(1)} supprimé`);
       fetchPatients();
     } catch (error) {
-      console.error(`❌ Erreur suppression ${singular}:`, error);
+      console.error(error);
       toast.error(`Erreur lors de la suppression`);
     }
   };
 
-  // Modifier
   const handleEdit = (patient: any) => {
     setSelectedPatient(patient);
     setModalMode('edit');
     setIsModalOpen(true);
   };
 
-  // Ajouter
   const handleAdd = () => {
     setSelectedPatient(null);
     setModalMode('create');
     setIsModalOpen(true);
   };
 
-  // Succès du modal
   const handleModalSuccess = () => {
     fetchPatients();
     setIsModalOpen(false);
-
     toast.success(
       modalMode === 'create'
-        ? `${singular.charAt(0).toUpperCase() + singular.slice(1)} ajouté${singular === 'personne accompagnée' ? 'e' : ''} avec succès`
+        ? `${singular.charAt(0).toUpperCase() + singular.slice(1)} ajouté`
         : 'Informations mises à jour'
     );
   };
 
+  // ✅ Options de filtre par catégorie
+  const categoryOptions = [
+    { value: 'all', label: 'Tous' },
+    { value: 'senior', label: '👴 Senior' },
+    { value: 'maman_bebe', label: '👶 Maman & Bébé' },
+  ];
+
   if (isLoading) {
     return (
-      <div className="space-y-5 pb-8">
-        <div className="h-28 bg-white rounded-[1.75rem] animate-pulse" />
-        <div className="h-14 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-2">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-52 bg-white rounded-[1.75rem] animate-pulse" />
+            <div key={item} className="h-24 bg-white rounded-xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -131,150 +124,160 @@ const PatientsPage = () => {
   }
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="space-y-4 pb-24 sm:pb-10">
       {/* HEADER */}
-      <section
-        className="bg-white rounded-[1.75rem] p-5 md:p-6 shadow-sm border"
-        style={{ borderColor: colors.primary + '12' }}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-start gap-4">
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
               style={{
                 background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
-              <Users size={24} />
+              <Users size={12} />
+              {list}
             </div>
 
-            <div>
-              <h1
-                className="text-2xl font-black tracking-tight"
-                style={{ color: colors.text }}
-              >
-                {list} {emoji}
-              </h1>
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+              {list}
+            </h1>
 
-              <p
-                className="text-sm mt-1"
-                style={{ color: colors.text + '70' }}
-              >
-                {getCountLabel(patients.length)}
-              </p>
-            </div>
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {getCountLabel(patients.length)}
+            </p>
           </div>
 
           <button
             onClick={handleAdd}
-            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-white font-bold text-sm transition hover:opacity-90 active:scale-[0.98]"
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold text-sm"
             style={{ background: colors.primary }}
           >
-            <Plus size={18} />
+            <Plus size={16} />
             {add}
           </button>
         </div>
       </section>
 
-      {/* RECHERCHE */}
-      <section className="bg-white rounded-[1.5rem] p-3 shadow-sm border border-black/5">
-        <div className="relative">
-          <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 size-5"
-            style={{ color: colors.text + '45' }}
-          />
+      {/* STATS COMPACTES */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <CompactStat
+          icon={<Users size={14} />}
+          label="Total"
+          value={patients.length}
+          color={colors.primary}
+        />
+        <CompactStat
+          icon="👴"
+          label="Senior"
+          value={patients.filter((p) => p.category === 'senior').length}
+          color="#4CAF50"
+        />
+        <CompactStat
+          icon="👶"
+          label="Maman"
+          value={patients.filter((p) => p.category === 'maman_bebe').length}
+          color="#E8B4B8"
+        />
+        <CompactStat
+          icon="✅"
+          label="Actifs"
+          value={patients.filter((p) => p.status === 'active').length}
+          color="#2196F3"
+        />
+      </section>
 
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3.5 rounded-2xl border outline-none text-sm transition focus:ring-2"
-            style={{
-              borderColor: colors.primary + '14',
-              background: 'var(--color-background, #f5f0e8)',
-              color: colors.text,
-            }}
-            placeholder={`Rechercher un${singular.startsWith('béné') ? ' ' : 'e '}${singular} par nom ou adresse...`}
-          />
+      {/* RECHERCHE + FILTRE */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={`Rechercher un${singular.startsWith('béné') ? ' ' : 'e '}${singular}...`}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            />
+          </div>
+
+          <div className="relative min-w-[120px]">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              {categoryOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </section>
 
       {/* LISTE */}
       {filteredPatients.length > 0 ? (
-        <section>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div>
-              <h2
-                className="font-black"
-                style={{ color: colors.text }}
-              >
-                {listTitle}
-              </h2>
-
-              <p
-                className="text-sm"
-                style={{ color: colors.text + '65' }}
-              >
-                {filteredPatients.length} résultat{filteredPatients.length > 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredPatients.map((patient: any) => (
-              <PatientCard
-                key={patient.id}
-                patient={patient}
-                onClick={() => navigate(`/app/patients/${patient.id}`)}
-                onEdit={() => handleEdit(patient)}
-                onDelete={() => handleDelete(patient.id)}
-                showActions
-              />
-            ))}
-          </div>
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filteredPatients.map((patient: any) => (
+            <PatientCard
+              key={patient.id}
+              patient={patient}
+              onClick={() => navigate(`/app/patients/${patient.id}`)}
+              onEdit={() => handleEdit(patient)}
+              onDelete={() => handleDelete(patient.id)}
+              showActions
+              compact
+            />
+          ))}
         </section>
       ) : (
-        <section className="bg-white rounded-[1.75rem] p-8 md:p-12 text-center shadow-sm border border-black/5">
+        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
           <div
-            className="w-16 h-16 rounded-3xl mx-auto flex items-center justify-center mb-4"
-            style={{
-              background: colors.primary + '12',
-              color: colors.primary,
-            }}
+            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
+            style={{ background: colors.primary + '12', color: colors.primary }}
           >
-            <User size={32} />
+            <User size={24} />
           </div>
 
-          <h3
-            className="text-lg font-black"
-            style={{ color: colors.text }}
-          >
-            {searchTerm ? `Aucun${singular === 'personne accompagnée' ? 'e' : ''} ${singular} trouvé${singular === 'personne accompagnée' ? 'e' : ''}` : empty}
+          <h3 className="text-base font-bold" style={{ color: colors.text }}>
+            {searchTerm || categoryFilter !== 'all'
+              ? `Aucun${singular === 'personne accompagnée' ? 'e' : ''} ${singular} trouvé`
+              : empty}
           </h3>
 
-          <p
-            className="mt-2 text-sm max-w-sm mx-auto leading-relaxed"
-            style={{ color: colors.text + '70' }}
-          >
-            {searchTerm
-              ? 'Essayez avec un autre nom, prénom ou quartier.'
+          <p className="text-xs mt-1 text-gray-500">
+            {searchTerm || categoryFilter !== 'all'
+              ? 'Essayez avec d\'autres critères.'
               : emptyAction}
           </p>
 
-          {!searchTerm && (
+          {!searchTerm && categoryFilter === 'all' && (
             <button
               onClick={handleAdd}
-              className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-white font-bold text-sm transition hover:opacity-90"
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
               style={{ background: colors.primary }}
             >
-              <Plus size={18} />
+              <Plus size={16} />
               {add}
-              <ArrowRight size={16} />
             </button>
           )}
         </section>
       )}
+
+      {/* BOUTON MOBILE */}
+      <button
+        onClick={handleAdd}
+        className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
+        style={{ background: colors.primary }}
+        aria-label={add}
+      >
+        <Plus size={22} />
+      </button>
 
       {/* MODAL */}
       <PatientModal
@@ -284,6 +287,44 @@ const PatientsPage = () => {
         patient={selectedPatient}
         onSuccess={handleModalSuccess}
       />
+    </div>
+  );
+};
+
+// =============================================
+// COMPACT STAT
+// =============================================
+
+interface CompactStatProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+}
+
+const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
+  return (
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
+        <div>
+          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400">
+            {label}
+          </p>
+          <p className="text-lg font-bold mt-0.5" style={{ color }}>
+            {value}
+          </p>
+        </div>
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{ background: color + '14', color }}
+        >
+          {typeof icon === 'string' ? (
+            <span className="text-sm">{icon}</span>
+          ) : (
+            icon
+          )}
+        </div>
+      </div>
     </div>
   );
 };
