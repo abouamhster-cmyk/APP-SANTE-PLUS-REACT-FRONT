@@ -1,6 +1,5 @@
 // 📁 src/features/orders/pages/OrdersPage.tsx
-// 📌 Page : Gestion des commandes - Cycle de vie simplifié
-
+ 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,7 +11,7 @@ import {
   CheckCircle,
   Truck,
   X,
-  Play,
+  Filter,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -34,15 +33,12 @@ const statusFilters = [
 
 const OrdersPage = () => {
   const navigate = useNavigate();
-
   const { profile, role } = useAuthStore();
   const { orders, isLoading, fetchOrders, updateOrderStatus } = useOrderStore();
 
-  // ✅ Jargon dynamique selon le rôle
   const {
     singular,
     plural,
-    getCountLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
@@ -55,15 +51,12 @@ const OrdersPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Charger les commandes au montage
   useEffect(() => {
     fetchOrders();
   }, []);
 
-  // ✅ Nettoyer les données en attente au chargement de la page
+  // ✅ Nettoyer les données en attente au chargement
   useEffect(() => {
-    // ✅ Si des données de commande ponctuelle sont en attente,
-    // c'est qu'il y a eu un problème, on les nettoie
     const saved = sessionStorage.getItem('pending_ponctual_order');
     if (saved) {
       console.warn('⚠️ Données de commande en attente trouvées, nettoyage...');
@@ -99,28 +92,24 @@ const OrdersPage = () => {
     completed: orders.filter((order) => order.status === 'validee').length,
   };
 
-  // ✅ Gestion du changement de statut avec protection contre les appels en boucle
   const handleStatusChange = async (id: string, status: string) => {
-    // ✅ Éviter les appels en boucle
     if (isProcessing) return;
     setIsProcessing(true);
-    
+
     try {
       await updateOrderStatus(id, status as any);
-      
+
       const statusMessages: Record<string, string> = {
         en_cours: 'Commande acceptée et en cours 🚀',
         livree: 'Commande livrée avec succès 📦',
         annulee: 'Commande annulée ❌',
       };
-      
+
       toast.success(statusMessages[status] || `Commande ${status}`);
-      
-      // ✅ Petit délai avant de rafraîchir pour éviter les conflits
+
       setTimeout(async () => {
         await fetchOrders();
       }, 500);
-      
     } catch (error: any) {
       console.error('❌ Erreur mise à jour:', error);
       toast.error(error?.message || 'Erreur lors de la mise à jour');
@@ -129,21 +118,7 @@ const OrdersPage = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="w-full max-w-full overflow-hidden space-y-4">
-        <div className="h-24 bg-white rounded-3xl animate-pulse" />
-        <div className="grid grid-cols-2 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-20 bg-white rounded-2xl animate-pulse" />
-          ))}
-        </div>
-        <div className="h-32 bg-white rounded-3xl animate-pulse" />
-      </div>
-    );
-  }
-
-  // ✅ Libellé dynamique pour le titre
+  // ✅ Libellé dynamique
   const getPageTitle = () => {
     if (isFamily) return 'Mes commandes';
     if (isAidant) return 'Commandes à livrer';
@@ -151,185 +126,168 @@ const OrdersPage = () => {
     return 'Commandes';
   };
 
-  // ✅ Libellé dynamique pour le bouton "Nouvelle"
-  const getNewButtonLabel = () => {
-    if (isFamily) return 'Nouvelle commande';
-    return 'Nouvelle';
-  };
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-20 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-full overflow-hidden space-y-4 pb-24 sm:pb-10">
       {/* HEADER */}
-      <section className="w-full bg-white rounded-3xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-start justify-between gap-3">
+      <section className="w-full bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold mb-2"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
               style={{
                 background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
               <ShoppingBag size={12} />
-              {isAdminOrCoordinator ? 'Gestion des commandes' : 'Mes commandes'}
+              {isAdminOrCoordinator ? 'Gestion' : 'Mes commandes'}
             </div>
 
-            <h1
-              className="text-2xl font-black tracking-tight leading-tight"
-              style={{ color: colors.text }}
-            >
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
               {getPageTitle()}
             </h1>
 
-            <p className="text-sm mt-1" style={{ color: colors.text + '75' }}>
-              {orders.length} commande{orders.length > 1 ? 's' : ''} au total
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {orders.length} commande{orders.length > 1 ? 's' : ''}
             </p>
           </div>
 
-          <button
-            onClick={() => navigate('/app/orders/create')}
-            className="hidden sm:inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-white font-bold"
-            style={{ background: colors.primary }}
-          >
-            <Plus size={18} />
-            {getNewButtonLabel()}
-          </button>
+          {isFamily && (
+            <button
+              onClick={() => navigate('/app/orders/create')}
+              className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold text-sm"
+              style={{ background: colors.primary }}
+            >
+              <Plus size={16} />
+              Nouvelle
+            </button>
+          )}
         </div>
       </section>
 
-      {/* STATS */}
-      <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-        <StatBox
-          icon={<Package size={18} />}
+      {/* STATS COMPACTES */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <CompactStat
+          icon={<Package size={14} />}
           label="Total"
           value={stats.total}
           color={colors.primary}
         />
-
-        <StatBox
-          icon={<Clock size={18} />}
-          label="À traiter"
+        <CompactStat
+          icon={<Clock size={14} />}
+          label="En cours"
           value={stats.pending}
           color="#FF9800"
         />
-
-        <StatBox
-          icon={<Truck size={18} />}
-          label="En livraison"
+        <CompactStat
+          icon={<Truck size={14} />}
+          label="Livrées"
           value={stats.delivery}
           color="#2196F3"
         />
-
-        <StatBox
-          icon={<CheckCircle size={18} />}
+        <CompactStat
+          icon={<CheckCircle size={14} />}
           label="Validées"
           value={stats.completed}
           color="#4CAF50"
         />
       </section>
 
-      {/* RECHERCHE */}
-      <section className="bg-white rounded-3xl p-3 sm:p-4 shadow-sm border border-black/5 space-y-3">
-        <div className="relative">
-          <Search
-            size={18}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2"
-            style={{ color: colors.text + '60' }}
-          />
+      {/* RECHERCHE + FILTRE */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher..."
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            />
+          </div>
 
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher une commande..."
-            className="w-full pl-10 pr-10 py-3 rounded-2xl bg-gray-50 border border-black/5 outline-none text-sm"
-            style={{ color: colors.text }}
-          />
-
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl hover:bg-gray-200 flex items-center justify-center"
+          <div className="relative min-w-[130px]">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <select
+              value={activeStatus}
+              onChange={(e) => setActiveStatus(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             >
-              <X size={15} className="text-gray-500" />
-            </button>
-          )}
-        </div>
-
-        <div className="-mx-3 sm:mx-0 overflow-x-auto px-3 sm:px-0 pb-1">
-          <div className="flex gap-2 min-w-max">
-            {statusFilters.map((filter) => {
-              const active = activeStatus === filter.key;
-
-              return (
-                <button
-                  key={filter.key}
-                  onClick={() => setActiveStatus(filter.key)}
-                  className="shrink-0 px-3 py-2 rounded-full text-xs font-bold border whitespace-nowrap"
-                  style={{
-                    background: active ? colors.primary : '#f9fafb',
-                    color: active ? '#ffffff' : colors.text,
-                    borderColor: active ? colors.primary : 'rgba(0,0,0,0.06)',
-                  }}
-                >
+              {statusFilters.map((filter) => (
+                <option key={filter.key} value={filter.key}>
                   {filter.label}
-                </button>
-              );
-            })}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </section>
 
       {/* LISTE */}
       {filteredOrders.length > 0 ? (
-        <section className="space-y-3 min-w-0">
+        <section className="space-y-2">
           {filteredOrders.map((order) => (
-            <div key={order.id} className="min-w-0 max-w-full overflow-hidden">
-              <OrderCard
-                order={order}
-                onClick={() => navigate(`/app/orders/${order.id}`)}
-                onStatusChange={(status) => handleStatusChange(order.id, status)}
-                showActions={true}
-                compact
-              />
-            </div>
+            <OrderCard
+              key={order.id}
+              order={order}
+              onClick={() => navigate(`/app/orders/${order.id}`)}
+              onStatusChange={(status) => handleStatusChange(order.id, status)}
+              showActions={true}
+              compact
+            />
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-3xl p-6 text-center shadow-sm border border-black/5">
+        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
           <div
-            className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-4"
-            style={{
-              background: colors.primary + '12',
-              color: colors.primary,
-            }}
+            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
+            style={{ background: colors.primary + '12', color: colors.primary }}
           >
-            {orders.length > 0 ? <Search size={28} /> : <ShoppingBag size={28} />}
+            {orders.length > 0 ? <Search size={24} /> : <ShoppingBag size={24} />}
           </div>
 
-          <h3 className="text-lg font-black" style={{ color: colors.text }}>
+          <h3 className="text-base font-bold" style={{ color: colors.text }}>
             {orders.length > 0 ? 'Aucun résultat' : 'Aucune commande'}
           </h3>
 
-          <p
-            className="mt-2 text-sm max-w-sm mx-auto leading-relaxed"
-            style={{ color: colors.text + '75' }}
-          >
+          <p className="text-xs mt-1 text-gray-500">
             {orders.length > 0
               ? 'Aucune commande ne correspond à votre recherche.'
               : isFamily
-                ? 'Créez votre première commande pour commencer.'
+                ? 'Créez votre première commande.'
                 : isAidant
-                  ? 'Aucune commande disponible pour le moment.'
+                  ? 'Aucune commande disponible.'
                   : 'Aucune commande enregistrée.'}
           </p>
 
           {isFamily && (
             <button
               onClick={() => navigate('/app/orders/create')}
-              className="mt-5 inline-flex items-center gap-2 px-4 py-3 rounded-2xl text-white font-bold"
+              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
               style={{ background: colors.primary }}
             >
-              <Plus size={18} />
+              <Plus size={16} />
               Nouvelle commande
             </button>
           )}
@@ -340,11 +298,11 @@ const OrdersPage = () => {
       {isFamily && (
         <button
           onClick={() => navigate('/app/orders/create')}
-          className="sm:hidden fixed bottom-5 right-5 z-40 w-14 h-14 rounded-2xl text-white shadow-xl flex items-center justify-center active:scale-95 transition"
+          className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
           style={{ background: colors.primary }}
           aria-label="Nouvelle commande"
         >
-          <Plus size={26} />
+          <Plus size={22} />
         </button>
       )}
     </div>
@@ -352,28 +310,30 @@ const OrdersPage = () => {
 };
 
 // =============================================
-// STAT BOX
+// COMPACT STAT
 // =============================================
 
-interface StatBoxProps {
+interface CompactStatProps {
   icon: React.ReactNode;
   label: string;
   value: number;
   color: string;
 }
 
-const StatBox = ({ icon, label, value, color }: StatBoxProps) => {
+const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-2xl p-3 shadow-sm border border-black/5 min-w-0">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-[11px] text-gray-500 truncate">{label}</p>
-          <p className="text-xl font-black leading-tight mt-1" style={{ color }}>
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
+        <div>
+          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400">
+            {label}
+          </p>
+          <p className="text-lg font-bold mt-0.5" style={{ color }}>
             {value}
           </p>
         </div>
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
           style={{ background: color + '14', color }}
         >
           {icon}
