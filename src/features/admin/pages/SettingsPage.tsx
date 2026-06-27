@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/SettingsPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import {
   Settings,
@@ -28,6 +28,7 @@ import {
   Loader2,
   Palette,
 } from 'lucide-react';
+
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
@@ -57,6 +58,9 @@ interface SettingField {
   category: string;
 }
 
+// ✅ URL de l'API
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-sante-plus-react.onrender.com/api';
+
 const SettingsPage = () => {
   const { profile, role } = useAuthStore();
   const [settings, setSettings] = useState<Setting[]>([]);
@@ -83,14 +87,30 @@ const SettingsPage = () => {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      const response = await fetch('/api/settings', {
+      if (!token) {
+        throw new Error('Token manquant');
+      }
+
+      // ✅ Utiliser l'URL complète
+      const response = await fetch(`${API_BASE_URL}/settings`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
+      // ✅ Vérifier si la réponse est OK
       if (!response.ok) {
-        throw new Error('Erreur lors du chargement des paramètres');
+        const text = await response.text();
+        console.error('❌ Réponse serveur:', text.substring(0, 200));
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
+
+      // ✅ Vérifier que c'est bien du JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('❌ Content-Type:', contentType);
+        throw new Error('Le serveur n\'a pas retourné du JSON');
       }
 
       const result = await response.json();
@@ -102,9 +122,10 @@ const SettingsPage = () => {
         throw new Error(result.error || 'Erreur inconnue');
       }
     } catch (error: any) {
-      console.error('Fetch settings error:', error);
+      console.error('❌ Fetch settings error:', error);
       toast.error(error.message || 'Erreur lors du chargement des paramètres');
-      // Charger des valeurs par défaut si l'API échoue
+      
+      // ✅ Charger des valeurs par défaut si l'API échoue
       loadDefaultSettings();
     } finally {
       setIsLoading(false);
@@ -143,36 +164,18 @@ const SettingsPage = () => {
       site_name: { label: 'Nom du site', type: 'text', placeholder: 'Nom du site' },
       site_description: { label: 'Description du site', type: 'textarea', placeholder: 'Description du site', help: 'Utilisé pour le SEO et le partage social' },
       maintenance_mode: { label: 'Mode maintenance', type: 'toggle', help: 'Activer le mode maintenance pour les travaux' },
-      maintenance_message: { label: 'Message de maintenance', type: 'textarea', placeholder: 'Message affiché pendant la maintenance' },
       allow_registration: { label: 'Inscriptions ouvertes', type: 'toggle', help: 'Permettre aux nouveaux utilisateurs de s\'inscrire' },
-      require_email_verification: { label: 'Vérification email obligatoire', type: 'toggle', help: 'Les utilisateurs doivent vérifier leur email' },
-      require_phone_verification: { label: 'Vérification téléphone obligatoire', type: 'toggle', help: 'Les utilisateurs doivent vérifier leur téléphone' },
       session_timeout: { label: 'Expiration de session (minutes)', type: 'number', placeholder: '60', help: 'Délai avant déconnexion automatique' },
-      max_login_attempts: { label: 'Tentatives de connexion max', type: 'number', placeholder: '5', help: 'Nombre de tentatives avant blocage' },
-      lockout_duration: { label: 'Durée de blocage (minutes)', type: 'number', placeholder: '30', help: 'Durée du blocage après trop de tentatives' },
-      password_min_length: { label: 'Longueur min du mot de passe', type: 'number', placeholder: '8', help: 'Nombre minimum de caractères' },
-      password_require_special: { label: 'Caractère spécial requis', type: 'toggle', help: 'Exiger un caractère spécial dans le mot de passe' },
       email_notifications: { label: 'Notifications par email', type: 'toggle', help: 'Envoyer des notifications par email' },
       push_notifications: { label: 'Notifications push', type: 'toggle', help: 'Envoyer des notifications push' },
-      sms_notifications: { label: 'Notifications SMS', type: 'toggle', help: 'Envoyer des notifications SMS' },
       notification_delay: { label: 'Délai notification (minutes)', type: 'number', placeholder: '15', help: 'Délai avant l\'envoi des rappels' },
-      reminder_time: { label: 'Rappel avant visite (minutes)', type: 'number', placeholder: '60', help: 'Temps avant une visite pour envoyer un rappel' },
-      daily_digest: { label: 'Résumé quotidien', type: 'toggle', help: 'Envoyer un résumé des activités quotidiennes' },
       currency: { label: 'Devise', type: 'select', options: [
         { value: 'XOF', label: 'FCFA (XOF)' },
         { value: 'EUR', label: 'Euro (EUR)' },
         { value: 'USD', label: 'Dollar (USD)' },
       ], help: 'Devise utilisée pour les paiements' },
-      payment_gateway: { label: 'Passerelle de paiement', type: 'select', options: [
-        { value: 'fedapay', label: 'FedaPay' },
-        { value: 'stripe', label: 'Stripe' },
-        { value: 'paypal', label: 'PayPal' },
-      ], help: 'Passerelle utilisée pour les paiements' },
       vat_rate: { label: 'Taux de TVA (%)', type: 'number', placeholder: '0', help: 'Taxe appliquée sur les paiements' },
-      payment_timeout: { label: 'Délai paiement (minutes)', type: 'number', placeholder: '30', help: 'Délai avant annulation d\'un paiement' },
-      allow_manual_payment: { label: 'Paiement manuel autorisé', type: 'toggle', help: 'Autoriser les paiements manuels' },
       primary_color: { label: 'Couleur principale', type: 'color', help: 'Couleur principale de l\'application' },
-      secondary_color: { label: 'Couleur secondaire', type: 'color', help: 'Couleur secondaire de l\'application' },
       dark_mode: { label: 'Mode sombre par défaut', type: 'toggle', help: 'Activer le mode sombre par défaut' },
     };
 
@@ -193,7 +196,6 @@ const SettingsPage = () => {
 
     setFields(Object.values(fieldMap).flat());
 
-    // Sauvegarder les valeurs originales
     const originals: Record<string, any> = {};
     settingsData.forEach(s => {
       originals[s.key] = s.value;
@@ -206,12 +208,10 @@ const SettingsPage = () => {
       f.key === key ? { ...f, value } : f
     ));
     
-    // Mettre à jour les settings
     setSettings(prev => prev.map(s => 
       s.key === key ? { ...s, value } : s
     ));
     
-    // Vérifier si des changements ont été faits
     if (originalValues[key] !== value) {
       setHasChanges(true);
     }
@@ -220,7 +220,6 @@ const SettingsPage = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Préparer les données à sauvegarder
       const updates: Record<string, any> = {};
       settings.forEach(s => {
         if (originalValues[s.key] !== s.value) {
@@ -237,7 +236,7 @@ const SettingsPage = () => {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      const response = await fetch('/api/settings', {
+      const response = await fetch(`${API_BASE_URL}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -256,7 +255,6 @@ const SettingsPage = () => {
       if (result.success) {
         toast.success('✅ Paramètres sauvegardés avec succès');
         setHasChanges(false);
-        // Mettre à jour les valeurs originales
         settings.forEach(s => {
           originalValues[s.key] = s.value;
         });
@@ -265,12 +263,13 @@ const SettingsPage = () => {
         throw new Error(result.error || 'Erreur inconnue');
       }
     } catch (error: any) {
-      console.error('Save settings error:', error);
+      console.error('❌ Save settings error:', error);
       toast.error(error.message || 'Erreur lors de la sauvegarde');
     } finally {
       setIsSaving(false);
     }
   };
+
 
   const handleReset = async () => {
     if (!window.confirm('Voulez-vous vraiment réinitialiser tous les paramètres ?')) return;
