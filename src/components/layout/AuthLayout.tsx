@@ -4,18 +4,8 @@ import { Outlet } from 'react-router-dom';
 
 export const AuthLayout = () => {
   return (
-    <div className="min-h-screen bg-[var(--color-background)] flex flex-col">
-      {/* ✅ Supprimer le padding vertical excessif */}
-      <div className="flex-1 container mx-auto px-4 py-4 sm:py-6">
-        <Outlet />
-      </div>
-
-      {/* Footer minimal */}
-      <div className="text-center ">
-        <p className="text-xs" style={{ color: 'var(--color-text-light, #6b7280)' }}>
-          Santé Plus Services — Un service d'accompagnement non médical
-        </p>
-      </div>
+    <div className="min-h-screen w-full bg-[var(--color-background)]">
+      <Outlet />
     </div>
   );
 };
