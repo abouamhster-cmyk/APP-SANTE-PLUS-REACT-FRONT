@@ -181,6 +181,10 @@ const DashboardPage = () => {
 
   const isLoading = patientsLoading || visitsLoading || ordersLoading;
 
+  const heroImage = isMaman
+    ? '/assets/images/banners/maman-banner.png'
+    : '/assets/images/banners/senior-banner.png';
+
   const heroTitle = () => {
     if (isMaman) return 'Votre espace maman & bébé.';
     if (isFamily) return 'Un suivi clair pour votre proche.';
@@ -220,52 +224,63 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8">
       {/* ========================================== */}
-      {/* HERO - Bannière douce et épurée (Style Plantum) */}
+      {/* HERO - Bannière avec image de fond */}
       {/* ========================================== */}
       <section
-        className="relative overflow-hidden rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-all"
+        className="relative overflow-hidden rounded-3xl min-h-[180px] md:min-h-[200px] shadow-sm transition-all"
         style={{
-          background: isMaman 
-            ? `linear-gradient(135deg, ${colors.primary}0d 0%, ${colors.primary}1a 100%)` 
-            : `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)`,
+          backgroundImage: `
+            linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%),
+            url('${heroImage}')
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-xl">
+        <div className="absolute inset-0 bg-black/5" />
+        
+        <div className="relative z-10 min-h-[180px] md:min-h-[200px] p-6 sm:p-8 flex flex-col justify-between">
+          <div className="flex items-start justify-between">
             <span 
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
-              style={{ background: `${colors.primary}12`, color: colors.primary }}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase backdrop-blur-md bg-white/15 border border-white/20 text-white"
             >
               <Sparkles size={11} />
               Accompagnement humain
             </span>
-
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: colors.text }}>
-              {greeting}, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
-            </h1>
-
-            <p className="text-sm leading-relaxed" style={{ color: colors.textLight }}>
-              {heroDescription()}
-            </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5 shrink-0 self-start md:self-center">
-            <button
-              onClick={() => navigate('/app/visits')}
-              className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-transform hover:opacity-95 active:scale-[0.98] shadow-sm"
-              style={{ background: colors.primary }}
-            >
-              Voir les visites
-              <ArrowRight size={14} />
-            </button>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="space-y-1.5 max-w-xl">
+              <p className="text-white/90 text-sm font-medium drop-shadow">
+                {greeting}, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
+              </p>
 
-            <button
-              onClick={() => navigate('/app/messages')}
-              className="inline-flex items-center gap-1.5 bg-white text-xs font-bold px-4 py-2.5 rounded-xl border transition-colors hover:bg-gray-50/50"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              Messages
-            </button>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight drop-shadow">
+                {heroTitle()}
+              </h1>
+
+              <p className="text-white/80 text-sm leading-relaxed drop-shadow max-w-md">
+                {heroDescription()}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2.5 shrink-0 self-start md:self-end">
+              <button
+                onClick={() => navigate('/app/visits')}
+                className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-transform hover:opacity-95 active:scale-[0.98] shadow-lg"
+                style={{ background: colors.primary }}
+              >
+                Voir les visites
+                <ArrowRight size={14} />
+              </button>
+
+              <button
+                onClick={() => navigate('/app/messages')}
+                className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold px-4 py-2.5 rounded-xl border border-white/20 transition-colors hover:bg-white/30"
+              >
+                Messages
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -356,7 +371,7 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* GRILLE D'ACTIONS RAPIDES (Style "Care Tools") */}
+      {/* GRILLE D'ACTIONS RAPIDES */}
       {/* ========================================== */}
       <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
         <div className="flex items-center justify-between mb-4">
