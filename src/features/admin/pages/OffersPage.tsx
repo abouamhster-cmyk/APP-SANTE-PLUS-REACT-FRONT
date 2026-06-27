@@ -483,6 +483,14 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
     total_orders: offer?.total_orders !== null && offer?.total_orders !== undefined ? String(offer.total_orders) : '',
   });
 
+  // ✅ Fonction wrapper pour ModalActions (sans paramètre)
+  const handleConfirm = () => {
+    // Créer un événement factice pour appeler handleSubmit
+    const fakeEvent = new Event('submit') as any;
+    fakeEvent.preventDefault = () => {};
+    handleSubmit(fakeEvent);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -491,7 +499,7 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
       const data = {
         name: formData.name,
         category: formData.category,
-        type: formData.type, // ✅ Maintenant toujours défini
+        type: formData.type,
         description: formData.description || null,
         price: formData.price ? parseFloat(String(formData.price)) : null,
         visits_per_week: formData.visits_per_week ? parseInt(String(formData.visits_per_week)) : null,
@@ -541,13 +549,13 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
       actions={
         <ModalActions
           onCancel={onClose}
-          onConfirm={handleSubmit}
+          onConfirm={handleConfirm}
           confirmLabel={offer ? 'Mettre à jour' : 'Créer'}
           isLoading={isLoading}
         />
       }
     >
-      <form id="offer-form" className="space-y-3">
+      <form id="offer-form" className="space-y-3" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
