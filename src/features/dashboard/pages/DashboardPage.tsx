@@ -28,15 +28,20 @@ import {
   FileText,
   Package,
   LayoutDashboard,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { getGreeting } from '@/utils/helpers';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
+import { formatCurrency } from '@/utils/helpers';
 
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
@@ -45,6 +50,7 @@ import { PatientCard } from '@/components/patients/PatientCard';
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const { payments } = usePaymentStore();
 
   const {
     singular,
@@ -76,6 +82,7 @@ const DashboardPage = () => {
 
   const [greeting, setGreeting] = useState('');
   const [isMaman, setIsMaman] = useState(false);
+  const [totalRevenue, setTotalRevenue] = useState(0);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -85,6 +92,12 @@ const DashboardPage = () => {
     fetchVisits();
     fetchOrders();
     setGreeting(getGreeting());
+    
+    // Calculer les revenus
+    const revenue = payments
+      .filter(p => p.status === 'valide')
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    setTotalRevenue(revenue);
   }, []);
 
   useEffect(() => {
@@ -100,71 +113,58 @@ const DashboardPage = () => {
     completedVisits: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
   };
 
-  const recentVisits = visits
-    .filter((v) => v.status === 'planifiee' || v.status === 'en_cours')
-    .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
-    .slice(0, 3);
-
-  const recentOrders = orders
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 3);
-
   const isLoading = patientsLoading || visitsLoading || ordersLoading;
 
-  const heroImage = isMaman
-    ? '/assets/images/banners/maman-banner.png'
-    : '/assets/images/banners/senior-banner.png';
-
-  // ✅ TUILES DE REDIRECTION SELON LE RÔLE
+  // ✅ TUILES DE REDIRECTION SELON LE RÔLE (style UNPIX)
   const getDashboardTiles = () => {
     const tiles = [];
 
     // 👨‍👩‍👦 FAMILLE
     if (role === 'family') {
       tiles.push(
-        { icon: <Users size={24} />, label: list, color: colors.primary, path: '/app/patients', badge: patients.length },
-        { icon: <Calendar size={24} />, label: 'Visites', color: colors.accent, path: '/app/visits', badge: stats.upcomingVisits },
-        { icon: <ShoppingBag size={24} />, label: 'Commandes', color: colors.secondary, path: '/app/orders', badge: stats.pendingOrders },
-        { icon: <MessageCircle size={24} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
-        { icon: <CreditCard size={24} />, label: 'Abonnement', color: '#4CAF50', path: '/app/billing' },
-        { icon: <BookOpen size={24} />, label: 'Journal', color: '#9C27B0', path: '/app/journal' },
-        { icon: <MapPin size={24} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
-        { icon: <Hospital size={24} />, label: 'Sortie hôpital', color: '#E91E63', path: '/app/discharge' },
-        { icon: <User size={24} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+        { icon: <Users size={22} />, label: list, color: colors.primary, path: '/app/patients', badge: patients.length },
+        { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits', badge: stats.upcomingVisits },
+        { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders', badge: stats.pendingOrders },
+        { icon: <MessageCircle size={22} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
+        { icon: <CreditCard size={22} />, label: 'Abonnement', color: '#9C27B0', path: '/app/billing' },
+        { icon: <BookOpen size={22} />, label: 'Journal', color: '#795548', path: '/app/journal' },
+        { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+        { icon: <Hospital size={22} />, label: 'Sortie', color: '#E91E63', path: '/app/discharge' },
+        { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
       );
     }
 
     // 🦸 AIDANT
     if (role === 'aidant') {
       tiles.push(
-        { icon: <Calendar size={24} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
-        { icon: <Briefcase size={24} />, label: 'Planning', color: colors.accent, path: '/app/planning' },
-        { icon: <History size={24} />, label: 'Historique', color: '#9C27B0', path: '/app/history' },
-        { icon: <ShoppingBag size={24} />, label: 'Commandes', color: colors.secondary, path: '/app/orders', badge: stats.pendingOrders },
-        { icon: <MessageCircle size={24} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
-        { icon: <CreditCard size={24} />, label: 'Abonnement', color: '#4CAF50', path: '/app/billing' },
-        { icon: <MapPin size={24} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
-        { icon: <User size={24} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+        { icon: <Calendar size={22} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
+        { icon: <Briefcase size={22} />, label: 'Planning', color: '#4CAF50', path: '/app/planning' },
+        { icon: <History size={22} />, label: 'Historique', color: '#795548', path: '/app/history' },
+        { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders', badge: stats.pendingOrders },
+        { icon: <MessageCircle size={22} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
+        { icon: <CreditCard size={22} />, label: 'Abonnement', color: '#9C27B0', path: '/app/billing' },
+        { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+        { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
       );
     }
 
     // 👔 COORDINATEUR / ADMIN
     if (role === 'coordinator' || role === 'admin') {
       tiles.push(
-        { icon: <LayoutDashboard size={24} />, label: 'Dashboard Admin', color: '#9C27B0', path: '/app/admin' },
-        { icon: <ClipboardList size={24} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations || 0 },
-        { icon: <UserCheck size={24} />, label: 'Candidatures', color: '#FF9800', path: '/app/aidant-candidates' },
-        { icon: <Users size={24} />, label: 'Aidants', color: '#2196F3', path: '/app/aidants' },
-        { icon: <Users size={24} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
-        { icon: <Calendar size={24} />, label: 'Visites', color: colors.accent, path: '/app/visits' },
-        { icon: <ShoppingBag size={24} />, label: 'Commandes', color: colors.secondary, path: '/app/orders' },
-        { icon: <CreditCard size={24} />, label: 'Paiements', color: '#4CAF50', path: '/app/admin-payments' },
-        { icon: <Award size={24} />, label: 'Abonnements', color: '#9C27B0', path: '/app/admin-subscriptions' },
-        { icon: <Bell size={24} />, label: 'Notifications', color: '#FF9800', path: '/app/admin-notifications' },
-        { icon: <Package size={24} />, label: 'Offres', color: '#607D8B', path: '/app/offers' },
-        { icon: <Settings size={24} />, label: 'Paramètres', color: '#795548', path: '/app/settings' },
-        { icon: <MapPin size={24} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
-        { icon: <User size={24} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+        { icon: <LayoutDashboard size={22} />, label: 'Dashboard', color: '#9C27B0', path: '/app/admin' },
+        { icon: <ClipboardList size={22} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations || 0 },
+        { icon: <UserCheck size={22} />, label: 'Candidatures', color: '#FF9800', path: '/app/aidant-candidates' },
+        { icon: <Users size={22} />, label: 'Aidants', color: '#2196F3', path: '/app/aidants' },
+        { icon: <Users size={22} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
+        { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits' },
+        { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders' },
+        { icon: <CreditCard size={22} />, label: 'Paiements', color: '#9C27B0', path: '/app/admin-payments' },
+        { icon: <Award size={22} />, label: 'Abonnements', color: '#795548', path: '/app/admin-subscriptions' },
+        { icon: <Bell size={22} />, label: 'Notifs', color: '#FF5722', path: '/app/admin-notifications' },
+        { icon: <Package size={22} />, label: 'Offres', color: '#607D8B', path: '/app/offers' },
+        { icon: <Settings size={22} />, label: 'Paramètres', color: '#455A64', path: '/app/settings' },
+        { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+        { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
       );
     }
 
@@ -188,86 +188,78 @@ const DashboardPage = () => {
     return (
       <div className="space-y-4">
         <div className="h-32 rounded-2xl bg-white/70 animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 bg-white rounded-xl animate-pulse" />
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="aspect-square bg-white rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="h-32 bg-white rounded-xl animate-pulse" />
       </div>
     );
   }
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HERO */}
+      {/* HERO - Carte de bienvenue */}
       <section
-        className="relative overflow-hidden rounded-2xl min-h-[140px] shadow-sm border border-black/5"
+        className="relative overflow-hidden rounded-2xl p-4 shadow-sm border"
         style={{
-          backgroundImage: `
-            linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 42%, rgba(0,0,0,0.15) 100%),
-            url('${heroImage}')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark || colors.primary} 100%)`,
         }}
       >
-        <div className="relative z-10 min-h-[140px] p-4 flex flex-col justify-between">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/18 border border-white/25 backdrop-blur-md px-3 py-1 text-white text-xs font-semibold w-fit">
-            <Sparkles size={12} />
-            Santé Plus Services
-          </div>
-
-          <div>
-            <p className="text-white text-xs font-medium drop-shadow">
-              {greeting}, {profile?.full_name || 'Bienvenue'} 👋
-            </p>
-            <h1 className="text-xl font-black text-white tracking-tight drop-shadow">
-              {heroTitle()}
-            </h1>
-          </div>
+        <div className="relative z-10">
+          <p className="text-white/80 text-xs font-medium">
+            {greeting}, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
+          </p>
+          <h1 className="text-xl font-black text-white mt-0.5">
+            {heroTitle()}
+          </h1>
+          <p className="text-white/70 text-xs mt-1 max-w-xs">
+            {isFamily && 'Gérez les visites et commandes de vos proches.'}
+            {isAidant && 'Consultez vos missions et livraisons.'}
+            {isAdminOrCoordinator && 'Supervisez toute la plateforme.'}
+          </p>
         </div>
       </section>
 
-      {/* STATS COMPACTES */}
+      {/* STATS COMPACTES - 4 cartes */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <CompactDashCard
-          title={isFamily ? 'Proches' : isAidant ? 'Personnes' : 'Bénéficiaires'}
+        <StatCard
+          label={isFamily ? 'Proches' : isAidant ? 'Personnes' : 'Bénéficiaires'}
           value={stats.proches}
-          icon={<Users size={16} />}
+          icon={<Users size={18} />}
           color={colors.primary}
           onClick={() => navigate('/app/patients')}
         />
-        <CompactDashCard
-          title="Visites à venir"
+        <StatCard
+          label="Visites"
           value={stats.upcomingVisits}
-          icon={<Calendar size={16} />}
-          color={colors.accent}
+          icon={<Calendar size={18} />}
+          color="#4CAF50"
           onClick={() => navigate('/app/visits')}
         />
-        <CompactDashCard
-          title="Commandes"
+        <StatCard
+          label="Commandes"
           value={stats.pendingOrders}
-          icon={<ShoppingBag size={16} />}
-          color={colors.secondary}
+          icon={<ShoppingBag size={18} />}
+          color="#FF9800"
           onClick={() => navigate('/app/orders')}
         />
-        <CompactDashCard
-          title="Terminées"
+        <StatCard
+          label="Terminées"
           value={stats.completedVisits}
-          icon={<CheckCircle size={16} />}
-          color={colors.primary}
+          icon={<CheckCircle size={18} />}
+          color="#2196F3"
           onClick={() => navigate('/app/visits')}
         />
       </section>
 
-      {/* TUILES DE REDIRECTION */}
+      {/* TUILES STYLE UNPIX */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold" style={{ color: colors.text }}>
-            🚀 Accès rapide
+            🚀 Menu rapide
           </h2>
-          <span className="text-xs text-gray-400">{tiles.length} sections</span>
+          <span className="text-[10px] text-gray-400">{tiles.length} services</span>
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
@@ -275,15 +267,14 @@ const DashboardPage = () => {
             <button
               key={index}
               onClick={() => navigate(tile.path)}
-              className="flex flex-col items-center justify-center p-3 rounded-2xl border hover:shadow-md transition-all hover:-translate-y-0.5 active:scale-95"
+              className="flex flex-col items-center justify-center p-3 rounded-2xl border hover:shadow-md transition-all hover:-translate-y-0.5 active:scale-95 bg-white"
               style={{
                 borderColor: colors.border,
-                background: tile.color + '06',
               }}
             >
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1.5"
-                style={{ background: tile.color + '15', color: tile.color }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1.5"
+                style={{ background: tile.color + '12', color: tile.color }}
               >
                 {tile.icon}
               </div>
@@ -308,7 +299,7 @@ const DashboardPage = () => {
         <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold" style={{ color: colors.text }}>
-              {isFamily ? 'Mes proches' : isAidant ? 'Mes personnes accompagnées' : 'Bénéficiaires suivis'}
+              {isFamily ? 'Mes proches' : isAidant ? 'Personnes accompagnées' : 'Bénéficiaires'}
             </h2>
             <button
               onClick={() => navigate('/app/patients')}
@@ -345,11 +336,14 @@ const DashboardPage = () => {
             Voir tout <ArrowRight size={12} />
           </button>
         </div>
-        {recentVisits.length > 0 ? (
+        {stats.upcomingVisits > 0 ? (
           <div className="space-y-2">
-            {recentVisits.map((visit) => (
-              <VisitCard key={visit.id} visit={visit} compact onClick={() => navigate(`/app/visits/${visit.id}`)} />
-            ))}
+            {visits
+              .filter((v) => v.status === 'planifiee' || v.status === 'en_cours')
+              .slice(0, 3)
+              .map((visit) => (
+                <VisitCard key={visit.id} visit={visit} compact onClick={() => navigate(`/app/visits/${visit.id}`)} />
+              ))}
           </div>
         ) : (
           <div className="text-center py-4">
@@ -373,11 +367,14 @@ const DashboardPage = () => {
             Voir tout <ArrowRight size={12} />
           </button>
         </div>
-        {recentOrders.length > 0 ? (
+        {stats.pendingOrders > 0 ? (
           <div className="space-y-2">
-            {recentOrders.map((order) => (
-              <OrderCard key={order.id} order={order} compact onClick={() => navigate(`/app/orders/${order.id}`)} />
-            ))}
+            {orders
+              .filter((o) => o.status === 'creee' || o.status === 'en_cours')
+              .slice(0, 3)
+              .map((order) => (
+                <OrderCard key={order.id} order={order} compact onClick={() => navigate(`/app/orders/${order.id}`)} />
+              ))}
           </div>
         ) : (
           <div className="text-center py-4">
@@ -417,18 +414,18 @@ const DashboardPage = () => {
 };
 
 // =============================================
-// COMPACT DASH CARD
+// STAT CARD
 // =============================================
 
-interface CompactDashCardProps {
-  title: string;
+interface StatCardProps {
+  label: string;
   value: number;
   icon: React.ReactNode;
   color: string;
   onClick: () => void;
 }
 
-const CompactDashCard = ({ title, value, icon, color, onClick }: CompactDashCardProps) => {
+const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => {
   return (
     <button
       onClick={onClick}
@@ -437,14 +434,14 @@ const CompactDashCard = ({ title, value, icon, color, onClick }: CompactDashCard
       <div className="flex items-center justify-between">
         <div>
           <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400">
-            {title}
+            {label}
           </p>
           <p className="text-lg font-bold mt-0.5" style={{ color }}>
             {value}
           </p>
         </div>
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center"
+          className="w-8 h-8 rounded-xl flex items-center justify-center"
           style={{ background: color + '14', color }}
         >
           {icon}
