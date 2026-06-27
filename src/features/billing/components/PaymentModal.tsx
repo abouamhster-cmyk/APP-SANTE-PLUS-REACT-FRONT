@@ -42,7 +42,6 @@ export const PaymentModal = ({
   const { profile, role } = useAuthStore();
 
   const {
-    singular,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
@@ -59,7 +58,7 @@ export const PaymentModal = ({
 
   const period = selectedOffer?.period || selectedOffer?.type || 'mois';
 
-  // ✅ Détection des offres ponctuelles
+  // Détection des offres ponctuelles
   const isPonctual = forcePonctual ||
     period === 'ponctuelle' ||
     period === 'intervention' ||
@@ -93,7 +92,7 @@ export const PaymentModal = ({
       return 'Vous allez payer cette commande ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement. La commande sera créée automatiquement après confirmation du paiement.';
     }
     if (isFamily) {
-      return 'FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement. Vous n\'avez pas besoin de renseigner vos informations ici.';
+      return "FedaPay ouvrira sa passerelle sécurisée pour finaliser la transaction. Vous n'avez pas besoin de saisir vos coordonnées bancaires sur Santé Plus.";
     }
     if (isAidant) {
       return 'FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement. Les informations de la personne accompagnée restent confidentielles.';
@@ -104,7 +103,7 @@ export const PaymentModal = ({
     return 'FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement.';
   };
 
-  // ✅ VALIDATION des données avant paiement
+  // VALIDATION des données avant paiement
   const validateOrderData = (): boolean => {
     if (!isPonctual) return true;
 
@@ -140,7 +139,7 @@ export const PaymentModal = ({
     setIsLoading(true);
 
     try {
-      // ✅ VALIDATION des données
+      // VALIDATION des données
       if (isPonctual) {
         if (!validateOrderData()) {
           setIsLoading(false);
@@ -157,7 +156,7 @@ export const PaymentModal = ({
 
       console.log('📤 Appel createPayment avec is_ponctual:', isPonctual);
 
-      // ✅ Préparer les données pour le backend
+      // Préparer les données pour le backend
       const orderDataForBackend = isPonctual && orderData ? {
         patient_id: orderData.patient_id || null,
         type: orderData.type || 'autre',
@@ -167,7 +166,7 @@ export const PaymentModal = ({
         prescription_url: orderData.prescription_url || null,
       } : null;
 
-      // ✅ CRITIQUE : abonnement_id = UUID de l'offre (ou null pour ponctuel)
+      // CRITIQUE : abonnement_id = UUID de l'offre (ou null pour ponctuel)
       const offerId = selectedOffer?.id || null;
       const subscriptionId = isPonctual ? null : offerId;
 
@@ -203,39 +202,40 @@ export const PaymentModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
+      <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden animate-fadeIn">
+        {/* En-tête de la modale */}
         <div
           className="px-5 py-4 border-b"
-          style={{ borderColor: colors.primary + '15' }}
+          style={{ borderColor: colors.primary + '10' }}
         >
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="space-y-1">
               <div
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-2"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
                 style={{
-                  background: colors.primary + '12',
+                  background: colors.primary + '10',
                   color: colors.primary,
                 }}
               >
-                <ShieldCheck size={13} />
+                <ShieldCheck size={12} />
                 Paiement sécurisé
               </div>
 
               <h2
-                className="text-xl font-black leading-tight"
+                className="text-lg font-extrabold tracking-tight"
                 style={{ color: colors.text }}
               >
-                {isPonctual ? '💳 Paiement ponctuel' : 'Confirmer le paiement'}
+                {isPonctual ? '💳 Paiement ponctuel' : 'Confirmer le règlement'}
               </h2>
 
-              <p className="text-sm mt-1 text-gray-500">
+              <p className="text-xs text-gray-500 leading-relaxed">
                 {isPonctual
-                  ? 'Vous allez payer cette commande ponctuellement.'
+                  ? 'Règlement de votre commande de services à la demande.'
                   : isFamily
-                    ? 'Vous allez être redirigé vers le checkout sécurisé FedaPay pour votre proche.'
+                    ? 'Vous allez être redirigé vers FedaPay pour votre proche.'
                     : isAidant
-                      ? 'Vous allez être redirigé vers le checkout sécurisé FedaPay pour la personne accompagnée.'
-                      : 'Vous allez être redirigé vers le checkout sécurisé FedaPay.'}
+                      ? 'Vous allez être redirigé vers FedaPay pour la personne accompagnée.'
+                      : 'Vous allez être redirigé vers l’espace sécurisé FedaPay.'}
               </p>
             </div>
 
@@ -243,56 +243,58 @@ export const PaymentModal = ({
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="w-10 h-10 rounded-2xl flex items-center justify-center hover:bg-gray-100 transition disabled:opacity-50"
+              className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              <X size={22} style={{ color: colors.text }} />
+              <X size={18} style={{ color: colors.text }} />
             </button>
           </div>
         </div>
 
+        {/* Corps de la modale */}
         <div className="p-5 space-y-4">
+          {/* Fiche récapitulative épurée */}
           <div
-            className="rounded-2xl p-4 border"
+            className="rounded-2xl p-4 border transition-all"
             style={{
-              background: colors.primary + '08',
-              borderColor: colors.primary + '18',
+              background: colors.primary + '04',
+              borderColor: colors.primary + '10',
             }}
           >
             <div className="flex items-start gap-3">
               <div
-                className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                 style={{
-                  background: colors.primary + '14',
+                  background: colors.primary + '10',
                   color: colors.primary,
                 }}
               >
-                <CreditCard size={22} />
+                <CreditCard size={18} />
               </div>
 
               <div className="min-w-0">
-                <p className="font-black" style={{ color: colors.text }}>
-                  {isPonctual ? `Commande ponctuelle` : planName}
+                <p className="font-bold text-sm" style={{ color: colors.text }}>
+                  {isPonctual ? `Prestation ponctuelle` : planName}
                 </p>
 
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {isPonctual ? 'Paiement unique sans engagement' : `Abonnement ${getSubscriptionLabel()}`}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {isPonctual ? 'Paiement unique · sans engagement' : `Formule d’abonnement ${getSubscriptionLabel()}`}
                 </p>
 
                 {visitsPerWeek && !isPonctual && (
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-[10px] text-gray-400 font-medium mt-1">
                     📅 {visitsPerWeek} visite{visitsPerWeek > 1 ? 's' : ''} par semaine
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {isPonctual ? 'Montant à payer' : 'Montant'}
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: colors.primary + '0e' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                {isPonctual ? 'Montant à régler' : 'Montant de l’offre'}
               </p>
 
               <p
-                className="text-3xl font-black mt-1"
+                className="text-2xl font-black mt-0.5"
                 style={{ color: colors.primary }}
               >
                 {amount.toLocaleString()} FCFA
@@ -300,29 +302,31 @@ export const PaymentModal = ({
             </div>
           </div>
 
+          {/* Message d'information discret */}
           <div
-            className="flex items-start gap-3 p-4 rounded-2xl"
-            style={{ background: colors.primary + '10' }}
+            className="flex items-start gap-2.5 p-3.5 rounded-2xl"
+            style={{ background: colors.primary + '08' }}
           >
             <AlertCircle
-              size={19}
+              size={15}
               style={{ color: colors.primary }}
               className="shrink-0 mt-0.5"
             />
 
-            <p className="text-xs leading-relaxed text-gray-600">
+            <p className="text-[11px] leading-relaxed text-gray-600">
               {getInfoMessage()}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {/* Boutons d'action */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="w-full py-3 rounded-2xl font-bold border hover:bg-gray-50 transition disabled:opacity-50"
+              className="w-full py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition-colors disabled:opacity-50"
               style={{
-                borderColor: colors.primary + '20',
+                borderColor: colors.primary + '15',
                 color: colors.text,
               }}
             >
@@ -333,18 +337,18 @@ export const PaymentModal = ({
               type="button"
               onClick={handlePayment}
               disabled={isLoading}
-              className="w-full py-3 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-95 disabled:opacity-75 flex items-center justify-center gap-1.5 shadow-sm"
               style={{ background: colors.primary }}
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Préparation...
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Préparation...</span>
                 </>
               ) : (
                 <>
-                  {isPonctual ? `Payer ${amount.toLocaleString()} FCFA` : 'Continuer'}
-                  <ExternalLink size={18} />
+                  <span>{isPonctual ? `Payer` : 'Confirmer'}</span>
+                  <ExternalLink size={14} />
                 </>
               )}
             </button>
