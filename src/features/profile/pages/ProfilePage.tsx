@@ -369,68 +369,96 @@ const ProfilePage = () => {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (
-      !window.confirm(
-        'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.'
-      )
-    ) {
-      return;
+ 
+const handleDeleteAccount = async () => {
+  if (
+    !window.confirm(
+      '⚠️ ATTENTION : Cette action supprimera définitivement votre compte ET tous vos proches. Cette action est irréversible.'
+    )
+  ) {
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const { user } = useAuthStore.getState();
+    if (!user) throw new Error('Utilisateur non trouvé');
+
+    // ✅ Récupérer TOUS les patients liés à cet utilisateur
+    const { data: links, error: linksError } = await supabase
+      .from('patient_family_links')
+      .select('patient_id')
+      .eq('family_id', user.id);
+
+    if (linksError) throw linksError;
+
+    const patientIds = links?.map(l => l.patient_id) || [];
+
+    // ✅ Supprimer les patients (CASCADE)
+    if (patientIds.length > 0) {
+      const { error: deletePatientsError } = await supabase
+        .from('patients')
+        .delete()
+        .in('id', patientIds);
+
+      if (deletePatientsError) throw deletePatientsError;
     }
 
-    setIsLoading(true);
+    // ✅ Supprimer les liens
+    await supabase
+      .from('patient_family_links')
+      .delete()
+      .eq('family_id', user.id);
 
-    try {
-      const { user } = useAuthStore.getState();
+    // ✅ Supprimer les inscriptions
+    await supabase
+      .from('inscriptions')
+      .delete()
+      .eq('user_id', user.id);
 
-      if (!user) throw new Error('Utilisateur non trouvé');
+    // ✅ Supprimer les notifications
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('user_id', user.id);
 
-      await supabase.from('patient_family_links').delete().eq('family_id', user.id);
-      await supabase.from('patients').delete().eq('created_by', user.id);
-      await supabase.from('inscriptions').delete().eq('user_id', user.id);
-      await supabase.from('notifications').delete().eq('user_id', user.id);
-      await supabase.from('profiles').delete().eq('id', user.id);
+    // ✅ Supprimer le profil
+    await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', user.id);
 
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+    // ✅ Supprimer l'utilisateur Supabase Auth
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
 
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/auth/delete-account`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({ userId: user.id }),
-          }
-        );
+    await fetch(`${import.meta.env.VITE_API_URL}/auth/delete-account`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ userId: user.id }),
+    });
 
-        if (!response.ok) {
-          console.warn('Suppression backend incomplète');
-        }
-      } catch (apiError) {
-        console.warn('API delete error:', apiError);
-      }
+    // ✅ Nettoyer le localStorage
+    localStorage.removeItem('sante_plus_preferences');
+    localStorage.removeItem('auth-storage');
 
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem('auth-storage');
-
-      await logout();
-
-      toast.success('Compte supprimé');
-      navigate('/login');
-    } catch (error: any) {
-      console.error('❌ Erreur suppression compte:', error);
-      toast.error(error?.message || 'Erreur lors de la suppression du compte');
-    } finally {
-      setIsLoading(false);
-      setShowDeleteModal(false);
-    }
-  };
-
+    // ✅ Déconnexion
+    await supabase.auth.signOut();
+    
+    toast.success('✅ Compte et tous vos proches supprimés avec succès');
+    navigate('/login');
+    
+  } catch (error: any) {
+    console.error('❌ Erreur suppression:', error);
+    toast.error(error?.message || 'Erreur lors de la suppression du compte');
+  } finally {
+    setIsLoading(false);
+  }
+};
   const handleLanguageChange = (lang: 'fr' | 'en') => {
     const newPrefs: Preferences = {
       ...formData.preferences,
