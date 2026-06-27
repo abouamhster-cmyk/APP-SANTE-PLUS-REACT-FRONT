@@ -15,15 +15,11 @@ import {
   Users,
   Baby,
   Star,
-  DollarSign,
-  Calendar,
-  Hash,
-  X,
 } from 'lucide-react';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { formatDate, formatCurrency } from '@/utils/helpers';
-import { Modal, ModalActions, ModalWithForm } from '@/components/ui';
+import { formatCurrency } from '@/utils/helpers';
+import { Modal, ModalActions } from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 
 interface Offer {
@@ -82,7 +78,7 @@ const categoryOptions = [
   { value: 'pack_confort', label: '⭐ Pack Confort' },
 ];
 
-const typeOptions = [
+const typeOptions: { value: Offer['type']; label: string }[] = [
   { value: 'ponctuelle', label: '⚡ Ponctuelle' },
   { value: 'mensuelle', label: '📅 Mensuelle' },
   { value: 'trimestrielle', label: '📅 Trimestrielle' },
@@ -507,8 +503,8 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
     try {
       const data = {
         name: formData.name,
-        category: formData.category,
-        type: formData.type,
+        category: formData.category as Offer['category'],
+        type: formData.type as Offer['type'],
         description: formData.description || null,
         price: formData.price ? parseFloat(String(formData.price)) : null,
         visits_per_week: formData.visits_per_week ? parseInt(String(formData.visits_per_week)) : null,
@@ -599,7 +595,7 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
             </label>
             <select
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value as Offer['category'] })}
               className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
               style={{ borderColor: colors.border, color: colors.text }}
             >
@@ -614,7 +610,7 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
             </label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value as Offer['type'] })}
               className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
               style={{ borderColor: colors.border, color: colors.text }}
             >
