@@ -11,18 +11,8 @@ import {
   ClipboardList,
   UserCheck,
   Briefcase,
-  CreditCard,
-  Bell,
   MessageCircle,
-  MapPin,
-  History,
-  Award,
-  Package,
   Menu,
-  BookOpen,
-  Hospital,
-  Home,
-  Heart,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -33,16 +23,15 @@ interface MobileTabBarProps {
 }
 
 // =============================================
-// DÉFINITION DES MENUS PAR RÔLE (MAX 5)
+// 5 ÉLÉMENTS MAX PAR RÔLE
 // =============================================
 
-// ✅ Toujours 5 éléments max : Accueil + 4 autres
 const getMainItems = (role: string | null) => {
   const base = [
     { icon: <LayoutDashboard size={22} />, label: 'Accueil', path: '/app' },
   ];
 
-  // 👨‍👩‍👦 FAMILLE - 5 éléments max
+  // 👨‍👩‍👦 FAMILLE
   if (role === 'family') {
     return [
       ...base,
@@ -53,18 +42,18 @@ const getMainItems = (role: string | null) => {
     ];
   }
 
-  // 🦸 AIDANT - 5 éléments max
+  // 🦸 AIDANT
   if (role === 'aidant') {
     return [
       ...base,
-      { icon: <Calendar size={22} />, label: 'Missions', path: '/app/missions' },
+      { icon: <Briefcase size={22} />, label: 'Missions', path: '/app/missions' },
       { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
       { icon: <MessageCircle size={22} />, label: 'Messages', path: '/app/messages' },
       { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
-  // 👔 ADMIN / COORDINATEUR - 5 éléments max
+  // 👔 ADMIN / COORDINATEUR
   if (role === 'admin' || role === 'coordinator') {
     return [
       ...base,
@@ -75,34 +64,27 @@ const getMainItems = (role: string | null) => {
     ];
   }
 
-  // 🔄 FALLBACK
-  return [
-    ...base,
-    { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
-  ];
+  return base;
 };
 
 // =============================================
-// MENU "PLUS" - TOUS LES AUTRES MENUS
+// MENU "PLUS" - TOUS LES AUTRES
 // =============================================
 
 const getMoreItems = (role: string | null) => {
-  // 👨‍👩‍👦 FAMILLE
   if (role === 'family') {
     return [
       { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
       { icon: <BookOpen size={18} />, label: 'Journal', path: '/app/journal' },
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
       { icon: <Hospital size={18} />, label: 'Sortie', path: '/app/discharge' },
-      { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
       { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications' },
     ];
   }
 
-  // 🦸 AIDANT
   if (role === 'aidant') {
     return [
-      { icon: <Briefcase size={18} />, label: 'Planning', path: '/app/planning' },
+      { icon: <Calendar size={18} />, label: 'Planning', path: '/app/planning' },
       { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
       { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
@@ -110,20 +92,18 @@ const getMoreItems = (role: string | null) => {
     ];
   }
 
-  // 👔 ADMIN / COORDINATEUR
   if (role === 'admin' || role === 'coordinator') {
     return [
-      { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/app/admin' },
-      { icon: <UserCheck size={18} />, label: 'Candidatures', path: '/app/aidant-candidates' },
+      { icon: <LayoutDashboard size={18} />, label: 'Dashboard Admin', path: '/app/admin' },
+      { icon: <UserCheck size={18} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
       { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits' },
       { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
       { icon: <CreditCard size={18} />, label: 'Paiements', path: '/app/admin-payments' },
       { icon: <Award size={18} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
-      { icon: <Bell size={18} />, label: 'Notifs', path: '/app/admin-notifications' },
       { icon: <Package size={18} />, label: 'Offres', path: '/app/offers' },
+      { icon: <Bell size={18} />, label: 'Notifs Admin', path: '/app/admin-notifications' },
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
       { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
-      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications' },
     ];
   }
 
@@ -158,9 +138,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         paddingBottom: 'max(4px, env(safe-area-inset-bottom))',
       }}
     >
-      {/* ========================================== */}
-      {/* 5 ÉLÉMENTS MAX */}
-      {/* ========================================== */}
       {mainItems.map((item) => {
         const active = isActive(item.path);
 
@@ -185,7 +162,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
               {item.label}
             </span>
 
-            {/* Badge notifications sur Accueil */}
             {item.path === '/app' && unreadCount > 0 && (
               <span
                 className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 text-[9px] text-white rounded-full flex items-center justify-center"
@@ -198,9 +174,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         );
       })}
 
-      {/* ========================================== */}
-      {/* BOUTON "PLUS" - TOUS LES AUTRES MENUS */}
-      {/* ========================================== */}
       {moreItems.length > 0 && (
         <div className="relative">
           <button
