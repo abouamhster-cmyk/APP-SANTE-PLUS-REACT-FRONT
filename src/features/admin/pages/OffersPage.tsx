@@ -20,25 +20,8 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency } from '@/utils/helpers';
 import { Modal, ModalActions } from '@/components/ui/Modal';
+import { Offer } from '@/types';
 import toast from 'react-hot-toast';
-
-interface Offer {
-  id: string;
-  name: string;
-  category: 'senior' | 'maman_bebe' | 'pack_confort';
-  type: 'ponctuelle' | 'mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle' | 'sur_devis';
-  description: string | null;
-  price: number | null;
-  features: string[];
-  visits_per_week: number | null;
-  duration_days: number | null;
-  is_active: boolean;
-  is_public: boolean;
-  display_order: number;
-  badge: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 // ✅ Fonctions
 const getCategoryLabel = (category: string): string => {
@@ -377,7 +360,7 @@ interface OfferCardCompactProps {
 
 const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: OfferCardCompactProps) => {
   const categoryColor = getCategoryColor(offer.category);
-  const isActive = offer.is_active;
+  const isActive = offer.is_active ?? true;
 
   return (
     <div
@@ -410,7 +393,7 @@ const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: O
             {isActive ? '✅' : '❌'}
           </span>
         </div>
-        <span className="text-[9px] text-gray-400">#{offer.display_order}</span>
+        <span className="text-[9px] text-gray-400">#{offer.display_order || 0}</span>
       </div>
 
       <h3 className="text-sm font-bold mt-1" style={{ color: colors.text }}>
@@ -421,7 +404,7 @@ const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: O
         <span className="text-base font-bold" style={{ color: colors.primary }}>
           {offer.price ? formatCurrency(offer.price) : 'Sur devis'}
         </span>
-        <span className="text-[9px] text-gray-400">{getTypeLabel(offer.type)}</span>
+        <span className="text-[9px] text-gray-400">{getTypeLabel(offer.type || 'mensuelle')}</span>
       </div>
 
       {offer.features && offer.features.length > 0 && (
@@ -488,12 +471,14 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
     description: offer?.description || '',
     price: offer?.price !== null && offer?.price !== undefined ? String(offer.price) : '',
     features: offer?.features?.join(', ') || '',
-    visits_per_week: offer?.visits_per_week !== null && offer?.visits_per_week !== undefined ? String(offer.visits_per_week) : '',
-    duration_days: offer?.duration_days !== null && offer?.duration_days !== undefined ? String(offer.duration_days) : '',
+    visits_per_week: offer?.visitsPerWeek !== null && offer?.visitsPerWeek !== undefined ? String(offer.visitsPerWeek) : '',
+    duration_days: offer?.durationDays !== null && offer?.durationDays !== undefined ? String(offer.durationDays) : '',
     badge: offer?.badge || '',
     is_active: offer?.is_active ?? true,
     is_public: offer?.is_public ?? true,
     display_order: offer?.display_order !== undefined ? String(offer.display_order) : '0',
+    total_visits: offer?.total_visits !== null && offer?.total_visits !== undefined ? String(offer.total_visits) : '',
+    total_orders: offer?.total_orders !== null && offer?.total_orders !== undefined ? String(offer.total_orders) : '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -514,6 +499,8 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
         is_active: formData.is_active,
         is_public: formData.is_public,
         display_order: parseInt(String(formData.display_order)) || 0,
+        total_visits: formData.total_visits ? parseInt(String(formData.total_visits)) : null,
+        total_orders: formData.total_orders ? parseInt(String(formData.total_orders)) : null,
       };
 
       if (offer) {
@@ -667,6 +654,33 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
               type="number"
               value={formData.duration_days}
               onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Total visites
+            </label>
+            <input
+              type="number"
+              value={formData.total_visits}
+              onChange={(e) => setFormData({ ...formData, total_visits: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Total commandes
+            </label>
+            <input
+              type="number"
+              value={formData.total_orders}
+              onChange={(e) => setFormData({ ...formData, total_orders: e.target.value })}
               className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
               style={{ borderColor: colors.border, color: colors.text }}
             />
