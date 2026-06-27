@@ -1,12 +1,11 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
-// ✅ Version corrigée - Gestion de profile null
-
+ 
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Mail, Phone, Edit2, Save, Camera, LogOut, ChevronRight,
-  CheckCircle, Lock, Bell, Moon, Sun, Globe, Trash2, User, X, AlertCircle,
+  CheckCircle, Lock, Bell, Moon, Sun, Globe, Trash2, X, AlertCircle,
   Calendar, Users, ShoppingBag, ShieldCheck, Smartphone,
 } from 'lucide-react';
 
@@ -19,6 +18,10 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
+// =============================================
+// TYPES
+// =============================================
+
 type ProfileTab = 'profile' | 'settings' | 'security';
 
 interface Preferences {
@@ -26,6 +29,10 @@ interface Preferences {
   darkMode: boolean;
   language: 'fr' | 'en';
 }
+
+// =============================================
+// CONSTANTES
+// =============================================
 
 const DEFAULT_PREFERENCES: Preferences = {
   notifications: true,
@@ -48,6 +55,10 @@ const darkThemeVars = {
   '--color-text-light': '#a8b6b0',
   '--color-border': '#25362f',
 };
+
+// =============================================
+// UTILITAIRES
+// =============================================
 
 const applyThemeMode = (darkMode: boolean) => {
   const root = document.documentElement;
@@ -72,6 +83,9 @@ const getSavedPreferences = (): Preferences => {
   } catch { return DEFAULT_PREFERENCES; }
 };
 
+const getInitials = (name: string) => 
+  name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+
 // =============================================
 // COMPOSANT PRINCIPAL
 // =============================================
@@ -84,6 +98,10 @@ const ProfilePage = () => {
   const { orders, fetchOrders } = useOrderStore();
   const toggleNotifications = useNotificationStore((state) => state.toggleNotifications);
   const notificationsEnabled = useNotificationStore((state) => state.notificationsEnabled);
+
+  // =============================================
+  // ÉTATS
+  // =============================================
 
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +125,10 @@ const ProfilePage = () => {
     newPassword: '',
     confirmPassword: '',
   });
+
+  // =============================================
+  // THEME & RÔLE
+  // =============================================
 
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
@@ -143,7 +165,7 @@ const ProfilePage = () => {
   }, [fetchPatients, fetchVisits, fetchOrders]);
 
   // =============================================
-  // FONCTIONS
+  // FONCTIONS - PRÉFÉRENCES
   // =============================================
 
   const savePreferences = (prefs: Preferences, message?: string) => {
@@ -154,6 +176,10 @@ const ProfilePage = () => {
       setTimeout(() => setPreferenceMessage(''), 1800); 
     }
   };
+
+  // =============================================
+  // FONCTIONS - PROFIL
+  // =============================================
 
   const handleSaveProfile = async () => {
     if (!formData.full_name.trim()) return toast.error('Le nom est obligatoire');
@@ -191,6 +217,21 @@ const ProfilePage = () => {
     } finally { setIsLoading(false); }
   };
 
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return toast.error('Veuillez sélectionner une image');
+    if (file.size > 5 * 1024 * 1024) return toast.error("L'image ne doit pas dépasser 5MB");
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => setAvatarPreview(event.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  // =============================================
+  // FONCTIONS - MOT DE PASSE
+  // =============================================
+
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     if (!passwordData.currentPassword) return toast.error('Mot de passe actuel requis');
@@ -219,6 +260,10 @@ const ProfilePage = () => {
       toast.error(error?.message || 'Erreur');
     } finally { setIsLoading(false); }
   };
+
+  // =============================================
+  // FONCTIONS - SUPPRESSION COMPTE
+  // =============================================
 
   const handleDeleteAccount = async () => {
     if (!window.confirm('⚠️ Cette action supprimera définitivement votre compte ET tous vos proches.')) return;
@@ -267,13 +312,9 @@ const ProfilePage = () => {
     } finally { setIsLoading(false); }
   };
 
-  const handleLanguageChange = (lang: 'fr' | 'en') => {
-    savePreferences(
-      { ...formData.preferences, language: lang }, 
-      lang === 'fr' ? 'Langue définie en français' : 'Language set to English'
-    );
-    setShowLanguageModal(false);
-  };
+  // =============================================
+  // FONCTIONS - PRÉFÉRENCES UI
+  // =============================================
 
   const handleToggleNotifications = () => {
     const nextValue = !formData.preferences.notifications;
@@ -293,21 +334,26 @@ const ProfilePage = () => {
     );
   };
 
-  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return toast.error('Veuillez sélectionner une image');
-    if (file.size > 5 * 1024 * 1024) return toast.error("L'image ne doit pas dépasser 5MB");
-    setAvatarFile(file);
-    const reader = new FileReader();
-    reader.onload = (event) => setAvatarPreview(event.target?.result as string);
-    reader.readAsDataURL(file);
+  const handleLanguageChange = (lang: 'fr' | 'en') => {
+    savePreferences(
+      { ...formData.preferences, language: lang }, 
+      lang === 'fr' ? 'Langue définie en français' : 'Language set to English'
+    );
+    setShowLanguageModal(false);
   };
+
+  // =============================================
+  // FONCTIONS - DÉCONNEXION
+  // =============================================
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
+
+  // =============================================
+  // STATS
+  // =============================================
 
   const quickStats = [
     { label: 'Proches', value: patients.length, icon: <Users size={16} /> },
@@ -315,17 +361,16 @@ const ProfilePage = () => {
     { label: 'Commandes', value: orders.length, icon: <ShoppingBag size={16} /> },
   ];
 
-  const getInitials = (name: string) => 
-    name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-
   // =============================================
   // RENDU
   // =============================================
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
+    <div className="max-w-2xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
       
-      {/* Message de préférence */}
+      {/* ========================================== */}
+      {/* MESSAGE DE PRÉFÉRENCE */}
+      {/* ========================================== */}
       {preferenceMessage && (
         <div 
           className="fixed top-20 left-1/2 -translate-x-1/2 z-[80] px-4 py-2 rounded-2xl shadow-lg text-white text-sm font-bold"
@@ -336,20 +381,21 @@ const ProfilePage = () => {
       )}
 
       {/* ========================================== */}
-      {/* HEADER - Design épuré */}
+      {/* HEADER - CARTE PROFIL */}
       {/* ========================================== */}
       <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+          
           {/* Avatar */}
-          <div className="relative w-fit">
+          <div className="relative mx-auto sm:mx-0">
             <div 
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm shrink-0"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm"
               style={{ background: colors.primary }}
             >
               {avatarPreview ? (
                 <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover rounded-3xl" />
               ) : (
-                getInitials(profile?.full_name || 'U')
+                getInitials(profile?.full_name)
               )}
             </div>
             {isEditing && (
@@ -363,7 +409,7 @@ const ProfilePage = () => {
             )}
           </div>
 
-          {/* Infos */}
+          {/* Infos utilisateur */}
           <div className="flex-1 text-center sm:text-left min-w-0">
             <h1 className="text-xl sm:text-2xl font-extrabold truncate" style={{ color: colors.text }}>
               {profile?.full_name || 'Utilisateur'}
@@ -405,9 +451,7 @@ const ProfilePage = () => {
       {/* ========================================== */}
       {isEditing && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold" style={{ color: colors.text }}>Modifier mes informations</h3>
-          </div>
+          <h3 className="text-sm font-bold mb-4" style={{ color: colors.text }}>✏️ Modifier mes informations</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input 
               value={formData.full_name} 
@@ -437,7 +481,7 @@ const ProfilePage = () => {
             className="w-full mt-4 py-3 rounded-2xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60"
             style={{ background: colors.primary }}
           >
-            {isLoading ? 'Enregistrement...' : '💾 Enregistrer'}
+            {isLoading ? '⏳ Enregistrement...' : '💾 Enregistrer'}
           </button>
         </section>
       )}
@@ -445,7 +489,7 @@ const ProfilePage = () => {
       {/* ========================================== */}
       {/* TABS */}
       {/* ========================================== */}
-      <div className="flex bg-gray-50 p-1 rounded-2xl w-fit">
+      <div className="flex bg-gray-50 p-1 rounded-2xl w-fit mx-auto sm:mx-0">
         {(['profile', 'settings', 'security'] as const).map((tab) => (
           <button 
             key={tab} 
@@ -455,7 +499,9 @@ const ProfilePage = () => {
             }`}
             style={{ color: activeTab === tab ? colors.primary : undefined }}
           >
-            {tab === 'profile' ? '👤 Profil' : tab === 'settings' ? '⚙️ Préférences' : '🔒 Sécurité'}
+            {tab === 'profile' && '👤 Profil'}
+            {tab === 'settings' && '⚙️ Préférences'}
+            {tab === 'security' && '🔒 Sécurité'}
           </button>
         ))}
       </div>
@@ -505,7 +551,7 @@ const ProfilePage = () => {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: colors.primary + '10', color: colors.primary }}>
                   <Globe size={16} />
                 </div>
-                <div>
+                <div className="text-left">
                   <p className="font-bold text-sm" style={{ color: colors.text }}>Langue</p>
                   <p className="text-xs text-gray-400">{formData.preferences.language === 'fr' ? 'Français' : 'English'}</p>
                 </div>
@@ -530,7 +576,7 @@ const ProfilePage = () => {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: colors.primary + '10', color: colors.primary }}>
                   <Smartphone size={16} />
                 </div>
-                <div>
+                <div className="text-left">
                   <p className="font-bold text-sm" style={{ color: colors.text }}>Appareil connecté</p>
                   <p className="text-xs text-gray-400">{navigator.userAgent?.split(' ').slice(-2).join(' ') || 'Navigateur'}</p>
                 </div>
@@ -542,7 +588,7 @@ const ProfilePage = () => {
               className="w-full p-4 rounded-2xl border-2 border-red-200 bg-red-50 text-red-600 font-bold text-left hover:bg-red-100 transition flex items-center gap-3"
             >
               <Trash2 size={16} />
-              <div>
+              <div className="text-left">
                 <p className="text-sm">🗑️ Supprimer mon compte</p>
                 <p className="text-[10px] font-normal text-red-400">⚠️ Supprime définitivement votre compte et tous vos proches</p>
               </div>
@@ -650,6 +696,10 @@ const ProfilePage = () => {
 // COMPOSANTS
 // =============================================
 
+// =============================================
+// INFO FIELD
+// =============================================
+
 const InfoField = ({ label, value }: { label: string; value: string }) => (
   <div className="p-4 rounded-2xl bg-gray-50">
     <p className="text-[10px] font-bold uppercase text-gray-400">{label}</p>
@@ -657,33 +707,81 @@ const InfoField = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
+// =============================================
+// SETTING TOGGLE
+// =============================================
+
 const SettingToggle = ({ 
   icon, title, description, active, onClick, colors 
 }: { 
-  icon: ReactNode; title: string; description: string; active: boolean; onClick: () => void; colors: any 
+  icon: ReactNode; 
+  title: string; 
+  description: string; 
+  active: boolean; 
+  onClick: () => void; 
+  colors: any 
 }) => (
-  <button onClick={onClick} className="w-full flex items-center justify-between p-4 rounded-2xl border hover:bg-gray-50 transition" style={{ borderColor: colors.border }}>
+  <button 
+    onClick={onClick} 
+    className="w-full flex items-center justify-between p-4 rounded-2xl border hover:bg-gray-50 transition"
+    style={{ borderColor: colors.border }}
+  >
     <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: colors.primary + '10', color: colors.primary }}>{icon}</div>
+      <div 
+        className="w-9 h-9 rounded-xl flex items-center justify-center"
+        style={{ background: colors.primary + '10', color: colors.primary }}
+      >
+        {icon}
+      </div>
       <div className="text-left">
         <p className="font-bold text-sm" style={{ color: colors.text }}>{title}</p>
         <p className="text-xs text-gray-400">{description}</p>
       </div>
     </div>
-    <div className="w-10 h-6 rounded-full transition relative shrink-0" style={{ background: active ? colors.primary : '#d1d5db' }}>
-      <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: active ? 'translateX(18px)' : 'translateX(2px)' }} />
+    <div 
+      className="w-10 h-6 rounded-full transition relative shrink-0"
+      style={{ background: active ? colors.primary : '#d1d5db' }}
+    >
+      <div 
+        className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+        style={{ transform: active ? 'translateX(18px)' : 'translateX(2px)' }}
+      />
     </div>
   </button>
 );
 
+// =============================================
+// ACTION ROW
+// =============================================
+
 const ActionRow = ({ 
   icon, title, description, onClick, colors, danger 
 }: { 
-  icon: ReactNode; title: string; description?: string; onClick: () => void; colors: any; danger?: boolean 
+  icon: ReactNode; 
+  title: string; 
+  description?: string; 
+  onClick: () => void; 
+  colors: any; 
+  danger?: boolean 
 }) => (
-  <button onClick={onClick} className="w-full flex items-center justify-between p-4 rounded-2xl border transition hover:bg-gray-50" style={{ borderColor: danger ? '#FECACA' : colors.border, background: danger ? '#FEF2F2' : undefined }}>
+  <button 
+    onClick={onClick} 
+    className="w-full flex items-center justify-between p-4 rounded-2xl border transition hover:bg-gray-50"
+    style={{ 
+      borderColor: danger ? '#FECACA' : colors.border, 
+      background: danger ? '#FEF2F2' : undefined 
+    }}
+  >
     <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: danger ? '#FEE2E2' : colors.primary + '10', color: danger ? '#EF4444' : colors.primary }}>{icon}</div>
+      <div 
+        className="w-9 h-9 rounded-xl flex items-center justify-center"
+        style={{ 
+          background: danger ? '#FEE2E2' : colors.primary + '10', 
+          color: danger ? '#EF4444' : colors.primary 
+        }}
+      >
+        {icon}
+      </div>
       <div className="text-left">
         <p className="font-bold text-sm" style={{ color: danger ? '#EF4444' : colors.text }}>{title}</p>
         {description && <p className="text-xs text-gray-400">{description}</p>}
