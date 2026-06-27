@@ -277,13 +277,6 @@ const ResetPasswordPage = () => {
             </>
           )}
         </div>
-
-        <div
-          className="mt-6 text-center text-xs"
-          style={{ color: 'var(--color-text-light, #6b7280)' }}
-        >
-          <p>Santé Plus Services — Un service d'accompagnement non médical</p>
-        </div>
       </div>
     </div>
   );
