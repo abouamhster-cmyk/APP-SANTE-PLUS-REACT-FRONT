@@ -452,7 +452,7 @@ const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: O
 };
 
 // =============================================
-// OFFER FORM MODAL
+// OFFER FORM MODAL - CORRIGÉ
 // =============================================
 
 interface OfferFormModalProps {
@@ -464,10 +464,12 @@ interface OfferFormModalProps {
 
 const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  
+  // ✅ Valeurs par défaut avec type non undefined
   const [formData, setFormData] = useState({
     name: offer?.name || '',
-    category: offer?.category || 'senior',
-    type: offer?.type || 'mensuelle',
+    category: (offer?.category || 'senior') as Offer['category'],
+    type: (offer?.type || 'mensuelle') as Offer['type'],
     description: offer?.description || '',
     price: offer?.price !== null && offer?.price !== undefined ? String(offer.price) : '',
     features: offer?.features?.join(', ') || '',
@@ -488,8 +490,8 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
     try {
       const data = {
         name: formData.name,
-        category: formData.category as Offer['category'],
-        type: formData.type as Offer['type'],
+        category: formData.category,
+        type: formData.type, // ✅ Maintenant toujours défini
         description: formData.description || null,
         price: formData.price ? parseFloat(String(formData.price)) : null,
         visits_per_week: formData.visits_per_week ? parseInt(String(formData.visits_per_week)) : null,
@@ -539,7 +541,7 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
       actions={
         <ModalActions
           onCancel={onClose}
-          onConfirm={() => handleSubmit}
+          onConfirm={handleSubmit}
           confirmLabel={offer ? 'Mettre à jour' : 'Créer'}
           isLoading={isLoading}
         />
