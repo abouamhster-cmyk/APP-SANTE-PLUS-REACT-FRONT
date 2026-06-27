@@ -33,7 +33,7 @@ interface ContractModalProps {
 }
 
 // =============================================
-// PROGRESS BAR (FIN & PREMIUM)
+// PROGRESS BAR
 // =============================================
 const ProgressBar = ({ progress }: { progress: number }) => {
   return (
@@ -68,7 +68,7 @@ export const ContractModal = ({
   const colors = getThemeColors('senior');
 
   // =============================================
-  // ROLE
+  // ROLE LABEL
   // =============================================
   const getRoleLabel = (role: string) => {
     const roles: Record<string, { label: string; icon: string }> = {
@@ -81,7 +81,7 @@ export const ContractModal = ({
   };
 
   // =============================================
-  // SCROLL
+  // SCROLL DETECTION
   // =============================================
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -92,7 +92,7 @@ export const ContractModal = ({
   }, []);
 
   // =============================================
-  // TIMER
+  // TIMER DE LECTURE
   // =============================================
   useEffect(() => {
     if (!isOpen) {
@@ -127,7 +127,7 @@ export const ContractModal = ({
   const handleRefuse = () => {
     if (onClose) onClose();
     useAuthStore.getState().logout();
-    toast.error("Vous devez accepter les conditions");
+    toast.error("Vous devez accepter les conditions pour continuer");
   };
 
   if (!isOpen || !contract) return null;
@@ -139,32 +139,25 @@ export const ContractModal = ({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-
       <motion.div
         className="bg-white/95 backdrop-blur-xl rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.08)] border border-black/5 flex flex-col"
         initial={{ scale: 0.96, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
       >
-
         {/* ================= HEADER ================= */}
         <div className="sticky top-0 bg-white/80 backdrop-blur-xl border-b border-black/5 z-10">
-
           <div className="flex items-center justify-between px-6 py-4">
-
             <div className="flex items-center gap-3 min-w-0">
-
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ background: colors.primary + '10', color: colors.primary }}
               >
                 <Scale size={20} />
               </div>
-
               <div className="min-w-0">
                 <h2 className="text-base font-semibold truncate" style={{ color: colors.text }}>
                   {contract.title}
                 </h2>
-
                 <div className="flex items-center gap-2 text-[11px] mt-1 opacity-60">
                   <span>{roleInfo.icon} {roleInfo.label}</span>
                   <span>•</span>
@@ -174,7 +167,6 @@ export const ContractModal = ({
                 </div>
               </div>
             </div>
-
             <button
               onClick={handleRefuse}
               className="p-2 rounded-lg hover:bg-black/5 transition"
@@ -182,7 +174,6 @@ export const ContractModal = ({
               <X size={18} />
             </button>
           </div>
-
           <div className="px-6 pb-2">
             <ProgressBar progress={progress} />
           </div>
@@ -195,7 +186,6 @@ export const ContractModal = ({
           className="flex-1 overflow-y-auto px-6 py-5"
           style={{ color: colors.text }}
         >
-
           {/* SUMMARY */}
           {contract.summary && showSummary && (
             <div className="mb-5 p-4 rounded-xl border border-black/5 bg-black/[0.02]">
@@ -211,7 +201,7 @@ export const ContractModal = ({
             </div>
           )}
 
-          {/* CONTENT */}
+          {/* CONTENT - Rendu HTML sécurisé */}
           <div
             className="prose prose-sm max-w-none"
             style={{
@@ -227,7 +217,7 @@ export const ContractModal = ({
             <div className="text-center mt-6">
               <div className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-black/5">
                 <ChevronDown size={14} />
-                Lire jusqu’en bas pour continuer
+                Lire jusqu'en bas pour continuer
               </div>
             </div>
           )}
@@ -246,9 +236,7 @@ export const ContractModal = ({
 
         {/* ================= FOOTER ================= */}
         <div className="sticky bottom-0 bg-white/90 backdrop-blur-xl border-t border-black/5 px-6 py-4">
-
           <div className="flex flex-col gap-4">
-
             {/* CHECKBOX */}
             <div className="flex items-start gap-3">
               <input
@@ -272,7 +260,6 @@ export const ContractModal = ({
 
             {/* ACTIONS */}
             <div className="flex gap-3">
-
               <button
                 onClick={handleRefuse}
                 className="flex-1 py-3 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition flex items-center justify-center gap-2"
@@ -280,7 +267,6 @@ export const ContractModal = ({
                 <AlertTriangle size={16} />
                 Refuser
               </button>
-
               <button
                 onClick={handleAccept}
                 disabled={!isChecked || !scrolledToBottom || isLoading}
@@ -304,7 +290,6 @@ export const ContractModal = ({
                 )}
               </button>
             </div>
-
           </div>
         </div>
       </motion.div>
