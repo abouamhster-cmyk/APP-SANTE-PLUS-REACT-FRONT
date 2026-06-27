@@ -386,28 +386,29 @@ const ProfilePage = () => {
       <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           
-          {/* Avatar */}
-          <div className="relative mx-auto sm:mx-0">
-            <div 
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm"
-              style={{ background: colors.primary }}
-            >
-              {avatarPreview ? (
-                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover rounded-3xl" />
-              ) : (
-                getInitials(profile?.full_name)
-              )}
-            </div>
-            {isEditing && (
-              <label 
-                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer hover:scale-105 transition"
-                style={{ color: colors.primary }}
-              >
-                <Camera size={15} />
-                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-              </label>
-            )}
-          </div>
+         {/* Avatar */}
+           <div className="relative mx-auto sm:mx-0">
+             <div 
+               className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm"
+               style={{ background: colors.primary }}
+             >
+               {avatarPreview ? (
+                 <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover rounded-3xl" />
+               ) : (
+                 // ✅ CORRECTION : passer une chaîne vide par défaut si profile?.full_name est undefined
+                 getInitials(profile?.full_name || '')
+               )}
+             </div>
+             {isEditing && (
+               <label 
+                 className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer hover:scale-105 transition"
+                 style={{ color: colors.primary }}
+               >
+                 <Camera size={15} />
+                 <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+               </label>
+             )}
+           </div>
 
           {/* Infos utilisateur */}
           <div className="flex-1 text-center sm:text-left min-w-0">
