@@ -14,6 +14,20 @@ import {
   ArrowRight,
   Sparkles,
   Plus,
+  CreditCard,
+  MapPin,
+  BookOpen,
+  Hospital,
+  Briefcase,
+  History,
+  Settings,
+  ClipboardList,
+  UserCheck,
+  Award,
+  Bell,
+  FileText,
+  Package,
+  LayoutDashboard,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -37,16 +51,28 @@ const DashboardPage = () => {
     plural,
     list,
     add,
-    emoji,
-    getCountLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
 
-  const { patients, fetchPatients, isLoading: patientsLoading } = usePatientStore();
-  const { visits, fetchVisits, isLoading: visitsLoading } = useVisitStore();
-  const { orders, fetchOrders, isLoading: ordersLoading } = useOrderStore();
+  const {
+    patients,
+    fetchPatients,
+    isLoading: patientsLoading,
+  } = usePatientStore();
+
+  const {
+    visits,
+    fetchVisits,
+    isLoading: visitsLoading,
+  } = useVisitStore();
+
+  const {
+    orders,
+    fetchOrders,
+    isLoading: ordersLoading,
+  } = useOrderStore();
 
   const [greeting, setGreeting] = useState('');
   const [isMaman, setIsMaman] = useState(false);
@@ -66,6 +92,7 @@ const DashboardPage = () => {
     setIsMaman(hasMamanPatient);
   }, [patients]);
 
+  // 📌 Statistiques
   const stats = {
     proches: patients.length,
     upcomingVisits: visits.filter((v) => v.status === 'planifiee').length,
@@ -88,49 +115,68 @@ const DashboardPage = () => {
     ? '/assets/images/banners/maman-banner.png'
     : '/assets/images/banners/senior-banner.png';
 
-  const getQuickActions = () => {
-    const actions = [
-      {
-        icon: <Users size={18} />,
-        label: isFamily ? 'Proches' : isAidant ? 'Personnes' : 'Bénéficiaires',
-        color: colors.primary,
-        action: () => navigate('/app/patients'),
-      },
-      {
-        icon: <Calendar size={18} />,
-        label: 'Visites',
-        color: colors.accent,
-        action: () => navigate('/app/visits'),
-      },
-      {
-        icon: <ShoppingBag size={18} />,
-        label: 'Commande',
-        color: colors.secondary,
-        action: () => navigate('/app/orders/create'),
-      },
-      {
-        icon: <MessageCircle size={18} />,
-        label: 'Messages',
-        color: colors.primary,
-        action: () => navigate('/app/messages'),
-      },
-    ];
+  // ✅ TUILES DE REDIRECTION SELON LE RÔLE
+  const getDashboardTiles = () => {
+    const tiles = [];
 
-    if (isAdminOrCoordinator) {
-      actions.push({
-        icon: <Users size={18} />,
-        label: 'Admin',
-        color: '#9C27B0',
-        action: () => navigate('/app/admin'),
-      });
+    // 👨‍👩‍👦 FAMILLE
+    if (role === 'family') {
+      tiles.push(
+        { icon: <Users size={24} />, label: list, color: colors.primary, path: '/app/patients', badge: patients.length },
+        { icon: <Calendar size={24} />, label: 'Visites', color: colors.accent, path: '/app/visits', badge: stats.upcomingVisits },
+        { icon: <ShoppingBag size={24} />, label: 'Commandes', color: colors.secondary, path: '/app/orders', badge: stats.pendingOrders },
+        { icon: <MessageCircle size={24} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
+        { icon: <CreditCard size={24} />, label: 'Abonnement', color: '#4CAF50', path: '/app/billing' },
+        { icon: <BookOpen size={24} />, label: 'Journal', color: '#9C27B0', path: '/app/journal' },
+        { icon: <MapPin size={24} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+        { icon: <Hospital size={24} />, label: 'Sortie hôpital', color: '#E91E63', path: '/app/discharge' },
+        { icon: <User size={24} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+      );
     }
 
-    return actions;
+    // 🦸 AIDANT
+    if (role === 'aidant') {
+      tiles.push(
+        { icon: <Calendar size={24} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
+        { icon: <Briefcase size={24} />, label: 'Planning', color: colors.accent, path: '/app/planning' },
+        { icon: <History size={24} />, label: 'Historique', color: '#9C27B0', path: '/app/history' },
+        { icon: <ShoppingBag size={24} />, label: 'Commandes', color: colors.secondary, path: '/app/orders', badge: stats.pendingOrders },
+        { icon: <MessageCircle size={24} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
+        { icon: <CreditCard size={24} />, label: 'Abonnement', color: '#4CAF50', path: '/app/billing' },
+        { icon: <MapPin size={24} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+        { icon: <User size={24} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+      );
+    }
+
+    // 👔 COORDINATEUR / ADMIN
+    if (role === 'coordinator' || role === 'admin') {
+      tiles.push(
+        { icon: <LayoutDashboard size={24} />, label: 'Dashboard Admin', color: '#9C27B0', path: '/app/admin' },
+        { icon: <ClipboardList size={24} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations || 0 },
+        { icon: <UserCheck size={24} />, label: 'Candidatures', color: '#FF9800', path: '/app/aidant-candidates' },
+        { icon: <Users size={24} />, label: 'Aidants', color: '#2196F3', path: '/app/aidants' },
+        { icon: <Users size={24} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
+        { icon: <Calendar size={24} />, label: 'Visites', color: colors.accent, path: '/app/visits' },
+        { icon: <ShoppingBag size={24} />, label: 'Commandes', color: colors.secondary, path: '/app/orders' },
+        { icon: <CreditCard size={24} />, label: 'Paiements', color: '#4CAF50', path: '/app/admin-payments' },
+        { icon: <Award size={24} />, label: 'Abonnements', color: '#9C27B0', path: '/app/admin-subscriptions' },
+        { icon: <Bell size={24} />, label: 'Notifications', color: '#FF9800', path: '/app/admin-notifications' },
+        { icon: <Package size={24} />, label: 'Offres', color: '#607D8B', path: '/app/offers' },
+        { icon: <Settings size={24} />, label: 'Paramètres', color: '#795548', path: '/app/settings' },
+        { icon: <MapPin size={24} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+        { icon: <User size={24} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+      );
+    }
+
+    return tiles;
   };
 
-  const quickActions = getQuickActions();
+  const tiles = getDashboardTiles();
 
-  const getHeroTitle = () => {
+  // ✅ Raccourcis rapides (4 premiers)
+  const quickActions = tiles.slice(0, 4);
+
+  const heroTitle = () => {
     if (isMaman) return 'Votre espace maman & bébé.';
     if (isFamily) return 'Un suivi clair pour votre proche.';
     if (isAidant) return 'Vos missions en un coup d\'œil.';
@@ -138,26 +184,11 @@ const DashboardPage = () => {
     return 'Bienvenue sur Santé Plus Services.';
   };
 
-  const getHeroDescription = () => {
-    if (isMaman) return 'Visites, messages et commandes réunis.';
-    if (isFamily) return 'Gardez une vue rapide sur les visites et commandes.';
-    if (isAidant) return 'Retrouvez vos missions et livraisons.';
-    if (isAdminOrCoordinator) return 'Supervisez l\'ensemble des activités.';
-    return 'Gérez vos accompagnements en toute simplicité.';
-  };
-
-  const getProchesTitle = () => {
-    if (isFamily) return 'Mes proches';
-    if (isAidant) return 'Mes personnes accompagnées';
-    if (isAdminOrCoordinator) return 'Bénéficiaires suivis';
-    return 'Personnes suivies';
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-4">
         <div className="h-32 rounded-2xl bg-white/70 animate-pulse" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-16 bg-white rounded-xl animate-pulse" />
           ))}
@@ -192,11 +223,8 @@ const DashboardPage = () => {
               {greeting}, {profile?.full_name || 'Bienvenue'} 👋
             </p>
             <h1 className="text-xl font-black text-white tracking-tight drop-shadow">
-              {getHeroTitle()}
+              {heroTitle()}
             </h1>
-            <p className="text-white text-xs mt-1 drop-shadow-sm">
-              {getHeroDescription()}
-            </p>
           </div>
         </div>
       </section>
@@ -233,24 +261,43 @@ const DashboardPage = () => {
         />
       </section>
 
-      {/* ACTIONS RAPIDES */}
-      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-        <div className="grid grid-cols-4 gap-2">
-          {quickActions.slice(0, 4).map((action, index) => (
+      {/* TUILES DE REDIRECTION */}
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-bold" style={{ color: colors.text }}>
+            🚀 Accès rapide
+          </h2>
+          <span className="text-xs text-gray-400">{tiles.length} sections</span>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+          {tiles.map((tile, index) => (
             <button
               key={index}
-              onClick={action.action}
-              className="flex flex-col items-center justify-center p-2 rounded-xl hover:bg-gray-50 transition"
+              onClick={() => navigate(tile.path)}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl border hover:shadow-md transition-all hover:-translate-y-0.5 active:scale-95"
+              style={{
+                borderColor: colors.border,
+                background: tile.color + '06',
+              }}
             >
               <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: action.color + '15', color: action.color }}
+                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1.5"
+                style={{ background: tile.color + '15', color: tile.color }}
               >
-                {action.icon}
+                {tile.icon}
               </div>
-              <span className="text-[10px] font-medium mt-1 text-center" style={{ color: colors.text }}>
-                {action.label}
+              <span className="text-[10px] font-medium text-center leading-tight" style={{ color: colors.text }}>
+                {tile.label}
               </span>
+              {tile.badge !== undefined && tile.badge > 0 && (
+                <span
+                  className="mt-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ background: tile.color + '20', color: tile.color }}
+                >
+                  {tile.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -261,7 +308,7 @@ const DashboardPage = () => {
         <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-bold" style={{ color: colors.text }}>
-              {getProchesTitle()}
+              {isFamily ? 'Mes proches' : isAidant ? 'Mes personnes accompagnées' : 'Bénéficiaires suivis'}
             </h2>
             <button
               onClick={() => navigate('/app/patients')}
@@ -271,7 +318,7 @@ const DashboardPage = () => {
               Voir tout <ArrowRight size={12} />
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {patients.slice(0, 2).map((patient) => (
               <PatientCard
                 key={patient.id}
