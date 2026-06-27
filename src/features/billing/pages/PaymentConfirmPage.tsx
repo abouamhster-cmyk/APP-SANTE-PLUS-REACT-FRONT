@@ -1,12 +1,10 @@
 // 📁 src/features/billing/pages/PaymentConfirmPage.tsx
-// ✅ VERSION CORRIGÉE - Uniquement affichage de confirmation
-// 🔥 La création de la commande est gérée UNIQUEMENT par le webhook backend
+
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, ShoppingBag } from 'lucide-react';
 import { getThemeColors } from '@/lib/permissions';
-import toast from 'react-hot-toast';
 
 const PaymentConfirmPage = () => {
   const navigate = useNavigate();
@@ -40,14 +38,12 @@ const PaymentConfirmPage = () => {
 
         // ✅ Nettoyer les données en attente (le webhook fait le travail)
         sessionStorage.removeItem('pending_ponctual_order');
-        localStorage.removeItem('pending_ponctual_order');
+        localStorage.setItem('pending_ponctual_order', JSON.stringify({})); // Clean safe fallback
+        console.log('📦 Données de commande sauvegardées');
 
-        // ✅ Démarrer le compte à rebours
         let countdown = 5;
-        setRedirectCountdown(countdown);
         const interval = setInterval(() => {
-          countdown--;
-          setRedirectCountdown(countdown);
+          countdown -= 1;
           if (countdown <= 0) {
             clearInterval(interval);
             navigate('/app/orders');
@@ -180,97 +176,105 @@ const PaymentConfirmPage = () => {
   // ✅ Rendu : État de chargement
   if (status === 'loading' || isChecking) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: colors.background }}>
-        <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-lg">
-          <Loader2 size={48} className="animate-spin mx-auto mb-4" style={{ color: colors.primary }} />
-          <h2 className="text-xl font-bold" style={{ color: colors.text }}>
+      <div className="min-h-screen flex items-center justify-center p-4 animate-fadeIn" style={{ background: colors.background }}>
+        <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+          <Loader2 size={36} className="animate-spin mx-auto mb-4" style={{ color: colors.primary }} />
+          <h2 className="text-lg font-extrabold tracking-tight" style={{ color: colors.text }}>
             {isChecking ? 'Vérification du paiement...' : 'Confirmation en cours...'}
           </h2>
-          <p className="text-sm mt-2" style={{ color: colors.text + '60' }}>
+          <p className="text-xs mt-1.5 leading-relaxed text-gray-500">
             {message}
           </p>
-          <p className="text-xs mt-4" style={{ color: colors.text + '40' }}>
-            ⏳ Cela peut prendre quelques instants
+          <p className="text-[10px] mt-4 font-semibold text-gray-400">
+            ⏳ Cette opération peut prendre quelques instants
           </p>
         </div>
       </div>
     );
   }
 
-  // ✅ Rendu : Succès
+  // ✅ Rendu : Succès (Paiement Validé)
   if (status === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: colors.background }}>
-        <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-lg">
-          <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#4CAF5015' }}>
-            <CheckCircle size={48} style={{ color: '#4CAF50' }} />
-          </div>
-          <h2 className="text-2xl font-bold" style={{ color: '#4CAF50' }}>
-            ✅ Paiement confirmé !
-          </h2>
-          <p className="text-sm mt-2" style={{ color: colors.text + '60' }}>
-            {message}
-          </p>
-          <div className="mt-3 p-3 rounded-xl" style={{ background: colors.primary + '08' }}>
-            <p className="text-sm" style={{ color: colors.text }}>
-              📦 Votre commande a été créée avec succès
-            </p>
-            <p className="text-xs mt-1" style={{ color: colors.text + '40' }}>
-              Vous recevrez une notification lorsque votre commande sera prise en charge
+      <div className="min-h-screen flex items-center justify-center p-4 animate-fadeIn" style={{ background: colors.background }}>
+        <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-5">
+          <div className="space-y-3">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: '#10b9810f' }}>
+              <CheckCircle size={36} style={{ color: '#10b981' }} />
+            </div>
+            <h2 className="text-xl font-extrabold tracking-tight" style={{ color: '#10b981' }}>
+              Paiement confirmé !
+            </h2>
+            <p className="text-xs leading-relaxed text-gray-500">
+              {message}
             </p>
           </div>
-          <div className="mt-6 flex flex-col gap-3">
+
+          <div className="p-3.5 rounded-2xl text-left space-y-1" style={{ background: colors.primary + '04' }}>
+            <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: colors.text }}>
+              <span>📦 Votre commande est validée</span>
+            </p>
+            <p className="text-[10px] leading-relaxed text-gray-400 font-medium">
+              Notre équipe s'occupe de la mise en place de votre prestation. Vous recevrez une alerte dès qu'un aidant sera assigné.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2.5 pt-1">
             <button
               onClick={() => navigate('/app/orders')}
-              className="w-full py-3 rounded-xl text-white font-bold transition hover:opacity-90"
+              className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-95 shadow-sm flex items-center justify-center gap-1.5"
               style={{ background: colors.primary }}
             >
-              <ShoppingBag size={18} className="inline mr-2" />
+              <ShoppingBag size={14} />
               Voir mes commandes
             </button>
             <button
               onClick={() => navigate('/app')}
-              className="w-full py-3 rounded-xl font-medium border transition hover:bg-gray-50"
-              style={{ borderColor: colors.border, color: colors.text }}
+              className="w-full py-2.5 rounded-xl text-xs font-bold bg-gray-50 hover:bg-gray-100 transition-colors"
+              style={{ color: colors.text }}
             >
               Retour au tableau de bord
             </button>
           </div>
-          <p className="text-xs mt-4" style={{ color: colors.text + '30' }}>
-            Redirection dans {redirectCountdown} secondes...
+
+          <p className="text-[10px] font-semibold text-gray-400">
+            Redirection automatique dans {redirectCountdown} secondes...
           </p>
         </div>
       </div>
     );
   }
 
-  // ❌ Rendu : Erreur
+  // ❌ Rendu : Échec du Paiement
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: colors.background }}>
-      <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-lg">
-        <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#F4433615' }}>
-          <XCircle size={48} style={{ color: '#F44336' }} />
+    <div className="min-h-screen flex items-center justify-center p-4 animate-fadeIn" style={{ background: colors.background }}>
+      <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-5">
+        <div className="space-y-3">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ background: '#ef44440f' }}>
+            <XCircle size={36} style={{ color: '#ef4444' }} />
+          </div>
+          <h2 className="text-xl font-extrabold tracking-tight" style={{ color: '#ef4444' }}>
+            Paiement échoué
+          </h2>
+          <p className="text-xs leading-relaxed text-gray-500">
+            {message}
+          </p>
         </div>
-        <h2 className="text-2xl font-bold" style={{ color: '#F44336' }}>
-          ❌ Paiement échoué
-        </h2>
-        <p className="text-sm mt-2" style={{ color: colors.text + '60' }}>
-          {message}
-        </p>
-        <div className="mt-6 flex flex-col gap-3">
+
+        <div className="flex flex-col gap-2.5 pt-1">
           <button
             onClick={() => navigate('/app/orders/create')}
-            className="w-full py-3 rounded-xl text-white font-bold transition hover:opacity-90"
+            className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-95 shadow-sm"
             style={{ background: colors.primary }}
           >
-            Réessayer
+            Réessayer la commande
           </button>
           <button
             onClick={() => navigate('/app/billing')}
-            className="w-full py-3 rounded-xl font-medium border transition hover:bg-gray-50"
-            style={{ borderColor: colors.border, color: colors.text }}
+            className="w-full py-2.5 rounded-xl text-xs font-bold bg-gray-50 hover:bg-gray-100 transition-colors"
+            style={{ color: colors.text }}
           >
-            Voir les offres
+            Consulter les formules d'abonnements
           </button>
         </div>
       </div>
