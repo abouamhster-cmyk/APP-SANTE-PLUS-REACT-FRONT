@@ -13,7 +13,6 @@ import {
   User,
   ArrowRight,
   Sparkles,
-  Plus,
   CreditCard,
   MapPin,
   BookOpen,
@@ -25,38 +24,106 @@ import {
   UserCheck,
   Award,
   Bell,
-  FileText,
   Package,
   LayoutDashboard,
-  Wallet,
-  TrendingUp,
-  TrendingDown,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
-import { usePaymentStore } from '@/stores/paymentStore';
 import { getGreeting } from '@/utils/helpers';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatCurrency } from '@/utils/helpers';
 
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { PatientCard } from '@/components/patients/PatientCard';
 
+// =============================================
+// DÉFINITION DES TUILES PAR RÔLE
+// =============================================
+
+interface Tile {
+  icon: React.ReactNode;
+  label: string;
+  color: string;
+  path: string;
+  badge?: number;
+}
+
+const getTilesForRole = (role: string | null, colors: any, stats: any, patientsCount: number): Tile[] => {
+  const tiles: Tile[] = [];
+
+  // 👨‍👩‍👦 FAMILLE
+  if (role === 'family') {
+    tiles.push(
+      { icon: <Users size={22} />, label: 'Proches', color: colors.primary, path: '/app/patients', badge: patientsCount },
+      { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits', badge: stats.upcomingVisits },
+      { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <MessageCircle size={22} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
+      { icon: <CreditCard size={22} />, label: 'Abonnement', color: '#9C27B0', path: '/app/billing' },
+      { icon: <BookOpen size={22} />, label: 'Journal', color: '#795548', path: '/app/journal' },
+      { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+      { icon: <Hospital size={22} />, label: 'Sortie', color: '#E91E63', path: '/app/discharge' },
+      { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+    );
+    return tiles;
+  }
+
+  // 🦸 AIDANT
+  if (role === 'aidant') {
+    tiles.push(
+      { icon: <Calendar size={22} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
+      { icon: <Briefcase size={22} />, label: 'Planning', color: '#4CAF50', path: '/app/planning' },
+      { icon: <History size={22} />, label: 'Historique', color: '#795548', path: '/app/history' },
+      { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <MessageCircle size={22} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
+      { icon: <CreditCard size={22} />, label: 'Abonnement', color: '#9C27B0', path: '/app/billing' },
+      { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+      { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+    );
+    return tiles;
+  }
+
+  // 👔 ADMIN / COORDINATEUR
+  if (role === 'admin' || role === 'coordinator') {
+    tiles.push(
+      { icon: <LayoutDashboard size={22} />, label: 'Dashboard', color: '#9C27B0', path: '/app/admin' },
+      { icon: <ClipboardList size={22} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations' },
+      { icon: <UserCheck size={22} />, label: 'Candidatures', color: '#FF9800', path: '/app/aidant-candidates' },
+      { icon: <Users size={22} />, label: 'Aidants', color: '#2196F3', path: '/app/aidants' },
+      { icon: <Users size={22} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
+      { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits' },
+      { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders' },
+      { icon: <CreditCard size={22} />, label: 'Paiements', color: '#9C27B0', path: '/app/admin-payments' },
+      { icon: <Award size={22} />, label: 'Abonnements', color: '#795548', path: '/app/admin-subscriptions' },
+      { icon: <Bell size={22} />, label: 'Notifs', color: '#FF5722', path: '/app/admin-notifications' },
+      { icon: <Package size={22} />, label: 'Offres', color: '#607D8B', path: '/app/offers' },
+      { icon: <Settings size={22} />, label: 'Paramètres', color: '#455A64', path: '/app/settings' },
+      { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
+      { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+    );
+    return tiles;
+  }
+
+  // 🔄 FALLBACK (ne devrait jamais arriver)
+  tiles.push(
+    { icon: <LayoutDashboard size={22} />, label: 'Accueil', color: colors.primary, path: '/app' },
+    { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
+  );
+  return tiles;
+};
+
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
+
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  const { payments } = usePaymentStore();
 
   const {
-    singular,
-    plural,
-    list,
-    add,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
@@ -82,7 +149,6 @@ const DashboardPage = () => {
 
   const [greeting, setGreeting] = useState('');
   const [isMaman, setIsMaman] = useState(false);
-  const [totalRevenue, setTotalRevenue] = useState(0);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -92,12 +158,6 @@ const DashboardPage = () => {
     fetchVisits();
     fetchOrders();
     setGreeting(getGreeting());
-    
-    // Calculer les revenus
-    const revenue = payments
-      .filter(p => p.status === 'valide')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
-    setTotalRevenue(revenue);
   }, []);
 
   useEffect(() => {
@@ -105,7 +165,7 @@ const DashboardPage = () => {
     setIsMaman(hasMamanPatient);
   }, [patients]);
 
-  // 📌 Statistiques
+  // 📌 STATISTIQUES
   const stats = {
     proches: patients.length,
     upcomingVisits: visits.filter((v) => v.status === 'planifiee').length,
@@ -113,68 +173,10 @@ const DashboardPage = () => {
     completedVisits: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
   };
 
+  // ✅ TUILES - Fonction pure
+  const tiles = getTilesForRole(role, colors, stats, patients.length);
+
   const isLoading = patientsLoading || visitsLoading || ordersLoading;
-
-  // ✅ TUILES DE REDIRECTION SELON LE RÔLE (style UNPIX)
-  const getDashboardTiles = () => {
-    const tiles = [];
-
-    // 👨‍👩‍👦 FAMILLE
-    if (role === 'family') {
-      tiles.push(
-        { icon: <Users size={22} />, label: list, color: colors.primary, path: '/app/patients', badge: patients.length },
-        { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits', badge: stats.upcomingVisits },
-        { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders', badge: stats.pendingOrders },
-        { icon: <MessageCircle size={22} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
-        { icon: <CreditCard size={22} />, label: 'Abonnement', color: '#9C27B0', path: '/app/billing' },
-        { icon: <BookOpen size={22} />, label: 'Journal', color: '#795548', path: '/app/journal' },
-        { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
-        { icon: <Hospital size={22} />, label: 'Sortie', color: '#E91E63', path: '/app/discharge' },
-        { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
-      );
-    }
-
-    // 🦸 AIDANT
-    if (role === 'aidant') {
-      tiles.push(
-        { icon: <Calendar size={22} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
-        { icon: <Briefcase size={22} />, label: 'Planning', color: '#4CAF50', path: '/app/planning' },
-        { icon: <History size={22} />, label: 'Historique', color: '#795548', path: '/app/history' },
-        { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders', badge: stats.pendingOrders },
-        { icon: <MessageCircle size={22} />, label: 'Messages', color: '#2196F3', path: '/app/messages' },
-        { icon: <CreditCard size={22} />, label: 'Abonnement', color: '#9C27B0', path: '/app/billing' },
-        { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
-        { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
-      );
-    }
-
-    // 👔 COORDINATEUR / ADMIN
-    if (role === 'coordinator' || role === 'admin') {
-      tiles.push(
-        { icon: <LayoutDashboard size={22} />, label: 'Dashboard', color: '#9C27B0', path: '/app/admin' },
-        { icon: <ClipboardList size={22} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations || 0 },
-        { icon: <UserCheck size={22} />, label: 'Candidatures', color: '#FF9800', path: '/app/aidant-candidates' },
-        { icon: <Users size={22} />, label: 'Aidants', color: '#2196F3', path: '/app/aidants' },
-        { icon: <Users size={22} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
-        { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits' },
-        { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders' },
-        { icon: <CreditCard size={22} />, label: 'Paiements', color: '#9C27B0', path: '/app/admin-payments' },
-        { icon: <Award size={22} />, label: 'Abonnements', color: '#795548', path: '/app/admin-subscriptions' },
-        { icon: <Bell size={22} />, label: 'Notifs', color: '#FF5722', path: '/app/admin-notifications' },
-        { icon: <Package size={22} />, label: 'Offres', color: '#607D8B', path: '/app/offers' },
-        { icon: <Settings size={22} />, label: 'Paramètres', color: '#455A64', path: '/app/settings' },
-        { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
-        { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
-      );
-    }
-
-    return tiles;
-  };
-
-  const tiles = getDashboardTiles();
-
-  // ✅ Raccourcis rapides (4 premiers)
-  const quickActions = tiles.slice(0, 4);
 
   const heroTitle = () => {
     if (isMaman) return 'Votre espace maman & bébé.';
@@ -183,6 +185,17 @@ const DashboardPage = () => {
     if (isAdminOrCoordinator) return 'Vue d\'ensemble de la plateforme.';
     return 'Bienvenue sur Santé Plus Services.';
   };
+
+  const heroSubtitle = () => {
+    if (isFamily) return 'Gérez les visites et commandes de vos proches.';
+    if (isAidant) return 'Consultez vos missions et livraisons.';
+    if (isAdminOrCoordinator) return 'Supervisez toute la plateforme.';
+    return 'Accompagnement humain et coordination à domicile.';
+  };
+
+  // =============================================
+  // RENDU
+  // =============================================
 
   if (isLoading) {
     return (
@@ -199,7 +212,9 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
+      {/* ========================================== */}
       {/* HERO - Carte de bienvenue */}
+      {/* ========================================== */}
       <section
         className="relative overflow-hidden rounded-2xl p-4 shadow-sm border"
         style={{
@@ -214,14 +229,14 @@ const DashboardPage = () => {
             {heroTitle()}
           </h1>
           <p className="text-white/70 text-xs mt-1 max-w-xs">
-            {isFamily && 'Gérez les visites et commandes de vos proches.'}
-            {isAidant && 'Consultez vos missions et livraisons.'}
-            {isAdminOrCoordinator && 'Supervisez toute la plateforme.'}
+            {heroSubtitle()}
           </p>
         </div>
       </section>
 
+      {/* ========================================== */}
       {/* STATS COMPACTES - 4 cartes */}
+      {/* ========================================== */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <StatCard
           label={isFamily ? 'Proches' : isAidant ? 'Personnes' : 'Bénéficiaires'}
@@ -253,7 +268,9 @@ const DashboardPage = () => {
         />
       </section>
 
+      {/* ========================================== */}
       {/* TUILES STYLE UNPIX */}
+      {/* ========================================== */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold" style={{ color: colors.text }}>
@@ -268,9 +285,7 @@ const DashboardPage = () => {
               key={index}
               onClick={() => navigate(tile.path)}
               className="flex flex-col items-center justify-center p-3 rounded-2xl border hover:shadow-md transition-all hover:-translate-y-0.5 active:scale-95 bg-white"
-              style={{
-                borderColor: colors.border,
-              }}
+              style={{ borderColor: colors.border }}
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1.5"
@@ -294,7 +309,9 @@ const DashboardPage = () => {
         </div>
       </section>
 
-      {/* PROCHES */}
+      {/* ========================================== */}
+      {/* PROCHES (si existants) */}
+      {/* ========================================== */}
       {patients.length > 0 && (
         <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
           <div className="flex items-center justify-between mb-2">
@@ -322,7 +339,9 @@ const DashboardPage = () => {
         </section>
       )}
 
+      {/* ========================================== */}
       {/* VISITES */}
+      {/* ========================================== */}
       <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-bold" style={{ color: colors.text }}>
@@ -353,7 +372,9 @@ const DashboardPage = () => {
         )}
       </section>
 
+      {/* ========================================== */}
       {/* COMMANDES */}
+      {/* ========================================== */}
       <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-bold" style={{ color: colors.text }}>
@@ -384,7 +405,9 @@ const DashboardPage = () => {
         )}
       </section>
 
+      {/* ========================================== */}
       {/* BANNER FINAL */}
+      {/* ========================================== */}
       <section
         className="rounded-2xl p-4 text-center border"
         style={{
