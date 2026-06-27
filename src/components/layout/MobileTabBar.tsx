@@ -11,8 +11,16 @@ import {
   ClipboardList,
   UserCheck,
   Briefcase,
+  CreditCard,
+  Bell,
   MessageCircle,
+  MapPin,
+  History,
+  Award,
+  Package,
   Menu,
+  BookOpen,
+  Hospital,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
