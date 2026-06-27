@@ -28,6 +28,7 @@ import {
   LayoutDashboard,
   Handshake,
   FileCheck,
+  UserPlus, // ✅ AJOUTÉ
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -221,9 +222,9 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10">
+    <div className="space-y-4">
       {/* ========================================== */}
-      {/* HERO - Bannière avec image dynamique (style ancienne version) */}
+      {/* HERO - Bannière avec image dynamique */}
       {/* ========================================== */}
       <section
         className="relative overflow-hidden rounded-2xl min-h-[170px] md:min-h-[185px] shadow-sm border border-black/5"
