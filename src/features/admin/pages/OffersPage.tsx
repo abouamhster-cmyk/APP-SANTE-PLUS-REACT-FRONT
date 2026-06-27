@@ -539,7 +539,7 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
       actions={
         <ModalActions
           onCancel={onClose}
-          onConfirm={handleSubmit}
+          onConfirm={() => handleSubmit}
           confirmLabel={offer ? 'Mettre à jour' : 'Créer'}
           isLoading={isLoading}
         />
