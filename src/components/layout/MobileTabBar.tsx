@@ -15,118 +15,112 @@ import {
   Bell,
   MessageCircle,
   MapPin,
-  Home,
   History,
   Award,
-  FileText,
-  Hospital,
-  BookOpen,
+  Package,
   Menu,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { useTerminology } from '@/hooks/useTerminology';
 import { useState } from 'react';
 
 interface MobileTabBarProps {
   colors: any;
 }
 
+// =============================================
+// DÉFINITION DES MENUS PAR RÔLE
+// =============================================
+
+const getMainItems = (role: string | null) => {
+  const base = [
+    { icon: <LayoutDashboard size={22} />, label: 'Accueil', path: '/app' },
+  ];
+
+  if (role === 'family') {
+    return [
+      ...base,
+      { icon: <Users size={22} />, label: 'Proches', path: '/app/patients' },
+      { icon: <Calendar size={22} />, label: 'Visites', path: '/app/visits' },
+      { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
+      { icon: <MessageCircle size={22} />, label: 'Messages', path: '/app/messages' },
+    ];
+  }
+
+  if (role === 'aidant') {
+    return [
+      ...base,
+      { icon: <Calendar size={22} />, label: 'Missions', path: '/app/missions' },
+      { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
+      { icon: <MessageCircle size={22} />, label: 'Messages', path: '/app/messages' },
+      { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
+    ];
+  }
+
+  if (role === 'admin' || role === 'coordinator') {
+    return [
+      ...base,
+      { icon: <ClipboardList size={22} />, label: 'Inscriptions', path: '/app/registrations' },
+      { icon: <UserCheck size={22} />, label: 'Aidants', path: '/app/aidants' },
+      { icon: <Users size={22} />, label: 'Utilisateurs', path: '/app/users' },
+      { icon: <Settings size={22} />, label: 'Paramètres', path: '/app/settings' },
+    ];
+  }
+
+  return base;
+};
+
+const getMoreItems = (role: string | null) => {
+  if (role === 'family') {
+    return [
+      { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
+      { icon: <BookOpen size={18} />, label: 'Journal', path: '/app/journal' },
+      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
+      { icon: <Hospital size={18} />, label: 'Sortie', path: '/app/discharge' },
+      { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
+    ];
+  }
+
+  if (role === 'aidant') {
+    return [
+      { icon: <Briefcase size={18} />, label: 'Planning', path: '/app/planning' },
+      { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
+      { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
+      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
+    ];
+  }
+
+  if (role === 'admin' || role === 'coordinator') {
+    return [
+      { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/app/admin' },
+      { icon: <UserCheck size={18} />, label: 'Candidatures', path: '/app/aidant-candidates' },
+      { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits' },
+      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
+      { icon: <CreditCard size={18} />, label: 'Paiements', path: '/app/admin-payments' },
+      { icon: <Award size={18} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
+      { icon: <Bell size={18} />, label: 'Notifs', path: '/app/admin-notifications' },
+      { icon: <Package size={18} />, label: 'Offres', path: '/app/offers' },
+      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
+      { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
+    ];
+  }
+
+  return [];
+};
+
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
+
 export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
   const location = useLocation();
-  const { role, profile } = useAuthStore();
+  const { role } = useAuthStore();
   const { unreadCount } = useNotificationStore();
-  const { list, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
   const [showMore, setShowMore] = useState(false);
 
-  // ✅ Items principaux (5 max) - Les plus utilisés
-  const getMainItems = () => {
-    const base = [
-      { icon: <LayoutDashboard size={22} />, label: 'Accueil', path: '/app' },
-    ];
+  const mainItems = getMainItems(role);
+  const moreItems = getMoreItems(role);
 
-    // 👨‍👩‍👦 FAMILLE
-    if (role === 'family') {
-      return [
-        ...base,
-        { icon: <Users size={22} />, label: list, path: '/app/patients' },
-        { icon: <Calendar size={22} />, label: 'Visites', path: '/app/visits' },
-        { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MessageCircle size={22} />, label: 'Messages', path: '/app/messages' },
-      ];
-    }
-
-    // 🦸 AIDANT
-    if (role === 'aidant') {
-      return [
-        ...base,
-        { icon: <Calendar size={22} />, label: 'Missions', path: '/app/missions' },
-        { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MessageCircle size={22} />, label: 'Messages', path: '/app/messages' },
-        { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
-      ];
-    }
-
-    // 👔 COORDINATEUR / ADMIN
-    if (role === 'coordinator' || role === 'admin') {
-      return [
-        ...base,
-        { icon: <ClipboardList size={22} />, label: 'Inscriptions', path: '/app/registrations' },
-        { icon: <UserCheck size={22} />, label: 'Aidants', path: '/app/aidants' },
-        { icon: <Users size={22} />, label: 'Utilisateurs', path: '/app/users' },
-        { icon: <Settings size={22} />, label: 'Paramètres', path: '/app/settings' },
-      ];
-    }
-
-    return base;
-  };
-
-  // ✅ Menu "Plus" pour accéder aux autres pages
-  const getMoreItems = () => {
-    // 👨‍👩‍👦 FAMILLE
-    if (role === 'family') {
-      return [
-        { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
-        { icon: <BookOpen size={18} />, label: 'Journal', path: '/app/journal' },
-        { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
-        { icon: <Hospital size={18} />, label: 'Sortie hôpital', path: '/app/discharge' },
-        { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
-      ];
-    }
-
-    // 🦸 AIDANT
-    if (role === 'aidant') {
-      return [
-        { icon: <Briefcase size={18} />, label: 'Planning', path: '/app/planning' },
-        { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
-        { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
-        { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
-      ];
-    }
-
-    // 👔 COORDINATEUR / ADMIN
-    if (role === 'coordinator' || role === 'admin') {
-      return [
-        { icon: <LayoutDashboard size={18} />, label: 'Dashboard Admin', path: '/app/admin' },
-        { icon: <UserCheck size={18} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
-        { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits' },
-        { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <CreditCard size={18} />, label: 'Paiements', path: '/app/admin-payments' },
-        { icon: <Award size={18} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
-        { icon: <Bell size={18} />, label: 'Notifications', path: '/app/admin-notifications' },
-        { icon: <ShoppingBag size={18} />, label: 'Offres', path: '/app/offers' },
-        { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
-        { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
-      ];
-    }
-
-    return [];
-  };
-
-  const mainItems = getMainItems();
-  const moreItems = getMoreItems();
-
-  // ✅ Vérifier si un élément est actif
   const isActive = (path: string) => {
     if (path === '/app') {
       return location.pathname === '/app' || location.pathname === '/app/dashboard';
@@ -166,7 +160,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
               {item.label}
             </span>
 
-            {/* Badge notifications */}
             {item.path === '/app' && unreadCount > 0 && (
               <span
                 className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 text-[9px] text-white rounded-full flex items-center justify-center"
@@ -179,7 +172,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         );
       })}
 
-      {/* ✅ Bouton "Plus" si d'autres menus existent */}
       {moreItems.length > 0 && (
         <div className="relative">
           <button
@@ -197,7 +189,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
             </span>
           </button>
 
-          {/* ✅ Menu déroulant "Plus" */}
           {showMore && (
             <div
               className="absolute bottom-14 right-0 bg-white rounded-2xl shadow-xl border p-2 w-48 max-h-60 overflow-y-auto"
@@ -231,3 +222,5 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
     </div>
   );
 };
+
+export default MobileTabBar;
