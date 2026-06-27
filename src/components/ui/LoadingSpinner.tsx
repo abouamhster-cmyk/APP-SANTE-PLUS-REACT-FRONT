@@ -1,5 +1,5 @@
 // 📁 src/components/ui/LoadingSpinner.tsx
-
+ 
 import { useAuthStore } from '@/stores/authStore';
 import { getLogoByRole } from '@/lib/constants';
 import { cn } from '@/utils/helpers';
@@ -19,7 +19,6 @@ export const LoadingSpinner = ({
 }: LoadingSpinnerProps) => {
   const { role, profile } = useAuthStore();
   
-  // ✅ Récupérer le bon logo selon le rôle
   const logoConfig = getLogoByRole(role, profile?.patient_category);
   
   const sizes = {
@@ -57,7 +56,6 @@ export const LoadingSpinner = ({
   const spinnerContent = (
     <div className={`text-center ${className}`}>
       <div className={`relative ${sizes[size]} mx-auto mb-4`}>
-        {/* Anneau tournant */}
         <div 
           className="absolute inset-0 rounded-full animate-spin"
           style={{ 
@@ -68,7 +66,6 @@ export const LoadingSpinner = ({
           }}
         />
         
-        {/* Logo */}
         <div className={`absolute ${inset} flex items-center justify-center`}>
           <img 
             src={logoConfig.icon}
@@ -98,3 +95,6 @@ export const LoadingSpinner = ({
 
   return spinnerContent;
 };
+
+// ✅ Export default pour compatibilité avec l'import dans index.ts
+export default LoadingSpinner;
