@@ -11,7 +11,6 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle,
-  AlertCircle,
   Loader2,
   Key,
   Send,
@@ -20,8 +19,6 @@ import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
 
 type SetupStep = 'pin' | 'email' | 'otp' | 'create';
-
-// ✅ Définir le type pour le timer
 type TimerType = ReturnType<typeof setInterval> | null;
 
 const AdminSetupPage = () => {
@@ -33,7 +30,7 @@ const AdminSetupPage = () => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpExpiresIn, setOtpExpiresIn] = useState(0);
-  const [timer, setTimer] = useState<TimerType>(null); // ✅ Utiliser le type défini
+  const [timer, setTimer] = useState<TimerType>(null);
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -43,7 +40,6 @@ const AdminSetupPage = () => {
     role: 'admin' as 'admin' | 'coordinator',
   });
 
-  // ✅ Vérifier le PIN
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pin.length !== 8) {
@@ -58,7 +54,6 @@ const AdminSetupPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin }),
       });
-
       const data = await response.json();
 
       if (data.success) {
@@ -75,7 +70,6 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ Envoyer l'OTP
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -90,7 +84,6 @@ const AdminSetupPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-
       const data = await response.json();
 
       if (data.success) {
@@ -108,13 +101,9 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ Vérifier l'OTP
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // ✅ S'assurer que otp est une chaîne
     const otpCode = typeof otp === 'string' ? otp : String(otp);
-    
     if (otpCode.length !== 6) {
       toast.error('Le code doit contenir 6 chiffres');
       return;
@@ -130,7 +119,6 @@ const AdminSetupPage = () => {
           otp: otpCode.trim()
         }),
       });
-
       const data = await response.json();
 
       if (data.success) {
@@ -148,15 +136,12 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ Créer le compte
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (formData.password.length < 6) {
       toast.error('Mot de passe minimum 6 caractères');
       return;
     }
-
     if (formData.password !== formData.confirmPassword) {
       toast.error('Les mots de passe ne correspondent pas');
       return;
@@ -164,9 +149,7 @@ const AdminSetupPage = () => {
 
     setIsLoading(true);
     try {
-      // ✅ S'assurer que l'OTP est une chaîne propre
       const otpCode = typeof otp === 'string' ? otp.trim() : String(otp).trim();
-
       const response = await fetch('/api/admin-setup/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,14 +162,11 @@ const AdminSetupPage = () => {
           otp: otpCode,
         }),
       });
-
       const data = await response.json();
 
       if (data.success) {
         toast.success('🎉 Compte créé avec succès !');
-        setTimeout(() => {
-          navigate('/login');
-        }, 1500);
+        setTimeout(() => navigate('/login'), 1500);
       } else {
         toast.error(data.error || 'Erreur lors de la création');
       }
@@ -197,11 +177,9 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ Timer pour l'OTP
   const startTimer = (minutes: number) => {
     let timeLeft = minutes * 60;
     setOtpExpiresIn(timeLeft);
-
     if (timer) clearInterval(timer);
 
     const newTimer = setInterval(() => {
@@ -213,18 +191,15 @@ const AdminSetupPage = () => {
         setStep('email');
       }
     }, 1000);
-
     setTimer(newTimer);
   };
 
-  // ✅ Nettoyer le timer
   useEffect(() => {
     return () => {
       if (timer) clearInterval(timer);
     };
   }, [timer]);
 
-  // ✅ Format du timer
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -233,377 +208,273 @@ const AdminSetupPage = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center px-4 py-8"
-      style={{ background: 'var(--color-background, #f5f0e8)' }}
+      className="min-h-screen w-full flex items-center justify-center p-0 sm:p-6"
+      style={{ background: 'var(--color-background, #faf9f6)' }}
     >
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-xl border p-8" style={{ borderColor: 'var(--color-border, #e5e0d8)' }}>
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <div className="w-20 h-20 rounded-2xl bg-white shadow-md border-4 flex items-center justify-center" style={{ borderColor: 'var(--color-primary, #1a4a3a)' }}>
-                <Logo size="md" showText={false} whiteBg={false} className="justify-center" />
+      <div className="w-full max-w-md my-0 sm:my-8">
+        <div 
+          className="bg-white rounded-none sm:rounded-2xl p-6 sm:p-8 shadow-none sm:shadow-sm border-0 sm:border overflow-hidden min-h-screen sm:min-h-0 flex flex-col justify-between sm:block"
+          style={{ borderColor: 'var(--color-border, #e5e7eb)' }}
+        >
+          <div>
+            {/* Logo épuré */}
+            <div className="flex justify-center mb-6 mt-4 sm:mt-0">
+              <div 
+                className="w-16 h-16 rounded-2xl border flex items-center justify-center"
+                style={{ borderColor: 'var(--color-primary, #113f30)', background: 'var(--color-background)' }}
+              >
+                <Logo size="sm" showText={false} whiteBg={false} className="justify-center" />
               </div>
             </div>
-            <h1 className="text-2xl font-black" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-              Configuration Admin
-            </h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--color-text-light, #6b7280)' }}>
-              {step === 'pin' && 'Entrez le code d\'accès sécurisé'}
-              {step === 'email' && 'Entrez votre email pour recevoir un code'}
-              {step === 'otp' && 'Entrez le code reçu par email'}
-              {step === 'create' && 'Créez votre compte administrateur'}
-            </p>
-          </div>
 
-          {/* Progress */}
-          <div className="flex items-center gap-2 mb-8">
-            {['pin', 'email', 'otp', 'create'].map((s, index) => {
-              const isActive = step === s;
-              const isDone = ['pin', 'email', 'otp', 'create'].indexOf(step) > index;
-              return (
-                <div key={s} className="flex-1">
-                  <div
-                    className={`h-2 rounded-full transition ${
-                      isActive ? 'bg-[--color-primary]' :
-                      isDone ? 'bg-green-500' : 'bg-gray-200'
-                    }`}
-                  />
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ============================================ */}
-          {/* ÉTAPE 1 : PIN */}
-          {/* ============================================ */}
-          {step === 'pin' && (
-            <form onSubmit={handleVerifyPin} className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold mb-2" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Code d'accès
-                </label>
-                <div className="relative">
-                  <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <input
-                    type="password"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                    placeholder="8 chiffres"
-                    maxLength={8}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none text-lg font-bold tracking-widest"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                    autoFocus
-                  />
-                </div>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-light, #6b7280)' }}>
-                  Code par défaut : <strong>40024002</strong>
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={pin.length !== 8 || isLoading}
-                className="w-full py-3.5 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{ background: 'var(--color-primary, #1a4a3a)' }}
-              >
-                {isLoading ? (
-                  <Loader2 size={20} className="animate-spin" />
-                ) : (
-                  <>
-                    Vérifier
-                    <ArrowRight size={18} />
-                  </>
-                )}
-              </button>
-            </form>
-          )}
-
-          {/* ============================================ */}
-          {/* ÉTAPE 2 : EMAIL */}
-          {/* ============================================ */}
-          {step === 'email' && (
-            <form onSubmit={handleSendOTP} className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold mb-2" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@santeplus.bj"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                    required
-                  />
-                </div>
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-light, #6b7280)' }}>
-                  Vous recevrez un code de vérification par email
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStep('pin')}
-                  className="flex-1 py-3.5 rounded-2xl font-bold border transition hover:bg-gray-50 flex items-center justify-center gap-2"
-                  style={{ borderColor: 'var(--color-border, #e5e0d8)', color: 'var(--color-text, #2d2d2d)' }}
-                >
-                  <ArrowLeft size={18} />
-                  Retour
-                </button>
-                <button
-                  type="submit"
-                  disabled={!email || isLoading}
-                  className="flex-1 py-3.5 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ background: 'var(--color-primary, #1a4a3a)' }}
-                >
-                  {isLoading ? (
-                    <Loader2 size={20} className="animate-spin" />
-                  ) : (
-                    <>
-                      Envoyer
-                      <Send size={18} />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* ============================================ */}
-          {/* ÉTAPE 3 : OTP */}
-          {/* ============================================ */}
-          {step === 'otp' && (
-            <form onSubmit={handleVerifyOTP} className="space-y-6">
-              <div>
-                <label className="block text-sm font-bold mb-2" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Code de vérification
-                </label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <input
-                    type="text"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="6 chiffres"
-                    maxLength={6}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none text-lg font-bold tracking-widest"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                    autoFocus
-                  />
-                </div>
-                <div className="flex justify-between items-center mt-1">
-                  <p className="text-xs" style={{ color: 'var(--color-text-light, #6b7280)' }}>
-                    Code envoyé à <strong>{email}</strong>
-                  </p>
-                  <p className="text-xs font-bold" style={{ color: otpExpiresIn < 60 ? '#F44336' : 'var(--color-text-light, #6b7280)' }}>
-                    ⏱️ {formatTime(otpExpiresIn)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStep('email')}
-                  className="flex-1 py-3.5 rounded-2xl font-bold border transition hover:bg-gray-50 flex items-center justify-center gap-2"
-                  style={{ borderColor: 'var(--color-border, #e5e0d8)', color: 'var(--color-text, #2d2d2d)' }}
-                >
-                  <ArrowLeft size={18} />
-                  Retour
-                </button>
-                <button
-                  type="submit"
-                  disabled={otp.length !== 6 || isLoading}
-                  className="flex-1 py-3.5 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ background: 'var(--color-primary, #1a4a3a)' }}
-                >
-                  {isLoading ? (
-                    <Loader2 size={20} className="animate-spin" />
-                  ) : (
-                    <>
-                      Vérifier
-                      <CheckCircle size={18} />
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSendOTP}
-                className="w-full text-sm font-medium hover:underline"
-                style={{ color: 'var(--color-primary, #1a4a3a)' }}
-                disabled={isLoading}
-              >
-                Renvoyer le code
-              </button>
-            </form>
-          )}
-
-          {/* ============================================ */}
-          {/* ÉTAPE 4 : CRÉATION */}
-          {/* ============================================ */}
-          {step === 'create' && (
-            <form onSubmit={handleCreateAccount} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Nom complet *
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <input
-                    type="text"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    placeholder="John Doe"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Téléphone
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+229 90 00 00 00"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Rôle *
-                </label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'coordinator' })}
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none appearance-none"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                  >
-                    <option value="admin">👑 Administrateur</option>
-                    <option value="coordinator">👔 Coordinateur</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Mot de passe *
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Minimum 6 caractères"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                    required
-                    minLength={6}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: 'var(--color-text, #2d2d2d)' }}>
-                  Confirmer le mot de passe *
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: 'var(--color-text-light, #6b7280)' }} />
-                  <input
-                    type="password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    placeholder="Confirmez votre mot de passe"
-                    className="w-full pl-11 pr-4 py-3 rounded-2xl border outline-none"
-                    style={{
-                      borderColor: 'var(--color-border, #e5e0d8)',
-                      background: 'var(--color-background, #f5f0e8)',
-                      color: 'var(--color-text, #2d2d2d)',
-                    }}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStep('otp')}
-                  className="flex-1 py-3.5 rounded-2xl font-bold border transition hover:bg-gray-50 flex items-center justify-center gap-2"
-                  style={{ borderColor: 'var(--color-border, #e5e0d8)', color: 'var(--color-text, #2d2d2d)' }}
-                >
-                  <ArrowLeft size={18} />
-                  Retour
-                </button>
-                <button
-                  type="submit"
-                  disabled={!formData.full_name || !formData.password || isLoading}
-                  className="flex-1 py-3.5 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
-                  style={{ background: 'var(--color-primary, #1a4a3a)' }}
-                >
-                  {isLoading ? (
-                    <Loader2 size={20} className="animate-spin" />
-                  ) : (
-                    <>
-                      Créer le compte
-                      <CheckCircle size={18} />
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <p className="text-xs text-center" style={{ color: 'var(--color-text-light, #6b7280)' }}>
-                🔒 Ce compte aura les droits {formData.role === 'admin' ? 'administrateur' : 'coordinateur'} complets
+            <div className="text-center mb-6">
+              <h1 className="text-xl font-extrabold tracking-tight" style={{ color: 'var(--color-text, #1f2937)' }}>
+                Configuration Admin
+              </h1>
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-light, #4b5563)' }}>
+                {step === 'pin' && 'Entrez le code d\'accès sécurisé'}
+                {step === 'email' && 'Entrez votre email de travail'}
+                {step === 'otp' && 'Entrez le code reçu par email'}
+                {step === 'create' && 'Créez votre accès administrateur'}
               </p>
-            </form>
-          )}
+            </div>
+
+            {/* Stepper épuré */}
+            <div className="flex items-center gap-2 mb-6">
+              {['pin', 'email', 'otp', 'create'].map((s, index) => {
+                const isActive = step === s;
+                const isDone = ['pin', 'email', 'otp', 'create'].indexOf(step) > index;
+                return (
+                  <div key={s} className="flex-1">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        isActive ? 'bg-[--color-primary, #113f30]' :
+                        isDone ? 'bg-green-500' : 'bg-gray-100'
+                      }`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ÉTAPE 1 : PIN */}
+            {step === 'pin' && (
+              <form onSubmit={handleVerifyPin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Code d'accès</label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <input
+                      type="password"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                      placeholder="8 chiffres"
+                      maxLength={8}
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-sm focus:ring-1 focus:ring-[var(--color-primary)] transition"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      autoFocus
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">Code temporaire d'installation requis.</p>
+                </div>
+                <button
+                  type="submit"
+                  disabled={pin.length !== 8 || isLoading}
+                  className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
+                  style={{ background: 'var(--color-primary, #113f30)' }}
+                >
+                  {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Continuer <ArrowRight size={14} /></>}
+                </button>
+              </form>
+            )}
+
+            {/* ÉTAPE 2 : EMAIL */}
+            {step === 'email' && (
+              <form onSubmit={handleSendOTP} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>E-mail professionnel</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@santeplus.bj"
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('pin')}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                  >
+                    <ArrowLeft size={14} /> Retour
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!email || isLoading}
+                    className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
+                    style={{ background: 'var(--color-primary, #113f30)' }}
+                  >
+                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Envoyer <Send size={14} /></>}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ÉTAPE 3 : OTP */}
+            {step === 'otp' && (
+              <form onSubmit={handleVerifyOTP} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Code de validation</label>
+                  <div className="relative">
+                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="6 chiffres"
+                      maxLength={6}
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs font-bold tracking-widest focus:ring-1 focus:ring-[var(--color-primary)] transition"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-1 text-[10px] text-gray-400">
+                    <span>Code envoyé à : {email}</span>
+                    <span className="font-bold">⏱️ {formatTime(otpExpiresIn)}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('email')}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                  >
+                    <ArrowLeft size={14} /> Retour
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={otp.length !== 6 || isLoading}
+                    className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
+                    style={{ background: 'var(--color-primary, #113f30)' }}
+                  >
+                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Vérifier <CheckCircle size={14} /></>}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ÉTAPE 4 : CRÉATION DU COMPTE */}
+            {step === 'create' && (
+              <form onSubmit={handleCreateAccount} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Nom complet *</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                      placeholder="Prénom Nom"
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Téléphone</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="+229 90 00 00 00"
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Rôle *</label>
+                  <div className="relative">
+                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <select
+                      value={formData.role}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'coordinator' })}
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs appearance-none"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                    >
+                      <option value="admin">👑 Administrateur</option>
+                      <option value="coordinator">👔 Coordinateur</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Mot de passe *</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <input
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Minimum 6 caractères"
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Confirmer le mot de passe *</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <input
+                      type="password"
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      placeholder="Confirmez"
+                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
+                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('otp')}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
+                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+                  >
+                    <ArrowLeft size={14} /> Retour
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!formData.full_name || !formData.password || isLoading}
+                    className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
+                    style={{ background: 'var(--color-primary, #113f30)' }}
+                  >
+                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Créer mon compte <CheckCircle size={14} /></>}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </div>
