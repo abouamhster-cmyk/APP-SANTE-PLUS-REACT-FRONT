@@ -19,9 +19,11 @@ import {
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
-import { Modal, ModalActions, InfoRow } from '@/components/ui';
+import { Modal, ModalActions } from '@/components/ui/Modal';
+import { InfoRow } from '@/components/ui/InfoRow';
 import toast from 'react-hot-toast';
 
+ 
 interface User {
   id: string;
   full_name: string;
