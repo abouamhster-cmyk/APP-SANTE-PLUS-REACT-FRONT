@@ -1,3 +1,5 @@
+// 📁 src/stores/visitStore.ts
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit } from '@/types';
@@ -27,6 +29,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   isLoading: false,
   error: null,
 
+  // =============================================
+  // FETCH VISITES - CORRIGÉ
+  // =============================================
   fetchVisits: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -37,7 +42,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         return;
       }
 
-      // ✅ SIMPLIFICATION : Récupérer d'abord les visites
+      // ✅ ÉTAPE 1 : Récupérer les visites
       let query = supabase.from('visites').select('*');
 
       if (profile?.role === 'family') {
@@ -68,63 +73,113 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
+      // ✅ Pour admin/coordinator, on récupère toutes les visites
+      // (pas de filtre supplémentaire)
+
       const { data: visits, error } = await query.order('scheduled_date', { ascending: true });
 
       if (error) throw error;
 
-      // ✅ Récupérer les données associées séparément
-      const visitsWithRelations = await Promise.all(
-        (visits || []).map(async (visit) => {
-          let patient = null;
-          if (visit.patient_id) {
-            const { data: patientData } = await supabase
-              .from('patients')
-              .select('*')
-              .eq('id', visit.patient_id)
-              .single();
-            patient = patientData;
-          }
+      // ✅ ÉTAPE 2 : Récupérer les patients associés SEPAREMENT
+      const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
+      let patientMap: Record<string, any> = {};
 
-          let aidant = null;
-          if (visit.aidant_id) {
-            const { data: aidantData } = await supabase
-              .from('aidants')
-              .select('*, user:profiles(*)')
-              .eq('id', visit.aidant_id)
-              .single();
-            aidant = aidantData;
-          }
+      if (patientIds.length > 0) {
+        const { data: patients, error: patientsError } = await supabase
+          .from('patients')
+          .select('*')
+          .in('id', patientIds);
 
-          let coordinator = null;
-          if (visit.coordinator_id) {
-            const { data: coordData } = await supabase
+        if (!patientsError && patients) {
+          patientMap = patients.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
+      // ✅ ÉTAPE 3 : Récupérer les aidants associés SEPAREMENT
+      const aidantIds = [...new Set(visits?.map(v => v.aidant_id).filter(Boolean))];
+      let aidantMap: Record<string, any> = {};
+
+      if (aidantIds.length > 0) {
+        // Récupérer les aidants
+        const { data: aidants, error: aidantsError } = await supabase
+          .from('aidants')
+          .select('*')
+          .in('id', aidantIds);
+
+        if (!aidantsError && aidants) {
+          // Récupérer les profils des aidants
+          const userIds = aidants.map(a => a.user_id).filter(Boolean);
+          let profileMap: Record<string, any> = {};
+
+          if (userIds.length > 0) {
+            const { data: profiles, error: profilesError } = await supabase
               .from('profiles')
               .select('*')
-              .eq('id', visit.coordinator_id)
-              .single();
-            coordinator = coordData;
+              .in('id', userIds);
+
+            if (!profilesError && profiles) {
+              profileMap = profiles.reduce((acc, p) => {
+                acc[p.id] = p;
+                return acc;
+              }, {} as Record<string, any>);
+            }
           }
 
-          return {
-            ...visit,
-            patient,
-            aidant,
-            coordinator,
-          };
-        })
-      );
+          // Fusionner aidants + profils
+          aidantMap = aidants.reduce((acc, a) => {
+            acc[a.id] = {
+              ...a,
+              user: a.user_id ? profileMap[a.user_id] || null : null,
+            };
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
 
-      set({ visits: visitsWithRelations || [], isLoading: false });
+      // ✅ ÉTAPE 4 : Récupérer les coordinateurs associés SEPAREMENT
+      const coordinatorIds = [...new Set(visits?.map(v => v.coordinator_id).filter(Boolean))];
+      let coordinatorMap: Record<string, any> = {};
+
+      if (coordinatorIds.length > 0) {
+        const { data: coordinators, error: coordError } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', coordinatorIds);
+
+        if (!coordError && coordinators) {
+          coordinatorMap = coordinators.reduce((acc, c) => {
+            acc[c.id] = c;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
+      // ✅ ÉTAPE 5 : Fusionner toutes les données
+      const visitsWithRelations = (visits || []).map((visit) => ({
+        ...visit,
+        patient: visit.patient_id ? patientMap[visit.patient_id] || null : null,
+        aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
+        coordinator: visit.coordinator_id ? coordinatorMap[visit.coordinator_id] || null : null,
+      }));
+
+      set({ visits: visitsWithRelations, isLoading: false });
     } catch (error: any) {
-      console.error('Fetch visits error:', error);
+      console.error('❌ Fetch visits error:', error);
       set({ error: error.message, isLoading: false });
     }
   },
 
+  // =============================================
+  // FETCH VISIT BY ID - CORRIGÉ
+  // =============================================
   fetchVisitById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
+      // Récupérer la visite
       const { data: visit, error } = await supabase
         .from('visites')
         .select('*')
@@ -133,7 +188,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Récupérer les relations
+      // Récupérer le patient
       let patient = null;
       if (visit.patient_id) {
         const { data: patientData } = await supabase
@@ -144,16 +199,30 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         patient = patientData;
       }
 
+      // Récupérer l'aidant + son profil
       let aidant = null;
       if (visit.aidant_id) {
         const { data: aidantData } = await supabase
           .from('aidants')
-          .select('*, user:profiles(*)')
+          .select('*')
           .eq('id', visit.aidant_id)
           .single();
-        aidant = aidantData;
+        
+        if (aidantData) {
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', aidantData.user_id)
+            .single();
+          
+          aidant = {
+            ...aidantData,
+            user: userData || null,
+          };
+        }
       }
 
+      // Récupérer le coordinateur
       let coordinator = null;
       if (visit.coordinator_id) {
         const { data: coordData } = await supabase
@@ -173,11 +242,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       set({ currentVisit: fullVisit, isLoading: false });
     } catch (error: any) {
-      console.error('Fetch visit error:', error);
+      console.error('❌ Fetch visit error:', error);
       set({ error: error.message, isLoading: false });
     }
   },
 
+  // =============================================
+  // CREATE VISIT
+  // =============================================
   createVisit: async (data: Partial<Visit>) => {
     try {
       set({ isLoading: true, error: null });
@@ -206,7 +278,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Récupérer les relations
+      // Récupérer le patient
       let patient = null;
       if (newVisit.patient_id) {
         const { data: patientData } = await supabase
@@ -229,12 +301,15 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       return fullVisit;
     } catch (error: any) {
-      console.error('Create visit error:', error);
+      console.error('❌ Create visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
+  // =============================================
+  // UPDATE VISIT
+  // =============================================
   updateVisit: async (id: string, data: Partial<Visit>) => {
     try {
       set({ isLoading: true, error: null });
@@ -254,12 +329,15 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
-      console.error('Update visit error:', error);
+      console.error('❌ Update visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
+  // =============================================
+  // DELETE VISIT
+  // =============================================
   deleteVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -276,12 +354,15 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
-      console.error('Delete visit error:', error);
+      console.error('❌ Delete visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
+  // =============================================
+  // START VISIT
+  // =============================================
   startVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -305,12 +386,15 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
-      console.error('Start visit error:', error);
+      console.error('❌ Start visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
+  // =============================================
+  // COMPLETE VISIT
+  // =============================================
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
     try {
       set({ isLoading: true, error: null });
@@ -339,12 +423,15 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
-      console.error('Complete visit error:', error);
+      console.error('❌ Complete visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
+  // =============================================
+  // VALIDATE VISIT
+  // =============================================
   validateVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -364,12 +451,15 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
-      console.error('Validate visit error:', error);
+      console.error('❌ Validate visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
+  // =============================================
+  // CANCEL VISIT
+  // =============================================
   cancelVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -389,7 +479,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         isLoading: false,
       }));
     } catch (error: any) {
-      console.error('Cancel visit error:', error);
+      console.error('❌ Cancel visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
