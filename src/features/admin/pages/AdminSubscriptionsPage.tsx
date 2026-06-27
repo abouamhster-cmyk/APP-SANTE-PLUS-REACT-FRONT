@@ -7,20 +7,12 @@ import {
   Filter,
   RefreshCw,
   Eye,
-  Edit,
-  Trash2,
   X,
   CheckCircle,
   XCircle,
   Clock,
   Calendar,
-  User,
   DollarSign,
-  Award,
-  Users,
-  CreditCard,
-  TrendingUp,
-  TrendingDown,
   AlertCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -65,40 +57,37 @@ interface Subscription {
   updated_at: string;
 }
 
-// ✅ Fonctions en dehors du composant
 const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
-    en_attente: '⏳ En attente',
-    actif: '🟢 Actif',
-    expire: '🔴 Expiré',
-    annule: '🚫 Annulé',
-    suspendu: '⏸️ Suspendu',
-    en_cours_de_renouvellement: '🔄 Renouvellement',
+    en_attente: 'En attente ⏳',
+    actif: 'Actif 🟢',
+    expire: 'Expiré 🔴',
+    annule: 'Annulé 🚫',
+    suspendu: 'Suspendu ⏸️',
+    en_cours_de_renouvellement: 'Renouvellement 🔄',
   };
   return labels[status] || status;
 };
 
 const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    en_attente: '#FF9800',
-    actif: '#4CAF50',
-    expire: '#F44336',
-    annule: '#9E9E9E',
-    suspendu: '#FF9800',
-    en_cours_de_renouvellement: '#2196F3',
+    en_attente: '#f59e0b',
+    actif: '#10b981',
+    expire: '#ef4444',
+    annule: '#94a3b8',
+    suspendu: '#f59e0b',
+    en_cours_de_renouvellement: '#3b82f6',
   };
-  return colors[status] || '#9E9E9E';
+  return colors[status] || '#94a3b8';
 };
 
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case 'actif': return <CheckCircle size={16} className="text-green-500" />;
-    case 'en_attente': return <Clock size={16} className="text-yellow-500" />;
-    case 'expire': return <XCircle size={16} className="text-red-500" />;
-    case 'annule': return <XCircle size={16} className="text-gray-400" />;
-    case 'suspendu': return <AlertCircle size={16} className="text-yellow-500" />;
-    case 'en_cours_de_renouvellement': return <RefreshCw size={16} className="text-blue-500" />;
-    default: return <Clock size={16} className="text-gray-400" />;
+    case 'actif': return <CheckCircle size={14} className="text-green-500" />;
+    case 'en_attente': return <Clock size={14} className="text-yellow-500" />;
+    case 'expire': return <XCircle size={14} className="text-red-500" />;
+    case 'suspendu': return <AlertCircle size={14} className="text-yellow-500" />;
+    default: return <Clock size={14} className="text-gray-400" />;
   }
 };
 
@@ -121,8 +110,6 @@ const AdminSubscriptionsPage = () => {
   const fetchSubscriptions = async () => {
     try {
       setIsLoading(true);
-
-      // 1. Récupérer les abonnements
       const { data: subsData, error: subsError } = await supabase
         .from('abonnements')
         .select('*')
@@ -130,7 +117,6 @@ const AdminSubscriptionsPage = () => {
 
       if (subsError) throw subsError;
 
-      // 2. Récupérer les profils
       const userIds = [...new Set(subsData?.map(s => s.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
 
@@ -148,7 +134,6 @@ const AdminSubscriptionsPage = () => {
         }
       }
 
-      // 3. Récupérer les patients
       const patientIds = [...new Set(subsData?.map(s => s.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
@@ -166,7 +151,6 @@ const AdminSubscriptionsPage = () => {
         }
       }
 
-      // 4. Récupérer les offres
       const offreIds = [...new Set(subsData?.map(s => s.offre_id).filter(Boolean))];
       let offreMap: Record<string, any> = {};
 
@@ -184,7 +168,6 @@ const AdminSubscriptionsPage = () => {
         }
       }
 
-      // 5. Fusionner les données
       const subsWithData = (subsData || []).map(sub => ({
         ...sub,
         user: sub.user_id ? profileMap[sub.user_id] || null : null,
@@ -193,7 +176,6 @@ const AdminSubscriptionsPage = () => {
       }));
 
       setSubscriptions(subsWithData);
-
     } catch (error: any) {
       console.error('Fetch subscriptions error:', error);
       toast.error('Erreur lors du chargement des abonnements');
@@ -209,7 +191,6 @@ const AdminSubscriptionsPage = () => {
       sub.offre?.name?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || sub.status === statusFilter;
-
     return matchesSearch && matchesStatus;
   });
 
@@ -218,7 +199,6 @@ const AdminSubscriptionsPage = () => {
     active: subscriptions.filter(s => s.status === 'actif').length,
     pending: subscriptions.filter(s => s.status === 'en_attente').length,
     expired: subscriptions.filter(s => s.status === 'expire').length,
-    cancelled: subscriptions.filter(s => s.status === 'annule').length,
     totalRevenue: subscriptions
       .filter(s => s.status === 'actif' || s.status === 'en_attente')
       .reduce((sum, s) => sum + (s.offre?.price || 0), 0),
@@ -237,7 +217,6 @@ const AdminSubscriptionsPage = () => {
         .eq('id', id);
 
       if (error) throw error;
-
       toast.success(`Abonnement mis à jour`);
       fetchSubscriptions();
     } catch (error) {
@@ -254,7 +233,6 @@ const AdminSubscriptionsPage = () => {
         .eq('id', id);
 
       if (error) throw error;
-
       toast.success(`Renouvellement ${!currentValue ? 'activé' : 'désactivé'}`);
       fetchSubscriptions();
     } catch (error) {
@@ -264,138 +242,82 @@ const AdminSubscriptionsPage = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Header */}
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: colors.text }}>
-              📋 Gestion des abonnements
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
+      >
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+              📋 Abonnements clients
             </h1>
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-              Gérez tous les abonnements de la plateforme
+            <p className="text-xs" style={{ color: colors.textLight }}>
+              Gestion des formules souscrites par les familles
             </p>
           </div>
           <button
             onClick={fetchSubscriptions}
             disabled={isLoading}
-            className="px-4 py-2 rounded-xl font-medium transition hover:opacity-80 flex items-center gap-2"
-            style={{ background: colors.primary + '12', color: colors.primary }}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50"
+            style={{ borderColor: colors.border, color: colors.text }}
           >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             Actualiser
           </button>
         </div>
       </section>
 
-      {/* Statistiques */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard
-          label="Total"
-          value={stats.total}
-          color={colors.primary}
-          icon={<Package size={20} />}
-        />
-        <StatCard
-          label="Actifs"
-          value={stats.active}
-          color="#4CAF50"
-          icon={<CheckCircle size={20} />}
-        />
-        <StatCard
-          label="En attente"
-          value={stats.pending}
-          color="#FF9800"
-          icon={<Clock size={20} />}
-        />
-        <StatCard
-          label="Expirés"
-          value={stats.expired}
-          color="#F44336"
-          icon={<XCircle size={20} />}
-        />
-        <StatCard
-          label="Revenus"
-          value={formatCurrency(stats.totalRevenue)}
-          color="#2196F3"
-          icon={<DollarSign size={20} />}
-        />
+      {/* Stats */}
+      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Package size={16} />} />
+        <StatCard label="Actifs" value={stats.active} color="#10b981" icon={<CheckCircle size={16} />} />
+        <StatCard label="En attente" value={stats.pending} color="#f59e0b" icon={<Clock size={16} />} />
+        <StatCard label="Expirés" value={stats.expired} color="#ef4444" icon={<XCircle size={16} />} />
+        <StatCard label="Revenus" value={formatCurrency(stats.totalRevenue)} color="#3b82f6" icon={<DollarSign size={16} />} />
       </section>
 
       {/* Filtres */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Rechercher par nom, email ou offre..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
-            />
-          </div>
-          <div className="relative min-w-[180px]">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm appearance-none"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="actif">🟢 Actifs</option>
-              <option value="en_attente">⏳ En attente</option>
-              <option value="expire">🔴 Expirés</option>
-              <option value="annule">🚫 Annulés</option>
-              <option value="suspendu">⏸️ Suspendus</option>
-              <option value="en_cours_de_renouvellement">🔄 Renouvellement</option>
-            </select>
-          </div>
-        </div>
+      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Rechercher par client ou abonnement..."
+          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="actif">🟢 Actifs</option>
+          <option value="en_attente">⏳ En attente</option>
+          <option value="expire">🔴 Expirés</option>
+        </select>
       </section>
 
-      {/* Liste des abonnements */}
-      <section className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
+      {/* Grille de cartes épurées */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
-          <div className="p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-t-transparent" style={{ borderColor: colors.primary }} />
-            <p className="mt-2 text-sm" style={{ color: colors.text + '60' }}>Chargement des abonnements...</p>
-          </div>
+          <div className="col-span-full py-12 text-center"><RefreshCw size={24} className="animate-spin mx-auto text-gray-300" /></div>
         ) : filteredSubscriptions.length === 0 ? (
-          <div className="p-12 text-center">
-            <Package size={48} className="mx-auto mb-4 opacity-30" />
-            <h3 className="text-lg font-bold" style={{ color: colors.text }}>
-              Aucun abonnement trouvé
-            </h3>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {searchTerm || statusFilter !== 'all'
-                ? 'Aucun abonnement ne correspond à vos critères'
-                : 'Aucun abonnement n\'a encore été enregistré'}
-            </p>
-          </div>
+          <div className="col-span-full py-12 text-center text-gray-400">Aucun abonnement enregistré</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-            {filteredSubscriptions.map((subscription) => (
-              <SubscriptionCard
-                key={subscription.id}
-                subscription={subscription}
-                colors={colors}
-                onView={() => handleViewDetails(subscription)}
-                onUpdateStatus={handleUpdateStatus}
-                onToggleRenew={handleToggleRenew}
-              />
-            ))}
-          </div>
+          filteredSubscriptions.map((sub) => (
+            <SubscriptionCard
+              key={sub.id}
+              subscription={sub}
+              colors={colors}
+              onView={() => handleViewDetails(sub)}
+              onUpdateStatus={handleUpdateStatus}
+              onToggleRenew={handleToggleRenew}
+            />
+          ))
         )}
       </section>
 
@@ -411,289 +333,102 @@ const AdminSubscriptionsPage = () => {
   );
 };
 
-// =============================================
-// STAT CARD
-// =============================================
-
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  color: string;
-  icon: React.ReactNode;
-}
-
-const StatCard = ({ label, value, color, icon }: StatCardProps) => {
-  return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-2xl font-black" style={{ color }}>{value}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-        </div>
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: color + '15', color }}
-        >
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// =============================================
-// SUBSCRIPTION CARD
-// =============================================
-
-interface SubscriptionCardProps {
-  subscription: Subscription;
-  colors: any;
-  onView: () => void;
-  onUpdateStatus: (id: string, status: string) => Promise<void>;
-  onToggleRenew: (id: string, currentValue: boolean) => Promise<void>;
-}
-
 const SubscriptionCard = ({
   subscription,
   colors,
   onView,
   onUpdateStatus,
   onToggleRenew,
-}: SubscriptionCardProps) => {
+}: {
+  subscription: Subscription;
+  colors: any;
+  onView: () => void;
+  onUpdateStatus: (id: string, status: string) => Promise<void>;
+  onToggleRenew: (id: string, currentValue: boolean) => Promise<void>;
+}) => {
   const statusColor = getStatusColor(subscription.status);
   const isActive = subscription.status === 'actif';
-  const progress = subscription.total_visits > 0
-    ? (subscription.used_visits / subscription.total_visits) * 100
-    : 0;
+  const progress = subscription.total_visits > 0 ? (subscription.used_visits / subscription.total_visits) * 100 : 0;
 
   return (
     <div
-      className="bg-white rounded-2xl p-5 border transition hover:shadow-md"
-      style={{ borderColor: isActive ? colors.primary + '30' : colors.border }}
+      className="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition duration-300 flex flex-col justify-between min-h-[220px] border"
+      style={{ borderColor: isActive ? `${colors.primary}20` : colors.border }}
     >
-      {/* En-tête */}
-      <div className="flex items-start justify-between">
+      <div className="space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="font-bold text-xs" style={{ color: colors.text }}>{subscription.offre?.name || 'Abonnement'}</h3>
+            <p className="text-[10px] text-gray-400">{subscription.user?.full_name || 'N/A'}</p>
+          </div>
+          <span className="text-[10px] font-semibold shrink-0" style={{ color: statusColor }}>{getStatusLabel(subscription.status)}</span>
+        </div>
+
+        <div className="flex items-baseline gap-1">
+          <span className="text-lg font-black" style={{ color: colors.primary }}>{formatCurrency(subscription.offre?.price || 0)}</span>
+          <span className="text-[10px] text-gray-400">/{subscription.offre?.category || 'm'}</span>
+        </div>
+
         <div>
-          <h3 className="font-bold" style={{ color: colors.text }}>
-            {subscription.offre?.name || 'Abonnement'}
-          </h3>
-          <p className="text-sm" style={{ color: colors.text + '60' }}>
-            {subscription.user?.full_name || 'Utilisateur inconnu'}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {getStatusIcon(subscription.status)}
-          <span className="text-xs font-medium" style={{ color: statusColor }}>
-            {getStatusLabel(subscription.status)}
-          </span>
+          <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+            <span>Visites consommées</span>
+            <span>{subscription.used_visits}/{subscription.total_visits}</span>
+          </div>
+          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(progress, 100)}%`, background: colors.primary }} />
+          </div>
         </div>
       </div>
 
-      {/* Prix */}
-      <div className="mt-2">
-        <span className="text-xl font-black" style={{ color: colors.primary }}>
-          {formatCurrency(subscription.offre?.price || 0)}
-        </span>
-        <span className="text-xs ml-1" style={{ color: colors.text + '40' }}>
-          / {subscription.offre?.category || 'mois'}
-        </span>
-      </div>
-
-      {/* Progression */}
-      <div className="mt-3">
-        <div className="flex justify-between text-xs" style={{ color: colors.text + '50' }}>
-          <span>Visites</span>
-          <span>{subscription.used_visits} / {subscription.total_visits}</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-gray-200 mt-1 overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all"
-            style={{ width: `${Math.min(progress, 100)}%`, background: colors.primary }}
-          />
-        </div>
-      </div>
-
-      {/* Infos */}
-      <div className="mt-3 flex flex-wrap gap-3 text-xs" style={{ color: colors.text + '40' }}>
-        <span className="flex items-center gap-1">
-          <Calendar size={12} />
-          {formatDate(subscription.start_date)}
-        </span>
-        <span className="flex items-center gap-1">
-          <Calendar size={12} />
-          {formatDate(subscription.end_date)}
-        </span>
-        {subscription.auto_renew && (
-          <span className="flex items-center gap-1 text-green-500">
-            <RefreshCw size={12} />
-            Auto
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="mt-4 flex items-center gap-2 pt-3 border-t" style={{ borderColor: colors.border }}>
-        <button
-          onClick={onView}
-          className="flex-1 py-2 rounded-xl text-sm font-medium transition hover:bg-gray-50 flex items-center justify-center gap-1.5"
-          style={{ border: `1px solid ${colors.border}`, color: colors.text }}
-        >
-          <Eye size={14} />
-          Détails
-        </button>
+      <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: colors.border }}>
+        <button onClick={onView} className="flex-1 py-2 rounded-xl text-xs font-bold border bg-gray-50/50 hover:bg-gray-100 transition-colors" style={{ color: colors.text }}>Détails</button>
         {isActive && (
-          <button
-            onClick={() => onToggleRenew(subscription.id, subscription.auto_renew)}
-            className="p-2 rounded-xl transition hover:bg-gray-50"
-            style={{ border: `1px solid ${colors.border}`, color: subscription.auto_renew ? '#4CAF50' : '#9E9E9E' }}
-          >
-            <RefreshCw size={16} />
+          <button onClick={() => onToggleRenew(subscription.id, subscription.auto_renew)} className="px-3 rounded-xl border hover:bg-gray-50 flex items-center justify-center transition-colors" style={{ color: subscription.auto_renew ? '#10b981' : '#94a3b8' }}>
+            <RefreshCw size={12} className={subscription.auto_renew ? 'animate-spin-slow' : ''} />
           </button>
         )}
         {subscription.status === 'en_attente' && (
-          <button
-            onClick={() => onUpdateStatus(subscription.id, 'actif')}
-            className="p-2 rounded-xl text-white transition hover:opacity-80"
-            style={{ background: '#4CAF50' }}
-          >
-            <CheckCircle size={16} />
-          </button>
+          <button onClick={() => onUpdateStatus(subscription.id, 'actif')} className="px-3 rounded-xl text-white text-xs font-bold hover:opacity-90" style={{ background: '#10b981' }}>Activer</button>
         )}
       </div>
     </div>
   );
 };
 
-// =============================================
-// SUBSCRIPTION DETAILS MODAL
-// =============================================
-
-interface SubscriptionDetailsModalProps {
-  subscription: Subscription;
-  onClose: () => void;
-  colors: any;
-}
-
-const SubscriptionDetailsModal = ({ subscription, onClose, colors }: SubscriptionDetailsModalProps) => {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.border }}>
-          <div>
-            <h2 className="text-xl font-bold" style={{ color: colors.text }}>
-              📋 Détails de l'abonnement
-            </h2>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {subscription.offre?.name || 'Abonnement'}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <X size={24} />
-          </button>
+const SubscriptionDetailsModal = ({ subscription, onClose, colors }: { subscription: Subscription; onClose: () => void; colors: any }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-xl">
+      <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: colors.border }}>
+        <div>
+          <h2 className="font-bold text-sm uppercase tracking-wider text-gray-400">📋 Détails Abonnement</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{subscription.offre?.name}</p>
         </div>
-
-        {/* Contenu */}
-        <div className="p-6 space-y-4 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4">
-            <InfoBox
-              label="Statut"
-              value={getStatusLabel(subscription.status)}
-              color={getStatusColor(subscription.status)}
-            />
-            <InfoBox
-              label="Utilisateur"
-              value={subscription.user?.full_name || 'N/A'}
-              color={colors.primary}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <InfoBox
-              label="Email"
-              value={subscription.user?.email || 'N/A'}
-              color={colors.text}
-            />
-            <InfoBox
-              label="Offre"
-              value={subscription.offre?.name || 'N/A'}
-              color={colors.primary}
-            />
-          </div>
-
-          <InfoRow label="Patient" value={subscription.patient ? `${subscription.patient.first_name} ${subscription.patient.last_name}` : 'Non assigné'} />
-          <InfoRow label="Prix" value={formatCurrency(subscription.offre?.price || 0)} />
-          <InfoRow label="Date de début" value={formatDate(subscription.start_date)} />
-          <InfoRow label="Date de fin" value={formatDate(subscription.end_date)} />
-          <InfoRow label="Renouvellement automatique" value={subscription.auto_renew ? '✅ Actif' : '❌ Inactif'} />
-
-          <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-            <p className="text-sm font-medium" style={{ color: colors.text }}>📊 Utilisation</p>
-            <div className="mt-2 grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs" style={{ color: colors.text + '50' }}>Visites</p>
-                <p className="font-bold" style={{ color: colors.primary }}>
-                  {subscription.used_visits} / {subscription.total_visits}
-                </p>
-                <p className="text-xs" style={{ color: colors.text + '40' }}>
-                  Restantes : {subscription.remaining_visits}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs" style={{ color: colors.text + '50' }}>Commandes</p>
-                <p className="font-bold" style={{ color: colors.primary }}>
-                  {subscription.used_orders} / {subscription.total_orders}
-                </p>
-                <p className="text-xs" style={{ color: colors.text + '40' }}>
-                  Restantes : {subscription.remaining_orders}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <InfoRow label="Date de création" value={formatDate(subscription.created_at)} />
-          <InfoRow label="Dernière mise à jour" value={formatDate(subscription.updated_at)} />
+        <button onClick={onClose} className="p-1 hover:bg-gray-50 rounded-lg"><X size={16} /></button>
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="p-2.5 rounded-xl bg-gray-50"><p className="text-gray-400 text-[10px]">Client</p><p className="font-bold">{subscription.user?.full_name || 'N/A'}</p></div>
+          <div className="p-2.5 rounded-xl bg-gray-50"><p className="text-gray-400 text-[10px]">Statut</p><p className="font-bold" style={{ color: getStatusColor(subscription.status) }}>{getStatusLabel(subscription.status)}</p></div>
+        </div>
+        <div className="space-y-2 text-xs divide-y" style={{ borderColor: colors.border }}>
+          <div className="flex justify-between py-1.5"><span className="text-gray-400">Patient</span><span className="font-semibold">{subscription.patient ? `${subscription.patient.first_name} ${subscription.patient.last_name}` : 'Non assigné'}</span></div>
+          <div className="flex justify-between py-1.5"><span className="text-gray-400">Prix</span><span className="font-semibold">{formatCurrency(subscription.offre?.price || 0)}</span></div>
+          <div className="flex justify-between py-1.5"><span className="text-gray-400">Début</span><span className="font-semibold">{formatDate(subscription.start_date)}</span></div>
+          <div className="flex justify-between py-1.5"><span className="text-gray-400">Fin</span><span className="font-semibold">{formatDate(subscription.end_date)}</span></div>
         </div>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-// =============================================
-// INFO BOX
-// =============================================
-
-interface InfoBoxProps {
-  label: string;
-  value: string;
-  color: string;
-}
-
-const InfoBox = ({ label, value, color }: InfoBoxProps) => {
-  return (
-    <div className="p-3 rounded-xl" style={{ background: color + '08' }}>
-      <p className="text-xs" style={{ color: color + '60' }}>{label}</p>
-      <p className="font-bold" style={{ color }}>{value}</p>
+const StatCard = ({ label, value, color, icon }: StatCardProps) => (
+  <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
+    <div className="space-y-0.5">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
     </div>
-  );
-};
-
-// =============================================
-// INFO ROW
-// =============================================
-
-interface InfoRowProps {
-  label: string;
-  value: string;
-}
-
-const InfoRow = ({ label, value }: InfoRowProps) => {
-  return (
-    <div className="flex justify-between py-2 border-b last:border-b-0" style={{ borderColor: 'var(--color-border, #e5e0d8)' }}>
-      <span className="text-sm font-medium" style={{ color: 'var(--color-text-light, #6b7280)' }}>{label}</span>
-      <span className="text-sm" style={{ color: 'var(--color-text, #2d2d2d)' }}>{value}</span>
-    </div>
-  );
-};
+    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '0d', color }}>{icon}</div>
+  </div>
+);
 
 export default AdminSubscriptionsPage;
