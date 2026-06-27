@@ -7,12 +7,9 @@ import {
   UserCheck,
   Calendar,
   ShoppingBag,
-  CreditCard,
   TrendingUp,
   TrendingDown,
   Clock,
-  CheckCircle,
-  XCircle,
   RefreshCw,
   DollarSign,
   Activity,
@@ -142,14 +139,17 @@ const AdminDashboardPage = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+      <div className="space-y-6 max-w-5xl mx-auto pb-8">
+        <div className="h-28 bg-white rounded-3xl animate-pulse shadow-sm" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <div key={item} className="h-20 bg-white rounded-2xl animate-pulse shadow-sm" />
           ))}
         </div>
-        <div className="h-32 bg-white rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="h-32 bg-white rounded-3xl animate-pulse shadow-sm" />
+          <div className="h-32 bg-white rounded-3xl animate-pulse shadow-sm" />
+        </div>
       </div>
     );
   }
@@ -167,78 +167,83 @@ const AdminDashboardPage = () => {
       value: stats.totalPatients,
       sub: `${stats.totalAidants} aidants`,
       icon: <UserCheck size={16} />,
-      color: '#4CAF50',
+      color: '#10b981',
     },
     {
-      label: 'Visites aujourd\'hui',
+      label: "Visites d'aujourd'hui",
       value: stats.visitsToday,
       sub: `${stats.visitsInProgress} en cours`,
       icon: <Calendar size={16} />,
-      color: '#2196F3',
+      color: '#3b82f6',
     },
     {
       label: 'Commandes',
       value: stats.totalOrders,
       sub: `${stats.pendingOrders} en attente`,
       icon: <ShoppingBag size={16} />,
-      color: '#FF9800',
+      color: '#f59e0b',
     },
     {
       label: 'Revenu mensuel',
       value: formatCurrency(stats.monthlyRevenue),
-      sub: `Total: ${formatCurrency(stats.totalRevenue)}`,
+      sub: `Total : ${formatCurrency(stats.totalRevenue)}`,
       icon: <DollarSign size={16} />,
-      color: '#4CAF50',
+      color: '#10b981',
     },
     {
       label: 'Inscriptions en attente',
       value: stats.pendingRegistrations,
-      sub: `À traiter`,
+      sub: 'À traiter rapidement',
       icon: <UserPlus size={16} />,
-      color: '#F44336',
+      color: '#ef4444',
     },
   ];
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
+    <div className="space-y-6 max-w-5xl mx-auto pb-16 sm:pb-8">
+      {/* HEADER DE STYLE BANNIÈRE DOUCE */}
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        style={{
+          background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)`,
+        }}
+      >
+        <div className="relative z-10 flex items-center justify-between gap-4">
+          <div className="space-y-1">
             <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
               style={{
                 background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
-              <Activity size={12} />
-              Admin
+              <Activity size={11} />
+              Supervision
             </div>
 
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              📊 Tableau de bord Admin
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+              Tableau de bord Admin
             </h1>
 
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
-              Vue d'ensemble de la plateforme
+            <p className="text-xs" style={{ color: colors.textLight }}>
+              Vue d'ensemble de l'activité et de la croissance de la plateforme
             </p>
           </div>
 
           <button
             onClick={fetchDashboardData}
             disabled={isLoading}
-            className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors hover:bg-white/40"
             style={{ background: colors.primary + '12', color: colors.primary }}
           >
-            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             <span className="hidden sm:inline">Actualiser</span>
           </button>
         </div>
       </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      {/* STATS COMPACTES ÉPURÉES */}
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {statCards.map((card, index) => (
           <CompactStat
             key={index}
@@ -251,25 +256,26 @@ const AdminDashboardPage = () => {
         ))}
       </section>
 
-      {/* CROISSANCE */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={18} style={{ color: colors.primary }} />
-            <h2 className="font-bold text-sm" style={{ color: colors.text }}>
+      {/* CROISSANCE ET ACTIVITÉ RAPIDE */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* CROISSANCE DES REVENUS */}
+        <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)] flex flex-col justify-between">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={16} style={{ color: colors.primary }} />
+            <h2 className="font-bold text-xs tracking-wider uppercase text-gray-400">
               Croissance des revenus
             </h2>
           </div>
-          <div className="flex items-end gap-3">
-            <div>
+          <div className="flex items-end justify-between gap-3">
+            <div className="space-y-0.5">
               <p className="text-2xl font-black" style={{ color: colors.primary }}>
                 {stats.growth > 0 ? '+' : ''}{stats.growth.toFixed(1)}%
               </p>
-              <p className="text-xs text-gray-400">vs mois précédent</p>
+              <p className="text-[11px] text-gray-400">par rapport au mois précédent</p>
             </div>
             <div
-              className={`px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
-                stats.growth >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+              className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                stats.growth >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
               }`}
             >
               {stats.growth >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
@@ -278,36 +284,37 @@ const AdminDashboardPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-          <div className="flex items-center gap-2 mb-2">
-            <Activity size={18} style={{ color: colors.primary }} />
-            <h2 className="font-bold text-sm" style={{ color: colors.text }}>
+        {/* ACTIVITÉ RAPIDE EN GRID PILL */}
+        <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)]">
+          <div className="flex items-center gap-2 mb-4">
+            <Activity size={16} style={{ color: colors.primary }} />
+            <h2 className="font-bold text-xs tracking-wider uppercase text-gray-400">
               Activité rapide
             </h2>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <QuickStat
               label="Visites aujourd'hui"
               value={stats.visitsToday}
-              color="#2196F3"
+              color="#3b82f6"
               icon={<Calendar size={16} />}
             />
             <QuickStat
-              label="En attente"
+              label="Tâches en attente"
               value={stats.pendingOrders + stats.pendingRegistrations}
-              color="#FF9800"
+              color="#f59e0b"
               icon={<Clock size={16} />}
             />
             <QuickStat
               label="Aidants actifs"
               value={stats.totalAidants}
-              color="#4CAF50"
+              color="#10b981"
               icon={<Award size={16} />}
             />
             <QuickStat
-              label="Utilisateurs actifs"
+              label="Membres actifs"
               value={stats.activeUsers}
-              color="#9C27B0"
+              color="#8b5cf6"
               icon={<UserCheck size={16} />}
             />
           </div>
@@ -318,7 +325,7 @@ const AdminDashboardPage = () => {
 };
 
 // =============================================
-// COMPACT STAT
+// COMPACT STAT COMPONENT
 // =============================================
 
 interface CompactStatProps {
@@ -331,30 +338,30 @@ interface CompactStatProps {
 
 const CompactStat = ({ label, value, sub, icon, color }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+    <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col justify-between min-h-[105px]">
       <div className="flex items-start justify-between gap-1">
-        <div className="min-w-0">
-          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400 truncate">
-            {label}
-          </p>
-          <p className="text-base font-bold mt-0.5 truncate" style={{ color }}>
-            {value}
-          </p>
-          <p className="text-[8px] text-gray-400 truncate">{sub}</p>
-        </div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 truncate">
+          {label}
+        </p>
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: color + '14', color }}
+          style={{ background: color + '0a', color }}
         >
           {icon}
         </div>
+      </div>
+      <div className="space-y-0.5 mt-2">
+        <p className="text-base font-extrabold truncate" style={{ color }}>
+          {value}
+        </p>
+        <p className="text-[9px] font-medium text-gray-400 truncate">{sub}</p>
       </div>
     </div>
   );
 };
 
 // =============================================
-// QUICK STAT
+// QUICK STAT COMPONENT
 // =============================================
 
 interface QuickStatProps {
@@ -366,13 +373,13 @@ interface QuickStatProps {
 
 const QuickStat = ({ label, value, color, icon }: QuickStatProps) => {
   return (
-    <div className="flex items-center gap-2 p-2 rounded-xl" style={{ background: color + '08' }}>
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '20', color }}>
+    <div className="flex items-center gap-2.5 p-2 rounded-2xl transition-colors hover:bg-gray-50/50" style={{ background: color + '06' }}>
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '14', color }}>
         {icon}
       </div>
-      <div>
-        <p className="text-base font-bold" style={{ color }}>{value}</p>
-        <p className="text-[9px] text-gray-400 truncate">{label}</p>
+      <div className="min-w-0">
+        <p className="text-sm font-extrabold" style={{ color }}>{value}</p>
+        <p className="text-[9px] text-gray-400 font-medium truncate">{label}</p>
       </div>
     </div>
   );
