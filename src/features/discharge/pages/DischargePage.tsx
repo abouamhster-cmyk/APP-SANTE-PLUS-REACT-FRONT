@@ -1,30 +1,23 @@
 // 📁 src/features/discharge/pages/DischargePage.tsx
-// 📌 Sortie d'hôpital - Accompagnement complet
-
+ 
 import { useEffect, useState } from 'react';
-import { 
-  Plus, 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  User, 
-  Hospital, 
+import {
+  Plus,
+  Calendar,
+  Clock,
+  Hospital,
   Stethoscope,
-  CheckCircle,
-  XCircle,
-  Clock as ClockIcon,
-  Loader2,
+  User,
   Eye,
-  Edit,
-  Trash2,
-  ChevronRight
+  Loader2,
+  Filter,
 } from 'lucide-react';
 import { useDischargeStore } from '@/stores/dischargeStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime } from '@/utils/helpers';
+import { formatDate } from '@/utils/helpers';
 import { DischargeRequestModal } from '../components/DischargeRequestModal';
 import { DischargeDetailsModal } from '../components/DischargeDetailsModal';
 import { DischargeStatus } from '@/types';
@@ -34,10 +27,9 @@ const DischargePage = () => {
   const { profile, role } = useAuthStore();
   const { discharges, isLoading, fetchDischarges, updateStatus } = useDischargeStore();
   const { patients, fetchPatients } = usePatientStore();
-  
-  // ✅ Jargon dynamique selon le rôle
+
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
+    singular,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -60,7 +52,7 @@ const DischargePage = () => {
     }
   }, []);
 
-  const filteredDischarges = discharges.filter(d => 
+  const filteredDischarges = discharges.filter(d =>
     filter === 'all' || d.status === filter
   );
 
@@ -88,83 +80,17 @@ const DischargePage = () => {
     }
   };
 
-  // ✅ Libellé dynamique pour le titre
   const getPageTitle = () => {
-    if (isFamily) return '🏥 Sortie d\'hôpital - Proche';
-    if (isAidant) return '🏥 Sortie d\'hôpital - Personne accompagnée';
-    if (isAdminOrCoordinator) return '🏥 Gestion des sorties d\'hôpital';
-    return '🏥 Sortie d\'hôpital';
+    if (isFamily) return '🏥 Sortie hôpital - Proche';
+    if (isAidant) return '🏥 Sortie hôpital - Personne accompagnée';
+    if (isAdminOrCoordinator) return '🏥 Gestion des sorties';
+    return '🏥 Sortie hôpital';
   };
 
-  // ✅ Libellé dynamique pour la description
-  const getPageDescription = () => {
-    if (isFamily) {
-      return 'Demandez un accompagnement complet pour la sortie d\'hôpital de votre proche.';
-    }
-    if (isAidant) {
-      return 'Accompagnez les personnes lors de leur sortie d\'hôpital.';
-    }
-    if (isAdminOrCoordinator) {
-      return 'Gérez et suivez toutes les demandes de sortie d\'hôpital.';
-    }
-    return 'Accompagnement complet pour les sorties d\'hôpital.';
-  };
-
-  // ✅ Libellé dynamique pour le bouton
-  const getButtonLabel = () => {
-    if (isFamily) return 'Demander une sortie';
-    return 'Nouvelle demande';
-  };
-
-  // ✅ Libellé dynamique pour le message vide
   const getEmptyMessage = () => {
-    if (isFamily) {
-      return 'Demandez un accompagnement pour une sortie d\'hôpital de votre proche.';
-    }
-    if (isAidant) {
-      return 'Les demandes de sortie pour les personnes que vous accompagnez apparaîtront ici.';
-    }
-    if (isAdminOrCoordinator) {
-      return 'Les demandes de sortie des bénéficiaires apparaîtront ici.';
-    }
-    return 'Les demandes apparaîtront ici.';
-  };
-
-  // ✅ Libellé dynamique pour les statistiques
-  const getStatsLabel = (type: 'total' | 'pending' | 'in_progress' | 'completed') => {
-    if (isFamily) {
-      switch (type) {
-        case 'total': return 'Total';
-        case 'pending': return 'En attente';
-        case 'in_progress': return 'En cours';
-        case 'completed': return 'Terminées';
-      }
-    }
-    if (isAidant) {
-      switch (type) {
-        case 'total': return 'Mes missions';
-        case 'pending': return 'À venir';
-        case 'in_progress': return 'En cours';
-        case 'completed': return 'Terminées';
-      }
-    }
-    return {
-      total: 'Total',
-      pending: 'En attente',
-      in_progress: 'En cours',
-      completed: 'Terminées',
-    }[type] || '';
-  };
-
-  const handleCreateSuccess = () => {
-    setShowRequestModal(false);
-    fetchDischarges();
-    toast.success('Demande de sortie créée !');
-  };
-
-  const handleViewDetails = (discharge: any) => {
-    setSelectedDischarge(discharge);
-    setShowDetailsModal(true);
+    if (isFamily) return 'Demandez un accompagnement pour une sortie d\'hôpital.';
+    if (isAidant) return 'Les demandes de sortie apparaîtront ici.';
+    return 'Les demandes de sortie apparaîtront ici.';
   };
 
   const stats = {
@@ -174,114 +100,185 @@ const DischargePage = () => {
     completed: discharges.filter(d => d.status === 'completed').length,
   };
 
+  // ✅ Options de filtre
+  const filterOptions = [
+    { value: 'all', label: '📋 Toutes' },
+    { value: 'pending', label: '📋 En attente' },
+    { value: 'planned', label: '📅 Planifiées' },
+    { value: 'in_progress', label: '🚗 En cours' },
+    { value: 'completed', label: '✅ Terminées' },
+    { value: 'cancelled', label: '❌ Annulées' },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 pb-8">
-      {/* Header */}
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: colors.text }}>
+    <div className="space-y-4 pb-24 sm:pb-10">
+      {/* HEADER */}
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              style={{
+                background: colors.primary + '12',
+                color: colors.primary,
+              }}
+            >
+              <Hospital size={12} />
+              Sortie
+            </div>
+
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
               {getPageTitle()}
             </h1>
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-              {getPageDescription()}
+
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {stats.total} demande{stats.total > 1 ? 's' : ''} au total
             </p>
           </div>
+
           {isFamilyRole && (
             <button
               onClick={() => setShowRequestModal(true)}
-              className="px-6 py-3 rounded-xl text-white font-bold transition hover:opacity-90 flex items-center gap-2"
+              className="px-3 py-2 rounded-xl text-white font-bold text-sm flex items-center gap-1.5"
               style={{ background: colors.primary }}
             >
-              <Plus size={20} />
-              {getButtonLabel()}
+              <Plus size={16} />
+              <span className="hidden sm:inline">Demander</span>
             </button>
           )}
         </div>
       </section>
 
-      {/* Statistiques */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label={getStatsLabel('total')}
-          value={stats.total}
-          color={colors.primary}
-        />
-        <StatCard
-          label={getStatsLabel('pending')}
-          value={stats.pending}
-          color="#FF9800"
-        />
-        <StatCard
-          label={getStatsLabel('in_progress')}
-          value={stats.in_progress}
-          color="#2196F3"
-        />
-        <StatCard
-          label={getStatsLabel('completed')}
-          value={stats.completed}
-          color="#4CAF50"
-        />
+      {/* STATS */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <CompactStat label="Total" value={stats.total} color={colors.primary} icon={<Hospital size={14} />} />
+        <CompactStat label="En attente" value={stats.pending} color="#FF9800" icon={<Clock size={14} />} />
+        <CompactStat label="En cours" value={stats.in_progress} color="#2196F3" icon={<Calendar size={14} />} />
+        <CompactStat label="Terminées" value={stats.completed} color="#4CAF50" icon={<CheckCircle size={14} />} />
       </section>
 
-      {/* Filtres */}
-      <section className="flex flex-wrap gap-2">
-        {(['all', 'pending', 'planned', 'in_progress', 'completed', 'cancelled'] as const).map((status) => (
-          <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition ${
-              filter === status ? 'text-white' : 'text-gray-600'
-            }`}
-            style={{
-              background: filter === status ? colors.primary : 'transparent',
-            }}
+      {/* FILTRE */}
+      <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
+        <div className="flex items-center gap-2">
+          <Filter size={14} className="text-gray-400" />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as any)}
+            className="flex-1 px-2 py-1.5 text-xs rounded-xl border bg-gray-50 outline-none"
+            style={{ borderColor: colors.border, color: colors.text }}
           >
-            {status === 'all' ? '📋 Toutes' :
-             status === 'pending' ? '📋 En attente' :
-             status === 'planned' ? '📅 Planifiées' :
-             status === 'in_progress' ? '🚗 En cours' :
-             status === 'completed' ? '✅ Terminées' :
-             '❌ Annulées'}
-          </button>
-        ))}
+            {filterOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </section>
 
-      {/* Liste des sorties */}
-      <section className="space-y-4">
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 size={40} className="animate-spin" style={{ color: colors.primary }} />
-          </div>
-        ) : filteredDischarges.length === 0 ? (
-          <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-black/5">
-            <Hospital size={48} className="mx-auto mb-4 opacity-30" />
-            <h3 className="text-lg font-bold" style={{ color: colors.text }}>
-              {filter === 'all' ? 'Aucune sortie d\'hôpital' : 'Aucune sortie dans cette catégorie'}
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">
-              {getEmptyMessage()}
-            </p>
-          </div>
-        ) : (
-          filteredDischarges.map((discharge) => (
-            <DischargeCard
+      {/* LISTE */}
+      {filteredDischarges.length > 0 ? (
+        <section className="space-y-2">
+          {filteredDischarges.map((discharge) => (
+            <div
               key={discharge.id}
-              discharge={discharge}
-              colors={colors}
-              onView={() => handleViewDetails(discharge)}
-              onStatusChange={(status: DischargeStatus) => updateStatus(discharge.id, status)}
-            />
-          ))
-        )}
-      </section>
+              className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
+              style={{ borderLeftColor: getStatusColor(discharge.status) }}
+              onClick={() => {
+                setSelectedDischarge(discharge);
+                setShowDetailsModal(true);
+              }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                      style={{ background: colors.primary }}
+                    >
+                      {discharge.patient?.first_name?.[0]}{discharge.patient?.last_name?.[0]}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold truncate" style={{ color: colors.text }}>
+                        {discharge.patient?.first_name} {discharge.patient?.last_name}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[9px] flex-wrap" style={{ color: colors.text + '50' }}>
+                        <span className="flex items-center gap-0.5">
+                          <Hospital size={10} /> {discharge.hospital_name}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-0.5">
+                          <Calendar size={10} /> {formatDate(discharge.discharge_date)}
+                        </span>
+                        <span
+                          className="px-1.5 py-0.5 rounded-full text-[8px] font-medium"
+                          style={{
+                            background: getStatusColor(discharge.status) + '20',
+                            color: getStatusColor(discharge.status),
+                          }}
+                        >
+                          {getStatusLabel(discharge.status)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-      {/* Modals */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={(e) => { e.stopPropagation();
+                      setSelectedDischarge(discharge);
+                      setShowDetailsModal(true);
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 transition"
+                    style={{ color: colors.primary }}
+                  >
+                    <Eye size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : (
+        <section className="bg-white rounded-2xl p-6 text-center shadow-sm">
+          <Hospital size={32} className="mx-auto mb-3 opacity-30" />
+          <h3 className="text-sm font-bold" style={{ color: colors.text }}>
+            {filter !== 'all' ? 'Aucune sortie dans cette catégorie' : 'Aucune sortie d\'hôpital'}
+          </h3>
+          <p className="text-xs text-gray-400 mt-1">{getEmptyMessage()}</p>
+        </section>
+      )}
+
+      {/* MODALS */}
       {showRequestModal && (
         <DischargeRequestModal
           patients={patients}
           onClose={() => setShowRequestModal(false)}
-          onSuccess={handleCreateSuccess}
+          onSuccess={() => {
+            setShowRequestModal(false);
+            fetchDischarges();
+            toast.success('Demande de sortie créée !');
+          }}
           colors={colors}
         />
       )}
@@ -302,135 +299,26 @@ const DischargePage = () => {
 };
 
 // =============================================
-// STAT CARD
+// COMPACT STAT
 // =============================================
 
-interface StatCardProps {
+interface CompactStatProps {
+  icon: React.ReactNode;
   label: string;
   value: number;
   color: string;
 }
 
-const StatCard = ({ label, value, color }: StatCardProps) => {
+const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <p className="text-3xl font-black" style={{ color }}>{value}</p>
-      <p className="text-sm text-gray-500">{label}</p>
-    </div>
-  );
-};
-
-// =============================================
-// DISCHARGE CARD
-// =============================================
-
-interface DischargeCardProps {
-  discharge: any;
-  colors: any;
-  onView: () => void;
-  onStatusChange: (status: DischargeStatus) => void;
-}
-
-const DischargeCard = ({ discharge, colors, onView, onStatusChange }: DischargeCardProps) => {
-  const getStatusColor = (status: DischargeStatus): string => {
-    switch (status) {
-      case 'pending': return '#FF9800';
-      case 'assessing': return '#2196F3';
-      case 'planned': return '#4CAF50';
-      case 'in_progress': return '#FF5722';
-      case 'completed': return '#4CAF50';
-      case 'cancelled': return '#F44336';
-      default: return '#9E9E9E';
-    }
-  };
-
-  const getStatusLabel = (status: DischargeStatus): string => {
-    switch (status) {
-      case 'pending': return '📋 En attente';
-      case 'assessing': return '🔍 Évaluation';
-      case 'planned': return '📅 Planifiée';
-      case 'in_progress': return '🚗 En cours';
-      case 'completed': return '✅ Terminée';
-      case 'cancelled': return '❌ Annulée';
-      default: return status;
-    }
-  };
-
-  const statusColor = getStatusColor(discharge.status);
-
-  return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5 hover:shadow-md transition">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex-1">
-          {/* Patient / Proche */}
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-              style={{ background: colors.primary }}
-            >
-              {discharge.patient?.first_name?.[0]}{discharge.patient?.last_name?.[0]}
-            </div>
-            <div>
-              <h3 className="font-bold" style={{ color: colors.text }}>
-                {discharge.patient?.first_name} {discharge.patient?.last_name}
-              </h3>
-              <p className="text-sm" style={{ color: colors.text + '60' }}>
-                {discharge.patient?.address || 'Adresse non renseignée'}
-              </p>
-            </div>
-          </div>
-
-          {/* Infos */}
-          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-            <div className="flex items-center gap-1.5" style={{ color: colors.text + '70' }}>
-              <Hospital size={14} />
-              <span>{discharge.hospital_name}</span>
-            </div>
-            <div className="flex items-center gap-1.5" style={{ color: colors.text + '70' }}>
-              <Calendar size={14} />
-              <span>{formatDate(discharge.discharge_date)}</span>
-            </div>
-            <div className="flex items-center gap-1.5" style={{ color: colors.text + '70' }}>
-              <Clock size={14} />
-              <span>{discharge.discharge_time}</span>
-            </div>
-            <div className="flex items-center gap-1.5" style={{ color: colors.text + '70' }}>
-              <Stethoscope size={14} />
-              <span>{discharge.hospital_service}</span>
-            </div>
-          </div>
-
-          {/* Aidant assigné */}
-          {discharge.aidant && (
-            <div className="mt-2 flex items-center gap-1.5 text-sm" style={{ color: colors.primary }}>
-              <User size={14} />
-              <span>Aidant: {discharge.aidant.user?.full_name || 'Non assigné'}</span>
-            </div>
-          )}
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
+        <div>
+          <p className="text-[9px] font-medium text-gray-400">{label}</p>
+          <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
         </div>
-
-        {/* Actions */}
-        <div className="flex flex-col items-end gap-2">
-          <span
-            className="px-3 py-1 rounded-full text-xs font-bold"
-            style={{
-              background: statusColor + '15',
-              color: statusColor,
-            }}
-          >
-            {getStatusLabel(discharge.status)}
-          </span>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={onView}
-              className="px-3 py-1.5 rounded-xl text-sm font-bold transition hover:opacity-80 flex items-center gap-1"
-              style={{ background: colors.primary + '15', color: colors.primary }}
-            >
-              <Eye size={14} />
-              Détails
-            </button>
-          </div>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '15', color }}>
+          {icon}
         </div>
       </div>
     </div>
