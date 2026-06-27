@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-
+ 
 import { useEffect, useState, useRef } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -33,7 +33,7 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
 import { cn } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
-import { MobileTabBar } from './MobileTabBar'; // ✅ NOUVEAU
+import { MobileTabBar } from './MobileTabBar';
 
 const MainLayout = () => {
   const navigate = useNavigate();
@@ -43,7 +43,6 @@ const MainLayout = () => {
   const { unreadCount, fetchNotifications, subscribe, unsubscribe } =
     useNotificationStore();
 
-  // ✅ Jargon dynamique selon le rôle
   const {
     plural,
     list,
@@ -215,7 +214,7 @@ const MainLayout = () => {
       className="min-h-screen w-full overflow-x-hidden pb-16 md:pb-0"
       style={{ backgroundColor: colors.background }}
     >
-      {/* SIDEBAR DESKTOP */}
+      {/* SIDEBAR DESKTOP - Uniquement sur desktop */}
       {!isMobile && (
         <aside
           className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col"
@@ -238,7 +237,7 @@ const MainLayout = () => {
         </aside>
       )}
 
-      {/* SIDEBAR MOBILE (hamburger) */}
+      {/* SIDEBAR MOBILE - UNIQUEMENT via hamburger (optionnel) */}
       {isMobile && (
         <>
           <aside
@@ -276,7 +275,7 @@ const MainLayout = () => {
 
       {/* PAGE CONTENT avec HEADER FIXE */}
       <div className="min-h-screen w-full md:pl-72">
-        {/* HEADER FIXE */}
+        {/* HEADER FIXE - SANS HAMBURGER SUR MOBILE */}
         <header
           className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-b px-4 md:px-6 py-3 md:py-4"
           style={{
@@ -289,16 +288,7 @@ const MainLayout = () => {
               {/* Ligne 1 : Titre + Notifications */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* ✅ Bouton hamburger uniquement sur mobile */}
-                  {isMobile && (
-                    <button
-                      onClick={() => setSidebarOpen(true)}
-                      className="w-10 h-10 rounded-xl hover:bg-gray-100 transition flex items-center justify-center shrink-0"
-                    >
-                      <Menu size={22} />
-                    </button>
-                  )}
-
+                  {/* ✅ PAS DE HAMBURGER SUR MOBILE - Juste le titre */}
                   <h2
                     className="text-base md:text-lg font-bold truncate"
                     style={{ color: colors.text }}
@@ -314,9 +304,9 @@ const MainLayout = () => {
                       color: colors.primary,
                     }}
                   >
-                    {role === 'aidant' ? '🦸 Aidant' :
+                    {role === 'aidant' ? '🦸 Aidant' : 
                      role === 'family' ? '👨‍👩‍👦 Famille' :
-                     role === 'coordinator' ? '👔 Coord' :
+                     role === 'coordinator' ? '👔 Coord' : 
                      role === 'admin' ? '👑 Admin' : ''}
                   </span>
                 </div>
