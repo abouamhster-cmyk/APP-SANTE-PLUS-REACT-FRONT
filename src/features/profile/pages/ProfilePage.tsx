@@ -1,5 +1,6 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
- 
+// ✅ Version corrigée - Gestion de profile null
+
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -156,24 +157,30 @@ const ProfilePage = () => {
 
   const handleSaveProfile = async () => {
     if (!formData.full_name.trim()) return toast.error('Le nom est obligatoire');
+    if (!profile?.id) return toast.error('Profil introuvable');
+    
     setIsLoading(true);
     try {
-      let avatarUrl = profile?.avatar_url || null;
+      let avatarUrl = profile.avatar_url || null;
+      
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop() || 'png';
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile, { upsert: true });
+        
         if (uploadError) throw new Error(uploadError.message);
         avatarUrl = supabase.storage.from('avatars').getPublicUrl(uploadData.path).data.publicUrl + `?v=${Date.now()}`;
       }
+      
       await updateProfile({ 
         full_name: formData.full_name.trim(), 
         phone: formData.phone.trim(), 
         avatar_url: avatarUrl, 
         preferences: formData.preferences 
       });
+      
       setAvatarPreview(avatarUrl);
       setAvatarFile(null);
       setIsEditing(false);
@@ -190,16 +197,21 @@ const ProfilePage = () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) return toast.error('Les mots de passe ne correspondent pas');
     if (passwordData.newPassword.length < 6) return toast.error('Minimum 6 caractères');
     if (passwordData.newPassword === passwordData.currentPassword) return toast.error('Le nouveau mot de passe doit être différent');
+    
     setIsLoading(true);
     try {
       const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+      
       const { error: signInError } = await supabase.auth.signInWithPassword({ 
         email: user.email!, 
         password: passwordData.currentPassword 
       });
       if (signInError) return toast.error('Mot de passe actuel incorrect');
+      
       const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword });
       if (error) throw error;
+      
       toast.success('✅ Mot de passe mis à jour');
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -210,9 +222,11 @@ const ProfilePage = () => {
 
   const handleDeleteAccount = async () => {
     if (!window.confirm('⚠️ Cette action supprimera définitivement votre compte ET tous vos proches.')) return;
+    
     setIsLoading(true);
     try {
       const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non trouvé');
       
       // Récupérer les patients liés
       const { data: links } = await supabase
@@ -325,7 +339,7 @@ const ProfilePage = () => {
       {/* HEADER - Design épuré */}
       {/* ========================================== */}
       <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
-        <div className="flex flex-col sm:flex-row items-center gap-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           {/* Avatar */}
           <div className="relative w-fit">
             <div 
@@ -358,7 +372,7 @@ const ProfilePage = () => {
               {roleEmojiLabel}
             </p>
             <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4 mt-2 text-xs opacity-70">
-              <span className="flex items-center gap-1.5"><Mail size={13} /> {profile?.email}</span>
+              <span className="flex items-center gap-1.5"><Mail size={13} /> {profile?.email || '-'}</span>
               <span className="flex items-center gap-1.5"><Phone size={13} /> {profile?.phone || 'Non renseigné'}</span>
             </div>
           </div>
