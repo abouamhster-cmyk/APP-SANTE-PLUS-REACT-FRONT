@@ -640,7 +640,6 @@ const RegisterPage = () => {
             </main>
           </div>
         </div>
-        <p className="mt-4 text-center text-xs" style={{ color: branding.textLight }}>Santé Plus Services — Un service d'accompagnement non médical</p>
       </div>
 
       <InfoModal isOpen={showFAQ} onClose={() => setShowFAQ(false)} title="❓ Foire aux questions" icon={<HelpCircle size={20} />} maxWidth="lg"><FAQContent /></InfoModal>
