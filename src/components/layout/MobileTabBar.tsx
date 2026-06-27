@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MobileTabBar.tsx
-
+ 
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -10,13 +10,18 @@ import {
   Settings,
   ClipboardList,
   UserCheck,
-  Home,
   Briefcase,
   CreditCard,
   Bell,
+  MessageCircle,
+  MapPin,
+  Home,
+  History,
+  Award,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useTerminology } from '@/hooks/useTerminology';
 
 interface MobileTabBarProps {
   colors: any;
@@ -26,8 +31,11 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
   const location = useLocation();
   const { role, profile } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  
+  // ✅ Jargon dynamique
+  const { list, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
-  // ✅ Items du menu mobile (max 5)
+  // ✅ Items du menu mobile selon le rôle (max 5)
   const getMobileItems = () => {
     const base = [
       { icon: <LayoutDashboard size={22} />, label: 'Accueil', path: '/app' },
@@ -37,7 +45,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
     if (role === 'family') {
       return [
         ...base,
-        { icon: <Users size={22} />, label: 'Proches', path: '/app/patients' },
+        { icon: <Users size={22} />, label: list, path: '/app/patients' },
         { icon: <Calendar size={22} />, label: 'Visites', path: '/app/visits' },
         { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
         { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
