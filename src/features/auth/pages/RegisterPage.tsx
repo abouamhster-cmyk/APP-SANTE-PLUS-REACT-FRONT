@@ -433,36 +433,36 @@ const RegisterPage = () => {
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden" style={{ borderColor: branding.border }}>
           <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
             
-            {/* Colonne latérale de présentation */}
-            <aside className="hidden lg:flex flex-col justify-between p-10" style={{ background: branding.gradient }}>
-              <div className="space-y-12">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                    <Logo size="sm" showText={false} whiteBg={true} className="justify-center" role={getLogoRole()} />
+              {/* Colonne latérale de présentation */}
+              <aside className="hidden lg:flex flex-col justify-between p-10" style={{ background: branding.gradient }}>
+                <div className="space-y-12">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
+                      <Logo size="sm" showText={false} whiteBg={true} className="justify-center" role={getLogoRole()} />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold tracking-tight text-sm leading-none">Santé Plus</p>
+                      <p className="text-white/60 text-[11px] mt-0.5">Services à la personne</p>
+                    </div>
                   </div>
                   <div>
-                    <p className="text-white font-bold tracking-tight text-sm leading-none">Santé Plus</p>
-                    <p className="text-white/60 text-[11px] mt-0.5">Services à la personne</p>
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/10 text-white/90 text-[11px] font-medium">
+                      <ShieldCheck size={12} /> Espace 100% sécurisé
+                    </div>
+                    <h1 className="text-3xl font-extrabold text-white mt-4 leading-tight">
+                      {isMaman ? 'Un cocon doux pour maman & bébé.' : isAidant ? 'Rejoignez l\'équipe Santé Plus.' : 'Un accompagnement simple et rassurant.'}
+                    </h1>
+                    <p className="text-xs text-white/70 mt-3 leading-relaxed">
+                      {isMaman ? 'Un accompagnement spécialisé pour les jeunes mamans et leur nourrisson.' : isAidant ? 'Valorisez vos compétences et offrez du soutien de qualité.' : 'Créez votre compte en quelques étapes. Notre équipe valide chaque dossier avec soin.'}
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/10 text-white/90 text-[11px] font-medium">
-                    <ShieldCheck size={12} /> Espace 100% sécurisé
-                  </div>
-                  <h1 className="text-3xl font-extrabold text-white mt-4 leading-tight">
-                    {isMaman ? 'Un cocon doux pour maman & bébé.' : isAidant ? 'Rejoignez l\'équipe Santé Plus.' : 'Un accompagnement simple et rassurant.'}
-                  </h1>
-                  <p className="text-xs text-white/70 mt-3 leading-relaxed">
-                    {isMaman ? 'Un accompagnement spécialisé pour les jeunes mamans et leur nourrisson.' : isAidant ? 'Valorisez vos compétences et offrez du soutien de qualité.' : 'Créez votre compte en quelques étapes. Notre équipe valide chaque dossier avec soin.'}
-                  </p>
+                <div className="space-y-2.5 mt-10">
+                  <InfoLine text="Comptes validés manuellement" />
+                  <InfoLine text="Suivi d'activité transparent" />
+                  <InfoLine text="Interventions professionnelles" />
                 </div>
-              </div>
-              <div className="space-y-2.5 mt-10">
-                <InfoLine text="Comptes validés manuellement" />
-                <InfoLine text="Suivi d'activité transparent" />
-                <InfoLine text="Interventions professionnelles" />
-              </div>
-            </aside>
+              </aside>
 
             {/* Formulaire Principal */}
             <main className="p-5 sm:p-8 lg:p-10 flex flex-col justify-between min-h-[680px]">
