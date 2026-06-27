@@ -1,28 +1,23 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
-// 📌 Missions et commandes pour les aidants
+// ✅ Version compacte
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Calendar, 
-  MapPin, 
-  Clock, 
-  User, 
-  Play, 
-  CheckCircle, 
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  User,
+  Play,
+  CheckCircle,
   XCircle,
-  Filter,
   RefreshCw,
   ShoppingBag,
   Truck,
   Package,
-  Navigation,
-  AlertCircle,
-  Phone,
-  Mail,
+  Filter,
   Eye,
   ClipboardList,
-  Camera,
   ShieldAlert,
 } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
@@ -34,34 +29,20 @@ import { formatDate, formatTime, formatCurrency } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// ✅ Types pour les onglets
 type TabType = 'missions' | 'deliveries' | 'available';
 
 const MissionsPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
   const { visits, fetchVisits, startVisit, isLoading } = useVisitStore();
-  const { 
-    orders, 
-    fetchOrders, 
-    acceptOrder, 
-    completeDelivery,  // ✅ Pas de paramètres supplémentaires
-    isLoading: ordersLoading,
-  } = useOrderStore();
+  const { orders, fetchOrders, acceptOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
 
-  // ✅ Jargon dynamique selon le rôle
-  const {
-    singular,
-    getCategoryLabel,
-    isAidant,
-  } = useTerminology();
+  const { isAidant } = useTerminology();
 
   const [activeTab, setActiveTab] = useState<TabType>('missions');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [aidantId, setAidantId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showProofModal, setShowProofModal] = useState<string | null>(null);
-  const [proofFile, setProofFile] = useState<File | null>(null);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
@@ -69,69 +50,60 @@ const MissionsPage = () => {
   const colors = getThemeColors(themeName);
 
   // ✅ Vérifier si l'aidant est validé
-
-useEffect(() => {
-  const checkAidantStatus = async () => {
-    if (!user) {
-      setIsChecking(false);
-      return;
-    }
-
-    try {
-      // ✅ Ne pas utiliser is_active sur la table aidants
-      // ✅ Récupérer le profil utilisateur à la place
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('is_active, role')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error('Error checking profile status:', profileError);
-        setIsVerified(false);
+  useEffect(() => {
+    const checkAidantStatus = async () => {
+      if (!user) {
+        setIsChecking(false);
         return;
       }
 
-      // ✅ Vérifier si l'utilisateur est actif ET a le rôle aidant
-      const isActiveAndAidant = profile?.is_active === true && profile?.role === 'aidant';
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_active, role')
+          .eq('id', user.id)
+          .single();
 
-      // ✅ Vérifier aussi dans la table aidants
-      const { data: aidant, error: aidantError } = await supabase
-        .from('aidants')
-        .select('is_verified, status')
-        .eq('user_id', user.id)
-        .single();
+        if (profileError) {
+          console.error('Error checking profile status:', profileError);
+          setIsVerified(false);
+          return;
+        }
 
-      if (aidantError) {
-        console.error('Error checking aidant status:', aidantError);
-        // Si l'aidant n'existe pas encore, c'est normal
+        const { data: aidant, error: aidantError } = await supabase
+          .from('aidants')
+          .select('is_verified, status')
+          .eq('user_id', user.id)
+          .single();
+
+        if (aidantError) {
+          console.error('Error checking aidant status:', aidantError);
+          setIsVerified(false);
+          return;
+        }
+
+        const isVerified = profile?.is_active === true &&
+          profile?.role === 'aidant' &&
+          aidant?.is_verified === true &&
+          aidant?.status === 'approved';
+
+        setIsVerified(isVerified);
+      } catch (error) {
+        console.error('Error:', error);
         setIsVerified(false);
-        return;
+      } finally {
+        setIsChecking(false);
       }
+    };
 
-      // ✅ L'aidant est vérifié si :
-      // - Le profil est actif ET a le rôle aidant
-      // - L'aidant est vérifié ET approuvé
-      const isVerified = isActiveAndAidant && aidant?.is_verified === true && aidant?.status === 'approved';
-      
-      setIsVerified(isVerified);
-
-    } catch (error) {
-      console.error('Error:', error);
-      setIsVerified(false);
-    } finally {
-      setIsChecking(false);
-    }
-  };
-
-  checkAidantStatus();
-}, [user]);
+    checkAidantStatus();
+  }, [user]);
 
   // ✅ Récupérer l'ID de l'aidant
   useEffect(() => {
     const getAidantId = async () => {
       if (!user) return;
-      
+
       const { data, error } = await supabase
         .from('aidants')
         .select('id')
@@ -156,13 +128,13 @@ useEffect(() => {
     }
   }, [isVerified]);
 
-  // ✅ Si l'aidant n'est pas encore vérifié, afficher un message
+  // ✅ Si l'aidant n'est pas encore vérifié
   if (isChecking) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[300px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: colors.text }}>Vérification...</p>
+          <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm" style={{ color: colors.text }}>Vérification...</p>
         </div>
       </div>
     );
@@ -170,23 +142,19 @@ useEffect(() => {
 
   if (!isVerified) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
-        <div className="w-24 h-24 rounded-full flex items-center justify-center mb-6" style={{ background: colors.primary + '15' }}>
-          <ShieldAlert size={48} style={{ color: colors.primary }} />
+      <div className="flex flex-col items-center justify-center min-h-[300px] text-center p-4">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: colors.primary + '15' }}>
+          <ShieldAlert size={32} style={{ color: colors.primary }} />
         </div>
-        <h2 className="text-2xl font-bold mb-2" style={{ color: colors.text }}>
+        <h2 className="text-lg font-bold" style={{ color: colors.text }}>
           ⏳ Compte en attente de validation
         </h2>
-        <p className="text-sm max-w-md" style={{ color: colors.text + '70' }}>
-          Votre compte aidant est en cours de vérification par notre équipe. 
-          Vous recevrez une notification dès que votre compte sera activé.
-        </p>
-        <p className="text-xs mt-4" style={{ color: colors.text + '40' }}>
-          Cette opération peut prendre jusqu'à 48h.
+        <p className="text-xs max-w-sm" style={{ color: colors.text + '70' }}>
+          Votre compte aidant est en cours de vérification. Vous recevrez une notification sous 48h.
         </p>
         <button
           onClick={() => navigate('/app/profile')}
-          className="mt-6 px-6 py-3 rounded-xl text-white font-medium transition hover:opacity-80"
+          className="mt-4 px-4 py-2 rounded-xl text-white text-sm font-medium"
           style={{ background: colors.primary }}
         >
           Voir mon profil
@@ -195,29 +163,15 @@ useEffect(() => {
     );
   }
 
-  // ✅ Filtrer les missions de l'aidant
+  // ✅ Filtrer les données
   const myMissions = visits.filter(v => v.aidant_id === aidantId);
-  
-  // ✅ Commandes assignées à l'aidant
   const assignedOrders = orders.filter(o => o.aidant_id === aidantId);
-  
-  // ✅ Commandes disponibles (sans aidant)
-  const availableOrders = orders.filter(o => 
-    (o.status === 'creee') && !o.aidant_id
-  );
+  const availableOrders = orders.filter(o => o.status === 'creee' && !o.aidant_id);
+  const deliveryOrders = assignedOrders.filter(o => o.status === 'en_cours' || o.status === 'livree');
 
-  // ✅ Commandes en cours de livraison
-  const deliveryOrders = assignedOrders.filter(o => 
-    o.status === 'en_cours' || o.status === 'livree'
-  );
-
-  // ✅ Filtrer selon l'onglet
   const getFilteredItems = () => {
     if (activeTab === 'missions') {
-      return myMissions.filter(v => {
-        if (filterStatus === 'all') return true;
-        return v.status === filterStatus;
-      });
+      return myMissions.filter(v => filterStatus === 'all' || v.status === filterStatus);
     }
     if (activeTab === 'deliveries') {
       return deliveryOrders;
@@ -230,11 +184,9 @@ useEffect(() => {
 
   const filteredItems = getFilteredItems();
 
-  // ✅ Stats
   const stats = {
     missions: {
       total: myMissions.length,
-      available: myMissions.filter(v => v.status === 'planifiee').length,
       inProgress: myMissions.filter(v => v.status === 'en_cours').length,
       completed: myMissions.filter(v => v.status === 'terminee' || v.status === 'validee').length,
     },
@@ -256,7 +208,6 @@ useEffect(() => {
     }
   };
 
-  // ✅ Accepter une commande
   const handleAcceptOrder = async (id: string) => {
     try {
       await acceptOrder(id);
@@ -267,24 +218,10 @@ useEffect(() => {
     }
   };
 
-  // ✅ Livrer une commande (simplifié)
   const handleDeliverOrder = async (id: string) => {
     try {
-      // ✅ completeDelivery attend un string (id) ou un objet avec proof_url
       await completeDelivery(id);
       toast.success('Livraison terminée ✅');
-      fetchOrders();
-    } catch (error) {
-      toast.error('Erreur lors de la livraison');
-    }
-  };
-
-  // ✅ Livrer une commande avec preuve (photo)
-  const handleDeliverOrderWithProof = async (id: string, proofUrl: string) => {
-    try {
-      // ✅ Si tu veux ajouter une preuve, tu peux passer un objet
-      await completeDelivery(id, proofUrl);
-      toast.success('Livraison terminée avec preuve ✅');
       fetchOrders();
     } catch (error) {
       toast.error('Erreur lors de la livraison');
@@ -297,170 +234,179 @@ useEffect(() => {
     setIsRefreshing(false);
   };
 
-  // ✅ Statuts simplifiés
   const getStatusColor = (status: string) => {
-    const colorsMap: Record<string, string> = {
-      // Visites
+    const map: Record<string, string> = {
       planifiee: '#4CAF50',
       en_cours: '#FF9800',
       terminee: '#2196F3',
       validee: '#9C27B0',
       annulee: '#F44336',
-      // Commandes simplifiées
       creee: '#9E9E9E',
       livree: '#2196F3',
     };
-    return colorsMap[status] || '#9E9E9E';
+    return map[status] || '#9E9E9E';
   };
 
   const getStatusLabel = (status: string) => {
-    const labelsMap: Record<string, string> = {
-      // Visites
+    const map: Record<string, string> = {
       planifiee: 'Planifiée',
       en_cours: 'En cours',
       terminee: 'Terminée',
       validee: 'Validée',
       annulee: 'Annulée',
-      // Commandes simplifiées
       creee: 'Créée',
       livree: 'Livrée',
     };
-    return labelsMap[status] || status;
+    return map[status] || status;
   };
 
   const isLoading_ = isLoading || ordersLoading;
 
   if (isLoading_) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: colors.text }}>Chargement...</p>
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-20 bg-white rounded-xl animate-pulse" />
+          ))}
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6 pb-10">
-      {/* HEADER */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
-            🦸 Mon espace aidant
-          </h1>
-          <p className="mt-1" style={{ color: colors.text + '99' }}>
-            {stats.missions.total} missions • {stats.deliveries.total} livraisons
-          </p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
-          style={{ background: colors.primary + '15', color: colors.primary }}
-        >
-          <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-          <span>Actualiser</span>
-        </button>
-      </div>
+  // ✅ Options de filtre
+  const filterOptions = [
+    { value: 'all', label: 'Toutes' },
+    { value: 'planifiee', label: 'Planifiées' },
+    { value: 'en_cours', label: 'En cours' },
+    { value: 'terminee', label: 'Terminées' },
+    { value: 'annulee', label: 'Annulées' },
+  ];
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
+  return (
+    <div className="space-y-4 pb-24 sm:pb-10">
+      {/* HEADER */}
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              style={{
+                background: colors.primary + '12',
+                color: colors.primary,
+              }}
+            >
+              <ClipboardList size={12} />
+              Espace aidant
+            </div>
+
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+              🦸 Missions & Livraisons
+            </h1>
+
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {stats.missions.total} missions • {stats.deliveries.total} livraisons
+            </p>
+          </div>
+
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
+            style={{ background: colors.primary + '12', color: colors.primary }}
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </section>
+
+      {/* STATS COMPACTES */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <CompactStat
+          icon={<ClipboardList size={14} />}
           label="Missions"
           value={stats.missions.total}
           color={colors.primary}
-          icon={<ClipboardList size={18} />}
-          subtext={`${stats.missions.inProgress} en cours`}
+          sub={`${stats.missions.inProgress} en cours`}
         />
-        <StatCard
+        <CompactStat
+          icon={<Truck size={14} />}
           label="Livraisons"
           value={stats.deliveries.total}
           color="#FF5722"
-          icon={<Truck size={18} />}
-          subtext={`${stats.deliveries.inProgress} en cours`}
+          sub={`${stats.deliveries.inProgress} en cours`}
         />
-        <StatCard
-          label="Commandes dispo"
+        <CompactStat
+          icon={<Package size={14} />}
+          label="Disponibles"
           value={stats.available}
           color="#4CAF50"
-          icon={<Package size={18} />}
-          subtext="à prendre en charge"
+          sub="à prendre"
         />
-        <StatCard
+        <CompactStat
+          icon={<CheckCircle size={14} />}
           label="Terminées"
           value={stats.missions.completed + stats.deliveries.completed}
           color="#2196F3"
-          icon={<CheckCircle size={18} />}
-          subtext="missions + livraisons"
+          sub="terminées"
         />
-      </div>
+      </section>
 
       {/* TABS */}
-      <div className="bg-white rounded-2xl p-1 shadow-sm border border-black/5 flex">
-        <button
-          onClick={() => setActiveTab('missions')}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
-            activeTab === 'missions' ? 'text-white' : 'text-gray-600 hover:bg-gray-100'
-          }`}
-          style={{
-            background: activeTab === 'missions' ? colors.primary : 'transparent',
-          }}
-        >
-          📋 Missions ({stats.missions.total})
-        </button>
-        <button
-          onClick={() => setActiveTab('deliveries')}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
-            activeTab === 'deliveries' ? 'text-white' : 'text-gray-600 hover:bg-gray-100'
-          }`}
-          style={{
-            background: activeTab === 'deliveries' ? colors.primary : 'transparent',
-          }}
-        >
-          🚚 Livraisons ({stats.deliveries.total})
-        </button>
-        <button
-          onClick={() => setActiveTab('available')}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition ${
-            activeTab === 'available' ? 'text-white' : 'text-gray-600 hover:bg-gray-100'
-          }`}
-          style={{
-            background: activeTab === 'available' ? colors.primary : 'transparent',
-          }}
-        >
-          📦 Disponibles ({stats.available})
-        </button>
-      </div>
+      <section className="bg-white rounded-2xl p-1 shadow-sm border border-black/5 flex">
+        {[
+          { key: 'missions', label: `📋 Missions (${stats.missions.total})` },
+          { key: 'deliveries', label: `🚚 Livraisons (${stats.deliveries.total})` },
+          { key: 'available', label: `📦 Disponibles (${stats.available})` },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as TabType)}
+            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition ${
+              activeTab === tab.key ? 'text-white' : 'text-gray-600'
+            }`}
+            style={{
+              background: activeTab === tab.key ? colors.primary : 'transparent',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </section>
 
-      {/* FILTRE pour les missions */}
+      {/* FILTRE (pour missions uniquement) */}
       {activeTab === 'missions' && (
-        <div className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-          <div className="flex flex-wrap gap-2">
-            {['all', 'planifiee', 'en_cours', 'terminee', 'annulee'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilterStatus(status)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                  filterStatus === status ? 'text-white' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-                style={{
-                  background: filterStatus === status ? colors.primary : 'transparent',
-                }}
-              >
-                {status === 'all' ? 'Toutes' : getStatusLabel(status)} (
-                {myMissions.filter(v => status === 'all' ? true : v.status === status).length})
-              </button>
-            ))}
+        <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
+          <div className="flex items-center gap-2">
+            <Filter size={14} className="text-gray-400" />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="flex-1 px-2 py-1.5 text-xs rounded-xl border bg-gray-50 outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              {filterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label} ({myMissions.filter(v => opt.value === 'all' || v.status === opt.value).length})
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* LISTE DES ITEMS */}
+      {/* LISTE */}
       {filteredItems.length > 0 ? (
-        <div className="space-y-4">
+        <section className="space-y-2">
           {filteredItems.map((item) => (
-            <ItemCard
+            <MissionItemCompact
               key={item.id}
               item={item}
               type={activeTab}
@@ -483,52 +429,57 @@ useEffect(() => {
               formatCurrency={formatCurrency}
             />
           ))}
-        </div>
+        </section>
       ) : (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-          <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.primary + '10' }}>
-            {activeTab === 'missions' ? <ClipboardList size={40} style={{ color: colors.primary }} /> :
-             activeTab === 'deliveries' ? <Truck size={40} style={{ color: colors.primary }} /> :
-             <Package size={40} style={{ color: colors.primary }} />}
+        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
+          <div
+            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
+            style={{ background: colors.primary + '10' }}
+          >
+            {activeTab === 'missions' ? <ClipboardList size={24} style={{ color: colors.primary }} /> :
+             activeTab === 'deliveries' ? <Truck size={24} style={{ color: colors.primary }} /> :
+             <Package size={24} style={{ color: colors.primary }} />}
           </div>
-          <h3 className="text-lg font-medium" style={{ color: colors.text }}>
+
+          <h3 className="text-sm font-bold" style={{ color: colors.text }}>
             {activeTab === 'missions' && 'Aucune mission'}
             {activeTab === 'deliveries' && 'Aucune livraison en cours'}
             {activeTab === 'available' && 'Aucune commande disponible'}
           </h3>
-          <p className="mt-1" style={{ color: colors.text + '80' }}>
+
+          <p className="text-xs text-gray-400 mt-1">
             {activeTab === 'missions' && 'Revenez plus tard pour de nouvelles missions'}
             {activeTab === 'deliveries' && 'Les livraisons apparaîtront ici quand vous en aurez'}
             {activeTab === 'available' && 'Les commandes disponibles apparaîtront ici'}
           </p>
-        </div>
+        </section>
       )}
     </div>
   );
 };
 
 // =============================================
-// STAT CARD
+// COMPACT STAT
 // =============================================
 
-interface StatCardProps {
+interface CompactStatProps {
+  icon: React.ReactNode;
   label: string;
   value: number;
   color: string;
-  icon: React.ReactNode;
-  subtext?: string;
+  sub?: string;
 }
 
-const StatCard = ({ label, value, color, icon, subtext }: StatCardProps) => {
+const CompactStat = ({ icon, label, value, color, sub }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
         <div>
-          <p className="text-xs text-gray-500">{label}</p>
-          <p className="text-2xl font-bold mt-1" style={{ color }}>{value}</p>
-          {subtext && <p className="text-xs text-gray-400 mt-0.5">{subtext}</p>}
+          <p className="text-[9px] font-medium text-gray-400">{label}</p>
+          <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
+          {sub && <p className="text-[8px] text-gray-400">{sub}</p>}
         </div>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: color + '15', color }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '15', color }}>
           {icon}
         </div>
       </div>
@@ -537,10 +488,10 @@ const StatCard = ({ label, value, color, icon, subtext }: StatCardProps) => {
 };
 
 // =============================================
-// ITEM CARD - Affiche mission ou commande
+// MISSION ITEM COMPACT
 // =============================================
 
-interface ItemCardProps {
+interface MissionItemCompactProps {
   item: any;
   type: TabType;
   colors: any;
@@ -556,7 +507,7 @@ interface ItemCardProps {
   formatCurrency: (amount: number) => string;
 }
 
-const ItemCard = ({
+const MissionItemCompact = ({
   item,
   type,
   colors,
@@ -570,28 +521,34 @@ const ItemCard = ({
   formatDate,
   formatTime,
   formatCurrency,
-}: ItemCardProps) => {
+}: MissionItemCompactProps) => {
   const isMission = type === 'missions';
   const isAssignedToMe = item.aidant_id === aidantId;
   const isAvailable = item.status === 'planifiee' && !item.aidant_id;
   const isOrderAvailable = item.status === 'creee' && !item.aidant_id;
 
-  // ✅ Pour les missions
   if (isMission) {
     return (
       <div
-        className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
+        className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
         style={{ borderLeftColor: getStatusColor(item.status) }}
         onClick={onView}
       >
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
-                {item.patient?.first_name} {item.patient?.last_name}
-              </h3>
+            <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
+              {item.patient?.first_name} {item.patient?.last_name}
+            </p>
+            <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: colors.text + '60' }}>
+              <span className="flex items-center gap-0.5">
+                <Calendar size={11} /> {formatDate(item.scheduled_date)}
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-0.5">
+                <Clock size={11} /> {formatTime(item.scheduled_time)}
+              </span>
               <span
-                className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium"
                 style={{
                   background: getStatusColor(item.status) + '20',
                   color: getStatusColor(item.status),
@@ -600,71 +557,29 @@ const ItemCard = ({
                 {getStatusLabel(item.status)}
               </span>
               {item.is_urgent && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: '#F44336' + '20', color: '#F44336' }}>
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ background: '#F44336' + '20', color: '#F44336' }}>
                   ⚠️ Urgent
                 </span>
               )}
-              {isAvailable && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: '#4CAF50' + '20', color: '#4CAF50' }}>
-                  📌 Disponible
-                </span>
-              )}
             </div>
-
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-sm" style={{ color: colors.text + '60' }}>
-              <span className="flex items-center gap-1">
-                <Calendar size={14} />
-                {formatDate(item.scheduled_date)}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock size={14} />
-                {formatTime(item.scheduled_time)}
-              </span>
-              <span className="flex items-center gap-1">
-                <MapPin size={14} />
-                {item.patient?.address || 'Adresse non précisée'}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock size={14} />
-                {item.duration_minutes} min
-              </span>
-            </div>
-
-            {item.notes && (
-              <div className="mt-2 p-2 rounded-xl" style={{ background: colors.primary + '05' }}>
-                <p className="text-sm" style={{ color: colors.text + '70' }}>{item.notes}</p>
-              </div>
-            )}
           </div>
 
-          <div className="flex flex-wrap gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {isAvailable && (
               <button
                 onClick={(e) => { e.stopPropagation(); onStart(); }}
-                className="flex items-center gap-1 px-4 py-2 rounded-xl text-white font-medium text-sm transition hover:opacity-80"
+                className="px-2 py-1 rounded-lg text-white text-xs font-medium"
                 style={{ background: '#4CAF50' }}
               >
-                <Play size={16} />
-                Démarrer
-              </button>
-            )}
-            {isAssignedToMe && item.status === 'planifiee' && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onStart(); }}
-                className="flex items-center gap-1 px-4 py-2 rounded-xl text-white font-medium text-sm transition hover:opacity-80"
-                style={{ background: '#FF9800' }}
-              >
-                <Play size={16} />
-                Démarrer
+                <Play size={12} />
               </button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onView(); }}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl font-medium text-sm transition hover:bg-gray-50"
-              style={{ color: colors.text, background: 'transparent', border: `1px solid ${colors.primary + '20'}` }}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition"
+              style={{ color: colors.primary }}
             >
-              <Eye size={16} />
-              Détails
+              <Eye size={14} />
             </button>
           </div>
         </div>
@@ -672,24 +587,31 @@ const ItemCard = ({
     );
   }
 
-  // ✅ Pour les commandes simplifiées
+  // ✅ Pour les commandes
   const isAccepted = item.status === 'en_cours';
   const isDelivered = item.status === 'livree' || item.status === 'validee';
 
   return (
     <div
-      className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
+      className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
       style={{ borderLeftColor: getStatusColor(item.status) }}
       onClick={onView}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
-              📦 {item.description || 'Commande'}
-            </h3>
+          <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
+            📦 {item.description || 'Commande'}
+          </p>
+          <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: colors.text + '60' }}>
+            <span className="flex items-center gap-0.5">
+              <User size={11} /> {item.patient?.first_name || 'Client'}
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-0.5">
+              <Package size={11} /> {formatCurrency(item.estimated_amount || 0)}
+            </span>
             <span
-              className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
+              className="px-1.5 py-0.5 rounded-full text-[9px] font-medium"
               style={{
                 background: getStatusColor(item.status) + '20',
                 color: getStatusColor(item.status),
@@ -697,98 +619,59 @@ const ItemCard = ({
             >
               {getStatusLabel(item.status)}
             </span>
-            {isOrderAvailable && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ background: '#4CAF50' + '20', color: '#4CAF50' }}>
-                📌 À prendre
-              </span>
-            )}
-            {item.order_type === 'ponctual' && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-600">
-                💳 Ponctuelle
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm" style={{ color: colors.text + '60' }}>
-            <span className="flex items-center gap-1">
-              <User size={14} />
-              {item.patient?.first_name || 'Client'}
-            </span>
-            <span className="flex items-center gap-1">
-              <MapPin size={14} />
-              {item.address || 'Adresse non précisée'}
-            </span>
-            <span className="flex items-center gap-1">
-              <Package size={14} />
-              {formatCurrency(item.estimated_amount || 0)}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar size={14} />
-              {formatDate(item.created_at)}
-            </span>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {isOrderAvailable && (
             <button
               onClick={(e) => { e.stopPropagation(); onAccept(); }}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl text-white font-medium text-sm transition hover:opacity-80"
+              className="px-2 py-1 rounded-lg text-white text-xs font-medium"
               style={{ background: '#4CAF50' }}
             >
-              <CheckCircle size={16} />
-              Accepter
+              <CheckCircle size={12} />
             </button>
           )}
           {isAccepted && (
             <button
               onClick={(e) => { e.stopPropagation(); onDeliver(); }}
-              className="flex items-center gap-1 px-4 py-2 rounded-xl text-white font-medium text-sm transition hover:opacity-80"
+              className="px-2 py-1 rounded-lg text-white text-xs font-medium"
               style={{ background: '#2196F3' }}
             >
-              <Truck size={16} />
-              Livrer
+              <Truck size={12} />
             </button>
-          )}
-          {isDelivered && (
-            <span className="flex items-center gap-1 px-4 py-2 rounded-xl text-green-600 font-medium text-sm" style={{ background: '#4CAF50' + '15' }}>
-              <CheckCircle size={16} />
-              Livrée ✓
-            </span>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="flex items-center gap-1 px-4 py-2 rounded-xl font-medium text-sm transition hover:bg-gray-50"
-            style={{ color: colors.text, background: 'transparent', border: `1px solid ${colors.primary + '20'}` }}
+            className="p-1.5 rounded-lg hover:bg-gray-100 transition"
+            style={{ color: colors.primary }}
           >
-            <Eye size={16} />
-            Détails
+            <Eye size={14} />
           </button>
         </div>
       </div>
 
-      {/* ✅ Barre de progression simplifiée (3 étapes) */}
+      {/* ✅ Barre de progression simplifiée */}
       {item.status !== 'annulee' && item.status !== 'validee' && (
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-1">
           {['creee', 'en_cours', 'livree'].map((status, index) => {
             const statusIndex = ['creee', 'en_cours', 'livree'].indexOf(status);
             const currentIndex = ['creee', 'en_cours', 'livree'].indexOf(item.status);
             const isDone = currentIndex >= statusIndex;
-            const isCurrent = item.status === status;
 
             return (
-              <div key={status} className="flex items-center">
+              <div key={status} className="flex items-center flex-1">
                 <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] transition-all ${
                     isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
                   }`}
                   style={{ background: isDone ? colors.primary : '#e5e7eb' }}
                 >
-                  {isDone ? <CheckCircle size={14} /> : index + 1}
+                  {isDone ? <CheckCircle size={10} /> : index + 1}
                 </div>
                 {index < 2 && (
                   <div
-                    className={`w-6 h-0.5 mx-1 transition-all ${
+                    className={`flex-1 h-0.5 mx-0.5 transition-all ${
                       isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-200'
                     }`}
                   />
@@ -796,17 +679,9 @@ const ItemCard = ({
               </div>
             );
           })}
-          <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>
+          <span className="text-[8px] ml-1 text-gray-400">
             {Math.round((['creee', 'en_cours', 'livree'].indexOf(item.status) + 1) / 3 * 100)}%
           </span>
-        </div>
-      )}
-
-      {/* ✅ Info de validation automatique */}
-      {item.status === 'livree' && (
-        <div className="mt-3 text-xs text-blue-600 flex items-center gap-1">
-          <Clock size={14} />
-          <span>En attente de validation automatique (dans 12h)</span>
         </div>
       )}
     </div>
