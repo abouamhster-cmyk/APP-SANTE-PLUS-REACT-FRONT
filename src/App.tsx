@@ -1,5 +1,5 @@
 // 📁 src/App.tsx
-
+ 
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,79 +10,110 @@ import { InstallPrompt } from '@/components/PWA/InstallPrompt';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import AssignAidantPage from '@/features/admin/pages/AssignAidantPage';
-
-
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 
-// ✅ Auth Pages
+// ============================================================
+// AUTH PAGES
+// ============================================================
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage';
 import AdminSetupPage from '@/features/admin/pages/AdminSetupPage';
 
-// ✅ Dashboard & Main
+// ============================================================
+// DASHBOARD & MAIN
+// ============================================================
 import DashboardPage from '@/features/dashboard/pages/DashboardPage';
 
-// ✅ Patients
+// ============================================================
+// PATIENTS (PROCHES)
+// ============================================================
 import PatientsPage from '@/features/patients/pages/PatientsPage';
 import PatientDetailPage from '@/features/patients/pages/PatientDetailPage';
 
-// ✅ Visits
+// ============================================================
+// VISITS
+// ============================================================
 import VisitsPage from '@/features/visits/pages/VisitsPage';
 import VisitDetailPage from '@/features/visits/pages/VisitDetailPage';
 
-// ✅ Orders
+// ============================================================
+// ORDERS
+// ============================================================
 import OrdersPage from '@/features/orders/pages/OrdersPage';
 import CreateOrderPage from '@/features/orders/pages/CreateOrderPage';
 import OrderDetailPage from '@/features/orders/pages/OrderDetailPage';
 
-// ✅ Education
+// ============================================================
+// EDUCATION
+// ============================================================
 import EducationPage from '@/features/education/pages/EducationPage';
 
-// ✅ Messages
+// ============================================================
+// MESSAGES
+// ============================================================
 import MessagesPage from '@/features/messages/pages/MessagesPage';
 
-// ✅ Billing
+// ============================================================
+// BILLING / PAYMENTS
+// ============================================================
 import BillingPage from '@/features/billing/pages/BillingPage';
 import PaymentConfirmPage from '@/features/billing/pages/PaymentConfirmPage';
 
-// ✅ Map
+// ============================================================
+// MAP
+// ============================================================
 import MapPage from '@/features/map/pages/MapPage';
 
-// ✅ Notifications
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
 import NotificationsPage from '@/features/notifications/pages/NotificationsPage';
 
-// ✅ Profile
+// ============================================================
+// PROFILE
+// ============================================================
 import ProfilePage from '@/features/profile/pages/ProfilePage';
 
-// ✅ Help (Aidant)
+// ============================================================
+// HELP / AIDANT
+// ============================================================
 import MissionsPage from '@/features/help/pages/MissionsPage';
 import PlanningPage from '@/features/help/pages/PlanningPage';
 import HistoryPage from '@/features/help/pages/HistoryPage';
 
-// ✅ Admin
+// ============================================================
+// ADMIN PAGES
+// ============================================================
 import AdminDashboardPage from '@/features/admin/pages/AdminDashboardPage';
 import AdminPaymentsPage from '@/features/admin/pages/AdminPaymentsPage';
 import AdminSubscriptionsPage from '@/features/admin/pages/AdminSubscriptionsPage';
 import AdminNotificationsPage from '@/features/admin/pages/AdminNotificationsPage';
+import AdminVisitValidationPage from '@/features/admin/pages/AdminVisitValidationPage';
 import RegistrationsPage from '@/features/admin/pages/RegistrationsPage';
+import RegistrationDetailsPage from '@/features/admin/pages/RegistrationDetailsPage';
 import AidantsPage from '@/features/admin/pages/AidantsPage';
 import AidantCandidatesPage from '@/features/admin/pages/AidantCandidatesPage';
+import AssignAidantPage from '@/features/admin/pages/AssignAidantPage';
 import UsersPage from '@/features/admin/pages/UsersPage';
 import OffersPage from '@/features/admin/pages/OffersPage';
 import SettingsPage from '@/features/admin/pages/SettingsPage';
-import RegistrationDetailsPage from '@/features/admin/pages/RegistrationDetailsPage';
 
-// ✅ Journal
+// ============================================================
+// JOURNAL
+// ============================================================
 import JournalPage from '@/features/journal/pages/JournalPage';
 
-// ✅ Discharge
+// ============================================================
+// DISCHARGE (SORTIE HÔPITAL)
+// ============================================================
 import DischargePage from '@/features/discharge/pages/DischargePage';
 
-// ✅ Stores
+// ============================================================
+// STORES
+// ============================================================
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useOfferStore } from '@/stores/offerStore';
@@ -117,11 +148,7 @@ function App() {
   } = useAuthStore();
 
   const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
-
-  const {
-    fetchOffers,
-    isInitialized: isOffersInitialized,
-  } = useOfferStore();
+  const { fetchOffers, isInitialized: isOffersInitialized } = useOfferStore();
 
   // ============================================================
   // REFS
@@ -193,18 +220,6 @@ function App() {
   }, [isAuthInitialized, isOffersInitialized, fetchOffers]);
 
   // ============================================================
-  // EFFETS - LOGS
-  // ============================================================
-  useEffect(() => {
-    console.log('🔍 App state:', {
-      isAuthLoading,
-      isAuthInitialized,
-      isAuthenticated,
-      isOffersInitialized,
-    });
-  }, [isAuthLoading, isAuthInitialized, isAuthenticated, isOffersInitialized]);
-
-  // ============================================================
   // EFFETS - NOTIFICATIONS
   // ============================================================
   useEffect(() => {
@@ -263,59 +278,63 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              {/* Dashboard */}
+              {/* 📊 DASHBOARD */}
               <Route path="/app" element={<DashboardPage />} />
               <Route path="/app/dashboard" element={<DashboardPage />} />
 
-              {/* Patients / Proches */}
+              {/* 👨‍👩‍👦 PATIENTS / PROCHES */}
               <Route path="/app/patients" element={<PatientsPage />} />
               <Route path="/app/patients/:id" element={<PatientDetailPage />} />
 
-              {/* Visites */}
+              {/* 📅 VISITES */}
               <Route path="/app/visits" element={<VisitsPage />} />
               <Route path="/app/visits/:id" element={<VisitDetailPage />} />
 
-              {/* Commandes */}
+              {/* 🛒 COMMANDES */}
               <Route path="/app/orders" element={<OrdersPage />} />
               <Route path="/app/orders/create" element={<CreateOrderPage />} />
               <Route path="/app/orders/:id" element={<OrderDetailPage />} />
 
-              {/* Messages */}
+              {/* 💬 MESSAGES */}
               <Route path="/app/messages" element={<MessagesPage />} />
 
-              {/* Paiements / Abonnements */}
+              {/* 💳 BILLING / ABONNEMENT */}
               <Route path="/app/billing" element={<BillingPage />} />
 
-              {/* Carte / Radar */}
+              {/* 🗺️ MAP / RADAR */}
               <Route path="/app/map" element={<MapPage />} />
 
-              {/* Notifications */}
+              {/* 🔔 NOTIFICATIONS */}
               <Route path="/app/notifications" element={<NotificationsPage />} />
 
-              {/* Profil */}
+              {/* 👤 PROFIL */}
               <Route path="/app/profile" element={<ProfilePage />} />
 
-              {/* Aidant - Missions */}
+              {/* 🦸 AIDANT - MISSIONS */}
               <Route path="/app/missions" element={<MissionsPage />} />
               <Route path="/app/planning" element={<PlanningPage />} />
               <Route path="/app/history" element={<HistoryPage />} />
 
-              {/* Éducation */}
+              {/* 📚 ÉDUCATION */}
               <Route path="/app/education" element={<EducationPage />} />
 
-              {/* Journal de bord */}
+              {/* 📖 JOURNAL DE BORD */}
               <Route path="/app/journal" element={<JournalPage />} />
 
-              {/* Sortie d'hôpital */}
+              {/* 🏥 SORTIE D'HÔPITAL */}
               <Route path="/app/discharge" element={<DischargePage />} />
 
               {/* ============================================================
-                  ROUTES ADMIN
+                  👔 ROUTES ADMIN
                   ============================================================ */}
               <Route path="/app/admin" element={<AdminDashboardPage />} />
               <Route path="/app/admin-payments" element={<AdminPaymentsPage />} />
               <Route path="/app/admin-subscriptions" element={<AdminSubscriptionsPage />} />
               <Route path="/app/admin-notifications" element={<AdminNotificationsPage />} />
+              
+              {/* ✅ VALIDATION DES VISITES */}
+              <Route path="/app/admin/visits/validation" element={<AdminVisitValidationPage />} />
+              
               <Route path="/app/registrations" element={<RegistrationsPage />} />
               <Route path="/app/registrations/:id" element={<RegistrationDetailsPage />} />
               <Route path="/app/aidants" element={<AidantsPage />} />
