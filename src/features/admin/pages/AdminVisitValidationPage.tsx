@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AdminVisitValidationPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,13 +21,9 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  Play,
-  Pause,
   Volume2,
   Download,
   MessageSquare,
-  ShieldCheck,
-  Users,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
@@ -71,7 +67,7 @@ interface VisitToValidate {
     address: string;
     phone: string | null;
     category: string;
-  };
+  } | null;
   aidant: {
     id: string;
     user: {
@@ -79,10 +75,10 @@ interface VisitToValidate {
       full_name: string;
       email: string;
       phone: string;
-    };
+    } | null;
     rating: number;
     total_missions: number;
-  };
+  } | null;
   photos?: { photo_url: string; caption: string; created_at: string }[];
   audios?: { audio_url: string; created_at: string }[];
   created_at: string;
@@ -91,11 +87,10 @@ interface VisitToValidate {
 const AdminVisitValidationPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  
-  // ✅ Jargon dynamique selon le rôle
+
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
-    plural,          // "proches" / "personnes accompagnées" / "bénéficiaires"
+    singular,
+    plural,
     getCategoryLabel,
     isAdminOrCoordinator,
   } = useTerminology();
@@ -121,28 +116,150 @@ const AdminVisitValidationPage = () => {
     filterVisits();
   }, [visits, searchTerm, filterStatus]);
 
+  // =============================================
+  // FETCH VISITS - CORRIGÉ (requêtes séparées)
+  // =============================================
   const fetchVisitsToValidate = async () => {
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase
+      // ✅ ÉTAPE 1 : Récupérer les visites
+      const { data: visitsData, error: visitsError } = await supabase
         .from('visites')
-        .select(`
-          *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*)),
-          photos:visite_photos(*),
-          audios:visite_audios(*)
-        `)
+        .select('*')
         .in('status', ['terminee', 'validee', 'replanifiee'])
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (visitsError) throw visitsError;
 
-      setVisits(data || []);
-    } catch (error) {
-      console.error('Fetch visits error:', error);
-      toast.error('Erreur lors du chargement');
+      if (!visitsData || visitsData.length === 0) {
+        setVisits([]);
+        setFilteredVisits([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // ✅ ÉTAPE 2 : Récupérer les patients
+      const patientIds = [...new Set(visitsData.map(v => v.patient_id).filter(Boolean))];
+      let patientMap: Record<string, any> = {};
+
+      if (patientIds.length > 0) {
+        const { data: patients, error: patientsError } = await supabase
+          .from('patients')
+          .select('*')
+          .in('id', patientIds);
+
+        if (!patientsError && patients) {
+          patientMap = patients.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
+      // ✅ ÉTAPE 3 : Récupérer les aidants
+      const aidantIds = [...new Set(visitsData.map(v => v.aidant_id).filter(Boolean))];
+      let aidantMap: Record<string, any> = {};
+
+      if (aidantIds.length > 0) {
+        const { data: aidants, error: aidantsError } = await supabase
+          .from('aidants')
+          .select('*')
+          .in('id', aidantIds);
+
+        if (!aidantsError && aidants) {
+          // Récupérer les profils des aidants
+          const userIds = aidants.map(a => a.user_id).filter(Boolean);
+          let profileMap: Record<string, any> = {};
+
+          if (userIds.length > 0) {
+            const { data: profiles, error: profilesError } = await supabase
+              .from('profiles')
+              .select('*')
+              .in('id', userIds);
+
+            if (!profilesError && profiles) {
+              profileMap = profiles.reduce((acc, p) => {
+                acc[p.id] = p;
+                return acc;
+              }, {} as Record<string, any>);
+            }
+          }
+
+          aidantMap = aidants.reduce((acc, a) => {
+            acc[a.id] = {
+              ...a,
+              user: a.user_id ? profileMap[a.user_id] || null : null,
+            };
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
+      // ✅ ÉTAPE 4 : Récupérer les photos
+      const visitIds = visitsData.map(v => v.id);
+      let photosMap: Record<string, any[]> = {};
+
+      if (visitIds.length > 0) {
+        const { data: photos, error: photosError } = await supabase
+          .from('visite_photos')
+          .select('*')
+          .in('visite_id', visitIds);
+
+        if (!photosError && photos) {
+          photosMap = photos.reduce((acc, p) => {
+            if (!acc[p.visite_id]) acc[p.visite_id] = [];
+            acc[p.visite_id].push(p);
+            return acc;
+          }, {} as Record<string, any[]>);
+        }
+      }
+
+      // ✅ ÉTAPE 5 : Récupérer les audios
+      let audiosMap: Record<string, any[]> = {};
+
+      if (visitIds.length > 0) {
+        const { data: audios, error: audiosError } = await supabase
+          .from('visite_audios')
+          .select('*')
+          .in('visite_id', visitIds);
+
+        if (!audiosError && audios) {
+          audiosMap = audios.reduce((acc, a) => {
+            if (!acc[a.visite_id]) acc[a.visite_id] = [];
+            acc[a.visite_id].push(a);
+            return acc;
+          }, {} as Record<string, any[]>);
+        }
+      }
+
+      // ✅ ÉTAPE 6 : Fusionner toutes les données
+      const visitsWithRelations = visitsData.map((visit) => {
+        const patient = visit.patient_id ? patientMap[visit.patient_id] || null : null;
+        const aidant = visit.aidant_id ? aidantMap[visit.aidant_id] || null : null;
+        const photos = photosMap[visit.id] || [];
+        const audios = audiosMap[visit.id] || [];
+
+        // Extraire l'audio_url des métadonnées si présent
+        const audioUrl = visit.metadata?.audio_url || null;
+
+        return {
+          ...visit,
+          patient,
+          aidant,
+          photos,
+          audios,
+          metadata: {
+            ...visit.metadata,
+            audio_url: audioUrl,
+          },
+        };
+      });
+
+      setVisits(visitsWithRelations);
+    } catch (error: any) {
+      console.error('❌ Fetch visits error:', error);
+      toast.error('Erreur lors du chargement des visites');
     } finally {
       setIsLoading(false);
     }
@@ -188,7 +305,7 @@ const AdminVisitValidationPage = () => {
       setShowDetailModal(false);
       fetchVisitsToValidate();
     } catch (error) {
-      console.error('Validate error:', error);
+      console.error('❌ Validate error:', error);
       toast.error('Erreur lors de la validation');
     } finally {
       setIsProcessing(false);
@@ -217,7 +334,7 @@ const AdminVisitValidationPage = () => {
       setShowDetailModal(false);
       fetchVisitsToValidate();
     } catch (error) {
-      console.error('Reject error:', error);
+      console.error('❌ Reject error:', error);
       toast.error('Erreur lors du refus');
     } finally {
       setIsProcessing(false);
@@ -251,7 +368,7 @@ const AdminVisitValidationPage = () => {
     }
   };
 
-  // ✅ Libellé dynamique pour le type de personne
+  // ✅ Libellé dynamique
   const getPersonLabel = () => {
     if (isAdminOrCoordinator) return 'Bénéficiaire';
     return 'Patient';
@@ -271,7 +388,7 @@ const AdminVisitValidationPage = () => {
   const pendingCount = visits.filter(v => v.status === 'terminee').length;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-4">
       {/* HEADER */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -591,7 +708,6 @@ const VisitValidationDetailModal = ({
 
   const isPending = visit.status === 'terminee';
 
-  // ✅ Fonction pour récupérer les métadonnées avec valeurs par défaut
   const getMetadata = (key: string, defaultValue: any = null) => {
     if (!visit.metadata) return defaultValue;
     return visit.metadata[key as keyof typeof visit.metadata] ?? defaultValue;
