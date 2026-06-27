@@ -1,7 +1,6 @@
 // 📁 src/features/discharge/components/DischargeDetailsModal.tsx
-// 📌 Modal de détails d'une sortie d'hôpital (Version épurée)
-
-import { useState } from 'react';
+ 
+import { useState, ReactNode } from 'react';  
 import { X, Calendar, Clock, Hospital, Stethoscope, User, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
 import { useDischargeStore } from '@/stores/dischargeStore';
 import { useTerminology } from '@/hooks/useTerminology';
@@ -123,7 +122,7 @@ export const DischargeDetailsModal = ({ discharge, onClose, onUpdate, colors }: 
   );
 };
 
-const InfoItem = ({ icon, label, value }: { icon: ReactNode; label: string; value: string }) => (
+ const InfoItem = ({ icon, label, value }: { icon: ReactNode; label: string; value: string }) => (
   <div className="flex items-center gap-2.5">
     <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 shrink-0">{icon}</div>
     <div className="min-w-0">
