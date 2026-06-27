@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
+import { Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Aidant {
@@ -45,8 +46,6 @@ const AssignAidantPage = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-
-      // ✅ ÉTAPE 1 : Récupérer les aidants approuvés
       const { data: aidantsData, error: aidantsError } = await supabase
         .from('aidants')
         .select('*')
@@ -55,7 +54,6 @@ const AssignAidantPage = () => {
 
       if (aidantsError) throw aidantsError;
 
-      // ✅ ÉTAPE 2 : Récupérer les profils des aidants séparément
       const userIds = (aidantsData || []).map((a: any) => a.user_id).filter(Boolean);
       let profilesMap: Record<string, any> = {};
 
@@ -73,7 +71,6 @@ const AssignAidantPage = () => {
         }
       }
 
-      // ✅ ÉTAPE 3 : Fusionner les données
       const aidantsWithUser = (aidantsData || []).map((aidant: any) => ({
         ...aidant,
         user: aidant.user_id ? profilesMap[aidant.user_id] || null : null,
@@ -81,7 +78,6 @@ const AssignAidantPage = () => {
 
       setAidants(aidantsWithUser);
 
-      // ✅ ÉTAPE 4 : Récupérer les patients actifs
       const { data: patientsData, error: patientsError } = await supabase
         .from('patients')
         .select('*')
@@ -90,7 +86,6 @@ const AssignAidantPage = () => {
       if (patientsError) throw patientsError;
       setPatients(patientsData || []);
 
-      // ✅ ÉTAPE 5 : Récupérer les assignations existantes
       const { data: links, error: linksError } = await supabase
         .from('patient_family_links')
         .select('patient_id, family_id');
@@ -105,7 +100,6 @@ const AssignAidantPage = () => {
         }
         setAssignments(newAssignments);
       }
-
     } catch (error) {
       console.error('Erreur chargement:', error);
       toast.error('Erreur lors du chargement');
@@ -117,7 +111,6 @@ const AssignAidantPage = () => {
   const handleAssign = async (patientId: string, aidantUserId: string) => {
     setIsSaving(true);
     try {
-      // ✅ Vérifier si un lien existe déjà
       const { data: existingLink } = await supabase
         .from('patient_family_links')
         .select('id')
@@ -125,15 +118,12 @@ const AssignAidantPage = () => {
         .maybeSingle();
 
       if (existingLink) {
-        // Mettre à jour le lien existant
         const { error } = await supabase
           .from('patient_family_links')
           .update({ family_id: aidantUserId })
           .eq('patient_id', patientId);
-
         if (error) throw error;
       } else {
-        // Créer un nouveau lien
         const { error } = await supabase
           .from('patient_family_links')
           .insert({
@@ -144,28 +134,21 @@ const AssignAidantPage = () => {
             can_manage_orders: true,
             can_receive_notifications: true,
           });
-
         if (error) throw error;
       }
 
-      // Mettre à jour l'état local
       setAssignments(prev => ({ ...prev, [patientId]: aidantUserId }));
 
-      // ✅ Notification à l'aidant
-      const aidant = aidants.find(a => a.user_id === aidantUserId);
       const patient = patients.find(p => p.id === patientId);
-
       if (aidantUserId && patient) {
         await supabase.from('notifications').insert({
           user_id: aidantUserId,
-          title: '📋 Nouveau patient assigné',
-          body: `Vous avez été assigné à ${patient.first_name} ${patient.last_name}. Vous pouvez maintenant voir ses missions.`,
+          title: '📋 Patient assigné',
+          body: `Vous accompagnez à présent ${patient.first_name} ${patient.last_name}.`,
           type: 'system',
         });
       }
-
-      toast.success(`✅ Aidant assigné à ${patient?.first_name} ${patient?.last_name}`);
-
+      toast.success(`✅ Mission assignée`);
     } catch (error) {
       console.error('Erreur assignation:', error);
       toast.error('Erreur lors de l\'assignation');
@@ -181,86 +164,67 @@ const AssignAidantPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent" style={{ borderColor: colors.primary }} />
+      <div className="flex justify-center items-center min-h-[300px]">
+        <Loader2 className="animate-spin text-gray-300" size={24} />
       </div>
     );
   }
 
   return (
-    // ✅ AJOUT DU PADDING-TOP POUR MOBILE
-    <div className="space-y-6 pb-8 pt-4 sm:pt-0">
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <h1 className="text-2xl font-black" style={{ color: colors.text }}>
-          👥 Assigner les aidants aux patients
-        </h1>
-        <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-          {aidants.length} aidant(s) disponibles • {patients.length} patient(s)
-        </p>
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Header */}
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
+      >
+        <div className="relative z-10">
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+            👥 Affectations patients
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
+            Assignez des aidants professionnels disponibles aux personnes prises en charge
+          </p>
+        </div>
       </section>
 
       {aidants.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-black/5">
-          <p className="text-lg font-medium" style={{ color: colors.text }}>Aucun aidant approuvé</p>
-          <p className="text-sm text-gray-500 mt-1">Les aidants doivent être approuvés avant de pouvoir être assignés</p>
-        </div>
+        <div className="bg-white rounded-3xl p-12 text-center text-gray-400">Aucun aidant approuvé et disponible</div>
       ) : patients.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-black/5">
-          <p className="text-lg font-medium" style={{ color: colors.text }}>Aucun patient actif</p>
-          <p className="text-sm text-gray-500 mt-1">Ajoutez des patients avant de pouvoir les assigner</p>
-        </div>
+        <div className="bg-white rounded-3xl p-12 text-center text-gray-400">Aucun patient actif</div>
       ) : (
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-black/5">
+        <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead style={{ background: colors.primary + '04' }}>
+            <table className="w-full text-xs text-left">
+              <thead className="bg-gray-50/75">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase" style={{ color: colors.text + '60' }}>
-                    Patient
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase" style={{ color: colors.text + '60' }}>
-                    Adresse
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase" style={{ color: colors.text + '60' }}>
-                    Aidant assigné
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase" style={{ color: colors.text + '60' }}>
-                    Action
-                  </th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Patient</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Adresse</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Aidant Assigné</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Modifier l'affectation</th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: colors.border }}>
+              <tbody className="divide-y animate-fadeIn" style={{ borderColor: colors.border }}>
                 {patients.map((patient) => (
-                  <tr key={patient.id} className="hover:bg-gray-50 transition">
+                  <tr key={patient.id} className="hover:bg-gray-50/50 transition">
+                    <td className="px-4 py-3 font-bold text-gray-800">{patient.first_name} {patient.last_name}</td>
+                    <td className="px-4 py-3 text-gray-500">{patient.address}</td>
                     <td className="px-4 py-3">
-                      <p className="font-medium" style={{ color: colors.text }}>
-                        {patient.first_name} {patient.last_name}
-                      </p>
-                      <p className="text-xs text-gray-500">{patient.category}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-gray-600">{patient.address}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm font-medium" style={{ color: assignments[patient.id] ? '#4CAF50' : '#9E9E9E' }}>
-                        {assignments[patient.id] ? getAidantName(assignments[patient.id]) : 'Non assigné'}
+                      <span className="font-semibold text-xs" style={{ color: assignments[patient.id] ? '#10b981' : '#94a3b8' }}>
+                        {assignments[patient.id] ? getAidantName(assignments[patient.id]) : 'Aucun aidant'}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2">
                       <select
                         value={assignments[patient.id] || ''}
                         onChange={(e) => handleAssign(patient.id, e.target.value)}
                         disabled={isSaving}
-                        className="px-3 py-2 rounded-xl border outline-none text-sm"
-                        style={{
-                          borderColor: colors.border,
-                          color: colors.text,
-                        }}
+                        className="px-2 py-1.5 rounded-lg border outline-none text-xs transition"
+                        style={{ borderColor: colors.border, color: colors.text }}
                       >
-                        <option value="">Aucun aidant</option>
+                        <option value="">Sélectionner</option>
                         {aidants.map((aidant) => (
                           <option key={aidant.id} value={aidant.user_id}>
-                            {aidant.user?.full_name || 'Inconnu'} {aidant.available ? '🟢' : '🔴'}
+                            {aidant.user?.full_name} {aidant.available ? '🟢' : '🔴'}
                           </option>
                         ))}
                       </select>
@@ -277,3 +241,4 @@ const AssignAidantPage = () => {
 };
 
 export default AssignAidantPage;
+
