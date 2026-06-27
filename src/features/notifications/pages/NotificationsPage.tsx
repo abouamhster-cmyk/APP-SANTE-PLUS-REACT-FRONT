@@ -1,5 +1,4 @@
-// 📁 src/features/notifications/pages/NotificationsPage.tsx
-// 📌 Page : Notifications
+// 📁 NotificationsPage.tsx (Modern UI Version)
 
 import { Bell, Check, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
@@ -11,137 +10,168 @@ import { formatDateTime } from '@/utils/helpers';
 const NotificationsPage = () => {
   const { profile, role } = useAuthStore();
   const { notifications, markAsRead, markAllRead } = useNotificationStore();
-  
-  // ✅ Jargon dynamique selon le rôle
-  const {
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
-  } = useTerminology();
+
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  // ✅ Message personnalisé selon le rôle
   const getEmptyMessage = () => {
-    if (isFamily) {
-      return "Vous serez notifié des nouvelles activités concernant vos proches.";
-    }
-    if (isAidant) {
-      return "Vous serez notifié des nouvelles missions et commandes.";
-    }
-    if (isAdminOrCoordinator) {
-      return "Vous serez notifié des nouvelles inscriptions et activités.";
-    }
-    return "Vous serez notifié des nouvelles activités.";
+    if (isFamily) return "Suivez facilement les activités de vos proches.";
+    if (isAidant) return "Vos missions et interventions apparaîtront ici.";
+    if (isAdminOrCoordinator) return "Suivez les activités et inscriptions en temps réel.";
+    return "Vos notifications apparaîtront ici.";
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
+    <div className="p-6 max-w-3xl mx-auto">
+
+      {/* HEADER MODERNE */}
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
+          <h1 
+            className="text-2xl font-extrabold tracking-tight"
+            style={{ color: colors.text }}
+          >
             🔔 Notifications
           </h1>
-          <p className="mt-1" style={{ color: colors.text + '99' }}>
-            {unreadCount} non lue{unreadCount > 1 ? 's' : ''}
+          <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
+            {unreadCount > 0
+              ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`
+              : "Tout est à jour"}
           </p>
         </div>
+
         {unreadCount > 0 && (
           <button
-            onClick={() => markAllRead()}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition hover:opacity-80"
-            style={{ background: colors.primary + '15', color: colors.primary }}
+            onClick={markAllRead}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all hover:scale-105"
+            style={{
+              background: colors.primary,
+              color: '#fff',
+            }}
           >
             <Check size={16} />
-            <span>Marquer tout comme lu</span>
+            Tout lire
           </button>
         )}
       </div>
 
-      {/* LISTE DES NOTIFICATIONS */}
+      {/* LISTE */}
       {notifications.length > 0 ? (
-        <div className="space-y-2">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`bg-white rounded-2xl p-4 shadow-sm transition-all cursor-pointer ${
-                !notification.is_read ? 'border-l-4' : 'opacity-70'
-              }`}
-              style={{ 
-                borderColor: !notification.is_read ? colors.primary : 'transparent' 
-              }}
-              onClick={() => !notification.is_read && markAsRead(notification.id)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <h4 className="font-medium" style={{ color: colors.text }}>
-                      {notification.title}
-                    </h4>
-                    {!notification.is_read && (
-                      <span 
-                        className="text-xs px-2 py-0.5 rounded-full" 
-                        style={{ 
-                          background: colors.primary + '15', 
-                          color: colors.primary 
-                        }}
-                      >
-                        Nouveau
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-                    {notification.body}
-                  </p>
-                  <p className="text-xs mt-2" style={{ color: colors.text + '50' }}>
-                    {formatDateTime(notification.created_at)}
-                  </p>
-                </div>
-                {!notification.is_read && (
-                  <div className="flex items-start space-x-2">
-                    <button
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        markAsRead(notification.id); 
-                      }}
-                      className="p-1 hover:bg-gray-100 rounded transition"
-                    >
-                      <X size={14} style={{ color: colors.text + '40' }} />
-                    </button>
-                    <div 
-                      className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" 
-                      style={{ background: colors.primary }} 
-                    />
-                  </div>
+        <div className="space-y-3">
+          {notifications.map((notification) => {
+            const isUnread = !notification.is_read;
+
+            return (
+              <div
+                key={notification.id}
+                onClick={() => isUnread && markAsRead(notification.id)}
+                className={`group relative rounded-2xl p-4 transition-all duration-300 cursor-pointer border ${
+                  isUnread
+                    ? 'bg-white shadow-md hover:shadow-lg'
+                    : 'bg-gray-50 opacity-70'
+                }`}
+                style={{
+                  borderColor: isUnread ? colors.primary + '40' : '#eee',
+                }}
+              >
+                {/* INDICATEUR GAUCHE */}
+                {isUnread && (
+                  <div
+                    className="absolute left-0 top-0 h-full w-1 rounded-l-2xl"
+                    style={{ background: colors.primary }}
+                  />
                 )}
+
+                <div className="flex justify-between items-start gap-3">
+
+                  {/* CONTENU */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4
+                        className="font-semibold text-sm"
+                        style={{ color: colors.text }}
+                      >
+                        {notification.title}
+                      </h4>
+
+                      {isUnread && (
+                        <span
+                          className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                          style={{
+                            background: colors.primary + '15',
+                            color: colors.primary,
+                          }}
+                        >
+                          Nouveau
+                        </span>
+                      )}
+                    </div>
+
+                    <p
+                      className="text-sm mt-1 leading-relaxed"
+                      style={{ color: colors.text + '80' }}
+                    >
+                      {notification.body}
+                    </p>
+
+                    <p
+                      className="text-xs mt-2"
+                      style={{ color: colors.text + '50' }}
+                    >
+                      {formatDateTime(notification.created_at)}
+                    </p>
+                  </div>
+
+                  {/* ACTIONS */}
+                  {isUnread && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markAsRead(notification.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition p-1 rounded-lg hover:bg-gray-100"
+                    >
+                      <X size={14} style={{ color: colors.text + '50' }} />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
-        // 📌 ÉTAT VIDE
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+        // EMPTY STATE PREMIUM
+        <div className="bg-white rounded-3xl p-12 text-center shadow-md">
           <div
-            className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4"
+            className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center mb-5"
             style={{
-              background: colors.primary + '12',
+              background: colors.primary + '15',
               color: colors.primary,
             }}
           >
-            <Bell size={32} />
+            <Bell size={36} />
           </div>
-          <h3 className="text-lg font-black" style={{ color: colors.text }}>
+
+          <h3 className="text-lg font-bold" style={{ color: colors.text }}>
             Aucune notification
           </h3>
-          <p className="mt-2 text-sm max-w-sm mx-auto leading-relaxed" style={{ color: colors.text + '70' }}>
+
+          <p
+            className="mt-2 text-sm max-w-sm mx-auto"
+            style={{ color: colors.text + '70' }}
+          >
             {getEmptyMessage()}
           </p>
-          <p className="text-xs mt-3" style={{ color: colors.text + '40' }}>
-            Les notifications apparaîtront ici en temps réel.
+
+          <p
+            className="text-xs mt-3"
+            style={{ color: colors.text + '40' }}
+          >
+            Vous serez alerté en temps réel.
           </p>
         </div>
       )}
