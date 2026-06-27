@@ -11,7 +11,7 @@ export const AuthLayout = () => {
       </div>
 
       {/* Footer minimal */}
-      <div className="text-center pb-1">
+      <div className="text-center ">
         <p className="text-xs" style={{ color: 'var(--color-text-light, #6b7280)' }}>
           Santé Plus Services — Un service d'accompagnement non médical
         </p>
