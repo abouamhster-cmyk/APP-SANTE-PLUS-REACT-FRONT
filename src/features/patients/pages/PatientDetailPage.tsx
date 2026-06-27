@@ -1,5 +1,5 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
-// 📌 Détails d'une personne - Version avec gestion des visites
+// 📌 Détails d'une personne - Version production avec gestion des visites
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -69,6 +69,8 @@ const PatientDetailPage = () => {
     completeVisit,
     isLoading: visitLoading,
     cancelVisit,
+    approveVisit,
+    refuseVisit,
   } = useVisitStore();
 
   const { remainingVisits, hasActiveSubscription, refresh: refreshSubscription } =
@@ -91,6 +93,8 @@ const PatientDetailPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
   const isAidantRole = role === 'aidant';
+  const isFamilyRole = role === 'family';
+  const isAdminRole = isAdminOrCoordinator;
 
   // ============================================================
   // EFFETS
@@ -113,17 +117,15 @@ const PatientDetailPage = () => {
   // ACTIONS SUR LES VISITES
   // ============================================================
 
-  // Démarrer une visite immédiatement
+  // Démarrer une visite immédiatement (aidant)
   const handleStartVisit = async () => {
     if (!currentPatient) return;
 
-    // Vérifier l'abonnement
     if (!hasActiveSubscription || remainingVisits <= 0) {
       toast.error('Plus de visites disponibles. Veuillez renouveler votre abonnement.');
       return;
     }
 
-    // Vérifier si une visite est déjà en cours pour ce patient
     const hasActive = patientVisits.some((v) => v.status === 'en_cours');
     if (hasActive) {
       toast.error('Une visite est déjà en cours pour ce patient.');
@@ -135,7 +137,6 @@ const PatientDetailPage = () => {
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toTimeString().slice(0, 5);
 
-      // ✅ 1. Créer la visite
       const visit = await createVisit({
         patient_id: currentPatient.id,
         scheduled_date: today,
@@ -146,7 +147,6 @@ const PatientDetailPage = () => {
         actions: [],
       });
 
-      // ✅ 2. Démarrer la visite immédiatement
       await startVisit(visit.id);
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
@@ -160,14 +160,39 @@ const PatientDetailPage = () => {
     }
   };
 
-  // Planifier une visite
+  // Planifier une visite (famille ou aidant)
   const handlePlanifyVisit = () => {
     setSelectedVisit(null);
     setVisitModalMode('create');
     setShowVisitModal(true);
   };
 
-  // Terminer une visite
+  // Approuver une visite (aidant)
+  const handleApproveVisit = async (visitId: string) => {
+    try {
+      await approveVisit(visitId);
+      fetchVisits();
+      toast.success('✅ Visite approuvée');
+    } catch (error) {
+      toast.error('Erreur lors de l\'approbation');
+    }
+  };
+
+  // Refuser une visite (aidant)
+  const handleRefuseVisit = async (visitId: string) => {
+    const reason = prompt('Motif du refus :');
+    if (!reason) return;
+
+    try {
+      await refuseVisit(visitId, reason);
+      fetchVisits();
+      toast.warning('❌ Visite refusée');
+    } catch (error) {
+      toast.error('Erreur lors du refus');
+    }
+  };
+
+  // Terminer une visite (aidant)
   const handleCompleteVisit = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
     if (!activeVisitId) return;
 
@@ -238,60 +263,42 @@ const PatientDetailPage = () => {
   };
 
   // ============================================================
-  // HELPER
+  // HELPERS
   // ============================================================
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'planifiee':
-        return '#4CAF50';
-      case 'en_attente':
-        return '#FF9800';
-      case 'en_cours':
-        return '#2196F3';
-      case 'terminee':
-        return '#9C27B0';
-      case 'validee':
-        return '#4CAF50';
-      case 'annulee':
-        return '#F44336';
-      default:
-        return '#9E9E9E';
+      case 'planifiee': return '#4CAF50';
+      case 'en_attente': return '#FF9800';
+      case 'en_cours': return '#2196F3';
+      case 'terminee': return '#9C27B0';
+      case 'validee': return '#4CAF50';
+      case 'annulee': return '#F44336';
+      case 'refusee': return '#F44336';
+      default: return '#9E9E9E';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'planifiee':
-        return '📅 Planifiée';
-      case 'en_attente':
-        return '⏳ En attente';
-      case 'en_cours':
-        return '🔄 En cours';
-      case 'terminee':
-        return '✅ Terminée';
-      case 'validee':
-        return '✅ Validée';
-      case 'annulee':
-        return '❌ Annulée';
-      default:
-        return status;
+      case 'planifiee': return '📅 Planifiée';
+      case 'en_attente': return '⏳ En attente';
+      case 'en_cours': return '🔄 En cours';
+      case 'terminee': return '✅ Terminée';
+      case 'validee': return '✅ Validée';
+      case 'annulee': return '❌ Annulée';
+      case 'refusee': return '❌ Refusée';
+      default: return status;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'planifiee':
-        return <Calendar size={16} />;
-      case 'en_cours':
-        return <Play size={16} />;
-      case 'terminee':
-        return <CheckCircle size={16} />;
-      case 'validee':
-        return <CheckCircle size={16} />;
-      case 'annulee':
-        return <XCircle size={16} />;
-      default:
-        return <Clock size={16} />;
+      case 'planifiee': return <Calendar size={16} />;
+      case 'en_cours': return <Play size={16} />;
+      case 'terminee': return <CheckCircle size={16} />;
+      case 'validee': return <CheckCircle size={16} />;
+      case 'annulee': return <XCircle size={16} />;
+      default: return <Clock size={16} />;
     }
   };
 
@@ -312,6 +319,7 @@ const PatientDetailPage = () => {
 
   const person = currentPatient;
   const activeVisits = patientVisits.filter((v) => v.status === 'en_cours');
+  const pendingVisits = patientVisits.filter((v) => v.status === 'planifiee' && !v.approved_at && !v.refused_at);
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
@@ -356,74 +364,102 @@ const PatientDetailPage = () => {
       </div>
 
       {/* ============================================================
-      STATS & ACTIONS RAPIDES
+      STATS
       ============================================================ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Âge" value={person.age || 'N/A'} color={colors.text} />
         <StatCard
           label="Statut"
           value={person.status === 'active' ? '✅ Actif' : '❌ Inactif'}
           color={person.status === 'active' ? '#4CAF50' : '#F44336'}
         />
+        <StatCard label="Visites" value={patientVisits.length} color={colors.primary} />
         <StatCard
-          label="Visites totales"
-          value={patientVisits.length}
-          color={colors.primary}
-        />
-        <StatCard
-          label="Visites restantes"
+          label="Restantes"
           value={hasActiveSubscription ? remainingVisits : '0'}
           color={remainingVisits > 0 ? '#4CAF50' : '#F44336'}
+        />
+        <StatCard
+          label="En attente"
+          value={pendingVisits.length}
+          color="#FF9800"
         />
       </div>
 
       {/* ============================================================
-      ACTIONS AIDANT
+      ACTIONS RAPIDES
       ============================================================ */}
-      {isAidantRole && (
+      {(isAidantRole || isFamilyRole || isAdminRole) && (
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1">
               <p className="font-medium" style={{ color: colors.text }}>
-                🚀 Actions rapides
+                🚀 Actions
               </p>
               <p className="text-xs" style={{ color: colors.text + '60' }}>
-                {hasActiveSubscription && remainingVisits > 0
+                {isAidantRole && (hasActiveSubscription && remainingVisits > 0
                   ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} restante${remainingVisits > 1 ? 's' : ''}`
-                  : '⚠️ Plus de visites disponibles'}
+                  : '⚠️ Plus de visites disponibles')}
+                {isFamilyRole && 'Planifiez une visite pour votre proche'}
+                {isAdminRole && 'Gérez les visites du patient'}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleStartVisit}
-                disabled={isStarting || !hasActiveSubscription || remainingVisits <= 0 || activeVisits.length > 0}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90 disabled:opacity-50"
-                style={{ background: colors.primary }}
-              >
-                {isStarting ? (
-                  <Loader2 className="animate-spin" size={16} />
-                ) : (
-                  <>
-                    <Play size={16} />
-                    Démarrer maintenant
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handlePlanifyVisit}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition hover:bg-gray-50"
-                style={{ borderColor: colors.border, color: colors.text }}
-              >
-                <Calendar size={16} />
-                Planifier
-              </button>
-              <button
-                onClick={() => navigate('/app/billing')}
-                className="flex-1 sm:flex-none px-3 py-2.5 rounded-xl font-medium text-xs border transition hover:bg-gray-50"
-                style={{ borderColor: colors.border, color: colors.text }}
-              >
-                💳 Abonnement
-              </button>
+              {isAidantRole && (
+                <>
+                  <button
+                    onClick={handleStartVisit}
+                    disabled={isStarting || !hasActiveSubscription || remainingVisits <= 0 || activeVisits.length > 0}
+                    className="px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90 disabled:opacity-50"
+                    style={{ background: colors.primary }}
+                  >
+                    {isStarting ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
+                    {isStarting ? 'Démarrage...' : 'Démarrer'}
+                  </button>
+                  {pendingVisits.length > 0 && (
+                    <div className="flex gap-1">
+                      {pendingVisits.slice(0, 2).map((visit) => (
+                        <div key={visit.id} className="flex gap-1">
+                          <button
+                            onClick={() => handleApproveVisit(visit.id)}
+                            className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                            style={{ background: '#4CAF50' }}
+                          >
+                            ✅ Accepter
+                          </button>
+                          <button
+                            onClick={() => handleRefuseVisit(visit.id)}
+                            className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                            style={{ background: '#F44336' }}
+                          >
+                            ❌ Refuser
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {isFamilyRole && (
+                <button
+                  onClick={handlePlanifyVisit}
+                  className="px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
+                  style={{ background: colors.primary }}
+                >
+                  <Calendar size={16} />
+                  Planifier une visite
+                </button>
+              )}
+              {isAdminRole && (
+                <button
+                  onClick={handlePlanifyVisit}
+                  className="px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
+                  style={{ background: colors.primary }}
+                >
+                  <Plus size={16} />
+                  Assigner une visite
+                </button>
+              )}
             </div>
           </div>
           {activeVisits.length > 0 && (
@@ -513,13 +549,16 @@ const PatientDetailPage = () => {
                       visit={visit}
                       colors={colors}
                       onCancel={() => handleCancelVisit(visit.id)}
+                      onApprove={() => handleApproveVisit(visit.id)}
+                      onRefuse={() => handleRefuseVisit(visit.id)}
                       onStart={() => {
                         setActiveVisitId(visit.id);
                         setShowCompleteModal(true);
                       }}
                       onView={() => navigate(`/app/visits/${visit.id}`)}
                       isAidant={isAidantRole}
-                      isAdmin={isAdminOrCoordinator}
+                      isAdmin={isAdminRole}
+                      isFamily={isFamilyRole}
                     />
                   ))}
               </div>
@@ -527,7 +566,7 @@ const PatientDetailPage = () => {
               <div className="text-center py-8" style={{ color: colors.text + '60' }}>
                 <Calendar size={48} className="mx-auto mb-3 opacity-30" />
                 <p>{noVisits}</p>
-                {isAidantRole && (
+                {(isFamilyRole || isAidantRole) && (
                   <button
                     onClick={handlePlanifyVisit}
                     className="mt-4 px-4 py-2 rounded-xl text-white font-medium text-sm"
@@ -620,60 +659,55 @@ interface VisitCardProps {
   visit: any;
   colors: any;
   onCancel?: () => void;
+  onApprove?: () => void;
+  onRefuse?: () => void;
   onStart?: () => void;
   onView?: () => void;
   isAidant?: boolean;
   isAdmin?: boolean;
+  isFamily?: boolean;
 }
 
 const VisitCard = ({
   visit,
   colors,
   onCancel,
+  onApprove,
+  onRefuse,
   onStart,
   onView,
   isAidant,
   isAdmin,
+  isFamily,
 }: VisitCardProps) => {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'planifiee':
-        return '#4CAF50';
-      case 'en_attente':
-        return '#FF9800';
-      case 'en_cours':
-        return '#2196F3';
-      case 'terminee':
-        return '#9C27B0';
-      case 'validee':
-        return '#4CAF50';
-      case 'annulee':
-        return '#F44336';
-      default:
-        return '#9E9E9E';
+      case 'planifiee': return '#4CAF50';
+      case 'en_attente': return '#FF9800';
+      case 'en_cours': return '#2196F3';
+      case 'terminee': return '#9C27B0';
+      case 'validee': return '#4CAF50';
+      case 'annulee': return '#F44336';
+      case 'refusee': return '#F44336';
+      default: return '#9E9E9E';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'planifiee':
-        return '📅 Planifiée';
-      case 'en_attente':
-        return '⏳ En attente';
-      case 'en_cours':
-        return '🔄 En cours';
-      case 'terminee':
-        return '✅ Terminée';
-      case 'validee':
-        return '✅ Validée';
-      case 'annulee':
-        return '❌ Annulée';
-      default:
-        return status;
+      case 'planifiee': return '📅 Planifiée';
+      case 'en_attente': return '⏳ En attente';
+      case 'en_cours': return '🔄 En cours';
+      case 'terminee': return '✅ Terminée';
+      case 'validee': return '✅ Validée';
+      case 'annulee': return '❌ Annulée';
+      case 'refusee': return '❌ Refusée';
+      default: return status;
     }
   };
 
   const statusColor = getStatusColor(visit.status);
+  const isPending = visit.status === 'planifiee' && !visit.approved_at && !visit.refused_at;
 
   return (
     <div
@@ -684,7 +718,7 @@ const VisitCard = ({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-medium" style={{ color: colors.text }}>
-            📅 {formatDate(visit.scheduled_date)} à {visit.scheduled_time}
+            📅 {formatDate(visit.scheduled_date)} à {formatTime(visit.scheduled_time)}
           </p>
           <span
             className="px-2 py-0.5 rounded-full text-xs font-medium"
@@ -700,10 +734,21 @@ const VisitCard = ({
               ⚠️ Urgent
             </span>
           )}
+          {isPending && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+              ⏳ En attente d'approbation
+            </span>
+          )}
         </div>
         {visit.aidant && (
           <p className="text-xs" style={{ color: colors.text + '60' }}>
             🧑‍⚕️ Aidant: {visit.aidant.user?.full_name || 'Non assigné'}
+          </p>
+        )}
+        {visit.assignment_type && (
+          <p className="text-xs" style={{ color: colors.text + '60' }}>
+            📌 {visit.assignment_type === 'permanente' ? '🔄 Permanente' : 
+               visit.assignment_type === 'intervalle' ? '⏰ Intervalle' : '📌 Ponctuelle'}
           </p>
         )}
         {visit.duration_minutes && (
@@ -713,13 +758,28 @@ const VisitCard = ({
         )}
       </div>
 
-      <div className="flex gap-2 shrink-0">
-        {visit.status === 'planifiee' && isAidant && (
+      <div className="flex flex-wrap gap-2 shrink-0">
+        {isPending && isAidant && (
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
+              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              style={{ background: '#4CAF50' }}
+            >
+              ✅ Accepter
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
+              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              style={{ background: '#F44336' }}
+            >
+              ❌ Refuser
+            </button>
+          </>
+        )}
+        {visit.status === 'planifiee' && isAidant && !isPending && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onStart?.();
-            }}
+            onClick={(e) => { e.stopPropagation(); onStart?.(); }}
             className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
             style={{ background: '#4CAF50' }}
           >
@@ -727,12 +787,9 @@ const VisitCard = ({
             Démarrer
           </button>
         )}
-        {visit.status === 'planifiee' && (isAdmin || isAidant) && (
+        {visit.status === 'planifiee' && (isAdmin || isFamily) && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancel?.();
-            }}
+            onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
             className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
             style={{ background: '#F44336' }}
           >
@@ -741,10 +798,7 @@ const VisitCard = ({
           </button>
         )}
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onView?.();
-          }}
+          onClick={(e) => { e.stopPropagation(); onView?.(); }}
           className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:bg-gray-100"
           style={{ color: colors.primary }}
         >
