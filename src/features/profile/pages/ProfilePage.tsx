@@ -957,14 +957,20 @@ const handleDeleteAccount = async () => {
                   Actif
                 </span>
               </div>
-
+              
               <button
                 onClick={() => setShowDeleteModal(true)}
-                className="w-full p-4 rounded-2xl border border-red-100 bg-red-50 text-red-500 font-bold text-left hover:bg-red-100 transition flex items-center gap-3"
+                className="w-full p-4 rounded-2xl border-2 border-red-500 bg-red-50 text-red-600 font-bold text-left hover:bg-red-100 transition flex items-center gap-3"
               >
-                <Trash2 size={18} />
-                Supprimer le compte
+                <Trash2 size={20} />
+                <div>
+                  <p>🗑️ Supprimer mon compte</p>
+                  <p className="text-xs font-normal text-red-400">
+                    ⚠️ Cette action supprimera définitivement votre compte et TOUS vos proches.
+                  </p>
+                </div>
               </button>
+              
             </div>
           )}
         </div>
