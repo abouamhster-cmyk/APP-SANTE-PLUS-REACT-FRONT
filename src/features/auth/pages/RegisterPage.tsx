@@ -381,35 +381,35 @@ const RegisterPage = () => {
   const renderOfferPreview = () => {
     const offers = formData.patientCategory === 'maman_bebe' ? OFFERS.maman_bebe : OFFERS.senior;
     return (
-      <div className="rounded-2xl p-5 border" style={{ background: `${branding.primary}04`, borderColor: `${branding.primary}12` }}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      <div className="rounded-2xl p-4 border" style={{ background: `${branding.primary}04`, borderColor: `${branding.primary}12` }}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}10`, color: branding.primary }}>
-              <CreditCard size={18} />
+            <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}10`, color: branding.primary }}>
+              <CreditCard size={16} />
             </div>
             <div>
-              <p className="font-bold text-sm" style={{ color: branding.text }}>Aperçu des abonnements {serviceLabel}</p>
-              <p className="text-xs text-gray-500">Choix définitif après validation de votre compte.</p>
+              <p className="font-bold text-xs" style={{ color: branding.text }}>Aperçu des abonnements {serviceLabel}</p>
+              <p className="text-[10px] text-gray-500">Choix définitif après validation de votre compte.</p>
             </div>
           </div>
           <button type="button" onClick={() => setShowOfferDetails(!showOfferDetails)} className="text-xs font-semibold self-start sm:self-center hover:underline" style={{ color: branding.primary }}>
             {showOfferDetails ? 'Masquer le détail' : 'Voir les détails'}
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {offers.map((offer: Offer, index: number) => (
-            <div key={index} className="bg-white rounded-2xl p-3.5 border transition-all" style={{ borderColor: branding.border }}>
-              <p className="text-base">{offer.badge?.split(' ')[0] || '📌'}</p>
-              <p className="text-xs font-semibold mt-1.5 truncate" style={{ color: branding.text }}>{offer.name}</p>
-              <p className="text-xs font-bold mt-1" style={{ color: branding.primary }}>{Number(offer.price || 0).toLocaleString()} FCFA</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">{offer.period}</p>
+            <div key={index} className="bg-white rounded-2xl p-2.5 border transition-all" style={{ borderColor: branding.border }}>
+              <p className="text-sm">{offer.badge?.split(' ')[0] || '📌'}</p>
+              <p className="text-[10px] font-semibold mt-1 truncate" style={{ color: branding.text }}>{offer.name}</p>
+              <p className="text-[10px] font-bold mt-0.5" style={{ color: branding.primary }}>{Number(offer.price || 0).toLocaleString()} FCFA</p>
+              <p className="text-[9px] text-gray-400 mt-0.5">{offer.period}</p>
             </div>
           ))}
         </div>
         {showOfferDetails && (
-          <div className="mt-3 bg-white rounded-2xl border p-4 space-y-2.5" style={{ borderColor: branding.border }}>
+          <div className="mt-3 bg-white rounded-2xl border p-3 space-y-2" style={{ borderColor: branding.border }}>
             {offers.map((offer: Offer, index: number) => (
-              <div key={index} className="flex justify-between items-center gap-3 text-xs border-b last:border-b-0 pb-2 last:pb-0" style={{ borderColor: branding.border }}>
+              <div key={index} className="flex justify-between items-center gap-3 text-[11px] border-b last:border-b-0 pb-1.5 last:pb-0" style={{ borderColor: branding.border }}>
                 <span className="font-medium text-gray-700">{offer.name}{offer.visitsPerWeek ? ` · ${offer.visitsPerWeek * 4} visites/mois` : ''}{offer.durationDays && !offer.visitsPerWeek ? ` · ${offer.durationDays} jours` : ''}</span>
                 <span className="font-bold" style={{ color: branding.primary }}>{Number(offer.price || 0).toLocaleString()} FCFA</span>
               </div>
@@ -428,12 +428,12 @@ const RegisterPage = () => {
     <div className="min-h-screen w-full flex items-center justify-center p-0 sm:p-6 lg:p-8" style={{ background: branding.background }}>
       <div className={`w-full max-w-5xl transition-all duration-500 ${isMounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
         
-        {/* Container global : sans bordures/ombres sur mobile, carte élégante compacte sur desktop */}
-        <div className="bg-white rounded-none sm:rounded-3xl shadow-none sm:shadow-sm border-0 sm:border overflow-hidden min-h-screen sm:min-h-0" style={{ borderColor: branding.border }}>
-          <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
+        {/* Container global : Hauteur FIXE sur Desktop pour éviter tout sursaut de mise en page */}
+        <div className="bg-white rounded-none sm:rounded-3xl shadow-none sm:shadow-sm border-0 sm:border overflow-hidden min-h-screen sm:min-h-0 sm:h-[600px] w-full" style={{ borderColor: branding.border }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] h-full">
 
-            {/* Colonne latérale (Masquée sur mobile) */}
-            <div className="hidden lg:flex flex-col justify-between p-10" style={{ background: branding.gradient }}>
+            {/* Colonne latérale (Masquée sur mobile, hauteur totale fixe sur desktop) */}
+            <div className="hidden lg:flex flex-col justify-between p-10 h-full" style={{ background: branding.gradient }}>
               <div>
                 <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center shadow-sm">
@@ -458,8 +458,8 @@ const RegisterPage = () => {
               </div>
             </div>
 
-            {/* Formulaire Principal (Optimisé en hauteur sur desktop) */}
-            <main className="px-6 py-6 sm:p-6 lg:p-8 flex flex-col justify-between min-h-screen sm:min-h-[530px]">
+            {/* Formulaire Principal (Plein écran sur mobile, hauteur 100% sur desktop) */}
+            <main className="px-6 py-6 sm:p-6 lg:p-8 flex flex-col justify-between min-h-screen sm:min-h-0 sm:h-full">
 
               {/* Logo Mobile épuré et fondu */}
               <div className="lg:hidden flex justify-center mb-6">
@@ -468,7 +468,7 @@ const RegisterPage = () => {
                 </div>
               </div>
 
-              {/* En-tête de page resserré en hauteur */}
+              {/* En-tête de page resserré */}
               <div className="mb-4 sm:mb-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -498,12 +498,23 @@ const RegisterPage = () => {
               </div>
 
               {/* Contenu dynamique des étapes */}
-              <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between">
-                <div className="flex-1">
-
-                  {/* Étape 1 : Choix du type de compte (Espacement vertical réduit) */}
+              <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between min-h-0">
+                
+                {/* 
+                  Cette div contient la liste des champs. 
+                  Grâce à 'flex-1 min-h-0 overflow-y-auto', elle s'adapte automatiquement à la hauteur disponible 
+                  et affiche un défilement propre si la liste de champs s'allonge, SANS jamais modifier la taille de la carte.
+                */}
+                <div 
+                  className="flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2 space-y-4"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: `${branding.primary}20 transparent`
+                  }}
+                >
+                  {/* Étape 1 : Choix du type de compte */}
                   {step === 1 && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5">
                         <h3 className="text-base font-bold" style={{ color: branding.text }}>Quel est votre besoin ?</h3>
                         <p className="text-xs" style={{ color: branding.textLight }}>Sélectionnez le profil qui vous correspond.</p>
@@ -525,9 +536,9 @@ const RegisterPage = () => {
                     </div>
                   )}
 
-                  {/* Étape 2 : Choix du service (Proche uniquement - Espacement resserré) */}
+                  {/* Étape 2 : Choix du service (Proche uniquement) */}
                   {step === 2 && isFamilyWithPatient && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5">
                         <h3 className="text-base font-bold" style={{ color: branding.text }}>Qui accompagnerons-nous ?</h3>
                         <p className="text-xs" style={{ color: branding.textLight }}>Choisissez la catégorie concernée.</p>
@@ -547,7 +558,7 @@ const RegisterPage = () => {
 
                   {/* Étape Identité */}
                   {((step === 2 && !isFamilyWithPatient) || (step === 3 && isFamilyWithPatient)) && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>Création de vos identifiants</h3><p className="text-xs" style={{ color: branding.textLight }}>Vos informations de connexion personnelles.</p></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Nom complet *</label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="full_name" value={formData.full_name} onChange={handleChange} placeholder="Ex: Jean Dupont" className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} required /></div></div>
@@ -560,7 +571,7 @@ const RegisterPage = () => {
 
                   {/* Synthèse Intermédiaire */}
                   {step === 3 && isPersonal && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>Dernière vérification</h3><p className="text-xs" style={{ color: branding.textLight }}>Relisez vos informations avant de valider.</p></div>
                       <div className="rounded-2xl p-4 border space-y-3" style={{ background: `${branding.primary}02`, borderColor: `${branding.primary}12` }}>
                         <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><User size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Nom complet</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.full_name || 'Non renseigné'}</p></div></div>
@@ -574,20 +585,20 @@ const RegisterPage = () => {
 
                   {/* Profil de l'aidant */}
                   {step === 3 && isAidant && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>Votre expérience</h3><p className="text-xs" style={{ color: branding.textLight }}>Renseignez vos spécialités d'accompagnement.</p></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Date de naissance</label><input type="date" name="birth_date" value={aidantData.birth_date} onChange={(e) => setAidantData({ ...aidantData, birth_date: e.target.value })} className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} /></div>
                         <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Années d'expérience</label><select name="experience_years" value={aidantData.experience_years} onChange={(e) => setAidantData({ ...aidantData, experience_years: e.target.value })} className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }}><option value="">Sélectionner</option><option value="0">Débutant / &lt; 1 an</option><option value="2">2 à 3 ans</option><option value="4">4 à 5 ans</option><option value="6">6 à 10 ans</option><option value="10">Plus de 10 ans</option></select></div>
                         <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Adresse de résidence *</label><div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="address" value={aidantData.address} onChange={(e) => setAidantData({ ...aidantData, address: e.target.value })} placeholder="Quartier, Ville" className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} required /></div></div>
                       </div>
-                      <div><p className="text-xs font-semibold mb-1.5" style={{ color: branding.text }}>Spécialités principales</p><div className="grid grid-cols-2 gap-2">{SPECIALTIES.map((item) => { const active = aidantData.specialties.includes(item.id); return <button type="button" key={item.id} onClick={() => toggleSpecialty(item.id)} className="px-3 py-2 rounded-2xl border text-left text-xs transition-all hover:border-gray-300" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? `${branding.primary}04` : '#ffffff', color: branding.text }}><span className="mr-2">{item.icon}</span>{item.label}</button>; })}</div></div>
+                      <div><p className="text-xs font-semibold mb-1.5" style={{ color: branding.text }}>Spécialités principales</p><div className="grid grid-cols-2 gap-2">{SPECIALTIES.map((item) => { const active = aidantData.specialties.includes(item.id); return <button type="button" key={item.id} onClick={() => toggleSpecialty(item.id)} className="px-3 py-2.5 rounded-2xl border text-left text-xs transition-all hover:border-gray-300" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? `${branding.primary}04` : '#ffffff', color: branding.text }}><span className="mr-2">{item.icon}</span>{item.label}</button>; })}</div></div>
                     </div>
                   )}
 
                   {/* Informations Proche */}
                   {step === 4 && isFamilyWithPatient && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>Le proche à accompagner</h3><p className="text-xs" style={{ color: branding.textLight }}>Service ciblé : {serviceLabel}</p></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Prénom *</label><input name="patient.first_name" value={formData.patientData.first_name} onChange={handleChange} className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} required /></div>
@@ -604,7 +615,7 @@ const RegisterPage = () => {
 
                   {/* Zones et dispo (Aidant uniquement) */}
                   {step === 4 && isAidant && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>Mobilité et présentation</h3><p className="text-xs" style={{ color: branding.textLight }}>Où et quand pouvez-vous intervenir ?</p></div>
                       <div><p className="text-xs font-semibold mb-1.5" style={{ color: branding.text }}>Zones d'intervention</p><div className="flex flex-wrap gap-2">{ZONES.map((zone) => { const active = aidantData.zones.includes(zone); return <button type="button" key={zone} onClick={() => toggleZone(zone)} className="px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? branding.primary : '#ffffff', color: active ? '#ffffff' : '#4b5563' }}>{zone}</button>; })}</div></div>
                       <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Votre description professionnelle</label><textarea value={aidantData.bio} onChange={(e) => setAidantData({ ...aidantData, bio: e.target.value })} rows={3} placeholder="Parlez-nous brièvement de vos motivations et de votre savoir-faire..." className="w-full px-3.5 py-2 rounded-2xl border outline-none text-xs resize-none focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} /></div>
@@ -614,7 +625,7 @@ const RegisterPage = () => {
 
                   {/* Synthèse finale avant soumission */}
                   {step === totalSteps && !isPersonal && (
-                    <div className="space-y-3 sm:space-y-3 animate-fadeIn">
+                    <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>{isAidant ? 'Vérifier ma candidature' : 'Vérifier mon inscription'}</h3><p className="text-xs" style={{ color: branding.textLight }}>Veuillez confirmer l'exactitude des données saisies.</p></div>
                       <div className="rounded-2xl p-4 border space-y-2.5" style={{ background: `${branding.primary}02`, borderColor: `${branding.primary}12` }}>
                         <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><User size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Nom complet</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.full_name || 'Non renseigné'}</p></div></div>
@@ -639,7 +650,7 @@ const RegisterPage = () => {
                   )}
                 </div>
 
-                {/* Mentions Légales & CGU resserrées en hauteur */}
+                {/* Mentions Légales & CGU (Reste FIXE en bas) */}
                 <div className="space-y-2 mt-4 pt-4 border-t" style={{ borderColor: branding.border }}>
                   <div className="flex flex-wrap gap-4 text-xs">
                     <button type="button" onClick={() => setShowFAQ(true)} className="flex items-center gap-1.5 font-medium hover:underline opacity-80 hover:opacity-100" style={{ color: branding.primary }}><HelpCircle size={14} /> Consulter la FAQ</button>
@@ -652,8 +663,8 @@ const RegisterPage = () => {
                   {!acceptCGU && (step === totalSteps) && <p className="text-[11px] font-semibold text-rose-500">⚠️ L'acceptation des CGU est requise pour soumettre votre dossier.</p>}
                 </div>
 
-                {/* Actions de navigation */}
-                <div className="flex gap-3 mt-4 sm:mt-5">
+                {/* Actions de navigation (Reste FIXE en bas) */}
+                <div className="flex gap-3 mt-4">
                   {step > 1 && (
                     <button type="button" onClick={goBack} className="flex-1 max-w-[150px] py-2.5 rounded-2xl text-xs font-bold border transition-colors hover:bg-gray-50 flex items-center justify-center gap-1.5" style={{ borderColor: branding.border, color: branding.text }}>
                       <ArrowLeft size={14} /> Retour
@@ -668,7 +679,7 @@ const RegisterPage = () => {
               </form>
 
               {/* Redirection Connexion */}
-              <div className="mt-4 sm:mt-5 text-center text-xs">
+              <div className="mt-4 text-center text-xs">
                 <p style={{ color: branding.textLight }}>Déjà membre ? <Link to="/login" className="font-bold hover:underline" style={{ color: branding.primary }}>Se connecter</Link></p>
               </div>
             </main>
