@@ -1,5 +1,5 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// 📌 Page : Messagerie générale - Version corrigée
+// 📌 Page : Messagerie générale 
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -295,10 +295,21 @@ const MessagesPage = () => {
           sender,
         };
 
-        setMessages((prev) => {
-          const exists = prev.some((message) => message.id === newMessage.id);
+         setMessages((prev) => {
+          const exists = prev.some((message: Message) => message.id === newMessage.id);
           if (exists) return prev;
-          return [...prev, messageWithSender];
+          return [...prev, {
+            id: newMessage.id,
+            conversation_id: newMessage.conversation_id,
+            content: newMessage.content,
+            sender_id: newMessage.sender_id,
+            sender: sender, 
+            created_at: newMessage.created_at,
+            is_read: newMessage.is_read,
+            attachment_url: newMessage.attachment_url || null,
+            is_pinned: newMessage.is_pinned || false,
+            is_important: newMessage.is_important || false,
+          }];
         });
 
         if (newMessage.sender_id !== currentUserId) {
