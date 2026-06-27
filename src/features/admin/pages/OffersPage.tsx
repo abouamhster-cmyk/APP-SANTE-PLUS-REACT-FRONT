@@ -19,7 +19,7 @@ import {
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency } from '@/utils/helpers';
-import { Modal, ModalActions } from '@/components/ui/Modal';
+import { ModalWithForm, ModalActions } from '@/components/ui/Modal';
 import { Offer } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -300,9 +300,10 @@ const OffersPage = () => {
         </section>
       )}
 
-      {/* MODALS */}
+      {/* MODALS - Utilisation de ModalWithForm */}
       {showCreateModal && (
         <OfferFormModal
+          mode="create"
           onClose={() => setShowCreateModal(false)}
           onSuccess={fetchOffers}
           colors={colors}
@@ -311,6 +312,7 @@ const OffersPage = () => {
 
       {showEditModal && selectedOffer && (
         <OfferFormModal
+          mode="edit"
           offer={selectedOffer}
           onClose={() => {
             setShowEditModal(false);
@@ -452,19 +454,19 @@ const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: O
 };
 
 // =============================================
-// OFFER FORM MODAL - PRODUCTION READY
+// OFFER FORM MODAL - Utilise ModalWithForm
 // =============================================
 
 interface OfferFormModalProps {
+  mode: 'create' | 'edit';
   offer?: Offer;
   onClose: () => void;
   onSuccess: () => void;
   colors: any;
 }
 
-const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalProps) => {
+const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: OfferFormModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  const FORM_ID = 'offer-form';
 
   const [formData, setFormData] = useState({
     name: offer?.name || '',
@@ -505,7 +507,7 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
         total_orders: formData.total_orders ? parseInt(String(formData.total_orders)) : null,
       };
 
-      if (offer) {
+      if (mode === 'edit' && offer) {
         const { error } = await supabase
           .from('offres')
           .update(data)
@@ -533,21 +535,18 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
   };
 
   return (
-    <Modal
+    <ModalWithForm
       isOpen={true}
       onClose={onClose}
-      title={offer ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
+      onSubmit={handleSubmit}
+      title={mode === 'edit' ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
+      icon={<Package size={24} />}
       maxWidth="2xl"
-      actions={
-        <ModalActions
-          onCancel={onClose}
-          confirmLabel={offer ? 'Mettre à jour' : 'Créer'}
-          isLoading={isLoading}
-          formId={FORM_ID} // ✅ Le bouton submit le formulaire
-        />
-      }
+      confirmLabel={mode === 'edit' ? 'Mettre à jour' : 'Créer'}
+      cancelLabel="Annuler"
+      isLoading={isLoading}
     >
-      <form id={FORM_ID} className="space-y-3" onSubmit={handleSubmit}>
+      <div className="space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
@@ -739,8 +738,8 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
             </label>
           </div>
         </div>
-      </form>
-    </Modal>
+      </div>
+    </ModalWithForm>
   );
 };
 
