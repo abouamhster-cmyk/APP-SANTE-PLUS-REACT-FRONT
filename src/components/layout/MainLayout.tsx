@@ -33,6 +33,7 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
 import { cn } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
+import { MobileTabBar } from './MobileTabBar'; // ✅ NOUVEAU
 
 const MainLayout = () => {
   const navigate = useNavigate();
@@ -44,14 +45,15 @@ const MainLayout = () => {
 
   // ✅ Jargon dynamique selon le rôle
   const {
-    plural,          // "proches" / "personnes accompagnées" / "bénéficiaires"
-    list,            // "Mes proches" / "Mes personnes accompagnées" / "Bénéficiaires"
+    plural,
+    list,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -60,14 +62,21 @@ const MainLayout = () => {
 
   const isFamilyWithoutPatient = role === 'family' && !profile?.patient_category;
 
-  // ✅ Référence pour éviter les doublons de subscription
-  const isSubscribed = useRef(false);
+  // ✅ Détection mobile
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // ✅ Gestion des notifications
+  const isSubscribed = useRef(false);
+
   useEffect(() => {
     if (!profile) return;
 
-    // ✅ Éviter les subscriptions multiples
     if (isSubscribed.current) {
       console.log('ℹ️ Notifications déjà abonnées');
       return;
@@ -86,45 +95,6 @@ const MainLayout = () => {
       }
     };
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
-
-  // ✅ EMPÊCHER LE RECHARGEMENT AUTOMATIQUE QUAND L'UTILISATEUR CHANGE D'ONGLET
-  useEffect(() => {
-    let isMounted = true;
-    let lastFetchTime = 0;
-
-    const handleVisibilityChange = () => {
-      // ✅ Ne rien faire si le composant est démonté
-      if (!isMounted) return;
-
-      if (!document.hidden) {
-        console.log('👀 Retour sur la page - pas de rechargement');
-
-        // ✅ Rafraîchir les notifications en arrière-plan sans recharger la page
-        // Seulement si 30 secondes se sont écoulées depuis le dernier fetch
-        const now = Date.now();
-        if (now - lastFetchTime > 30000 && profile) {
-          console.log('🔔 Rafraîchissement des notifications en arrière-plan');
-          fetchNotifications().catch(console.error);
-          lastFetchTime = now;
-        }
-      }
-    };
-
-    // ✅ Empêcher le rechargement automatique au focus de la fenêtre
-    const handleFocus = () => {
-      if (!isMounted) return;
-      console.log('👀 Fenêtre focus - pas de rechargement automatique');
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      isMounted = false;
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [profile, fetchNotifications]);
 
   // ✅ Navigation selon le rôle avec jargon dynamique
   const getNavItems = () => {
@@ -161,9 +131,9 @@ const MainLayout = () => {
         { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
         { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
+        { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing' },
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
         { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
-        { icon: <Users size={20} />, label: 'Assigner aidants', path: '/app/assign-aidants' },
       ];
     }
 
@@ -174,7 +144,6 @@ const MainLayout = () => {
         { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', path: '/app/admin' },
         { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
         { icon: <UserCheck size={20} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
-        { icon: <Users size={20} />, label: 'Assigner aidants', path: '/app/assign-aidants' },
         { icon: <Users size={20} />, label: 'Aidants', path: '/app/aidants' },
         { icon: <Users size={20} />, label: 'Utilisateurs', path: '/app/users' },
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
@@ -197,7 +166,7 @@ const MainLayout = () => {
   // ✅ Titre de la page selon le rôle
   const getPageTitle = () => {
     const path = location.pathname;
-    
+
     if (path.startsWith('/app/orders')) return 'Commandes';
     if (path.startsWith('/app/patients')) return list;
     if (path.startsWith('/app/visits')) return 'Visites';
@@ -243,60 +212,66 @@ const MainLayout = () => {
 
   return (
     <div
-      className="min-h-screen w-full overflow-x-hidden"
+      className="min-h-screen w-full overflow-x-hidden pb-16 md:pb-0"
       style={{ backgroundColor: colors.background }}
     >
       {/* SIDEBAR DESKTOP */}
-      <aside
-        className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col"
-        style={{ borderColor: colors.primary + '20' }}
-      >
-        <SidebarContent
-          navItems={navItems}
-          locationPath={location.pathname}
-          colors={colors}
-          profile={profile}
-          role={role}
-          logoConfig={logoConfig}
-          onClose={closeSidebar}
-          onLogout={() => {
-            logout();
-            navigate('/login');
-          }}
-          showClose={false}
-        />
-      </aside>
+      {!isMobile && (
+        <aside
+          className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col"
+          style={{ borderColor: colors.primary + '20' }}
+        >
+          <SidebarContent
+            navItems={navItems}
+            locationPath={location.pathname}
+            colors={colors}
+            profile={profile}
+            role={role}
+            logoConfig={logoConfig}
+            onClose={closeSidebar}
+            onLogout={() => {
+              logout();
+              navigate('/login');
+            }}
+            showClose={false}
+          />
+        </aside>
+      )}
 
-      {/* SIDEBAR MOBILE */}
-      <aside
-        className={cn(
-          'md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white shadow-xl border-r transition-transform duration-300 ease-in-out',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-        style={{ borderColor: colors.primary + '20' }}
-      >
-        <SidebarContent
-          navItems={navItems}
-          locationPath={location.pathname}
-          colors={colors}
-          profile={profile}
-          role={role}
-          logoConfig={logoConfig}
-          onClose={closeSidebar}
-          onLogout={() => {
-            logout();
-            navigate('/login');
-          }}
-          showClose
-        />
-      </aside>
+      {/* SIDEBAR MOBILE (hamburger) */}
+      {isMobile && (
+        <>
+          <aside
+            className={cn(
+              'md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white shadow-xl border-r transition-transform duration-300 ease-in-out',
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            )}
+            style={{ borderColor: colors.primary + '20' }}
+          >
+            <SidebarContent
+              navItems={navItems}
+              locationPath={location.pathname}
+              colors={colors}
+              profile={profile}
+              role={role}
+              logoConfig={logoConfig}
+              onClose={closeSidebar}
+              onLogout={() => {
+                logout();
+                navigate('/login');
+              }}
+              showClose
+            />
+          </aside>
 
-      {/* OVERLAY MOBILE */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/45 z-40 md:hidden"
-          onClick={closeSidebar}
-        />
+          {/* OVERLAY MOBILE */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/45 z-40 md:hidden"
+              onClick={closeSidebar}
+            />
+          )}
+        </>
       )}
 
       {/* PAGE CONTENT avec HEADER FIXE */}
@@ -304,7 +279,7 @@ const MainLayout = () => {
         {/* HEADER FIXE */}
         <header
           className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-b px-4 md:px-6 py-3 md:py-4"
-          style={{ 
+          style={{
             borderColor: colors.primary + '20',
             backgroundColor: 'rgba(255,255,255,0.95)',
           }}
@@ -314,12 +289,15 @@ const MainLayout = () => {
               {/* Ligne 1 : Titre + Notifications */}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="md:hidden w-10 h-10 rounded-xl hover:bg-gray-100 transition flex items-center justify-center shrink-0"
-                  >
-                    <Menu size={22} />
-                  </button>
+                  {/* ✅ Bouton hamburger uniquement sur mobile */}
+                  {isMobile && (
+                    <button
+                      onClick={() => setSidebarOpen(true)}
+                      className="w-10 h-10 rounded-xl hover:bg-gray-100 transition flex items-center justify-center shrink-0"
+                    >
+                      <Menu size={22} />
+                    </button>
+                  )}
 
                   <h2
                     className="text-base md:text-lg font-bold truncate"
@@ -336,9 +314,9 @@ const MainLayout = () => {
                       color: colors.primary,
                     }}
                   >
-                    {role === 'aidant' ? '🦸 Aidant' : 
+                    {role === 'aidant' ? '🦸 Aidant' :
                      role === 'family' ? '👨‍👩‍👦 Famille' :
-                     role === 'coordinator' ? '👔 Coord' : 
+                     role === 'coordinator' ? '👔 Coord' :
                      role === 'admin' ? '👑 Admin' : ''}
                   </span>
                 </div>
@@ -387,19 +365,22 @@ const MainLayout = () => {
         </header>
 
         {/* ESPACE POUR LE HEADER FIXE */}
-        <main className="w-full max-w-full overflow-x-hidden pt-20 md:pt-24 p-3 sm:p-4 md:p-6">
+        <main className="w-full max-w-full overflow-x-hidden pt-20 md:pt-24 p-3 sm:p-4 md:p-6 pb-4">
           <div className="max-w-7xl mx-auto">
             <ReminderBanner />
             <Outlet />
           </div>
         </main>
       </div>
+
+      {/* ✅ TAB BAR MOBILE - EN BAS */}
+      {isMobile && <MobileTabBar colors={colors} />}
     </div>
   );
 };
 
 // =============================================
-// SIDEBAR CONTENT
+// SIDEBAR CONTENT (inchangé)
 // =============================================
 
 interface SidebarContentProps {
