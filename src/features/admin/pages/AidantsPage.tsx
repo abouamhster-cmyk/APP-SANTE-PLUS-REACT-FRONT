@@ -17,8 +17,11 @@ import {
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
-import { Modal, InfoRow } from '@/components/ui';
+import { Modal } from '@/components/ui/Modal';
+import { InfoRow } from '@/components/ui/InfoRow';
 import toast from 'react-hot-toast';
+
+
 
 interface Aidant {
   id: string;
