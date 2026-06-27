@@ -12,7 +12,6 @@ import {
   Eye,
   Clock,
   Award,
-  X,
 } from 'lucide-react';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
@@ -20,8 +19,6 @@ import { formatDate } from '@/utils/helpers';
 import { Modal } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
 import toast from 'react-hot-toast';
-
-
 
 interface Aidant {
   id: string;
@@ -45,32 +42,30 @@ interface Aidant {
   created_at: string;
 }
 
-// ✅ Fonctions de statut
 const getStatusLabel = (status: string): string => {
   switch (status) {
-    case 'approved': return '✅ Approuvé';
-    case 'pending': return '⏳ En attente';
-    case 'rejected': return '❌ Refusé';
-    case 'active': return '🟢 Actif';
-    case 'inactive': return '⚪ Inactif';
-    default: return status || '⏳ En attente';
+    case 'approved': return 'Approuvé';
+    case 'pending': return 'En attente';
+    case 'rejected': return 'Refusé';
+    case 'active': return 'Actif';
+    case 'inactive': return 'Inactif';
+    default: return status || 'En attente';
   }
 };
 
 const getStatusColor = (status: string): string => {
   switch (status) {
-    case 'approved': return '#4CAF50';
-    case 'pending': return '#FF9800';
-    case 'rejected': return '#F44336';
-    case 'active': return '#4CAF50';
-    case 'inactive': return '#9E9E9E';
-    default: return '#9E9E9E';
+    case 'approved': return '#10b981';
+    case 'pending': return '#f59e0b';
+    case 'rejected': return '#ef4444';
+    case 'active': return '#10b981';
+    case 'inactive': return '#94a3b8';
+    default: return '#94a3b8';
   }
 };
 
-// ✅ Options de filtre
 const statusOptions = [
-  { value: 'all', label: 'Tous' },
+  { value: 'all', label: 'Tous les statuts' },
   { value: 'approved', label: '✅ Approuvés' },
   { value: 'pending', label: '⏳ En attente' },
   { value: 'rejected', label: '❌ Refusés' },
@@ -97,7 +92,6 @@ const AidantsPage = () => {
   const fetchAidants = async () => {
     try {
       setIsLoading(true);
-
       const { data: aidantsData, error: aidantsError } = await supabase
         .from('aidants')
         .select('*')
@@ -114,12 +108,12 @@ const AidantsPage = () => {
           .select('id, full_name, email, phone, role, avatar_url')
           .in('id', userIds);
 
-        if (!profilesError && profiles) {
-          profileMap = profiles.reduce((acc, p) => {
-            acc[p.id] = p;
-            return acc;
-          }, {} as Record<string, any>);
-        }
+          if (!profilesError && profiles) {
+            profileMap = profiles.reduce((acc, p) => {
+              acc[p.id] = p;
+              return acc;
+            }, {} as Record<string, any>);
+          }
       }
 
       const aidantsWithUser = (aidantsData || []).map(aidant => ({
@@ -154,7 +148,6 @@ const AidantsPage = () => {
     total: aidants.length,
     active: aidants.filter(a => a.status === 'approved' || a.status === 'active').length,
     pending: aidants.filter(a => a.status === 'pending').length,
-    available: aidants.filter(a => a.available).length,
     verified: aidants.filter(a => a.is_verified).length,
   };
 
@@ -171,7 +164,6 @@ const AidantsPage = () => {
         .eq('id', id);
 
       if (error) throw error;
-
       toast.success(`Disponibilité ${!available ? 'activée' : 'désactivée'}`);
       fetchAidants();
     } catch (error) {
@@ -182,266 +174,134 @@ const AidantsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
-          ))}
-        </div>
-        <div className="h-12 bg-white rounded-xl animate-pulse" />
-        <div className="space-y-2">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
-          ))}
+      <div className="space-y-6 max-w-5xl mx-auto pb-8">
+        <div className="h-24 bg-white rounded-3xl animate-pulse shadow-sm" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-16 bg-white rounded-2xl animate-pulse shadow-sm" />)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <Users size={12} />
-              Aidants
-            </div>
-
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              🦸 Aidants
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Header */}
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
+      >
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+              🦸 Annuaire des aidants
             </h1>
-
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
-              {stats.total} aidant{stats.total > 1 ? 's' : ''} au total
+            <p className="text-xs" style={{ color: colors.textLight }}>
+              {stats.total} aidant{stats.total > 1 ? 's' : ''} inscrits sur la plateforme
             </p>
           </div>
-
           <button
             onClick={fetchAidants}
             disabled={isLoading}
-            className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
-            style={{ background: colors.primary + '12', color: colors.primary }}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 shrink-0 self-start sm:self-center"
+            style={{ borderColor: colors.border, color: colors.text }}
           >
-            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Actualiser</span>
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+            Actualiser
           </button>
         </div>
       </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <CompactStat
-          icon={<Users size={14} />}
-          label="Total"
-          value={stats.total}
-          color={colors.primary}
-        />
-        <CompactStat
-          icon={<UserCheck size={14} />}
-          label="Actifs"
-          value={stats.active}
-          color="#4CAF50"
-        />
-        <CompactStat
-          icon={<Clock size={14} />}
-          label="En attente"
-          value={stats.pending}
-          color="#FF9800"
-        />
-        <CompactStat
-          icon={<Award size={14} />}
-          label="Vérifiés"
-          value={stats.verified}
-          color="#9C27B0"
-        />
+      {/* Statistiques épurées */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Users size={16} />} />
+        <StatCard label="Actifs" value={stats.active} color="#10b981" icon={<UserCheck size={16} />} />
+        <StatCard label="En attente" value={stats.pending} color="#f59e0b" icon={<Clock size={16} />} />
+        <StatCard label="Vérifiés" value={stats.verified} color="#8b5cf6" icon={<Award size={16} />} />
       </section>
 
-      {/* RECHERCHE + FILTRE */}
-      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Rechercher par nom, email..."
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-
-          <div className="relative min-w-[120px]">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              {statusOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+      {/* Barre de filtre épurée */}
+      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
+        <input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Rechercher un aidant par son nom ou spécialité..."
+          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+        >
+          {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        </select>
       </section>
 
-      {/* LISTE */}
+      {/* Liste épurée */}
       {filteredAidants.length > 0 ? (
-        <section className="space-y-2">
+        <section className="space-y-3">
           {filteredAidants.map((aidant) => (
             <div
               key={aidant.id}
-              className="bg-white rounded-xl p-3 shadow-sm border border-black/5 hover:shadow-md transition"
+              className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between gap-4 transition hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)]"
             >
-              <div className="flex items-center gap-3">
-                {/* Avatar */}
+              <div className="flex items-center gap-3.5 min-w-0">
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                   style={{ background: colors.primary }}
                 >
                   {aidant.user?.full_name?.charAt(0) || 'A'}
                 </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate" style={{ color: colors.text }}>
-                    {aidant.user?.full_name || 'Aidant inconnu'}
-                  </p>
-                  <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: colors.text + '50' }}>
-                    <span>{aidant.user?.email || 'Email inconnu'}</span>
+                <div className="min-w-0 space-y-0.5">
+                  <p className="font-bold text-xs" style={{ color: colors.text }}>{aidant.user?.full_name || 'Aidant'}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-gray-400 flex-wrap">
+                    <span>{aidant.user?.email || 'N/A'}</span>
                     <span>•</span>
-                    <span
-                      className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                      style={{
-                        background: getStatusColor(aidant.status || 'pending') + '15',
-                        color: getStatusColor(aidant.status || 'pending'),
-                      }}
-                    >
-                      {getStatusLabel(aidant.status || 'pending')}
-                    </span>
+                    <span className="font-semibold" style={{ color: getStatusColor(aidant.status) }}>{getStatusLabel(aidant.status)}</span>
                     <span>•</span>
-                    <span className={aidant.available ? 'text-green-600' : 'text-red-400'}>
-                      {aidant.available ? '🟢 Disponible' : '🔴 Indisponible'}
-                    </span>
-                    {aidant.specialties?.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="truncate max-w-[100px]">
-                          {aidant.specialties.slice(0, 2).join(', ')}
-                          {aidant.specialties.length > 2 && '...'}
-                        </span>
-                      </>
-                    )}
+                    <span className={aidant.available ? 'text-green-600 font-semibold' : 'text-gray-400 font-semibold'}>{aidant.available ? 'Disponible' : 'Indisponible'}</span>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                    style={{ color: colors.primary }}
-                    onClick={() => handleViewDetails(aidant)}
-                  >
-                    <Eye size={16} />
-                  </button>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                    style={{ color: aidant.available ? '#F44336' : '#4CAF50' }}
-                    onClick={() => handleToggleAvailability(aidant.id, aidant.available)}
-                  >
-                    {aidant.available ? <UserX size={16} /> : <UserCheck size={16} />}
-                  </button>
-                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => handleViewDetails(aidant)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600"><Eye size={14} /></button>
+                <button
+                  onClick={() => handleToggleAvailability(aidant.id, aidant.available)}
+                  className="p-1.5 rounded-lg text-xs font-semibold px-2.5 py-1 rounded-lg border hover:bg-gray-50 transition-colors"
+                  style={{ borderColor: colors.border, color: colors.text }}
+                >
+                  {aidant.available ? 'Désactiver' : 'Activer'}
+                </button>
               </div>
             </div>
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
-          <div
-            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
-            style={{ background: colors.primary + '12', color: colors.primary }}
-          >
-            <Users size={24} />
-          </div>
-
-          <h3 className="text-base font-bold" style={{ color: colors.text }}>
-            {searchTerm || statusFilter !== 'all'
-              ? 'Aucun aidant trouvé'
-              : 'Aucun aidant enregistré'}
-          </h3>
-
-          <p className="text-xs mt-1 text-gray-500">
-            {searchTerm || statusFilter !== 'all'
-              ? 'Aucun aidant ne correspond à vos critères.'
-              : 'Aucun aidant n\'a encore été enregistré.'}
-          </p>
-        </section>
+        <div className="bg-white rounded-3xl p-12 text-center text-gray-400">Aucun aidant ne correspond aux filtres</div>
       )}
 
-      {/* MODAL DÉTAILS */}
+      {/* Modal Détails */}
       {showDetailsModal && selectedAidant && (
-        <Modal
-          isOpen={true}
-          onClose={() => setShowDetailsModal(false)}
-          title="🦸 Détails de l'aidant"
-          maxWidth="2xl"
-        >
+        <Modal isOpen={true} onClose={() => setShowDetailsModal(false)} title="🦸 Détails de l'aidant" maxWidth="md">
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b" style={{ borderColor: colors.border }}>
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
-                style={{ background: colors.primary }}
-              >
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: colors.primary }}>
                 {selectedAidant.user?.full_name?.charAt(0) || 'A'}
               </div>
               <div>
-                <p className="text-lg font-bold" style={{ color: colors.text }}>
-                  {selectedAidant.user?.full_name || 'Aidant inconnu'}
-                </p>
-                <p className="text-sm" style={{ color: colors.text + '50' }}>
-                  {selectedAidant.user?.email || 'Email inconnu'}
-                </p>
+                <p className="font-bold" style={{ color: colors.text }}>{selectedAidant.user?.full_name || 'N/A'}</p>
+                <p className="text-xs text-gray-500">{selectedAidant.user?.email || 'N/A'}</p>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <InfoRow label="Statut" value={getStatusLabel(selectedAidant.status || 'pending')} />
-              <InfoRow label="Disponibilité" value={selectedAidant.available ? '🟢 Disponible' : '🔴 Indisponible'} />
-              <InfoRow label="Vérifié" value={selectedAidant.is_verified ? '✅ Oui' : '❌ Non'} />
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <InfoRow label="Rôle" value="🦸 Aidant" />
+              <InfoRow label="Statut" value={getStatusLabel(selectedAidant.status)} />
+              <InfoRow label="Disponibilité" value={selectedAidant.available ? 'Disponible 🟢' : 'Indisponible 🔴'} />
               <InfoRow label="Note" value={`⭐ ${selectedAidant.rating || 0}/5`} />
-              <InfoRow label="Missions totales" value={String(selectedAidant.total_missions || 0)} />
-              <InfoRow label="Missions complétées" value={String(selectedAidant.completed_missions || 0)} />
-              <InfoRow label="Missions annulées" value={String(selectedAidant.cancelled_missions || 0)} />
-              <InfoRow label="Date d'inscription" value={formatDate(selectedAidant.created_at)} />
+              <InfoRow label="Missions" value={String(selectedAidant.total_missions || 0)} />
+              <InfoRow label="Inscription" value={formatDate(selectedAidant.created_at)} />
             </div>
-
-            {selectedAidant.specialties?.length > 0 && (
-              <div>
-                <p className="text-sm font-medium" style={{ color: colors.text + '50' }}>Spécialités</p>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {selectedAidant.specialties.map((spec) => (
-                    <span
-                      key={spec}
-                      className="px-2 py-0.5 rounded-full text-xs"
-                      style={{ background: colors.primary + '10', color: colors.primary }}
-                    >
-                      {spec}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </Modal>
       )}
@@ -449,38 +309,14 @@ const AidantsPage = () => {
   );
 };
 
-// =============================================
-// COMPACT STAT
-// =============================================
-
-interface CompactStatProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}
-
-const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
-  return (
-    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between gap-1">
-        <div>
-          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400">
-            {label}
-          </p>
-          <p className="text-lg font-bold mt-0.5" style={{ color }}>
-            {value}
-          </p>
-        </div>
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: color + '14', color }}
-        >
-          {icon}
-        </div>
-      </div>
+const StatCard = ({ label, value, color, icon }: StatCardProps) => (
+  <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
+    <div className="space-y-0.5">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
     </div>
-  );
-};
+    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '0d', color }}>{icon}</div>
+  </div>
+);
 
 export default AidantsPage;
