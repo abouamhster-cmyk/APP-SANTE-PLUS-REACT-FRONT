@@ -1,5 +1,5 @@
 // 📁 src/stores/visitStore.ts
- 
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit } from '@/types';
@@ -29,9 +29,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  // =============================================
-  // FETCH VISITES - CORRIGÉ
-  // =============================================
   fetchVisits: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -73,9 +70,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
-      // ✅ Pour admin/coordinator, on récupère toutes les visites
-      // (pas de filtre supplémentaire)
-
       const { data: visits, error } = await query.order('scheduled_date', { ascending: true });
 
       if (error) throw error;
@@ -103,14 +97,12 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let aidantMap: Record<string, any> = {};
 
       if (aidantIds.length > 0) {
-        // Récupérer les aidants
         const { data: aidants, error: aidantsError } = await supabase
           .from('aidants')
           .select('*')
           .in('id', aidantIds);
 
         if (!aidantsError && aidants) {
-          // Récupérer les profils des aidants
           const userIds = aidants.map(a => a.user_id).filter(Boolean);
           let profileMap: Record<string, any> = {};
 
@@ -128,7 +120,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
             }
           }
 
-          // Fusionner aidants + profils
           aidantMap = aidants.reduce((acc, a) => {
             acc[a.id] = {
               ...a,
@@ -172,14 +163,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // FETCH VISIT BY ID - CORRIGÉ
-  // =============================================
   fetchVisitById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
-      // Récupérer la visite
       const { data: visit, error } = await supabase
         .from('visites')
         .select('*')
@@ -188,7 +175,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Récupérer le patient
       let patient = null;
       if (visit.patient_id) {
         const { data: patientData } = await supabase
@@ -199,7 +185,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         patient = patientData;
       }
 
-      // Récupérer l'aidant + son profil
       let aidant = null;
       if (visit.aidant_id) {
         const { data: aidantData } = await supabase
@@ -222,7 +207,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
-      // Récupérer le coordinateur
       let coordinator = null;
       if (visit.coordinator_id) {
         const { data: coordData } = await supabase
@@ -247,9 +231,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // CREATE VISIT
-  // =============================================
   createVisit: async (data: Partial<Visit>) => {
     try {
       set({ isLoading: true, error: null });
@@ -278,7 +259,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Récupérer le patient
       let patient = null;
       if (newVisit.patient_id) {
         const { data: patientData } = await supabase
@@ -307,9 +287,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // UPDATE VISIT
-  // =============================================
   updateVisit: async (id: string, data: Partial<Visit>) => {
     try {
       set({ isLoading: true, error: null });
@@ -335,9 +312,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // DELETE VISIT
-  // =============================================
   deleteVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -360,9 +334,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // START VISIT
-  // =============================================
   startVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -392,9 +363,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // COMPLETE VISIT
-  // =============================================
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
     try {
       set({ isLoading: true, error: null });
@@ -429,9 +397,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // VALIDATE VISIT
-  // =============================================
   validateVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -457,9 +422,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // CANCEL VISIT
-  // =============================================
   cancelVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
