@@ -1,133 +1,163 @@
-// 📁 src/features/discharge/components/DischargeDetailsModal.tsx
- 
-import { useState, ReactNode } from 'react';  
-import { X, Calendar, Clock, Hospital, Stethoscope, User, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
-import { useDischargeStore } from '@/stores/dischargeStore';
-import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate } from '@/utils/helpers';
-import toast from 'react-hot-toast';
+// 📁 src/features/discharge/components/DischargeDetailsModal.tsx // 📌 Modal de
+détails d'une sortie d'hôpital
 
-interface DischargeDetailsModalProps {
-  discharge: any;
-  onClose: () => void;
-  onUpdate: () => void;
-  colors: any;
-}
+import { useState } from 'react'; import { X, Calendar, Clock, Hospital,
+Stethoscope, User, MapPin, CheckCircle, Edit, Save } from 'lucide-react'; import
+{ useDischargeStore } from '@/stores/dischargeStore'; import { useTerminology }
+from '@/hooks/useTerminology'; import { formatDate, formatTime } from
+'@/utils/helpers'; import toast from 'react-hot-toast';
 
-export const DischargeDetailsModal = ({ discharge, onClose, onUpdate, colors }: DischargeDetailsModalProps) => {
-  const { completeDischarge, cancelDischarge } = useDischargeStore();
-  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+interface DischargeDetailsModalProps { discharge: any; onClose: () => void;
+onUpdate: () => void; colors: any; }
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export const DischargeDetailsModal = ({ discharge, onClose, onUpdate, colors }:
+DischargeDetailsModalProps) => { const { updateDischarge, assignAidant,
+completeDischarge, cancelDischarge, updateStatus } = useDischargeStore();
 
-  const getPatientLabel = () => {
-    if (isFamily) return 'Proche';
-    if (isAidant) return 'Accompagné(e)';
-    if (isAdminOrCoordinator) return 'Bénéficiaire';
-    return 'Patient';
-  };
+// ✅ Jargon dynamique selon le rôle const { singular, // "proche" / "personne
+accompagnée" / "bénéficiaire" isFamily, isAidant, isAdminOrCoordinator, } =
+useTerminology();
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'pending': return { label: 'En attente', color: '#f59e0b', bg: '#f59e0b10' };
-      case 'planned': return { label: 'Planifiée', color: '#10b981', bg: '#10b98110' };
-      case 'in_progress': return { label: 'En cours', color: '#3b82f6', bg: '#3b82f610' };
-      case 'completed': return { label: 'Terminée', color: '#10b981', bg: '#10b98110' };
-      case 'cancelled': return { label: 'Annulée', color: '#ef4444', bg: '#ef444410' };
-      default: return { label: status, color: '#64748b', bg: '#f1f5f9' };
-    }
-  };
+const [isEditing, setIsEditing] = useState(false); const [isSubmitting,
+setIsSubmitting] = useState(false); const [notes, setNotes] =
+useState(discharge.coordinator_notes || ''); const [satisfaction,
+setSatisfaction] = useState(discharge.satisfaction_rating || 0); const [comment,
+setComment] = useState(discharge.satisfaction_comment || '');
 
-  const status = getStatusConfig(discharge.status);
+// ✅ Libellé dynamique pour le patient const getPatientLabel = () => { if
+(isFamily) return 'Proche'; if (isAidant) return 'Personne accompagnée'; if
+(isAdminOrCoordinator) return 'Bénéficiaire'; return 'Patient'; };
 
-  const handleComplete = async () => {
-    if (!window.confirm('Confirmer la fin de cette sortie ?')) return;
-    setIsSubmitting(true);
-    try {
-      await completeDischarge(discharge.id, { installation_notes: discharge.coordinator_notes });
-      toast.success('Sortie enregistrée comme terminée');
-      onUpdate();
-      onClose();
-    } catch { toast.error('Erreur'); } finally { setIsSubmitting(false); }
-  };
+const getStatusColor = (status: string) => { switch (status) { case 'pending':
+return '#FF9800'; case 'assessing': return '#2196F3'; case 'planned': return
+'#4CAF50'; case 'in_progress': return '#FF5722'; case 'completed': return
+'#4CAF50'; case 'cancelled': return '#F44336'; default: return '#9E9E9E'; } };
 
-  const handleCancel = async () => {
-    const reason = prompt('Motif de l\'annulation :');
-    if (!reason) return;
-    setIsSubmitting(true);
-    try {
-      await cancelDischarge(discharge.id, reason);
-      toast.success('Sortie annulée');
-      onUpdate();
-      onClose();
-    } catch { toast.error('Erreur'); } finally { setIsSubmitting(false); }
-  };
+const getStatusLabel = (status: string) => { switch (status) { case 'pending':
+return '📋 En attente'; case 'assessing': return '🔍 Évaluation'; case 'planned':
+return '📅 Planifiée'; case 'in_progress': return '🚗 En cours'; case 'completed':
+return '✅ Terminée'; case 'cancelled': return '❌ Annulée'; default: return
+status; } };
 
-  const canComplete = discharge.status === 'in_progress' || discharge.status === 'planned';
-  const canCancel = ['pending', 'assessing', 'planned'].includes(discharge.status);
+const handleSaveNotes = async () => { setIsSubmitting(true); try { await
+updateDischarge(discharge.id, { coordinator_notes: notes });
+toast.success('Notes mises à jour'); setIsEditing(false); onUpdate(); } catch
+(error) { toast.error('Erreur lors de la mise à jour'); } finally {
+setIsSubmitting(false); } };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-2">
-          <div>
-            <h2 className="text-lg font-extrabold" style={{ color: colors.text }}>Détails de la sortie</h2>
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mt-0.5">
-              {getPatientLabel()} : {discharge.patient?.first_name} {discharge.patient?.last_name}
+const handleComplete = async () => { if (!window.confirm('Confirmer la fin de la
+sortie ?')) return; setIsSubmitting(true); try { await
+completeDischarge(discharge.id, { satisfaction_rating: satisfaction,
+satisfaction_comment: comment, installation_notes: notes, });
+toast.success('Sortie terminée !'); onUpdate(); onClose(); } catch (error) {
+toast.error('Erreur'); } finally { setIsSubmitting(false); } };
+
+const handleCancel = async () => { const reason = prompt('Motif de l'annulation
+:'); if (!reason) return; if (!window.confirm('Confirmer l'annulation ?'))
+return; setIsSubmitting(true); try { await cancelDischarge(discharge.id,
+reason); toast.success('Sortie annulée'); onUpdate(); onClose(); } catch (error)
+{ toast.error('Erreur'); } finally { setIsSubmitting(false); } };
+
+const canComplete = discharge.status === 'in_progress' || discharge.status ===
+'planned'; const canCancel = ['pending', 'assessing',
+'planned'].includes(discharge.status);
+
+return (   {/* Header */} <div className="sticky top-0 bg-white z-10 flex
+items-center justify-between p-6 border-b" style={{ borderColor: colors.primary
++ '20' }}>  <h2 className="text-xl font-bold" style={{ color: colors.text }}> 🏥
+Détails de la sortie  <p className="text-sm" style={{ color: colors.text + '60'
+}}> {getPatientLabel()} : {discharge.patient?.first_name}
+{discharge.patient?.last_name}      
+
+    {/* Contenu */}
+    <div className="p-6 space-y-6">
+      {/* Statut */}
+      <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: getStatusColor(discharge.status) + '10' }}>
+        <span className="text-2xl">
+          {discharge.status === 'pending' ? '📋' :
+           discharge.status === 'assessing' ? '🔍' :
+           discharge.status === 'planned' ? '📅' :
+           discharge.status === 'in_progress' ? '🚗' :
+           discharge.status === 'completed' ? '✅' : '❌'}
+        </span>
+        <div>
+          <p className="font-bold" style={{ color: getStatusColor(discharge.status) }}>
+            {getStatusLabel(discharge.status)}
+          </p>
+          {discharge.completed_at && (
+            <p className="text-xs" style={{ color: colors.text + '50' }}>
+              Terminée le {formatDate(discharge.completed_at)}
             </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-50 rounded-xl transition"><X size={20} /></button>
-        </div>
-
-        {/* Contenu Scrollable */}
-        <div className="p-6 overflow-y-auto space-y-5">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full w-max text-[11px] font-bold" style={{ color: status.color, background: status.bg }}>
-            {status.label}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <InfoItem icon={<Hospital size={14} />} label="Établissement" value={discharge.hospital_name} />
-            <InfoItem icon={<Stethoscope size={14} />} label="Service" value={discharge.hospital_service || '-'} />
-            <InfoItem icon={<User size={14} />} label="Médecin" value={discharge.doctor_name || '-'} />
-            <InfoItem icon={<Calendar size={14} />} label="Date prévue" value={formatDate(discharge.discharge_date)} />
-          </div>
-
-          {discharge.coordinator_notes && (
-            <div className="p-4 rounded-2xl" style={{ background: colors.primary + '06' }}>
-              <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Notes de coordination</p>
-              <p className="text-xs leading-relaxed text-gray-600">{discharge.coordinator_notes}</p>
-            </div>
-          )}
-
-          {/* Actions */}
-          {(canComplete || canCancel) && (
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              {canComplete && (
-                <button onClick={handleComplete} disabled={isSubmitting} className="py-3 rounded-xl text-white text-xs font-bold transition hover:opacity-90 flex items-center justify-center gap-1.5" style={{ background: '#10b981' }}>
-                  <CheckCircle size={14} /> Confirmer la sortie
-                </button>
-              )}
-              {canCancel && (
-                <button onClick={handleCancel} disabled={isSubmitting} className="py-3 rounded-xl text-xs font-bold transition border hover:bg-red-50 flex items-center justify-center gap-1.5" style={{ color: '#ef4444', borderColor: '#ef444440' }}>
-                  <X size={14} /> Annuler
-                </button>
-              )}
-            </div>
           )}
         </div>
       </div>
-    </div>
-  );
-};
 
- const InfoItem = ({ icon, label, value }: { icon: ReactNode; label: string; value: string }) => (
-  <div className="flex items-center gap-2.5">
-    <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 shrink-0">{icon}</div>
-    <div className="min-w-0">
-      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className="text-xs font-semibold text-gray-700 truncate">{value}</p>
+      {/* Infos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <InfoItem icon={<Hospital size={18} />} label="Hôpital" value={discharge.hospital_name} />
+        <InfoItem icon={<Stethoscope size={18} />} label="Service" value={discharge.hospital_service || 'Non précisé'} />
+        <InfoItem icon={<User size={18} />} label="Médecin" value={discharge.doctor_name || 'Non précisé'} />
+        <InfoItem icon={<Calendar size={18} />} label="Date de sortie" value={formatDate(discharge.discharge_date)} />
+        <InfoItem icon={<Clock size={18} />} label="Heure" value={discharge.discharge_time || 'Non précisée'} />
+        <InfoItem icon={<User size={18} />} label="Aidant assigné" value={discharge.aidant?.user?.full_name || 'Non assigné'} />
+      </div>
+
+      {/* Notes */}
+      {discharge.coordinator_notes && (
+        <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
+          <p className="text-sm font-bold mb-1" style={{ color: colors.text }}>📝 Notes du coordinateur</p>
+          <p className="text-sm" style={{ color: colors.text + '70' }}>{discharge.coordinator_notes}</p>
+        </div>
+      )}
+
+      {/* Évaluation */}
+      {discharge.status === 'completed' && discharge.satisfaction_rating && (
+        <div className="p-4 rounded-xl" style={{ background: '#4CAF5010' }}>
+          <p className="text-sm font-bold mb-1" style={{ color: '#4CAF50' }}>⭐ Évaluation</p>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold text-green-600">{discharge.satisfaction_rating}/5</span>
+            {discharge.satisfaction_comment && (
+              <span className="text-sm text-gray-500">« {discharge.satisfaction_comment} »</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex flex-wrap gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+        {canComplete && (
+          <button
+            onClick={handleComplete}
+            disabled={isSubmitting}
+            className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: '#4CAF50' }}
+          >
+            <CheckCircle size={18} />
+            Terminer la sortie
+          </button>
+        )}
+        {canCancel && (
+          <button
+            onClick={handleCancel}
+            disabled={isSubmitting}
+            className="flex-1 py-3 rounded-xl font-bold transition hover:bg-red-50 flex items-center justify-center gap-2"
+            style={{ color: '#F44336', border: '1px solid #F44336' }}
+          >
+            <X size={18} />
+            Annuler
+          </button>
+        )}
+      </div>
     </div>
   </div>
-);
+</div>
+
+); };
+
+// ============================================= // INFO ITEM //
+=============================================
+
+interface InfoItemProps { icon: React.ReactNode; label: string; value: string; }
+
+const InfoItem = ({ icon, label, value }: InfoItemProps) => { return (   {icon} 
+ {label} {value}   ); };
