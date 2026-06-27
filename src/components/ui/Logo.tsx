@@ -1,5 +1,5 @@
 // 📁 src/components/ui/Logo.tsx
-
+ 
 import { cn } from '@/utils/helpers';
 import { useAuthStore } from '@/stores/authStore';
 import { getLogoByRole } from '@/lib/constants';
@@ -27,31 +27,21 @@ export const Logo = ({
 }: LogoProps) => {
   const { role: userRole, profile } = useAuthStore();
   
-  // ✅ Déterminer le rôle pour le logo
   const activeRole = forceRole || userRole;
   const activeCategory = forceCategory || profile?.patient_category;
 
-  // ✅ Sélectionner le bon logo selon le rôle
   let logoConfig;
   
-  // Si c'est Maman (famille + catégorie maman_bebe)
   if (activeRole === 'family' && activeCategory === 'maman_bebe') {
     logoConfig = getLogoByRole('family', 'maman_bebe');
-  } 
-  // Si c'est un aidant
-  else if (activeRole === 'aidant') {
+  } else if (activeRole === 'aidant') {
     logoConfig = getLogoByRole('aidant', null);
-  }
-  // Si c'est un coordinateur ou admin
-  else if (activeRole === 'coordinator' || activeRole === 'admin') {
+  } else if (activeRole === 'coordinator' || activeRole === 'admin') {
     logoConfig = getLogoByRole('coordinator', null);
-  }
-  // Par défaut (senior ou général)
-  else {
+  } else {
     logoConfig = getLogoByRole(null, null);
   }
 
-  // Surcharge manuelle si spécifié
   if (role === 'maman') {
     logoConfig = getLogoByRole('family', 'maman_bebe');
   } else if (role === 'aidant') {
@@ -60,9 +50,6 @@ export const Logo = ({
     logoConfig = getLogoByRole('coordinator', null);
   }
 
-  // =============================================
-  // TAILLES
-  // =============================================
   const sizes = {
     sm: 'w-8 h-8',
     md: 'w-12 h-12',
@@ -77,9 +64,6 @@ export const Logo = ({
     xl: 'h-10',
   };
 
-  // =============================================
-  // SÉLECTIONNER L'IMAGE
-  // =============================================
   const logoSrc = whiteBg ? logoConfig.whiteBg : logoConfig.icon;
   const textSrc = logoConfig.text;
 
@@ -103,3 +87,6 @@ export const Logo = ({
     </div>
   );
 };
+
+// ✅ Export default pour compatibilité avec l'import dans index.ts
+export default Logo;
