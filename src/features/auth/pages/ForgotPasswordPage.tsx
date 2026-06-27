@@ -60,186 +60,180 @@ const ForgotPasswordPage = () => {
   // ✅ Déterminer le rôle pour le logo
   const logoRole = savedTheme === 'maman' ? 'maman' : 'general';
 
+  // Couleurs unifiées basées sur le nouveau système de marque
+  const primaryBrandColor = savedTheme === 'maman' ? '#db4a6d' : '#113f30';
+  const textBrandColor = savedTheme === 'maman' ? '#371e24' : '#1f2937';
+
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center p-4"
-      style={{ background: 'var(--color-background, #f5f0e8)' }}
+      className="min-h-screen w-full flex items-center justify-center p-0 sm:p-6"
+      style={{ background: 'var(--color-background, #faf9f6)' }}
     >
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md my-0 sm:my-8">
+        {/* Intégration plein écran mobile & carte desktop */}
         <div
-          className="bg-white rounded-3xl p-8 shadow-lg border relative"
-          style={{ borderColor: 'var(--color-border, #e5e0d8)' }}
+          className="bg-white rounded-none sm:rounded-2xl p-6 sm:p-8 shadow-none sm:shadow-sm border-0 sm:border overflow-hidden min-h-screen sm:min-h-0 flex flex-col justify-between sm:block"
+          style={{ borderColor: 'var(--color-border, #e5e7eb)' }}
         >
-          {/* ✅ Logo dynamique */}
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2">
-            <div
-              className="w-24 h-24 rounded-full bg-white shadow-lg border-4 flex items-center justify-center"
-              style={{ 
-                borderColor: savedTheme === 'maman' 
-                  ? '#e8436a' 
-                  : 'var(--color-primary, #1a4a3a)' 
-              }}
-            >
-              <Logo
-                size="md"
-                showText={false}
-                whiteBg={false}
-                className="justify-center"
-                role={logoRole}
-              />
-            </div>
-          </div>
-
-          <div className="h-8" />
-
-          {isSent ? (
-            <div className="text-center">
+          <div>
+            {/* ✅ Logo intégré et centré proprement */}
+            <div className="flex justify-center mb-6 mt-4 sm:mt-0">
               <div
-                className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4"
-                style={{
-                  background: savedTheme === 'maman' 
-                    ? '#e8436a12' 
-                    : 'var(--color-primary, #1a4a3a)12',
-                  color: savedTheme === 'maman' 
-                    ? '#e8436a' 
-                    : 'var(--color-primary, #1a4a3a)',
-                }}
-              >
-                <CheckCircle size={34} />
-              </div>
-
-              <h1
-                className="text-2xl font-bold"
-                style={{ color: 'var(--color-text, #2d2d2d)' }}
-              >
-                Email envoyé
-              </h1>
-
-              <p
-                className="text-sm mt-2 leading-relaxed"
-                style={{ color: 'var(--color-text-light, #6b7280)' }}
-              >
-                Un lien de réinitialisation a été envoyé à :
-                <br />
-                <span
-                  className="font-semibold"
-                  style={{ color: 'var(--color-text, #2d2d2d)' }}
-                >
-                  {email}
-                </span>
-              </p>
-
-              <p
-                className="text-xs mt-4 leading-relaxed"
-                style={{ color: 'var(--color-text-light, #6b7280)' }}
-              >
-                Vérifiez aussi vos spams si vous ne voyez pas le message dans
-                votre boîte principale.
-              </p>
-
-              <Link
-                to="/login"
-                className="mt-6 w-full py-3.5 rounded-xl text-white font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:shadow-lg"
+                className="w-16 h-16 rounded-2xl border flex items-center justify-center transition-all"
                 style={{ 
-                  background: savedTheme === 'maman' 
-                    ? '#e8436a' 
-                    : 'var(--color-primary, #1a4a3a)' 
+                  borderColor: primaryBrandColor,
+                  background: 'var(--color-background, #faf9f6)'
                 }}
               >
-                Retour à la connexion
-                <ArrowRight size={18} />
-              </Link>
+                <Logo
+                  size="sm"
+                  showText={false}
+                  whiteBg={false}
+                  className="justify-center"
+                  role={logoRole}
+                />
+              </div>
             </div>
-          ) : (
-            <>
-              <div className="text-center mb-6">
-                <h1
-                  className="text-2xl font-bold"
-                  style={{ color: 'var(--color-text, #2d2d2d)' }}
+
+            {isSent ? (
+              <div className="text-center animate-fadeIn space-y-4">
+                <div
+                  className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center"
+                  style={{
+                    background: `${primaryBrandColor}12`,
+                    color: primaryBrandColor,
+                  }}
                 >
-                  Mot de passe oublié
+                  <CheckCircle size={28} />
+                </div>
+
+                <h1
+                  className="text-xl font-extrabold tracking-tight"
+                  style={{ color: 'var(--color-text)', 'color': textBrandColor } as React.CSSProperties}
+                >
+                  Email envoyé
                 </h1>
 
                 <p
-                  className="text-sm mt-1"
-                  style={{ color: 'var(--color-text-light, #6b7280)' }}
+                  className="text-xs leading-relaxed"
+                  style={{ color: 'var(--color-text-light, #4b5563)' }}
                 >
-                  Entrez votre email pour recevoir un lien sécurisé.
-                </p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-1.5"
-                    style={{ color: 'var(--color-text, #2d2d2d)' }}
+                  Un lien de réinitialisation sécurisé a été transmis à l'adresse :
+                  <br />
+                  <span
+                    className="font-bold text-xs inline-block mt-1 break-all"
+                    style={{ color: 'var(--color-text)', 'color': textBrandColor } as React.CSSProperties}
                   >
-                    Email
-                  </label>
+                    {email}
+                  </span>
+                </p>
 
-                  <div className="relative">
-                    <Mail
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5"
-                      style={{ color: 'var(--color-text-light, #6b7280)' }}
-                    />
+                <p
+                  className="text-[11px] leading-relaxed"
+                  style={{ color: 'var(--color-text-light, #4b5563)' }}
+                >
+                  Si vous ne le recevez pas d'ici quelques minutes, n'hésitez pas à vérifier votre dossier de courriers indésirables (spams).
+                </p>
 
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border outline-none transition-all duration-300 focus:ring-2 focus:ring-[var(--color-primary)]/20"
-                      style={{
-                        borderColor: 'var(--color-border, #e5e0d8)',
-                        background: 'var(--color-background, #f5f0e8)',
-                        color: 'var(--color-text, #2d2d2d)',
-                      }}
-                      placeholder="exemple@email.com"
-                      disabled={isLoading}
-                      autoComplete="email"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full py-3.5 rounded-xl text-white font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                <Link
+                  to="/login"
+                  className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
                   style={{ 
-                    background: savedTheme === 'maman' 
-                      ? '#e8436a' 
-                      : 'var(--color-primary, #1a4a3a)' 
+                    background: primaryBrandColor 
                   }}
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Envoi...
-                    </>
-                  ) : (
-                    <>
-                      Envoyer le lien
-                      <ArrowRight size={18} />
-                    </>
-                  )}
-                </button>
+                  Retour à la connexion
+                  <ArrowRight size={14} />
+                </Link>
+              </div>
+            ) : (
+              <div className="animate-fadeIn">
+                <div className="text-center mb-6">
+                  <h1
+                    className="text-xl font-extrabold tracking-tight"
+                    style={{ color: 'var(--color-text)', 'color': textBrandColor } as React.CSSProperties}
+                  >
+                    Mot de passe oublié
+                  </h1>
 
-                <div className="text-center">
-                  <Link
-                    to="/login"
-                    className="text-sm hover:underline inline-flex items-center gap-1"
+                  <p
+                    className="text-xs mt-1"
+                    style={{ color: 'var(--color-text-light, #4b5563)' }}
+                  >
+                    Saisissez votre e-mail pour recevoir les instructions de récupération.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label
+                      className="block text-xs font-semibold mb-1"
+                      style={{ color: 'var(--color-text)', 'color': textBrandColor } as React.CSSProperties}
+                    >
+                      Adresse e-mail
+                    </label>
+
+                    <div className="relative">
+                      <Mail
+                        className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+                        style={{ color: 'var(--color-text-light, #4b5563)' }}
+                      />
+
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs transition-all focus:ring-1 focus:ring-[var(--color-primary)]"
+                        style={{
+                          borderColor: 'var(--color-border, #e5e7eb)',
+                          background: 'var(--color-background, #faf9f6)',
+                          color: 'var(--color-text)',
+                        }}
+                        placeholder="exemple@email.com"
+                        disabled={isLoading}
+                        autoComplete="email"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75 disabled:cursor-not-allowed"
                     style={{ 
-                      color: savedTheme === 'maman' 
-                        ? '#e8436a' 
-                        : 'var(--color-primary, #1a4a3a)' 
+                      background: primaryBrandColor 
                     }}
                   >
-                    <ArrowLeft size={14} />
-                    Retour à la connexion
-                  </Link>
-                </div>
-              </form>
-            </>
+                    {isLoading ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Envoi en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Envoyer le lien</span>
+                        <ArrowRight size={14} />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+
+          {/* Lien retour en bas */}
+          {!isSent && (
+            <div className="text-center mt-6 pb-4 sm:pb-0">
+              <Link
+                to="/login"
+                className="text-xs font-semibold hover:underline inline-flex items-center gap-1"
+                style={{ color: primaryBrandColor }}
+              >
+                <ArrowLeft size={12} />
+                Retour à la connexion
+              </Link>
+            </div>
           )}
         </div>
       </div>
