@@ -186,7 +186,7 @@ const AssignAidantPage = () => {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8 mt-4">
       <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
         <h1 className="text-2xl font-black" style={{ color: colors.text }}>
           👥 Assigner les aidants aux patients
