@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/RegisterPage.tsx
-// 📌 Inscription  
+// 📌 Inscription 
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
@@ -430,8 +430,8 @@ const RegisterPage = () => {
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden" style={{ borderColor: branding.border }}>
           <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
 
-            {/* Colonne latérale de présentation - Version stable corrigée */}
-            <aside className="hidden lg:flex flex-col justify-between p-10" style={{ background: branding.gradient }}>
+            {/* Colonne latérale - Version SIMPLIFIÉE qui fonctionne */}
+            <div className="hidden lg:flex flex-col justify-between p-10" style={{ background: branding.gradient }}>
               <div>
                 <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
@@ -450,11 +450,11 @@ const RegisterPage = () => {
                 </p>
               </div>
               <div className="space-y-2">
-                <InfoLine text="Comptes validés manuellement" />
-                <InfoLine text="Suivi d'activité transparent" />
-                <InfoLine text="Interventions professionnelles" />
+                <div className="flex items-center gap-2.5 text-white/80 text-xs"><CheckCircle size={14} className="text-white shrink-0" />Comptes validés manuellement</div>
+                <div className="flex items-center gap-2.5 text-white/80 text-xs"><CheckCircle size={14} className="text-white shrink-0" />Suivi d'activité transparent</div>
+                <div className="flex items-center gap-2.5 text-white/80 text-xs"><CheckCircle size={14} className="text-white shrink-0" />Interventions professionnelles</div>
               </div>
-            </aside>
+            </div>
 
             {/* Formulaire Principal */}
             <main className="p-5 sm:p-8 lg:p-10 flex flex-col justify-between min-h-[680px]">
@@ -502,11 +502,20 @@ const RegisterPage = () => {
                   {/* Étape 1 : Choix du type de compte */}
                   {step === 1 && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title="Quel est votre besoin ?" description="Sélectionnez le profil qui vous correspond." branding={branding} />
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>Quel est votre besoin ?</h3><p className="text-xs" style={{ color: branding.textLight }}>Sélectionnez le profil qui vous correspond.</p></div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                        <AccountTypeCard active={accountChoice === 'family_with_patient'} icon={<Users size={20} />} title="Pour un proche" description="Seniors, mamans ou bébés ayant besoin d'assistance." onClick={() => handleAccountChoice('family_with_patient')} branding={branding} />
-                        <AccountTypeCard active={accountChoice === 'personal'} icon={<Home size={20} />} title="Compte personnel" description="Créer mon espace sans accompagnement immédiat." onClick={() => handleAccountChoice('personal')} branding={branding} />
-                        <AccountTypeCard active={accountChoice === 'aidant'} icon={<HeartHandshake size={20} />} title="Devenir aidant" description="Proposer mes services et rejoindre le réseau." onClick={() => handleAccountChoice('aidant')} branding={branding} />
+                        <button type="button" onClick={() => handleAccountChoice('family_with_patient')} className="text-left p-5 rounded-xl border transition-all hover:border-gray-300 flex flex-col justify-between min-h-[160px]" style={{ borderColor: accountChoice === 'family_with_patient' ? branding.primary : '#e5e7eb', background: accountChoice === 'family_with_patient' ? `${branding.primary}04` : '#ffffff' }}>
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: accountChoice === 'family_with_patient' ? `${branding.primary}10` : '#f3f4f6', color: accountChoice === 'family_with_patient' ? branding.primary : '#9ca3af' }}><Users size={20} /></div>
+                          <div><p className="font-bold text-xs" style={{ color: accountChoice === 'family_with_patient' ? branding.primary : '#111827' }}>Pour un proche</p><p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">Seniors, mamans ou bébés ayant besoin d'assistance.</p></div>
+                        </button>
+                        <button type="button" onClick={() => handleAccountChoice('personal')} className="text-left p-5 rounded-xl border transition-all hover:border-gray-300 flex flex-col justify-between min-h-[160px]" style={{ borderColor: accountChoice === 'personal' ? branding.primary : '#e5e7eb', background: accountChoice === 'personal' ? `${branding.primary}04` : '#ffffff' }}>
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: accountChoice === 'personal' ? `${branding.primary}10` : '#f3f4f6', color: accountChoice === 'personal' ? branding.primary : '#9ca3af' }}><Home size={20} /></div>
+                          <div><p className="font-bold text-xs" style={{ color: accountChoice === 'personal' ? branding.primary : '#111827' }}>Compte personnel</p><p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">Créer mon espace sans accompagnement immédiat.</p></div>
+                        </button>
+                        <button type="button" onClick={() => handleAccountChoice('aidant')} className="text-left p-5 rounded-xl border transition-all hover:border-gray-300 flex flex-col justify-between min-h-[160px]" style={{ borderColor: accountChoice === 'aidant' ? branding.primary : '#e5e7eb', background: accountChoice === 'aidant' ? `${branding.primary}04` : '#ffffff' }}>
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: accountChoice === 'aidant' ? `${branding.primary}10` : '#f3f4f6', color: accountChoice === 'aidant' ? branding.primary : '#9ca3af' }}><HeartHandshake size={20} /></div>
+                          <div><p className="font-bold text-xs" style={{ color: accountChoice === 'aidant' ? branding.primary : '#111827' }}>Devenir aidant</p><p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">Proposer mes services et rejoindre le réseau.</p></div>
+                        </button>
                       </div>
                     </div>
                   )}
@@ -514,10 +523,16 @@ const RegisterPage = () => {
                   {/* Étape 2 : Choix du service (Proche uniquement) */}
                   {step === 2 && isFamilyWithPatient && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title="Qui accompagnerons-nous ?" description="Choisissez la catégorie concernée." branding={branding} />
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>Qui accompagnerons-nous ?</h3><p className="text-xs" style={{ color: branding.textLight }}>Choisissez la catégorie concernée.</p></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <ChoiceCard active={formData.patientCategory === 'senior'} icon={<Users size={20} />} title="Senior" description="Accompagnement quotidien d'une personne âgée à domicile." onClick={() => handleServiceChoice('senior')} branding={branding} />
-                        <ChoiceCard active={formData.patientCategory === 'maman_bebe'} icon={<Baby size={20} />} title="Maman & Bébé" description="Aide post-partum, soins bébé et soutien de la maman." onClick={() => handleServiceChoice('maman_bebe')} branding={branding} />
+                        <button type="button" onClick={() => handleServiceChoice('senior')} className="p-5 rounded-xl border text-left transition-all hover:border-gray-300 flex flex-col justify-between min-h-[150px]" style={{ borderColor: formData.patientCategory === 'senior' ? branding.primary : '#e5e7eb', background: formData.patientCategory === 'senior' ? `${branding.primary}04` : '#ffffff' }}>
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: formData.patientCategory === 'senior' ? `${branding.primary}10` : '#f3f4f6', color: formData.patientCategory === 'senior' ? branding.primary : '#9ca3af' }}><Users size={20} /></div>
+                          <div><p className="font-bold text-xs" style={{ color: branding.text }}>Senior</p><p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">Accompagnement quotidien d'une personne âgée à domicile.</p></div>
+                        </button>
+                        <button type="button" onClick={() => handleServiceChoice('maman_bebe')} className="p-5 rounded-xl border text-left transition-all hover:border-gray-300 flex flex-col justify-between min-h-[150px]" style={{ borderColor: formData.patientCategory === 'maman_bebe' ? branding.primary : '#e5e7eb', background: formData.patientCategory === 'maman_bebe' ? `${branding.primary}04` : '#ffffff' }}>
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: formData.patientCategory === 'maman_bebe' ? `${branding.primary}10` : '#f3f4f6', color: formData.patientCategory === 'maman_bebe' ? branding.primary : '#9ca3af' }}><Baby size={20} /></div>
+                          <div><p className="font-bold text-xs" style={{ color: branding.text }}>Maman & Bébé</p><p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">Aide post-partum, soins bébé et soutien de la maman.</p></div>
+                        </button>
                       </div>
                     </div>
                   )}
@@ -525,16 +540,12 @@ const RegisterPage = () => {
                   {/* Étape Identité (selon parcours) */}
                   {((step === 2 && !isFamilyWithPatient) || (step === 3 && isFamilyWithPatient)) && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title="Création de vos identifiants" description="Vos informations de connexion personnelles." branding={branding} />
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>Création de vos identifiants</h3><p className="text-xs" style={{ color: branding.textLight }}>Vos informations de connexion personnelles.</p></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <InputField label="Nom complet" name="full_name" value={formData.full_name} onChange={handleChange} icon={<User size={16} />} placeholder="Ex: Jean Dupont" required branding={branding} />
-                        <InputField label="Téléphone" name="phone" value={formData.phone} onChange={handleChange} icon={<Phone size={16} />} placeholder="+229 90 00 00 00" required branding={branding} />
-                        <div className="sm:col-span-2">
-                          <InputField label="Adresse e-mail" name="email" type="email" value={formData.email} onChange={handleChange} icon={<Mail size={16} />} placeholder="votremail@adresse.com" required branding={branding} />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <PasswordField value={formData.password} showPassword={showPassword} setShowPassword={setShowPassword} onChange={handleChange} branding={branding} />
-                        </div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Nom complet *</label><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="full_name" value={formData.full_name} onChange={handleChange} placeholder="Ex: Jean Dupont" className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} required /></div></div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Téléphone *</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="phone" value={formData.phone} onChange={handleChange} placeholder="+229 90 00 00 00" className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} required /></div></div>
+                        <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Adresse e-mail *</label><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="votremail@adresse.com" className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} required /></div></div>
+                        <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Mot de passe *</label><div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange} required minLength={6} placeholder="Minimum 6 caractères" className="w-full pl-9 pr-9 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: branding.textLight }}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></div></div>
                       </div>
                     </div>
                   )}
@@ -542,55 +553,43 @@ const RegisterPage = () => {
                   {/* Synthèse Intermédiaire (Compte personnel) */}
                   {step === 3 && isPersonal && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title="Dernière vérification" description="Relisez vos informations avant de valider." branding={branding} />
-                      <SummaryCard accountChoice={accountChoice} formData={formData} aidantData={aidantData} serviceLabel={serviceLabel} branding={branding} />
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>Dernière vérification</h3><p className="text-xs" style={{ color: branding.textLight }}>Relisez vos informations avant de valider.</p></div>
+                      <div className="rounded-xl p-4 border space-y-3.5" style={{ background: `${branding.primary}02`, borderColor: `${branding.primary}12` }}>
+                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><User size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Nom complet</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.full_name || 'Non renseigné'}</p></div></div>
+                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Mail size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">E-mail</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.email || 'Non renseigné'}</p></div></div>
+                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Phone size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Téléphone</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.phone || 'Non renseigné'}</p></div></div>
+                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Home size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Type de compte</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>Compte personnel sans patient</p></div></div>
+                        <p className="text-[10px] text-gray-400 pt-2 border-t border-black/5">Toutes les inscriptions font l'objet d'une validation manuelle par l'équipe Santé Plus.</p>
+                      </div>
                     </div>
                   )}
 
                   {/* Profil de l'aidant */}
                   {step === 3 && isAidant && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title="Votre expérience" description="Renseignez vos spécialités d'accompagnement." branding={branding} />
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>Votre expérience</h3><p className="text-xs" style={{ color: branding.textLight }}>Renseignez vos spécialités d'accompagnement.</p></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <InputField label="Date de naissance" type="date" name="birth_date" value={aidantData.birth_date} onChange={(e) => setAidantData({ ...aidantData, birth_date: e.target.value })} branding={branding} />
-                        <InputField label="Années d'expérience" as="select" name="experience_years" value={aidantData.experience_years} onChange={(e) => setAidantData({ ...aidantData, experience_years: e.target.value })} branding={branding}>
-                          <option value="">Sélectionner</option>
-                          <option value="0">Débutant / &lt; 1 an</option>
-                          <option value="2">2 à 3 ans</option>
-                          <option value="4">4 à 5 ans</option>
-                          <option value="6">6 à 10 ans</option>
-                          <option value="10">Plus de 10 ans</option>
-                        </InputField>
-                        <div className="sm:col-span-2">
-                          <InputField label="Adresse de résidence" name="address" value={aidantData.address} onChange={(e) => setAidantData({ ...aidantData, address: e.target.value })} icon={<MapPin size={16} />} placeholder="Quartier, Ville" required branding={branding} />
-                        </div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Date de naissance</label><input type="date" name="birth_date" value={aidantData.birth_date} onChange={(e) => setAidantData({ ...aidantData, birth_date: e.target.value })} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} /></div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Années d'expérience</label><select name="experience_years" value={aidantData.experience_years} onChange={(e) => setAidantData({ ...aidantData, experience_years: e.target.value })} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }}><option value="">Sélectionner</option><option value="0">Débutant / &lt; 1 an</option><option value="2">2 à 3 ans</option><option value="4">4 à 5 ans</option><option value="6">6 à 10 ans</option><option value="10">Plus de 10 ans</option></select></div>
+                        <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Adresse de résidence *</label><div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="address" value={aidantData.address} onChange={(e) => setAidantData({ ...aidantData, address: e.target.value })} placeholder="Quartier, Ville" className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} required /></div></div>
                       </div>
-                      <MiniSelector title="Spécialités principales" items={SPECIALTIES} selected={aidantData.specialties} onToggle={toggleSpecialty} branding={branding} />
+                      <div><p className="text-xs font-semibold mb-2" style={{ color: branding.text }}>Spécialités principales</p><div className="grid grid-cols-2 gap-2">{SPECIALTIES.map((item) => { const active = aidantData.specialties.includes(item.id); return <button type="button" key={item.id} onClick={() => toggleSpecialty(item.id)} className="px-3 py-2.5 rounded-xl border text-left text-xs transition-all hover:border-gray-300" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? `${branding.primary}04` : '#ffffff', color: branding.text }}><span className="mr-2">{item.icon}</span>{item.label}</button>; })}</div></div>
                     </div>
                   )}
 
                   {/* Informations Proche (Proche uniquement) */}
                   {step === 4 && isFamilyWithPatient && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title="Le proche à accompagner" description={`Service ciblé : ${serviceLabel}`} branding={branding} />
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>Le proche à accompagner</h3><p className="text-xs" style={{ color: branding.textLight }}>Service ciblé : {serviceLabel}</p></div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <InputField label="Prénom" name="patient.first_name" value={formData.patientData.first_name} onChange={handleChange} required branding={branding} />
-                        <InputField label="Nom de famille" name="patient.last_name" value={formData.patientData.last_name} onChange={handleChange} required branding={branding} />
-                        <InputField label="Âge (ans)" name="patient.age" type="number" value={formData.patientData.age} onChange={handleChange} branding={branding} />
-                        <InputField label="Sexe" name="patient.gender" as="select" value={formData.patientData.gender} onChange={handleChange} branding={branding}>
-                          <option value="">Sélectionner</option>
-                          <option value="male">Homme</option>
-                          <option value="female">Femme</option>
-                        </InputField>
-                        <div className="sm:col-span-2">
-                          <InputField label="Lieu de prise en charge" name="patient.address" value={formData.patientData.address} onChange={handleChange} icon={<MapPin size={16} />} placeholder="Adresse précise ou repères utiles" required branding={branding} />
-                        </div>
-                        <InputField label="Téléphone (optionnel)" name="patient.phone" value={formData.patientData.phone} onChange={handleChange} icon={<Phone size={16} />} branding={branding} />
-                        <InputField label="Contact d'urgence" name="patient.emergency_contact" value={formData.patientData.emergency_contact} onChange={handleChange} icon={<Phone size={16} />} branding={branding} />
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Consignes ou besoins particuliers</label>
-                          <textarea name="patient.notes" value={formData.patientData.notes} onChange={handleChange} rows={3} placeholder="Traitements, régimes, allergies, autonomie..." className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs resize-none focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} />
-                        </div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Prénom *</label><input name="patient.first_name" value={formData.patientData.first_name} onChange={handleChange} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} required /></div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Nom de famille *</label><input name="patient.last_name" value={formData.patientData.last_name} onChange={handleChange} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} required /></div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Âge (ans)</label><input name="patient.age" type="number" value={formData.patientData.age} onChange={handleChange} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} /></div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Sexe</label><select name="patient.gender" value={formData.patientData.gender} onChange={handleChange} className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }}><option value="">Sélectionner</option><option value="male">Homme</option><option value="female">Femme</option></select></div>
+                        <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Lieu de prise en charge *</label><div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="patient.address" value={formData.patientData.address} onChange={handleChange} placeholder="Adresse précise ou repères utiles" className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} required /></div></div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Téléphone (optionnel)</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="patient.phone" value={formData.patientData.phone} onChange={handleChange} className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} /></div></div>
+                        <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Contact d'urgence</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} /><input name="patient.emergency_contact" value={formData.patientData.emergency_contact} onChange={handleChange} className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} /></div></div>
+                        <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Consignes ou besoins particuliers</label><textarea name="patient.notes" value={formData.patientData.notes} onChange={handleChange} rows={3} placeholder="Traitements, régimes, allergies, autonomie..." className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs resize-none focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} /></div>
                       </div>
                     </div>
                   )}
@@ -598,24 +597,35 @@ const RegisterPage = () => {
                   {/* Zones et dispo (Aidant uniquement) */}
                   {step === 4 && isAidant && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title="Mobilité et présentation" description="Où et quand pouvez-vous intervenir ?" branding={branding} />
-                      <ZoneSelector selected={aidantData.zones} onToggle={toggleZone} branding={branding} />
-                      <div>
-                        <label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Votre description professionnelle</label>
-                        <textarea value={aidantData.bio} onChange={(e) => setAidantData({ ...aidantData, bio: e.target.value })} rows={4} placeholder="Parlez-nous brièvement de vos motivations et de votre savoir-faire..." className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs resize-none focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} />
-                      </div>
-                      <label className="flex items-center gap-3 rounded-xl border p-3.5 cursor-pointer bg-white" style={{ borderColor: branding.border }}>
-                        <input type="checkbox" checked={aidantData.availability} onChange={(e) => setAidantData({ ...aidantData, availability: e.target.checked })} className="w-4 h-4 rounded" style={{ accentColor: branding.primary }} />
-                        <span className="text-xs font-medium" style={{ color: branding.text }}>Je suis immédiatement disponible pour démarrer</span>
-                      </label>
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>Mobilité et présentation</h3><p className="text-xs" style={{ color: branding.textLight }}>Où et quand pouvez-vous intervenir ?</p></div>
+                      <div><p className="text-xs font-semibold mb-2" style={{ color: branding.text }}>Zones d'intervention</p><div className="flex flex-wrap gap-2">{ZONES.map((zone) => { const active = aidantData.zones.includes(zone); return <button type="button" key={zone} onClick={() => toggleZone(zone)} className="px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? branding.primary : '#ffffff', color: active ? '#ffffff' : '#4b5563' }}>{zone}</button>; })}</div></div>
+                      <div><label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Votre description professionnelle</label><textarea value={aidantData.bio} onChange={(e) => setAidantData({ ...aidantData, bio: e.target.value })} rows={4} placeholder="Parlez-nous brièvement de vos motivations et de votre savoir-faire..." className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs resize-none focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} /></div>
+                      <label className="flex items-center gap-3 rounded-xl border p-3.5 cursor-pointer bg-white" style={{ borderColor: branding.border }}><input type="checkbox" checked={aidantData.availability} onChange={(e) => setAidantData({ ...aidantData, availability: e.target.checked })} className="w-4 h-4 rounded" style={{ accentColor: branding.primary }} /><span className="text-xs font-medium" style={{ color: branding.text }}>Je suis immédiatement disponible pour démarrer</span></label>
                     </div>
                   )}
 
                   {/* Synthèse finale avant soumission */}
                   {step === totalSteps && !isPersonal && (
                     <div className="space-y-5 animate-fadeIn">
-                      <SectionTitle title={isAidant ? 'Vérifier ma candidature' : 'Vérifier mon inscription'} description="Veuillez confirmer l'exactitude des données saisies." branding={branding} />
-                      <SummaryCard accountChoice={accountChoice} formData={formData} aidantData={aidantData} serviceLabel={serviceLabel} branding={branding} />
+                      <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>{isAidant ? 'Vérifier ma candidature' : 'Vérifier mon inscription'}</h3><p className="text-xs" style={{ color: branding.textLight }}>Veuillez confirmer l'exactitude des données saisies.</p></div>
+                      <div className="rounded-xl p-4 border space-y-3.5" style={{ background: `${branding.primary}02`, borderColor: `${branding.primary}12` }}>
+                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><User size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Nom complet</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.full_name || 'Non renseigné'}</p></div></div>
+                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Mail size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">E-mail</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.email || 'Non renseigné'}</p></div></div>
+                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Phone size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Téléphone</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.phone || 'Non renseigné'}</p></div></div>
+                        {isAidant ? (
+                          <>
+                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Briefcase size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Type</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>Candidature aidant</p></div></div>
+                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><FileText size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Spécialités</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{aidantData.specialties.map((id: string) => SPECIALTIES.find((item) => item.id === id)?.label || id).join(', ') || 'Non renseigné'}</p></div></div>
+                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><MapPin size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Zones d'intervention</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{aidantData.zones.length ? aidantData.zones.join(', ') : 'Non renseigné'}</p></div></div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Home size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Type de compte</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{isPersonal ? 'Compte personnel sans patient' : 'Accompagnement d\'un proche'}</p></div></div>
+                            {!isPersonal && <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Baby size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Service</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{serviceLabel}</p></div></div>}
+                          </>
+                        )}
+                        <p className="text-[10px] text-gray-400 pt-2 border-t border-black/5">Toutes les inscriptions font l'objet d'une validation manuelle par l'équipe Santé Plus.</p>
+                      </div>
                       {isFamilyWithPatient && renderOfferPreview()}
                     </div>
                   )}
@@ -663,132 +673,5 @@ const RegisterPage = () => {
     </div>
   );
 };
-
-// ============================================
-// COMPOSANTS COMPLÉMENTAIRES
-// ============================================
-
-interface InfoLineProps { text: string; }
-const InfoLine = ({ text }: InfoLineProps) => (
-  <div className="flex items-center gap-2.5 text-white/80 text-xs"><CheckCircle size={14} className="text-white shrink-0" />{text}</div>
-);
-
-interface SectionTitleProps { title: string; description: string; branding: any; }
-const SectionTitle = ({ title, description, branding }: SectionTitleProps) => (
-  <div className="space-y-1"><h3 className="text-base font-bold" style={{ color: branding.text }}>{title}</h3><p className="text-xs" style={{ color: branding.textLight }}>{description}</p></div>
-);
-
-interface AccountTypeCardProps { active: boolean; icon: ReactNode; title: string; description: string; onClick: () => void; branding: any; }
-const AccountTypeCard = ({ active, icon, title, description, onClick, branding }: AccountTypeCardProps) => (
-  <button type="button" onClick={onClick} className="text-left p-5 rounded-xl border transition-all hover:border-gray-300 flex flex-col justify-between min-h-[160px]" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? `${branding.primary}04` : '#ffffff' }}>
-    <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: active ? `${branding.primary}10` : '#f3f4f6', color: active ? branding.primary : '#9ca3af' }}>{icon}</div>
-    <div>
-      <p className="font-bold text-xs" style={{ color: active ? branding.primary : '#111827' }}>{title}</p>
-      <p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">{description}</p>
-    </div>
-  </button>
-);
-
-interface ChoiceCardProps { active: boolean; icon: ReactNode; title: string; description: string; onClick: () => void; branding: any; }
-const ChoiceCard = ({ active, icon, title, description, onClick, branding }: ChoiceCardProps) => (
-  <button type="button" onClick={onClick} className="p-5 rounded-xl border text-left transition-all hover:border-gray-300 flex flex-col justify-between min-h-[150px]" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? `${branding.primary}04` : '#ffffff' }}>
-    <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: active ? `${branding.primary}10` : '#f3f4f6', color: active ? branding.primary : '#9ca3af' }}>{icon}</div>
-    <div>
-      <p className="font-bold text-xs" style={{ color: branding.text }}>{title}</p>
-      <p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">{description}</p>
-    </div>
-  </button>
-);
-
-interface InputFieldProps { label: string; name?: string; value: string; type?: string; as?: 'input' | 'select'; placeholder?: string; required?: boolean; icon?: ReactNode; children?: ReactNode; branding: any; onChange: (e: any) => void; }
-const InputField = ({ label, name, value, type = 'text', as = 'input', placeholder, required, icon, children, branding, onChange }: InputFieldProps) => (
-  <div>
-    <label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>{label}{required ? ' *' : ''}</label>
-    <div className="relative">
-      {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: branding.textLight }}>{icon}</div>}
-      {as === 'select' ? (
-        <select name={name} value={value} onChange={onChange} required={required} className={`w-full ${icon ? 'pl-9' : 'pl-3.5'} pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition`} style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }}>{children}</select>
-      ) : (
-        <input name={name} type={type} value={value} onChange={onChange} required={required} placeholder={placeholder} className={`w-full ${icon ? 'pl-9' : 'pl-3.5'} pr-3.5 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition`} style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} />
-      )}
-    </div>
-  </div>
-);
-
-interface PasswordFieldProps { value: string; showPassword: boolean; setShowPassword: (value: boolean) => void; branding: any; onChange: (e: any) => void; }
-const PasswordField = ({ value, showPassword, setShowPassword, branding, onChange }: PasswordFieldProps) => (
-  <div>
-    <label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Mot de passe *</label>
-    <div className="relative">
-      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: branding.textLight }} />
-      <input type={showPassword ? 'text' : 'password'} name="password" value={value} onChange={onChange} required minLength={6} placeholder="Minimum 6 caractères" className="w-full pl-9 pr-9 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: '#ffffff', color: branding.text }} />
-      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: branding.textLight }}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-    </div>
-  </div>
-);
-
-interface MiniSelectorProps { title: string; items: { id: string; label: string; icon: string }[]; selected: string[]; branding: any; onToggle: (id: string) => void; }
-const MiniSelector = ({ title, items, selected, branding, onToggle }: MiniSelectorProps) => (
-  <div>
-    <p className="text-xs font-semibold mb-2" style={{ color: branding.text }}>{title}</p>
-    <div className="grid grid-cols-2 gap-2">
-      {items.map((item) => {
-        const active = selected.includes(item.id);
-        return <button type="button" key={item.id} onClick={() => onToggle(item.id)} className="px-3 py-2.5 rounded-xl border text-left text-xs transition-all hover:border-gray-300" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? `${branding.primary}04` : '#ffffff', color: branding.text }}><span className="mr-2">{item.icon}</span>{item.label}</button>;
-      })}
-    </div>
-  </div>
-);
-
-interface ZoneSelectorProps { selected: string[]; branding: any; onToggle: (zone: string) => void; }
-const ZoneSelector = ({ selected, branding, onToggle }: ZoneSelectorProps) => (
-  <div>
-    <p className="text-xs font-semibold mb-2" style={{ color: branding.text }}>Zones d'intervention</p>
-    <div className="flex flex-wrap gap-2">
-      {ZONES.map((zone) => {
-        const active = selected.includes(zone);
-        return <button type="button" key={zone} onClick={() => onToggle(zone)} className="px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all" style={{ borderColor: active ? branding.primary : '#e5e7eb', background: active ? branding.primary : '#ffffff', color: active ? '#ffffff' : '#4b5563' }}>{zone}</button>;
-      })}
-    </div>
-  </div>
-);
-
-interface SummaryCardProps { accountChoice: AccountChoice; formData: any; aidantData: any; serviceLabel: string; branding: any; }
-const SummaryCard = ({ accountChoice, formData, aidantData, serviceLabel, branding }: SummaryCardProps) => {
-  const specialties = aidantData.specialties.map((id: string) => SPECIALTIES.find((item) => item.id === id)?.label || id).join(', ');
-  const isAidant = accountChoice === 'aidant';
-  const isPersonal = accountChoice === 'personal';
-  return (
-    <div className="rounded-xl p-4 border space-y-3.5" style={{ background: `${branding.primary}02`, borderColor: `${branding.primary}12` }}>
-      <SummaryLine icon={<User size={16} />} label="Nom complet" value={formData.full_name} branding={branding} />
-      <SummaryLine icon={<Mail size={16} />} label="E-mail" value={formData.email} branding={branding} />
-      <SummaryLine icon={<Phone size={16} />} label="Téléphone" value={formData.phone} branding={branding} />
-      {isAidant ? (
-        <>
-          <SummaryLine icon={<Briefcase size={16} />} label="Type" value="Candidature aidant" branding={branding} />
-          <SummaryLine icon={<FileText size={16} />} label="Spécialités" value={specialties || 'Non renseigné'} branding={branding} />
-          <SummaryLine icon={<MapPin size={16} />} label="Zones d'intervention" value={aidantData.zones.length ? aidantData.zones.join(', ') : 'Non renseigné'} branding={branding} />
-        </>
-      ) : (
-        <>
-          <SummaryLine icon={<Home size={16} />} label="Type de compte" value={isPersonal ? 'Compte personnel sans patient' : 'Accompagnement d\'un proche'} branding={branding} />
-          {!isPersonal && <SummaryLine icon={<Baby size={16} />} label="Service" value={serviceLabel} branding={branding} />}
-        </>
-      )}
-      <p className="text-[10px] text-gray-400 pt-2 border-t border-black/5">Toutes les inscriptions font l'objet d'une validation manuelle par l'équipe Santé Plus.</p>
-    </div>
-  );
-};
-
-interface SummaryLineProps { icon: ReactNode; label: string; value: string; branding: any; }
-const SummaryLine = ({ icon, label, value, branding }: SummaryLineProps) => (
-  <div className="flex items-start gap-2.5">
-    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>{icon}</div>
-    <div>
-      <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">{label}</p>
-      <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{value || 'Non renseigné'}</p>
-    </div>
-  </div>
-);
 
 export default RegisterPage;
