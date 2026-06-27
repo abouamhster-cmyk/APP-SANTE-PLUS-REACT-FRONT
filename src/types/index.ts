@@ -1,745 +1,637 @@
-// 📁 src/features/admin/pages/OffersPage.tsx
- 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import {
-  Package,
-  Plus,
-  Search,
-  Filter,
-  RefreshCw,
-  Edit,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  Users,
-  Baby,
-  Star,
-} from 'lucide-react';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
-import { useAuthStore } from '@/stores/authStore';
-import { formatCurrency } from '@/utils/helpers';
-import { Modal, ModalActions } from '@/components/ui/Modal';
-import { Offer } from '@/types';
-import toast from 'react-hot-toast';
-
-// ✅ Fonctions
-const getCategoryLabel = (category: string): string => {
-  const labels: Record<string, string> = {
-    senior: '👴 Senior',
-    maman_bebe: '👶 Maman',
-    pack_confort: '⭐ Pack Confort',
-  };
-  return labels[category] || category;
-};
-
-const getCategoryColor = (category: string): string => {
-  const colors: Record<string, string> = {
-    senior: '#4CAF50',
-    maman_bebe: '#E8B4B8',
-    pack_confort: '#C9A84C',
-  };
-  return colors[category] || '#9E9E9E';
-};
-
-const getTypeLabel = (type: string): string => {
-  const labels: Record<string, string> = {
-    ponctuelle: '⚡ Ponctuelle',
-    mensuelle: '📅 Mensuelle',
-    trimestrielle: '📅 Trimestrielle',
-    semestrielle: '📅 Semestrielle',
-    annuelle: '📅 Annuelle',
-    sur_devis: '📝 Sur devis',
-  };
-  return labels[type] || type;
-};
-
-const categoryOptions = [
-  { value: 'all', label: 'Toutes' },
-  { value: 'senior', label: '👴 Senior' },
-  { value: 'maman_bebe', label: '👶 Maman' },
-  { value: 'pack_confort', label: '⭐ Pack Confort' },
-];
-
-const typeOptions: { value: Offer['type']; label: string }[] = [
-  { value: 'ponctuelle', label: '⚡ Ponctuelle' },
-  { value: 'mensuelle', label: '📅 Mensuelle' },
-  { value: 'trimestrielle', label: '📅 Trimestrielle' },
-  { value: 'semestrielle', label: '📅 Semestrielle' },
-  { value: 'annuelle', label: '📅 Annuelle' },
-  { value: 'sur_devis', label: '📝 Sur devis' },
-];
-
-const OffersPage = () => {
-  const { profile, role } = useAuthStore();
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
-  useEffect(() => {
-    fetchOffers();
-  }, []);
-
-  const fetchOffers = async () => {
-    try {
-      setIsLoading(true);
-
-      const { data, error } = await supabase
-        .from('offres')
-        .select('*')
-        .order('display_order', { ascending: true });
-
-      if (error) throw error;
-      setOffers(data || []);
-    } catch (error: any) {
-      console.error('Fetch offers error:', error);
-      toast.error('Erreur lors du chargement des offres');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filteredOffers = offers.filter(offer => {
-    const matchesSearch =
-      offer.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      offer.description?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory = categoryFilter === 'all' || offer.category === categoryFilter;
-
-    return matchesSearch && matchesCategory;
-  });
-
-  const stats = {
-    total: offers.length,
-    active: offers.filter(o => o.is_active).length,
-    inactive: offers.filter(o => !o.is_active).length,
-    senior: offers.filter(o => o.category === 'senior').length,
-    maman: offers.filter(o => o.category === 'maman_bebe').length,
-    pack: offers.filter(o => o.category === 'pack_confort').length,
-  };
-
-  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('offres')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast.success(`Offre ${!currentStatus ? 'activée' : 'désactivée'}`);
-      fetchOffers();
-    } catch (error) {
-      console.error('Toggle offer status error:', error);
-      toast.error('Erreur lors de la mise à jour');
-    }
-  };
-
-  const handleDeleteOffer = async (id: string) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette offre ?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('offres')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast.success('Offre supprimée');
-      fetchOffers();
-    } catch (error) {
-      console.error('Delete offer error:', error);
-      toast.error('Erreur lors de la suppression');
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
-          ))}
-        </div>
-        <div className="h-12 bg-white rounded-xl animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-40 bg-white rounded-xl animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <Package size={12} />
-              Offres
-            </div>
-
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              📦 Offres
-            </h1>
-
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
-              {stats.total} offre{stats.total > 1 ? 's' : ''} au total
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={fetchOffers}
-              disabled={isLoading}
-              className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
-              style={{ background: colors.primary + '12', color: colors.primary }}
-            >
-              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-3 py-2 rounded-xl text-white font-bold text-sm flex items-center gap-1.5"
-              style={{ background: colors.primary }}
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Nouvelle</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-        <CompactStat label="Total" value={stats.total} color={colors.primary} icon={<Package size={14} />} />
-        <CompactStat label="Actives" value={stats.active} color="#4CAF50" icon={<CheckCircle size={14} />} />
-        <CompactStat label="Inactives" value={stats.inactive} color="#F44336" icon={<XCircle size={14} />} />
-        <CompactStat label="Senior" value={stats.senior} color="#4CAF50" icon={<Users size={14} />} />
-        <CompactStat label="Maman" value={stats.maman} color="#E8B4B8" icon={<Baby size={14} />} />
-        <CompactStat label="Pack" value={stats.pack} color="#C9A84C" icon={<Star size={14} />} />
-      </section>
-
-      {/* RECHERCHE + FILTRE */}
-      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Rechercher une offre..."
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-
-          <div className="relative min-w-[120px]">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              {categoryOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      {/* LISTE */}
-      {filteredOffers.length > 0 ? (
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {filteredOffers.map((offer) => (
-            <OfferCardCompact
-              key={offer.id}
-              offer={offer}
-              colors={colors}
-              onToggleStatus={handleToggleStatus}
-              onDelete={handleDeleteOffer}
-              onEdit={() => {
-                setSelectedOffer(offer);
-                setShowEditModal(true);
-              }}
-            />
-          ))}
-        </section>
-      ) : (
-        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
-          <Package size={32} className="mx-auto mb-3 opacity-30" />
-          <h3 className="text-sm font-bold" style={{ color: colors.text }}>
-            {searchTerm || categoryFilter !== 'all' ? 'Aucune offre trouvée' : 'Aucune offre'}
-          </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            {searchTerm || categoryFilter !== 'all'
-              ? 'Aucune offre ne correspond à vos critères.'
-              : 'Créez votre première offre.'}
-          </p>
-        </section>
-      )}
-
-      {/* MODALS */}
-      {showCreateModal && (
-        <OfferFormModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={fetchOffers}
-          colors={colors}
-        />
-      )}
-
-      {showEditModal && selectedOffer && (
-        <OfferFormModal
-          offer={selectedOffer}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedOffer(null);
-          }}
-          onSuccess={fetchOffers}
-          colors={colors}
-        />
-      )}
-    </div>
-  );
-};
+// 📁 src/types/index.ts
 
 // =============================================
-// COMPACT STAT
+// TYPES COMPLETS - SANTÉ PLUS SERVICES
 // =============================================
 
-interface CompactStatProps {
-  label: string;
-  value: number;
-  color: string;
-  icon: React.ReactNode;
+export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
+export type ProcheCategory = 'senior' | 'maman_bebe';
+export type PatientCategory = 'senior' | 'maman_bebe';
+export type VisitStatus = 'planifiee' | 'en_attente' | 'en_cours' | 'terminee' | 'validee' | 'annulee' | 'replanifiee' | 'no_show';
+
+// ✅ CYCLE DE VIE SIMPLIFIÉ DES COMMANDES
+// creee → en_cours (aidant accepte) → livree (aidant livre) → validee (auto après 12h)
+export type OrderStatus = 
+  | 'creee'        // 📝 Créée par la famille
+  | 'en_cours'     // 🔄 Acceptée par l'aidant (en cours)
+  | 'livree'       // 📦 Livrée par l'aidant
+  | 'validee'      // ✅ Validée automatiquement après 12h
+  | 'annulee';     // ❌ Annulée
+
+export type PaymentStatus = 'en_attente' | 'valide' | 'echoue' | 'rembourse' | 'annule' | 'en_attente_de_confirmation';
+export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
+export type NotificationType = 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
+
+// ✅ Type de commande (abonnement ou ponctuelle)
+export type OrderType = 'subscription' | 'ponctual';
+
+// =============================================
+// OFFER TYPE - GRILLE TARIFAIRE
+// =============================================
+
+export type OfferCategory = 'senior' | 'maman_bebe' | 'pack_confort' | 'ponctuelle';
+
+export interface Offer {
+  id: string;
+  name: string;
+  category: OfferCategory;
+  type?: 'ponctuelle' | 'mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle' | 'sur_devis';
+  description?: string | null;
+  price: number;
+  period: string;
+  features: string[];
+  visitsPerWeek: number | null;
+  durationDays: number | null;
+  badge: string | null;
+  publicCible?: string | null;
+  is_active?: boolean;
+  is_public?: boolean;
+  display_order?: number;
+  visits_per_month?: number | null;
+  total_visits?: number | null;
+  total_orders?: number | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
-const CompactStat = ({ label, value, color, icon }: CompactStatProps) => {
-  return (
-    <div className="bg-white rounded-xl p-2 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between gap-1">
-        <p className="text-[9px] font-medium text-gray-400">{label}</p>
-        <p className="text-base font-bold" style={{ color }}>{value}</p>
-      </div>
-    </div>
-  );
-};
-
 // =============================================
-// OFFER CARD COMPACT
+// PROFIL
 // =============================================
-
-interface OfferCardCompactProps {
-  offer: Offer;
-  colors: any;
-  onToggleStatus: (id: string, currentStatus: boolean) => void;
-  onDelete: (id: string) => void;
-  onEdit: () => void;
+export interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  role: UserRole;
+  avatar_url: string | null;
+  proche_category: ProcheCategory | null;
+  patient_category: ProcheCategory | null;
+  last_latitude: number | null;
+  last_longitude: number | null;
+  last_location_update: string | null;
+  is_active: boolean;
+  email_verified: boolean;
+  phone_verified: boolean;
+  preferences: Record<string, any>;
+  created_at: string;
+  updated_at: string;
 }
 
-const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: OfferCardCompactProps) => {
-  const categoryColor = getCategoryColor(offer.category);
-  const isActive = offer.is_active ?? true;
-
-  return (
-    <div
-      className="bg-white rounded-xl p-3 shadow-sm border transition hover:shadow-md"
-      style={{ borderColor: isActive ? colors.primary + '30' : colors.border }}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span
-            className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
-            style={{ background: categoryColor + '15', color: categoryColor }}
-          >
-            {getCategoryLabel(offer.category)}
-          </span>
-          {offer.badge && (
-            <span
-              className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
-              style={{ background: '#FFD70015', color: '#FFD700' }}
-            >
-              {offer.badge}
-            </span>
-          )}
-          <span
-            className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
-            style={{
-              background: isActive ? '#4CAF5015' : '#F4433615',
-              color: isActive ? '#4CAF50' : '#F44336',
-            }}
-          >
-            {isActive ? '✅' : '❌'}
-          </span>
-        </div>
-        <span className="text-[9px] text-gray-400">#{offer.display_order || 0}</span>
-      </div>
-
-      <h3 className="text-sm font-bold mt-1" style={{ color: colors.text }}>
-        {offer.name}
-      </h3>
-
-      <div className="flex items-center gap-1">
-        <span className="text-base font-bold" style={{ color: colors.primary }}>
-          {offer.price ? formatCurrency(offer.price) : 'Sur devis'}
-        </span>
-        <span className="text-[9px] text-gray-400">{getTypeLabel(offer.type || 'mensuelle')}</span>
-      </div>
-
-      {offer.features && offer.features.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-0.5">
-          {offer.features.slice(0, 2).map((feature, index) => (
-            <span
-              key={index}
-              className="text-[8px] px-1.5 py-0.5 rounded-full"
-              style={{ background: colors.primary + '08', color: colors.text + '60' }}
-            >
-              {feature}
-            </span>
-          ))}
-          {offer.features.length > 2 && (
-            <span className="text-[8px] text-gray-400">+{offer.features.length - 2}</span>
-          )}
-        </div>
-      )}
-
-      <div className="mt-2 flex items-center justify-end gap-1 pt-2 border-t" style={{ borderColor: colors.border }}>
-        <button
-          onClick={onEdit}
-          className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-          style={{ color: '#2196F3' }}
-        >
-          <Edit size={14} />
-        </button>
-        <button
-          onClick={() => onToggleStatus(offer.id, isActive)}
-          className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-          style={{ color: isActive ? '#F44336' : '#4CAF50' }}
-        >
-          {isActive ? <XCircle size={14} /> : <CheckCircle size={14} />}
-        </button>
-        <button
-          onClick={() => onDelete(offer.id)}
-          className="p-1.5 rounded-lg hover:bg-red-50 transition"
-          style={{ color: '#F44336' }}
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
-  );
-};
-
 // =============================================
-// OFFER FORM MODAL
+// PROCHE (ex-PATIENT)
 // =============================================
-
-interface OfferFormModalProps {
-  offer?: Offer;
-  onClose: () => void;
-  onSuccess: () => void;
-  colors: any;
+export interface Proche {
+  id: string;
+  first_name: string;
+  last_name: string;
+  age: number | null;
+  gender: 'male' | 'female' | 'other' | null;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  emergency_contact: string | null;
+  emergency_contact_name: string | null;
+  category: ProcheCategory;
+  status: 'active' | 'inactive' | 'archived';
+  notes: string | null;
+  allergies: string | null;
+  treatments: string | null;
+  conditions: string | null;
+  medical_history: string | null;
+  preferred_language: string;
+  special_requirements: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  families?: ProcheFamilyLink[];
 }
 
-const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalProps) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: offer?.name || '',
-    category: offer?.category || 'senior',
-    type: offer?.type || 'mensuelle',
-    description: offer?.description || '',
-    price: offer?.price !== null && offer?.price !== undefined ? String(offer.price) : '',
-    features: offer?.features?.join(', ') || '',
-    visits_per_week: offer?.visitsPerWeek !== null && offer?.visitsPerWeek !== undefined ? String(offer.visitsPerWeek) : '',
-    duration_days: offer?.durationDays !== null && offer?.durationDays !== undefined ? String(offer.durationDays) : '',
-    badge: offer?.badge || '',
-    is_active: offer?.is_active ?? true,
-    is_public: offer?.is_public ?? true,
-    display_order: offer?.display_order !== undefined ? String(offer.display_order) : '0',
-    total_visits: offer?.total_visits !== null && offer?.total_visits !== undefined ? String(offer.total_visits) : '',
-    total_orders: offer?.total_orders !== null && offer?.total_orders !== undefined ? String(offer.total_orders) : '',
-  });
+export type Patient = Proche;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+// =============================================
+// PROCHE FAMILY LINK
+// =============================================
+export interface ProcheFamilyLink {
+  id: string;
+  proche_id: string;
+  patient_id: string;
+  family_id: string;
+  relationship: string | null;
+  is_primary: boolean;
+  can_manage_visits: boolean;
+  can_manage_orders: boolean;
+  can_receive_notifications: boolean;
+  created_at: string;
+}
 
-    try {
-      const data = {
-        name: formData.name,
-        category: formData.category as Offer['category'],
-        type: formData.type as Offer['type'],
-        description: formData.description || null,
-        price: formData.price ? parseFloat(String(formData.price)) : null,
-        visits_per_week: formData.visits_per_week ? parseInt(String(formData.visits_per_week)) : null,
-        duration_days: formData.duration_days ? parseInt(String(formData.duration_days)) : null,
-        features: formData.features ? formData.features.split(',').map((f: string) => f.trim()) : [],
-        badge: formData.badge || null,
-        is_active: formData.is_active,
-        is_public: formData.is_public,
-        display_order: parseInt(String(formData.display_order)) || 0,
-        total_visits: formData.total_visits ? parseInt(String(formData.total_visits)) : null,
-        total_orders: formData.total_orders ? parseInt(String(formData.total_orders)) : null,
-      };
+export type PatientFamilyLink = ProcheFamilyLink;
 
-      if (offer) {
-        const { error } = await supabase
-          .from('offres')
-          .update(data)
-          .eq('id', offer.id);
+// =============================================
+// AIDANT
+// =============================================
+export interface Aidant {
+  id: string;
+  user_id: string;
+  user?: Profile;
+  specialties: string[];
+  available: boolean;
+  rating: number;
+  total_missions: number;
+  completed_missions: number;
+  cancelled_missions: number;
+  average_response_time: number | null;
+  bio: string | null;
+  hourly_rate: number | null;
+  is_verified: boolean;
+  background_check_date: string | null;
+  languages: string[];
+  availability_hours: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
 
-        if (error) throw error;
-        toast.success('Offre mise à jour');
-      } else {
-        const { error } = await supabase
-          .from('offres')
-          .insert(data);
+// =============================================
+// VISITE
+// =============================================
+export interface Visit {
+  id: string;
+  reference: string;
+  proche_id: string;
+  patient_id: string;
+  proche?: Proche;
+  patient?: Proche;
+  aidant_id: string | null;
+  aidant?: Aidant;
+  coordinator_id: string | null;
+  coordinator?: Profile;
+  scheduled_date: string;
+  scheduled_time: string;
+  duration_minutes: number;
+  status: VisitStatus;
+  start_time: string | null;
+  end_time: string | null;
+  actual_duration_minutes: number | null;
+  actions: string[];
+  notes: string | null;
+  report: string | null;
+  location_start: { lat: number; lng: number } | null;
+  location_end: { lat: number; lng: number } | null;
+  location_track: { lat: number; lng: number; timestamp: string }[];
+  check_in_time: string | null;
+  check_out_time: string | null;
+  family_feedback: string | null;
+  family_rating: number | null;
+  family_rated_at: string | null;
+  coordinator_notes: string | null;
+  is_urgent: boolean;
+  created_at: string;
+  updated_at: string;
+  photos?: VisitPhoto[];
+}
 
-        if (error) throw error;
-        toast.success('Offre créée');
-      }
+export type VisitWithPatient = Visit;
 
-      onSuccess();
-      onClose();
-    } catch (error: any) {
-      console.error('Save offer error:', error);
-      toast.error(error.message || 'Erreur lors de l\'enregistrement');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+// =============================================
+// VISITE PHOTO
+// =============================================
+export interface VisitPhoto {
+  id: string;
+  visite_id: string;
+  photo_url: string;
+  caption: string | null;
+  photo_type: 'before' | 'during' | 'after' | 'proof' | 'other' | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
 
-  return (
-    <Modal
-      isOpen={true}
-      onClose={onClose}
-      title={offer ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
-      maxWidth="2xl"
-      actions={
-        <ModalActions
-          onCancel={onClose}
-          onConfirm={handleSubmit}
-          confirmLabel={offer ? 'Mettre à jour' : 'Créer'}
-          isLoading={isLoading}
-        />
-      }
-    >
-      <form id="offer-form" className="space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Nom *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Badge
-            </label>
-            <input
-              type="text"
-              value={formData.badge}
-              onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
-              placeholder="⭐ Populaire"
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-        </div>
+// =============================================
+// COMMANDE - CYCLE DE VIE SIMPLIFIÉ
+// =============================================
+export interface Order {
+  id: string;
+  proche_id: string | null;
+  patient_id: string | null;
+  proche?: Proche;
+  patient?: Proche;
+  family_id: string;
+  family?: Profile;
+  aidant_id: string | null;
+  aidant?: Aidant;
+  type: 'medicaments' | 'produits_bebe' | 'produits_hygiene' | 'courses' | 'repas' | 'autre';
+  description: string;
+  prescription_url: string | null;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  status: OrderStatus;
+  estimated_amount: number | null;
+  final_amount: number | null;
+  delivery_fee: number | null;
+  tip_amount: number | null;
+  proof_url: string | null;
+  delivery_notes: string | null;
+  delivery_time: string | null;
+  items: OrderItem[];
+  order_type?: OrderType;
+  is_paid?: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Catégorie *
-            </label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value as Offer['category'] })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              {categoryOptions.filter(o => o.value !== 'all').map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Type *
-            </label>
-            <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as Offer['type'] })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              {typeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+export interface OrderItem {
+  id?: string;
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
 
-        <div>
-          <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-            Description
-          </label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-xl border outline-none resize-none"
-            style={{ borderColor: colors.border, color: colors.text }}
-            rows={2}
-          />
-        </div>
+// =============================================
+// MESSAGE & CONVERSATION
+// =============================================
+export interface Conversation {
+  id: string;
+  participant_ids: string[];
+  participants?: Profile[];
+  type: 'direct' | 'group';
+  name: string | null;
+  avatar_url: string | null;
+  last_message_at: string;
+  last_message?: Message;
+  is_active: boolean;
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Prix (FCFA)
-            </label>
-            <input
-              type="number"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Visites/semaine
-            </label>
-            <input
-              type="number"
-              value={formData.visits_per_week}
-              onChange={(e) => setFormData({ ...formData, visits_per_week: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Durée (jours)
-            </label>
-            <input
-              type="number"
-              value={formData.duration_days}
-              onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-        </div>
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  sender?: Profile;
+  content: string | null;
+  attachment_url: string | null;
+  attachment_type: 'image' | 'document' | 'voice' | 'video' | null;
+  is_read: boolean;
+  read_at: string | null;
+  is_edited: boolean;
+  edited_at: string | null;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  reply_to_message_id: string | null;
+  reply_to?: Message;
+  created_at: string;
+}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Total visites
-            </label>
-            <input
-              type="number"
-              value={formData.total_visits}
-              onChange={(e) => setFormData({ ...formData, total_visits: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Total commandes
-            </label>
-            <input
-              type="number"
-              value={formData.total_orders}
-              onChange={(e) => setFormData({ ...formData, total_orders: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-        </div>
+// =============================================
+// OFFRE & ABONNEMENT
+// =============================================
+export interface OfferDB {
+  id: string;
+  name: string;
+  category: 'senior' | 'maman_bebe' | 'pack_confort' | 'ponctuelle';
+  type: 'ponctuelle' | 'mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle' | 'sur_devis';
+  description: string | null;
+  price: number | null;
+  features: string[];
+  visits_per_week: number | null;
+  duration_days: number | null;
+  is_active: boolean;
+  is_public: boolean;
+  display_order: number;
+  badge: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-        <div>
-          <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-            Caractéristiques (séparées par des virgules)
-          </label>
-          <input
-            type="text"
-            value={formData.features}
-            onChange={(e) => setFormData({ ...formData, features: e.target.value })}
-            placeholder="Suivi personnalisé, Accompagnement, Coordination"
-            className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-            style={{ borderColor: colors.border, color: colors.text }}
-          />
-        </div>
+export interface Subscription {
+  id: string;
+  user_id: string;
+  user?: Profile;
+  proche_id: string | null;
+  patient_id: string | null;
+  proche?: Proche;
+  patient?: Proche;
+  offre_id: string | null;
+  offre?: Offer;
+  status: SubscriptionStatus;
+  start_date: string;
+  end_date: string;
+  auto_renew: boolean;
+  renewal_count: number;
+  last_renewal_date: string | null;
+  cancellation_reason: string | null;
+  cancellation_date: string | null;
+  payment_method: string | null;
+  total_visits: number;
+  used_visits: number;
+  remaining_visits: number;
+  total_orders: number;
+  used_orders: number;
+  remaining_orders: number;
+  created_at: string;
+  updated_at: string;
+}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
-              Ordre d'affichage
-            </label>
-            <input
-              type="number"
-              value={formData.display_order}
-              onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-          <div className="flex items-center gap-4 pt-2">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4 rounded"
-                style={{ accentColor: colors.primary }}
-              />
-              <span className="text-xs" style={{ color: colors.text }}>Active</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.is_public}
-                onChange={(e) => setFormData({ ...formData, is_public: e.target.checked })}
-                className="w-4 h-4 rounded"
-                style={{ accentColor: colors.primary }}
-              />
-              <span className="text-xs" style={{ color: colors.text }}>Publique</span>
-            </label>
-          </div>
-        </div>
-      </form>
-    </Modal>
-  );
-};
+// =============================================
+// PAIEMENT
+// =============================================
+export interface Payment {
+  id: string;
+  abonnement_id: string | null;
+  commande_id: string | null;
+  user_id: string;
+  user?: Profile;
+  amount: number;
+  currency: string;
+  method: 'mobile_money' | 'card' | 'bank_transfer' | 'cash' | 'wallet' | null;
+  reference: string | null;
+  provider_reference: string | null;
+  status: PaymentStatus;
+  metadata: Record<string, any>;
+  paid_at: string | null;
+  refunded_at: string | null;
+  refund_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-export default OffersPage;
+// =============================================
+// NOTIFICATION
+// =============================================
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  type: NotificationType;
+  data: Record<string, any>;
+  image_url: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  is_sent: boolean;
+  sent_at: string | null;
+  is_delivered: boolean;
+  delivered_at: string | null;
+  created_at: string;
+}
+
+// =============================================
+// INSCRIPTION
+// =============================================
+export interface Inscription {
+  id: string;
+  user_id: string | null;
+  user?: Profile;
+  proche_data: Record<string, any>;
+  patient_data: Record<string, any>;
+  offre_id: string | null;
+  offre?: OfferDB;
+  status: 'en_attente' | 'validee' | 'refusee' | 'info_requise' | 'en_cours_de_traitement';
+  comments: string | null;
+  processed_by: string | null;
+  processed_at: string | null;
+  source: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================
+// RATING
+// =============================================
+export interface Rating {
+  id: string;
+  visite_id: string;
+  visite?: Visit;
+  rated_by: string;
+  rated_by_user?: Profile;
+  rated_user_id: string;
+  rated_user?: Profile;
+  rating: number;
+  comment: string | null;
+  categories: Record<string, any>;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================
+// EMERGENCY CONTACT
+// =============================================
+export interface EmergencyContact {
+  id: string;
+  proche_id: string;
+  patient_id: string;
+  proche?: Proche;
+  patient?: Proche;
+  name: string;
+  relationship: string;
+  phone: string;
+  email: string | null;
+  is_primary: boolean;
+  can_make_decisions: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type EmergencyContactWithPatient = EmergencyContact;
+
+// =============================================
+// STATISTIQUES
+// =============================================
+export interface DashboardStats {
+  proches: number;
+  patients: number;
+  families: number;
+  aidants: number;
+  visitsToday: number;
+  visitsInProgress: number;
+  pendingRegistrations: number;
+  revenue: number;
+}
+
+export interface DailyStats {
+  date: string;
+  total_visits: number;
+  planned: number;
+  in_progress: number;
+  completed: number;
+  validated: number;
+  cancelled: number;
+  active_aidants: number;
+  active_proches: number;
+  active_patients: number;
+}
+
+// =============================================
+// VISITE FORMULAIRE (AIDANT)
+// =============================================
+
+export interface VisitFormData {
+  actions: string[];
+  notes: string;
+  audio_url?: string;
+  photos: string[];
+  signature?: string;
+  duration_minutes?: number;
+}
+
+export interface VisitReport {
+  id: string;
+  visit_id: string;
+  aidant_id: string;
+  actions: string[];
+  notes: string | null;
+  audio_url: string | null;
+  photos: string[];
+  signature_url: string | null;
+  duration_minutes: number | null;
+  submitted_at: string;
+  validated_by: string | null;
+  validated_at: string | null;
+  status: 'en_attente' | 'valide' | 'refuse';
+  admin_comment: string | null;
+}
+
+// =============================================
+// JOURNAL DE BORD
+// =============================================
+
+export interface JournalEntry {
+  id: string;
+  visit_id: string;
+  visit?: Visit;
+  proche_id: string;
+  patient_id: string;
+  proche?: Proche;
+  patient?: Proche;
+  aidant_id: string | null;
+  aidant?: Aidant;
+  date: string;
+  time: string;
+  actions: string[];
+  notes: string | null;
+  photos: string[];
+  audio_url: string | null;
+  status: 'planifiee' | 'en_cours' | 'terminee' | 'validee';
+  rating: number | null;
+  feedback: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JournalStats {
+  total_visits: number;
+  validated_visits: number;
+  pending_visits: number;
+  average_rating: number;
+  total_aidants: number;
+  visits_by_week: {
+    week: string;
+    count: number;
+  }[];
+  actions_frequency: {
+    action: string;
+    count: number;
+  }[];
+}
+
+// =============================================
+// SORTIE D'HÔPITAL
+// =============================================
+
+export type DischargeStatus = 
+  | 'pending'
+  | 'assessing'
+  | 'planned'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
+export interface HospitalDischarge {
+  id: string;
+  proche_id: string;
+  patient_id: string;
+  proche?: Proche;
+  patient?: Proche;
+  family_id: string;
+  family?: Profile;
+  coordinator_id: string | null;
+  coordinator?: Profile;
+  hospital_name: string;
+  hospital_service: string;
+  doctor_name: string | null;
+  discharge_date: string;
+  discharge_time: string;
+  status: DischargeStatus;
+  
+  assessment: {
+    mobility: 'autonome' | 'aide_partielle' | 'dependante';
+    medication_count: number;
+    has_medication_schedule: boolean;
+    home_access: 'rdc' | 'etage_ascenseur' | 'etage_escalier';
+    needs_help_with: string[];
+    family_support: 'fort' | 'modere' | 'faible';
+  } | null;
+  
+  aidant_id: string | null;
+  aidant?: Aidant;
+  planned_visits: {
+    date: string;
+    time: string;
+    duration: number;
+  }[];
+  
+  actual_discharge_date: string | null;
+  actual_discharge_time: string | null;
+  installation_notes: string | null;
+  family_notes: string | null;
+  coordinator_notes: string | null;
+  
+  completed_at: string | null;
+  satisfaction_rating: number | null;
+  satisfaction_comment: string | null;
+  recommendations: string[] | null;
+  
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================
+// CONTRATS / CGU
+// =============================================
+
+export type ContractRole = 'family' | 'aidant' | 'coordinator' | 'admin';
+
+export interface Contract {
+  id: string;
+  version: string;
+  role: ContractRole;
+  title: string;
+  content: string;
+  summary: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserContractAcceptance {
+  id: string;
+  user_id: string;
+  contract_id: string;
+  contract?: Contract;
+  accepted_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+}
+
+export interface ContractStatus {
+  needs_acceptance: boolean;
+  contract: Contract | null;
+  has_accepted: boolean;
+  latest_acceptance: UserContractAcceptance | null;
+}
