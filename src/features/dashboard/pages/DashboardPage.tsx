@@ -1,5 +1,5 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -26,6 +26,11 @@ import {
   Bell,
   Package,
   LayoutDashboard,
+  UserPlus,
+  UsersRound,
+  Handshake,
+  FileCheck,
+  Eye,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -86,28 +91,45 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  // 👔 ADMIN / COORDINATEUR
+  // 👔 ADMIN / COORDINATEUR - Toutes les pages existantes
   if (role === 'admin' || role === 'coordinator') {
     tiles.push(
-      { icon: <LayoutDashboard size={22} />, label: 'Dashboard', color: '#9C27B0', path: '/app/admin' },
+      // 📊 Gestion globale
+      { icon: <LayoutDashboard size={22} />, label: 'Dashboard Admin', color: '#9C27B0', path: '/app/admin' },
+      
+      // 👥 Gestion des utilisateurs
       { icon: <ClipboardList size={22} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations' },
-      { icon: <UserCheck size={22} />, label: 'Candidatures', color: '#FF9800', path: '/app/aidant-candidates' },
+      { icon: <UserCheck size={22} />, label: 'Candidatures Aidants', color: '#FF9800', path: '/app/aidant-candidates' },
       { icon: <Users size={22} />, label: 'Aidants', color: '#2196F3', path: '/app/aidants' },
-      { icon: <Users size={22} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
+      { icon: <Handshake size={22} />, label: 'Assigner aidant', color: '#00BCD4', path: '/app/assign-aidants' },
+      { icon: <UsersRound size={22} />, label: 'Utilisateurs', color: '#4CAF50', path: '/app/users' },
+      
+      // 📅 Visites
       { icon: <Calendar size={22} />, label: 'Visites', color: '#4CAF50', path: '/app/visits' },
+      { icon: <FileCheck size={22} />, label: 'Valider visites', color: '#8BC34A', path: '/app/admin/visits/validation' },
+      
+      // 🛒 Commandes
       { icon: <ShoppingBag size={22} />, label: 'Commandes', color: '#FF9800', path: '/app/orders' },
+      
+      // 💰 Finances
       { icon: <CreditCard size={22} />, label: 'Paiements', color: '#9C27B0', path: '/app/admin-payments' },
       { icon: <Award size={22} />, label: 'Abonnements', color: '#795548', path: '/app/admin-subscriptions' },
-      { icon: <Bell size={22} />, label: 'Notifs', color: '#FF5722', path: '/app/admin-notifications' },
+      
+      // 📦 Offres et paramètres
       { icon: <Package size={22} />, label: 'Offres', color: '#607D8B', path: '/app/offers' },
       { icon: <Settings size={22} />, label: 'Paramètres', color: '#455A64', path: '/app/settings' },
+      
+      // 🔔 Notifications
+      { icon: <Bell size={22} />, label: 'Notifications Admin', color: '#FF5722', path: '/app/admin-notifications' },
+      
+      // 🗺️ Autres
       { icon: <MapPin size={22} />, label: 'Carte', color: '#FF5722', path: '/app/map' },
       { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
     );
     return tiles;
   }
 
-  // 🔄 FALLBACK (ne devrait jamais arriver)
+  // 🔄 FALLBACK
   tiles.push(
     { icon: <LayoutDashboard size={22} />, label: 'Accueil', color: colors.primary, path: '/app' },
     { icon: <User size={22} />, label: 'Profil', color: '#607D8B', path: '/app/profile' },
@@ -173,7 +195,7 @@ const DashboardPage = () => {
     completedVisits: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
   };
 
-  // ✅ TUILES - Fonction pure
+  // ✅ TUILES
   const tiles = getTilesForRole(role, colors, stats, patients.length);
 
   const isLoading = patientsLoading || visitsLoading || ordersLoading;
@@ -182,20 +204,16 @@ const DashboardPage = () => {
     if (isMaman) return 'Votre espace maman & bébé.';
     if (isFamily) return 'Un suivi clair pour votre proche.';
     if (isAidant) return 'Vos missions en un coup d\'œil.';
-    if (isAdminOrCoordinator) return 'Vue d\'ensemble de la plateforme.';
+    if (isAdminOrCoordinator) return 'Gestion complète de la plateforme.';
     return 'Bienvenue sur Santé Plus Services.';
   };
 
   const heroSubtitle = () => {
     if (isFamily) return 'Gérez les visites et commandes de vos proches.';
     if (isAidant) return 'Consultez vos missions et livraisons.';
-    if (isAdminOrCoordinator) return 'Supervisez toute la plateforme.';
+    if (isAdminOrCoordinator) return 'Supervisez, gérez et validez toutes les activités.';
     return 'Accompagnement humain et coordination à domicile.';
   };
-
-  // =============================================
-  // RENDU
-  // =============================================
 
   if (isLoading) {
     return (
@@ -212,9 +230,7 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
-      {/* ========================================== */}
-      {/* HERO - Carte de bienvenue */}
-      {/* ========================================== */}
+      {/* HERO */}
       <section
         className="relative overflow-hidden rounded-2xl p-4 shadow-sm border"
         style={{
@@ -234,9 +250,7 @@ const DashboardPage = () => {
         </div>
       </section>
 
-      {/* ========================================== */}
-      {/* STATS COMPACTES - 4 cartes */}
-      {/* ========================================== */}
+      {/* STATS */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <StatCard
           label={isFamily ? 'Proches' : isAidant ? 'Personnes' : 'Bénéficiaires'}
@@ -268,9 +282,7 @@ const DashboardPage = () => {
         />
       </section>
 
-      {/* ========================================== */}
-      {/* TUILES STYLE UNPIX */}
-      {/* ========================================== */}
+      {/* TUILES */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold" style={{ color: colors.text }}>
