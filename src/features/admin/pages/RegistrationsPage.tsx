@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/RegistrationsPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,18 +11,11 @@ import {
   Search,
   Filter,
   RefreshCw,
-  UserCheck,
-  UserX,
-  Mail,
-  Phone,
-  Calendar,
-  FileText,
-  X,
-  AlertCircle,
-  Loader2,
   ThumbsUp,
   ThumbsDown,
+  Loader2,
 } from 'lucide-react';
+
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
@@ -78,6 +71,16 @@ const getStatusColor = (status: string): string => {
   return colors[status] || '#9E9E9E';
 };
 
+// ✅ Options de filtre
+const statusOptions = [
+  { value: 'all', label: 'Tous' },
+  { value: 'en_attente', label: '⏳ En attente' },
+  { value: 'validee', label: '✅ Validées' },
+  { value: 'refusee', label: '❌ Refusées' },
+  { value: 'info_requise', label: 'ℹ️ Info requise' },
+  { value: 'en_cours_de_traitement', label: '🔄 En cours' },
+];
+
 const RegistrationsPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
@@ -86,8 +89,7 @@ const RegistrationsPage = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
-  // ✅ États pour les modals
+
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
   const [processAction, setProcessAction] = useState<'validate' | 'reject' | null>(null);
@@ -96,7 +98,6 @@ const RegistrationsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Récupérer les inscriptions
   useEffect(() => {
     fetchRegistrations();
   }, []);
@@ -105,7 +106,6 @@ const RegistrationsPage = () => {
     try {
       setIsLoading(true);
 
-      // 1. Récupérer les inscriptions
       const { data: inscriptions, error: inscriptionsError } = await supabase
         .from('inscriptions')
         .select('*')
@@ -113,7 +113,6 @@ const RegistrationsPage = () => {
 
       if (inscriptionsError) throw inscriptionsError;
 
-      // 2. Récupérer les profils
       const userIds = [...new Set(inscriptions?.map(i => i.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
 
@@ -131,7 +130,6 @@ const RegistrationsPage = () => {
         }
       }
 
-      // 3. Récupérer les offres
       const offreIds = [...new Set(inscriptions?.map(i => i.offre_id).filter(Boolean))];
       let offreMap: Record<string, any> = {};
 
@@ -149,7 +147,6 @@ const RegistrationsPage = () => {
         }
       }
 
-      // 4. Fusionner les données
       const registrationsWithData = (inscriptions || []).map(reg => ({
         ...reg,
         user: reg.user_id ? profileMap[reg.user_id] || null : null,
@@ -157,7 +154,6 @@ const RegistrationsPage = () => {
       }));
 
       setRegistrations(registrationsWithData);
-
     } catch (error: any) {
       console.error('Fetch registrations error:', error);
       toast.error('Erreur lors du chargement des inscriptions');
@@ -166,7 +162,6 @@ const RegistrationsPage = () => {
     }
   };
 
-  // ✅ Filtrer les inscriptions
   const filteredRegistrations = registrations.filter(reg => {
     const matchesSearch =
       reg.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,7 +173,6 @@ const RegistrationsPage = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // ✅ Statistiques
   const stats = {
     total: registrations.length,
     pending: registrations.filter(r => r.status === 'en_attente').length,
@@ -186,7 +180,6 @@ const RegistrationsPage = () => {
     rejected: registrations.filter(r => r.status === 'refusee').length,
   };
 
-  // ✅ Ouvrir le modal de traitement
   const openProcessModal = (registration: Registration, action: 'validate' | 'reject') => {
     setSelectedRegistration(registration);
     setProcessAction(action);
@@ -194,309 +187,282 @@ const RegistrationsPage = () => {
     setShowProcessModal(true);
   };
 
-  // =============================================
-  // ✅ TRAITER UNE INSCRIPTION 
-  // =============================================
- 
-const handleProcess = async () => {
-  if (!selectedRegistration || !processAction) return;
+  const handleProcess = async () => {
+    if (!selectedRegistration || !processAction) return;
 
-  setIsProcessing(true);
-  try {
-    const status = processAction === 'validate' ? 'validee' : 'refusee';
-    
-    const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-'));
-    if (!storageKey) throw new Error('Session non trouvée');
-    
-    const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
-    const token = session?.access_token;
+    setIsProcessing(true);
+    try {
+      const status = processAction === 'validate' ? 'validee' : 'refusee';
 
-    if (!token) throw new Error('Token manquant');
+      const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-'));
+      if (!storageKey) throw new Error('Session non trouvée');
 
-    console.log('📤 [PROCESS] Appel backend:', selectedRegistration.id);
+      const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
+      const token = session?.access_token;
 
-    const response = await fetch('https://app-sante-plus-react.onrender.com/api/auth/admin/process-registration', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        registrationId: selectedRegistration.id,
-        status,
-        comments: processComment || null,
-      }),
-    });
+      if (!token) throw new Error('Token manquant');
 
-    const data = await response.json();
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/admin/process-registration`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          registrationId: selectedRegistration.id,
+          status,
+          comments: processComment || null,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Erreur lors du traitement');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors du traitement');
+      }
+
+      toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'}`);
+
+      if (data.email_sent === false) {
+        toast.error('⚠️ L\'email n\'a pas pu être envoyé');
+      }
+
+      setShowProcessModal(false);
+      setSelectedRegistration(null);
+      setProcessAction(null);
+      setProcessComment('');
+      fetchRegistrations();
+    } catch (error: any) {
+      console.error('❌ Erreur:', error);
+      toast.error(error.message || 'Erreur lors du traitement');
+    } finally {
+      setIsProcessing(false);
     }
+  };
 
-    console.log('✅ [PROCESS] Réponse:', data);
-
-    toast.success(data.message || `Inscription ${status === 'validee' ? 'validée' : 'refusée'}`);
-    
-    if (data.email_sent === false) {
-      toast.error('⚠️ L\'email n\'a pas pu être envoyé');
-    }
-    
-    setShowProcessModal(false);
-    setSelectedRegistration(null);
-    setProcessAction(null);
-    setProcessComment('');
-    fetchRegistrations();
-    
-  } catch (error: any) {
-    console.error('❌ Erreur:', error);
-    toast.error(error.message || 'Erreur lors du traitement');
-  } finally {
-    setIsProcessing(false);
-  }
-};
-
-  // ✅ Voir les détails
   const handleViewDetails = (registration: Registration) => {
     navigate(`/app/registrations/${registration.id}`);
   };
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 pb-8">
-      {/* Header */}
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: colors.text }}>
-              📋 Gestion des inscriptions
+    <div className="space-y-4 pb-24 sm:pb-10">
+      {/* HEADER */}
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              style={{
+                background: colors.primary + '12',
+                color: colors.primary,
+              }}
+            >
+              <Users size={12} />
+              Inscriptions
+            </div>
+
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+              📋 Inscriptions
             </h1>
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-              Gérez les demandes d'inscription des familles et des aidants
+
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {stats.total} inscription{stats.total > 1 ? 's' : ''} au total
             </p>
           </div>
+
           <button
             onClick={fetchRegistrations}
             disabled={isLoading}
-            className="px-4 py-2 rounded-xl font-medium transition hover:opacity-80 flex items-center gap-2"
+            className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
             style={{ background: colors.primary + '12', color: colors.primary }}
           >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-            Actualiser
+            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
         </div>
       </section>
 
-      {/* Statistiques */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
+      {/* STATS COMPACTES */}
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <CompactStat
+          icon={<Users size={14} />}
           label="Total"
           value={stats.total}
           color={colors.primary}
-          icon={<Users size={20} />}
         />
-        <StatCard
+        <CompactStat
+          icon={<Clock size={14} />}
           label="En attente"
           value={stats.pending}
           color="#FF9800"
-          icon={<Clock size={20} />}
         />
-        <StatCard
+        <CompactStat
+          icon={<CheckCircle size={14} />}
           label="Validées"
           value={stats.validated}
           color="#4CAF50"
-          icon={<CheckCircle size={20} />}
         />
-        <StatCard
+        <CompactStat
+          icon={<XCircle size={14} />}
           label="Refusées"
           value={stats.rejected}
           color="#F44336"
-          icon={<XCircle size={20} />}
         />
       </section>
 
-      {/* Filtres */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
+      {/* RECHERCHE + FILTRE */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
-              type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Rechercher par nom, email ou ID..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
+              placeholder="Rechercher par nom, email..."
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             />
           </div>
-          <div className="relative min-w-[180px]">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
+
+          <div className="relative min-w-[120px]">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm appearance-none"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             >
-              <option value="all">Tous les statuts</option>
-              <option value="en_attente">⏳ En attente</option>
-              <option value="validee">✅ Validées</option>
-              <option value="refusee">❌ Refusées</option>
-              <option value="info_requise">ℹ️ Info requise</option>
-              <option value="en_cours_de_traitement">🔄 En cours</option>
+              {statusOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
       </section>
 
-      {/* Liste des inscriptions */}
-      <section className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center">
-            <Loader2 size={40} className="animate-spin mx-auto" style={{ color: colors.primary }} />
-            <p className="mt-2 text-sm" style={{ color: colors.text + '60' }}>Chargement des inscriptions...</p>
-          </div>
-        ) : filteredRegistrations.length === 0 ? (
-          <div className="p-12 text-center">
-            <Users size={48} className="mx-auto mb-4 opacity-30" />
-            <h3 className="text-lg font-bold" style={{ color: colors.text }}>
-              Aucune inscription trouvée
-            </h3>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {searchTerm || statusFilter !== 'all'
-                ? 'Aucune inscription ne correspond à vos critères'
-                : 'Aucune inscription n\'a encore été enregistrée'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead style={{ background: colors.primary + '04' }}>
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Utilisateur
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Type
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Offre
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Statut
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y" style={{ borderColor: colors.border }}>
-                {filteredRegistrations.map((registration) => {
-                  const isPending = registration.status === 'en_attente';
-                  const statusColor = getStatusColor(registration.status);
+      {/* LISTE */}
+      {filteredRegistrations.length > 0 ? (
+        <section className="space-y-2">
+          {filteredRegistrations.map((registration) => {
+            const isPending = registration.status === 'en_attente';
+            const statusColor = getStatusColor(registration.status);
 
-                  return (
-                    <tr key={registration.id} className="hover:bg-gray-50 transition">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                            style={{ background: colors.primary }}
-                          >
-                            {registration.user?.full_name?.charAt(0) || 'U'}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm" style={{ color: colors.text }}>
-                              {registration.user?.full_name || 'Utilisateur inconnu'}
-                            </p>
-                            <p className="text-xs" style={{ color: colors.text + '40' }}>
-                              {registration.user?.email || 'Email inconnu'}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className="text-xs px-2 py-1 rounded-full"
-                          style={{
-                            background: registration.user?.role === 'aidant' ? '#2196F315' : '#4CAF5015',
-                            color: registration.user?.role === 'aidant' ? '#2196F3' : '#4CAF50',
-                          }}
+            return (
+              <div
+                key={registration.id}
+                className="bg-white rounded-xl p-3 shadow-sm border border-black/5 hover:shadow-md transition"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    style={{ background: colors.primary }}
+                  >
+                    {registration.user?.full_name?.charAt(0) || 'U'}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate" style={{ color: colors.text }}>
+                      {registration.user?.full_name || 'Utilisateur inconnu'}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs" style={{ color: colors.text + '50' }}>
+                      <span>{registration.user?.email || 'Email inconnu'}</span>
+                      <span>•</span>
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                        style={{
+                          background: statusColor + '15',
+                          color: statusColor,
+                        }}
+                      >
+                        {getStatusLabel(registration.status)}
+                      </span>
+                      <span>•</span>
+                      <span>{formatDate(registration.created_at)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="p-1.5 rounded-lg hover:bg-gray-100 transition"
+                      style={{ color: colors.primary }}
+                      onClick={() => handleViewDetails(registration)}
+                      title="Voir les détails"
+                    >
+                      <Eye size={16} />
+                    </button>
+
+                    {isPending && (
+                      <>
+                        <button
+                          className="p-1.5 rounded-lg hover:bg-green-50 transition"
+                          style={{ color: '#4CAF50' }}
+                          onClick={() => openProcessModal(registration, 'validate')}
+                          title="Valider"
                         >
-                          {registration.user?.role === 'aidant' ? '🦸 Aidant' : '👨‍👩‍👦 Famille'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs" style={{ color: colors.text + '60' }}>
-                          {registration.offre?.name || 'Aucune offre'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-medium" style={{ color: statusColor }}>
-                          {getStatusLabel(registration.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs" style={{ color: colors.text + '50' }}>
-                          {formatDate(registration.created_at)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* ✅ Bouton Détails */}
-                          <button
-                            className="p-2 rounded-lg hover:bg-gray-100 transition"
-                            style={{ color: colors.primary }}
-                            onClick={() => handleViewDetails(registration)}
-                            title="Voir les détails"
-                          >
-                            <Eye size={16} />
-                          </button>
-
-                          {/* ✅ Boutons Valider/Refuser (uniquement pour les inscriptions en attente) */}
-                          {isPending && (
-                            <>
-                              <button
-                                className="p-2 rounded-lg hover:bg-green-50 transition"
-                                style={{ color: '#4CAF50' }}
-                                onClick={() => openProcessModal(registration, 'validate')}
-                                title="Valider l'inscription"
-                              >
-                                <ThumbsUp size={16} />
-                              </button>
-                              <button
-                                className="p-2 rounded-lg hover:bg-red-50 transition"
-                                style={{ color: '#F44336' }}
-                                onClick={() => openProcessModal(registration, 'reject')}
-                                title="Refuser l'inscription"
-                              >
-                                <ThumbsDown size={16} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          <ThumbsUp size={16} />
+                        </button>
+                        <button
+                          className="p-1.5 rounded-lg hover:bg-red-50 transition"
+                          style={{ color: '#F44336' }}
+                          onClick={() => openProcessModal(registration, 'reject')}
+                          title="Refuser"
+                        >
+                          <ThumbsDown size={16} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      ) : (
+        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
+          <div
+            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
+            style={{ background: colors.primary + '12', color: colors.primary }}
+          >
+            <Users size={24} />
           </div>
-        )}
-      </section>
 
-      {/* ============================================ */}
+          <h3 className="text-base font-bold" style={{ color: colors.text }}>
+            {searchTerm || statusFilter !== 'all'
+              ? 'Aucune inscription trouvée'
+              : 'Aucune inscription'}
+          </h3>
+
+          <p className="text-xs mt-1 text-gray-500">
+            {searchTerm || statusFilter !== 'all'
+              ? 'Aucune inscription ne correspond à vos critères.'
+              : 'Aucune inscription n\'a encore été enregistrée.'}
+          </p>
+        </section>
+      )}
+
       {/* MODAL DE TRAITEMENT */}
-      {/* ============================================ */}
       {showProcessModal && selectedRegistration && processAction && (
         <Modal
           isOpen={true}
@@ -523,11 +489,10 @@ const handleProcess = async () => {
           }
         >
           <div className="space-y-4">
-            <p className="text-center" style={{ color: colors.text }}>
+            <p className="text-center text-sm" style={{ color: colors.text }}>
               {processAction === 'validate'
                 ? `Confirmez-vous la validation de l'inscription de ${selectedRegistration.user?.full_name || 'cet utilisateur'} ?`
-                : `Confirmez-vous le refus de l'inscription de ${selectedRegistration.user?.full_name || 'cet utilisateur'} ?`
-              }
+                : `Confirmez-vous le refus de l'inscription de ${selectedRegistration.user?.full_name || 'cet utilisateur'} ?`}
             </p>
 
             <div>
@@ -538,29 +503,25 @@ const handleProcess = async () => {
                 value={processComment}
                 onChange={(e) => setProcessComment(e.target.value)}
                 placeholder="Ajouter un commentaire..."
-                className="w-full px-4 py-3 rounded-xl border outline-none text-sm resize-none"
+                className="w-full px-3 py-2 text-sm rounded-xl border outline-none resize-none"
                 style={{
                   borderColor: colors.border,
                   background: 'var(--color-background)',
                   color: colors.text,
                 }}
-                rows={3}
+                rows={2}
               />
             </div>
 
             {processAction === 'validate' && (
-              <div className="p-3 rounded-xl" style={{ background: '#4CAF5010', border: '1px solid #4CAF5020' }}>
-                <p className="text-sm text-green-600">
-                  ✅ L'utilisateur recevra une notification de validation par email.
-                </p>
+              <div className="p-2 rounded-xl text-center text-xs text-green-600" style={{ background: '#4CAF5010' }}>
+                ✅ L'utilisateur recevra une notification de validation par email.
               </div>
             )}
 
             {processAction === 'reject' && (
-              <div className="p-3 rounded-xl" style={{ background: '#F4433610', border: '1px solid #F4433620' }}>
-                <p className="text-sm text-red-600">
-                  ⚠️ L'utilisateur recevra une notification de refus par email.
-                </p>
+              <div className="p-2 rounded-xl text-center text-xs text-red-600" style={{ background: '#F4433610' }}>
+                ⚠️ L'utilisateur recevra une notification de refus par email.
               </div>
             )}
           </div>
@@ -571,27 +532,31 @@ const handleProcess = async () => {
 };
 
 // =============================================
-// STAT CARD
+// COMPACT STAT
 // =============================================
 
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  color: string;
+interface CompactStatProps {
   icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
 }
 
-const StatCard = ({ label, value, color, icon }: StatCardProps) => {
+const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
         <div>
-          <p className="text-2xl font-black" style={{ color }}>{value}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400">
+            {label}
+          </p>
+          <p className="text-lg font-bold mt-0.5" style={{ color }}>
+            {value}
+          </p>
         </div>
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: color + '15', color }}
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{ background: color + '14', color }}
         >
           {icon}
         </div>
