@@ -223,7 +223,7 @@ const RegisterPage = () => {
         { number: 2, label: 'Service' },
         { number: 3, label: 'Identité' },
         { number: 4, label: 'Proche' },
-        { number: 5, label: 'Fin' },
+        { number: 5, label: 'Validation' },
       ];
     }
     if (isAidant) {
@@ -232,13 +232,13 @@ const RegisterPage = () => {
         { number: 2, label: 'Identité' },
         { number: 3, label: 'Profil' },
         { number: 4, label: 'Zone' },
-        { number: 5, label: 'Fin' },
+        { number: 5, label: 'Validation' },
       ];
     }
     return [
       { number: 1, label: 'Choix' },
       { number: 2, label: 'Identité' },
-      { number: 3, label: 'Fin' },
+      { number: 3, label: 'Validation' },
     ];
   }, [isAidant, isFamilyWithPatient]);
 
@@ -328,8 +328,19 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (step !== totalSteps) { goNext(); return; }
-    if (!acceptCGU) { toast.error('Veuillez accepter les Conditions Générales d\'Utilisation'); return; }
+
+    // ✅ Si on n'est pas à la dernière étape, on avance
+    if (step !== totalSteps) {
+      goNext();
+      return;
+    }
+
+    // ✅ Si on est à la dernière étape, on vérifie les CGU avant de soumettre
+    if (!acceptCGU) {
+      toast.error('Veuillez accepter les Conditions Générales d\'Utilisation');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const registerData: any = {
@@ -424,15 +435,151 @@ const RegisterPage = () => {
   const primaryColor = branding.primary;
   const isMaman = activeBranding === 'maman';
 
+  // ============================================
+  // AFFICHAGE DE L'ÉTAPE DE VALIDATION
+  // ============================================
+  const renderValidationStep = () => {
+    return (
+      <div className="space-y-4 animate-fadeIn">
+        <div className="space-y-0.5">
+          <h3 className="text-base font-bold" style={{ color: branding.text }}>
+            {isAidant ? 'Vérifier ma candidature' : 'Vérifier mon inscription'}
+          </h3>
+          <p className="text-xs" style={{ color: branding.textLight }}>
+            Relisez attentivement vos informations avant de valider.
+          </p>
+        </div>
+
+        <div className="rounded-2xl p-4 border space-y-2.5" style={{ background: `${branding.primary}02`, borderColor: `${branding.primary}12` }}>
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+              <User size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Nom complet</p>
+              <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.full_name || 'Non renseigné'}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+              <Mail size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">E-mail</p>
+              <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.email || 'Non renseigné'}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+              <Phone size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Téléphone</p>
+              <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.phone || 'Non renseigné'}</p>
+            </div>
+          </div>
+
+          {isAidant ? (
+            <>
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+                  <Briefcase size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Type</p>
+                  <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>Candidature aidant</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+                  <FileText size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Spécialités</p>
+                  <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{aidantData.specialties.map((id: string) => SPECIALTIES.find((item) => item.id === id)?.label || id).join(', ') || 'Non renseigné'}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+                  <MapPin size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Zones d'intervention</p>
+                  <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{aidantData.zones.length ? aidantData.zones.join(', ') : 'Non renseigné'}</p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-2.5">
+                <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+                  <Home size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Type de compte</p>
+                  <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{isPersonal ? 'Compte personnel sans patient' : 'Accompagnement d\'un proche'}</p>
+                </div>
+              </div>
+              {!isPersonal && (
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+                    <Baby size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Service</p>
+                    <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{serviceLabel}</p>
+                  </div>
+                </div>
+              )}
+              {isFamilyWithPatient && formData.patientData.first_name && (
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+                    <Users size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Proche</p>
+                    <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>
+                      {formData.patientData.first_name} {formData.patientData.last_name}
+                      {formData.patientData.address && ` • ${formData.patientData.address}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="flex items-start gap-2.5 pt-2 border-t" style={{ borderColor: branding.border }}>
+            <div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
+              <ShieldCheck size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Statut du compte</p>
+              <p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.primary }}>
+                ⏳ En attente de validation
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                Toutes les inscriptions font l'objet d'une validation manuelle par l'équipe Santé Plus.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {isFamilyWithPatient && renderOfferPreview()}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-0 sm:p-6 lg:p-8" style={{ background: branding.background }}>
       <div className={`w-full max-w-5xl transition-all duration-500 ${isMounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
         
-        {/* Container global : Hauteur FIXE sur Desktop pour éviter tout sursaut de mise en page */}
+        {/* Container global */}
         <div className="bg-white rounded-none sm:rounded-3xl shadow-none sm:shadow-sm border-0 sm:border overflow-hidden min-h-screen sm:min-h-0 sm:h-[600px] w-full" style={{ borderColor: branding.border }}>
           <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr] h-full">
 
-            {/* Colonne latérale (Masquée sur mobile, hauteur totale fixe sur desktop) */}
+            {/* Colonne latérale */}
             <div className="hidden lg:flex flex-col justify-between p-10 h-full" style={{ background: branding.gradient }}>
               <div>
                 <div className="flex items-center gap-3 mb-8">
@@ -458,31 +605,35 @@ const RegisterPage = () => {
               </div>
             </div>
 
-            {/* Formulaire Principal (Plein écran sur mobile, hauteur 100% sur desktop) */}
+            {/* Formulaire Principal */}
             <main className="px-6 py-6 sm:p-6 lg:p-8 flex flex-col justify-between min-h-screen sm:min-h-0 sm:h-full">
 
-              {/* Logo Mobile épuré et fondu */}
+              {/* Logo Mobile */}
               <div className="lg:hidden flex justify-center mb-6">
                 <div className="w-12 h-12 rounded-2xl border-none flex items-center justify-center" style={{ background: `${branding.primary}08` }}>
                   <Logo size="sm" showText={false} whiteBg={false} className="justify-center" role={getLogoRole()} />
                 </div>
               </div>
 
-              {/* En-tête de page resserré */}
+              {/* En-tête */}
               <div className="mb-4 sm:mb-5">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: branding.text }}>
                       {isMaman ? '🌸 Créer mon espace maman' : isAidant ? '🦸 Rejoindre les aidants' : 'Créer un compte'}
                     </h2>
-                    <p className="text-xs mt-0.5" style={{ color: branding.textLight }}>{step === 1 ? 'Choisissez d\'abord votre besoin' : pageSubtitle}</p>
+                    <p className="text-xs mt-0.5" style={{ color: branding.textLight }}>
+                      {step === 1 ? 'Choisissez d\'abord votre besoin' : 
+                       step === totalSteps ? 'Vérifiez vos informations avant validation' : 
+                       pageSubtitle}
+                    </p>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
                     {step}/{totalSteps}
                   </span>
                 </div>
 
-                {/* Barre de progression resserrée */}
+                {/* Barre de progression */}
                 <div className="mt-4">
                   <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full transition-all duration-300 rounded-full" style={{ width: `${(step / totalSteps) * 100}%`, background: branding.primary }} />
@@ -497,14 +648,8 @@ const RegisterPage = () => {
                 </div>
               </div>
 
-              {/* Contenu dynamique des étapes */}
+              {/* Contenu dynamique */}
               <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between min-h-0">
-                
-                {/* 
-                  Cette div contient la liste des champs. 
-                  Grâce à 'flex-1 min-h-0 overflow-y-auto', elle s'adapte automatiquement à la hauteur disponible 
-                  et affiche un défilement propre si la liste de champs s'allonge, SANS jamais modifier la taille de la carte.
-                */}
                 <div 
                   className="flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2 space-y-4"
                   style={{
@@ -569,7 +714,7 @@ const RegisterPage = () => {
                     </div>
                   )}
 
-                  {/* Synthèse Intermédiaire */}
+                  {/* Synthèse Intermédiaire (Personal) */}
                   {step === 3 && isPersonal && (
                     <div className="space-y-3 animate-fadeIn">
                       <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>Dernière vérification</h3><p className="text-xs" style={{ color: branding.textLight }}>Relisez vos informations avant de valider.</p></div>
@@ -623,56 +768,82 @@ const RegisterPage = () => {
                     </div>
                   )}
 
-                  {/* Synthèse finale avant soumission */}
-                  {step === totalSteps && !isPersonal && (
-                    <div className="space-y-3 animate-fadeIn">
-                      <div className="space-y-0.5"><h3 className="text-base font-bold" style={{ color: branding.text }}>{isAidant ? 'Vérifier ma candidature' : 'Vérifier mon inscription'}</h3><p className="text-xs" style={{ color: branding.textLight }}>Veuillez confirmer l'exactitude des données saisies.</p></div>
-                      <div className="rounded-2xl p-4 border space-y-2.5" style={{ background: `${branding.primary}02`, borderColor: `${branding.primary}12` }}>
-                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><User size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Nom complet</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.full_name || 'Non renseigné'}</p></div></div>
-                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Mail size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">E-mail</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.email || 'Non renseigné'}</p></div></div>
-                        <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Phone size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Téléphone</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{formData.phone || 'Non renseigné'}</p></div></div>
-                        {isAidant ? (
-                          <>
-                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Briefcase size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Type</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>Candidature aidant</p></div></div>
-                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><FileText size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Spécialités</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{aidantData.specialties.map((id: string) => SPECIALTIES.find((item) => item.id === id)?.label || id).join(', ') || 'Non renseigné'}</p></div></div>
-                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><MapPin size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Zones d'intervention</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{aidantData.zones.length ? aidantData.zones.join(', ') : 'Non renseigné'}</p></div></div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Home size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Type de compte</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{isPersonal ? 'Compte personnel sans patient' : 'Accompagnement d\'un proche'}</p></div></div>
-                            {!isPersonal && <div className="flex items-start gap-2.5"><div className="w-8 h-8 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}><Baby size={16} /></div><div><p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Service</p><p className="text-xs font-semibold break-words mt-0.5" style={{ color: branding.text }}>{serviceLabel}</p></div></div>}
-                          </>
-                        )}
-                        <p className="text-[10px] text-gray-400 pt-2 border-t border-black/5">Toutes les inscriptions font l'objet d'une validation manuelle par l'équipe Santé Plus.</p>
-                      </div>
-                      {isFamilyWithPatient && renderOfferPreview()}
-                    </div>
-                  )}
+                  {/* ✅ ÉTAPE FINALE : VALIDATION (MODIFIÉE) */}
+                  {step === totalSteps && renderValidationStep()}
                 </div>
 
-                {/* Mentions Légales & CGU (Reste FIXE en bas) */}
+                {/* ============================================
+                    MENTIONS LÉGALES & CGU (EN BAS)
+                    ============================================ */}
                 <div className="space-y-2 mt-4 pt-4 border-t" style={{ borderColor: branding.border }}>
                   <div className="flex flex-wrap gap-4 text-xs">
                     <button type="button" onClick={() => setShowFAQ(true)} className="flex items-center gap-1.5 font-medium hover:underline opacity-80 hover:opacity-100" style={{ color: branding.primary }}><HelpCircle size={14} /> Consulter la FAQ</button>
                     <button type="button" onClick={() => setShowCGU(true)} className="flex items-center gap-1.5 font-medium hover:underline opacity-80 hover:opacity-100" style={{ color: branding.primary }}><Scale size={14} /> Lire les CGU</button>
                   </div>
                   <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input type="checkbox" checked={acceptCGU} onChange={(e) => setAcceptCGU(e.target.checked)} className="w-4 h-4 mt-0.5 rounded border-gray-300 shrink-0" style={{ accentColor: branding.primary }} />
-                    <span className="text-xs leading-relaxed" style={{ color: branding.textLight }}>J'accepte sans réserve les <button type="button" onClick={() => setShowCGU(true)} className="font-bold hover:underline" style={{ color: branding.primary }}>Conditions Générales d'Utilisation</button> de Santé Plus.</span>
+                    <input
+                      type="checkbox"
+                      checked={acceptCGU}
+                      onChange={(e) => setAcceptCGU(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 rounded border-gray-300 shrink-0"
+                      style={{ accentColor: branding.primary }}
+                    />
+                    <span className="text-xs leading-relaxed" style={{ color: branding.textLight }}>
+                      J'accepte sans réserve les <button type="button" onClick={() => setShowCGU(true)} className="font-bold hover:underline" style={{ color: branding.primary }}>Conditions Générales d'Utilisation</button> de Santé Plus.
+                    </span>
                   </label>
-                  {!acceptCGU && (step === totalSteps) && <p className="text-[11px] font-semibold text-rose-500">⚠️ L'acceptation des CGU est requise pour soumettre votre dossier.</p>}
+                  {!acceptCGU && step === totalSteps && (
+                    <p className="text-[11px] font-semibold text-red-500">
+                      ⚠️ L'acceptation des CGU est requise pour soumettre votre dossier.
+                    </p>
+                  )}
                 </div>
 
-                {/* Actions de navigation (Reste FIXE en bas) */}
+                {/* ============================================
+                    BOUTONS DE NAVIGATION (MODIFIÉS)
+                    ============================================ */}
                 <div className="flex gap-3 mt-4">
                   {step > 1 && (
-                    <button type="button" onClick={goBack} className="flex-1 max-w-[150px] py-2.5 rounded-2xl text-xs font-bold border transition-colors hover:bg-gray-50 flex items-center justify-center gap-1.5" style={{ borderColor: branding.border, color: branding.text }}>
+                    <button
+                      type="button"
+                      onClick={goBack}
+                      className="flex-1 max-w-[150px] py-2.5 rounded-2xl text-xs font-bold border transition-colors hover:bg-gray-50 flex items-center justify-center gap-1.5"
+                      style={{ borderColor: branding.border, color: branding.text }}
+                    >
                       <ArrowLeft size={14} /> Retour
                     </button>
                   )}
-                  {step !== 1 && !(step === 2 && isFamilyWithPatient) && (
-                    <button type={step === totalSteps ? 'submit' : 'button'} onClick={step === totalSteps ? undefined : goNext} disabled={isLoading} className={`flex-1 py-2.5 rounded-2xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm`} style={{ background: step === totalSteps && !canSubmit() ? '#9CA3AF' : branding.primary }}>
-                      {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>{step === totalSteps ? (isAidant ? 'Soumettre ma candidature' : 'Créer mon compte') : 'Continuer'} <ArrowRight size={14} /></>}
+
+                  {/* ✅ Bouton "Continuer" ou "Créer mon compte" selon l'étape */}
+                  {step !== totalSteps ? (
+                    // ✅ BOUTON CONTINUER (étapes 1 à 4)
+                    <button
+                      type="button"
+                      onClick={goNext}
+                      className="flex-1 py-2.5 rounded-2xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
+                      style={{ background: branding.primary }}
+                    >
+                      Continuer <ArrowRight size={14} />
+                    </button>
+                  ) : (
+                    // ✅ BOUTON CRÉER MON COMPTE (étape finale)
+                    <button
+                      type="submit"
+                      disabled={!canSubmit() || isLoading}
+                      className="flex-1 py-2.5 rounded-2xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ background: canSubmit() ? branding.primary : '#9CA3AF' }}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Envoi en cours...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={14} />
+                          Créer mon compte
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
