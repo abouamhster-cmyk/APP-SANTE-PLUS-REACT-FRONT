@@ -452,7 +452,7 @@ const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: O
 };
 
 // =============================================
-// OFFER FORM MODAL - CORRIGÉ
+// OFFER FORM MODAL - PRODUCTION READY
 // =============================================
 
 interface OfferFormModalProps {
@@ -464,8 +464,8 @@ interface OfferFormModalProps {
 
 const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
-  
-  // ✅ Valeurs par défaut avec type non undefined
+  const FORM_ID = 'offer-form';
+
   const [formData, setFormData] = useState({
     name: offer?.name || '',
     category: (offer?.category || 'senior') as Offer['category'],
@@ -482,14 +482,6 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
     total_visits: offer?.total_visits !== null && offer?.total_visits !== undefined ? String(offer.total_visits) : '',
     total_orders: offer?.total_orders !== null && offer?.total_orders !== undefined ? String(offer.total_orders) : '',
   });
-
-  // ✅ Fonction wrapper pour ModalActions (sans paramètre)
-  const handleConfirm = () => {
-    // Créer un événement factice pour appeler handleSubmit
-    const fakeEvent = new Event('submit') as any;
-    fakeEvent.preventDefault = () => {};
-    handleSubmit(fakeEvent);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -549,13 +541,13 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
       actions={
         <ModalActions
           onCancel={onClose}
-          onConfirm={handleConfirm}
           confirmLabel={offer ? 'Mettre à jour' : 'Créer'}
           isLoading={isLoading}
+          formId={FORM_ID} // ✅ Le bouton submit le formulaire
         />
       }
     >
-      <form id="offer-form" className="space-y-3" onSubmit={handleSubmit}>
+      <form id={FORM_ID} className="space-y-3" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
