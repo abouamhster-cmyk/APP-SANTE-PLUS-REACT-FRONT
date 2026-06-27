@@ -1,4 +1,5 @@
 // 📁 src/features/admin/pages/AdminSubscriptionsPage.tsx
+// ✅ Version corrigée - StatCardProps définie
 
 import { useEffect, useState } from 'react';
 import {
@@ -55,6 +56,14 @@ interface Subscription {
   remaining_orders: number;
   created_at: string;
   updated_at: string;
+}
+
+// ✅ Interface StatCardProps
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  color: string;
+  icon: React.ReactNode;
 }
 
 const getStatusLabel = (status: string): string => {
@@ -333,6 +342,10 @@ const AdminSubscriptionsPage = () => {
   );
 };
 
+// =============================================
+// SUBSCRIPTION CARD
+// =============================================
+
 const SubscriptionCard = ({
   subscription,
   colors,
@@ -395,6 +408,10 @@ const SubscriptionCard = ({
   );
 };
 
+// =============================================
+// SUBSCRIPTION DETAILS MODAL
+// =============================================
+
 const SubscriptionDetailsModal = ({ subscription, onClose, colors }: { subscription: Subscription; onClose: () => void; colors: any }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
     <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-xl">
@@ -420,6 +437,10 @@ const SubscriptionDetailsModal = ({ subscription, onClose, colors }: { subscript
     </div>
   </div>
 );
+
+// =============================================
+// STAT CARD - Avec StatCardProps
+// =============================================
 
 const StatCard = ({ label, value, color, icon }: StatCardProps) => (
   <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
