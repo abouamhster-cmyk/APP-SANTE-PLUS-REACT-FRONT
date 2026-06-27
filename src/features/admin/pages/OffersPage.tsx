@@ -1,32 +1,29 @@
 // 📁 src/features/admin/pages/OffersPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import {
   Package,
   Plus,
   Search,
   Filter,
   RefreshCw,
-  Eye,
   Edit,
   Trash2,
-  X,
   CheckCircle,
   XCircle,
-  Clock,
-  Award,
   Users,
   Baby,
   Star,
-  Zap,
   DollarSign,
   Calendar,
   Hash,
+  X,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate, formatCurrency } from '@/utils/helpers';
+import { Modal, ModalActions, ModalWithForm } from '@/components/ui';
 import toast from 'react-hot-toast';
 
 interface Offer {
@@ -47,11 +44,11 @@ interface Offer {
   updated_at: string;
 }
 
-// ✅ Fonctions en dehors du composant
+// ✅ Fonctions
 const getCategoryLabel = (category: string): string => {
   const labels: Record<string, string> = {
     senior: '👴 Senior',
-    maman_bebe: '👶 Maman & Bébé',
+    maman_bebe: '👶 Maman',
     pack_confort: '⭐ Pack Confort',
   };
   return labels[category] || category;
@@ -78,13 +75,21 @@ const getTypeLabel = (type: string): string => {
   return labels[type] || type;
 };
 
-const getStatusLabel = (isActive: boolean): string => {
-  return isActive ? '🟢 Actif' : '🔴 Inactif';
-};
+const categoryOptions = [
+  { value: 'all', label: 'Toutes' },
+  { value: 'senior', label: '👴 Senior' },
+  { value: 'maman_bebe', label: '👶 Maman' },
+  { value: 'pack_confort', label: '⭐ Pack Confort' },
+];
 
-const getStatusColor = (isActive: boolean): string => {
-  return isActive ? '#4CAF50' : '#F44336';
-};
+const typeOptions = [
+  { value: 'ponctuelle', label: '⚡ Ponctuelle' },
+  { value: 'mensuelle', label: '📅 Mensuelle' },
+  { value: 'trimestrielle', label: '📅 Trimestrielle' },
+  { value: 'semestrielle', label: '📅 Semestrielle' },
+  { value: 'annuelle', label: '📅 Annuelle' },
+  { value: 'sur_devis', label: '📝 Sur devis' },
+];
 
 const OffersPage = () => {
   const { profile, role } = useAuthStore();
@@ -113,7 +118,6 @@ const OffersPage = () => {
         .order('display_order', { ascending: true });
 
       if (error) throw error;
-
       setOffers(data || []);
     } catch (error: any) {
       console.error('Fetch offers error:', error);
@@ -178,142 +182,119 @@ const OffersPage = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-40 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 pb-8">
-      {/* Header */}
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: colors.text }}>
-              📦 Gestion des offres
+    <div className="space-y-4 pb-24 sm:pb-10">
+      {/* HEADER */}
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              style={{
+                background: colors.primary + '12',
+                color: colors.primary,
+              }}
+            >
+              <Package size={12} />
+              Offres
+            </div>
+
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+              📦 Offres
             </h1>
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-              Gérez les offres et abonnements de la plateforme
+
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {stats.total} offre{stats.total > 1 ? 's' : ''} au total
             </p>
           </div>
-          <div className="flex gap-3">
+
+          <div className="flex gap-2">
             <button
               onClick={fetchOffers}
               disabled={isLoading}
-              className="px-4 py-2 rounded-xl font-medium transition hover:opacity-80 flex items-center gap-2"
+              className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
               style={{ background: colors.primary + '12', color: colors.primary }}
             >
-              <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
-              Actualiser
+              <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center gap-2"
+              className="px-3 py-2 rounded-xl text-white font-bold text-sm flex items-center gap-1.5"
               style={{ background: colors.primary }}
             >
-              <Plus size={18} />
-              Nouvelle offre
+              <Plus size={16} />
+              <span className="hidden sm:inline">Nouvelle</span>
             </button>
           </div>
         </div>
       </section>
 
-      {/* Statistiques */}
-      <section className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <StatCard
-          label="Total"
-          value={stats.total}
-          color={colors.primary}
-          icon={<Package size={20} />}
-        />
-        <StatCard
-          label="Actives"
-          value={stats.active}
-          color="#4CAF50"
-          icon={<CheckCircle size={20} />}
-        />
-        <StatCard
-          label="Inactives"
-          value={stats.inactive}
-          color="#F44336"
-          icon={<XCircle size={20} />}
-        />
-        <StatCard
-          label="Senior"
-          value={stats.senior}
-          color="#4CAF50"
-          icon={<Users size={20} />}
-        />
-        <StatCard
-          label="Maman & Bébé"
-          value={stats.maman}
-          color="#E8B4B8"
-          icon={<Baby size={20} />}
-        />
-        <StatCard
-          label="Pack Confort"
-          value={stats.pack}
-          color="#C9A84C"
-          icon={<Star size={20} />}
-        />
+      {/* STATS COMPACTES */}
+      <section className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+        <CompactStat label="Total" value={stats.total} color={colors.primary} icon={<Package size={14} />} />
+        <CompactStat label="Actives" value={stats.active} color="#4CAF50" icon={<CheckCircle size={14} />} />
+        <CompactStat label="Inactives" value={stats.inactive} color="#F44336" icon={<XCircle size={14} />} />
+        <CompactStat label="Senior" value={stats.senior} color="#4CAF50" icon={<Users size={14} />} />
+        <CompactStat label="Maman" value={stats.maman} color="#E8B4B8" icon={<Baby size={14} />} />
+        <CompactStat label="Pack" value={stats.pack} color="#C9A84C" icon={<Star size={14} />} />
       </section>
 
-      {/* Filtres */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
+      {/* RECHERCHE + FILTRE */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
-              type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher une offre..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             />
           </div>
-          <div className="relative min-w-[180px]">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
+
+          <div className="relative min-w-[120px]">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm appearance-none"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             >
-              <option value="all">Toutes les catégories</option>
-              <option value="senior">👴 Senior</option>
-              <option value="maman_bebe">👶 Maman & Bébé</option>
-              <option value="pack_confort">⭐ Pack Confort</option>
+              {categoryOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
       </section>
 
-      {/* Liste des offres */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {isLoading ? (
-          <div className="col-span-full p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-t-transparent" style={{ borderColor: colors.primary }} />
-            <p className="mt-2 text-sm" style={{ color: colors.text + '60' }}>Chargement des offres...</p>
-          </div>
-        ) : filteredOffers.length === 0 ? (
-          <div className="col-span-full bg-white rounded-2xl p-12 text-center shadow-sm border border-black/5">
-            <Package size={48} className="mx-auto mb-4 opacity-30" />
-            <h3 className="text-lg font-bold" style={{ color: colors.text }}>
-              Aucune offre trouvée
-            </h3>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {searchTerm || categoryFilter !== 'all'
-                ? 'Aucune offre ne correspond à vos critères'
-                : 'Aucune offre n\'a encore été créée'}
-            </p>
-          </div>
-        ) : (
-          filteredOffers.map((offer) => (
-            <OfferCard
+      {/* LISTE */}
+      {filteredOffers.length > 0 ? (
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filteredOffers.map((offer) => (
+            <OfferCardCompact
               key={offer.id}
               offer={offer}
               colors={colors}
@@ -324,11 +305,23 @@ const OffersPage = () => {
                 setShowEditModal(true);
               }}
             />
-          ))
-        )}
-      </section>
+          ))}
+        </section>
+      ) : (
+        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
+          <Package size={32} className="mx-auto mb-3 opacity-30" />
+          <h3 className="text-sm font-bold" style={{ color: colors.text }}>
+            {searchTerm || categoryFilter !== 'all' ? 'Aucune offre trouvée' : 'Aucune offre'}
+          </h3>
+          <p className="text-xs text-gray-400 mt-1">
+            {searchTerm || categoryFilter !== 'all'
+              ? 'Aucune offre ne correspond à vos critères.'
+              : 'Créez votre première offre.'}
+          </p>
+        </section>
+      )}
 
-      {/* Modals */}
+      {/* MODALS */}
       {showCreateModal && (
         <OfferFormModal
           onClose={() => setShowCreateModal(false)}
@@ -353,40 +346,32 @@ const OffersPage = () => {
 };
 
 // =============================================
-// STAT CARD
+// COMPACT STAT
 // =============================================
 
-interface StatCardProps {
+interface CompactStatProps {
   label: string;
-  value: string | number;
+  value: number;
   color: string;
   icon: React.ReactNode;
 }
 
-const StatCard = ({ label, value, color, icon }: StatCardProps) => {
+const CompactStat = ({ label, value, color, icon }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-2xl font-black" style={{ color }}>{value}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-        </div>
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: color + '15', color }}
-        >
-          {icon}
-        </div>
+    <div className="bg-white rounded-xl p-2 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[9px] font-medium text-gray-400">{label}</p>
+        <p className="text-base font-bold" style={{ color }}>{value}</p>
       </div>
     </div>
   );
 };
 
 // =============================================
-// OFFER CARD
+// OFFER CARD COMPACT
 // =============================================
 
-interface OfferCardProps {
+interface OfferCardCompactProps {
   offer: Offer;
   colors: any;
   onToggleStatus: (id: string, currentStatus: boolean) => void;
@@ -394,129 +379,93 @@ interface OfferCardProps {
   onEdit: () => void;
 }
 
-const OfferCard = ({ offer, colors, onToggleStatus, onDelete, onEdit }: OfferCardProps) => {
+const OfferCardCompact = ({ offer, colors, onToggleStatus, onDelete, onEdit }: OfferCardCompactProps) => {
   const categoryColor = getCategoryColor(offer.category);
   const isActive = offer.is_active;
 
   return (
     <div
-      className="bg-white rounded-2xl p-5 border transition hover:shadow-md"
+      className="bg-white rounded-xl p-3 shadow-sm border transition hover:shadow-md"
       style={{ borderColor: isActive ? colors.primary + '30' : colors.border }}
     >
-      {/* Badge */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span
-            className="px-2.5 py-1 rounded-full text-xs font-bold"
+            className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
             style={{ background: categoryColor + '15', color: categoryColor }}
           >
             {getCategoryLabel(offer.category)}
           </span>
           {offer.badge && (
             <span
-              className="px-2.5 py-1 rounded-full text-xs font-bold"
+              className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
               style={{ background: '#FFD70015', color: '#FFD700' }}
             >
               {offer.badge}
             </span>
           )}
           <span
-            className="px-2.5 py-1 rounded-full text-xs font-bold"
+            className="px-1.5 py-0.5 rounded-full text-[9px] font-bold"
             style={{
               background: isActive ? '#4CAF5015' : '#F4433615',
               color: isActive ? '#4CAF50' : '#F44336',
             }}
           >
-            {getStatusLabel(isActive)}
+            {isActive ? '✅' : '❌'}
           </span>
         </div>
-        <span className="text-xs" style={{ color: colors.text + '40' }}>
-          #{offer.display_order}
-        </span>
+        <span className="text-[9px] text-gray-400">#{offer.display_order}</span>
       </div>
 
-      {/* Nom et prix */}
-      <h3 className="text-lg font-bold mt-3" style={{ color: colors.text }}>
+      <h3 className="text-sm font-bold mt-1" style={{ color: colors.text }}>
         {offer.name}
       </h3>
-      <div className="flex items-center gap-2 mt-1">
-        <span className="text-2xl font-black" style={{ color: colors.primary }}>
+
+      <div className="flex items-center gap-1">
+        <span className="text-base font-bold" style={{ color: colors.primary }}>
           {offer.price ? formatCurrency(offer.price) : 'Sur devis'}
         </span>
-        <span className="text-sm" style={{ color: colors.text + '50' }}>
-          {getTypeLabel(offer.type)}
-        </span>
+        <span className="text-[9px] text-gray-400">{getTypeLabel(offer.type)}</span>
       </div>
 
-      {/* Description */}
-      {offer.description && (
-        <p className="text-sm mt-2 line-clamp-2" style={{ color: colors.text + '60' }}>
-          {offer.description}
-        </p>
-      )}
-
-      {/* Features */}
       {offer.features && offer.features.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {offer.features.slice(0, 3).map((feature, index) => (
+        <div className="mt-1 flex flex-wrap gap-0.5">
+          {offer.features.slice(0, 2).map((feature, index) => (
             <span
               key={index}
-              className="text-[10px] px-2 py-0.5 rounded-full"
+              className="text-[8px] px-1.5 py-0.5 rounded-full"
               style={{ background: colors.primary + '08', color: colors.text + '60' }}
             >
               {feature}
             </span>
           ))}
-          {offer.features.length > 3 && (
-            <span className="text-[10px] text-gray-400">
-              +{offer.features.length - 3}
-            </span>
+          {offer.features.length > 2 && (
+            <span className="text-[8px] text-gray-400">+{offer.features.length - 2}</span>
           )}
         </div>
       )}
 
-      {/* Infos supplémentaires */}
-      <div className="mt-3 flex flex-wrap gap-3 text-xs" style={{ color: colors.text + '40' }}>
-        {offer.visits_per_week && (
-          <span className="flex items-center gap-1">
-            <Calendar size={12} />
-            {offer.visits_per_week * 4} visites/mois
-          </span>
-        )}
-        {offer.duration_days && (
-          <span className="flex items-center gap-1">
-            <Hash size={12} />
-            {offer.duration_days} jours
-          </span>
-        )}
-        <span className="flex items-center gap-1">
-          <Clock size={12} />
-          {formatDate(offer.created_at)}
-        </span>
-      </div>
-
-      {/* Actions */}
-      <div className="mt-4 flex items-center justify-end gap-2 pt-3 border-t" style={{ borderColor: colors.border }}>
+      <div className="mt-2 flex items-center justify-end gap-1 pt-2 border-t" style={{ borderColor: colors.border }}>
         <button
           onClick={onEdit}
-          className="p-2 rounded-lg hover:bg-gray-100 transition"
+          className="p-1.5 rounded-lg hover:bg-gray-100 transition"
           style={{ color: '#2196F3' }}
         >
-          <Edit size={16} />
+          <Edit size={14} />
         </button>
         <button
           onClick={() => onToggleStatus(offer.id, isActive)}
-          className="p-2 rounded-lg hover:bg-gray-100 transition"
+          className="p-1.5 rounded-lg hover:bg-gray-100 transition"
           style={{ color: isActive ? '#F44336' : '#4CAF50' }}
         >
-          {isActive ? <XCircle size={16} /> : <CheckCircle size={16} />}
+          {isActive ? <XCircle size={14} /> : <CheckCircle size={14} />}
         </button>
         <button
           onClick={() => onDelete(offer.id)}
-          className="p-2 rounded-lg hover:bg-red-50 transition"
+          className="p-1.5 rounded-lg hover:bg-red-50 transition"
           style={{ color: '#F44336' }}
         >
-          <Trash2 size={16} />
+          <Trash2 size={14} />
         </button>
       </div>
     </div>
@@ -599,277 +548,187 @@ const OfferFormModal = ({ offer, onClose, onSuccess, colors }: OfferFormModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.border }}>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={offer ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
+      maxWidth="2xl"
+      actions={
+        <ModalActions
+          onCancel={onClose}
+          onConfirm={handleSubmit}
+          confirmLabel={offer ? 'Mettre à jour' : 'Créer'}
+          isLoading={isLoading}
+        />
+      }
+    >
+      <form id="offer-form" className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <h2 className="text-xl font-bold" style={{ color: colors.text }}>
-              {offer ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
-            </h2>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {offer ? 'Modifiez les informations de l\'offre' : 'Créez une nouvelle offre'}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Formulaire */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField
-              label="Nom de l'offre *"
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Nom *
+            </label>
+            <input
+              type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
               required
             />
-            <InputField
-              label="Badge (optionnel)"
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Badge
+            </label>
+            <input
+              type="text"
               value={formData.badge}
               onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
               placeholder="⭐ Populaire"
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             />
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SelectField
-              label="Catégorie *"
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Catégorie *
+            </label>
+            <select
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              options={[
-                { value: 'senior', label: '👴 Senior' },
-                { value: 'maman_bebe', label: '👶 Maman & Bébé' },
-                { value: 'pack_confort', label: '⭐ Pack Confort' },
-              ]}
-            />
-            <SelectField
-              label="Type *"
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              {categoryOptions.filter(o => o.value !== 'all').map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Type *
+            </label>
+            <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              options={[
-                { value: 'ponctuelle', label: '⚡ Ponctuelle' },
-                { value: 'mensuelle', label: '📅 Mensuelle' },
-                { value: 'trimestrielle', label: '📅 Trimestrielle' },
-                { value: 'semestrielle', label: '📅 Semestrielle' },
-                { value: 'annuelle', label: '📅 Annuelle' },
-                { value: 'sur_devis', label: '📝 Sur devis' },
-              ]}
-            />
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              {typeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
+        </div>
 
-          <InputField
-            label="Description"
+        <div>
+          <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+            Description
+          </label>
+          <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            as="textarea"
+            className="w-full px-3 py-2 text-sm rounded-xl border outline-none resize-none"
+            style={{ borderColor: colors.border, color: colors.text }}
             rows={2}
           />
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <InputField
-              label="Prix (FCFA)"
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Prix (FCFA)
+            </label>
+            <input
               type="number"
               value={formData.price}
               onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              placeholder="0"
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             />
-            <InputField
-              label="Visites/semaine"
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Visites/semaine
+            </label>
+            <input
               type="number"
               value={formData.visits_per_week}
               onChange={(e) => setFormData({ ...formData, visits_per_week: e.target.value })}
-              placeholder="0"
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             />
-            <InputField
-              label="Durée (jours)"
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Durée (jours)
+            </label>
+            <input
               type="number"
               value={formData.duration_days}
               onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
-              placeholder="0"
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             />
           </div>
+        </div>
 
-          <InputField
-            label="Caractéristiques (séparées par des virgules)"
+        <div>
+          <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+            Caractéristiques (séparées par des virgules)
+          </label>
+          <input
+            type="text"
             value={formData.features}
             onChange={(e) => setFormData({ ...formData, features: e.target.value })}
             placeholder="Suivi personnalisé, Accompagnement, Coordination"
+            className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
+            style={{ borderColor: colors.border, color: colors.text }}
           />
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InputField
-              label="Ordre d'affichage"
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold mb-1" style={{ color: colors.text }}>
+              Ordre d'affichage
+            </label>
+            <input
               type="number"
               value={formData.display_order}
               onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
-              placeholder="0"
-            />
-            <div className="flex items-center gap-6 pt-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="w-4 h-4 rounded"
-                  style={{ accentColor: colors.primary }}
-                />
-                <span className="text-sm" style={{ color: colors.text }}>Active</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.is_public}
-                  onChange={(e) => setFormData({ ...formData, is_public: e.target.checked })}
-                  className="w-4 h-4 rounded"
-                  style={{ accentColor: colors.primary }}
-                />
-                <span className="text-sm" style={{ color: colors.text }}>Publique</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl font-medium border transition hover:bg-gray-50"
+              className="w-full px-3 py-2 text-sm rounded-xl border outline-none"
               style={{ borderColor: colors.border, color: colors.text }}
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading || !formData.name}
-              className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50"
-              style={{ background: colors.primary }}
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <CheckCircle size={18} />
-                  {offer ? 'Mettre à jour' : 'Créer l\'offre'}
-                </>
-              )}
-            </button>
+            />
           </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// =============================================
-// INPUT FIELD
-// =============================================
-
-interface InputFieldProps {
-  label: string;
-  value: any;
-  onChange: (e: any) => void;
-  type?: string;
-  placeholder?: string;
-  required?: boolean;
-  as?: 'input' | 'textarea';
-  rows?: number;
-}
-
-const InputField = ({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  placeholder,
-  required,
-  as = 'input',
-  rows = 3,
-}: InputFieldProps) => {
-  const colors = getThemeColors('senior');
-
-  if (as === 'textarea') {
-    return (
-      <div className="space-y-1.5">
-        <label className="block text-sm font-bold" style={{ color: colors.text }}>
-          {label}
-        </label>
-        <textarea
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          required={required}
-          rows={rows}
-          className="w-full px-4 py-3 rounded-2xl border outline-none text-sm resize-none"
-          style={{
-            borderColor: colors.border,
-            background: 'var(--color-background)',
-            color: colors.text,
-          }}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-bold" style={{ color: colors.text }}>
-        {label}
-      </label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        className="w-full px-4 py-3 rounded-2xl border outline-none text-sm"
-        style={{
-          borderColor: colors.border,
-          background: 'var(--color-background)',
-          color: colors.text,
-        }}
-      />
-    </div>
-  );
-};
-
-// =============================================
-// SELECT FIELD
-// =============================================
-
-interface SelectFieldProps {
-  label: string;
-  value: string;
-  onChange: (e: any) => void;
-  options: { value: string; label: string }[];
-}
-
-const SelectField = ({ label, value, onChange, options }: SelectFieldProps) => {
-  const colors = getThemeColors('senior');
-
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-bold" style={{ color: colors.text }}>
-        {label}
-      </label>
-      <select
-        value={value}
-        onChange={onChange}
-        className="w-full px-4 py-3 rounded-2xl border outline-none text-sm appearance-none"
-        style={{
-          borderColor: colors.border,
-          background: 'var(--color-background)',
-          color: colors.text,
-        }}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
+          <div className="flex items-center gap-4 pt-2">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_active}
+                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                className="w-4 h-4 rounded"
+                style={{ accentColor: colors.primary }}
+              />
+              <span className="text-xs" style={{ color: colors.text }}>Active</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.is_public}
+                onChange={(e) => setFormData({ ...formData, is_public: e.target.checked })}
+                className="w-4 h-4 rounded"
+                style={{ accentColor: colors.primary }}
+              />
+              <span className="text-xs" style={{ color: colors.text }}>Publique</span>
+            </label>
+          </div>
+        </div>
+      </form>
+    </Modal>
   );
 };
 
