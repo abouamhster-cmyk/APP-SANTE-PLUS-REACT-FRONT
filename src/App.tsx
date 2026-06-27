@@ -117,6 +117,7 @@ import DischargePage from '@/features/discharge/pages/DischargePage';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useOfferStore } from '@/stores/offerStore';
+import { useContractStore } from '@/stores/contractStore'; // ✅ AJOUTÉ
 
 // ============================================================
 // QUERY CLIENT
@@ -149,6 +150,7 @@ function App() {
 
   const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
   const { fetchOffers, isInitialized: isOffersInitialized } = useOfferStore();
+  const { checkContract } = useContractStore(); // ✅ AJOUTÉ
 
   // ============================================================
   // REFS
@@ -233,6 +235,15 @@ function App() {
       unsubscribe();
     };
   }, [isAuthenticated, isAuthInitialized, fetchNotifications, subscribe, unsubscribe]);
+
+  // ✅ NOUVEAU : EFFET - VÉRIFICATION DU CONTRAT
+  // ============================================================
+  useEffect(() => {
+    if (isAuthenticated && isAuthInitialized) {
+      console.log('📜 Vérification du contrat...');
+      checkContract();
+    }
+  }, [isAuthenticated, isAuthInitialized, checkContract]);
 
   // ============================================================
   // ÉCRAN DE CHARGEMENT
