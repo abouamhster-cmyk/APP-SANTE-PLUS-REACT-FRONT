@@ -11,19 +11,11 @@ import {
   XCircle,
   Eye,
   RefreshCw,
-  Filter,
   Search,
-  Phone,
-  Mail,
   Image,
   Mic,
-  FileText,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
   Volume2,
   Download,
-  MessageSquare,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
@@ -87,13 +79,7 @@ interface VisitToValidate {
 const AdminVisitValidationPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-
-  const {
-    singular,
-    plural,
-    getCategoryLabel,
-    isAdminOrCoordinator,
-  } = useTerminology();
+  const { getCategoryLabel, isAdminOrCoordinator } = useTerminology();
 
   const [visits, setVisits] = useState<VisitToValidate[]>([]);
   const [filteredVisits, setFilteredVisits] = useState<VisitToValidate[]>([]);
@@ -116,14 +102,9 @@ const AdminVisitValidationPage = () => {
     filterVisits();
   }, [visits, searchTerm, filterStatus]);
 
-  // =============================================
-  // FETCH VISITS - CORRIGÉ (requêtes séparées)
-  // =============================================
   const fetchVisitsToValidate = async () => {
     try {
       setIsLoading(true);
-
-      // ✅ ÉTAPE 1 : Récupérer les visites
       const { data: visitsData, error: visitsError } = await supabase
         .from('visites')
         .select('*')
@@ -131,134 +112,60 @@ const AdminVisitValidationPage = () => {
         .order('created_at', { ascending: false });
 
       if (visitsError) throw visitsError;
-
       if (!visitsData || visitsData.length === 0) {
         setVisits([]);
         setFilteredVisits([]);
-        setIsLoading(false);
         return;
       }
 
-      // ✅ ÉTAPE 2 : Récupérer les patients
       const patientIds = [...new Set(visitsData.map(v => v.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
       if (patientIds.length > 0) {
-        const { data: patients, error: patientsError } = await supabase
-          .from('patients')
-          .select('*')
-          .in('id', patientIds);
-
-        if (!patientsError && patients) {
-          patientMap = patients.reduce((acc, p) => {
-            acc[p.id] = p;
-            return acc;
-          }, {} as Record<string, any>);
-        }
+        const { data: patients } = await supabase.from('patients').select('*').in('id', patientIds);
+        if (patients) patientMap = patients.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
       }
 
-      // ✅ ÉTAPE 3 : Récupérer les aidants
       const aidantIds = [...new Set(visitsData.map(v => v.aidant_id).filter(Boolean))];
       let aidantMap: Record<string, any> = {};
 
       if (aidantIds.length > 0) {
-        const { data: aidants, error: aidantsError } = await supabase
-          .from('aidants')
-          .select('*')
-          .in('id', aidantIds);
-
-        if (!aidantsError && aidants) {
-          // Récupérer les profils des aidants
+        const { data: aidants } = await supabase.from('aidants').select('*').in('id', aidantIds);
+        if (aidants) {
           const userIds = aidants.map(a => a.user_id).filter(Boolean);
           let profileMap: Record<string, any> = {};
-
           if (userIds.length > 0) {
-            const { data: profiles, error: profilesError } = await supabase
-              .from('profiles')
-              .select('*')
-              .in('id', userIds);
-
-            if (!profilesError && profiles) {
-              profileMap = profiles.reduce((acc, p) => {
-                acc[p.id] = p;
-                return acc;
-              }, {} as Record<string, any>);
-            }
+            const { data: profiles } = await supabase.from('profiles').select('*').in('id', userIds);
+            if (profiles) profileMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
           }
-
-          aidantMap = aidants.reduce((acc, a) => {
-            acc[a.id] = {
-              ...a,
-              user: a.user_id ? profileMap[a.user_id] || null : null,
-            };
-            return acc;
-          }, {} as Record<string, any>);
+          aidantMap = aidants.reduce((acc, a) => ({ ...acc, [a.id]: { ...a, user: a.user_id ? profileMap[a.user_id] || null : null } }), {});
         }
       }
 
-      // ✅ ÉTAPE 4 : Récupérer les photos
       const visitIds = visitsData.map(v => v.id);
       let photosMap: Record<string, any[]> = {};
-
       if (visitIds.length > 0) {
-        const { data: photos, error: photosError } = await supabase
-          .from('visite_photos')
-          .select('*')
-          .in('visite_id', visitIds);
-
-        if (!photosError && photos) {
-          photosMap = photos.reduce((acc, p) => {
-            if (!acc[p.visite_id]) acc[p.visite_id] = [];
-            acc[p.visite_id].push(p);
-            return acc;
-          }, {} as Record<string, any[]>);
-        }
+        const { data: photos } = await supabase.from('visite_photos').select('*').in('visite_id', visitIds);
+        if (photos) photosMap = photos.reduce((acc, p) => ({ ...acc, [p.visite_id]: [...(acc[p.visite_id] || []), p] }), {});
       }
 
-      // ✅ ÉTAPE 5 : Récupérer les audios
       let audiosMap: Record<string, any[]> = {};
-
       if (visitIds.length > 0) {
-        const { data: audios, error: audiosError } = await supabase
-          .from('visite_audios')
-          .select('*')
-          .in('visite_id', visitIds);
-
-        if (!audiosError && audios) {
-          audiosMap = audios.reduce((acc, a) => {
-            if (!acc[a.visite_id]) acc[a.visite_id] = [];
-            acc[a.visite_id].push(a);
-            return acc;
-          }, {} as Record<string, any[]>);
-        }
+        const { data: audios } = await supabase.from('visite_audios').select('*').in('visite_id', visitIds);
+        if (audios) audiosMap = audios.reduce((acc, a) => ({ ...acc, [a.visite_id]: [...(acc[a.visite_id] || []), a] }), {});
       }
 
-      // ✅ ÉTAPE 6 : Fusionner toutes les données
       const visitsWithRelations = visitsData.map((visit) => {
         const patient = visit.patient_id ? patientMap[visit.patient_id] || null : null;
         const aidant = visit.aidant_id ? aidantMap[visit.aidant_id] || null : null;
         const photos = photosMap[visit.id] || [];
         const audios = audiosMap[visit.id] || [];
-
-        // Extraire l'audio_url des métadonnées si présent
-        const audioUrl = visit.metadata?.audio_url || null;
-
-        return {
-          ...visit,
-          patient,
-          aidant,
-          photos,
-          audios,
-          metadata: {
-            ...visit.metadata,
-            audio_url: audioUrl,
-          },
-        };
+        return { ...visit, patient, aidant, photos, audios, metadata: { ...visit.metadata, audio_url: visit.metadata?.audio_url || null } };
       });
 
       setVisits(visitsWithRelations);
     } catch (error: any) {
-      console.error('❌ Fetch visits error:', error);
+      console.error('Fetch visits error:', error);
       toast.error('Erreur lors du chargement des visites');
     } finally {
       setIsLoading(false);
@@ -267,21 +174,15 @@ const AdminVisitValidationPage = () => {
 
   const filterVisits = () => {
     let filtered = [...visits];
-
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(v => v.status === filterStatus);
-    }
-
+    if (filterStatus !== 'all') filtered = filtered.filter(v => v.status === filterStatus);
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(v =>
         v.patient?.first_name?.toLowerCase().includes(term) ||
         v.patient?.last_name?.toLowerCase().includes(term) ||
-        v.aidant?.user?.full_name?.toLowerCase().includes(term) ||
-        v.patient?.address?.toLowerCase().includes(term)
+        v.aidant?.user?.full_name?.toLowerCase().includes(term)
       );
     }
-
     setFilteredVisits(filtered);
   };
 
@@ -297,24 +198,19 @@ const AdminVisitValidationPage = () => {
         },
         body: JSON.stringify({ comment: validationComment }),
       });
-
-      if (!response.ok) throw new Error('Erreur lors de la validation');
-
-      toast.success('✅ Visite validée avec succès');
-      setValidationComment('');
+      if (!response.ok) throw new Error();
+      toast.success('✅ Visite validée');
       setShowDetailModal(false);
       fetchVisitsToValidate();
-    } catch (error) {
-      console.error('❌ Validate error:', error);
-      toast.error('Erreur lors de la validation');
+    } catch {
+      toast.error('Erreur de validation');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleReject = async (visitId: string) => {
-    if (!window.confirm('⚠️ Refuser cette visite ? L\'aidant devra la refaire.')) return;
-
+    if (!window.confirm('Refuser cette visite ?')) return;
     setIsProcessing(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -324,673 +220,162 @@ const AdminVisitValidationPage = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${sessionData.session?.access_token}`,
         },
-        body: JSON.stringify({ reason: validationComment || 'Non conforme' }),
+        body: JSON.stringify({ reason: validationComment || 'Rapport non conforme' }),
       });
-
-      if (!response.ok) throw new Error('Erreur lors du refus');
-
+      if (!response.ok) throw new Error();
       toast.success('❌ Visite refusée');
-      setValidationComment('');
       setShowDetailModal(false);
       fetchVisitsToValidate();
-    } catch (error) {
-      console.error('❌ Reject error:', error);
-      toast.error('Erreur lors du refus');
+    } catch {
+      toast.error('Erreur de refus');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      terminee: 'En attente',
-      validee: 'Validée ✅',
-      replanifiee: 'À refaire ❌',
-    };
+    const labels: Record<string, string> = { terminee: 'En attente ⏳', validee: 'Validée ✅', replanifiee: 'À refaire ❌' };
     return labels[status] || status;
   };
 
   const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      terminee: '#FF9800',
-      validee: '#4CAF50',
-      replanifiee: '#F44336',
-    };
-    return colors[status] || '#9E9E9E';
+    const colors: Record<string, string> = { terminee: '#f59e0b', validee: '#10b981', replanifiee: '#ef4444' };
+    return colors[status] || '#94a3b8';
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'terminee': return <Clock size={16} />;
-      case 'validee': return <CheckCircle size={16} />;
-      case 'replanifiee': return <XCircle size={16} />;
-      default: return <Clock size={16} />;
-    }
-  };
-
-  // ✅ Libellé dynamique
-  const getPersonLabel = () => {
-    if (isAdminOrCoordinator) return 'Bénéficiaire';
-    return 'Patient';
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: colors.text }}>Chargement des visites...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const pendingCount = visits.filter(v => v.status === 'terminee').length;
-
   return (
-    <div className="space-y-4 pb-4">
-      {/* HEADER */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
-            📋 Validation des visites
-          </h1>
-          <p className="mt-1" style={{ color: colors.text + '99' }}>
-            {pendingCount} visite{pendingCount > 1 ? 's' : ''} en attente de validation
-          </p>
-        </div>
-        <button
-          onClick={fetchVisitsToValidate}
-          className="flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
-          style={{ background: colors.primary + '15', color: colors.primary }}
-        >
-          <RefreshCw size={18} />
-          <span>Actualiser</span>
-        </button>
-      </div>
-
-      {/* STATS */}
-      <div className="grid grid-cols-3 gap-4">
-        <StatCard
-          label="En attente"
-          value={visits.filter(v => v.status === 'terminee').length}
-          color="#FF9800"
-          icon={<Clock size={20} />}
-        />
-        <StatCard
-          label="Validées"
-          value={visits.filter(v => v.status === 'validee').length}
-          color="#4CAF50"
-          icon={<CheckCircle size={20} />}
-        />
-        <StatCard
-          label="Refusées"
-          value={visits.filter(v => v.status === 'replanifiee').length}
-          color="#F44336"
-          icon={<XCircle size={20} />}
-        />
-      </div>
-
-      {/* FILTRES */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border outline-none transition focus:ring-2 text-sm"
-              style={{
-                borderColor: colors.border || '#e5e0d8',
-                background: 'var(--color-background, #f5f0e8)',
-                color: colors.text,
-              }}
-              placeholder={`Rechercher un ${getPersonLabel().toLowerCase()} ou un aidant...`}
-            />
-          </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="px-4 py-2.5 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, color: colors.text }}
-          >
-            <option value="terminee">⏳ En attente</option>
-            <option value="all">Tous</option>
-            <option value="validee">✅ Validées</option>
-            <option value="replanifiee">❌ Refusées</option>
-          </select>
-        </div>
-      </div>
-
-      {/* LISTE DES VISITES */}
-      {filteredVisits.length > 0 ? (
-        <div className="space-y-4">
-          {filteredVisits.map((visit) => (
-            <VisitValidationCard
-              key={visit.id}
-              visit={visit}
-              colors={colors}
-              getStatusLabel={getStatusLabel}
-              getStatusColor={getStatusColor}
-              getStatusIcon={getStatusIcon}
-              getPersonLabel={getPersonLabel}
-              formatDate={formatDate}
-              formatTime={formatTime}
-              onView={() => {
-                setSelectedVisit(visit);
-                setShowDetailModal(true);
-              }}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-          <CheckCircle size={64} className="mx-auto mb-4 opacity-30" style={{ color: colors.primary }} />
-          <h3 className="text-lg font-medium" style={{ color: colors.text }}>
-            {searchTerm ? 'Aucun résultat trouvé' : 'Aucune visite à valider'}
-          </h3>
-          <p className="mt-1" style={{ color: colors.text + '80' }}>
-            {searchTerm ? 'Essayez une autre recherche' : 'Toutes les visites ont été traitées'}
-          </p>
-        </div>
-      )}
-
-      {/* MODAL DÉTAILS */}
-      {showDetailModal && selectedVisit && (
-        <VisitValidationDetailModal
-          visit={selectedVisit}
-          colors={colors}
-          getPersonLabel={getPersonLabel}
-          formatDate={formatDate}
-          formatTime={formatTime}
-          onClose={() => {
-            setShowDetailModal(false);
-            setValidationComment('');
-          }}
-          onValidate={() => handleValidate(selectedVisit.id)}
-          onReject={() => handleReject(selectedVisit.id)}
-          isProcessing={isProcessing}
-          validationComment={validationComment}
-          setValidationComment={setValidationComment}
-          getStatusLabel={getStatusLabel}
-          getStatusColor={getStatusColor}
-        />
-      )}
-    </div>
-  );
-};
-
-// =============================================
-// STAT CARD
-// =============================================
-
-interface StatCardProps {
-  label: string;
-  value: number;
-  color: string;
-  icon: React.ReactNode;
-}
-
-const StatCard = ({ label, value, color, icon }: StatCardProps) => {
-  return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs text-gray-500">{label}</p>
-          <p className="text-2xl font-bold mt-1" style={{ color }}>{value}</p>
-        </div>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: color + '15', color }}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// =============================================
-// VISIT VALIDATION CARD
-// =============================================
-
-interface VisitValidationCardProps {
-  visit: VisitToValidate;
-  colors: any;
-  getStatusLabel: (status: string) => string;
-  getStatusColor: (status: string) => string;
-  getStatusIcon: (status: string) => React.ReactNode;
-  getPersonLabel: () => string;
-  formatDate: (date: string) => string;
-  formatTime: (time: string) => string;
-  onView: () => void;
-}
-
-const VisitValidationCard = ({
-  visit,
-  colors,
-  getStatusLabel,
-  getStatusColor,
-  getStatusIcon,
-  getPersonLabel,
-  formatDate,
-  formatTime,
-  onView,
-}: VisitValidationCardProps) => {
-  const statusColor = getStatusColor(visit.status);
-  const hasPhotos = visit.photos && visit.photos.length > 0;
-  const hasAudio = visit.metadata?.audio_url || (visit.audios && visit.audios.length > 0);
-
-  return (
-    <div
-      className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
-      style={{ borderLeftColor: statusColor }}
-      onClick={onView}
-    >
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
-              {visit.patient?.first_name} {visit.patient?.last_name}
-            </h3>
-            <span
-              className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
-              style={{
-                background: statusColor + '20',
-                color: statusColor,
-              }}
-            >
-              {getStatusIcon(visit.status)}
-              {getStatusLabel(visit.status)}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm" style={{ color: colors.text + '60' }}>
-            <span className="flex items-center gap-1">
-              <Calendar size={14} />
-              {formatDate(visit.scheduled_date)}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock size={14} />
-              {formatTime(visit.scheduled_time)}
-            </span>
-            <span className="flex items-center gap-1">
-              <MapPin size={14} />
-              {visit.patient?.address || 'Adresse non précisée'}
-            </span>
-            <span className="flex items-center gap-1">
-              <User size={14} />
-              {getPersonLabel()} : {visit.aidant?.user?.full_name || 'Aidant'}{' '}
-              <span className="text-xs" style={{ color: colors.text + '40' }}>
-                (⭐ {visit.aidant?.rating || 0})
-              </span>
-            </span>
-          </div>
-
-          <div className="flex gap-3 mt-2">
-            {hasPhotos && (
-              <span className="text-xs flex items-center gap-1" style={{ color: colors.primary }}>
-                <Image size={14} /> {visit.photos?.length || 0} photo(s)
-              </span>
-            )}
-            {hasAudio && (
-              <span className="text-xs flex items-center gap-1" style={{ color: colors.primary }}>
-                <Mic size={14} /> Audio
-              </span>
-            )}
-            {visit.actions && visit.actions.length > 0 && (
-              <span className="text-xs flex items-center gap-1" style={{ color: colors.primary }}>
-                <CheckCircle size={14} /> {visit.actions.length} action(s)
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="flex items-center gap-1 px-4 py-2 rounded-xl font-medium text-sm transition hover:opacity-80"
-            style={{ background: colors.primary + '15', color: colors.primary }}
-          >
-            <Eye size={16} />
-            Voir les détails
-          </button>
-        </div>
-      </div>
-
-      {visit.metadata?.duration_minutes && (
-        <div className="mt-3 text-xs" style={{ color: colors.text + '40' }}>
-          ⏱️ Durée: {visit.metadata.duration_minutes} minutes
-        </div>
-      )}
-    </div>
-  );
-};
-
-// =============================================
-// VISIT VALIDATION DETAIL MODAL
-// =============================================
-
-interface VisitValidationDetailModalProps {
-  visit: VisitToValidate;
-  colors: any;
-  getPersonLabel: () => string;
-  formatDate: (date: string) => string;
-  formatTime: (time: string) => string;
-  onClose: () => void;
-  onValidate: () => void;
-  onReject: () => void;
-  isProcessing: boolean;
-  validationComment: string;
-  setValidationComment: (comment: string) => void;
-  getStatusLabel: (status: string) => string;
-  getStatusColor: (status: string) => string;
-}
-
-const VisitValidationDetailModal = ({
-  visit,
-  colors,
-  getPersonLabel,
-  formatDate,
-  formatTime,
-  onClose,
-  onValidate,
-  onReject,
-  isProcessing,
-  validationComment,
-  setValidationComment,
-  getStatusLabel,
-  getStatusColor,
-}: VisitValidationDetailModalProps) => {
-  const [expandedSections, setExpandedSections] = useState({
-    photos: true,
-    audio: true,
-    report: true,
-  });
-
-  const isPending = visit.status === 'terminee';
-
-  const getMetadata = (key: string, defaultValue: any = null) => {
-    if (!visit.metadata) return defaultValue;
-    return visit.metadata[key as keyof typeof visit.metadata] ?? defaultValue;
-  };
-
-  const validatedAt = getMetadata('validated_at');
-  const validationCommentText = getMetadata('validation_comment');
-  const rejectedAt = getMetadata('rejected_at');
-  const rejectionReason = getMetadata('rejection_reason');
-
-  const personLabel = getPersonLabel();
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[95vh] overflow-y-auto">
-        {/* HEADER */}
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.primary + '20' }}>
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold" style={{ color: colors.text }}>
-                📋 Rapport de visite
-              </h2>
-              <span
-                className="px-3 py-1 rounded-full text-xs font-medium"
-                style={{
-                  background: getStatusColor(visit.status) + '20',
-                  color: getStatusColor(visit.status),
-                }}
-              >
-                {getStatusLabel(visit.status)}
-              </span>
-            </div>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {personLabel} : {visit.patient?.first_name} {visit.patient?.last_name} • {formatDate(visit.scheduled_date)} à {formatTime(visit.scheduled_time)}
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Header */}
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
+      >
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+              📋 Rapports et validations
+            </h1>
+            <p className="text-xs" style={{ color: colors.textLight }}>
+              Vérifiez les comptes-rendus et livraisons d'interventions à domicile
             </p>
           </div>
           <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
-            disabled={isProcessing}
+            onClick={fetchVisitsToValidate}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 shrink-0 self-start sm:self-center"
+            style={{ borderColor: colors.border, color: colors.text }}
           >
-            <XCircle size={24} style={{ color: colors.text }} />
+            <RefreshCw size={14} /> Actualiser
           </button>
         </div>
+      </section>
 
-        {/* CONTENU */}
-        <div className="p-6 space-y-6">
-          {/* 1. INFOS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-              <h4 className="font-semibold mb-2 flex items-center gap-2" style={{ color: colors.text }}>
-                <User size={18} />
-                {personLabel}
-              </h4>
-              <p className="font-medium" style={{ color: colors.text }}>
-                {visit.patient?.first_name} {visit.patient?.last_name}
-              </p>
-              <p className="text-sm" style={{ color: colors.text + '60' }}>
-                📍 {visit.patient?.address}
-              </p>
-              {visit.patient?.phone && (
-                <p className="text-sm" style={{ color: colors.text + '60' }}>
-                  📞 {visit.patient?.phone}
-                </p>
-              )}
-              <p className="text-sm" style={{ color: colors.text + '60' }}>
-                {visit.patient?.category === 'maman_bebe' ? '👶 Maman & Bébé' : '👴 Senior'}
-              </p>
-            </div>
-            <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-              <h4 className="font-semibold mb-2 flex items-center gap-2" style={{ color: colors.text }}>
-                <User size={18} />
-                Aidant
-              </h4>
-              <p className="font-medium" style={{ color: colors.text }}>
-                {visit.aidant?.user?.full_name || 'N/A'}
-              </p>
-              <p className="text-sm" style={{ color: colors.text + '60' }}>
-                📧 {visit.aidant?.user?.email}
-              </p>
-              <p className="text-sm" style={{ color: colors.text + '60' }}>
-                ⭐ {visit.aidant?.rating || 0} • {visit.aidant?.total_missions || 0} missions
-              </p>
-            </div>
-          </div>
+      {/* Barre de Recherche épurée */}
+      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
+        <input
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Rechercher par patient ou aidant..."
+          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+        />
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as any)}
+          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+        >
+          <option value="terminee">⏳ En attente</option>
+          <option value="validee">✅ Validées</option>
+          <option value="replanifiee">❌ Refusées</option>
+        </select>
+      </section>
 
-          {/* 2. ACTIONS RÉALISÉES */}
-          {visit.actions && visit.actions.length > 0 && (
-            <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-              <h4 className="font-semibold mb-2 flex items-center gap-2" style={{ color: colors.text }}>
-                <CheckCircle size={18} />
-                Actions réalisées
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {visit.actions.map((action, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 rounded-full text-xs"
-                    style={{ background: colors.primary + '15', color: colors.primary }}
-                  >
-                    {action}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 3. NOTES */}
-          {visit.notes && (
-            <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-              <h4 className="font-semibold mb-2 flex items-center gap-2" style={{ color: colors.text }}>
-                <FileText size={18} />
-                Notes
-              </h4>
-              <p className="text-sm" style={{ color: colors.text }}>
-                {visit.notes}
-              </p>
-            </div>
-          )}
-
-          {/* 4. PHOTOS */}
-          <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-            <button
-              className="w-full flex items-center justify-between"
-              onClick={() => setExpandedSections({ ...expandedSections, photos: !expandedSections.photos })}
+      {/* Liste épurée */}
+      <section className="space-y-3">
+        {filteredVisits.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center text-gray-400">Aucune visite en attente de traitement</div>
+        ) : (
+          filteredVisits.map((visit) => (
+            <div
+              key={visit.id}
+              onClick={() => { setSelectedVisit(visit); setShowDetailModal(true); }}
+              className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] cursor-pointer transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 border"
+              style={{ borderColor: colors.border }}
             >
-              <h4 className="font-semibold flex items-center gap-2" style={{ color: colors.text }}>
-                <Image size={18} />
-                Photos ({visit.photos?.length || 0})
-              </h4>
-              {expandedSections.photos ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </button>
-            {expandedSections.photos && (
-              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-                {visit.photos?.map((photo, index) => (
-                  <div key={index} className="relative aspect-square rounded-xl overflow-hidden border">
-                    <img
-                      src={photo.photo_url}
-                      alt={`Photo ${index + 1}`}
-                      className="w-full h-full object-cover cursor-pointer"
-                      onClick={() => window.open(photo.photo_url, '_blank')}
-                    />
-                    {photo.caption && (
-                      <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50">
-                        <p className="text-white text-xs truncate">{photo.caption}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {(!visit.photos || visit.photos.length === 0) && (
-                  <p className="text-sm col-span-full" style={{ color: colors.text + '40' }}>
-                    Aucune photo
-                  </p>
-                )}
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-xs" style={{ color: colors.text }}>{visit.patient?.first_name} {visit.patient?.last_name}</p>
+                  <span className="text-[10px] font-semibold" style={{ color: getStatusColor(visit.status) }}>{getStatusLabel(visit.status)}</span>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-gray-400 flex-wrap">
+                  <span>📅 {formatDate(visit.scheduled_date)}</span>
+                  <span>📍 {visit.patient?.address}</span>
+                  <span>🦸 {visit.aidant?.user?.full_name}</span>
+                </div>
               </div>
-            )}
-          </div>
+              <button className="px-3.5 py-2 rounded-xl text-xs font-bold border hover:bg-gray-50 transition-colors shrink-0 self-start sm:self-center" style={{ borderColor: colors.border, color: colors.text }}>Détails</button>
+            </div>
+          ))
+        )}
+      </section>
 
-          {/* 5. AUDIO */}
-          {visit.metadata?.audio_url || (visit.audios && visit.audios.length > 0) ? (
-            <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-              <button
-                className="w-full flex items-center justify-between"
-                onClick={() => setExpandedSections({ ...expandedSections, audio: !expandedSections.audio })}
-              >
-                <h4 className="font-semibold flex items-center gap-2" style={{ color: colors.text }}>
-                  <Mic size={18} />
-                  Enregistrement audio
-                </h4>
-                {expandedSections.audio ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </button>
-              {expandedSections.audio && (
-                <div className="mt-3">
-                  {visit.metadata?.audio_url && (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white">
-                      <Volume2 size={20} style={{ color: colors.primary }} />
-                      <audio controls className="flex-1">
-                        <source src={visit.metadata.audio_url} />
-                        Votre navigateur ne supporte pas l'audio.
-                      </audio>
-                      <a
-                        href={visit.metadata.audio_url}
-                        download
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                      >
-                        <Download size={18} style={{ color: colors.primary }} />
-                      </a>
-                    </div>
-                  )}
-                  {visit.audios?.map((audio, index) => (
-                    <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-white mt-2">
-                      <Volume2 size={20} style={{ color: colors.primary }} />
-                      <audio controls className="flex-1">
-                        <source src={audio.audio_url} />
-                        Votre navigateur ne supporte pas l'audio.
-                      </audio>
-                      <a
-                        href={audio.audio_url}
-                        download
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
-                      >
-                        <Download size={18} style={{ color: colors.primary }} />
-                      </a>
-                    </div>
-                  ))}
+      {/* Modal Détails & Validation */}
+      {showDetailModal && selectedVisit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-xl overflow-hidden shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: colors.border }}>
+              <h2 className="font-bold text-sm uppercase tracking-wider text-gray-400">📋 Validation d'intervention</h2>
+              <button onClick={() => setShowDetailModal(false)} className="p-1 hover:bg-gray-50 rounded-lg"><XCircle size={16} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-1.5 text-xs">
+                <p className="font-bold text-xs">{selectedVisit.patient?.first_name} {selectedVisit.patient?.last_name}</p>
+                <p className="text-gray-500">Aidant : {selectedVisit.aidant?.user?.full_name}</p>
+                {selectedVisit.notes && <p className="text-gray-600 bg-gray-50 p-2.5 rounded-xl italic">"{selectedVisit.notes}"</p>}
+              </div>
+
+              {selectedVisit.photos && selectedVisit.photos.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">📸 Preuves de visite ({selectedVisit.photos.length})</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedVisit.photos.map((p, i) => (
+                      <img key={i} src={p.photo_url} alt="Visite" className="aspect-square object-cover rounded-xl border" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedVisit.metadata?.audio_url && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">🎙️ Rapport vocal</p>
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
+                    <Volume2 size={16} style={{ color: colors.primary }} />
+                    <audio controls className="flex-1 scale-90 origin-left"><source src={selectedVisit.metadata.audio_url} /></audio>
+                  </div>
+                </div>
+              )}
+
+              {/* Décision d'administration */}
+              {selectedVisit.status === 'terminee' && (
+                <div className="space-y-3 pt-3 border-t" style={{ borderColor: colors.border }}>
+                  <textarea
+                    value={validationComment}
+                    onChange={(e) => setValidationComment(e.target.value)}
+                    placeholder="Note ou motif de refus..."
+                    className="w-full px-3 py-2.5 rounded-xl border outline-none text-xs resize-none"
+                    style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+                    rows={2}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => handleReject(selectedVisit.id)} className="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100">Refuser le rapport</button>
+                    <button onClick={() => handleValidate(selectedVisit.id)} className="px-4 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90" style={{ background: colors.primary }}>Valider la visite</button>
+                  </div>
                 </div>
               )}
             </div>
-          ) : null}
-
-          {/* 6. COMMENTAIRE DE VALIDATION */}
-          {isPending && (
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>
-                <MessageSquare size={16} className="inline mr-1" />
-                Commentaire (optionnel)
-              </label>
-              <textarea
-                value={validationComment}
-                onChange={(e) => setValidationComment(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border outline-none transition focus:ring-2 resize-none text-sm"
-                style={{
-                  borderColor: colors.border,
-                  background: 'var(--color-background, #f5f0e8)',
-                  color: colors.text,
-                }}
-                rows={3}
-                placeholder="Ajouter un commentaire sur cette visite..."
-                disabled={isProcessing}
-              />
-            </div>
-          )}
-
-          {/* 7. ACTIONS */}
-          {isPending && (
-            <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
-              <button
-                onClick={onReject}
-                disabled={isProcessing}
-                className="flex-1 py-3 rounded-xl font-medium border transition hover:bg-red-50 disabled:opacity-50"
-                style={{ borderColor: '#F44336', color: '#F44336' }}
-              >
-                <XCircle size={18} className="inline mr-2" />
-                Refuser
-              </button>
-              <button
-                onClick={onValidate}
-                disabled={isProcessing}
-                className="flex-1 py-3 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
-                style={{ background: '#4CAF50' }}
-              >
-                {isProcessing ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                ) : (
-                  <>
-                    <CheckCircle size={18} className="inline mr-2" />
-                    Valider
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* 8. MÉTADONNÉES DE VALIDATION */}
-          {validatedAt && (
-            <div className="text-xs" style={{ color: colors.text + '40' }}>
-              <p>✅ Validée le {formatDate(validatedAt)} à {formatTime(validatedAt)}</p>
-              {validationCommentText && (
-                <p>📝 Commentaire: {validationCommentText}</p>
-              )}
-            </div>
-          )}
-
-          {rejectedAt && (
-            <div className="text-xs" style={{ color: colors.text + '40' }}>
-              <p>❌ Refusée le {formatDate(rejectedAt)} à {formatTime(rejectedAt)}</p>
-              {rejectionReason && (
-                <p>📝 Raison: {rejectionReason}</p>
-              )}
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
