@@ -11,6 +11,7 @@ interface VisitState {
   isLoading: boolean;
   error: string | null;
   
+  // Méthodes existantes
   fetchVisits: () => Promise<void>;
   fetchVisitById: (id: string) => Promise<void>;
   createVisit: (data: Partial<Visit>) => Promise<Visit>;
@@ -21,6 +22,14 @@ interface VisitState {
   validateVisit: (id: string) => Promise<void>;
   cancelVisit: (id: string) => Promise<void>;
   clearError: () => void;
+
+  // ✅ NOUVELLES MÉTHODES
+  approveVisit: (id: string) => Promise<void>;
+  refuseVisit: (id: string, reason: string) => Promise<void>;
+  reassignVisit: (id: string, newAidantId: string, assignmentType: string) => Promise<void>;
+  getPendingVisits: () => Promise<Visit[]>;
+  getVisitsNeedingReassign: () => Promise<Visit[]>;
+  getVisitsByPatient: (patientId: string) => Promise<Visit[]>;
 }
 
 export const useVisitStore = create<VisitState>((set, get) => ({
@@ -29,6 +38,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   isLoading: false,
   error: null,
 
+  // =============================================
+  // FETCH VISITES
+  // =============================================
   fetchVisits: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -39,7 +51,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         return;
       }
 
-      // ✅ ÉTAPE 1 : Récupérer les visites
       let query = supabase.from('visites').select('*');
 
       if (profile?.role === 'family') {
@@ -74,17 +85,16 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ ÉTAPE 2 : Récupérer les patients associés SEPAREMENT
+      // Récupérer les patients associés
       const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
       if (patientIds.length > 0) {
-        const { data: patients, error: patientsError } = await supabase
+        const { data: patients } = await supabase
           .from('patients')
           .select('*')
           .in('id', patientIds);
-
-        if (!patientsError && patients) {
+        if (patients) {
           patientMap = patients.reduce((acc, p) => {
             acc[p.id] = p;
             return acc;
@@ -92,27 +102,26 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 3 : Récupérer les aidants associés SEPAREMENT
+      // Récupérer les aidants associés
       const aidantIds = [...new Set(visits?.map(v => v.aidant_id).filter(Boolean))];
       let aidantMap: Record<string, any> = {};
 
       if (aidantIds.length > 0) {
-        const { data: aidants, error: aidantsError } = await supabase
+        const { data: aidants } = await supabase
           .from('aidants')
           .select('*')
           .in('id', aidantIds);
-
-        if (!aidantsError && aidants) {
+        
+        if (aidants) {
           const userIds = aidants.map(a => a.user_id).filter(Boolean);
           let profileMap: Record<string, any> = {};
 
           if (userIds.length > 0) {
-            const { data: profiles, error: profilesError } = await supabase
+            const { data: profiles } = await supabase
               .from('profiles')
               .select('*')
               .in('id', userIds);
-
-            if (!profilesError && profiles) {
+            if (profiles) {
               profileMap = profiles.reduce((acc, p) => {
                 acc[p.id] = p;
                 return acc;
@@ -130,17 +139,16 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 4 : Récupérer les coordinateurs associés SEPAREMENT
+      // Récupérer les coordinateurs associés
       const coordinatorIds = [...new Set(visits?.map(v => v.coordinator_id).filter(Boolean))];
       let coordinatorMap: Record<string, any> = {};
 
       if (coordinatorIds.length > 0) {
-        const { data: coordinators, error: coordError } = await supabase
+        const { data: coordinators } = await supabase
           .from('profiles')
           .select('*')
           .in('id', coordinatorIds);
-
-        if (!coordError && coordinators) {
+        if (coordinators) {
           coordinatorMap = coordinators.reduce((acc, c) => {
             acc[c.id] = c;
             return acc;
@@ -148,7 +156,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 5 : Fusionner toutes les données
       const visitsWithRelations = (visits || []).map((visit) => ({
         ...visit,
         patient: visit.patient_id ? patientMap[visit.patient_id] || null : null,
@@ -163,6 +170,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // FETCH VISIT BY ID
+  // =============================================
   fetchVisitById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -231,6 +241,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // CREATE VISIT
+  // =============================================
   createVisit: async (data: Partial<Visit>) => {
     try {
       set({ isLoading: true, error: null });
@@ -245,10 +258,19 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         scheduled_date: data.scheduled_date,
         scheduled_time: data.scheduled_time,
         duration_minutes: data.duration_minutes || 60,
-        status: 'planifiee',
+        status: data.status || 'planifiee',
         actions: data.actions || [],
         notes: data.notes || null,
         is_urgent: data.is_urgent || false,
+        // ✅ Nouveaux champs
+        visit_type: data.visit_type || 'ponctuelle',
+        assignment_type: data.assignment_type || 'ponctuelle',
+        recurrence_days: data.recurrence_days || null,
+        recurrence_time: data.recurrence_time || null,
+        intervalle_start: data.intervalle_start || null,
+        intervalle_end: data.intervalle_end || null,
+        is_recurring: data.is_recurring || false,
+        requested_by: data.requested_by || user.id,
       };
 
       const { data: newVisit, error } = await supabase
@@ -287,6 +309,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // UPDATE VISIT
+  // =============================================
   updateVisit: async (id: string, data: Partial<Visit>) => {
     try {
       set({ isLoading: true, error: null });
@@ -312,6 +337,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // DELETE VISIT
+  // =============================================
   deleteVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -334,6 +362,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // START VISIT
+  // =============================================
   startVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -363,6 +394,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // COMPLETE VISIT
+  // =============================================
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
     try {
       set({ isLoading: true, error: null });
@@ -397,6 +431,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // VALIDATE VISIT
+  // =============================================
   validateVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -422,6 +459,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // CANCEL VISIT
+  // =============================================
   cancelVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -447,5 +487,325 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // ✅ APPROUVER UNE VISITE (par l'aidant)
+  // =============================================
+  approveVisit: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      // Récupérer la visite pour avoir les infos du patient
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients(*)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { data: updatedVisit, error } = await supabase
+        .from('visites')
+        .update({
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+          status: 'validee',
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Notification à la famille
+      if (visit.patient?.created_by) {
+        await supabase.from('notifications').insert({
+          user_id: visit.patient.created_by,
+          title: '✅ Visite acceptée',
+          body: `L'aidant a accepté la visite du ${visit.scheduled_date} à ${visit.scheduled_time}.`,
+          type: 'visite',
+          data: { visit_id: id, status: 'validee' },
+        });
+      }
+
+      set((state) => ({
+        visits: state.visits.map(v => v.id === id ? { ...v, ...updatedVisit } : v),
+        currentVisit: { ...state.currentVisit, ...updatedVisit },
+        isLoading: false,
+      }));
+
+      toast.success('✅ Visite approuvée');
+    } catch (error: any) {
+      console.error('❌ Approve visit error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // =============================================
+  // ✅ REFUSER UNE VISITE (par l'aidant)
+  // =============================================
+  refuseVisit: async (id: string, reason: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      // Récupérer la visite pour avoir les infos
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients(*),
+          aidant:aidants(*, user:profiles(*))
+        `)
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { data: updatedVisit, error } = await supabase
+        .from('visites')
+        .update({
+          refused_by: user.id,
+          refused_at: new Date().toISOString(),
+          refusal_reason: reason,
+          status: 'refusee',
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Notification aux admins
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('role', ['admin', 'coordinator']);
+
+      if (admins) {
+        for (const admin of admins) {
+          await supabase.from('notifications').insert({
+            user_id: admin.id,
+            title: '❌ Visite refusée - Réassignation nécessaire',
+            body: `L'aidant ${visit.aidant?.user?.full_name || 'Un aidant'} a refusé la visite de ${visit.patient?.first_name} ${visit.patient?.last_name} le ${visit.scheduled_date}. Motif: ${reason}`,
+            type: 'alert',
+            data: { visit_id: id, action: 'reassign' },
+          });
+        }
+      }
+
+      // Notification à la famille
+      if (visit.patient?.created_by) {
+        await supabase.from('notifications').insert({
+          user_id: visit.patient.created_by,
+          title: '❌ Visite refusée',
+          body: `L'aidant a refusé la visite du ${visit.scheduled_date}. Motif: ${reason}`,
+          type: 'visite',
+          data: { visit_id: id, status: 'refusee' },
+        });
+      }
+
+      set((state) => ({
+        visits: state.visits.map(v => v.id === id ? { ...v, ...updatedVisit } : v),
+        currentVisit: { ...state.currentVisit, ...updatedVisit },
+        isLoading: false,
+      }));
+
+      toast.warning('❌ Visite refusée');
+    } catch (error: any) {
+      console.error('❌ Refuse visit error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // =============================================
+  // ✅ RÉASSIGNER UNE VISITE (par admin)
+  // =============================================
+  reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      // Récupérer la visite pour avoir les infos
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients(*),
+          aidant:aidants(*, user:profiles(*))
+        `)
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { data: updatedVisit, error } = await supabase
+        .from('visites')
+        .update({
+          aidant_id: newAidantId,
+          status: 'planifiee',
+          assignment_type: assignmentType,
+          approved_at: null,
+          refused_at: null,
+          refusal_reason: null,
+          assigned_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Notification au nouvel aidant
+      if (newAidantId) {
+        await supabase.from('notifications').insert({
+          user_id: newAidantId,
+          title: '📋 Nouvelle mission assignée',
+          body: `Vous avez été assigné à la visite de ${visit.patient?.first_name} ${visit.patient?.last_name} le ${visit.scheduled_date} à ${visit.scheduled_time}.`,
+          type: 'visite',
+          data: { visit_id: id, action: 'approve' },
+        });
+      }
+
+      // Notification à la famille
+      if (visit.patient?.created_by) {
+        await supabase.from('notifications').insert({
+          user_id: visit.patient.created_by,
+          title: '🔄 Nouvel aidant assigné',
+          body: `Un nouvel aidant a été assigné pour la visite du ${visit.scheduled_date}.`,
+          type: 'visite',
+          data: { visit_id: id },
+        });
+      }
+
+      // Notification à l'ancien aidant (si différent)
+      if (visit.aidant_id && visit.aidant_id !== newAidantId) {
+        await supabase.from('notifications').insert({
+          user_id: visit.aidant_id,
+          title: '🔄 Mission réassignée',
+          body: `La visite de ${visit.patient?.first_name} ${visit.patient?.last_name} du ${visit.scheduled_date} vous a été retirée.`,
+          type: 'visite',
+          data: { visit_id: id },
+        });
+      }
+
+      set((state) => ({
+        visits: state.visits.map(v => v.id === id ? { ...v, ...updatedVisit } : v),
+        currentVisit: { ...state.currentVisit, ...updatedVisit },
+        isLoading: false,
+      }));
+
+      toast.success('✅ Visite réassignée avec succès');
+    } catch (error: any) {
+      console.error('❌ Reassign visit error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // =============================================
+  // ✅ RÉCUPÉRER LES VISITES EN ATTENTE D'APPROBATION
+  // =============================================
+  getPendingVisits: async () => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients(*),
+          aidant:aidants(*, user:profiles(*))
+        `)
+        .eq('status', 'planifiee')
+        .is('approved_at', null)
+        .is('refused_at', null)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get pending visits error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
+  },
+
+  // =============================================
+  // ✅ RÉCUPÉRER LES VISITES NÉCESSITANT UNE RÉASSIGNATION
+  // =============================================
+  getVisitsNeedingReassign: async () => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients(*),
+          aidant:aidants(*, user:profiles(*))
+        `)
+        .or(`status.eq.refusee, and(status.eq.planifiee, created_at.lt.${twentyFourHoursAgo.toISOString()}, approved_at.is.null, refused_at.is.null)`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get visits needing reassign error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
+  },
+
+  // =============================================
+  // ✅ RÉCUPÉRER LES VISITES D'UN PATIENT
+  // =============================================
+  getVisitsByPatient: async (patientId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients(*),
+          aidant:aidants(*, user:profiles(*))
+        `)
+        .eq('patient_id', patientId)
+        .order('scheduled_date', { ascending: true });
+
+      if (error) throw error;
+
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get visits by patient error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
+  },
+
+  // =============================================
+  // CLEAR ERROR
+  // =============================================
   clearError: () => set({ error: null }),
 }));
