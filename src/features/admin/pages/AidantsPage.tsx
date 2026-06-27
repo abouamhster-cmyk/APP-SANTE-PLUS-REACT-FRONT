@@ -1,5 +1,6 @@
 // 📁 src/features/admin/pages/AidantsPage.tsx
- 
+// ✅ Version corrigée - StatCardProps définie
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -40,6 +41,14 @@ interface Aidant {
   status: string;
   zones: string[];
   created_at: string;
+}
+
+// ✅ Interface StatCardProps
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  color: string;
+  icon: React.ReactNode;
 }
 
 const getStatusLabel = (status: string): string => {
@@ -108,12 +117,12 @@ const AidantsPage = () => {
           .select('id, full_name, email, phone, role, avatar_url')
           .in('id', userIds);
 
-          if (!profilesError && profiles) {
-            profileMap = profiles.reduce((acc, p) => {
-              acc[p.id] = p;
-              return acc;
-            }, {} as Record<string, any>);
-          }
+        if (!profilesError && profiles) {
+          profileMap = profiles.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {} as Record<string, any>);
+        }
       }
 
       const aidantsWithUser = (aidantsData || []).map(aidant => ({
@@ -308,6 +317,10 @@ const AidantsPage = () => {
     </div>
   );
 };
+
+// =============================================
+// STAT CARD - Avec StatCardProps
+// =============================================
 
 const StatCard = ({ label, value, color, icon }: StatCardProps) => (
   <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
