@@ -1,9 +1,8 @@
 // 📁 src/features/help/pages/HistoryPage.tsx
-// 📌 Historique des missions et livraisons pour les aidants
-
+ 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, CheckCircle, XCircle, Clock, Eye, Filter, Search, ChevronDown, MapPin } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, Eye, Filter, Search, MapPin } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -21,12 +20,7 @@ const HistoryPage = () => {
   const { visits, fetchVisits, isLoading: visitsLoading } = useVisitStore();
   const { orders, fetchOrders, isLoading: ordersLoading } = useOrderStore();
 
-  // ✅ Jargon dynamique selon le rôle
-  const {
-    singular,
-    getCategoryLabel,
-    isAidant,
-  } = useTerminology();
+  const { isAidant } = useTerminology();
 
   const [aidantId, setAidantId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<HistoryType>('all');
@@ -54,23 +48,20 @@ const HistoryPage = () => {
     fetchOrders();
   }, []);
 
-  // ✅ Filtrer les missions et commandes de l'aidant (avec statuts simplifiés)
-  const myMissions = visits.filter(v => 
-    v.aidant_id === aidantId && 
+  const myMissions = visits.filter(v =>
+    v.aidant_id === aidantId &&
     (v.status === 'terminee' || v.status === 'validee' || v.status === 'annulee')
   );
-  
-  // ✅ Commandes avec statuts simplifiés
-  const myDeliveries = orders.filter(o => 
-    o.aidant_id === aidantId && 
+
+  const myDeliveries = orders.filter(o =>
+    o.aidant_id === aidantId &&
     (o.status === 'livree' || o.status === 'validee' || o.status === 'annulee')
   );
 
-  // ✅ Filtrer par recherche
   const filterBySearch = (items: any[]) => {
     if (!searchTerm) return items;
     const term = searchTerm.toLowerCase();
-    return items.filter(item => 
+    return items.filter(item =>
       item.patient?.first_name?.toLowerCase().includes(term) ||
       item.patient?.last_name?.toLowerCase().includes(term) ||
       item.description?.toLowerCase().includes(term) ||
@@ -78,7 +69,6 @@ const HistoryPage = () => {
     );
   };
 
-  // ✅ Filtrer par statut
   const filterByStatus = (items: any[]) => {
     if (filterStatus === 'all') return items;
     return items.filter(item => item.status === filterStatus);
@@ -87,7 +77,7 @@ const HistoryPage = () => {
   let historyItems: any[] = [];
   if (activeType === 'all') {
     historyItems = [
-      ...myMissions.map(m => ({ ...m, type: 'mission' })), 
+      ...myMissions.map(m => ({ ...m, type: 'mission' })),
       ...myDeliveries.map(d => ({ ...d, type: 'delivery' }))
     ];
   } else if (activeType === 'missions') {
@@ -96,11 +86,9 @@ const HistoryPage = () => {
     historyItems = myDeliveries.map(d => ({ ...d, type: 'delivery' }));
   }
 
-  // ✅ Filtrer et trier
   const filteredItems = filterBySearch(filterByStatus(historyItems))
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  // ✅ Statuts simplifiés pour l'historique
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       terminee: '#4CAF50',
@@ -125,36 +113,24 @@ const HistoryPage = () => {
     return labels[status] || status;
   };
 
-  // ✅ Libellé dynamique pour le titre
-  const getPageTitle = () => {
-    return '📋 Mon historique';
-  };
-
-  // ✅ Message vide selon le type
-  const getEmptyMessage = (type: HistoryType) => {
-    if (searchTerm) {
-      return 'Aucun résultat pour cette recherche';
-    }
-    switch (type) {
-      case 'all':
-        return 'Vos missions et livraisons terminées apparaîtront ici';
-      case 'missions':
-        return 'Vos missions terminées apparaîtront ici';
-      case 'deliveries':
-        return 'Vos livraisons terminées apparaîtront ici';
-      default:
-        return 'Aucun élément dans votre historique';
-    }
-  };
+  const getPageTitle = () => '📋 Mon historique';
 
   const isLoading = visitsLoading || ordersLoading;
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: colors.text }}>Chargement...</p>
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-3 gap-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
         </div>
       </div>
     );
@@ -166,32 +142,58 @@ const HistoryPage = () => {
     deliveries: myDeliveries.length,
   };
 
+  // ✅ Options de filtre
+  const filterOptions = [
+    { value: 'all', label: 'Tous' },
+    { value: 'terminee', label: '✅ Terminée' },
+    { value: 'validee', label: '✅ Validée' },
+    { value: 'livree', label: '📦 Livrée' },
+    { value: 'annulee', label: '❌ Annulée' },
+    { value: 'en_cours', label: '🔄 En cours' },
+  ];
+
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-24 sm:pb-10">
       {/* HEADER */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
-          {getPageTitle()}
-        </h1>
-        <p className="mt-1" style={{ color: colors.text + '99' }}>
-          {stats.total} éléments dans votre historique
-        </p>
-      </div>
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              style={{
+                background: colors.primary + '12',
+                color: colors.primary,
+              }}
+            >
+              <Calendar size={12} />
+              Historique
+            </div>
+
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+              {getPageTitle()}
+            </h1>
+
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {stats.total} élément(s) dans votre historique
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* STATS */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Calendar size={18} />} />
-        <StatCard label="Missions" value={stats.missions} color="#4CAF50" icon={<CheckCircle size={18} />} />
-        <StatCard label="Livraisons" value={stats.deliveries} color="#FF5722" icon={<Clock size={18} />} />
-      </div>
+      <section className="grid grid-cols-3 gap-2">
+        <CompactStat label="Total" value={stats.total} color={colors.primary} icon={<Calendar size={14} />} />
+        <CompactStat label="Missions" value={stats.missions} color="#4CAF50" icon={<CheckCircle size={14} />} />
+        <CompactStat label="Livraisons" value={stats.deliveries} color="#FF5722" icon={<Clock size={14} />} />
+      </section>
 
-      {/* FILTRES */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 space-y-3">
-        <div className="flex flex-wrap gap-2">
+      {/* TABS + FILTRES */}
+      <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5 space-y-2">
+        <div className="flex gap-1">
           <button
             onClick={() => setActiveType('all')}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-              activeType === 'all' ? 'text-white' : 'text-gray-600 hover:bg-gray-100'
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+              activeType === 'all' ? 'text-white' : 'text-gray-600'
             }`}
             style={{ background: activeType === 'all' ? colors.primary : 'transparent' }}
           >
@@ -199,8 +201,8 @@ const HistoryPage = () => {
           </button>
           <button
             onClick={() => setActiveType('missions')}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-              activeType === 'missions' ? 'text-white' : 'text-gray-600 hover:bg-gray-100'
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+              activeType === 'missions' ? 'text-white' : 'text-gray-600'
             }`}
             style={{ background: activeType === 'missions' ? colors.primary : 'transparent' }}
           >
@@ -208,8 +210,8 @@ const HistoryPage = () => {
           </button>
           <button
             onClick={() => setActiveType('deliveries')}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-              activeType === 'deliveries' ? 'text-white' : 'text-gray-600 hover:bg-gray-100'
+            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition ${
+              activeType === 'deliveries' ? 'text-white' : 'text-gray-600'
             }`}
             style={{ background: activeType === 'deliveries' ? colors.primary : 'transparent' }}
           >
@@ -217,165 +219,127 @@ const HistoryPage = () => {
           </button>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border outline-none text-sm"
-              style={{ borderColor: colors.border, color: colors.text }}
               placeholder="Rechercher..."
+              className="w-full pl-8 pr-2 py-1.5 text-xs rounded-lg border bg-gray-50 outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
             />
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, color: colors.text }}
-          >
-            <option value="all">Tous les statuts</option>
-            <option value="terminee">✅ Terminée</option>
-            <option value="validee">✅ Validée</option>
-            <option value="livree">📦 Livrée</option>
-            <option value="annulee">❌ Annulée</option>
-            <option value="en_cours">🔄 En cours</option>
-          </select>
+          <div className="relative min-w-[100px]">
+            <Filter size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full pl-7 pr-2 py-1.5 text-xs rounded-lg border bg-gray-50 outline-none appearance-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              {filterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* LISTE */}
       {filteredItems.length > 0 ? (
-        <div className="space-y-3">
+        <section className="space-y-2">
           {filteredItems.map((item) => (
-            <HistoryCard
+            <div
               key={item.id}
-              item={item}
-              colors={colors}
-              onView={() => {
+              className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
+              style={{ borderLeftColor: getStatusColor(item.status) }}
+              onClick={() => {
                 if (item.type === 'mission') {
                   navigate(`/app/visits/${item.id}`);
                 } else {
                   navigate(`/app/orders/${item.id}`);
                 }
               }}
-              getStatusColor={getStatusColor}
-              getStatusLabel={getStatusLabel}
-              formatDate={formatDate}
-              formatTime={formatTime}
-            />
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
+                    {item.type === 'mission' ? '📋' : '📦'} {item.patient?.first_name || 'Client'} {item.patient?.last_name || ''}
+                  </p>
+                  <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: colors.text + '60' }}>
+                    <span className="flex items-center gap-0.5">
+                      <Calendar size={11} /> {formatDate(item.created_at)}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-0.5">
+                      <Clock size={11} /> {formatTime(item.created_at)}
+                    </span>
+                    <span
+                      className="px-1.5 py-0.5 rounded-full text-[8px] font-medium"
+                      style={{
+                        background: getStatusColor(item.status) + '20',
+                        color: getStatusColor(item.status),
+                      }}
+                    >
+                      {getStatusLabel(item.status)}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); }}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 transition"
+                  style={{ color: colors.primary }}
+                >
+                  <Eye size={14} />
+                </button>
+              </div>
+            </div>
           ))}
-        </div>
+        </section>
       ) : (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-          <Calendar size={64} className="mx-auto mb-4 opacity-30" />
-          <h3 className="text-lg font-medium" style={{ color: colors.text }}>
-            Aucun historique
+        <section className="bg-white rounded-2xl p-6 text-center shadow-sm">
+          <Calendar size={32} className="mx-auto mb-3 opacity-30" />
+          <h3 className="text-sm font-bold" style={{ color: colors.text }}>
+            {searchTerm ? 'Aucun résultat' : 'Aucun historique'}
           </h3>
-          <p className="mt-1" style={{ color: colors.text + '80' }}>
-            {getEmptyMessage(activeType)}
+          <p className="text-xs text-gray-400 mt-1">
+            {searchTerm
+              ? 'Aucun élément ne correspond à votre recherche.'
+              : 'Vos missions et livraisons terminées apparaîtront ici.'}
           </p>
-        </div>
+        </section>
       )}
     </div>
   );
 };
 
 // =============================================
-// STAT CARD
+// COMPACT STAT
 // =============================================
 
-interface StatCardProps {
+interface CompactStatProps {
+  icon: React.ReactNode;
   label: string;
   value: number;
   color: string;
-  icon: React.ReactNode;
 }
 
-const StatCard = ({ label, value, color, icon }: StatCardProps) => {
+const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
         <div>
-          <p className="text-xs text-gray-500">{label}</p>
-          <p className="text-2xl font-bold mt-1" style={{ color }}>{value}</p>
+          <p className="text-[9px] font-medium text-gray-400">{label}</p>
+          <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
         </div>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: color + '15', color }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '15', color }}>
           {icon}
         </div>
-      </div>
-    </div>
-  );
-};
-
-// =============================================
-// HISTORY CARD
-// =============================================
-
-interface HistoryCardProps {
-  item: any;
-  colors: any;
-  onView: () => void;
-  getStatusColor: (status: string) => string;
-  getStatusLabel: (status: string) => string;
-  formatDate: (date: string) => string;
-  formatTime: (time: string) => string;
-}
-
-const HistoryCard = ({ item, colors, onView, getStatusColor, getStatusLabel, formatDate, formatTime }: HistoryCardProps) => {
-  const isMission = item.type === 'mission';
-  const statusColor = getStatusColor(item.status);
-
-  return (
-    <div
-      className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
-      style={{ borderLeftColor: statusColor }}
-      onClick={onView}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-lg font-semibold" style={{ color: colors.text }}>
-              {isMission ? '📋' : '📦'} {item.patient?.first_name || 'Client'} {item.patient?.last_name || ''}
-            </span>
-            <span
-              className="px-2 py-0.5 rounded-full text-xs font-medium"
-              style={{ background: statusColor + '20', color: statusColor }}
-            >
-              {getStatusLabel(item.status)}
-            </span>
-            <span className="text-xs text-gray-400">
-              {isMission ? 'Mission' : 'Livraison'}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm" style={{ color: colors.text + '60' }}>
-            <span className="flex items-center gap-1">
-              <Calendar size={14} />
-              {formatDate(item.created_at)}
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock size={14} />
-              {formatTime(item.created_at)}
-            </span>
-            {item.address && (
-              <span className="flex items-center gap-1">
-                <MapPin size={14} />
-                {item.address}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <button
-          onClick={(e) => { e.stopPropagation(); onView(); }}
-          className="flex items-center gap-1 px-4 py-2 rounded-xl font-medium text-sm transition hover:bg-gray-50"
-          style={{ color: colors.text, background: 'transparent', border: `1px solid ${colors.primary + '20'}` }}
-        >
-          <Eye size={16} />
-          Détails
-        </button>
       </div>
     </div>
   );
