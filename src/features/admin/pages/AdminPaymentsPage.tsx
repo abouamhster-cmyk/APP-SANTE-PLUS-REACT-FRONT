@@ -1,3 +1,4 @@
+
 // 📁 src/features/admin/pages/AdminPaymentsPage.tsx
 
 import { useEffect, useState } from 'react';
@@ -7,15 +8,8 @@ import {
   Clock,
   XCircle,
   Eye,
-  Search,
-  Filter,
-  Download,
   RefreshCw,
-  User,
-  Calendar,
   DollarSign,
-  TrendingUp,
-  TrendingDown,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -58,7 +52,6 @@ const AdminPaymentsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Récupérer les paiements avec les profils
   useEffect(() => {
     fetchPayments();
   }, []);
@@ -66,8 +59,6 @@ const AdminPaymentsPage = () => {
   const fetchPayments = async () => {
     try {
       setIsLoading(true);
-
-      // 1. Récupérer tous les paiements
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('paiements')
         .select('*')
@@ -75,7 +66,6 @@ const AdminPaymentsPage = () => {
 
       if (paymentsError) throw paymentsError;
 
-      // 2. Récupérer les profils des utilisateurs
       const userIds = [...new Set(paymentsData?.map(p => p.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
 
@@ -93,7 +83,6 @@ const AdminPaymentsPage = () => {
         }
       }
 
-      // 3. Fusionner les données
       const paymentsWithUser = (paymentsData || []).map(payment => ({
         ...payment,
         user: payment.user_id ? profileMap[payment.user_id] || null : null,
@@ -101,7 +90,6 @@ const AdminPaymentsPage = () => {
 
       setPayments(paymentsWithUser);
 
-      // 4. Calculer les statistiques
       const total = paymentsWithUser.length;
       const pending = paymentsWithUser.filter(p => p.status === 'en_attente').length;
       const validated = paymentsWithUser.filter(p => p.status === 'valide').length;
@@ -111,7 +99,6 @@ const AdminPaymentsPage = () => {
         .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
       setStats({ total, pending, validated, failed, revenue });
-
     } catch (error: any) {
       console.error('Fetch payments error:', error);
       toast.error('Erreur lors du chargement des paiements');
@@ -120,7 +107,6 @@ const AdminPaymentsPage = () => {
     }
   };
 
-  // ✅ Filtrer les paiements
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = 
       payment.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,254 +114,146 @@ const AdminPaymentsPage = () => {
       payment.reference?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
-    
     return matchesSearch && matchesStatus;
   });
 
-  // ✅ Obtenir la couleur du statut
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'valide': return '#4CAF50';
-      case 'en_attente': return '#FF9800';
-      case 'echoue': return '#F44336';
-      case 'annule': return '#9E9E9E';
-      case 'rembourse': return '#2196F3';
-      default: return '#9E9E9E';
+      case 'valide': return '#10b981';
+      case 'en_attente': return '#f59e0b';
+      case 'echoue': return '#ef4444';
+      case 'annule': return '#94a3b8';
+      case 'rembourse': return '#3b82f6';
+      default: return '#94a3b8';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'valide': return '✅ Validé';
-      case 'en_attente': return '⏳ En attente';
-      case 'echoue': return '❌ Échoué';
-      case 'annule': return '🚫 Annulé';
-      case 'rembourse': return '🔄 Remboursé';
+      case 'valide': return 'Validé';
+      case 'en_attente': return 'En attente';
+      case 'echoue': return 'Échoué';
+      case 'annule': return 'Annulé';
+      case 'rembourse': return 'Remboursé';
       default: return status;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'valide': return <CheckCircle size={16} className="text-green-500" />;
-      case 'en_attente': return <Clock size={16} className="text-yellow-500" />;
-      case 'echoue': return <XCircle size={16} className="text-red-500" />;
-      case 'annule': return <XCircle size={16} className="text-gray-400" />;
-      case 'rembourse': return <RefreshCw size={16} className="text-blue-500" />;
-      default: return <Clock size={16} className="text-gray-400" />;
+      case 'valide': return <CheckCircle size={14} className="text-green-500" />;
+      case 'en_attente': return <Clock size={14} className="text-yellow-500" />;
+      case 'echoue': return <XCircle size={14} className="text-red-500" />;
+      default: return <Clock size={14} className="text-gray-400" />;
     }
   };
 
-  // ✅ Voir les détails du paiement
   const handleViewDetails = (payment: PaymentWithUser) => {
     toast.success(
-      `💰 Paiement #${payment.reference || payment.id}\n` +
+      `💰 Référence: ${payment.reference || payment.id}\n` +
       `Montant: ${formatCurrency(payment.amount)}\n` +
-      `Statut: ${getStatusLabel(payment.status)}\n` +
-      `Date: ${formatDate(payment.created_at)}`,
-      { duration: 5000 }
+      `Statut: ${getStatusLabel(payment.status)}`,
+      { duration: 4000 }
     );
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Header */}
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: colors.text }}>
-              💳 Gestion des paiements
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
+      >
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+              💳 Flux financiers
             </h1>
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-              Suivez et gérez tous les paiements effectués sur la plateforme
+            <p className="text-xs" style={{ color: colors.textLight }}>
+              Suivi transparent et gestion des paiements clients de la plateforme
             </p>
           </div>
           <button
             onClick={fetchPayments}
             disabled={isLoading}
-            className="px-4 py-2 rounded-xl font-medium transition hover:opacity-80 flex items-center gap-2"
-            style={{ background: colors.primary + '12', color: colors.primary }}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors bg-white hover:bg-gray-50 shrink-0 self-start sm:self-center"
+            style={{ borderColor: colors.border, color: colors.text }}
           >
-            <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             Actualiser
           </button>
         </div>
       </section>
 
-      {/* Statistiques */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard
-          label="Total"
-          value={stats.total}
-          color={colors.primary}
-          icon={<CreditCard size={20} />}
-        />
-        <StatCard
-          label="En attente"
-          value={stats.pending}
-          color="#FF9800"
-          icon={<Clock size={20} />}
-        />
-        <StatCard
-          label="Validés"
-          value={stats.validated}
-          color="#4CAF50"
-          icon={<CheckCircle size={20} />}
-        />
-        <StatCard
-          label="Échoués"
-          value={stats.failed}
-          color="#F44336"
-          icon={<XCircle size={20} />}
-        />
-        <StatCard
-          label="Revenu total"
-          value={formatCurrency(stats.revenue)}
-          color="#2196F3"
-          icon={<DollarSign size={20} />}
-        />
+      {/* Statistiques épurées */}
+      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <StatCard label="Total" value={stats.total} color={colors.primary} icon={<CreditCard size={16} />} />
+        <StatCard label="En attente" value={stats.pending} color="#f59e0b" icon={<Clock size={16} />} />
+        <StatCard label="Validés" value={stats.validated} color="#10b981" icon={<CheckCircle size={16} />} />
+        <StatCard label="Échoués" value={stats.failed} color="#ef4444" icon={<XCircle size={16} />} />
+        <StatCard label="Revenu total" value={formatCurrency(stats.revenue)} color="#3b82f6" icon={<DollarSign size={16} />} />
       </section>
 
-      {/* Filtres */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Rechercher par nom, email ou référence..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
-            />
-          </div>
-          <div className="relative min-w-[180px]">
-            <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5" style={{ color: colors.text + '40' }} />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border outline-none text-sm appearance-none"
-              style={{
-                borderColor: colors.border,
-                background: 'var(--color-background)',
-                color: colors.text,
-              }}
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="valide">✅ Validés</option>
-              <option value="en_attente">⏳ En attente</option>
-              <option value="echoue">❌ Échoués</option>
-              <option value="annule">🚫 Annulés</option>
-              <option value="rembourse">🔄 Remboursés</option>
-            </select>
-          </div>
-        </div>
+      {/* Filtres épurés */}
+      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Rechercher par nom, email ou référence..."
+          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
+          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="valide">✅ Validés</option>
+          <option value="en_attente">⏳ En attente</option>
+          <option value="echoue">❌ Échoués</option>
+        </select>
       </section>
 
-      {/* Liste des paiements */}
-      <section className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
+      {/* Liste épurée */}
+      <section className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.015)] overflow-hidden">
         {isLoading ? (
-          <div className="p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-t-transparent" style={{ borderColor: colors.primary }} />
-            <p className="mt-2 text-sm" style={{ color: colors.text + '60' }}>Chargement des paiements...</p>
-          </div>
+          <div className="p-10 text-center"><RefreshCw size={24} className="animate-spin mx-auto text-gray-300" /></div>
         ) : filteredPayments.length === 0 ? (
-          <div className="p-12 text-center">
-            <CreditCard size={48} className="mx-auto mb-4 opacity-30" />
-            <h3 className="text-lg font-bold" style={{ color: colors.text }}>
-              Aucun paiement trouvé
-            </h3>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Aucun paiement ne correspond à vos critères'
-                : 'Aucun paiement n\'a encore été effectué'}
-            </p>
-          </div>
+          <div className="p-12 text-center text-gray-400">Aucun paiement trouvé</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead style={{ background: colors.primary + '04' }}>
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-50/75">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Utilisateur
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Montant
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Méthode
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Statut
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider" style={{ color: colors.text + '60' }}>
-                    Actions
-                  </th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Montant</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Méthode</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 text-right font-semibold text-gray-400 uppercase tracking-wider">Détails</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: colors.border }}>
                 {filteredPayments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-50 transition">
+                  <tr key={payment.id} className="hover:bg-gray-50/50 transition">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                          style={{ background: colors.primary }}
-                        >
-                          {payment.user?.full_name?.charAt(0) || 'U'}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm" style={{ color: colors.text }}>
-                            {payment.user?.full_name || 'Utilisateur inconnu'}
-                          </p>
-                          <p className="text-xs" style={{ color: colors.text + '40' }}>
-                            {payment.user?.email || 'Email inconnu'}
-                          </p>
-                        </div>
-                      </div>
+                      <p className="font-bold text-gray-800">{payment.user?.full_name || 'Anonyme'}</p>
+                      <p className="text-[10px] text-gray-400">{payment.user?.email || 'N/A'}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <p className="font-bold text-sm" style={{ color: colors.primary }}>
-                        {formatCurrency(payment.amount)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs px-2 py-1 rounded-full" style={{ 
-                        background: colors.primary + '10', 
-                        color: colors.primary 
-                      }}>
-                        {payment.method || 'Non spécifié'}
-                      </span>
-                    </td>
+                    <td className="px-4 py-3 font-bold text-gray-900">{formatCurrency(payment.amount)}</td>
+                    <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{payment.method || 'Non spécifié'}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         {getStatusIcon(payment.status)}
-                        <span className="text-xs font-medium" style={{ color: getStatusColor(payment.status) }}>
-                          {getStatusLabel(payment.status)}
-                        </span>
+                        <span className="font-semibold" style={{ color: getStatusColor(payment.status) }}>{getStatusLabel(payment.status)}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs" style={{ color: colors.text + '50' }}>
-                        {formatDate(payment.created_at)}
-                      </span>
-                    </td>
+                    <td className="px-4 py-3 text-gray-400">{formatDate(payment.created_at)}</td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        className="p-2 rounded-lg hover:bg-gray-100 transition"
-                        style={{ color: colors.primary }}
-                        onClick={() => handleViewDetails(payment)}
-                      >
-                        <Eye size={16} />
-                      </button>
+                      <button onClick={() => handleViewDetails(payment)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Eye size={14} /></button>
                     </td>
                   </tr>
                 ))}
@@ -388,10 +266,6 @@ const AdminPaymentsPage = () => {
   );
 };
 
-// =============================================
-// STAT CARD
-// =============================================
-
 interface StatCardProps {
   label: string;
   value: string | number;
@@ -399,23 +273,14 @@ interface StatCardProps {
   icon: React.ReactNode;
 }
 
-const StatCard = ({ label, value, color, icon }: StatCardProps) => {
-  return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-2xl font-black" style={{ color }}>{value}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-        </div>
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: color + '15', color }}
-        >
-          {icon}
-        </div>
-      </div>
+const StatCard = ({ label, value, color, icon }: StatCardProps) => (
+  <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
+    <div className="space-y-0.5">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
     </div>
-  );
-};
+    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '0d', color }}>{icon}</div>
+  </div>
+);
 
 export default AdminPaymentsPage;
