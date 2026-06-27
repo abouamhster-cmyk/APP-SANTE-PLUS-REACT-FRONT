@@ -1,6 +1,6 @@
 // 📁 src/components/layout/MainLayout.tsx
  
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
   Menu,
@@ -94,9 +94,9 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE
+  // NAVIGATION PAR RÔLE - Mémoïsée pour performance
   // =============================================
-  const getNavItems = () => {
+  const navItems = useMemo(() => {
     const base = [
       { icon: <LayoutDashboard size={20} />, label: 'Tableau de bord', path: '/app' },
     ];
@@ -156,49 +156,54 @@ const MainLayout = () => {
     }
 
     return base;
-  };
-
-  const navItems = getNavItems();
+  }, [role]);
 
   // =============================================
-  // TITRE DE LA PAGE
+  // TITRE DE LA PAGE - Mémoïsé
   // =============================================
-  const getPageTitle = () => {
+  const pageTitle = useMemo(() => {
     const path = location.pathname;
 
-    if (path.startsWith('/app/orders')) return 'Commandes';
-    if (path.startsWith('/app/patients')) return 'Proches';
-    if (path.startsWith('/app/visits')) return 'Visites';
-    if (path.startsWith('/app/messages')) return 'Messages';
-    if (path.startsWith('/app/billing')) return 'Abonnement';
-    if (path.startsWith('/app/profile')) return 'Profil';
-    if (path.startsWith('/app/notifications')) return 'Notifications';
-    if (path.startsWith('/app/missions')) return 'Missions';
-    if (path.startsWith('/app/planning')) return 'Planning';
-    if (path.startsWith('/app/history')) return 'Historique';
-    if (path.startsWith('/app/map')) return 'Carte';
-    if (path.startsWith('/app/journal')) return 'Journal';
-    if (path.startsWith('/app/discharge')) return 'Sortie hôpital';
-    if (path.startsWith('/app/admin')) return 'Administration';
-    if (path.startsWith('/app/registrations')) return 'Inscriptions';
-    if (path.startsWith('/app/aidants')) return 'Aidants';
-    if (path.startsWith('/app/aidant-candidates')) return 'Candidatures Aidants';
-    if (path.startsWith('/app/users')) return 'Utilisateurs';
-    if (path.startsWith('/app/offers')) return 'Offres';
-    if (path.startsWith('/app/settings')) return 'Paramètres';
-    if (path.startsWith('/app/admin-payments')) return 'Paiements';
-    if (path.startsWith('/app/admin-subscriptions')) return 'Abonnements';
-    if (path.startsWith('/app/admin-notifications')) return 'Notifications Admin';
-    if (path.startsWith('/app/admin/visits/validation')) return 'Validation visites';
+    const titles: Record<string, string> = {
+      '/app/orders': 'Commandes',
+      '/app/patients': 'Proches',
+      '/app/visits': 'Visites',
+      '/app/messages': 'Messages',
+      '/app/billing': 'Abonnement',
+      '/app/profile': 'Profil',
+      '/app/notifications': 'Notifications',
+      '/app/missions': 'Missions',
+      '/app/planning': 'Planning',
+      '/app/history': 'Historique',
+      '/app/map': 'Carte',
+      '/app/journal': 'Journal',
+      '/app/discharge': 'Sortie hôpital',
+      '/app/admin': 'Administration',
+      '/app/registrations': 'Inscriptions',
+      '/app/aidants': 'Aidants',
+      '/app/aidant-candidates': 'Candidatures Aidants',
+      '/app/users': 'Utilisateurs',
+      '/app/offers': 'Offres',
+      '/app/settings': 'Paramètres',
+      '/app/admin-payments': 'Paiements',
+      '/app/admin-subscriptions': 'Abonnements',
+      '/app/admin-notifications': 'Notifications Admin',
+      '/app/admin/visits/validation': 'Validation visites',
+    };
+
+    // Vérifier les chemins avec paramètres (ex: /app/patients/123)
+    for (const [key, value] of Object.entries(titles)) {
+      if (path.startsWith(key)) return value;
+    }
 
     if (role === 'family') return 'Tableau de bord';
     if (role === 'aidant') return 'Missions';
     if (role === 'admin' || role === 'coordinator') return 'Administration';
 
     return 'Santé Plus Services';
-  };
+  }, [location.pathname, role]);
 
-  const closeSidebar = () => setSidebarOpen(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   // =============================================
   // RENDU
@@ -234,7 +239,7 @@ const MainLayout = () => {
       )}
 
       {/* ========================================== */}
-      {/* SIDEBAR MOBILE (hamburger) */}
+      {/* SIDEBAR MOBILE */}
       {/* ========================================== */}
       {isMobile && (
         <>
@@ -288,7 +293,7 @@ const MainLayout = () => {
                 className="text-base md:text-lg font-bold truncate"
                 style={{ color: colors.text }}
               >
-                {getPageTitle()}
+                {pageTitle}
               </h2>
 
               <div className="flex items-center gap-2">
