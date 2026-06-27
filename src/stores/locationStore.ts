@@ -4,12 +4,6 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
 
-interface LocationData {
-  lat: number;
-  lng: number;
-  timestamp: string;
-}
-
 interface LocationState {
   locations: {
     patients: any[];
@@ -42,83 +36,100 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      const { data, error } = await supabase
+      // ✅ ÉTAPE 1 : Récupérer les visites en cours
+      const { data: visits, error } = await supabase
         .from('visites')
-        .select(`
-          *,
-          patient:patients!visites_patient_id_fkey(*)
-        `)
+        .select('*')
         .eq('status', 'en_cours');
 
       if (error) {
-        console.error('Erreur fetch active visits:', error);
+        console.error('❌ Erreur fetch active visits:', error);
         set({ error: error.message, isLoading: false });
         return;
       }
 
-      // ✅ Récupérer les aidants séparément avec leur profil
-      const visitsWithAidants = await Promise.all(
-        (data || []).map(async (visit) => {
-          if (visit.aidant_id) {
-            const { data: aidantData, error: aidantError } = await supabase
-              .from('aidants')
+      // ✅ ÉTAPE 2 : Récupérer les patients SEPAREMENT
+      const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
+      let patientMap: Record<string, any> = {};
+
+      if (patientIds.length > 0) {
+        const { data: patients } = await supabase
+          .from('patients')
+          .select('*')
+          .in('id', patientIds);
+        if (patients) {
+          patientMap = patients.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
+      // ✅ ÉTAPE 3 : Récupérer les aidants SEPAREMENT
+      const aidantIds = [...new Set(visits?.map(v => v.aidant_id).filter(Boolean))];
+      let aidantMap: Record<string, any> = {};
+
+      if (aidantIds.length > 0) {
+        const { data: aidants } = await supabase
+          .from('aidants')
+          .select('*')
+          .in('id', aidantIds);
+        
+        if (aidants) {
+          const userIds = aidants.map(a => a.user_id).filter(Boolean);
+          let profileMap: Record<string, any> = {};
+
+          if (userIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from('profiles')
               .select('*')
-              .eq('id', visit.aidant_id)
-              .single();
-
-            if (!aidantError && aidantData) {
-              // Récupérer le profil de l'aidant
-              const { data: userData } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', aidantData.user_id)
-                .single();
-
-              return {
-                ...visit,
-                aidant: {
-                  ...aidantData,
-                  user: userData || null
-                }
-              };
+              .in('id', userIds);
+            if (profiles) {
+              profileMap = profiles.reduce((acc, p) => {
+                acc[p.id] = p;
+                return acc;
+              }, {} as Record<string, any>);
             }
           }
-          return visit;
-        })
-      );
 
-      set({ activeVisits: visitsWithAidants || [], isLoading: false });
+          aidantMap = aidants.reduce((acc, a) => {
+            acc[a.id] = {
+              ...a,
+              user: a.user_id ? profileMap[a.user_id] || null : null,
+            };
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
 
-      // Récupérer les positions des patients
-      const patients = data?.filter(v => v.patient).map(v => ({
-        id: v.patient.id,
-        ...v.patient,
-        latitude: v.patient.latitude || 6.3703,
-        longitude: v.patient.longitude || 2.3912,
-      })) || [];
+      // ✅ ÉTAPE 4 : Fusionner les données
+      const visitsWithRelations = (visits || []).map((visit) => ({
+        ...visit,
+        patient: visit.patient_id ? patientMap[visit.patient_id] || null : null,
+        aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
+      }));
 
-      // Récupérer les positions des aidants
-      const aidants = await Promise.all(
-        (data || [])
-          .filter(v => v.aidant_id)
-          .map(async (v) => {
-            const { data: aidantData } = await supabase
-              .from('aidants')
-              .select('*, user:profiles(*)')
-              .eq('id', v.aidant_id)
-              .single();
-            
-            if (aidantData?.user) {
-              return {
-                id: aidantData.user.id,
-                full_name: aidantData.user.full_name,
-                latitude: 6.36 + Math.random() * 0.02,
-                longitude: 2.38 + Math.random() * 0.02,
-              };
-            }
-            return null;
-          })
-      );
+      set({ activeVisits: visitsWithRelations || [], isLoading: false });
+
+      // ✅ ÉTAPE 5 : Positions des patients
+      const patients = visitsWithRelations
+        .filter(v => v.patient)
+        .map(v => ({
+          id: v.patient.id,
+          ...v.patient,
+          latitude: v.patient.latitude || 6.3703,
+          longitude: v.patient.longitude || 2.3912,
+        }));
+
+      // ✅ ÉTAPE 6 : Positions des aidants
+      const aidants = visitsWithRelations
+        .filter(v => v.aidant?.user)
+        .map(v => ({
+          id: v.aidant.user.id,
+          full_name: v.aidant.user.full_name,
+          latitude: 6.36 + Math.random() * 0.02,
+          longitude: 2.38 + Math.random() * 0.02,
+        }));
 
       set({
         locations: { 
@@ -128,14 +139,14 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         isLoading: false,
       });
     } catch (error: any) {
-      console.error('Fetch active visits error:', error);
+      console.error('❌ Fetch active visits error:', error);
       set({ error: error.message, isLoading: false });
     }
   },
 
   startTracking: () => {
     if (!navigator.geolocation) {
-      console.warn('Geolocation not supported');
+      console.warn('⚠️ Geolocation not supported');
       return;
     }
 
@@ -145,7 +156,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         await get().updateLocation(latitude, longitude);
       },
       (error) => {
-        console.error('Geolocation error:', error);
+        console.error('❌ Geolocation error:', error);
       },
       {
         enableHighAccuracy: true,
@@ -170,7 +181,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       const { user, role } = useAuthStore.getState();
       if (!user) return;
 
-      // Mettre à jour la position de l'utilisateur
       await supabase
         .from('profiles')
         .update({
@@ -180,7 +190,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         })
         .eq('id', user.id);
 
-      // Si c'est un aidant en mission, mettre à jour la position de la visite
       if (role === 'aidant') {
         const { data: aidant } = await supabase
           .from('aidants')
@@ -194,7 +203,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
             .select('id')
             .eq('aidant_id', aidant.id)
             .eq('status', 'en_cours')
-            .single();
+            .maybeSingle();
 
           if (activeVisit) {
             await supabase
@@ -207,7 +216,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         }
       }
     } catch (error) {
-      console.error('Update location error:', error);
+      console.error('❌ Update location error:', error);
     }
   },
 
