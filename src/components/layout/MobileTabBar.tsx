@@ -19,6 +19,10 @@ import {
   Award,
   Package,
   Menu,
+  BookOpen,
+  Hospital,
+  Home,
+  Heart,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -29,14 +33,16 @@ interface MobileTabBarProps {
 }
 
 // =============================================
-// DÉFINITION DES MENUS PAR RÔLE
+// DÉFINITION DES MENUS PAR RÔLE (MAX 5)
 // =============================================
 
+// ✅ Toujours 5 éléments max : Accueil + 4 autres
 const getMainItems = (role: string | null) => {
   const base = [
     { icon: <LayoutDashboard size={22} />, label: 'Accueil', path: '/app' },
   ];
 
+  // 👨‍👩‍👦 FAMILLE - 5 éléments max
   if (role === 'family') {
     return [
       ...base,
@@ -47,6 +53,7 @@ const getMainItems = (role: string | null) => {
     ];
   }
 
+  // 🦸 AIDANT - 5 éléments max
   if (role === 'aidant') {
     return [
       ...base,
@@ -57,6 +64,7 @@ const getMainItems = (role: string | null) => {
     ];
   }
 
+  // 👔 ADMIN / COORDINATEUR - 5 éléments max
   if (role === 'admin' || role === 'coordinator') {
     return [
       ...base,
@@ -67,10 +75,19 @@ const getMainItems = (role: string | null) => {
     ];
   }
 
-  return base;
+  // 🔄 FALLBACK
+  return [
+    ...base,
+    { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
+  ];
 };
 
+// =============================================
+// MENU "PLUS" - TOUS LES AUTRES MENUS
+// =============================================
+
 const getMoreItems = (role: string | null) => {
+  // 👨‍👩‍👦 FAMILLE
   if (role === 'family') {
     return [
       { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
@@ -78,18 +95,22 @@ const getMoreItems = (role: string | null) => {
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
       { icon: <Hospital size={18} />, label: 'Sortie', path: '/app/discharge' },
       { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
+      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications' },
     ];
   }
 
+  // 🦸 AIDANT
   if (role === 'aidant') {
     return [
       { icon: <Briefcase size={18} />, label: 'Planning', path: '/app/planning' },
       { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
       { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
+      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications' },
     ];
   }
 
+  // 👔 ADMIN / COORDINATEUR
   if (role === 'admin' || role === 'coordinator') {
     return [
       { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/app/admin' },
@@ -102,6 +123,7 @@ const getMoreItems = (role: string | null) => {
       { icon: <Package size={18} />, label: 'Offres', path: '/app/offers' },
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
       { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
+      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications' },
     ];
   }
 
@@ -136,6 +158,9 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         paddingBottom: 'max(4px, env(safe-area-inset-bottom))',
       }}
     >
+      {/* ========================================== */}
+      {/* 5 ÉLÉMENTS MAX */}
+      {/* ========================================== */}
       {mainItems.map((item) => {
         const active = isActive(item.path);
 
@@ -160,6 +185,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
               {item.label}
             </span>
 
+            {/* Badge notifications sur Accueil */}
             {item.path === '/app' && unreadCount > 0 && (
               <span
                 className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 text-[9px] text-white rounded-full flex items-center justify-center"
@@ -172,6 +198,9 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         );
       })}
 
+      {/* ========================================== */}
+      {/* BOUTON "PLUS" - TOUS LES AUTRES MENUS */}
+      {/* ========================================== */}
       {moreItems.length > 0 && (
         <div className="relative">
           <button
@@ -191,7 +220,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
 
           {showMore && (
             <div
-              className="absolute bottom-14 right-0 bg-white rounded-2xl shadow-xl border p-2 w-48 max-h-60 overflow-y-auto"
+              className="absolute bottom-14 right-0 bg-white rounded-2xl shadow-xl border p-2 w-52 max-h-64 overflow-y-auto"
               style={{ borderColor: colors.border }}
             >
               {moreItems.map((item) => (
