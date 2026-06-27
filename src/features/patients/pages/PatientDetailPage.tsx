@@ -1,48 +1,100 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
-// 📌 Détails d'une personne (proche/bénéficiaire/personne accompagnée)
+// 📌 Détails d'une personne - Version avec gestion des visites
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit2, Trash2, Calendar, MapPin, Phone, User, Heart, Baby } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit2,
+  Trash2,
+  Calendar,
+  MapPin,
+  Phone,
+  User,
+  Heart,
+  Baby,
+  Play,
+  Clock,
+  Plus,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
+
 import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate } from '@/utils/helpers';
+import { formatDate, formatTime } from '@/utils/helpers';
 import { PatientModal } from '../components/PatientModal';
+import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
+import { VisitModal } from '@/features/visits/components/VisitModal';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 const PatientDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
-  
+  const { profile, role, user } = useAuthStore();
+
   // ✅ Jargon dynamique selon le rôle
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
-    detail,          // "Détails du proche" / "Détails de la personne" / "Détails du bénéficiaire"
-    edit,            // "Modifier le proche" / "Modifier la personne" / "Modifier le bénéficiaire"
-    delete: deleteTerm, // ✅ Renommé pour éviter conflit avec le mot-clé delete
-    noVisits,        // "Aucune visite pour ce proche" / "Aucune visite pour cette personne" / "Aucune visite pour ce bénéficiaire"
-    noNotes,         // "Aucune note pour ce proche" / "Aucune note pour cette personne" / "Aucune note pour ce bénéficiaire"
-    confirmDelete,   // "Voulez-vous vraiment supprimer ce proche ?" / ...
-    deleted,         // "Proche supprimé" / "Personne supprimée" / "Bénéficiaire supprimé"
-    updated,         // "Informations du proche mises à jour" / ...
+    singular,
+    detail,
+    edit,
+    delete: deleteTerm,
+    noVisits,
+    noNotes,
+    confirmDelete,
+    deleted,
+    updated,
     getCategoryLabel,
     isFamily,
     isAidant,
+    isAdminOrCoordinator,
   } = useTerminology();
 
+  // ============================================================
+  // STORES
+  // ============================================================
   const { currentPatient, fetchPatientById, deletePatient, isLoading } = usePatientStore();
-  const { visits, fetchVisits } = useVisitStore();
+  const {
+    visits,
+    fetchVisits,
+    createVisit,
+    startVisit,
+    completeVisit,
+    isLoading: visitLoading,
+    cancelVisit,
+  } = useVisitStore();
 
+  const { remainingVisits, hasActiveSubscription, refresh: refreshSubscription } =
+    useSubscriptionGuard();
+
+  // ============================================================
+  // ÉTATS
+  // ============================================================
   const [activeTab, setActiveTab] = useState<'info' | 'visits' | 'notes'>('info');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [activeVisitId, setActiveVisitId] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [selectedVisit, setSelectedVisit] = useState<any>(null);
+  const [visitModalMode, setVisitModalMode] = useState<'create' | 'edit'>('create');
+  const [patientVisits, setPatientVisits] = useState<any[]>([]);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+  const isAidantRole = role === 'aidant';
 
+  // ============================================================
+  // EFFETS
+  // ============================================================
   useEffect(() => {
     if (id) {
       fetchPatientById(id);
@@ -50,9 +102,110 @@ const PatientDetailPage = () => {
     }
   }, [id]);
 
-  const personVisits = visits.filter(v => v.patient_id === id);
+  useEffect(() => {
+    if (id && visits.length > 0) {
+      const filtered = visits.filter((v) => v.patient_id === id);
+      setPatientVisits(filtered);
+    }
+  }, [visits, id]);
 
-  // Supprimer
+  // ============================================================
+  // ACTIONS SUR LES VISITES
+  // ============================================================
+
+  // Démarrer une visite immédiatement
+  const handleStartVisit = async () => {
+    if (!currentPatient) return;
+
+    // Vérifier l'abonnement
+    if (!hasActiveSubscription || remainingVisits <= 0) {
+      toast.error('Plus de visites disponibles. Veuillez renouveler votre abonnement.');
+      return;
+    }
+
+    // Vérifier si une visite est déjà en cours pour ce patient
+    const hasActive = patientVisits.some((v) => v.status === 'en_cours');
+    if (hasActive) {
+      toast.error('Une visite est déjà en cours pour ce patient.');
+      return;
+    }
+
+    setIsStarting(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toTimeString().slice(0, 5);
+
+      // ✅ 1. Créer la visite
+      const visit = await createVisit({
+        patient_id: currentPatient.id,
+        scheduled_date: today,
+        scheduled_time: now,
+        duration_minutes: 60,
+        notes: 'Visite démarrée par l\'aidant',
+        is_urgent: false,
+        actions: [],
+      });
+
+      // ✅ 2. Démarrer la visite immédiatement
+      await startVisit(visit.id);
+      setActiveVisitId(visit.id);
+      setShowCompleteModal(true);
+      toast.success('✅ Visite démarrée !');
+      fetchVisits();
+    } catch (error: any) {
+      console.error('❌ Erreur démarrage:', error);
+      toast.error(error?.message || 'Erreur lors du démarrage');
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  // Planifier une visite
+  const handlePlanifyVisit = () => {
+    setSelectedVisit(null);
+    setVisitModalMode('create');
+    setShowVisitModal(true);
+  };
+
+  // Terminer une visite
+  const handleCompleteVisit = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
+    if (!activeVisitId) return;
+
+    setIsCompleting(true);
+    try {
+      await completeVisit(activeVisitId, data);
+      toast.success('✅ Visite terminée ! En attente de validation.');
+      setShowCompleteModal(false);
+      setActiveVisitId(null);
+      await refreshSubscription();
+      fetchVisits();
+      fetchPatientById(id!);
+    } catch (error: any) {
+      console.error('❌ Erreur finalisation:', error);
+      toast.error(error?.message || 'Erreur lors de la finalisation');
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  // Annuler une visite
+  const handleCancelVisit = async (visitId: string) => {
+    if (!window.confirm('Annuler cette visite ?')) return;
+
+    try {
+      await cancelVisit(visitId);
+      toast.success('Visite annulée');
+      fetchVisits();
+      fetchPatientById(id!);
+    } catch (error) {
+      console.error(error);
+      toast.error('Erreur lors de l\'annulation');
+    }
+  };
+
+  // ============================================================
+  // ACTIONS SUR LE PATIENT
+  // ============================================================
   const handleDelete = async () => {
     if (window.confirm(confirmDelete)) {
       try {
@@ -65,12 +218,10 @@ const PatientDetailPage = () => {
     }
   };
 
-  // Modifier
   const handleEdit = () => {
     setIsModalOpen(true);
   };
 
-  // Succès du modal
   const handleModalSuccess = () => {
     setIsModalOpen(false);
     if (id) {
@@ -78,6 +229,75 @@ const PatientDetailPage = () => {
     }
     toast.success(updated);
   };
+
+  const handleVisitModalSuccess = () => {
+    setShowVisitModal(false);
+    fetchVisits();
+    fetchPatientById(id!);
+    toast.success('Visite planifiée avec succès');
+  };
+
+  // ============================================================
+  // HELPER
+  // ============================================================
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'planifiee':
+        return '#4CAF50';
+      case 'en_attente':
+        return '#FF9800';
+      case 'en_cours':
+        return '#2196F3';
+      case 'terminee':
+        return '#9C27B0';
+      case 'validee':
+        return '#4CAF50';
+      case 'annulee':
+        return '#F44336';
+      default:
+        return '#9E9E9E';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'planifiee':
+        return '📅 Planifiée';
+      case 'en_attente':
+        return '⏳ En attente';
+      case 'en_cours':
+        return '🔄 En cours';
+      case 'terminee':
+        return '✅ Terminée';
+      case 'validee':
+        return '✅ Validée';
+      case 'annulee':
+        return '❌ Annulée';
+      default:
+        return status;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'planifiee':
+        return <Calendar size={16} />;
+      case 'en_cours':
+        return <Play size={16} />;
+      case 'terminee':
+        return <CheckCircle size={16} />;
+      case 'validee':
+        return <CheckCircle size={16} />;
+      case 'annulee':
+        return <XCircle size={16} />;
+      default:
+        return <Clock size={16} />;
+    }
+  };
+
+  // ============================================================
+  // RENDU
+  // ============================================================
 
   if (isLoading || !currentPatient) {
     return (
@@ -91,15 +311,18 @@ const PatientDetailPage = () => {
   }
 
   const person = currentPatient;
+  const activeVisits = patientVisits.filter((v) => v.status === 'en_cours');
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 pb-24 sm:pb-10">
+      {/* ============================================================
+      EN-TÊTE
+      ============================================================ */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button
             onClick={() => navigate('/app/patients')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            className="p-2 hover:bg-gray-100 rounded-lg transition flex-shrink-0"
           >
             <ArrowLeft size={24} style={{ color: colors.text }} />
           </button>
@@ -112,7 +335,7 @@ const PatientDetailPage = () => {
             </p>
           </div>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleEdit}
             className="flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
@@ -132,31 +355,91 @@ const PatientDetailPage = () => {
         </div>
       </div>
 
-      {/* Info rapide */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>Âge</p>
-          <p className="text-lg font-semibold" style={{ color: colors.text }}>{person.age || 'N/A'} ans</p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>Sexe</p>
-          <p className="text-lg font-semibold" style={{ color: colors.text }}>
-            {person.gender === 'male' ? 'Homme' : person.gender === 'female' ? 'Femme' : 'N/A'}
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>Statut</p>
-          <p className="text-lg font-semibold" style={{ color: person.status === 'active' ? '#4CAF50' : '#F44336' }}>
-            {person.status === 'active' ? '✅ Actif' : '❌ Inactif'}
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>Visites</p>
-          <p className="text-lg font-semibold" style={{ color: colors.primary }}>{personVisits.length}</p>
-        </div>
+      {/* ============================================================
+      STATS & ACTIONS RAPIDES
+      ============================================================ */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Âge" value={person.age || 'N/A'} color={colors.text} />
+        <StatCard
+          label="Statut"
+          value={person.status === 'active' ? '✅ Actif' : '❌ Inactif'}
+          color={person.status === 'active' ? '#4CAF50' : '#F44336'}
+        />
+        <StatCard
+          label="Visites totales"
+          value={patientVisits.length}
+          color={colors.primary}
+        />
+        <StatCard
+          label="Visites restantes"
+          value={hasActiveSubscription ? remainingVisits : '0'}
+          color={remainingVisits > 0 ? '#4CAF50' : '#F44336'}
+        />
       </div>
 
-      {/* Tabs */}
+      {/* ============================================================
+      ACTIONS AIDANT
+      ============================================================ */}
+      {isAidantRole && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <p className="font-medium" style={{ color: colors.text }}>
+                🚀 Actions rapides
+              </p>
+              <p className="text-xs" style={{ color: colors.text + '60' }}>
+                {hasActiveSubscription && remainingVisits > 0
+                  ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} restante${remainingVisits > 1 ? 's' : ''}`
+                  : '⚠️ Plus de visites disponibles'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleStartVisit}
+                disabled={isStarting || !hasActiveSubscription || remainingVisits <= 0 || activeVisits.length > 0}
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90 disabled:opacity-50"
+                style={{ background: colors.primary }}
+              >
+                {isStarting ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <>
+                    <Play size={16} />
+                    Démarrer maintenant
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handlePlanifyVisit}
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition hover:bg-gray-50"
+                style={{ borderColor: colors.border, color: colors.text }}
+              >
+                <Calendar size={16} />
+                Planifier
+              </button>
+              <button
+                onClick={() => navigate('/app/billing')}
+                className="flex-1 sm:flex-none px-3 py-2.5 rounded-xl font-medium text-xs border transition hover:bg-gray-50"
+                style={{ borderColor: colors.border, color: colors.text }}
+              >
+                💳 Abonnement
+              </button>
+            </div>
+          </div>
+          {activeVisits.length > 0 && (
+            <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
+              <p className="text-sm text-blue-700 flex items-center gap-2">
+                <Clock size={18} />
+                <span>Une visite est en cours pour ce patient.</span>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================
+      TABS
+      ============================================================ */}
       <div className="flex border-b" style={{ borderColor: colors.border }}>
         {['info', 'visits', 'notes'].map((tab) => (
           <button
@@ -171,14 +454,17 @@ const PatientDetailPage = () => {
             }}
           >
             {tab === 'info' && 'Informations'}
-            {tab === 'visits' && 'Visites'}
+            {tab === 'visits' && `Visites (${patientVisits.length})`}
             {tab === 'notes' && 'Notes'}
           </button>
         ))}
       </div>
 
-      {/* Contenu */}
+      {/* ============================================================
+      CONTENU DES TABS
+      ============================================================ */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
+        {/* TAB INFO */}
         {activeTab === 'info' && (
           <div className="space-y-4">
             <div className="flex items-center space-x-3 text-sm" style={{ color: colors.text + '80' }}>
@@ -199,57 +485,64 @@ const PatientDetailPage = () => {
             )}
             {person.allergies && (
               <div className="p-3 rounded-xl" style={{ background: '#FF5722' + '10' }}>
-                <p className="text-sm font-medium" style={{ color: '#FF5722' }}>⚠️ Allergies: {person.allergies}</p>
+                <p className="text-sm font-medium" style={{ color: '#FF5722' }}>
+                  ⚠️ Allergies: {person.allergies}
+                </p>
               </div>
             )}
             {person.treatments && (
               <div className="p-3 rounded-xl" style={{ background: colors.primary + '10' }}>
-                <p className="text-sm" style={{ color: colors.primary }}>💊 Traitements: {person.treatments}</p>
+                <p className="text-sm" style={{ color: colors.primary }}>
+                  💊 Traitements: {person.treatments}
+                </p>
               </div>
             )}
           </div>
         )}
 
+        {/* TAB VISITES */}
         {activeTab === 'visits' && (
           <div>
-            {personVisits.length > 0 ? (
+            {patientVisits.length > 0 ? (
               <div className="space-y-3">
-                {personVisits.map((visit) => (
-                  <div
-                    key={visit.id}
-                    className="flex items-center justify-between p-4 rounded-xl cursor-pointer hover:bg-gray-50 transition"
-                    style={{ background: colors.primary + '05' }}
-                    onClick={() => navigate(`/app/visits/${visit.id}`)}
-                  >
-                    <div>
-                      <p className="font-medium" style={{ color: colors.text }}>
-                        📅 {formatDate(visit.scheduled_date)} à {visit.scheduled_time}
-                      </p>
-                      <p className="text-sm" style={{ color: colors.text + '60' }}>
-                        Statut: {visit.status}
-                      </p>
-                    </div>
-                    <span
-                      className="px-3 py-1 rounded-full text-xs font-medium"
-                      style={{
-                        background: visit.status === 'terminee' ? '#4CAF50' + '20' : '#FF9800' + '20',
-                        color: visit.status === 'terminee' ? '#4CAF50' : '#FF9800',
+                {patientVisits
+                  .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+                  .map((visit) => (
+                    <VisitCard
+                      key={visit.id}
+                      visit={visit}
+                      colors={colors}
+                      onCancel={() => handleCancelVisit(visit.id)}
+                      onStart={() => {
+                        setActiveVisitId(visit.id);
+                        setShowCompleteModal(true);
                       }}
-                    >
-                      {visit.status}
-                    </span>
-                  </div>
-                ))}
+                      onView={() => navigate(`/app/visits/${visit.id}`)}
+                      isAidant={isAidantRole}
+                      isAdmin={isAdminOrCoordinator}
+                    />
+                  ))}
               </div>
             ) : (
               <div className="text-center py-8" style={{ color: colors.text + '60' }}>
                 <Calendar size={48} className="mx-auto mb-3 opacity-30" />
                 <p>{noVisits}</p>
+                {isAidantRole && (
+                  <button
+                    onClick={handlePlanifyVisit}
+                    className="mt-4 px-4 py-2 rounded-xl text-white font-medium text-sm"
+                    style={{ background: colors.primary }}
+                  >
+                    <Plus size={16} className="inline mr-1" />
+                    Planifier une visite
+                  </button>
+                )}
               </div>
             )}
           </div>
         )}
 
+        {/* TAB NOTES */}
         {activeTab === 'notes' && (
           <div>
             {person.notes ? (
@@ -265,7 +558,11 @@ const PatientDetailPage = () => {
         )}
       </div>
 
-      {/* Modal de modification */}
+      {/* ============================================================
+      MODALS
+      ============================================================ */}
+
+      {/* Modal modification patient */}
       <PatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -273,6 +570,187 @@ const PatientDetailPage = () => {
         patient={person}
         onSuccess={handleModalSuccess}
       />
+
+      {/* Modal planification visite */}
+      <VisitModal
+        isOpen={showVisitModal}
+        onClose={() => setShowVisitModal(false)}
+        mode="create"
+        visit={null}
+        patients={[person]}
+        onSuccess={handleVisitModalSuccess}
+      />
+
+      {/* Modal fin de visite */}
+      {showCompleteModal && activeVisitId && (
+        <CompleteVisitModal
+          isOpen={true}
+          onClose={() => {
+            setShowCompleteModal(false);
+            setActiveVisitId(null);
+          }}
+          visit={{ patient: person }}
+          patientCategory={person.category || 'senior'}
+          onSubmit={handleCompleteVisit}
+          isLoading={isCompleting}
+        />
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// SOUS-COMPOSANTS
+// ============================================================
+
+interface StatCardProps {
+  label: string;
+  value: string | number;
+  color: string;
+}
+
+const StatCard = ({ label, value, color }: StatCardProps) => (
+  <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+    <p className="text-xs" style={{ color: 'var(--color-text, #6b7280)' + '60' }}>{label}</p>
+    <p className="text-lg font-bold" style={{ color }}>{value}</p>
+  </div>
+);
+
+interface VisitCardProps {
+  visit: any;
+  colors: any;
+  onCancel?: () => void;
+  onStart?: () => void;
+  onView?: () => void;
+  isAidant?: boolean;
+  isAdmin?: boolean;
+}
+
+const VisitCard = ({
+  visit,
+  colors,
+  onCancel,
+  onStart,
+  onView,
+  isAidant,
+  isAdmin,
+}: VisitCardProps) => {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'planifiee':
+        return '#4CAF50';
+      case 'en_attente':
+        return '#FF9800';
+      case 'en_cours':
+        return '#2196F3';
+      case 'terminee':
+        return '#9C27B0';
+      case 'validee':
+        return '#4CAF50';
+      case 'annulee':
+        return '#F44336';
+      default:
+        return '#9E9E9E';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'planifiee':
+        return '📅 Planifiée';
+      case 'en_attente':
+        return '⏳ En attente';
+      case 'en_cours':
+        return '🔄 En cours';
+      case 'terminee':
+        return '✅ Terminée';
+      case 'validee':
+        return '✅ Validée';
+      case 'annulee':
+        return '❌ Annulée';
+      default:
+        return status;
+    }
+  };
+
+  const statusColor = getStatusColor(visit.status);
+
+  return (
+    <div
+      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl cursor-pointer hover:bg-gray-50 transition gap-3 border-l-4"
+      style={{ borderLeftColor: statusColor, background: colors.primary + '05' }}
+      onClick={onView}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="font-medium" style={{ color: colors.text }}>
+            📅 {formatDate(visit.scheduled_date)} à {visit.scheduled_time}
+          </p>
+          <span
+            className="px-2 py-0.5 rounded-full text-xs font-medium"
+            style={{
+              background: statusColor + '20',
+              color: statusColor,
+            }}
+          >
+            {getStatusLabel(visit.status)}
+          </span>
+          {visit.is_urgent && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">
+              ⚠️ Urgent
+            </span>
+          )}
+        </div>
+        {visit.aidant && (
+          <p className="text-xs" style={{ color: colors.text + '60' }}>
+            🧑‍⚕️ Aidant: {visit.aidant.user?.full_name || 'Non assigné'}
+          </p>
+        )}
+        {visit.duration_minutes && (
+          <p className="text-xs" style={{ color: colors.text + '60' }}>
+            ⏱️ {visit.duration_minutes} min
+          </p>
+        )}
+      </div>
+
+      <div className="flex gap-2 shrink-0">
+        {visit.status === 'planifiee' && isAidant && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onStart?.();
+            }}
+            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+            style={{ background: '#4CAF50' }}
+          >
+            <Play size={14} className="inline mr-1" />
+            Démarrer
+          </button>
+        )}
+        {visit.status === 'planifiee' && (isAdmin || isAidant) && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCancel?.();
+            }}
+            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+            style={{ background: '#F44336' }}
+          >
+            <XCircle size={14} className="inline mr-1" />
+            Annuler
+          </button>
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onView?.();
+          }}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:bg-gray-100"
+          style={{ color: colors.primary }}
+        >
+          Détails
+        </button>
+      </div>
     </div>
   );
 };
