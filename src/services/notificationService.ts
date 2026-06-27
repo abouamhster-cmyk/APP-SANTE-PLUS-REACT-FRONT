@@ -21,7 +21,7 @@ const firebaseConfig = {
 let messaging: any = null;
 let firebaseApp: any = null;
 
-// ✅ ID fixe : empêche l’empilement des toasts Firebase foreground
+// ✅ ID fixe : empêche l'empilement des toasts Firebase foreground
 const FOREGROUND_NOTIFICATION_TOAST_ID = 'sante-plus-foreground-notification';
 
 // ✅ Initialisation Firebase
@@ -177,7 +177,9 @@ export const removePushToken = async (token?: string) => {
   }
 };
 
-// ✅ Notifications pour les aidants
+// ============================================================
+// NOTIFICATIONS POUR LES AIDANTS
+// ============================================================
 export const notifyAidant = {
   orderAccepted: (orderId: string, patientName: string) => ({
     title: '✅ Commande acceptée',
@@ -220,9 +222,24 @@ export const notifyAidant = {
     body: `La mission pour ${patientName} est terminée.`,
     data: { type: 'visite' as NotificationType, missionId, action: 'validate' },
   }),
+
+  // ✅ NOUVEAU : Visite assignée (approbation/refus)
+  newVisitAssigned: (visitId: string, patientName: string, date: string, time: string) => ({
+    title: '📅 Nouvelle visite assignée',
+    body: `Visite pour ${patientName} le ${date} à ${time}. Acceptez ou refusez.`,
+    data: { type: 'visite' as NotificationType, visitId, action: 'approve' },
+  }),
+
+  visitApprovalReminder: (visitId: string, patientName: string, date: string) => ({
+    title: '⏰ Rappel : Visite en attente',
+    body: `Vous n'avez pas encore répondu pour la visite de ${patientName} le ${date}.`,
+    data: { type: 'visite' as NotificationType, visitId, action: 'approve' },
+  }),
 };
 
-// ✅ Notifications pour les familles
+// ============================================================
+// NOTIFICATIONS POUR LES FAMILLES
+// ============================================================
 export const notifyFamily = {
   orderAccepted: (orderId: string) => ({
     title: '✅ Commande acceptée',
@@ -271,9 +288,66 @@ export const notifyFamily = {
     body: `La visite pour ${patientName} est terminée.`,
     data: { type: 'visite' as NotificationType, visitId },
   }),
+
+  // ✅ NOUVEAU : Approbation/Refus/Réassignation
+  visitApproved: (visitId: string, patientName: string, date: string) => ({
+    title: '✅ Visite acceptée',
+    body: `L'aidant a accepté la visite pour ${patientName} le ${date}.`,
+    data: { type: 'visite' as NotificationType, visitId, status: 'approved' },
+  }),
+
+  visitRefused: (visitId: string, patientName: string, date: string, reason: string) => ({
+    title: '❌ Visite refusée',
+    body: `L'aidant a refusé la visite pour ${patientName} le ${date}. Motif: ${reason}`,
+    data: { type: 'visite' as NotificationType, visitId, status: 'refused' },
+  }),
+
+  visitReassigned: (visitId: string, patientName: string, date: string) => ({
+    title: '🔄 Nouvel aidant assigné',
+    body: `Un nouvel aidant a été assigné pour ${patientName} le ${date}.`,
+    data: { type: 'visite' as NotificationType, visitId, status: 'reassigned' },
+  }),
+
+  visitReminder: (visitId: string, patientName: string, date: string) => ({
+    title: '⏰ Rappel de visite',
+    body: `La visite pour ${patientName} le ${date} est dans moins de 24h.`,
+    data: { type: 'visite' as NotificationType, visitId, status: 'reminder' },
+  }),
 };
 
-// ✅ Utilitaires de notification
+// ============================================================
+// NOTIFICATIONS POUR LES ADMINISTRATEURS
+// ============================================================
+export const notifyAdmin = {
+  // ✅ NOUVEAU : Visite à réassigner
+  visitNeedsReassign: (visitId: string, patientName: string, date: string, reason: string) => ({
+    title: '⚠️ Visite à réassigner',
+    body: `La visite de ${patientName} le ${date} nécessite une réassignation. Motif: ${reason}`,
+    data: { type: 'visite' as NotificationType, visitId, action: 'reassign' },
+  }),
+
+  visitRefused: (visitId: string, patientName: string, date: string, reason: string) => ({
+    title: '❌ Visite refusée par l\'aidant',
+    body: `L'aidant a refusé la visite de ${patientName} le ${date}. Motif: ${reason}`,
+    data: { type: 'visite' as NotificationType, visitId, action: 'reassign' },
+  }),
+
+  visitNoResponse: (visitId: string, patientName: string, date: string) => ({
+    title: '⏰ Visite sans réponse - 48h',
+    body: `Aucune réponse de l'aidant pour la visite de ${patientName} le ${date}. Réassignation nécessaire.`,
+    data: { type: 'visite' as NotificationType, visitId, action: 'reassign' },
+  }),
+
+  newRegistration: (userId: string, fullName: string) => ({
+    title: '📋 Nouvelle inscription',
+    body: `${fullName} s'est inscrit sur la plateforme.`,
+    data: { type: 'system' as NotificationType, userId, action: 'review' },
+  }),
+};
+
+// ============================================================
+// UTILITAIRES DE NOTIFICATION GÉNÉRIQUES
+// ============================================================
 export const notify = {
   visitPlanned: (data: any) => ({
     title: 'Nouvelle visite planifiée',
@@ -292,4 +366,93 @@ export const notify = {
     body: content.length > 50 ? content.substring(0, 50) + '...' : content,
     data: { type: 'message' as NotificationType },
   }),
+
+  // ✅ NOUVEAU : Envoyer une notification à plusieurs utilisateurs
+  sendToMultiple: async (userIds: string[], title: string, body: string, type: NotificationType, data: any = {}) => {
+    try {
+      const notifications = userIds.map(userId => ({
+        user_id: userId,
+        title,
+        body,
+        type,
+        data,
+        is_read: false,
+        is_sent: true,
+        sent_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erreur envoi notifications multiples:', error);
+      return { success: false, error };
+    }
+  },
+
+  // ✅ NOUVEAU : Envoyer à tous les admins
+  sendToAdmins: async (title: string, body: string, type: NotificationType, data: any = {}) => {
+    try {
+      const { data: admins } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('role', ['admin', 'coordinator']);
+
+      if (!admins || admins.length === 0) {
+        console.log('ℹ️ Aucun admin trouvé');
+        return { success: true, sent: 0 };
+      }
+
+      return await notify.sendToMultiple(
+        admins.map((a: any) => a.id),
+        title,
+        body,
+        type,
+        data
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi aux admins:', error);
+      return { success: false, error };
+    }
+  },
+
+  // ✅ NOUVEAU : Envoyer à tous les aidants
+  sendToAidants: async (title: string, body: string, type: NotificationType, data: any = {}) => {
+    try {
+      const { data: aidants } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'aidant');
+
+      if (!aidants || aidants.length === 0) {
+        console.log('ℹ️ Aucun aidant trouvé');
+        return { success: true, sent: 0 };
+      }
+
+      return await notify.sendToMultiple(
+        aidants.map((a: any) => a.id),
+        title,
+        body,
+        type,
+        data
+      );
+    } catch (error) {
+      console.error('❌ Erreur envoi aux aidants:', error);
+      return { success: false, error };
+    }
+  },
+};
+
+// ✅ Export par défaut
+export default {
+  initializeFirebase,
+  requestNotificationPermission,
+  removePushToken,
+  notifyAidant,
+  notifyFamily,
+  notifyAdmin,
+  notify,
 };
