@@ -1,6 +1,5 @@
 // 📁 src/components/dashboard/DashboardCard.tsx
-// 📌 Carte de statistiques du tableau de bord
-
+ 
 import { ReactNode } from 'react';
 import { cn } from '@/utils/helpers';
 import { useTerminology } from '@/hooks/useTerminology';
@@ -22,34 +21,31 @@ export const DashboardCard = ({
   className,
   onClick 
 }: DashboardCardProps) => {
-  // ✅ Jargon dynamique (pour compatibilité)
+  // ✅ Jargon dynamique disponible si besoin
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
   return (
-    <div
+    <button
+      onClick={onClick}
       className={cn(
-        'bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer hover:scale-[1.02] active:scale-[0.98]',
+        "bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition-all text-left w-full flex items-center justify-between cursor-pointer hover:scale-[1.01] active:scale-[0.99] border-none outline-none",
         className
       )}
-      style={{ borderLeftColor: color }}
-      onClick={onClick}
     >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium" style={{ color: color + '99' }}>
-            {title}
-          </p>
-          <p className="text-2xl font-bold mt-1" style={{ color }}>
-            {value}
-          </p>
-        </div>
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center"
-          style={{ background: color + '20' }}
-        >
-          <span style={{ color }}>{icon}</span>
-        </div>
+      <div className="space-y-0.5 min-w-0">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">
+          {title}
+        </p>
+        <p className="text-xl font-extrabold truncate" style={{ color }}>
+          {value}
+        </p>
       </div>
-    </div>
+      <div
+        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ml-3"
+        style={{ background: color + '0d', color }}
+      >
+        {icon}
+      </div>
+    </button>
   );
 };
