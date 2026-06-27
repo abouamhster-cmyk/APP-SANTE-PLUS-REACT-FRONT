@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/LoginPage.tsx
-// 📌 Connexion
+// 📌 Connexion 
 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -181,7 +181,7 @@ const LoginPage = () => {
           <div className="text-center mb-6">
             <h1
               className="text-xl font-extrabold tracking-tight"
-              style={{ color: 'var(--color-text)', 'color': textBrandColor } as React.CSSProperties}
+              style={{ color: textBrandColor }}
             >
               Santé Plus Services
             </h1>
@@ -199,7 +199,7 @@ const LoginPage = () => {
             <div>
               <label
                 className="block text-xs font-semibold mb-1"
-                style={{ color: 'var(--color-text)', 'color': textBrandColor } as React.CSSProperties}
+                style={{ color: textBrandColor }}
               >
                 Adresse e-mail
               </label>
@@ -230,7 +230,7 @@ const LoginPage = () => {
             <div>
               <label
                 className="block text-xs font-semibold mb-1"
-                style={{ color: 'var(--color-text)', 'color': textBrandColor } as React.CSSProperties}
+                style={{ color: textBrandColor }}
               >
                 Mot de passe
               </label>
