@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/RegisterPage.tsx
-// 📌 Inscription
+// 📌 Inscription  
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
@@ -30,7 +30,7 @@ import {
 
 import { authAPI } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
-import { OFFERS } from '@/lib/constants';  
+import { OFFERS } from '@/lib/constants';
 import { Offer } from '@/types';
 import { InfoModal } from '@/components/ui/InfoModal';
 import { FAQContent } from '../components/FAQContent';
@@ -59,20 +59,20 @@ const ZONES = [
 ];
 
 // ============================================
-// 🎨 SYSTEME DE BRANDING DYNAMIQUE AFFINÉ
+// 🎨 SYSTEME DE BRANDING DYNAMIQUE
 // ============================================
 
 const BRANDING = {
   general: {
-    primary: '#113f30', // Vert émeraude profond plus chic
+    primary: '#113f30',
     primaryLight: '#1d5a46',
     primaryDark: '#0a271e',
-    secondary: '#d4af37', // Or plus doux
+    secondary: '#d4af37',
     secondaryLight: '#fcf9f2',
     accent: '#d4af37',
     text: '#1f2937',
     textLight: '#4b5563',
-    background: '#faf9f6', // Blanc cassé élégant
+    background: '#faf9f6',
     surface: '#ffffff',
     border: '#e5e7eb',
     gradient: 'linear-gradient(135deg, #113f30 0%, #081f18 100%)',
@@ -94,7 +94,7 @@ const BRANDING = {
     logoRole: 'general' as const,
   },
   maman: {
-    primary: '#db4a6d', // Rose poudré chic
+    primary: '#db4a6d',
     primaryLight: '#e66785',
     primaryDark: '#a82e4a',
     secondary: '#fdf2f4',
@@ -109,7 +109,7 @@ const BRANDING = {
     logoRole: 'maman' as const,
   },
   aidant: {
-    primary: '#235e4e', // Sauge élégante
+    primary: '#235e4e',
     primaryLight: '#327c69',
     primaryDark: '#143d32',
     secondary: '#f0f6f4',
@@ -138,7 +138,6 @@ const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showOfferDetails, setShowOfferDetails] = useState(false);
 
-  // États pour les modals légaux
   const [showFAQ, setShowFAQ] = useState(false);
   const [showCGU, setShowCGU] = useState(false);
   const [acceptCGU, setAcceptCGU] = useState(false);
@@ -183,7 +182,6 @@ const RegisterPage = () => {
     setIsMounted(true);
   }, []);
 
-  // Déterminer le branding actif
   const getActiveBranding = (): BrandingTheme => {
     if (accountChoice === 'aidant') {
       return 'aidant';
@@ -197,7 +195,6 @@ const RegisterPage = () => {
   const activeBranding = getActiveBranding();
   const branding = BRANDING[activeBranding];
 
-  // Appliquer les variables de thème au DOM de manière propre
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty('--color-primary', branding.primary);
@@ -247,7 +244,7 @@ const RegisterPage = () => {
 
   const totalSteps = steps.length;
   const serviceLabel = formData.patientCategory === 'maman_bebe' ? 'Maman & Bébé' : 'Senior';
-  const pageSubtitle = isAidant ? 'Rejoindre nos équipes d’aidants' : isPersonal ? 'Création de compte rapide' : 'Prise en charge d’un proche';
+  const pageSubtitle = isAidant ? 'Rejoindre nos équipes d\'aidants' : isPersonal ? 'Création de compte rapide' : 'Prise en charge d\'un proche';
 
   const handleAccountChoice = (choice: AccountChoice) => {
     setAccountChoice(choice);
@@ -317,7 +314,7 @@ const RegisterPage = () => {
     if (isFamilyWithPatient && step === 4) {
       if (!formData.patientData.first_name.trim()) { toast.error('Veuillez renseigner le prénom du proche'); return false; }
       if (!formData.patientData.last_name.trim()) { toast.error('Veuillez renseigner le nom du proche'); return false; }
-      if (!formData.patientData.address.trim()) { toast.error('Veuillez renseigner l’adresse ou le quartier'); return false; }
+      if (!formData.patientData.address.trim()) { toast.error('Veuillez renseigner l\'adresse ou le quartier'); return false; }
     }
     return true;
   };
@@ -432,41 +429,36 @@ const RegisterPage = () => {
       <div className={`w-full max-w-5xl transition-all duration-500 ${isMounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden" style={{ borderColor: branding.border }}>
           <div className="grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr]">
-            
-              {/* Colonne latérale de présentation */}
-              <aside className="hidden lg:flex flex-col justify-between p-10" style={{ background: branding.gradient }}>
-                <div className="space-y-12">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                      <Logo size="sm" showText={false} whiteBg={true} className="justify-center" role={getLogoRole()} />
-                    </div>
-                    <div>
-                      <p className="text-white font-bold tracking-tight text-sm leading-none">Santé Plus</p>
-                      <p className="text-white/60 text-[11px] mt-0.5">Services à la personne</p>
-                    </div>
+
+            {/* Colonne latérale de présentation - Version stable corrigée */}
+            <aside className="hidden lg:flex flex-col justify-between p-10" style={{ background: branding.gradient }}>
+              <div>
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
+                    <Logo size="sm" showText={false} whiteBg={true} className="justify-center" role={getLogoRole()} />
                   </div>
                   <div>
-                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/10 text-white/90 text-[11px] font-medium">
-                      <ShieldCheck size={12} /> Espace 100% sécurisé
-                    </div>
-                    <h1 className="text-3xl font-extrabold text-white mt-4 leading-tight">
-                      {isMaman ? 'Un cocon doux pour maman & bébé.' : isAidant ? 'Rejoignez l\'équipe Santé Plus.' : 'Un accompagnement simple et rassurant.'}
-                    </h1>
-                    <p className="text-xs text-white/70 mt-3 leading-relaxed">
-                      {isMaman ? 'Un accompagnement spécialisé pour les jeunes mamans et leur nourrisson.' : isAidant ? 'Valorisez vos compétences et offrez du soutien de qualité.' : 'Créez votre compte en quelques étapes. Notre équipe valide chaque dossier avec soin.'}
-                    </p>
+                    <p className="text-white font-bold text-sm">Santé Plus</p>
+                    <p className="text-white/60 text-[11px]">Services à la personne</p>
                   </div>
                 </div>
-                <div className="space-y-2.5 mt-10">
-                  <InfoLine text="Comptes validés manuellement" />
-                  <InfoLine text="Suivi d'activité transparent" />
-                  <InfoLine text="Interventions professionnelles" />
-                </div>
-              </aside>
+                <h1 className="text-2xl font-extrabold text-white leading-tight">
+                  {isMaman ? 'Un cocon doux pour maman & bébé.' : isAidant ? "Rejoignez l'équipe Santé Plus." : 'Un accompagnement simple et rassurant.'}
+                </h1>
+                <p className="text-xs text-white/70 mt-3">
+                  {isMaman ? 'Accompagnement spécialisé pour les jeunes mamans.' : isAidant ? 'Valorisez vos compétences et offrez du soutien.' : 'Créez votre compte en quelques étapes.'}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <InfoLine text="Comptes validés manuellement" />
+                <InfoLine text="Suivi d'activité transparent" />
+                <InfoLine text="Interventions professionnelles" />
+              </div>
+            </aside>
 
             {/* Formulaire Principal */}
             <main className="p-5 sm:p-8 lg:p-10 flex flex-col justify-between min-h-[680px]">
-              
+
               {/* Logo Mobile */}
               <div className="lg:hidden flex justify-center mb-6">
                 <div className="w-14 h-14 rounded-xl bg-white shadow-sm border flex items-center justify-center" style={{ borderColor: branding.border }}>
@@ -481,19 +473,18 @@ const RegisterPage = () => {
                     <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: branding.text }}>
                       {isMaman ? '🌸 Créer mon espace maman' : isAidant ? '🦸 Rejoindre les aidants' : 'Créer un compte'}
                     </h2>
-                    <p className="text-xs mt-0.5" style={{ color: branding.textLight }}>{step === 1 ? 'Choisissez d’abord votre besoin' : pageSubtitle}</p>
+                    <p className="text-xs mt-0.5" style={{ color: branding.textLight }}>{step === 1 ? 'Choisissez d\'abord votre besoin' : pageSubtitle}</p>
                   </div>
                   <span className="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0" style={{ background: `${branding.primary}08`, color: branding.primary }}>
                     {step}/{totalSteps}
                   </span>
                 </div>
-                
-                {/* Barre de progression simplifiée et réactive */}
+
+                {/* Barre de progression simplifiée */}
                 <div className="mt-5">
                   <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full transition-all duration-300 rounded-full" style={{ width: `${(step / totalSteps) * 100}%`, background: branding.primary }} />
                   </div>
-                  {/* Libellés d'étapes uniquement visibles sur tablette/desktop */}
                   <div className="hidden sm:grid gap-2 mt-2" style={{ gridTemplateColumns: `repeat(${totalSteps}, minmax(0, 1fr))` }}>
                     {steps.map((item) => (
                       <p key={item.number} className="text-[10px] font-semibold text-center truncate" style={{ color: step >= item.number ? branding.primary : '#9ca3af' }}>
@@ -507,13 +498,13 @@ const RegisterPage = () => {
               {/* Contenu dynamique des étapes */}
               <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between">
                 <div className="flex-1">
-                  
+
                   {/* Étape 1 : Choix du type de compte */}
                   {step === 1 && (
                     <div className="space-y-5 animate-fadeIn">
                       <SectionTitle title="Quel est votre besoin ?" description="Sélectionnez le profil qui vous correspond." branding={branding} />
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                        <AccountTypeCard active={accountChoice === 'family_with_patient'} icon={<Users size={20} />} title="Pour un proche" description="Seniors, mamans ou bébés ayant besoin d’assistance." onClick={() => handleAccountChoice('family_with_patient')} branding={branding} />
+                        <AccountTypeCard active={accountChoice === 'family_with_patient'} icon={<Users size={20} />} title="Pour un proche" description="Seniors, mamans ou bébés ayant besoin d'assistance." onClick={() => handleAccountChoice('family_with_patient')} branding={branding} />
                         <AccountTypeCard active={accountChoice === 'personal'} icon={<Home size={20} />} title="Compte personnel" description="Créer mon espace sans accompagnement immédiat." onClick={() => handleAccountChoice('personal')} branding={branding} />
                         <AccountTypeCard active={accountChoice === 'aidant'} icon={<HeartHandshake size={20} />} title="Devenir aidant" description="Proposer mes services et rejoindre le réseau." onClick={() => handleAccountChoice('aidant')} branding={branding} />
                       </div>
@@ -525,7 +516,7 @@ const RegisterPage = () => {
                     <div className="space-y-5 animate-fadeIn">
                       <SectionTitle title="Qui accompagnerons-nous ?" description="Choisissez la catégorie concernée." branding={branding} />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <ChoiceCard active={formData.patientCategory === 'senior'} icon={<Users size={20} />} title="Senior" description="Accompagnement quotidien d’une personne âgée à domicile." onClick={() => handleServiceChoice('senior')} branding={branding} />
+                        <ChoiceCard active={formData.patientCategory === 'senior'} icon={<Users size={20} />} title="Senior" description="Accompagnement quotidien d'une personne âgée à domicile." onClick={() => handleServiceChoice('senior')} branding={branding} />
                         <ChoiceCard active={formData.patientCategory === 'maman_bebe'} icon={<Baby size={20} />} title="Maman & Bébé" description="Aide post-partum, soins bébé et soutien de la maman." onClick={() => handleServiceChoice('maman_bebe')} branding={branding} />
                       </div>
                     </div>
@@ -564,7 +555,7 @@ const RegisterPage = () => {
                         <InputField label="Date de naissance" type="date" name="birth_date" value={aidantData.birth_date} onChange={(e) => setAidantData({ ...aidantData, birth_date: e.target.value })} branding={branding} />
                         <InputField label="Années d'expérience" as="select" name="experience_years" value={aidantData.experience_years} onChange={(e) => setAidantData({ ...aidantData, experience_years: e.target.value })} branding={branding}>
                           <option value="">Sélectionner</option>
-                          <option value="0">Débutant / < 1 an</option>
+                          <option value="0">Débutant / &lt; 1 an</option>
                           <option value="2">2 à 3 ans</option>
                           <option value="4">4 à 5 ans</option>
                           <option value="6">6 à 10 ans</option>
@@ -595,7 +586,7 @@ const RegisterPage = () => {
                           <InputField label="Lieu de prise en charge" name="patient.address" value={formData.patientData.address} onChange={handleChange} icon={<MapPin size={16} />} placeholder="Adresse précise ou repères utiles" required branding={branding} />
                         </div>
                         <InputField label="Téléphone (optionnel)" name="patient.phone" value={formData.patientData.phone} onChange={handleChange} icon={<Phone size={16} />} branding={branding} />
-                        <InputField label="Contact d’urgence" name="patient.emergency_contact" value={formData.patientData.emergency_contact} onChange={handleChange} icon={<Phone size={16} />} branding={branding} />
+                        <InputField label="Contact d'urgence" name="patient.emergency_contact" value={formData.patientData.emergency_contact} onChange={handleChange} icon={<Phone size={16} />} branding={branding} />
                         <div className="sm:col-span-2">
                           <label className="block text-xs font-semibold mb-1" style={{ color: branding.text }}>Consignes ou besoins particuliers</label>
                           <textarea name="patient.notes" value={formData.patientData.notes} onChange={handleChange} rows={3} placeholder="Traitements, régimes, allergies, autonomie..." className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs resize-none focus:ring-1 focus:ring-[var(--color-primary)] transition" style={{ borderColor: branding.border, background: branding.background, color: branding.text }} />
@@ -674,7 +665,7 @@ const RegisterPage = () => {
 };
 
 // ============================================
-// COMPOSANTS COMPLÉMENTAIRES ÉPURÉS
+// COMPOSANTS COMPLÉMENTAIRES
 // ============================================
 
 interface InfoLineProps { text: string; }
@@ -752,7 +743,7 @@ const MiniSelector = ({ title, items, selected, branding, onToggle }: MiniSelect
 interface ZoneSelectorProps { selected: string[]; branding: any; onToggle: (zone: string) => void; }
 const ZoneSelector = ({ selected, branding, onToggle }: ZoneSelectorProps) => (
   <div>
-    <p className="text-xs font-semibold mb-2" style={{ color: branding.text }}>Zones d’intervention</p>
+    <p className="text-xs font-semibold mb-2" style={{ color: branding.text }}>Zones d'intervention</p>
     <div className="flex flex-wrap gap-2">
       {ZONES.map((zone) => {
         const active = selected.includes(zone);
@@ -780,7 +771,7 @@ const SummaryCard = ({ accountChoice, formData, aidantData, serviceLabel, brandi
         </>
       ) : (
         <>
-          <SummaryLine icon={<Home size={16} />} label="Type de compte" value={isPersonal ? 'Compte personnel sans patient' : 'Accompagnement d’un proche'} branding={branding} />
+          <SummaryLine icon={<Home size={16} />} label="Type de compte" value={isPersonal ? 'Compte personnel sans patient' : 'Accompagnement d\'un proche'} branding={branding} />
           {!isPersonal && <SummaryLine icon={<Baby size={16} />} label="Service" value={serviceLabel} branding={branding} />}
         </>
       )}
