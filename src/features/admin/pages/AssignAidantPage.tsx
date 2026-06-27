@@ -96,14 +96,14 @@ const AssignAidantPage = () => {
         .select('patient_id, family_id');
 
       if (!linksError && links) {
-        const assignments: Record<string, string> = {};
+        const newAssignments: Record<string, string> = {};
         for (const link of links) {
           const isAidant = aidantsWithUser.some((a: any) => a.user_id === link.family_id);
           if (isAidant) {
-            assignments[link.patient_id] = link.family_id;
+            newAssignments[link.patient_id] = link.family_id;
           }
         }
-        setAssignments(assignments);
+        setAssignments(newAssignments);
       }
 
     } catch (error) {
@@ -155,12 +155,14 @@ const AssignAidantPage = () => {
       const aidant = aidants.find(a => a.user_id === aidantUserId);
       const patient = patients.find(p => p.id === patientId);
 
-      await supabase.from('notifications').insert({
-        user_id: aidantUserId,
-        title: '📋 Nouveau patient assigné',
-        body: `Vous avez été assigné à ${patient?.first_name} ${patient?.last_name}. Vous pouvez maintenant voir ses missions.`,
-        type: 'system',
-      });
+      if (aidantUserId && patient) {
+        await supabase.from('notifications').insert({
+          user_id: aidantUserId,
+          title: '📋 Nouveau patient assigné',
+          body: `Vous avez été assigné à ${patient.first_name} ${patient.last_name}. Vous pouvez maintenant voir ses missions.`,
+          type: 'system',
+        });
+      }
 
       toast.success(`✅ Aidant assigné à ${patient?.first_name} ${patient?.last_name}`);
 
@@ -185,11 +187,7 @@ const AssignAidantPage = () => {
     );
   }
 
-return (
-  <>
-    {/* ✅ ESPACE POUR LE HEADER FIXE */}
-    <div className="h-16 md:h-20" /> {/* Espace pour le header */}
-    
+  return (
     <div className="space-y-6 pb-8">
       <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
         <h1 className="text-2xl font-black" style={{ color: colors.text }}>
