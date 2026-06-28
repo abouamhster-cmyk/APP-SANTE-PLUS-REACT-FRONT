@@ -1,782 +1,387 @@
-// 📁 src/stores/orderStore.ts
+// 📁 src/features/orders/pages/OrdersPage.tsx
  
-import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import { Order, OrderStatus } from '@/types';
-import { useAuthStore } from './authStore';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Plus,
+  ShoppingBag,
+  Search,
+  Package,
+  Clock,
+  CheckCircle,
+  Truck,
+  X,
+  Filter,
+  List,
+  ClipboardList,
+  AlertCircle,
+} from 'lucide-react';
+
+import { useOrderStore } from '@/stores/orderStore';
+import { useAuthStore } from '@/stores/authStore';
+import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useTerminology } from '@/hooks/useTerminology';
+import { Illustration } from '@/components/ui/Illustration';
+import { OrderCard } from '@/components/orders/OrderCard';
 import toast from 'react-hot-toast';
 
-// =============================================
-// STATUS LABELS - COMPLET AVEC TOUS LES STATUTS
-// =============================================
+// ✅ FILTRES AVEC NOUVEAUX STATUTS
+const statusFilters = [
+  { key: 'all', label: 'Toutes', icon: <List size={12} /> },
+  { key: 'creee', label: '📝 Créées', icon: <Package size={12} /> },
+  { key: 'en_attente', label: '⏳ En attente (30min)', icon: <Clock size={12} /> },
+  { key: 'disponible', label: '🚨 Disponibles (urgent)', icon: <AlertCircle size={12} /> },
+  { key: 'en_cours', label: '🔄 En cours', icon: <Clock size={12} /> },
+  { key: 'livree', label: '📦 Livrées', icon: <Truck size={12} /> },
+  { key: 'validee', label: '✅ Validées', icon: <CheckCircle size={12} /> },
+  { key: 'annulee', label: '❌ Annulées', icon: <X size={12} /> },
+];
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  creee: 'Créée',
-  en_attente: 'En attente',
-  disponible: 'Disponible',
-  en_cours: 'En cours',
-  livree: 'Livrée',
-  validee: 'Validée',
-  annulee: 'Annulée',
-  attente_paiement: 'En attente paiement',
+const OrdersPage = () => {
+  const navigate = useNavigate();
+  const { profile, role } = useAuthStore();
+  const { orders, isLoading, fetchOrders, updateOrderStatus, takeOrder } = useOrderStore();
+
+  const {
+    singular,
+    plural,
+    isFamily,
+    isAidant,
+    isAdminOrCoordinator,
+  } = useTerminology();
+
+  const [search, setSearch] = useState('');
+  const [activeStatus, setActiveStatus] = useState('all');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const themeName = getThemeByRole(role, profile?.patient_category as any);
+  const colors = getThemeColors(themeName);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem('pending_ponctual_order');
+    if (saved) {
+      console.warn('⚠️ Données de commande en attente trouvées, nettoyage...');
+      sessionStorage.removeItem('pending_ponctual_order');
+      localStorage.removeItem('pending_ponctual_order');
+    }
+  }, []);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const matchStatus = activeStatus === 'all' || order.status === activeStatus;
+      const query = search.trim().toLowerCase();
+
+      const matchSearch =
+        !query ||
+        order.description?.toLowerCase().includes(query) ||
+        order.address?.toLowerCase().includes(query) ||
+        order.type?.toLowerCase().includes(query) ||
+        order.patient?.first_name?.toLowerCase().includes(query) ||
+        order.patient?.last_name?.toLowerCase().includes(query);
+
+      return matchStatus && matchSearch;
+    });
+  }, [orders, search, activeStatus]);
+
+  const stats = {
+    total: orders.length,
+    pending: orders.filter((order) => order.status === 'en_attente').length,
+    available: orders.filter((order) => order.status === 'disponible').length,
+    inProgress: orders.filter((order) => order.status === 'en_cours').length,
+    delivery: orders.filter((order) => order.status === 'livree').length,
+    completed: orders.filter((order) => order.status === 'validee').length,
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    try {
+      await updateOrderStatus(id, status as any);
+
+      const statusMessages: Record<string, string> = {
+        en_cours: 'Commande acceptée et en cours',
+        livree: 'Commande livrée avec succès',
+        annulee: 'Commande annulée',
+        disponible: 'Commande disponible pour tous les aidants',
+      };
+
+      toast.success(statusMessages[status] || `Commande ${status}`);
+
+      setTimeout(async () => {
+        await fetchOrders();
+      }, 500);
+    } catch (error: any) {
+      console.error('❌ Erreur mise à jour:', error);
+      toast.error(error?.message || 'Erreur lors de la mise à jour');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTakeOrder = async (id: string) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    try {
+      await takeOrder(id);
+      toast.success('✅ Commande prise en charge');
+      await fetchOrders();
+    } catch (error: any) {
+      console.error('❌ Erreur prise commande:', error);
+      toast.error(error?.message || 'Erreur lors de la prise de commande');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const getPageTitle = () => {
+    if (isFamily) return 'Mes commandes';
+    if (isAidant) return 'Commandes à livrer';
+    if (isAdminOrCoordinator) return 'Gestion des commandes';
+    return 'Commandes';
+  };
+
+  const getEmptyMessage = () => {
+    if (isFamily) return 'Créez votre première commande.';
+    if (isAidant) return 'Aucune commande disponible pour le moment.';
+    if (isAdminOrCoordinator) return 'Aucune commande enregistrée.';
+    return 'Aucune commande.';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-2 gap-2">
+          {[1, 2, 3, 4].map((item) => (
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-20 bg-white rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-full overflow-hidden space-y-4 pb-24 sm:pb-10">
+      {/* HEADER */}
+      <section className="w-full bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              style={{
+                background: colors.primary + '12',
+                color: colors.primary,
+              }}
+            >
+              <ShoppingBag size={12} />
+              {isAdminOrCoordinator ? 'Gestion' : 'Mes commandes'}
+            </div>
+
+            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+              {getPageTitle()}
+            </h1>
+
+            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+              {orders.length} commande{orders.length > 1 ? 's' : ''}
+              {stats.available > 0 && (
+                <span className="ml-2 text-red-500">🚨 {stats.available} urgente(s)</span>
+              )}
+            </p>
+          </div>
+
+          {isFamily && (
+            <button
+              onClick={() => navigate('/app/orders/create')}
+              className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold text-sm"
+              style={{ background: colors.primary }}
+            >
+              <Plus size={16} />
+              Nouvelle
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* STATS COMPACTES - AVEC NOUVEAUX STATUTS */}
+      <section className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <CompactStat
+          icon={<Package size={14} />}
+          label="Total"
+          value={stats.total}
+          color={colors.primary}
+        />
+        <CompactStat
+          icon={<Clock size={14} />}
+          label="En attente"
+          value={stats.pending}
+          color="#FF9800"
+        />
+        <CompactStat
+          icon={<AlertCircle size={14} />}
+          label="Urgentes"
+          value={stats.available}
+          color="#F44336"
+        />
+        <CompactStat
+          icon={<Truck size={14} />}
+          label="Livrées"
+          value={stats.delivery}
+          color="#2196F3"
+        />
+        <CompactStat
+          icon={<CheckCircle size={14} />}
+          label="Validées"
+          value={stats.completed}
+          color="#4CAF50"
+        />
+      </section>
+
+      {/* RECHERCHE + FILTRE */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher une commande..."
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            />
+          </div>
+
+          <div className="relative min-w-[140px]">
+            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <select
+              value={activeStatus}
+              onChange={(e) => setActiveStatus(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              {statusFilters.map((filter) => (
+                <option key={filter.key} value={filter.key}>
+                  {filter.icon} {filter.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* LISTE */}
+      {filteredOrders.length > 0 ? (
+        <section className="space-y-2">
+          {filteredOrders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onClick={() => navigate(`/app/orders/${order.id}`)}
+              onStatusChange={(status) => handleStatusChange(order.id, status)}
+              onTakeOrder={isAidant || isAdminOrCoordinator ? () => handleTakeOrder(order.id) : undefined}
+              showActions={true}
+              compact
+            />
+          ))}
+        </section>
+      ) : (
+        <section className="bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+          <Illustration 
+            type={orders.length > 0 ? 'search' : 'order'} 
+            size="lg" 
+            className="mx-auto mb-4 opacity-30" 
+          />
+          <h3 className="text-base font-bold" style={{ color: colors.text }}>
+            {orders.length > 0 ? 'Aucun résultat' : 'Aucune commande'}
+          </h3>
+          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto">
+            {orders.length > 0
+              ? 'Aucune commande ne correspond à votre recherche.'
+              : getEmptyMessage()}
+          </p>
+
+          {isFamily && orders.length === 0 && (
+            <button
+              onClick={() => navigate('/app/orders/create')}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
+              style={{ background: colors.primary }}
+            >
+              <Plus size={16} />
+              Nouvelle commande
+            </button>
+          )}
+
+          {isFamily && orders.length > 0 && (
+            <button
+              onClick={() => setSearch('')}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition hover:bg-gray-50"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              <Search size={16} />
+              Réinitialiser la recherche
+            </button>
+          )}
+        </section>
+      )}
+
+      {/* BOUTON MOBILE */}
+      {isFamily && (
+        <button
+          onClick={() => navigate('/app/orders/create')}
+          className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
+          style={{ background: colors.primary }}
+          aria-label="Nouvelle commande"
+        >
+          <Plus size={22} />
+        </button>
+      )}
+    </div>
+  );
 };
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  creee: '#9E9E9E',
-  en_attente: '#FF9800',
-  disponible: '#F44336',
-  en_cours: '#2196F3',
-  livree: '#2196F3',
-  validee: '#4CAF50',
-  annulee: '#9E9E9E',
-  attente_paiement: '#8b5cf6',
-};
-
 // =============================================
-// ORDER STORE
+// COMPACT STAT
 // =============================================
 
-interface OrderState {
-  orders: Order[];
-  currentOrder: Order | null;
-  isLoading: boolean;
-  error: string | null;
-  
-  // Actions
-  fetchOrders: () => Promise<void>;
-  fetchOrderById: (id: string) => Promise<void>;
-  createOrder: (data: Partial<Order>) => Promise<Order>;
-  updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
-  updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
-  deleteOrder: (id: string) => Promise<void>;
-  confirmPayment: (id: string, transactionId: string) => Promise<void>;
-  takeOrder: (id: string) => Promise<void>;
-  acceptOrder: (id: string) => Promise<void>;
-  prepareOrder: (id: string) => Promise<void>;
-  markOrderReady: (id: string) => Promise<void>;
-  startDelivery: (id: string, location?: { lat: number; lng: number }) => Promise<void>;
-  completeDelivery: (id: string, proof_url?: string) => Promise<void>;
-  getAssignedOrders: () => Order[];
-  getAvailableOrders: () => Order[];
-  getDeliveryOrders: () => Order[];
-  canManageOrders: () => boolean;
-  clearError: () => void;
+interface CompactStatProps {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
 }
 
-export const useOrderStore = create<OrderState>((set, get) => ({
-  orders: [],
-  currentOrder: null,
-  isLoading: false,
-  error: null,
-
-  // ✅ Vérifier si l'utilisateur peut gérer les commandes
-  canManageOrders: () => {
-    const { profile } = useAuthStore.getState();
-    return profile?.role === 'admin' || profile?.role === 'coordinator';
-  },
-
-  // =============================================
-  // FETCH ORDERS
-  // =============================================
-  fetchOrders: async () => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user, profile } = useAuthStore.getState();
-      if (!user) {
-        set({ orders: [], isLoading: false });
-        return;
-      }
-
-      let query = supabase.from('commandes').select('*');
-
-      if (profile?.role === 'family') {
-        query = query.eq('family_id', user.id);
-      } else if (profile?.role === 'aidant') {
-        const { data: aidant } = await supabase
-          .from('aidants')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (aidant) {
-          query = query.eq('aidant_id', aidant.id);
-        } else {
-          set({ orders: [], isLoading: false });
-          return;
-        }
-      }
-
-      const { data: orders, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const ordersWithRelations = await Promise.all(
-        (orders || []).map(async (order) => {
-          let patient = null;
-          if (order.patient_id) {
-            const { data: patientData } = await supabase
-              .from('patients')
-              .select('*')
-              .eq('id', order.patient_id)
-              .single();
-            patient = patientData;
-          }
-
-          let family = null;
-          if (order.family_id) {
-            const { data: familyData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', order.family_id)
-              .single();
-            family = familyData;
-          }
-
-          let aidant = null;
-          if (order.aidant_id) {
-            const { data: aidantData } = await supabase
-              .from('aidants')
-              .select('*, user:profiles(*)')
-              .eq('id', order.aidant_id)
-              .single();
-            aidant = aidantData;
-          }
-
-          return {
-            ...order,
-            patient,
-            family,
-            aidant,
-          };
-        })
-      );
-
-      set({ orders: ordersWithRelations || [], isLoading: false });
-    } catch (error: any) {
-      console.error('❌ Fetch orders error:', error);
-      set({ error: error.message, isLoading: false });
-    }
-  },
-
-  // =============================================
-  // FETCH ORDER BY ID
-  // =============================================
-  fetchOrderById: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { data: order, error } = await supabase
-        .from('commandes')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          set({ error: 'Commande non trouvée', isLoading: false });
-          return;
-        }
-        throw error;
-      }
-
-      let patient = null;
-      if (order.patient_id) {
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', order.patient_id)
-          .single();
-        patient = patientData;
-      }
-
-      let family = null;
-      if (order.family_id) {
-        const { data: familyData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', order.family_id)
-          .single();
-        family = familyData;
-      }
-
-      let aidant = null;
-      if (order.aidant_id) {
-        const { data: aidantData } = await supabase
-          .from('aidants')
-          .select('*, user:profiles(*)')
-          .eq('id', order.aidant_id)
-          .single();
-        aidant = aidantData;
-      }
-
-      const fullOrder = {
-        ...order,
-        patient,
-        family,
-        aidant,
-      };
-
-      set({ currentOrder: fullOrder, isLoading: false });
-    } catch (error: any) {
-      console.error('❌ Fetch order error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // CREATE ORDER
-  // =============================================
-  createOrder: async (data: Partial<Order>) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user, profile } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      if (profile?.role === 'aidant') {
-        throw new Error('Les aidants ne peuvent pas créer de commandes');
-      }
-
-      const isPonctual = data.order_type === 'ponctual' || false;
-      let status: OrderStatus = 'creee';
-
-      if (isPonctual) {
-        status = 'attente_paiement';
-      }
-
-      if (!isPonctual && data.patient_id) {
-        const { data: subscription } = await supabase
-          .from('abonnements')
-          .select('id, remaining_orders, status')
-          .eq('patient_id', data.patient_id)
-          .eq('status', 'actif')
-          .maybeSingle();
-
-        if (subscription && subscription.remaining_orders <= 0) {
-          status = 'attente_paiement';
-        }
-      }
-
-      const orderData = {
-        patient_id: data.patient_id || null,
-        family_id: user.id,
-        aidant_id: data.aidant_id || null,
-        type: data.type || 'autre',
-        description: data.description || 'Commande',
-        address: data.address || 'Adresse non spécifiée',
-        latitude: data.latitude || null,
-        longitude: data.longitude || null,
-        status: status,
-        estimated_amount: data.estimated_amount || 0,
-        final_amount: data.final_amount || null,
-        delivery_fee: data.delivery_fee || null,
-        tip_amount: data.tip_amount || null,
-        items: data.items || [],
-        prescription_url: data.prescription_url || null,
-        delivery_notes: data.delivery_notes || null,
-        order_type: isPonctual ? 'ponctual' : 'subscription',
-        is_paid: false,
-        is_ponctual: isPonctual,
-        metadata: {
-          requires_payment: status === 'attente_paiement',
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-        }
-      };
-
-      const { data: newOrder, error } = await supabase
-        .from('commandes')
-        .insert(orderData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      let patient = null;
-      if (newOrder.patient_id) {
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', newOrder.patient_id)
-          .single();
-        patient = patientData;
-      }
-
-      const { data: family } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', newOrder.family_id)
-        .single();
-
-      const fullOrder = {
-        ...newOrder,
-        patient,
-        family,
-      };
-
-      if (status === 'attente_paiement') {
-        await supabase.from('notifications').insert({
-          user_id: user.id,
-          title: '💳 Commande en attente de paiement',
-          body: `Votre commande "${data.description}" est en attente de paiement.`,
-          type: 'commande',
-          data: { order_id: newOrder.id, status: 'attente_paiement' },
-        });
-      }
-
-      set((state) => ({
-        orders: [fullOrder, ...state.orders],
-        isLoading: false,
-      }));
-
-      return fullOrder;
-    } catch (error: any) {
-      console.error('❌ Create order error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // CONFIRMER PAIEMENT
-  // =============================================
-  confirmPayment: async (id: string, transactionId: string) => {
-    try {
-      set({ isLoading: true, error: null });
-
-      const { data: order, error: orderError } = await supabase
-        .from('commandes')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (orderError) throw orderError;
-
-      if (order.status !== 'attente_paiement') {
-        throw new Error('Cette commande n\'est pas en attente de paiement');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({
-          status: 'creee',
-          is_paid: true,
-          metadata: {
-            ...(order.metadata || {}),
-            payment_confirmed_at: new Date().toISOString(),
-            transaction_id: transactionId,
-          }
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        currentOrder: data,
-        isLoading: false,
-      }));
-
-      toast.success('✅ Paiement confirmé, commande disponible');
-    } catch (error: any) {
-      console.error('❌ Confirm payment error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // PRENDRE UNE COMMANDE (aidant)
-  // =============================================
-  takeOrder: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.status !== 'creee' && order.status !== 'en_attente' && order.status !== 'disponible') {
-        throw new Error('Cette commande n\'est pas disponible');
-      }
-
-      const { data: aidant, error: aidantError } = await supabase
-        .from('aidants')
-        .select('id, available, is_verified')
-        .eq('user_id', user.id)
-        .single();
-
-      if (aidantError || !aidant) {
-        throw new Error('Aidant non trouvé');
-      }
-
-      if (!aidant.available || !aidant.is_verified) {
-        throw new Error('Vous n\'êtes pas disponible ou vérifié');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({
-          status: 'en_cours',
-          aidant_id: aidant.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (order.family_id) {
-        await supabase.from('notifications').insert({
-          user_id: order.family_id,
-          title: '✅ Commande prise en charge',
-          body: `Un aidant a pris votre commande "${order.description}".`,
-          type: 'commande',
-          data: { order_id: id, status: 'en_cours' },
-        });
-      }
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        currentOrder: data,
-        isLoading: false,
-      }));
-
-      toast.success('✅ Commande prise en charge');
-    } catch (error: any) {
-      console.error('❌ Take order error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // ACCEPT ORDER (alias)
-  // =============================================
-  acceptOrder: async (id: string) => {
-    return get().takeOrder(id);
-  },
-
-  // =============================================
-  // PREPARE ORDER
-  // =============================================
-  prepareOrder: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({ 
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
-
-      toast.success('📦 Commande en préparation');
-    } catch (error: any) {
-      console.error('❌ Prepare order error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // MARK ORDER READY
-  // =============================================
-  markOrderReady: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({ 
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
-
-      toast.success('✅ Commande prête à être livrée');
-    } catch (error: any) {
-      console.error('❌ Mark order ready error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // START DELIVERY
-  // =============================================
-  startDelivery: async (id: string, location?: { lat: number; lng: number }) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const updateData: any = { 
-        updated_at: new Date().toISOString(),
-      };
-
-      if (location) {
-        updateData.delivery_location = location;
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
-
-      toast.success('🚚 Commande en livraison');
-    } catch (error: any) {
-      console.error('❌ Start delivery error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // COMPLETE DELIVERY
-  // =============================================
-  completeDelivery: async (id: string, proof_url?: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id, family_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const updateData: any = { 
-        status: 'livree' as OrderStatus,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (proof_url) {
-        updateData.proof_url = proof_url;
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
-
-      toast.success('✅ Commande livrée');
-    } catch (error: any) {
-      console.error('❌ Complete delivery error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // UPDATE ORDER STATUS
-  // =============================================
-  updateOrderStatus: async (id: string, status: OrderStatus) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { data: order, error } = await supabase
-        .from('commandes')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...order } : o),
-        currentOrder: order,
-        isLoading: false,
-      }));
-
-      toast.success(`Commande ${STATUS_LABELS[status]}`);
-    } catch (error: any) {
-      console.error('❌ Update order status error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // UPDATE ORDER
-  // =============================================
-  updateOrder: async (id: string, data: Partial<Order>) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { profile } = useAuthStore.getState();
-      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
-        throw new Error('Non autorisé');
-      }
-
-      const { data: order, error } = await supabase
-        .from('commandes')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...order } : o),
-        currentOrder: order,
-        isLoading: false,
-      }));
-    } catch (error: any) {
-      console.error('❌ Update order error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // DELETE ORDER
-  // =============================================
-  deleteOrder: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { profile } = useAuthStore.getState();
-      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
-        throw new Error('Non autorisé');
-      }
-
-      const { error } = await supabase
-        .from('commandes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      set((state) => ({
-        orders: state.orders.filter(o => o.id !== id),
-        isLoading: false,
-      }));
-    } catch (error: any) {
-      console.error('❌ Delete order error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // GETTERS
-  // =============================================
-  getAssignedOrders: () => {
-    const { user } = useAuthStore.getState();
-    const state = get();
-    return state.orders.filter(o => o.aidant_id === user?.id);
-  },
-
-  getAvailableOrders: () => {
-    const state = get();
-    return state.orders.filter(o => o.status === 'creee' || o.status === 'disponible');
-  },
-
-  getDeliveryOrders: () => {
-    const state = get();
-    return state.orders.filter(o => o.status === 'en_cours');
-  },
-
-  clearError: () => set({ error: null }),
-}));
+const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
+  return (
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+      <div className="flex items-center justify-between gap-1">
+        <div>
+          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400">
+            {label}
+          </p>
+          <p className="text-lg font-bold mt-0.5" style={{ color }}>
+            {value}
+          </p>
+        </div>
+        <div
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{ background: color + '14', color }}
+        >
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OrdersPage;
