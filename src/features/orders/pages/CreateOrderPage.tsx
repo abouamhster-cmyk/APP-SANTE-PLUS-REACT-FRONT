@@ -1,1090 +1,1142 @@
-// 📁 src/features/messages/pages/MessagesPage.tsx
-// 📌 Page : Messagerie générale  
+// 📁 src/features/orders/pages/CreateOrderPage.tsx
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Send,
-  Paperclip,
-  Image as ImageIcon,
-  MessageCircle,
-  Check,
-  CheckCheck,
-  Pin,
-  AlertCircle,
-  Trash2,
+  ArrowLeft,
+  ShoppingBag,
   User,
-  Users,
-  Shield,
+  MapPin,
+  Package,
+  Camera,
+  X,
+  Trash2,
+  Plus,
+  FileImage,
+  ShieldCheck,
+  ClipboardList,
+  ArrowRight,
+  CreditCard,
   Sparkles,
-  ChevronRight,
+  CheckCircle,
+  Loader2,
+  Calendar,
+  Clock,
+  AlertCircle,
 } from 'lucide-react';
 
+import { useOrderStore } from '@/stores/orderStore';
+import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatTime, formatDate } from '@/utils/helpers';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
+import { ORDER_TYPES } from '@/lib/constants';
+import { OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { PaymentModal } from '@/features/billing/components/PaymentModal';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
 
-// ============================================================
-// TYPES
-// ============================================================
-
-interface SenderProfile {
-  id?: string;
-  full_name: string;
-  role: string;
-  avatar_url?: string | null;
-}
-
-interface Message {
-  id: string;
-  conversation_id: string;
-  content: string;
-  sender_id: string;
-  sender: SenderProfile | null;
-  created_at: string;
-  is_read: boolean;
-  attachment_url?: string | null;
-  is_pinned?: boolean;
-  is_important?: boolean;
-}
-
-// ============================================================
-// CONSTANTES
-// ============================================================
-
-const GLOBAL_CONVERSATION_ID = '00000000-0000-0000-0000-000000000001';
-type TimeoutId = ReturnType<typeof setTimeout>;
-
-// ============================================================
-// COMPOSANT PRINCIPAL
-// ============================================================
-
-const MessagesPage = () => {
-  const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
+const CreateOrderPage = () => {
+  const navigate = useNavigate();
+  const { profile, role } = useAuthStore();
+  const { createOrder, isLoading } = useOrderStore();
+  const { patients, fetchPatients } = usePatientStore();
 
   const {
+    singular,
+    getCategoryLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messageInput, setMessageInput] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const {
+    hasActiveSubscription,
+    remainingOrders,
+    can,
+    getBlockMessage,
+    isLoading: subLoading,
+  } = useSubscriptionGuard();
 
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isRedirecting = useRef(false);
 
-  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+  const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const channelRef = useRef<any>(null);
-  const reconnectTimeoutRef = useRef<TimeoutId | null>(null);
-  const isUnmountingRef = useRef(false);
-  const isSubscribingRef = useRef(false);
+  const [formData, setFormData] = useState({
+    patient_id: '',
+    type: 'medicaments',
+    description: '',
+    address: '',
+    estimated_amount: '',
+    items: [{ name: '', quantity: 1, price: 0, total: 0 }] as OrderItem[],
+  });
 
-  const currentUserId = profile?.id || user?.id || null;
-
-  const currentUserName =
-    profile?.full_name ||
-    user?.user_metadata?.full_name ||
-    user?.email?.split('@')[0] ||
-    'Utilisateur';
-
-  const currentUserRole = (profile?.role || role || 'family') as string;
+  const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
+  const [prescriptionPreview, setPrescriptionPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  const isAdminRole = isAdminOrCoordinator;
-  const isAidantRole = isAidant;
-
-  // ============================================================
-  // SCROLL
-  // ============================================================
-
-  const scrollToBottom = useCallback((smooth = true) => {
-    window.setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-      });
-    }, 80);
+  // ✅ Charger les patients
+  useEffect(() => {
+    fetchPatients();
   }, []);
 
-  // ============================================================
-  // SENDER FALLBACK
-  // ============================================================
-
-  const getSenderFallback = useCallback(
-    (senderId: string): SenderProfile => {
-      if (senderId === currentUserId) {
-        return {
-          id: currentUserId || undefined,
-          full_name: currentUserName,
-          role: currentUserRole,
-          avatar_url: profile?.avatar_url || null,
-        };
+  // ✅ EMPÊCHER LE RECHARGEMENT AUTOMATIQUE
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log('👀 Onglet caché');
+      } else {
+        console.log('👀 Onglet visible - pas de rechargement');
       }
+    };
 
-      return {
-        id: senderId,
-        full_name: 'Utilisateur',
-        role: 'family',
-        avatar_url: null,
-      };
-    },
-    [currentUserId, currentUserName, currentUserRole, profile?.avatar_url]
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRedirecting.current) {
+        return;
+      }
+      
+      if (formData.description.trim() || formData.items.some(item => item.name.trim())) {
+        e.preventDefault();
+        e.returnValue = 'Vous avez des données non sauvegardées. Voulez-vous vraiment quitter ?';
+        return e.returnValue;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [formData]);
+
+  // ✅ SAUVEGARDE AUTOMATIQUE EN SESSIONSTORAGE
+  useEffect(() => {
+    const saveFormData = () => {
+      try {
+        sessionStorage.setItem('create_order_form', JSON.stringify({
+          formData,
+          prescriptionPreview,
+          orderType,
+          timestamp: Date.now(),
+        }));
+      } catch (e) {
+        console.warn('Erreur sauvegarde formulaire:', e);
+      }
+    };
+
+    const interval = setInterval(saveFormData, 5000);
+    window.addEventListener('beforeunload', saveFormData);
+
+    const restoreFormData = () => {
+      try {
+        const saved = sessionStorage.getItem('create_order_form');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Date.now() - parsed.timestamp < 30 * 60 * 1000) {
+            setFormData(parsed.formData);
+            setPrescriptionPreview(parsed.prescriptionPreview || null);
+            setOrderType(parsed.orderType || 'subscription');
+            console.log('📦 Formulaire restauré depuis sessionStorage');
+          } else {
+            sessionStorage.removeItem('create_order_form');
+          }
+        }
+      } catch (e) {
+        console.warn('Erreur restauration formulaire:', e);
+      }
+    };
+
+    restoreFormData();
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', saveFormData);
+    };
+  }, []);
+
+  const selectedPatient = patients.find((p) => p.id === formData.patient_id);
+
+  const itemsTotal = formData.items.reduce(
+    (sum, item) => sum + item.quantity * item.price,
+    0
   );
 
-  // ============================================================
-  // FETCH SENDER PROFILE
-  // ============================================================
+  const finalEstimatedAmount = formData.estimated_amount
+    ? parseFloat(formData.estimated_amount)
+    : itemsTotal;
 
-  const fetchSenderProfile = useCallback(
-    async (senderId: string): Promise<SenderProfile> => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, role, avatar_url')
-          .eq('id', senderId)
-          .maybeSingle();
+  const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
 
-        if (error || !data) {
-          return getSenderFallback(senderId);
-        }
+  const getPonctualPrice = () => {
+    const prices: Record<string, number> = {
+      medicaments: 5000,
+      produits_bebe: 5000,
+      produits_hygiene: 4000,
+      courses: 3000,
+      repas: 4000,
+      autre: 5000,
+    };
+    return prices[formData.type] || 2500;
+  };
 
-        return {
-          id: data.id,
-          full_name: data.full_name || 'Utilisateur',
-          role: data.role || 'family',
-          avatar_url: data.avatar_url || null,
-        };
-      } catch (error) {
-        return getSenderFallback(senderId);
-      }
-    },
-    [getSenderFallback]
-  );
+  const canUseSubscription = () => {
+    return hasActiveSubscription && remainingOrders > 0;
+  };
 
-  // ============================================================
-  // MARK ALL AS READ
-  // ============================================================
-
-  const markAllAsRead = useCallback(async () => {
-    if (!currentUserId) return;
-
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('conversation_id', GLOBAL_CONVERSATION_ID)
-        .eq('is_read', false)
-        .neq('sender_id', currentUserId);
-
-      if (error) throw error;
-
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.sender_id !== currentUserId
-            ? { ...message, is_read: true }
-            : message
-        )
-      );
-
-      setUnreadCount(0);
-    } catch (error) {
-      console.error('❌ Mark all read error:', error);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image');
+      return;
     }
-  }, [currentUserId]);
-
-  // ============================================================
-  // FETCH MESSAGES
-  // ============================================================
-
-  const fetchMessages = useCallback(async () => {
-    if (!currentUserId) return;
-
-    try {
-      setIsLoading(true);
-
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', GLOBAL_CONVERSATION_ID)
-        .order('created_at', { ascending: true })
-        .limit(200);
-
-      if (messagesError) throw messagesError;
-
-      const rawMessages = messagesData || [];
-
-      const senderIds = [
-        ...new Set(rawMessages.map((message: any) => message.sender_id)),
-      ].filter(Boolean);
-
-      let profilesMap: Record<string, SenderProfile> = {};
-
-      if (senderIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, role, avatar_url')
-          .in('id', senderIds);
-
-        if (profilesError) {
-          console.warn('⚠️ Profils expéditeurs non récupérés:', profilesError);
-        }
-
-        if (profilesData) {
-          profilesMap = profilesData.reduce(
-            (acc: Record<string, SenderProfile>, item: any) => {
-              acc[item.id] = {
-                id: item.id,
-                full_name: item.full_name || 'Utilisateur',
-                role: item.role || 'family',
-                avatar_url: item.avatar_url || null,
-              };
-              return acc;
-            },
-            {}
-          );
-        }
-      }
-
-      const messagesWithSenders: Message[] = rawMessages.map((message: any) => {
-        return {
-          ...message,
-          sender:
-            profilesMap[message.sender_id] ||
-            getSenderFallback(message.sender_id),
-        };
-      });
-
-      setMessages(messagesWithSenders);
-
-      const unread = messagesWithSenders.filter(
-        (message) => !message.is_read && message.sender_id !== currentUserId
-      ).length;
-
-      setUnreadCount(unread);
-
-      if (unread > 0) {
-        await markAllAsRead();
-      }
-
-      scrollToBottom(false);
-    } catch (error: any) {
-      console.error('❌ Fetch messages error:', error);
-      toast.error('Erreur chargement messages');
-    } finally {
-      setIsLoading(false);
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("L'image ne doit pas dépasser 5MB");
+      return;
     }
-  }, [currentUserId, getSenderFallback, markAllAsRead, scrollToBottom]);
+    setPrescriptionFile(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPrescriptionPreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
-  // ============================================================
-  // HANDLE NEW MESSAGE
-  // ============================================================
+  const removePrescription = () => {
+    setPrescriptionFile(null);
+    setPrescriptionPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
-  const handleNewMessage = useCallback(
-    async (newMessage: any) => {
-      try {
-        const sender = await fetchSenderProfile(newMessage.sender_id);
+  const addItem = () => {
+    setFormData({
+      ...formData,
+      items: [...formData.items, { name: '', quantity: 1, price: 0, total: 0 }],
+    });
+  };
 
-        const messageWithSender: Message = {
-          ...newMessage,
-          sender,
-        };
+  const removeItem = (index: number) => {
+    if (formData.items.length <= 1) return;
+    setFormData({
+      ...formData,
+      items: formData.items.filter((_, i) => i !== index),
+    });
+  };
 
-        setMessages((prev) => {
-          const exists = prev.some((message: Message) => message.id === newMessage.id);
-          if (exists) return prev;
-          return [...prev, {
-            id: newMessage.id,
-            conversation_id: newMessage.conversation_id,
-            content: newMessage.content,
-            sender_id: newMessage.sender_id,
-            sender: sender, 
-            created_at: newMessage.created_at,
-            is_read: newMessage.is_read,
-            attachment_url: newMessage.attachment_url || null,
-            is_pinned: newMessage.is_pinned || false,
-            is_important: newMessage.is_important || false,
-          }];
-        });
+  const updateItem = (index: number, field: string, value: any) => {
+    const newItems = [...formData.items];
+    const updatedItem = {
+      ...newItems[index],
+      [field]: value,
+    };
+    if (field === 'price' || field === 'quantity') {
+      updatedItem.total = updatedItem.quantity * updatedItem.price;
+    }
+    newItems[index] = updatedItem;
+    setFormData({
+      ...formData,
+      items: newItems,
+    });
+  };
 
-        if (newMessage.sender_id !== currentUserId) {
-          setUnreadCount((prev) => prev + 1);
-
-          toast.success(
-            `${sender?.full_name || 'Utilisateur'} : ${newMessage.content?.substring(0, 40) || ''}`,
-            {
-              duration: 2500,
-              position: 'top-right',
-              icon: '💬',
-            }
-          );
-
-          await markAllAsRead();
-        }
-
-        scrollToBottom(true);
-      } catch (error) {
-        console.error('❌ Erreur nouveau message:', error);
-      }
-    },
-    [currentUserId, fetchSenderProfile, markAllAsRead, scrollToBottom]
-  );
-
-  const handleMessageUpdate = useCallback((updatedMessage: any) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === updatedMessage.id
-          ? { ...message, ...updatedMessage }
-          : message
-      )
-    );
-  }, []);
-
-  const handleMessageDelete = useCallback((deletedMessage: any) => {
-    setMessages((prev) =>
-      prev.filter((message) => message.id !== deletedMessage.id)
-    );
-  }, []);
-
-  // ============================================================
-  // CLEANUP SUBSCRIPTION
-  // ============================================================
-
-  const cleanupSubscription = useCallback(() => {
-    isUnmountingRef.current = true;
-    isSubscribingRef.current = false;
-
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
+  // ✅ VALIDATION des données avant préparation
+  const validateOrderData = (): boolean => {
+    if (!formData.description || formData.description.trim() === '') {
+      toast.error('Veuillez ajouter une description');
+      return false;
     }
 
-    if (channelRef.current) {
-      try {
-        supabase.removeChannel(channelRef.current);
-      } catch (error) {
-        console.error('❌ Erreur fermeture Realtime:', error);
-      }
-      channelRef.current = null;
+    if (!formData.address || formData.address.trim() === '') {
+      toast.error('Veuillez ajouter une adresse de livraison');
+      return false;
     }
 
-    setIsRealtimeConnected(false);
+    if (!formData.type) {
+      toast.error('Veuillez sélectionner un type de commande');
+      return false;
+    }
 
-    window.setTimeout(() => {
-      isUnmountingRef.current = false;
-    }, 300);
-  }, []);
+    const hasValidItems = formData.items.some(item => item.name.trim() !== '');
+    if (!hasValidItems) {
+      toast.error('Veuillez ajouter au moins un article');
+      return false;
+    }
 
-  // ============================================================
-  // SETUP REALTIME SUBSCRIPTION
-  // ============================================================
+    return true;
+  };
 
-  const setupRealtimeSubscription = useCallback(() => {
-    if (!currentUserId) return;
-    if (isSubscribingRef.current) {
-      console.log('ℹ️ Déjà en cours de souscription, skip...');
+  // ✅ Préparer les données de la commande sans la créer
+  const prepareOrderData = async () => {
+    if (!validateOrderData()) {
+      return null;
+    }
+
+    let prescriptionUrl = null;
+
+    if (prescriptionFile) {
+      const fileExt = prescriptionFile.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `prescriptions/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('orders')
+        .upload(filePath, prescriptionFile);
+
+      if (error) {
+        console.error('Upload error:', error);
+        toast.error("Erreur lors de l'upload de la prescription");
+        return null;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('orders').getPublicUrl(filePath);
+
+      prescriptionUrl = publicUrl;
+    }
+
+    const validItems = formData.items
+      .filter((item) => item.name.trim() !== '')
+      .map((item) => ({
+        ...item,
+        total: item.quantity * item.price,
+      }));
+
+    return {
+      patient_id: formData.patient_id || null,
+      type: formData.type as any,
+      description: formData.description.trim(),
+      address: formData.address.trim(),
+      estimated_amount: finalEstimatedAmount || null,
+      items: validItems,
+      prescription_url: prescriptionUrl,
+      order_type: 'ponctual',
+      is_paid: false,
+      category: 'ponctuelle',
+    };
+  };
+
+  // ✅ Soumission du formulaire
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (orderType === 'ponctual') {
+      const orderData = await prepareOrderData();
+      if (!orderData) return;
+
+      console.log('📦 Commande ponctuelle préparée:', orderData);
+
+      sessionStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
+      localStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
+      
+      setPendingOrderData(orderData);
+      const price = getPonctualPrice();
+      setPaymentAmount(price);
+      
+      isRedirecting.current = true;
+      setShowPaymentModal(true);
       return;
     }
 
-    isSubscribingRef.current = true;
+    if (orderType === 'subscription') {
+      if (!canUseSubscription()) {
+        const msg = getBlockMessage('order');
+        toast.error(msg.description);
+        return;
+      }
+      await createOrderWithSubscription();
+    }
+  };
 
-    cleanupSubscription();
+  // ✅ Créer la commande avec abonnement (direct)
+  const createOrderWithSubscription = async () => {
+    if (!validateOrderData()) {
+      return;
+    }
 
-    window.setTimeout(() => {
-      isUnmountingRef.current = false;
+    setIsUploading(true);
+    try {
+      let prescriptionUrl = null;
 
-      console.log('🔄 Configuration Realtime...');
+      if (prescriptionFile) {
+        const fileExt = prescriptionFile.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `prescriptions/${fileName}`;
 
-      const channelName = `messages-global-${GLOBAL_CONVERSATION_ID}`;
+        const { error } = await supabase.storage
+          .from('orders')
+          .upload(filePath, prescriptionFile);
 
-      const channel = supabase.channel(channelName);
-
-      channel
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `conversation_id=eq.${GLOBAL_CONVERSATION_ID}`,
-          },
-          async (payload) => {
-            console.log('📨 Nouveau message');
-            await handleNewMessage(payload.new);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'messages',
-            filter: `conversation_id=eq.${GLOBAL_CONVERSATION_ID}`,
-          },
-          (payload) => {
-            handleMessageUpdate(payload.new);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'messages',
-            filter: `conversation_id=eq.${GLOBAL_CONVERSATION_ID}`,
-          },
-          (payload) => {
-            handleMessageDelete(payload.old);
-          }
-        );
-
-      channelRef.current = channel;
-
-      channel.subscribe((status, err) => {
-        console.log('📡 Realtime:', status);
-
-        if (status === 'SUBSCRIBED') {
-          setIsRealtimeConnected(true);
-          isSubscribingRef.current = false;
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-          }
+        if (error) {
+          console.error('Upload error:', error);
+          toast.error("Erreur lors de l'upload de la prescription");
           return;
         }
 
-        if (status === 'CLOSED') {
-          setIsRealtimeConnected(false);
-          isSubscribingRef.current = false;
-          if (isUnmountingRef.current) {
-            console.log('ℹ️ Canal fermé proprement');
-            return;
-          }
-          console.warn('⚠️ Reconnexion...');
-          reconnectTimeoutRef.current = setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 3000);
-          return;
-        }
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('orders').getPublicUrl(filePath);
 
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('❌ Realtime déconnecté:', status, err);
-          setIsRealtimeConnected(false);
-          isSubscribingRef.current = false;
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-          }
-          reconnectTimeoutRef.current = setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 3000);
-        }
+        prescriptionUrl = publicUrl;
+      }
+
+      const validItems = formData.items
+        .filter((item) => item.name.trim() !== '')
+        .map((item) => ({
+          ...item,
+          total: item.quantity * item.price,
+        }));
+
+      await createOrder({
+        patient_id: formData.patient_id || null,
+        type: formData.type as any,
+        description: formData.description.trim(),
+        address: formData.address.trim(),
+        estimated_amount: finalEstimatedAmount || null,
+        items: validItems,
+        prescription_url: prescriptionUrl,
+        order_type: 'subscription',
+        is_paid: true,
       });
 
-      console.log('✅ Realtime configuré');
-    }, 150);
-  }, [currentUserId, cleanupSubscription, handleNewMessage, handleMessageUpdate, handleMessageDelete]);
-
-  // ============================================================
-  // EFFETS
-  // ============================================================
-
-  useEffect(() => {
-    if (!isInitialized || !isAuthenticated || !currentUserId) return;
-
-    fetchMessages();
-    setupRealtimeSubscription();
-
-    return () => {
-      cleanupSubscription();
-    };
-  }, [
-    isInitialized,
-    isAuthenticated,
-    currentUserId,
-    fetchMessages,
-    setupRealtimeSubscription,
-    cleanupSubscription,
-  ]);
-
-  useEffect(() => {
-    scrollToBottom(true);
-  }, [messages.length, scrollToBottom]);
-
-  // ============================================================
-  // SEND MESSAGE
-  // ============================================================
-
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() || !currentUserId) return;
-
-    setIsSending(true);
-
-    try {
-      const cleanContent = messageInput.trim();
-
-      setMessageInput('');
-
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: GLOBAL_CONVERSATION_ID,
-          sender_id: currentUserId,
-          content: cleanContent,
-          is_read: false,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        const messageWithSender: Message = {
-          ...data,
-          sender: {
-            id: currentUserId,
-            full_name: currentUserName,
-            role: currentUserRole,
-            avatar_url: profile?.avatar_url || null,
-          },
-        };
-
-        setMessages((prev) => {
-          const exists = prev.some((message) => message.id === data.id);
-          if (exists) return prev;
-          return [...prev, messageWithSender];
-        });
-
-        inputRef.current?.focus();
-        scrollToBottom(true);
-      }
-    } catch (error: any) {
-      console.error('❌ Send message error:', error);
-      toast.error("Erreur d'envoi");
+      toast.success('Commande créée avec succès (décomptée de votre abonnement)');
+      navigate('/app/orders');
+    } catch (error) {
+      console.error(error);
+      toast.error('Erreur lors de la création');
     } finally {
-      setIsSending(false);
+      setIsUploading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  // ✅ Callback du modal de paiement
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    isRedirecting.current = false;
   };
 
-  // ============================================================
-  // TOGGLE PIN
-  // ============================================================
-
-  const togglePinMessage = async (messageId: string, currentState: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_pinned: !currentState })
-        .eq('id', messageId);
-
-      if (error) throw error;
-
-      toast.success(currentState ? 'Désépinglé' : 'Épinglé');
-    } catch (error: any) {
-      toast.error('Erreur');
-    }
-  };
-
-  const toggleImportantMessage = async (messageId: string, currentState: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_important: !currentState })
-        .eq('id', messageId);
-
-      if (error) throw error;
-
-      toast.success(currentState ? 'Important retiré' : 'Marqué important');
-    } catch (error: any) {
-      toast.error('Erreur');
-    }
-  };
-
-  const deleteMessage = async (messageId: string) => {
-    if (!window.confirm('Supprimer ce message ?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', messageId);
-
-      if (error) throw error;
-
-      toast.success('Message supprimé');
-      setShowPinModal(false);
-      setSelectedMessage(null);
-    } catch (error: any) {
-      toast.error('Erreur');
-    }
-  };
-
-  // ============================================================
-  // HELPERS
-  // ============================================================
-
-  const getRoleColor = (senderRole?: string | null) => {
-    const colorMap: Record<string, string> = {
-      family: '#4CAF50',
-      aidant: '#FF9800',
-      coordinator: '#2196F3',
-      admin: '#9C27B0',
-    };
-    return colorMap[senderRole || 'family'] || '#9E9E9E';
-  };
-
-  const getRoleIcon = (senderRole?: string | null) => {
-    const iconMap: Record<string, React.ReactNode> = {
-      family: <Users size={12} />,
-      aidant: <User size={12} />,
-      coordinator: <Shield size={12} />,
-      admin: <Shield size={12} />,
-    };
-    return iconMap[senderRole || 'family'] || <User size={12} />;
-  };
-
-  const getRoleLabel = (senderRole?: string | null) => {
-    const labelMap: Record<string, string> = {
-      family: 'Famille',
-      aidant: 'Aidant',
-      coordinator: 'Coordinateur',
-      admin: 'Admin',
-    };
-    return labelMap[senderRole || 'family'] || 'Utilisateur';
-  };
-
-  // ============================================================
-  // RENDU
-  // ============================================================
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: colors.text }}>Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const getPlaceholder = () => {
-    if (isAdminRole) return 'Message à tous les utilisateurs';
-    if (isAidantRole) return 'Message à l\'équipe';
-    if (isFamily) return 'Message à l\'équipe';
-    return 'Écrivez votre message...';
-  };
-
-  const getFooterText = () => {
-    if (isAdminRole) return 'Admin · clic droit pour gérer';
-    if (isAidantRole) return 'Aidant · messages visibles par l\'équipe';
-    if (isFamily) return 'Famille · messages visibles par l\'équipe';
-    return 'Messages visibles par toute l\'équipe';
-  };
+  const isLoading_ = isLoading || isUploading;
 
   return (
-    <div
-      className="h-[calc(100vh-120px)] flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm"
-      style={{ border: `1px solid ${colors.primary}20` }}
-    >
-      {/* EN-TÊTE */}
-      <div
-        className="p-3 sm:p-4 border-b flex items-center justify-between"
-        style={{ borderColor: colors.primary + '20' }}
-      >
-        <div className="flex items-center space-x-3">
-          <div
-            className="p-2 rounded-xl"
-            style={{ background: colors.primary + '10' }}
-          >
-            <MessageCircle size={18} style={{ color: colors.primary }} />
+    <div className="space-y-6 pb-10">
+      {/* HEADER */}
+      <section className="bg-white rounded-[1.75rem] p-4 sm:p-5 md:p-6 shadow-sm border border-black/5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3">
+            <button
+              onClick={() => navigate('/app/orders')}
+              className="w-11 h-11 rounded-2xl flex items-center justify-center border hover:bg-gray-50 transition shrink-0"
+              style={{
+                borderColor: colors.border || '#e5e0d8',
+                color: colors.text,
+              }}
+            >
+              <ArrowLeft size={20} />
+            </button>
+
+            <div>
+              <div
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2"
+                style={{
+                  background: colors.primary + '12',
+                  color: colors.primary,
+                }}
+              >
+                <ShoppingBag size={13} />
+                Nouvelle commande
+              </div>
+
+              <h1
+                className="text-2xl md:text-3xl font-black tracking-tight leading-tight"
+                style={{ color: colors.text }}
+              >
+                Créer une commande
+              </h1>
+
+              <p
+                className="text-sm mt-1 max-w-xl leading-relaxed"
+                style={{ color: colors.text + '75' }}
+              >
+                Renseignez les informations nécessaires pour envoyer une demande claire à l'équipe.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <h2 className="font-semibold text-sm" style={{ color: colors.text }}>
-              Discussion
-            </h2>
-            <p className="text-[10px] flex items-center gap-1" style={{ color: colors.text + '60' }}>
-              <span>{messages.length} msg</span>
-              <span>•</span>
-              <span>{unreadCount} non lu{unreadCount > 1 ? 's' : ''}</span>
-              <span className={`ml-1 text-[8px] ${isRealtimeConnected ? 'text-green-500' : 'text-red-500'}`}>
-                ●
-              </span>
-            </p>
+          <div className="grid grid-cols-3 gap-2 md:min-w-[300px]">
+            <CompactHeaderStat
+              label={beneficiaryLabel}
+              value={selectedPatient ? 'Choisi' : 'Optionnel'}
+              color={colors.primary}
+            />
+            <CompactHeaderStat
+              label="Articles"
+              value={formData.items.filter((i) => i.name.trim()).length || 0}
+              color={colors.primary}
+            />
+            <CompactHeaderStat
+              label="Photo"
+              value={prescriptionFile ? 'Ajoutée' : 'Non'}
+              color={colors.primary}
+            />
           </div>
         </div>
+      </section>
 
-        <div className="flex items-center space-x-1">
-          {unreadCount > 0 && (
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
+        {/* COLONNE PRINCIPALE */}
+        <div className="space-y-6">
+          {/* TYPE DE COMMANDE */}
+          <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+            <div className="flex items-start gap-3 mb-5">
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                style={{
+                  background: colors.primary + '14',
+                  color: colors.primary,
+                }}
+              >
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">
+                  Type de commande
+                </h2>
+                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                  Choisissez comment vous souhaitez payer cette commande.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Option 1 : Avec abonnement */}
+              <button
+                type="button"
+                onClick={() => setOrderType('subscription')}
+                disabled={!canUseSubscription()}
+                className={`p-5 rounded-2xl border-2 text-left transition-all ${
+                  orderType === 'subscription'
+                    ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md scale-[1.01]'
+                    : 'border-gray-200 hover:border-gray-300'
+                } ${!canUseSubscription() ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                    style={{
+                      background: orderType === 'subscription' ? colors.primary + '15' : '#f3f4f6',
+                      color: orderType === 'subscription' ? colors.primary : '#9ca3af',
+                    }}
+                  >
+                    <Package size={20} />
+                  </div>
+                  <div>
+                    <p className="font-bold" style={{ color: colors.text }}>
+                      Avec abonnement
+                    </p>
+                    <p className="text-xs" style={{ color: colors.text + '50' }}>
+                      {canUseSubscription()
+                        ? `${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} restante${remainingOrders > 1 ? 's' : ''}`
+                        : hasActiveSubscription
+                          ? 'Plus de commandes disponibles'
+                          : 'Abonnement requis'}
+                    </p>
+                  </div>
+                </div>
+                {orderType === 'subscription' && (
+                  <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle size={14} />
+                    Commandes incluses
+                  </div>
+                )}
+              </button>
+
+              {/* Option 2 : Ponctuelle */}
+              <button
+                type="button"
+                onClick={() => setOrderType('ponctual')}
+                className={`p-5 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                  orderType === 'ponctual'
+                    ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md scale-[1.01]'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                    style={{
+                      background: orderType === 'ponctual' ? colors.primary + '15' : '#f3f4f6',
+                      color: orderType === 'ponctual' ? colors.primary : '#9ca3af',
+                    }}
+                  >
+                    <CreditCard size={20} />
+                  </div>
+                  <div>
+                    <p className="font-bold" style={{ color: colors.text }}>
+                      Ponctuelle
+                    </p>
+                    <p className="text-xs" style={{ color: colors.text + '50' }}>
+                      Paiement avant envoi
+                    </p>
+                  </div>
+                </div>
+                {orderType === 'ponctual' && (
+                  <div className="mt-3 flex items-center gap-3 text-xs">
+                    <span className="text-orange-600 flex items-center gap-1">
+                      <CreditCard size={14} />
+                      {getPonctualPrice().toLocaleString()} FCFA
+                    </span>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-gray-400">Sans engagement</span>
+                  </div>
+                )}
+              </button>
+            </div>
+          </section>
+
+          {/* Section infos */}
+          <ModernPanel
+            icon={<ClipboardList size={20} />}
+            title="Informations principales"
+            subtitle={`Renseignez le ${beneficiaryLabel.toLowerCase()}, le type de commande et les détails.`}
+            color={colors.primary}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label={beneficiaryLabel} optional color={colors.text}>
+                <div className="relative">
+                  <User
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5"
+                    style={{ color: colors.text + '60' }}
+                  />
+                  <select
+                    value={formData.patient_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, patient_id: e.target.value })
+                    }
+                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl border outline-none transition focus:ring-2 text-sm bg-gray-50"
+                    style={{
+                      borderColor: colors.border || '#e5e0d8',
+                      color: colors.text,
+                    }}
+                  >
+                    <option value="">Sans {beneficiaryLabel.toLowerCase()}</option>
+                    {patients.map((patient) => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.first_name} {patient.last_name} —{' '}
+                        {getCategoryLabel(patient.category)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </Field>
+
+              <Field label="Type de commande" color={colors.text}>
+                <div className="relative">
+                  <Package
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5"
+                    style={{ color: colors.text + '60' }}
+                  />
+                  <select
+                    value={formData.type}
+                    onChange={(e) =>
+                      setFormData({ ...formData, type: e.target.value })
+                    }
+                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl border outline-none transition focus:ring-2 text-sm bg-gray-50"
+                    style={{
+                      borderColor: colors.border || '#e5e0d8',
+                      color: colors.text,
+                    }}
+                  >
+                    {ORDER_TYPES.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </Field>
+            </div>
+
+            <div className="mt-4">
+              <Field label="Description" required color={colors.text}>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  className="w-full px-4 py-3.5 rounded-2xl border outline-none transition focus:ring-2 resize-none text-sm bg-gray-50"
+                  style={{
+                    borderColor: colors.border || '#e5e0d8',
+                    color: colors.text,
+                  }}
+                  rows={4}
+                  placeholder="Exemple : Doliprane 1000mg, couches taille 3, lait bébé, produits de soin..."
+                  required
+                />
+              </Field>
+            </div>
+
+            <div className="mt-4">
+              <Field label="Adresse de livraison" required color={colors.text}>
+                <div className="relative">
+                  <MapPin
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5"
+                    style={{ color: colors.text + '60' }}
+                  />
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) =>
+                      setFormData({ ...formData, address: e.target.value })
+                    }
+                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl border outline-none transition focus:ring-2 text-sm bg-gray-50"
+                    style={{
+                      borderColor: colors.border || '#e5e0d8',
+                      color: colors.text,
+                    }}
+                    placeholder="Adresse complète de livraison"
+                    required
+                  />
+                </div>
+              </Field>
+            </div>
+          </ModernPanel>
+
+          {/* Section upload */}
+          <ModernPanel
+            icon={<FileImage size={20} />}
+            title="Ordonnance ou photo"
+            subtitle="Ajoutez une image si la commande nécessite une preuve visuelle."
+            color={colors.secondary || colors.primary}
+          >
+            {!prescriptionPreview ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full min-h-[150px] rounded-[1.5rem] border-2 border-dashed bg-gray-50 hover:bg-gray-100 transition flex flex-col items-center justify-center text-center p-6"
+                style={{ borderColor: colors.primary + '35' }}
+              >
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                  style={{
+                    background: colors.primary + '15',
+                    color: colors.primary,
+                  }}
+                >
+                  <Camera size={26} />
+                </div>
+
+                <p className="font-semibold" style={{ color: colors.text }}>
+                  Ajouter une photo
+                </p>
+
+                <p className="text-sm mt-1 max-w-sm" style={{ color: colors.text + '70' }}>
+                  Ordonnance, boîte de médicament, liste écrite ou capture.
+                  PNG, JPG, JPEG — Max 5MB.
+                </p>
+              </button>
+            ) : (
+              <div className="relative overflow-hidden rounded-[1.5rem] border bg-gray-50">
+                <img
+                  src={prescriptionPreview}
+                  alt="Prescription"
+                  className="w-full max-h-[320px] object-cover"
+                />
+
+                <button
+                  type="button"
+                  onClick={removePrescription}
+                  className="absolute top-3 right-3 w-10 h-10 rounded-2xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition shadow-lg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </ModernPanel>
+
+          {/* Section articles */}
+          <ModernPanel
+            icon={<ShoppingBag size={20} />}
+            title="Articles"
+            subtitle="Ajoutez les éléments de la commande pour obtenir un total estimé."
+            color={colors.primary}
+          >
+            <div className="space-y-3">
+              {formData.items.map((item, index) => (
+                <div
+                  key={index}
+                  className="rounded-[1.5rem] bg-gray-50 border p-3 md:p-4"
+                  style={{ borderColor: colors.border || '#e5e0d8' }}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_100px_130px_90px_40px] gap-3 md:items-center">
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => updateItem(index, 'name', e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-white"
+                      style={{
+                        borderColor: colors.border || '#e5e0d8',
+                        color: colors.text,
+                      }}
+                      placeholder="Nom de l'article"
+                    />
+
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateItem(index, 'quantity', parseInt(e.target.value) || 0)
+                      }
+                      className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-white"
+                      style={{
+                        borderColor: colors.border || '#e5e0d8',
+                        color: colors.text,
+                      }}
+                      placeholder="Qté"
+                      min="1"
+                    />
+
+                    <input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) =>
+                        updateItem(index, 'price', parseFloat(e.target.value) || 0)
+                      }
+                      className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-white"
+                      style={{
+                        borderColor: colors.border || '#e5e0d8',
+                        color: colors.text,
+                      }}
+                      placeholder="Prix"
+                      min="0"
+                    />
+
+                    <div className="text-left md:text-right">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">
+                        Total
+                      </p>
+                      <p className="font-bold" style={{ color: colors.primary }}>
+                        {(item.quantity * item.price).toLocaleString()} F
+                      </p>
+                    </div>
+
+                    {formData.items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="w-10 h-10 rounded-xl text-red-500 hover:bg-red-50 flex items-center justify-center transition"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <button
-              onClick={markAllAsRead}
-              className="text-[10px] px-2 py-1 rounded-lg font-medium transition hover:opacity-80 whitespace-nowrap"
+              type="button"
+              onClick={addItem}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm transition hover:opacity-90"
               style={{
-                background: colors.primary + '15',
+                background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
-              Tout lire
+              <Plus size={17} />
+              Ajouter un article
             </button>
-          )}
-
-          <span
-            className="text-[9px] px-2 py-0.5 rounded-full hidden sm:inline"
-            style={{
-              background: colors.primary + '10',
-              color: colors.primary,
-            }}
-          >
-            {isAdminRole ? 'Admin' : isAidantRole ? 'Aidant' : 'Famille'}
-          </span>
+          </ModernPanel>
         </div>
-      </div>
 
-      {/* MESSAGES ÉPINGLÉS */}
-      {messages.filter((message) => message.is_pinned).length > 0 && (
-        <div
-          className="px-3 py-1.5 border-b"
-          style={{
-            background: colors.primary + '05',
-            borderColor: colors.primary + '20',
-          }}
-        >
-          <p
-            className="text-[10px] font-medium mb-1 flex items-center gap-1"
-            style={{ color: colors.primary }}
-          >
-            <Pin size={12} />
-            Épinglés
-          </p>
-
-          {messages
-            .filter((message) => message.is_pinned)
-            .slice(0, 2)
-            .map((message) => (
+        {/* RÉSUMÉ */}
+        <aside className="xl:sticky xl:top-24 h-fit">
+          <div className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5 space-y-5">
+            <div>
               <div
-                key={message.id}
-                className="text-xs p-2 rounded-lg mb-1 last:mb-0 bg-white"
-              >
-                <p className="font-medium text-xs" style={{ color: colors.text }}>
-                  {message.sender?.full_name || 'Utilisateur'}
-                </p>
-                <p className="text-[10px]" style={{ color: colors.text + '70' }}>
-                  {message.content}
-                </p>
-              </div>
-            ))}
-        </div>
-      )}
-
-      {/* LISTE MESSAGES */}
-      <div
-        className="flex-1 overflow-y-auto p-3 space-y-2.5"
-        style={{ background: colors.background }}
-      >
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-4">
-            <Illustration type="message" size="lg" className="mx-auto mb-4 opacity-30" />
-            <h3 className="text-base font-bold" style={{ color: colors.text }}>
-              Aucun message
-            </h3>
-            <p className="text-sm mt-1" style={{ color: colors.text + '60' }}>
-              {isAdminRole
-                ? 'Envoyez un message à tous'
-                : 'Soyez le premier à envoyer un message'}
-            </p>
-          </div>
-        ) : (
-          messages.map((message, index) => {
-            const isOwn = message.sender_id === currentUserId;
-
-            const showDate =
-              index === 0 ||
-              formatDate(message.created_at) !==
-                formatDate(messages[index - 1]?.created_at);
-
-            const isPinned = !!message.is_pinned;
-            const isImportant = !!message.is_important;
-
-            return (
-              <div key={message.id}>
-                {showDate && (
-                  <div className="text-center my-3">
-                    <span
-                      className="text-[9px] px-2 py-0.5 rounded-full"
-                      style={{
-                        background: colors.primary + '10',
-                        color: colors.text + '60',
-                      }}
-                    >
-                      {formatDate(message.created_at)}
-                    </span>
-                  </div>
-                )}
-
-                <div
-                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    if (isAdminRole) {
-                      setSelectedMessage(message);
-                      setShowPinModal(true);
-                    }
-                  }}
-                >
-                  <div className="flex items-start space-x-2 max-w-[85%]">
-                    {!isOwn && (
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0"
-                        style={{
-                          background: getRoleColor(message.sender?.role),
-                        }}
-                      >
-                        {message.sender?.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                      </div>
-                    )}
-
-                    <div
-                      className={`p-2.5 rounded-2xl relative ${
-                        isImportant ? 'border-2 border-orange-400' : ''
-                      } ${isPinned ? 'border-l-3 border-yellow-400' : ''}`}
-                      style={{
-                        background: isOwn ? colors.primary : 'white',
-                        color: isOwn ? 'white' : colors.text,
-                        borderBottomRightRadius: isOwn ? '3px' : '16px',
-                        borderBottomLeftRadius: isOwn ? '16px' : '3px',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                      }}
-                    >
-                      {!isOwn && (
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span
-                            className="text-[10px] font-medium flex items-center gap-1"
-                            style={{ color: colors.text }}
-                          >
-                            {message.sender?.full_name || 'Utilisateur'}
-                            <span
-                              className="text-[8px] px-1 py-0.5 rounded flex items-center gap-0.5"
-                              style={{
-                                background: getRoleColor(message.sender?.role) + '20',
-                                color: getRoleColor(message.sender?.role),
-                              }}
-                            >
-                              {getRoleIcon(message.sender?.role)}
-                              {getRoleLabel(message.sender?.role)}
-                            </span>
-                          </span>
-
-                          {isImportant && (
-                            <span className="text-[8px] px-1 py-0.5 rounded bg-orange-100 text-orange-500">
-                              Important
-                            </span>
-                          )}
-
-                          {isPinned && (
-                            <span className="text-[8px] px-1 py-0.5 rounded bg-yellow-100 text-yellow-700">
-                              Épinglé
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {message.content && (
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {message.content}
-                        </p>
-                      )}
-
-                      {message.attachment_url && (
-                        <img
-                          src={message.attachment_url}
-                          alt="Pièce jointe"
-                          className="mt-1.5 rounded-lg max-w-full max-h-32 object-cover"
-                        />
-                      )}
-
-                      <div className="flex items-center justify-end space-x-1 mt-0.5">
-                        <span className="text-[9px] opacity-60">
-                          {formatTime(message.created_at)}
-                        </span>
-
-                        {isOwn && (
-                          <span className="text-[9px]">
-                            {message.is_read ? (
-                              <CheckCheck size={12} />
-                            ) : (
-                              <Check size={12} />
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* INPUT */}
-      <div
-        className="p-3 border-t"
-        style={{ borderColor: colors.primary + '20' }}
-      >
-        <div className="flex items-center space-x-2">
-          <button className="p-1.5 hover:bg-gray-100 rounded-lg transition">
-            <Paperclip size={18} style={{ color: colors.text + '40' }} />
-          </button>
-
-          <button className="p-1.5 hover:bg-gray-100 rounded-lg transition">
-            <ImageIcon size={18} style={{ color: colors.text + '40' }} />
-          </button>
-
-          <input
-            ref={inputRef}
-            type="text"
-            value={messageInput}
-            onChange={(e) => setMessageInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            className="flex-1 px-3 py-2 rounded-xl border outline-none transition focus:ring-1 text-sm"
-            style={{
-              borderColor: colors.border || '#e5e0d8',
-              background: 'var(--color-background, #f5f0e8)',
-              color: colors.text,
-            }}
-            placeholder={getPlaceholder()}
-            disabled={isSending}
-          />
-
-          <button
-            onClick={handleSendMessage}
-            disabled={!messageInput.trim() || isSending}
-            className="p-2 rounded-xl text-white transition disabled:opacity-50 hover:opacity-80"
-            style={{ background: colors.primary }}
-          >
-            <Send size={18} />
-          </button>
-        </div>
-
-        <div className="mt-1.5 flex items-center justify-between">
-          <p className="text-[9px]" style={{ color: colors.text + '30' }}>
-            {getFooterText()}
-          </p>
-
-          {isAdminRole && (
-            <span className="text-[9px]" style={{ color: colors.primary }}>
-              ⚡ Clic droit
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* MODAL ADMIN */}
-      {showPinModal && selectedMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl w-full max-w-xs p-5">
-            <h3
-              className="text-base font-bold mb-4"
-              style={{ color: colors.text }}
-            >
-              Gérer le message
-            </h3>
-
-            <div className="space-y-2">
-              <button
-                onClick={() => {
-                  togglePinMessage(
-                    selectedMessage.id,
-                    selectedMessage.is_pinned || false
-                  );
-                  setShowPinModal(false);
-                }}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition text-sm"
-              >
-                <Pin
-                  size={16}
-                  style={{
-                    color: selectedMessage.is_pinned
-                      ? colors.primary
-                      : colors.text + '60',
-                  }}
-                />
-                <span style={{ color: colors.text }}>
-                  {selectedMessage.is_pinned ? 'Désépingler' : 'Épingler'}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  toggleImportantMessage(
-                    selectedMessage.id,
-                    selectedMessage.is_important || false
-                  );
-                  setShowPinModal(false);
-                }}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition text-sm"
-              >
-                <AlertCircle
-                  size={16}
-                  style={{
-                    color: selectedMessage.is_important
-                      ? '#FF9800'
-                      : colors.text + '60',
-                  }}
-                />
-                <span style={{ color: colors.text }}>
-                  {selectedMessage.is_important
-                    ? 'Retirer important'
-                    : 'Marquer important'}
-                </span>
-              </button>
-
-              <button
-                onClick={() => deleteMessage(selectedMessage.id)}
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-red-50 transition text-sm text-red-500"
-              >
-                <Trash2 size={16} />
-                <span>Supprimer</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setShowPinModal(false);
-                  setSelectedMessage(null);
-                }}
-                className="w-full py-2 rounded-xl font-medium border text-sm"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
                 style={{
-                  borderColor: colors.border,
+                  background: colors.primary + '15',
+                  color: colors.primary,
+                }}
+              >
+                <ShieldCheck size={24} />
+              </div>
+
+              <h2 className="text-xl font-black" style={{ color: colors.text }}>
+                Résumé
+              </h2>
+
+              <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
+                Vérifiez les informations avant d'envoyer la demande.
+              </p>
+            </div>
+
+            <SummaryLine
+              label="Type de commande"
+              value={orderType === 'subscription' ? 'Avec abonnement' : 'Ponctuelle'}
+            />
+
+            <SummaryLine
+              label={beneficiaryLabel}
+              value={
+                selectedPatient
+                  ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
+                  : `Sans ${beneficiaryLabel.toLowerCase()}`
+              }
+            />
+
+            <SummaryLine
+              label="Type"
+              value={
+                ORDER_TYPES.find((type) => type.id === formData.type)?.label ||
+                formData.type
+              }
+            />
+
+            <SummaryLine
+              label="Photo"
+              value={prescriptionFile ? 'Ajoutée' : 'Non ajoutée'}
+            />
+
+            <div className="rounded-[1.5rem] p-4" style={{ background: colors.primary + '10' }}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium" style={{ color: colors.text + '70' }}>
+                    {orderType === 'subscription' ? 'Commandes restantes' : 'Montant'}
+                  </p>
+                  <p className="text-2xl font-black mt-1" style={{ color: colors.primary }}>
+                    {orderType === 'subscription'
+                      ? `${remainingOrders} commande${remainingOrders > 1 ? 's' : ''}`
+                      : `${getPonctualPrice().toLocaleString()} FCFA`}
+                  </p>
+                </div>
+                {orderType === 'subscription' ? (
+                  <Package size={28} style={{ color: colors.primary }} />
+                ) : (
+                  <CreditCard size={28} style={{ color: colors.primary }} />
+                )}
+              </div>
+              {orderType === 'subscription' && !canUseSubscription() && (
+                <p className="text-xs text-red-500 mt-2">
+                  ⚠️ Vous n'avez plus de commandes disponibles dans votre abonnement
+                </p>
+              )}
+            </div>
+
+            <Field label="Montant estimé manuel" optional color={colors.text}>
+              <input
+                type="number"
+                value={formData.estimated_amount}
+                onChange={(e) =>
+                  setFormData({ ...formData, estimated_amount: e.target.value })
+                }
+                className="w-full px-4 py-3.5 rounded-2xl border outline-none transition focus:ring-2 text-sm bg-gray-50"
+                style={{
+                  borderColor: colors.border || '#e5e0d8',
+                  color: colors.text,
+                }}
+                placeholder="0"
+                min="0"
+              />
+            </Field>
+
+            <div className="grid grid-cols-1 gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={isLoading_ || (orderType === 'subscription' && !canUseSubscription())}
+                className="w-full py-3.5 rounded-2xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-70"
+                style={{
+                  background: (orderType === 'subscription' && !canUseSubscription())
+                    ? '#9CA3AF'
+                    : colors.primary,
+                }}
+              >
+                {isLoading_ ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : orderType === 'ponctual' ? (
+                  <>
+                    <CreditCard size={18} />
+                    Payer {getPonctualPrice().toLocaleString()} FCFA
+                    <ArrowRight size={17} />
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag size={18} />
+                    Créer la commande
+                    <ArrowRight size={17} />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/app/orders')}
+                className="w-full py-3.5 rounded-2xl font-semibold border transition hover:bg-gray-50"
+                style={{
+                  borderColor: colors.border || '#e5e0d8',
                   color: colors.text,
                 }}
               >
-                Fermer
+                Annuler
               </button>
             </div>
           </div>
-        </div>
+        </aside>
+      </form>
+
+      {/* ✅ MODAL DE PAIEMENT POUR COMMANDE PONCTUELLE */}
+      {showPaymentModal && (
+        <PaymentModal
+          isOpen={true}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setPendingOrderData(null);
+            isRedirecting.current = false;
+          }}
+          offer={{
+            id: `ponctual-${formData.type}`,
+            name: `Commande ${formData.type} (ponctuelle)`,
+            price: paymentAmount,
+            period: 'intervention',
+            features: ['Commande unique', 'Sans abonnement', 'Livraison rapide'],
+            visitsPerWeek: null,
+            durationDays: 1,
+            badge: 'Ponctuelle',
+            category: 'ponctuelle',
+          }}
+          onSuccess={handlePaymentSuccess}
+          orderData={pendingOrderData}
+          forcePonctual={true}
+        />
       )}
     </div>
   );
 };
 
-export default MessagesPage;
+// =============================================
+// SOUS-COMPOSANTS
+// =============================================
+
+interface ModernPanelProps {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  color: string;
+  children: React.ReactNode;
+}
+
+const ModernPanel = ({ icon, title, subtitle, color, children }: ModernPanelProps) => {
+  return (
+    <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+      <div className="flex items-start gap-3 mb-5">
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+          style={{
+            background: color + '14',
+            color,
+          }}
+        >
+          {icon}
+        </div>
+
+        <div>
+          <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">
+            {title}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+            {subtitle}
+          </p>
+        </div>
+      </div>
+
+      {children}
+    </section>
+  );
+};
+
+interface FieldProps {
+  label: string;
+  required?: boolean;
+  optional?: boolean;
+  color: string;
+  children: React.ReactNode;
+}
+
+const Field = ({ label, required, optional, color, children }: FieldProps) => {
+  return (
+    <label className="block">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-sm font-semibold" style={{ color }}>
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </span>
+
+        {optional && (
+          <span className="text-[11px] uppercase tracking-wide text-gray-400">
+            Optionnel
+          </span>
+        )}
+      </div>
+
+      {children}
+    </label>
+  );
+};
+
+interface CompactHeaderStatProps {
+  label: string;
+  value: string | number;
+  color: string;
+}
+
+const CompactHeaderStat = ({ label, value, color }: CompactHeaderStatProps) => {
+  return (
+    <div className="rounded-2xl bg-gray-50 border border-black/5 px-3 py-2.5 text-center">
+      <p className="text-[11px] text-gray-500 leading-tight">
+        {label}
+      </p>
+      <p className="text-sm font-bold mt-0.5 truncate" style={{ color }}>
+        {value}
+      </p>
+    </div>
+  );
+};
+
+interface SummaryLineProps {
+  label: string;
+  value: string;
+}
+
+const SummaryLine = ({ label, value }: SummaryLineProps) => {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm font-semibold text-gray-900 text-right">
+        {value}
+      </span>
+    </div>
+  );
+};
+
+export default CreateOrderPage;
