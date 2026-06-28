@@ -260,7 +260,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         throw new Error('Les aidants ne peuvent pas créer de commandes');
       }
 
-      const isPonctual = data.order_type === 'ponctual' || data.is_ponctual || false;
+      const isPonctual = data.order_type === 'ponctual' || false;
       let status: OrderStatus = 'creee';
       let requiresPayment = false;
 
