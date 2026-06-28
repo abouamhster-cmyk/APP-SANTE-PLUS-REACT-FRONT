@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
-import { Loader2, CheckCircle, Users, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Aidant {
