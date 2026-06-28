@@ -454,7 +454,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      toast.warning('❌ Sortie d\'hôpital annulée');
+      toast.error('Sortie d\'hôpital annulée');
     } catch (error: any) {
       console.error('❌ Cancel discharge error:', error);
       set({ error: error.message, isLoading: false });
