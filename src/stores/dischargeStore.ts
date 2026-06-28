@@ -69,6 +69,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       if (error) throw error;
 
+      // ✅ Récupérer les relations séparément
       const patientIds = [...new Set(discharges?.map(d => d.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
@@ -153,7 +154,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      const dischargesWithRelations = (discharges || []).map((discharge) => ({
+      const dischargesWithRelations: HospitalDischarge[] = (discharges || []).map((discharge) => ({
         ...discharge,
         patient: discharge.patient_id ? patientMap[discharge.patient_id] || null : null,
         family: discharge.family_id ? familyMap[discharge.family_id] || null : null,
@@ -230,7 +231,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      const fullDischarge = {
+      const fullDischarge: HospitalDischarge = {
         ...discharge,
         patient,
         family,
@@ -284,7 +285,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         family = familyData;
       }
 
-      const fullDischarge = {
+      const fullDischarge: HospitalDischarge = {
         ...discharge,
         patient,
         family,
@@ -304,98 +305,122 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
     }
   },
 
-// 📁 src/stores/dischargeStore.ts
-
- updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
-  try {
-    set({ isLoading: true, error: null });
-    
-    const { data: discharge, error } = await supabase
-      .from('hospital_discharges')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-     if (!discharge || !discharge.id) {
-      throw new Error('La mise à jour a échoué');
-    }
-
-    // Récupérer les relations séparément
-    let patient = null;
-    if (discharge.patient_id) {
-      const { data: patientData } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('id', discharge.patient_id)
+  // ✅ FINAL - updateDischarge avec type correct
+  updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { data: discharge, error } = await supabase
+        .from('hospital_discharges')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
         .single();
-      patient = patientData;
-    }
 
-    let family = null;
-    if (discharge.family_id) {
-      const { data: familyData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', discharge.family_id)
-        .single();
-      family = familyData;
-    }
+      if (error) throw error;
 
-    let coordinator = null;
-    if (discharge.coordinator_id) {
-      const { data: coordData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', discharge.coordinator_id)
-        .single();
-      coordinator = coordData;
-    }
+      // ✅ Si pas de résultat, on ne fait rien
+      if (!discharge) {
+        throw new Error('Sortie non trouvée');
+      }
 
-    let aidant = null;
-    if (discharge.aidant_id) {
-      const { data: aidantData } = await supabase
-        .from('aidants')
-        .select('*')
-        .eq('id', discharge.aidant_id)
-        .single();
-      if (aidantData) {
-        const { data: userData } = await supabase
+      // ✅ Récupérer les relations séparément
+      let patient = null;
+      if (discharge.patient_id) {
+        const { data: patientData } = await supabase
+          .from('patients')
+          .select('*')
+          .eq('id', discharge.patient_id)
+          .single();
+        patient = patientData;
+      }
+
+      let family = null;
+      if (discharge.family_id) {
+        const { data: familyData } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', aidantData.user_id)
+          .eq('id', discharge.family_id)
           .single();
-        aidant = {
-          ...aidantData,
-          user: userData || null,
-        };
+        family = familyData;
       }
+
+      let coordinator = null;
+      if (discharge.coordinator_id) {
+        const { data: coordData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', discharge.coordinator_id)
+          .single();
+        coordinator = coordData;
+      }
+
+      let aidant = null;
+      if (discharge.aidant_id) {
+        const { data: aidantData } = await supabase
+          .from('aidants')
+          .select('*')
+          .eq('id', discharge.aidant_id)
+          .single();
+        if (aidantData) {
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', aidantData.user_id)
+            .single();
+          aidant = {
+            ...aidantData,
+            user: userData || null,
+          };
+        }
+      }
+
+      // ✅ Construction avec id garanti
+      const fullDischarge: HospitalDischarge = {
+        id: discharge.id,
+        patient_id: discharge.patient_id || '',
+        family_id: discharge.family_id || '',
+        coordinator_id: discharge.coordinator_id || null,
+        hospital_name: discharge.hospital_name || '',
+        hospital_service: discharge.hospital_service || '',
+        doctor_name: discharge.doctor_name || null,
+        discharge_date: discharge.discharge_date || '',
+        discharge_time: discharge.discharge_time || '',
+        status: discharge.status || 'pending',
+        assessment: discharge.assessment || null,
+        aidant_id: discharge.aidant_id || null,
+        planned_visits: discharge.planned_visits || null,
+        actual_discharge_date: discharge.actual_discharge_date || null,
+        actual_discharge_time: discharge.actual_discharge_time || null,
+        installation_notes: discharge.installation_notes || null,
+        family_notes: discharge.family_notes || null,
+        coordinator_notes: discharge.coordinator_notes || null,
+        completed_at: discharge.completed_at || null,
+        satisfaction_rating: discharge.satisfaction_rating || null,
+        satisfaction_comment: discharge.satisfaction_comment || null,
+        recommendations: discharge.recommendations || null,
+        created_at: discharge.created_at || new Date().toISOString(),
+        updated_at: discharge.updated_at || new Date().toISOString(),
+        patient,
+        family,
+        coordinator,
+        aidant,
+      };
+
+      set((state) => ({
+        discharges: state.discharges.map(d => d.id === id ? fullDischarge : d),
+        currentDischarge: fullDischarge,
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      console.error('❌ Update discharge error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
     }
-
-     const fullDischarge: HospitalDischarge = {
-      ...discharge,
-      patient,
-      family,
-      coordinator,
-      aidant,
-    };
-
-    set((state) => ({
-      discharges: state.discharges.map(d => d.id === id ? fullDischarge : d),
-      currentDischarge: fullDischarge,
-      isLoading: false,
-    }));
-  } catch (error: any) {
-    console.error('❌ Update discharge error:', error);
-    set({ error: error.message, isLoading: false });
-    throw error;
-  }
-},
+  },
 
   updateStatus: async (id: string, status: DischargeStatus) => {
     try {
@@ -415,17 +440,19 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       set((state) => ({
         discharges: state.discharges.map(d => d.id === id ? { ...d, status } : d),
-        currentDischarge: { ...state.currentDischarge, status },
+        currentDischarge: state.currentDischarge ? { ...state.currentDischarge, status } : null,
         isLoading: false,
       }));
 
-      await supabase.from('notifications').insert({
-        user_id: discharge.family_id,
-        title: '🔄 Mise à jour sortie d\'hôpital',
-        body: `Le statut de la sortie est maintenant : ${status}`,
-        type: 'system',
-        data: { discharge_id: id, status },
-      });
+      if (discharge?.family_id) {
+        await supabase.from('notifications').insert({
+          user_id: discharge.family_id,
+          title: '🔄 Mise à jour sortie d\'hôpital',
+          body: `Le statut de la sortie est maintenant : ${status}`,
+          type: 'system',
+          data: { discharge_id: id, status },
+        });
+      }
     } catch (error: any) {
       console.error('❌ Update status error:', error);
       set({ error: error.message, isLoading: false });
@@ -451,7 +478,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       if (error) throw error;
 
       let patient = null;
-      if (discharge.patient_id) {
+      if (discharge?.patient_id) {
         const { data: patientData } = await supabase
           .from('patients')
           .select('*')
@@ -461,7 +488,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       }
 
       let aidant = null;
-      if (discharge.aidant_id) {
+      if (discharge?.aidant_id) {
         const { data: aidantData } = await supabase
           .from('aidants')
           .select('*')
@@ -480,7 +507,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      const fullDischarge = {
+      const fullDischarge: HospitalDischarge = {
         ...discharge,
         patient,
         aidant,
@@ -533,17 +560,19 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       set((state) => ({
         discharges: state.discharges.map(d => d.id === id ? { ...d, ...discharge } : d),
-        currentDischarge: { ...state.currentDischarge, ...discharge },
+        currentDischarge: state.currentDischarge ? { ...state.currentDischarge, ...discharge } : null,
         isLoading: false,
       }));
 
-      await supabase.from('notifications').insert({
-        user_id: discharge.family_id,
-        title: '✅ Sortie d\'hôpital terminée',
-        body: `La sortie de ${discharge.patient?.first_name} ${discharge.patient?.last_name} est terminée.`,
-        type: 'system',
-        data: { discharge_id: id },
-      });
+      if (discharge?.family_id) {
+        await supabase.from('notifications').insert({
+          user_id: discharge.family_id,
+          title: '✅ Sortie d\'hôpital terminée',
+          body: `La sortie de ${discharge.patient?.first_name} ${discharge.patient?.last_name} est terminée.`,
+          type: 'system',
+          data: { discharge_id: id },
+        });
+      }
     } catch (error: any) {
       console.error('❌ Complete discharge error:', error);
       set({ error: error.message, isLoading: false });
@@ -570,17 +599,19 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       set((state) => ({
         discharges: state.discharges.map(d => d.id === id ? { ...d, ...discharge } : d),
-        currentDischarge: { ...state.currentDischarge, ...discharge },
+        currentDischarge: state.currentDischarge ? { ...state.currentDischarge, ...discharge } : null,
         isLoading: false,
       }));
 
-      await supabase.from('notifications').insert({
-        user_id: discharge.family_id,
-        title: '❌ Sortie d\'hôpital annulée',
-        body: `La sortie a été annulée. Motif: ${reason}`,
-        type: 'system',
-        data: { discharge_id: id },
-      });
+      if (discharge?.family_id) {
+        await supabase.from('notifications').insert({
+          user_id: discharge.family_id,
+          title: '❌ Sortie d\'hôpital annulée',
+          body: `La sortie a été annulée. Motif: ${reason}`,
+          type: 'system',
+          data: { discharge_id: id },
+        });
+      }
     } catch (error: any) {
       console.error('❌ Cancel discharge error:', error);
       set({ error: error.message, isLoading: false });
