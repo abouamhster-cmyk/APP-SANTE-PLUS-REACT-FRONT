@@ -15,7 +15,9 @@ import {
   Image,
   Mic,
   Volume2,
-  Download,
+  AlertCircle,
+  Filter,
+  Loader2,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
@@ -51,6 +53,7 @@ interface VisitToValidate {
     cancelled_by?: string | null;
     cancelled_at?: string | null;
     cancellation_reason?: string | null;
+    expired_at?: string | null;
   };
   patient: {
     id: string;
@@ -84,12 +87,12 @@ const AdminVisitValidationPage = () => {
   const [visits, setVisits] = useState<VisitToValidate[]>([]);
   const [filteredVisits, setFilteredVisits] = useState<VisitToValidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'terminee' | 'validee' | 'replanifiee'>('terminee');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'terminee' | 'validee' | 'replanifiee' | 'expire' | 'refusee'>('all');
   const [selectedVisit, setSelectedVisit] = useState<VisitToValidate | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [validationComment, setValidationComment] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -105,16 +108,19 @@ const AdminVisitValidationPage = () => {
   const fetchVisitsToValidate = async () => {
     try {
       setIsLoading(true);
+      
+      // ✅ Récupérer TOUTES les visites qui ont besoin d'attention
       const { data: visitsData, error: visitsError } = await supabase
         .from('visites')
         .select('*')
-        .in('status', ['terminee', 'validee', 'replanifiee'])
+        .in('status', ['terminee', 'validee', 'replanifiee', 'expire', 'refusee', 'attente_paiement'])
         .order('created_at', { ascending: false });
 
       if (visitsError) throw visitsError;
       if (!visitsData || visitsData.length === 0) {
         setVisits([]);
         setFilteredVisits([]);
+        setIsLoading(false);
         return;
       }
 
@@ -160,7 +166,17 @@ const AdminVisitValidationPage = () => {
         const aidant = visit.aidant_id ? aidantMap[visit.aidant_id] || null : null;
         const photos = photosMap[visit.id] || [];
         const audios = audiosMap[visit.id] || [];
-        return { ...visit, patient, aidant, photos, audios, metadata: { ...visit.metadata, audio_url: visit.metadata?.audio_url || null } };
+        return { 
+          ...visit, 
+          patient, 
+          aidant, 
+          photos, 
+          audios, 
+          metadata: { 
+            ...visit.metadata, 
+            audio_url: visit.metadata?.audio_url || null 
+          } 
+        };
       });
 
       setVisits(visitsWithRelations);
@@ -198,12 +214,13 @@ const AdminVisitValidationPage = () => {
         },
         body: JSON.stringify({ comment: validationComment }),
       });
-      if (!response.ok) throw new Error();
-      toast.success('✅ Visite validée');
+      if (!response.ok) throw new Error('Erreur de validation');
+      
+      toast.success('✅ Visite validée - Décompte effectué');
       setShowDetailModal(false);
       fetchVisitsToValidate();
-    } catch {
-      toast.error('Erreur de validation');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur de validation');
     } finally {
       setIsProcessing(false);
     }
@@ -222,26 +239,89 @@ const AdminVisitValidationPage = () => {
         },
         body: JSON.stringify({ reason: validationComment || 'Rapport non conforme' }),
       });
-      if (!response.ok) throw new Error();
+      if (!response.ok) throw new Error('Erreur de refus');
+      
       toast.success('❌ Visite refusée');
       setShowDetailModal(false);
       fetchVisitsToValidate();
-    } catch {
-      toast.error('Erreur de refus');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur de refus');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReassign = async (visitId: string) => {
+    const newAidantId = prompt('ID du nouvel aidant :');
+    if (!newAidantId) return;
+
+    setIsProcessing(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${visitId}/reassign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
+        body: JSON.stringify({ 
+          aidant_id: newAidantId, 
+          assignment_type: 'ponctuelle' 
+        }),
+      });
+      if (!response.ok) throw new Error('Erreur de réassignation');
+      
+      toast.success('✅ Visite réassignée');
+      setShowDetailModal(false);
+      fetchVisitsToValidate();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur de réassignation');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = { terminee: 'En attente ⏳', validee: 'Validée ✅', replanifiee: 'À refaire ❌' };
+    const labels: Record<string, string> = {
+      terminee: '⏳ En attente',
+      validee: '✅ Validée',
+      replanifiee: '🔄 À refaire',
+      expire: '⏰ Expirée',
+      refusee: '❌ Refusée',
+      attente_paiement: '💳 En attente paiement',
+    };
     return labels[status] || status;
   };
 
   const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = { terminee: '#f59e0b', validee: '#10b981', replanifiee: '#ef4444' };
+    const colors: Record<string, string> = {
+      terminee: '#f59e0b',
+      validee: '#10b981',
+      replanifiee: '#3b82f6',
+      expire: '#ef4444',
+      refusee: '#ef4444',
+      attente_paiement: '#8b5cf6',
+    };
     return colors[status] || '#94a3b8';
   };
+
+  // ✅ Statistiques
+  const stats = {
+    total: visits.length,
+    pending: visits.filter(v => v.status === 'terminee').length,
+    validated: visits.filter(v => v.status === 'validee').length,
+    expired: visits.filter(v => v.status === 'expire').length,
+    refused: visits.filter(v => v.status === 'refusee').length,
+    pendingPayment: visits.filter(v => v.status === 'attente_paiement').length,
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Loader2 className="animate-spin" size={32} style={{ color: colors.primary }} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -256,7 +336,7 @@ const AdminVisitValidationPage = () => {
               📋 Rapports et validations
             </h1>
             <p className="text-xs" style={{ color: colors.textLight }}>
-              Vérifiez les comptes-rendus et livraisons d'interventions à domicile
+              {stats.pending} en attente • {stats.expired} expirées • {stats.refused} refusées
             </p>
           </div>
           <button
@@ -267,9 +347,36 @@ const AdminVisitValidationPage = () => {
             <RefreshCw size={14} /> Actualiser
           </button>
         </div>
+
+        {/* ✅ BANDEAU D'ALERTE */}
+        {(stats.expired > 0 || stats.refused > 0) && (
+          <div className="relative z-10 mt-4 flex flex-wrap gap-2">
+            {stats.expired > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                <AlertCircle size={14} />
+                {stats.expired} visite(s) expirée(s) - Réassignation nécessaire
+              </div>
+            )}
+            {stats.refused > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                <XCircle size={14} />
+                {stats.refused} visite(s) refusée(s) - Réassignation nécessaire
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
-      {/* Barre de Recherche épurée */}
+      {/* Stats compactes */}
+      <section className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <CompactStat label="Total" value={stats.total} color={colors.primary} />
+        <CompactStat label="En attente" value={stats.pending} color="#f59e0b" />
+        <CompactStat label="Validées" value={stats.validated} color="#10b981" />
+        <CompactStat label="Expirées" value={stats.expired} color="#ef4444" />
+        <CompactStat label="Refusées" value={stats.refused} color="#ef4444" />
+      </section>
+
+      {/* Barre de recherche */}
       <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
         <input
           value={searchTerm}
@@ -284,36 +391,86 @@ const AdminVisitValidationPage = () => {
           className="px-3.5 py-2 rounded-xl border outline-none text-xs"
           style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
         >
+          <option value="all">Tous les statuts</option>
           <option value="terminee">⏳ En attente</option>
           <option value="validee">✅ Validées</option>
-          <option value="replanifiee">❌ Refusées</option>
+          <option value="expire">⏰ Expirées</option>
+          <option value="refusee">❌ Refusées</option>
+          <option value="replanifiee">🔄 Replanifiées</option>
+          <option value="attente_paiement">💳 En attente paiement</option>
         </select>
       </section>
 
-      {/* Liste épurée */}
+      {/* Liste */}
       <section className="space-y-3">
         {filteredVisits.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center text-gray-400">Aucune visite en attente de traitement</div>
+          <div className="bg-white rounded-3xl p-12 text-center text-gray-400">
+            {searchTerm || filterStatus !== 'all' 
+              ? 'Aucune visite ne correspond aux critères' 
+              : 'Aucune visite en attente de traitement'}
+          </div>
         ) : (
           filteredVisits.map((visit) => (
             <div
               key={visit.id}
               onClick={() => { setSelectedVisit(visit); setShowDetailModal(true); }}
               className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] cursor-pointer transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 border"
-              style={{ borderColor: colors.border }}
+              style={{ 
+                borderColor: getStatusColor(visit.status),
+                borderLeftWidth: '4px',
+                borderLeftColor: getStatusColor(visit.status),
+              }}
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-bold text-xs" style={{ color: colors.text }}>{visit.patient?.first_name} {visit.patient?.last_name}</p>
-                  <span className="text-[10px] font-semibold" style={{ color: getStatusColor(visit.status) }}>{getStatusLabel(visit.status)}</span>
+                  <p className="font-bold text-xs" style={{ color: colors.text }}>
+                    {visit.patient?.first_name} {visit.patient?.last_name}
+                  </p>
+                  <span className="text-[10px] font-semibold" style={{ color: getStatusColor(visit.status) }}>
+                    {getStatusLabel(visit.status)}
+                  </span>
+                  {visit.status === 'expire' && (
+                    <span className="text-[10px] font-semibold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">
+                      ⚠️ Expirée
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-gray-400 flex-wrap">
                   <span>📅 {formatDate(visit.scheduled_date)}</span>
                   <span>📍 {visit.patient?.address}</span>
-                  <span>🦸 {visit.aidant?.user?.full_name}</span>
+                  <span>🦸 {visit.aidant?.user?.full_name || 'Non assigné'}</span>
+                  {visit.metadata?.duration_minutes && (
+                    <span>⏱️ {visit.metadata.duration_minutes} min</span>
+                  )}
                 </div>
               </div>
-              <button className="px-3.5 py-2 rounded-xl text-xs font-bold border hover:bg-gray-50 transition-colors shrink-0 self-start sm:self-center" style={{ borderColor: colors.border, color: colors.text }}>Détails</button>
+              <div className="flex items-center gap-2 shrink-0">
+                {visit.status === 'expire' || visit.status === 'refusee' ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleReassign(visit.id); }}
+                    disabled={isProcessing}
+                    className="px-3 py-1.5 rounded-xl text-white text-xs font-bold"
+                    style={{ background: '#FF5722' }}
+                  >
+                    Réassigner
+                  </button>
+                ) : visit.status === 'terminee' ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedVisit(visit); setShowDetailModal(true); }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold border hover:bg-gray-50"
+                    style={{ borderColor: colors.border, color: colors.text }}
+                  >
+                    Valider
+                  </button>
+                ) : null}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedVisit(visit); setShowDetailModal(true); }}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold border hover:bg-gray-50"
+                  style={{ borderColor: colors.border, color: colors.text }}
+                >
+                  Détails
+                </button>
+              </div>
             </div>
           ))
         )}
@@ -324,19 +481,30 @@ const AdminVisitValidationPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-xl overflow-hidden shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: colors.border }}>
-              <h2 className="font-bold text-sm uppercase tracking-wider text-gray-400">📋 Validation d'intervention</h2>
-              <button onClick={() => setShowDetailModal(false)} className="p-1 hover:bg-gray-50 rounded-lg"><XCircle size={16} /></button>
+              <h2 className="font-bold text-sm uppercase tracking-wider text-gray-400">
+                📋 {getStatusLabel(selectedVisit.status)}
+              </h2>
+              <button onClick={() => setShowDetailModal(false)} className="p-1 hover:bg-gray-50 rounded-lg">
+                <XCircle size={16} />
+              </button>
             </div>
             <div className="p-5 space-y-4">
+              {/* Infos */}
               <div className="space-y-1.5 text-xs">
-                <p className="font-bold text-xs">{selectedVisit.patient?.first_name} {selectedVisit.patient?.last_name}</p>
-                <p className="text-gray-500">Aidant : {selectedVisit.aidant?.user?.full_name}</p>
-                {selectedVisit.notes && <p className="text-gray-600 bg-gray-50 p-2.5 rounded-xl italic">"{selectedVisit.notes}"</p>}
+                <p className="font-bold text-sm">{selectedVisit.patient?.first_name} {selectedVisit.patient?.last_name}</p>
+                <p className="text-gray-500">Aidant : {selectedVisit.aidant?.user?.full_name || 'Non assigné'}</p>
+                <p className="text-gray-500">Date : {formatDate(selectedVisit.scheduled_date)} à {selectedVisit.scheduled_time}</p>
+                {selectedVisit.notes && (
+                  <p className="text-gray-600 bg-gray-50 p-2.5 rounded-xl italic">"{selectedVisit.notes}"</p>
+                )}
               </div>
 
+              {/* Photos */}
               {selectedVisit.photos && selectedVisit.photos.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">📸 Preuves de visite ({selectedVisit.photos.length})</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    📸 Preuves ({selectedVisit.photos.length})
+                  </p>
                   <div className="grid grid-cols-3 gap-2">
                     {selectedVisit.photos.map((p, i) => (
                       <img key={i} src={p.photo_url} alt="Visite" className="aspect-square object-cover rounded-xl border" />
@@ -345,17 +513,20 @@ const AdminVisitValidationPage = () => {
                 </div>
               )}
 
+              {/* Audio */}
               {selectedVisit.metadata?.audio_url && (
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">🎙️ Rapport vocal</p>
                   <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
                     <Volume2 size={16} style={{ color: colors.primary }} />
-                    <audio controls className="flex-1 scale-90 origin-left"><source src={selectedVisit.metadata.audio_url} /></audio>
+                    <audio controls className="flex-1 scale-90 origin-left">
+                      <source src={selectedVisit.metadata.audio_url} />
+                    </audio>
                   </div>
                 </div>
               )}
 
-              {/* Décision d'administration */}
+              {/* Décision - selon le statut */}
               {selectedVisit.status === 'terminee' && (
                 <div className="space-y-3 pt-3 border-t" style={{ borderColor: colors.border }}>
                   <textarea
@@ -367,9 +538,65 @@ const AdminVisitValidationPage = () => {
                     rows={2}
                   />
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => handleReject(selectedVisit.id)} className="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100">Refuser le rapport</button>
-                    <button onClick={() => handleValidate(selectedVisit.id)} className="px-4 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90" style={{ background: colors.primary }}>Valider la visite</button>
+                    <button
+                      onClick={() => handleReject(selectedVisit.id)}
+                      disabled={isProcessing}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100"
+                    >
+                      Refuser le rapport
+                    </button>
+                    <button
+                      onClick={() => handleValidate(selectedVisit.id)}
+                      disabled={isProcessing}
+                      className="px-4 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90 flex items-center gap-1"
+                      style={{ background: colors.primary }}
+                    >
+                      {isProcessing ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={14} />}
+                      Valider
+                    </button>
                   </div>
+                </div>
+              )}
+
+              {/* Expirée / Refusée */}
+              {(selectedVisit.status === 'expire' || selectedVisit.status === 'refusee') && (
+                <div className="space-y-3 pt-3 border-t" style={{ borderColor: colors.border }}>
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200">
+                    <p className="text-sm text-red-700">
+                      {selectedVisit.status === 'expire' 
+                        ? '⚠️ Cette visite a expiré car l\'aidant n\'a pas répondu dans les 24-48h.'
+                        : '❌ Cette visite a été refusée par l\'aidant.'}
+                    </p>
+                    {selectedVisit.metadata?.rejection_reason && (
+                      <p className="text-sm text-red-600 mt-1">
+                        Motif : {selectedVisit.metadata.rejection_reason}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleReassign(selectedVisit.id)}
+                    disabled={isProcessing}
+                    className="w-full py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-2"
+                    style={{ background: '#FF5722' }}
+                  >
+                    {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <AlertCircle size={14} />}
+                    Réassigner
+                  </button>
+                </div>
+              )}
+
+              {/* Déjà validée */}
+              {selectedVisit.status === 'validee' && (
+                <div className="p-3 rounded-xl bg-green-50 border border-green-200">
+                  <p className="text-sm text-green-700 flex items-center gap-2">
+                    <CheckCircle size={18} />
+                    Cette visite a déjà été validée.
+                  </p>
+                  {selectedVisit.metadata?.validated_at && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Validée le {formatDate(selectedVisit.metadata.validated_at)}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -379,5 +606,22 @@ const AdminVisitValidationPage = () => {
     </div>
   );
 };
+
+// =============================================
+// COMPACT STAT
+// =============================================
+
+interface CompactStatProps {
+  label: string;
+  value: number;
+  color: string;
+}
+
+const CompactStat = ({ label, value, color }: CompactStatProps) => (
+  <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+    <p className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+    <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
+  </div>
+);
 
 export default AdminVisitValidationPage;
