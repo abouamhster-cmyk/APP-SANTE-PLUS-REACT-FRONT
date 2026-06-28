@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MobileTabBar.tsx
-
+ 
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -53,7 +53,7 @@ const getMainItems = (role: string | null) => {
     ];
   }
 
-  // 🦸 AIDANT (5 items max)
+  // 🦸 AIDANT (5 items max) - ✅ Abonnement SUPPRIMÉ
   if (role === 'aidant') {
     return [
       ...base,
@@ -79,7 +79,7 @@ const getMainItems = (role: string | null) => {
 };
 
 // =============================================
-// MENU "PLUS" - TOUS LES AUTRES (déplié dans le menu)
+// MENU "PLUS" - TOUS LES AUTRES
 // =============================================
 
 const getMoreItems = (role: string | null) => {
@@ -95,12 +95,12 @@ const getMoreItems = (role: string | null) => {
     ];
   }
 
-  // 🦸 AIDANT
+  // 🦸 AIDANT - ✅ Abonnement SUPPRIMÉ
   if (role === 'aidant') {
     return [
       { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
       { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
-      { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
+      // ❌ Abonnement SUPPRIMÉ
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
       { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications' },
     ];
@@ -160,6 +160,9 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
   // ✅ Compter les notifications pour l'icône "Plus"
   const hasUnreadNotifications = unreadCount > 0;
 
+  // ✅ Vérifier si on est sur une page qui nécessite d'afficher "Plus" actif
+  const isMoreActive = moreItems.some(item => isActive(item.path));
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t shadow-lg flex justify-around items-center py-1 px-1"
@@ -214,12 +217,12 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
             onClick={() => setShowMore(!showMore)}
             className="flex flex-col items-center justify-center py-1 px-2 min-w-[48px] transition-all relative"
           >
-            <div style={{ color: showMore ? colors.primary : '#9CA3AF' }}>
+            <div style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}>
               <Menu size={22} />
             </div>
             <span
               className="text-[9px] font-medium mt-0.5"
-              style={{ color: showMore ? colors.primary : '#9CA3AF' }}
+              style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
             >
               Plus
             </span>
