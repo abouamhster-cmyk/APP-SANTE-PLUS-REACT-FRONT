@@ -1,5 +1,5 @@
 // 📁 src/App.tsx
- 
+
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -117,7 +117,7 @@ import DischargePage from '@/features/discharge/pages/DischargePage';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useOfferStore } from '@/stores/offerStore';
-import { useContractStore } from '@/stores/contractStore'; // ✅ AJOUTÉ
+import { useContractStore } from '@/stores/contractStore';
 
 // ============================================================
 // QUERY CLIENT
@@ -150,7 +150,7 @@ function App() {
 
   const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
   const { fetchOffers, isInitialized: isOffersInitialized } = useOfferStore();
-  const { checkContract } = useContractStore(); // ✅ AJOUTÉ
+  const { checkContract } = useContractStore();
 
   // ============================================================
   // REFS
@@ -236,7 +236,8 @@ function App() {
     };
   }, [isAuthenticated, isAuthInitialized, fetchNotifications, subscribe, unsubscribe]);
 
-  // ✅ NOUVEAU : EFFET - VÉRIFICATION DU CONTRAT
+  // ============================================================
+  // EFFETS - VÉRIFICATION DU CONTRAT
   // ============================================================
   useEffect(() => {
     if (isAuthenticated && isAuthInitialized) {
@@ -342,10 +343,7 @@ function App() {
               <Route path="/app/admin-payments" element={<AdminPaymentsPage />} />
               <Route path="/app/admin-subscriptions" element={<AdminSubscriptionsPage />} />
               <Route path="/app/admin-notifications" element={<AdminNotificationsPage />} />
-              
-              {/* ✅ VALIDATION DES VISITES */}
               <Route path="/app/admin/visits/validation" element={<AdminVisitValidationPage />} />
-              
               <Route path="/app/registrations" element={<RegistrationsPage />} />
               <Route path="/app/registrations/:id" element={<RegistrationDetailsPage />} />
               <Route path="/app/aidants" element={<AidantsPage />} />
