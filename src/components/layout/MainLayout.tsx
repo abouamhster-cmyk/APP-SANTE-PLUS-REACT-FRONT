@@ -18,7 +18,6 @@ import {
   MapPin,
   ClipboardList,
   UserCheck,
-  AlertCircle,
   CreditCard,
   Award,
   History as HistoryIcon,
@@ -62,8 +61,6 @@ const MainLayout = () => {
   const colors = getThemeColors(themeName);
   const logoConfig = getLogoByRole(role, profile?.patient_category);
 
-  // ✅ SUPPRIMÉ : isFamilyWithoutPatient (plus utilisé dans le header)
-
   // =============================================
   // DÉTECTION MOBILE
   // =============================================
@@ -97,7 +94,7 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE - Mémoïsée pour performance
+  // NAVIGATION PAR RÔLE
   // =============================================
   const navItems = useMemo(() => {
     const base = [
@@ -162,7 +159,7 @@ const MainLayout = () => {
   }, [role]);
 
   // =============================================
-  // TITRE DE LA PAGE - Mémoïsé
+  // TITRE DE LA PAGE
   // =============================================
   const pageTitle = useMemo(() => {
     const path = location.pathname;
@@ -299,7 +296,7 @@ const MainLayout = () => {
               </h2>
 
               <div className="flex items-center gap-2">
-                {/* Badge rôle - sans émoji */}
+                {/* Badge rôle */}
                 <span
                   className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
                   style={{
@@ -333,8 +330,6 @@ const MainLayout = () => {
                 </Link>
               </div>
             </div>
-
-            {/* ✅ SECTION SUPPRIMÉE - Message "Pas de proche" (doublon) */}
           </div>
         </header>
 
@@ -380,7 +375,6 @@ const SidebarContent = ({
   onLogout,
   showClose,
 }: SidebarContentProps) => {
-  // ✅ Remplacé les émojis par des icônes
   const getRoleIcon = () => {
     if (role === 'aidant') return <Briefcase size={14} />;
     if (role === 'family') return <Users size={14} />;
