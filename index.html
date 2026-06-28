@@ -3,13 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- ✅ PWA Meta Tags -->
     <meta name="theme-color" content="#1a4a3a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Santé Plus" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Santé Plus" />
+    
+    <!-- ✅ Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/icon-72.png" />
+    <link rel="apple-touch-icon" sizes="96x96" href="/icon-96.png" />
+    <link rel="apple-touch-icon" sizes="128x128" href="/icon-128.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/icon-144.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="384x384" href="/icon-384.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+    
+    <!-- ✅ Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- ✅ MS / Windows -->
+    <meta name="msapplication-TileColor" content="#1a4a3a" />
+    <meta name="msapplication-TileImage" content="/icon-192.png" />
+    
     <meta name="description" content="Santé Plus Services - Accompagnement humain et coordination à domicile" />
     <title>Santé Plus Services</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- ✅ Service Worker Registration (fallback) -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('✅ Service Worker enregistré:', registration);
+            })
+            .catch((error) => {
+              console.log('❌ Erreur Service Worker:', error);
+            });
+        });
+      }
+    </script>
   </body>
 </html>
