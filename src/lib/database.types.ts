@@ -1183,3 +1183,39 @@ export interface Database {
     };
   };
 }
+
+export interface PatientAidantAssignment {
+  id: string;
+  patient_id: string;
+  aidant_id: string;
+  assigned_by: string | null;
+  assignment_type: 'permanente' | 'temporaire' | 'ponctuelle';
+  assigned_at: string;
+  expires_at: string | null;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Relations
+  patient?: Patient;
+  aidant?: Aidant;
+  assigned_by_profile?: Profile;
+}
+
+export interface AidantPatientView {
+  assignment_id: string;
+  patient_id: string;
+  aidant_id: string;
+  assignment_type: string;
+  assigned_at: string;
+  expires_at: string | null;
+  is_active: boolean;
+  // Patient fields
+  first_name: string;
+  last_name: string;
+  address: string;
+  category: string;
+  // Aidant fields
+  aidant_user_id: string;
+  aidant_name: string;
+}
