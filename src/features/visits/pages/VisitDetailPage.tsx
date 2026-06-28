@@ -338,6 +338,7 @@ const VisitDetailPage = () => {
       expire: '#795548',
       replanifiee: '#FF5722',
       no_show: '#795548',
+      attente_paiement: '#8b5cf6',
     };
     return colors[status] || '#9E9E9E';
   };
@@ -355,6 +356,7 @@ const VisitDetailPage = () => {
       expire: 'Expirée',
       replanifiee: 'Replanifiée',
       no_show: 'Absent',
+      attente_paiement: 'En attente paiement',
     };
     return labels[status] || status;
   };
@@ -529,7 +531,7 @@ const VisitDetailPage = () => {
                 const newAidantId = prompt('ID du nouvel aidant :');
                 if (!newAidantId) return;
                 // TODO: Implémenter la réassignation
-                toast.info('Réassignation à implémenter');
+                toast('Réassignation à implémenter', { icon: 'ℹ️' });
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
               style={{ background: '#FF5722' }}
