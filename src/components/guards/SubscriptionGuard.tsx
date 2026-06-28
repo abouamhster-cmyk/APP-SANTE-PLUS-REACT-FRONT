@@ -1,11 +1,11 @@
 // 📁 src/components/guards/SubscriptionGuard.tsx
-
+ 
 import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { ShieldAlert, CreditCard, ArrowRight, Calendar, ShoppingBag } from 'lucide-react';
+import { ShieldAlert, CreditCard, ArrowRight, Calendar, ShoppingBag, AlertCircle } from 'lucide-react';
 
 interface SubscriptionGuardProps {
   children: ReactNode;
@@ -32,6 +32,7 @@ export const SubscriptionGuard = ({
     isLoading,
     can,
     getBlockMessage,
+    hasNeverSubscribed,
   } = useSubscriptionGuard();
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -66,12 +67,14 @@ export const SubscriptionGuard = ({
 
     const message = getBlockMessage(action === 'all' ? 'visit' : action);
 
-    // ✅ Icône dynamique
     const getIcon = () => {
       if (action === 'visit') return <Calendar size={32} />;
       if (action === 'order') return <ShoppingBag size={32} />;
       return <ShieldAlert size={32} />;
     };
+
+    // ✅ Si l'utilisateur n'a jamais souscrit ou abonnement expiré
+    const showRenewButton = isExpired || hasNeverSubscribed;
 
     return (
       <div className={`bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5 max-w-md mx-auto ${className}`}>
@@ -92,8 +95,8 @@ export const SubscriptionGuard = ({
           {message.description}
         </p>
 
-        {/* ✅ Afficher le nombre de visites/commandes restantes si abonnement expiré */}
-        {isExpired && (
+        {/* ✅ Afficher le nombre de visites/commandes restantes */}
+        {(isExpired || hasActiveSubscription) && (
           <div className="mt-3 flex justify-center gap-4 text-sm">
             <span style={{ color: colors.text + '50' }}>
               📅 {remainingVisits} visites
@@ -103,6 +106,25 @@ export const SubscriptionGuard = ({
             </span>
           </div>
         )}
+
+        {/* ✅ Proposer le mode ponctuel si abonnement actif mais quota épuisé */}
+        {hasActiveSubscription && remainingVisits === 0 && action === 'visit' && (
+          <div className="mt-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
+            <p className="text-xs text-orange-700 flex items-center justify-center gap-1">
+              <AlertCircle size={14} />
+              <span>Quota de visites épuisé. Passez en mode ponctuel ou renouvelez.</span>
+            </p>
+          </div>
+        )}
+
+        {hasActiveSubscription && remainingOrders === 0 && action === 'order' && (
+          <div className="mt-3 p-3 rounded-xl bg-orange-50 border border-orange-200">
+            <p className="text-xs text-orange-700 flex items-center justify-center gap-1">
+              <AlertCircle size={14} />
+              <span>Quota de commandes épuisé. Passez en mode ponctuel ou renouvelez.</span>
+            </p>
+          </div>
+        )}
         
         <button
           onClick={() => navigate('/app/billing')}
@@ -110,9 +132,27 @@ export const SubscriptionGuard = ({
           style={{ background: colors.primary }}
         >
           <CreditCard size={16} />
-          {message.button}
+          {showRenewButton ? 'Voir les offres' : message.button}
           <ArrowRight size={16} />
         </button>
+
+        {/* ✅ Bouton mode ponctuel si quota épuisé */}
+        {hasActiveSubscription && (remainingVisits === 0 || remainingOrders === 0) && (
+          <button
+            onClick={() => {
+              if (action === 'visit') {
+                // Rediriger vers la page de planification avec mode ponctuel
+                navigate('/app/visits/create?mode=ponctual');
+              } else {
+                navigate('/app/orders/create?mode=ponctual');
+              }
+            }}
+            className="mt-2 inline-flex items-center gap-2 px-5 py-2 rounded-xl font-bold text-sm transition hover:opacity-80 border"
+            style={{ borderColor: colors.border, color: colors.text }}
+          >
+            💳 Mode ponctuel
+          </button>
+        )}
       </div>
     );
   }
