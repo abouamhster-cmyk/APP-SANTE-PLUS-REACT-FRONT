@@ -19,6 +19,12 @@ import {
   CreditCard,
   Sparkles,
   CheckCircle,
+  ListOrdered,
+  Receipt,
+  Clock,
+  AlertCircle,
+  Wallet,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -31,7 +37,30 @@ import { ORDER_TYPES } from '@/lib/constants';
 import { OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { PaymentModal } from '@/features/billing/components/PaymentModal';
+import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
+
+// =============================================
+// ICÔNES PAR TYPE DE COMMANDE
+// =============================================
+
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  medicaments: <Package size={16} />,
+  produits_bebe: <Package size={16} />,
+  produits_hygiene: <Package size={16} />,
+  courses: <ShoppingBag size={16} />,
+  repas: <Package size={16} />,
+  autre: <ListOrdered size={16} />,
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  medicaments: 'Médicaments',
+  produits_bebe: 'Produits bébé',
+  produits_hygiene: "Produits d'hygiène",
+  courses: 'Courses',
+  repas: 'Repas',
+  autre: 'Autre',
+};
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
@@ -249,25 +278,21 @@ const CreateOrderPage = () => {
 
   // ✅ VALIDATION des données avant préparation
   const validateOrderData = (): boolean => {
-    // ✅ Vérifier la description
     if (!formData.description || formData.description.trim() === '') {
       toast.error('Veuillez ajouter une description');
       return false;
     }
 
-    // ✅ Vérifier l'adresse
     if (!formData.address || formData.address.trim() === '') {
       toast.error('Veuillez ajouter une adresse de livraison');
       return false;
     }
 
-    // ✅ Vérifier le type
     if (!formData.type) {
       toast.error('Veuillez sélectionner un type de commande');
       return false;
     }
 
-    // ✅ Vérifier les articles
     const hasValidItems = formData.items.some(item => item.name.trim() !== '');
     if (!hasValidItems) {
       toast.error('Veuillez ajouter au moins un article');
@@ -279,7 +304,6 @@ const CreateOrderPage = () => {
 
   // ✅ Préparer les données de la commande sans la créer
   const prepareOrderData = async () => {
-    // ✅ VALIDATION avant préparation
     if (!validateOrderData()) {
       return null;
     }
@@ -333,14 +357,12 @@ const CreateOrderPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ Si commande ponctuelle, préparer les données et ouvrir le paiement
     if (orderType === 'ponctual') {
       const orderData = await prepareOrderData();
       if (!orderData) return;
 
       console.log('📦 Commande ponctuelle préparée:', orderData);
 
-      // ✅ Sauvegarder les données pour création après paiement
       sessionStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
       localStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
       
@@ -353,7 +375,6 @@ const CreateOrderPage = () => {
       return;
     }
 
-    // ✅ Si commande avec abonnement, créer directement
     if (orderType === 'subscription') {
       if (!canUseSubscription()) {
         const msg = getBlockMessage('order');
@@ -366,7 +387,6 @@ const CreateOrderPage = () => {
 
   // ✅ Créer la commande avec abonnement (direct)
   const createOrderWithSubscription = async () => {
-    // ✅ VALIDATION avant création
     if (!validateOrderData()) {
       return;
     }
@@ -484,16 +504,19 @@ const CreateOrderPage = () => {
               label={beneficiaryLabel}
               value={selectedPatient ? 'Choisi' : 'Optionnel'}
               color={colors.primary}
+              icon={<User size={14} />}
             />
             <CompactHeaderStat
               label="Articles"
               value={formData.items.filter((i) => i.name.trim()).length || 0}
               color={colors.primary}
+              icon={<ListOrdered size={14} />}
             />
             <CompactHeaderStat
               label="Photo"
               value={prescriptionFile ? 'Ajoutée' : 'Non'}
               color={colors.primary}
+              icon={<ImageIcon size={14} />}
             />
           </div>
         </div>
@@ -665,7 +688,7 @@ const CreateOrderPage = () => {
                   >
                     {ORDER_TYPES.map((type) => (
                       <option key={type.id} value={type.id}>
-                        {type.icon} {type.label}
+                        {TYPE_ICONS[type.id]} {TYPE_LABELS[type.id]}
                       </option>
                     ))}
                   </select>
@@ -898,7 +921,21 @@ const CreateOrderPage = () => {
 
             <SummaryLine
               label="Type de commande"
-              value={orderType === 'subscription' ? '📦 Avec abonnement' : '💳 Ponctuelle'}
+              value={
+                <span className="flex items-center gap-1.5">
+                  {orderType === 'subscription' ? (
+                    <>
+                      <Package size={14} />
+                      Avec abonnement
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard size={14} />
+                      Ponctuelle
+                    </>
+                  )}
+                </span>
+              }
             />
 
             <SummaryLine
@@ -912,10 +949,7 @@ const CreateOrderPage = () => {
 
             <SummaryLine
               label="Type"
-              value={
-                ORDER_TYPES.find((type) => type.id === formData.type)?.label ||
-                formData.type
-              }
+              value={TYPE_LABELS[formData.type] || formData.type}
             />
 
             <SummaryLine
@@ -938,12 +972,13 @@ const CreateOrderPage = () => {
                 {orderType === 'subscription' ? (
                   <Package size={28} style={{ color: colors.primary }} />
                 ) : (
-                  <CreditCard size={28} style={{ color: colors.primary }} />
+                  <Wallet size={28} style={{ color: colors.primary }} />
                 )}
               </div>
               {orderType === 'subscription' && !canUseSubscription() && (
-                <p className="text-xs text-red-500 mt-2">
-                  ⚠️ Vous n'avez plus de commandes disponibles dans votre abonnement
+                <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  Vous n'avez plus de commandes disponibles dans votre abonnement
                 </p>
               )}
             </div>
@@ -995,152 +1030,4 @@ const CreateOrderPage = () => {
 
               <button
                 type="button"
-                onClick={() => navigate('/app/orders')}
-                className="w-full py-3.5 rounded-2xl font-semibold border transition hover:bg-gray-50"
-                style={{
-                  borderColor: colors.border || '#e5e0d8',
-                  color: colors.text,
-                }}
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </aside>
-      </form>
-
-      {/* ✅ MODAL DE PAIEMENT POUR COMMANDE PONCTUELLE */}
-      {showPaymentModal && (
-        <PaymentModal
-          isOpen={true}
-          onClose={() => {
-            setShowPaymentModal(false);
-            setPendingOrderData(null);
-            isRedirecting.current = false;
-          }}
-          offer={{
-            id: `ponctual-${formData.type}`,
-            name: `Commande ${formData.type} (ponctuelle)`,
-            price: paymentAmount,
-            period: 'intervention',
-            features: ['Commande unique', 'Sans abonnement', 'Livraison rapide'],
-            visitsPerWeek: null,
-            durationDays: 1,
-            badge: '⚡ Ponctuelle',
-            category: 'ponctuelle',
-          }}
-          onSuccess={handlePaymentSuccess}
-          orderData={pendingOrderData}
-          forcePonctual={true}
-        />
-      )}
-    </div>
-  );
-};
-
-// =============================================
-// SOUS-COMPOSANTS
-// =============================================
-
-interface ModernPanelProps {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  color: string;
-  children: React.ReactNode;
-}
-
-const ModernPanel = ({ icon, title, subtitle, color, children }: ModernPanelProps) => {
-  return (
-    <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
-      <div className="flex items-start gap-3 mb-5">
-        <div
-          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
-          style={{
-            background: color + '14',
-            color,
-          }}
-        >
-          {icon}
-        </div>
-
-        <div>
-          <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">
-            {title}
-          </h2>
-          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
-            {subtitle}
-          </p>
-        </div>
-      </div>
-
-      {children}
-    </section>
-  );
-};
-
-interface FieldProps {
-  label: string;
-  required?: boolean;
-  optional?: boolean;
-  color: string;
-  children: React.ReactNode;
-}
-
-const Field = ({ label, required, optional, color, children }: FieldProps) => {
-  return (
-    <label className="block">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-semibold" style={{ color }}>
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </span>
-
-        {optional && (
-          <span className="text-[11px] uppercase tracking-wide text-gray-400">
-            Optionnel
-          </span>
-        )}
-      </div>
-
-      {children}
-    </label>
-  );
-};
-
-interface CompactHeaderStatProps {
-  label: string;
-  value: string | number;
-  color: string;
-}
-
-const CompactHeaderStat = ({ label, value, color }: CompactHeaderStatProps) => {
-  return (
-    <div className="rounded-2xl bg-gray-50 border border-black/5 px-3 py-2.5 text-center">
-      <p className="text-[11px] text-gray-500 leading-tight">
-        {label}
-      </p>
-      <p className="text-sm font-bold mt-0.5 truncate" style={{ color }}>
-        {value}
-      </p>
-    </div>
-  );
-};
-
-interface SummaryLineProps {
-  label: string;
-  value: string;
-}
-
-const SummaryLine = ({ label, value }: SummaryLineProps) => {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-semibold text-gray-900 text-right">
-        {value}
-      </span>
-    </div>
-  );
-};
-
-export default CreateOrderPage;
+                onClick
