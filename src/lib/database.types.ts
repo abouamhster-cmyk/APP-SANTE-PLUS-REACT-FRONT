@@ -1,5 +1,5 @@
 // 📁 src/lib/database.types.ts
-
+ 
 export type Json =
   | string
   | number
@@ -182,6 +182,48 @@ export interface Database {
         };
       };
       
+      patient_aidant_assignments: {
+        Row: {
+          id: string;
+          patient_id: string;
+          aidant_id: string;
+          assigned_by: string | null;
+          assignment_type: 'permanente' | 'temporaire' | 'ponctuelle';
+          assigned_at: string;
+          expires_at: string | null;
+          is_active: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          patient_id: string;
+          aidant_id: string;
+          assigned_by?: string | null;
+          assignment_type?: 'permanente' | 'temporaire' | 'ponctuelle';
+          assigned_at?: string;
+          expires_at?: string | null;
+          is_active?: boolean;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          patient_id?: string;
+          aidant_id?: string;
+          assigned_by?: string | null;
+          assignment_type?: 'permanente' | 'temporaire' | 'ponctuelle';
+          assigned_at?: string;
+          expires_at?: string | null;
+          is_active?: boolean;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      
       aidants: {
         Row: {
           id: string;
@@ -267,7 +309,7 @@ export interface Database {
           scheduled_date: string;
           scheduled_time: string;
           duration_minutes: number;
-          status: 'planifiee' | 'en_attente' | 'en_cours' | 'terminee' | 'validee' | 'annulee' | 'replanifiee' | 'no_show';
+          status: string;
           start_time: string | null;
           end_time: string | null;
           actual_duration_minutes: number | null;
@@ -297,7 +339,7 @@ export interface Database {
           scheduled_date: string;
           scheduled_time: string;
           duration_minutes?: number;
-          status?: 'planifiee' | 'en_attente' | 'en_cours' | 'terminee' | 'validee' | 'annulee' | 'replanifiee' | 'no_show';
+          status?: string;
           start_time?: string | null;
           end_time?: string | null;
           actual_duration_minutes?: number | null;
@@ -327,7 +369,7 @@ export interface Database {
           scheduled_date?: string;
           scheduled_time?: string;
           duration_minutes?: number;
-          status?: 'planifiee' | 'en_attente' | 'en_cours' | 'terminee' | 'validee' | 'annulee' | 'replanifiee' | 'no_show';
+          status?: string;
           start_time?: string | null;
           end_time?: string | null;
           actual_duration_minutes?: number | null;
@@ -410,13 +452,13 @@ export interface Database {
           patient_id: string | null;
           family_id: string;
           aidant_id: string | null;
-          type: 'medicaments' | 'produits_bebe' | 'produits_hygiene' | 'courses' | 'repas' | 'autre';
+          type: string;
           description: string;
           prescription_url: string | null;
           address: string;
           latitude: number | null;
           longitude: number | null;
-          status: 'creee' | 'en_attente' | 'acceptee' | 'en_preparation' | 'en_livraison' | 'prete' | 'livree' | 'annulee' | 'refusee';
+          status: string;
           estimated_amount: number | null;
           final_amount: number | null;
           delivery_fee: number | null;
@@ -434,13 +476,13 @@ export interface Database {
           patient_id?: string | null;
           family_id: string;
           aidant_id?: string | null;
-          type: 'medicaments' | 'produits_bebe' | 'produits_hygiene' | 'courses' | 'repas' | 'autre';
+          type: string;
           description: string;
           prescription_url?: string | null;
           address: string;
           latitude?: number | null;
           longitude?: number | null;
-          status?: 'creee' | 'en_attente' | 'acceptee' | 'en_preparation' | 'en_livraison' | 'prete' | 'livree' | 'annulee' | 'refusee';
+          status?: string;
           estimated_amount?: number | null;
           final_amount?: number | null;
           delivery_fee?: number | null;
@@ -458,13 +500,13 @@ export interface Database {
           patient_id?: string | null;
           family_id?: string;
           aidant_id?: string | null;
-          type?: 'medicaments' | 'produits_bebe' | 'produits_hygiene' | 'courses' | 'repas' | 'autre';
+          type?: string;
           description?: string;
           prescription_url?: string | null;
           address?: string;
           latitude?: number | null;
           longitude?: number | null;
-          status?: 'creee' | 'en_attente' | 'acceptee' | 'en_preparation' | 'en_livraison' | 'prete' | 'livree' | 'annulee' | 'refusee';
+          status?: string;
           estimated_amount?: number | null;
           final_amount?: number | null;
           delivery_fee?: number | null;
@@ -597,8 +639,8 @@ export interface Database {
         Row: {
           id: string;
           name: string;
-          category: 'senior' | 'maman_bebe' | 'pack_confort';
-          type: 'ponctuelle' | 'mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle' | 'sur_devis';
+          category: string;
+          type: string;
           description: string | null;
           price: number | null;
           features: string[];
@@ -614,8 +656,8 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
-          category: 'senior' | 'maman_bebe' | 'pack_confort';
-          type: 'ponctuelle' | 'mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle' | 'sur_devis';
+          category: string;
+          type: string;
           description?: string | null;
           price?: number | null;
           features?: string[];
@@ -631,8 +673,8 @@ export interface Database {
         Update: {
           id?: string;
           name?: string;
-          category?: 'senior' | 'maman_bebe' | 'pack_confort';
-          type?: 'ponctuelle' | 'mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle' | 'sur_devis';
+          category?: string;
+          type?: string;
           description?: string | null;
           price?: number | null;
           features?: string[];
@@ -653,7 +695,7 @@ export interface Database {
           user_id: string;
           patient_id: string | null;
           offre_id: string | null;
-          status: 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
+          status: string;
           start_date: string;
           end_date: string;
           auto_renew: boolean;
@@ -678,7 +720,7 @@ export interface Database {
           user_id: string;
           patient_id?: string | null;
           offre_id?: string | null;
-          status?: 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
+          status?: string;
           start_date: string;
           end_date: string;
           auto_renew?: boolean;
@@ -703,7 +745,7 @@ export interface Database {
           user_id?: string;
           patient_id?: string | null;
           offre_id?: string | null;
-          status?: 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
+          status?: string;
           start_date?: string;
           end_date?: string;
           auto_renew?: boolean;
@@ -733,10 +775,10 @@ export interface Database {
           user_id: string;
           amount: number;
           currency: string;
-          method: 'mobile_money' | 'card' | 'bank_transfer' | 'cash' | 'wallet' | null;
+          method: string | null;
           reference: string | null;
           provider_reference: string | null;
-          status: 'en_attente' | 'valide' | 'echoue' | 'rembourse' | 'annule' | 'en_attente_de_confirmation';
+          status: string;
           metadata: Json | null;
           paid_at: string | null;
           refunded_at: string | null;
@@ -751,10 +793,10 @@ export interface Database {
           user_id: string;
           amount: number;
           currency?: string;
-          method?: 'mobile_money' | 'card' | 'bank_transfer' | 'cash' | 'wallet' | null;
+          method?: string | null;
           reference?: string | null;
           provider_reference?: string | null;
-          status?: 'en_attente' | 'valide' | 'echoue' | 'rembourse' | 'annule' | 'en_attente_de_confirmation';
+          status?: string;
           metadata?: Json | null;
           paid_at?: string | null;
           refunded_at?: string | null;
@@ -769,10 +811,10 @@ export interface Database {
           user_id?: string;
           amount?: number;
           currency?: string;
-          method?: 'mobile_money' | 'card' | 'bank_transfer' | 'cash' | 'wallet' | null;
+          method?: string | null;
           reference?: string | null;
           provider_reference?: string | null;
-          status?: 'en_attente' | 'valide' | 'echoue' | 'rembourse' | 'annule' | 'en_attente_de_confirmation';
+          status?: string;
           metadata?: Json | null;
           paid_at?: string | null;
           refunded_at?: string | null;
@@ -788,7 +830,7 @@ export interface Database {
           user_id: string;
           title: string;
           body: string;
-          type: 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
+          type: string;
           data: Json | null;
           image_url: string | null;
           is_read: boolean;
@@ -804,7 +846,7 @@ export interface Database {
           user_id: string;
           title: string;
           body: string;
-          type: 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
+          type: string;
           data?: Json | null;
           image_url?: string | null;
           is_read?: boolean;
@@ -820,7 +862,7 @@ export interface Database {
           user_id?: string;
           title?: string;
           body?: string;
-          type?: 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
+          type?: string;
           data?: Json | null;
           image_url?: string | null;
           is_read?: boolean;
@@ -866,7 +908,7 @@ export interface Database {
           user_id: string | null;
           patient_data: Json | null;
           offre_id: string | null;
-          status: 'en_attente' | 'validee' | 'refusee' | 'info_requise' | 'en_cours_de_traitement';
+          status: string;
           comments: string | null;
           processed_by: string | null;
           processed_at: string | null;
@@ -881,7 +923,7 @@ export interface Database {
           user_id?: string | null;
           patient_data?: Json | null;
           offre_id?: string | null;
-          status?: 'en_attente' | 'validee' | 'refusee' | 'info_requise' | 'en_cours_de_traitement';
+          status?: string;
           comments?: string | null;
           processed_by?: string | null;
           processed_at?: string | null;
@@ -896,7 +938,7 @@ export interface Database {
           user_id?: string | null;
           patient_data?: Json | null;
           offre_id?: string | null;
-          status?: 'en_attente' | 'validee' | 'refusee' | 'info_requise' | 'en_cours_de_traitement';
+          status?: string;
           comments?: string | null;
           processed_by?: string | null;
           processed_at?: string | null;
@@ -1184,6 +1226,7 @@ export interface Database {
   };
 }
 
+// ✅ TYPES POUR LES ASSIGNATIONS AIDANT-PATIENT (EXPORTÉS SANS RÉFÉRENCES CIRCULAIRES)
 export interface PatientAidantAssignment {
   id: string;
   patient_id: string;
@@ -1196,10 +1239,6 @@ export interface PatientAidantAssignment {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  // Relations
-  patient?: Patient;
-  aidant?: Aidant;
-  assigned_by_profile?: Profile;
 }
 
 export interface AidantPatientView {
