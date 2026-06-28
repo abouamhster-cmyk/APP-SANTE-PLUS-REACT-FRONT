@@ -43,7 +43,6 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         return;
       }
 
-      // ✅ ÉTAPE 1 : Récupérer les sorties
       let query = supabase.from('hospital_discharges').select('*');
 
       if (profile?.role === 'family') {
@@ -70,7 +69,6 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ ÉTAPE 2 : Récupérer les patients SEPAREMENT
       const patientIds = [...new Set(discharges?.map(d => d.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
@@ -87,7 +85,6 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 3 : Récupérer les familles SEPAREMENT
       const familyIds = [...new Set(discharges?.map(d => d.family_id).filter(Boolean))];
       let familyMap: Record<string, any> = {};
 
@@ -104,7 +101,6 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 4 : Récupérer les coordinateurs SEPAREMENT
       const coordinatorIds = [...new Set(discharges?.map(d => d.coordinator_id).filter(Boolean))];
       let coordinatorMap: Record<string, any> = {};
 
@@ -121,7 +117,6 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 5 : Récupérer les aidants SEPAREMENT
       const aidantIds = [...new Set(discharges?.map(d => d.aidant_id).filter(Boolean))];
       let aidantMap: Record<string, any> = {};
 
@@ -158,7 +153,6 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 6 : Fusionner toutes les données
       const dischargesWithRelations = (discharges || []).map((discharge) => ({
         ...discharge,
         patient: discharge.patient_id ? patientMap[discharge.patient_id] || null : null,
@@ -310,94 +304,94 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
     }
   },
 
-
-
-updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
-  try {
-    set({ isLoading: true, error: null });
-    
-    const { data: discharge, error } = await supabase
-      .from('hospital_discharges')
-      .update({
-        ...data,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Récupérer les relations séparément
-    let patient = null;
-    if (discharge.patient_id) {
-      const { data: patientData } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('id', discharge.patient_id)
+  // ✅ CORRIGÉ - updateDischarge avec type correct
+  updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { data: discharge, error } = await supabase
+        .from('hospital_discharges')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
         .single();
-      patient = patientData;
-    }
 
-    let family = null;
-    if (discharge.family_id) {
-      const { data: familyData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', discharge.family_id)
-        .single();
-      family = familyData;
-    }
+      if (error) throw error;
 
-    let coordinator = null;
-    if (discharge.coordinator_id) {
-      const { data: coordData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', discharge.coordinator_id)
-        .single();
-      coordinator = coordData;
-    }
+      // Récupérer les relations séparément
+      let patient = null;
+      if (discharge.patient_id) {
+        const { data: patientData } = await supabase
+          .from('patients')
+          .select('*')
+          .eq('id', discharge.patient_id)
+          .single();
+        patient = patientData;
+      }
 
-    let aidant = null;
-    if (discharge.aidant_id) {
-      const { data: aidantData } = await supabase
-        .from('aidants')
-        .select('*')
-        .eq('id', discharge.aidant_id)
-        .single();
-      if (aidantData) {
-        const { data: userData } = await supabase
+      let family = null;
+      if (discharge.family_id) {
+        const { data: familyData } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', aidantData.user_id)
+          .eq('id', discharge.family_id)
           .single();
-        aidant = {
-          ...aidantData,
-          user: userData || null,
-        };
+        family = familyData;
       }
+
+      let coordinator = null;
+      if (discharge.coordinator_id) {
+        const { data: coordData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', discharge.coordinator_id)
+          .single();
+        coordinator = coordData;
+      }
+
+      let aidant = null;
+      if (discharge.aidant_id) {
+        const { data: aidantData } = await supabase
+          .from('aidants')
+          .select('*')
+          .eq('id', discharge.aidant_id)
+          .single();
+        if (aidantData) {
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', aidantData.user_id)
+            .single();
+          aidant = {
+            ...aidantData,
+            user: userData || null,
+          };
+        }
+      }
+
+      // ✅ CORRECTION : S'assurer que l'id est toujours présent
+      const fullDischarge = {
+        ...discharge,
+        patient,
+        family,
+        coordinator,
+        aidant,
+      };
+
+      set((state) => ({
+        discharges: state.discharges.map(d => d.id === id ? fullDischarge : d),
+        currentDischarge: fullDischarge,
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      console.error('❌ Update discharge error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
     }
-
-     const fullDischarge = {
-      ...discharge,
-      patient,
-      family,
-      coordinator,
-      aidant,
-    };
-
-    set((state) => ({
-      discharges: state.discharges.map(d => d.id === id ? fullDischarge : d),
-      currentDischarge: fullDischarge,
-      isLoading: false,
-    }));
-  } catch (error: any) {
-    console.error('❌ Update discharge error:', error);
-    set({ error: error.message, isLoading: false });
-    throw error;
-  }
-},
+  },
 
   updateStatus: async (id: string, status: DischargeStatus) => {
     try {
@@ -452,7 +446,6 @@ updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
 
       if (error) throw error;
 
-      // Récupérer les relations
       let patient = null;
       if (discharge.patient_id) {
         const { data: patientData } = await supabase
