@@ -9,6 +9,15 @@ import {
   AlertCircle,
   User,
   Save,
+  UserPlus,
+  Edit,
+  Calendar,
+  UserCircle,
+  Heart,
+  Baby,
+  FileText,
+  Pill,
+  Stethoscope,
 } from 'lucide-react';
 
 import { Patient, PatientCategory } from '@/types';
@@ -36,11 +45,11 @@ export const PatientModal = ({
   
   // ✅ Jargon dynamique selon le rôle
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
-    add,             // "Ajouter un proche" / "Ajouter une personne" / "Ajouter un bénéficiaire"
-    edit,            // "Modifier le proche" / "Modifier la personne" / "Modifier le bénéficiaire"
-    created,         // "Proche ajouté avec succès" / "Personne ajoutée avec succès" / "Bénéficiaire ajouté avec succès"
-    updated,         // "Informations du proche mises à jour" / ...
+    singular,
+    add,
+    edit,
+    created,
+    updated,
     getCategoryLabel,
   } = useTerminology();
 
@@ -187,6 +196,13 @@ export const PatientModal = ({
     ? 'Renseignez les informations utiles.'
     : `Mettez à jour les informations du ${singular}.`;
 
+  const getServiceIcon = () => {
+    if (formData.category === 'maman_bebe') {
+      return <Baby size={22} />;
+    }
+    return <UserCircle size={22} />;
+  };
+
   return (
     <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-[2px] flex items-end sm:items-center justify-center">
       <div
@@ -220,7 +236,7 @@ export const PatientModal = ({
                   color: colors.primary,
                 }}
               >
-                <User size={22} />
+                {mode === 'create' ? <UserPlus size={22} /> : <User size={22} />}
               </div>
 
               <div className="min-w-0">
@@ -287,6 +303,7 @@ export const PatientModal = ({
                     value={formData.age}
                     onChange={(value) => updateField('age', value)}
                     colors={colors}
+                    icon={<Calendar size={18} />}
                   />
 
                   <SelectField
@@ -339,6 +356,7 @@ export const PatientModal = ({
                       updateField('emergency_contact', value)
                     }
                     colors={colors}
+                    icon={<Phone size={18} />}
                     type="tel"
                   />
 
@@ -350,6 +368,7 @@ export const PatientModal = ({
                         updateField('emergency_contact_name', value)
                       }
                       colors={colors}
+                      icon={<User size={18} />}
                       placeholder="Nom ou lien familial"
                     />
                   </div>
@@ -372,8 +391,18 @@ export const PatientModal = ({
                   }
                   colors={colors}
                 >
-                  <option value="senior">{getCategoryLabel('senior')}</option>
-                  <option value="maman_bebe">{getCategoryLabel('maman_bebe')}</option>
+                  <option value="senior">
+                    <div className="flex items-center gap-2">
+                      <User size={14} />
+                      Senior
+                    </div>
+                  </option>
+                  <option value="maman_bebe">
+                    <div className="flex items-center gap-2">
+                      <Heart size={14} />
+                      Maman & Bébé
+                    </div>
+                  </option>
                 </SelectField>
               </section>
 
@@ -390,6 +419,7 @@ export const PatientModal = ({
                   value={formData.notes}
                   onChange={(value) => updateField('notes', value)}
                   colors={colors}
+                  icon={<FileText size={18} />}
                   placeholder="Habitudes, précautions, préférences..."
                   rows={3}
                 />
@@ -400,6 +430,7 @@ export const PatientModal = ({
                     value={formData.allergies}
                     onChange={(value) => updateField('allergies', value)}
                     colors={colors}
+                    icon={<AlertCircle size={18} />}
                     placeholder="Aucune"
                   />
 
@@ -408,6 +439,7 @@ export const PatientModal = ({
                     value={formData.treatments}
                     onChange={(value) => updateField('treatments', value)}
                     colors={colors}
+                    icon={<Pill size={18} />}
                     placeholder="Aucun"
                   />
                 </div>
@@ -417,6 +449,7 @@ export const PatientModal = ({
                   value={formData.conditions}
                   onChange={(value) => updateField('conditions', value)}
                   colors={colors}
+                  icon={<Stethoscope size={18} />}
                   placeholder="Mobilité, alimentation, surveillance..."
                 />
 
@@ -425,6 +458,7 @@ export const PatientModal = ({
                   value={formData.medical_history}
                   onChange={(value) => updateField('medical_history', value)}
                   colors={colors}
+                  icon={<FileText size={18} />}
                   placeholder="Contexte utile pour l’équipe..."
                   rows={3}
                 />
@@ -499,7 +533,7 @@ export const PatientModal = ({
 };
 
 // =============================================
-// SOUS-COMPOSANTS (inchangés)
+// SOUS-COMPOSANTS
 // =============================================
 
 interface ColorsLike {
@@ -637,6 +671,7 @@ interface TextareaFieldProps {
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
+  icon?: React.ReactNode;
 }
 
 const TextareaField = ({
@@ -646,6 +681,7 @@ const TextareaField = ({
   onChange,
   placeholder,
   rows = 3,
+  icon,
 }: TextareaFieldProps) => {
   return (
     <div>
@@ -656,18 +692,29 @@ const TextareaField = ({
         {label}
       </label>
 
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={rows}
-        placeholder={placeholder}
-        className="w-full px-4 py-3 rounded-2xl border outline-none text-sm resize-none transition focus:ring-2"
-        style={{
-          borderColor: colors.border || '#e5e0d8',
-          background: 'var(--color-background, #f5f0e8)',
-          color: colors.text,
-        }}
-      />
+      <div className="relative">
+        {icon && (
+          <div
+            className="absolute left-3.5 top-3"
+            style={{ color: colors.text + '45' }}
+          >
+            {icon}
+          </div>
+        )}
+
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={rows}
+          placeholder={placeholder}
+          className={`w-full ${icon ? 'pl-11' : 'pl-4'} pr-4 py-3 rounded-2xl border outline-none text-sm resize-none transition focus:ring-2`}
+          style={{
+            borderColor: colors.border || '#e5e0d8',
+            background: 'var(--color-background, #f5f0e8)',
+            color: colors.text,
+          }}
+        />
+      </div>
     </div>
   );
 };
