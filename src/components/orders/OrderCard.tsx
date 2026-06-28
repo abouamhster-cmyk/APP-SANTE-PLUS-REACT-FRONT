@@ -5,7 +5,7 @@ import { Order } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatCurrency } from '@/utils/helpers';
-import { Eye, Package, Truck, CheckCircle, XCircle, Clock, Image, Play, AlertCircle, ShoppingBag } from 'lucide-react';
+import { Eye, Package, Truck, CheckCircle, XCircle, Clock, Image, Play, AlertCircle, ShoppingBag, User } from 'lucide-react';
 
 interface OrderCardProps {
   order: Order;
