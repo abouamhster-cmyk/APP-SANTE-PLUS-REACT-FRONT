@@ -1,6 +1,5 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
-// 📌 Détails d'une visite 
-
+ 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -40,9 +39,17 @@ const VisitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  const { currentVisit, fetchVisitById, startVisit, completeVisit, cancelVisit, isLoading } = useVisitStore();
+  const { 
+    currentVisit, 
+    fetchVisitById, 
+    startVisit, 
+    completeVisit, 
+    cancelVisit, 
+    approveVisit, 
+    refuseVisit, 
+    isLoading 
+  } = useVisitStore();
 
-  // ✅ Jargon dynamique selon le rôle
   const {
     singular,
     getCategoryLabel,
@@ -53,7 +60,6 @@ const VisitDetailPage = () => {
     isFamily,
   } = useTerminology();
 
-  // ✅ États pour le modal de fin de visite
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
@@ -65,7 +71,6 @@ const VisitDetailPage = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // ✅ Refs pour le scroll
   const modalContentRef = useRef<HTMLDivElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -77,7 +82,6 @@ const VisitDetailPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Actions disponibles selon la catégorie du proche
   const availableActions = currentVisit?.patient?.category === 'maman_bebe'
     ? VISIT_ACTIONS_MAMAN
     : VISIT_ACTIONS_SENIOR;
@@ -88,7 +92,6 @@ const VisitDetailPage = () => {
     }
   }, [id]);
 
-  // ✅ Réinitialiser le formulaire à la fermeture
   useEffect(() => {
     if (!showCompleteModal) {
       setSelectedActions([]);
@@ -101,7 +104,6 @@ const VisitDetailPage = () => {
     }
   }, [showCompleteModal]);
 
-  // ✅ Empêcher le scroll du body quand le modal est ouvert
   useEffect(() => {
     if (showCompleteModal) {
       document.body.style.overflow = 'hidden';
@@ -113,20 +115,50 @@ const VisitDetailPage = () => {
     };
   }, [showCompleteModal]);
 
+  const handleApprove = async () => {
+    if (!id) return;
+    setIsUpdating(true);
+    try {
+      await approveVisit(id);
+      toast.success('Visite approuvée');
+      fetchVisitById(id);
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'approbation');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleRefuse = async () => {
+    if (!id) return;
+    const reason = prompt('Motif du refus :');
+    if (!reason) return;
+
+    setIsUpdating(true);
+    try {
+      await refuseVisit(id, reason);
+      toast.error('Visite refusée');
+      fetchVisitById(id);
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du refus');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleStart = async () => {
     setIsUpdating(true);
     try {
       await startVisit(id!);
       toast.success('Visite démarrée');
       fetchVisitById(id!);
-    } catch (error) {
-      toast.error('Erreur lors du démarrage');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du démarrage');
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // ✅ Enregistrement audio
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -176,7 +208,6 @@ const VisitDetailPage = () => {
     toast.success('🗑️ Enregistrement supprimé');
   };
 
-  // ✅ Photos
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const validFiles = files.filter(f => f.type.startsWith('image/'));
@@ -207,7 +238,6 @@ const VisitDetailPage = () => {
     setPhotoPreviews(photoPreviews.filter((_, i) => i !== index));
   };
 
-  // ✅ Soumission du formulaire de fin de visite
   const handleComplete = async () => {
     if (selectedActions.length === 0) {
       toast.error('Veuillez sélectionner au moins une action');
@@ -287,8 +317,8 @@ const VisitDetailPage = () => {
         await cancelVisit(id!);
         toast.success('Visite annulée');
         fetchVisitById(id!);
-      } catch (error) {
-        toast.error('Erreur lors de l\'annulation');
+      } catch (error: any) {
+        toast.error(error.message || 'Erreur lors de l\'annulation');
       } finally {
         setIsUpdating(false);
       }
@@ -298,10 +328,14 @@ const VisitDetailPage = () => {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       planifiee: '#4CAF50',
-      en_cours: '#FF9800',
-      terminee: '#2196F3',
-      validee: '#9C27B0',
+      en_attente: '#FF9800',
+      acceptee: '#2196F3',
+      en_cours: '#2196F3',
+      terminee: '#9C27B0',
+      validee: '#4CAF50',
       annulee: '#F44336',
+      refusee: '#F44336',
+      expire: '#795548',
       replanifiee: '#FF5722',
       no_show: '#795548',
     };
@@ -311,10 +345,14 @@ const VisitDetailPage = () => {
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
       planifiee: 'Planifiée',
+      en_attente: 'En attente',
+      acceptee: 'Acceptée',
       en_cours: 'En cours',
       terminee: 'Terminée',
       validee: 'Validée',
       annulee: 'Annulée',
+      refusee: 'Refusée',
+      expire: 'Expirée',
       replanifiee: 'Replanifiée',
       no_show: 'Absent',
     };
@@ -324,10 +362,14 @@ const VisitDetailPage = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'planifiee': return <Calendar size={20} />;
-      case 'en_cours': return <Clock size={20} />;
+      case 'en_attente': return <Clock size={20} />;
+      case 'acceptee': return <CheckCircle size={20} />;
+      case 'en_cours': return <Play size={20} />;
       case 'terminee': return <CheckCircle size={20} />;
       case 'validee': return <CheckCircle size={20} />;
       case 'annulee': return <XCircle size={20} />;
+      case 'refusee': return <XCircle size={20} />;
+      case 'expire': return <AlertCircle size={20} />;
       default: return <Clock size={20} />;
     }
   };
@@ -344,6 +386,12 @@ const VisitDetailPage = () => {
   }
 
   const visit = currentVisit;
+  const isPendingApproval = visit.status === 'planifiee' || visit.status === 'en_attente';
+  const isAccepted = visit.status === 'acceptee';
+  const isInProgress = visit.status === 'en_cours';
+  const isCompleted = visit.status === 'terminee';
+  const isExpired = visit.status === 'expire';
+  const isRefused = visit.status === 'refusee';
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
@@ -389,9 +437,34 @@ const VisitDetailPage = () => {
           </div>
         </div>
 
-        {/* Actions selon le rôle */}
+        {/* ✅ ACTIONS SELON LE STATUT ET LE RÔLE */}
         <div className="flex flex-wrap gap-2">
-          {visit.status === 'planifiee' && (isAidant || isAdminOrCoordinator) && (
+          {/* AIDANT : Approuver/Refuser */}
+          {isPendingApproval && isAidant && (
+            <>
+              <button
+                onClick={handleApprove}
+                disabled={isUpdating}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+                style={{ background: '#4CAF50' }}
+              >
+                <CheckCircle size={18} />
+                <span>Approuver</span>
+              </button>
+              <button
+                onClick={handleRefuse}
+                disabled={isUpdating}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+                style={{ background: '#F44336' }}
+              >
+                <XCircle size={18} />
+                <span>Refuser</span>
+              </button>
+            </>
+          )}
+
+          {/* AIDANT : Démarrer une visite acceptée */}
+          {isAccepted && isAidant && (
             <button
               onClick={handleStart}
               disabled={isUpdating}
@@ -402,7 +475,9 @@ const VisitDetailPage = () => {
               <span>Démarrer</span>
             </button>
           )}
-          {visit.status === 'en_cours' && (isAidant || isAdminOrCoordinator) && (
+
+          {/* AIDANT : Terminer une visite en cours */}
+          {isInProgress && isAidant && (
             <button
               onClick={() => setShowCompleteModal(true)}
               disabled={isUpdating}
@@ -413,7 +488,9 @@ const VisitDetailPage = () => {
               <span>Terminer</span>
             </button>
           )}
-          {visit.status === 'planifiee' && isAdminOrCoordinator && (
+
+          {/* ADMIN/FAMILLE : Annuler (si planifiée ou en attente) */}
+          {(isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
             <button
               onClick={handleCancel}
               disabled={isUpdating}
@@ -424,15 +501,17 @@ const VisitDetailPage = () => {
               <span>Annuler</span>
             </button>
           )}
-          {visit.status === 'terminee' && isAdminOrCoordinator && (
+
+          {/* ADMIN : Valider une visite terminée */}
+          {isCompleted && isAdminOrCoordinator && (
             <button
               onClick={async () => {
                 try {
                   await supabase.from('visites').update({ status: 'validee' }).eq('id', id);
                   toast.success('Visite validée');
                   fetchVisitById(id!);
-                } catch (error) {
-                  toast.error('Erreur lors de la validation');
+                } catch (error: any) {
+                  toast.error(error.message || 'Erreur lors de la validation');
                 }
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
@@ -440,6 +519,23 @@ const VisitDetailPage = () => {
             >
               <CheckCircle size={18} />
               <span>Valider</span>
+            </button>
+          )}
+
+          {/* ADMIN : Réassigner une visite expirée ou refusée */}
+          {(isExpired || isRefused) && isAdminOrCoordinator && (
+            <button
+              onClick={() => {
+                const newAidantId = prompt('ID du nouvel aidant :');
+                if (!newAidantId) return;
+                // TODO: Implémenter la réassignation
+                toast.info('Réassignation à implémenter');
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
+              style={{ background: '#FF5722' }}
+            >
+              <AlertCircle size={18} />
+              <span>Réassigner</span>
             </button>
           )}
         </div>
@@ -472,10 +568,10 @@ const VisitDetailPage = () => {
         />
         <InfoCard
           icon={<Clock size={18} />}
-          label="Durée"
-          value={`${visit.duration_minutes || 60} minutes`}
+          label="Statut"
+          value={getStatusLabel(visit.status)}
           sub={visit.start_time ? `Début: ${formatTime(visit.start_time)}` : 'Non démarrée'}
-          color={colors.text}
+          color={getStatusColor(visit.status)}
         />
       </div>
 
