@@ -7,6 +7,7 @@ import {
   UserCheck,
   Calendar,
   ShoppingBag,
+  CreditCard,
   TrendingUp,
   TrendingDown,
   Clock,
