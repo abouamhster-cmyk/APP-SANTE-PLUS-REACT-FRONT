@@ -1,5 +1,5 @@
 // 📁 src/features/orders/pages/OrdersPage.tsx
- 
+
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,23 +12,26 @@ import {
   Truck,
   X,
   Filter,
+  List,
+  ClipboardList,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
+import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
 import toast from 'react-hot-toast';
 
-// ✅ Filtres simplifiés pour le nouveau cycle de vie
+// ✅ Filtres avec icônes
 const statusFilters = [
-  { key: 'all', label: 'Toutes' },
-  { key: 'creee', label: '📝 Créées' },
-  { key: 'en_cours', label: '🔄 En cours' },
-  { key: 'livree', label: '📦 Livrées' },
-  { key: 'validee', label: '✅ Validées' },
-  { key: 'annulee', label: '❌ Annulées' },
+  { key: 'all', label: 'Toutes', icon: <List size={12} /> },
+  { key: 'creee', label: 'Créées', icon: <Package size={12} /> },
+  { key: 'en_cours', label: 'En cours', icon: <Clock size={12} /> },
+  { key: 'livree', label: 'Livrées', icon: <Truck size={12} /> },
+  { key: 'validee', label: 'Validées', icon: <CheckCircle size={12} /> },
+  { key: 'annulee', label: 'Annulées', icon: <X size={12} /> },
 ];
 
 const OrdersPage = () => {
@@ -100,9 +103,9 @@ const OrdersPage = () => {
       await updateOrderStatus(id, status as any);
 
       const statusMessages: Record<string, string> = {
-        en_cours: 'Commande acceptée et en cours 🚀',
-        livree: 'Commande livrée avec succès 📦',
-        annulee: 'Commande annulée ❌',
+        en_cours: 'Commande acceptée et en cours',
+        livree: 'Commande livrée avec succès',
+        annulee: 'Commande annulée',
       };
 
       toast.success(statusMessages[status] || `Commande ${status}`);
@@ -124,6 +127,14 @@ const OrdersPage = () => {
     if (isAidant) return 'Commandes à livrer';
     if (isAdminOrCoordinator) return 'Gestion des commandes';
     return 'Commandes';
+  };
+
+  // ✅ Message vide dynamique
+  const getEmptyMessage = () => {
+    if (isFamily) return 'Créez votre première commande.';
+    if (isAidant) return 'Aucune commande disponible pour le moment.';
+    if (isAdminOrCoordinator) return 'Aucune commande enregistrée.';
+    return 'Aucune commande.';
   };
 
   if (isLoading) {
@@ -220,13 +231,13 @@ const OrdersPage = () => {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher..."
+              placeholder="Rechercher une commande..."
               className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
               style={{ borderColor: colors.border, color: colors.text }}
             />
           </div>
 
-          <div className="relative min-w-[130px]">
+          <div className="relative min-w-[140px]">
             <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <select
               value={activeStatus}
@@ -236,7 +247,7 @@ const OrdersPage = () => {
             >
               {statusFilters.map((filter) => (
                 <option key={filter.key} value={filter.key}>
-                  {filter.label}
+                  {filter.icon} {filter.label}
                 </option>
               ))}
             </select>
@@ -259,36 +270,40 @@ const OrdersPage = () => {
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
-          <div
-            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
-            style={{ background: colors.primary + '12', color: colors.primary }}
-          >
-            {orders.length > 0 ? <Search size={24} /> : <ShoppingBag size={24} />}
-          </div>
-
+        <section className="bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+          <Illustration 
+            type={orders.length > 0 ? 'search' : 'order'} 
+            size="lg" 
+            className="mx-auto mb-4 opacity-30" 
+          />
           <h3 className="text-base font-bold" style={{ color: colors.text }}>
             {orders.length > 0 ? 'Aucun résultat' : 'Aucune commande'}
           </h3>
-
-          <p className="text-xs mt-1 text-gray-500">
+          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto">
             {orders.length > 0
               ? 'Aucune commande ne correspond à votre recherche.'
-              : isFamily
-                ? 'Créez votre première commande.'
-                : isAidant
-                  ? 'Aucune commande disponible.'
-                  : 'Aucune commande enregistrée.'}
+              : getEmptyMessage()}
           </p>
 
-          {isFamily && (
+          {isFamily && orders.length === 0 && (
             <button
               onClick={() => navigate('/app/orders/create')}
-              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
               style={{ background: colors.primary }}
             >
               <Plus size={16} />
               Nouvelle commande
+            </button>
+          )}
+
+          {isFamily && orders.length > 0 && (
+            <button
+              onClick={() => setSearch('')}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition hover:bg-gray-50"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              <Search size={16} />
+              Réinitialiser la recherche
             </button>
           )}
         </section>
