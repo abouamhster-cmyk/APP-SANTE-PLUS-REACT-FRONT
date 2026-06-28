@@ -73,8 +73,8 @@ const PatientDetailPage = () => {
     refuseVisit,
   } = useVisitStore();
 
-  const { remainingVisits, hasActiveSubscription, refresh: refreshSubscription } =
-    useSubscriptionGuard();
+  // ✅ Correction : useSubscriptionGuard sans refresh (utiliser fetchSubscriptions à la place)
+  const { remainingVisits, hasActiveSubscription } = useSubscriptionGuard();
 
   // ============================================================
   // ÉTATS
@@ -186,7 +186,7 @@ const PatientDetailPage = () => {
     try {
       await refuseVisit(visitId, reason);
       fetchVisits();
-      toast.warning('❌ Visite refusée');
+      toast.error('❌ Visite refusée');
     } catch (error) {
       toast.error('Erreur lors du refus');
     }
@@ -202,7 +202,7 @@ const PatientDetailPage = () => {
       toast.success('✅ Visite terminée ! En attente de validation.');
       setShowCompleteModal(false);
       setActiveVisitId(null);
-      await refreshSubscription();
+      // ✅ Rafraîchir les données
       fetchVisits();
       fetchPatientById(id!);
     } catch (error: any) {
