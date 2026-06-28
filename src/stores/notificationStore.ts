@@ -1,5 +1,5 @@
 // 📁 src/stores/notificationStore.ts
-
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types';
@@ -21,9 +21,9 @@ interface NotificationState {
   clearNotifications: () => void;
   toggleNotifications: () => void;
   setNotificationsEnabled: (enabled: boolean) => void;
+  getUnreadCount: () => number;
 }
 
-// ✅ Fonction d'initialisation séparée (hors du store)
 const initializeNotifications = () => {
   const saved = localStorage.getItem('sante_plus_preferences');
 
@@ -48,17 +48,18 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   notificationsEnabled: initializeNotifications(),
 
   subscribe: () => {
-    const { user } = useAuthStore.getState();
+    const { user, profile } = useAuthStore.getState();
 
     if (!user) return;
 
-    // ✅ Vérifier si les notifications sont activées
     const { notificationsEnabled } = get();
 
     if (!notificationsEnabled) return;
 
-    // ✅ Nettoyer l'ancienne subscription pour éviter les doublons
     get().unsubscribe();
+
+    // ✅ Filtrer les notifications selon le rôle
+    let filter = `user_id=eq.${user.id}`;
 
     const subscription = supabase
       .channel(`notifications:${user.id}`)
@@ -68,10 +69,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           event: 'INSERT',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
+          filter: filter,
         },
         (payload) => {
-          get().addNotification(payload.new as Notification);
+          const notification = payload.new as Notification;
+          
+          // ✅ Vérifier si la notification concerne l'utilisateur
+          if (notification.user_id === user.id) {
+            get().addNotification(notification);
+          }
         }
       )
       .subscribe();
@@ -193,7 +199,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (!notificationsEnabled) return;
 
     set((state) => {
-      // ✅ Anti-doublon par id
       const alreadyExistsById = state.notifications.some(
         (n) => n.id === notification.id
       );
@@ -202,7 +207,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         return state;
       }
 
-      // ✅ Anti-doublon souple si Firebase + Realtime envoient presque la même notif
       const alreadyExistsByContent = state.notifications.some((n) => {
         const sameTitle = n.title === notification.title;
         const sameBody = n.body === notification.body;
@@ -241,7 +245,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const { notificationsEnabled } = get();
     const newState = !notificationsEnabled;
 
-    // ✅ Sauvegarder dans localStorage
     const savedPrefs = localStorage.getItem('sante_plus_preferences');
 
     try {
@@ -254,7 +257,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     set({ notificationsEnabled: newState });
 
-    // ✅ Si désactivé, se désabonner
     if (!newState) {
       get().unsubscribe();
     } else {
@@ -279,5 +281,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     } else {
       get().subscribe();
     }
+  },
+
+  getUnreadCount: () => {
+    return get().unreadCount;
   },
 }));
