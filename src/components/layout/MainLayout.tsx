@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-
+ 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -117,7 +117,7 @@ const MainLayout = () => {
       ];
     }
 
-    // 🦸 AIDANT
+    // 🦸 AIDANT - ✅ Abonnement SUPPRIMÉ
     if (role === 'aidant') {
       return [
         ...base,
@@ -126,7 +126,7 @@ const MainLayout = () => {
         { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
         { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
-        { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing' },
+        // ❌ Abonnement SUPPRIMÉ pour les aidants
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
         { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
@@ -159,12 +159,15 @@ const MainLayout = () => {
   }, [role]);
 
   // =============================================
-  // TITRE DE LA PAGE
+  // TITRE DE LA PAGE - CORRIGÉ
   // =============================================
   const pageTitle = useMemo(() => {
     const path = location.pathname;
 
-    const titles: Record<string, string> = {
+    // ✅ Correspondances exactes
+    const exactTitles: Record<string, string> = {
+      '/app': 'Tableau de bord',
+      '/app/dashboard': 'Tableau de bord',
       '/app/orders': 'Commandes',
       '/app/patients': 'Proches',
       '/app/visits': 'Visites',
@@ -191,12 +194,17 @@ const MainLayout = () => {
       '/app/admin/visits/validation': 'Validation visites',
     };
 
-    for (const [key, value] of Object.entries(titles)) {
-      if (path.startsWith(key)) return value;
+    // ✅ Vérifier les correspondances exactes
+    if (exactTitles[path]) return exactTitles[path];
+
+    // ✅ Vérifier les correspondances partielles
+    for (const [key, value] of Object.entries(exactTitles)) {
+      if (path.startsWith(key) && key !== '/app') return value;
     }
 
-    if (role === 'family') return 'Tableau de bord';
+    // ✅ Si aucun titre trouvé, retourner un titre par défaut selon le rôle
     if (role === 'aidant') return 'Missions';
+    if (role === 'family') return 'Tableau de bord';
     if (role === 'admin' || role === 'coordinator') return 'Administration';
 
     return 'Santé Plus Services';
