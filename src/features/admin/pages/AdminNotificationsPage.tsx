@@ -1,6 +1,5 @@
-
 // 📁 src/features/admin/pages/AdminNotificationsPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import {
   Bell,
@@ -20,6 +19,8 @@ import {
   User,
   Loader2,
   Plus,
+  Filter,
+  Search,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -163,6 +164,10 @@ const AdminNotificationsPage = () => {
     sent: notifications.filter(n => n.is_sent).length,
     delivered: notifications.filter(n => n.is_delivered).length,
     read: notifications.filter(n => n.is_read).length,
+    // ✅ NOUVEAUX STATS
+    alerts: notifications.filter(n => n.type === 'alert').length,
+    reminders: notifications.filter(n => n.type === 'reminder').length,
+    system: notifications.filter(n => n.type === 'system').length,
   };
 
   const notificationTypes = [
@@ -326,7 +331,7 @@ const AdminNotificationsPage = () => {
               🔔 Gestion des notifications
             </h1>
             <p className="text-xs" style={{ color: colors.textLight }}>
-              Envoyez et gérez les alertes ciblées de vos utilisateurs
+              {stats.total} notifications • {stats.alerts} alertes • {stats.reminders} rappels
             </p>
           </div>
           <div className="flex gap-2.5 shrink-0">
@@ -356,7 +361,7 @@ const AdminNotificationsPage = () => {
         <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Bell size={16} />} />
         <StatCard label="Envoyées" value={stats.sent} color="#10b981" icon={<Send size={16} />} />
         <StatCard label="Délivrées" value={stats.delivered} color="#3b82f6" icon={<CheckCircle size={16} />} />
-        <StatCard label="Lues" value={stats.read} color="#f59e0b" icon={<Eye size={16} />} />
+        <StatCard label="Alertes" value={stats.alerts} color="#ef4444" icon={<AlertCircle size={16} />} />
       </section>
 
       {/* Formulaire de création d'alerte épuré */}
@@ -517,25 +522,31 @@ const AdminNotificationsPage = () => {
 
       {/* Filtres épurés */}
       <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Rechercher par titre ou destinataire..."
-          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
-        />
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
-        >
-          <option value="all">Tous les types</option>
-          {notificationTypes.map(type => (
-            <option key={type.value} value={type.value}>{type.label}</option>
-          ))}
-        </select>
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher par titre ou destinataire..."
+            className="w-full pl-9 pr-3 py-2 rounded-xl border outline-none text-xs"
+            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+          />
+        </div>
+        <div className="relative min-w-[150px]">
+          <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 rounded-xl border outline-none text-xs appearance-none"
+            style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+          >
+            <option value="all">Tous les types</option>
+            {notificationTypes.map(type => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+        </div>
       </section>
 
       {/* Liste des alertes */}
@@ -565,6 +576,9 @@ const AdminNotificationsPage = () => {
                     <span>{notification.user?.full_name || 'Général'}</span>
                     <span>•</span>
                     <span>{formatDate(notification.created_at)}</span>
+                    {notification.type === 'alert' && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-red-100 text-red-600">ALERTE</span>
+                    )}
                   </div>
                 </div>
               </div>
