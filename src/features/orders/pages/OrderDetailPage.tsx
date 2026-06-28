@@ -628,15 +628,15 @@ const OrderDetailPage = () => {
 
                 return (
                   <div key={status} className="flex items-center flex-1">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                        isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
-                      } ${isCurrent ? 'ring-2 ring-offset-2' : ''}`}
-                      style={{ 
-                        background: isDone ? colors.primary : '#e5e7eb',
-                        ringColor: isCurrent ? colors.primary : undefined,
-                      }}
-                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                          isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
+                        } ${isCurrent ? 'ring-2 ring-offset-2' : ''}`}
+                        style={{ 
+                          background: isDone ? colors.primary : '#e5e7eb',
+                          ...(isCurrent && { '--tw-ring-color': colors.primary } as React.CSSProperties),
+                        }}
+                      >
                       {isDone ? <CheckCircle size={14} /> : index + 1}
                     </div>
                     {index < 3 && (
