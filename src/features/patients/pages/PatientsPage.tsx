@@ -25,11 +25,12 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { PatientModal } from '../components/PatientModal';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 const PatientsPage = () => {
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
 
   const {
     singular,
@@ -54,12 +55,32 @@ const PatientsPage = () => {
 
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
-  // ✅ Vérifier si l'utilisateur peut gérer les patients
   const canManage = canManagePatients();
 
+  // ✅ CHARGEMENT INITIAL + SYNC POUR AIDANT
   useEffect(() => {
-    fetchPatients();
-  }, []);
+    const loadPatients = async () => {
+      console.log('🔍 PatientsPage - Chargement initial');
+      console.log('🔍 Rôle:', role);
+      console.log('🔍 User ID:', user?.id);
+      
+      if (isAidant) {
+        console.log('🔄 Aidant détecté - Synchronisation automatique');
+        await syncAidantPatients();
+      } else {
+        await fetchPatients();
+      }
+    };
+    
+    loadPatients();
+  }, [role, user?.id]);
+
+  // ✅ RECHARGE QUAND LE RÔLE CHANGE
+  useEffect(() => {
+    if (isAidant) {
+      syncAidantPatients();
+    }
+  }, [isAidant]);
 
   const filteredPatients = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -117,7 +138,11 @@ const PatientsPage = () => {
   };
 
   const handleModalSuccess = () => {
-    fetchPatients();
+    if (isAidant) {
+      syncAidantPatients();
+    } else {
+      fetchPatients();
+    }
     setIsModalOpen(false);
     toast.success(
       modalMode === 'create'
@@ -126,14 +151,65 @@ const PatientsPage = () => {
     );
   };
 
+  // ✅ SYNCHRONISATION MANUELLE AVEC LOGS
   const handleSync = async () => {
     setIsSyncing(true);
+    console.log('🔄 Synchronisation manuelle - Début');
+    
     try {
-      await syncAidantPatients();
-      toast.success('✅ Patients synchronisés avec succès');
-    } catch (error: any) {
-      console.error('Erreur synchronisation:', error);
-      toast.error(error.message || 'Erreur lors de la synchronisation');
+      console.log('🔍 User ID:', user?.id);
+      console.log('🔍 Rôle:', role);
+      
+      // Récupérer l'aidant
+      const { data: aidant, error: aidantError } = await supabase
+        .from('aidants')
+        .select('id, user_id, is_verified, status')
+        .eq('user_id', user?.id)
+        .single();
+      
+      console.log('🔍 Aidant:', aidant);
+      console.log('🔍 Aidant Error:', aidantError);
+      
+      if (aidant) {
+        // Récupérer les assignations
+        const { data: assignments, error: assignError } = await supabase
+          .from('patient_aidant_assignments')
+          .select('patient_id, is_active')
+          .eq('aidant_id', aidant.id)
+          .eq('is_active', true);
+        
+        console.log('🔍 Assignations:', assignments);
+        console.log('🔍 Assign Error:', assignError);
+        
+        if (assignments && assignments.length > 0) {
+          const patientIds = assignments.map(a => a.patient_id);
+          console.log('🔍 Patient IDs:', patientIds);
+          
+          const { data: patients, error: patientsError } = await supabase
+            .from('patients')
+            .select('*')
+            .in('id', patientIds);
+          
+          console.log('🔍 Patients trouvés:', patients);
+          console.log('🔍 Patients Error:', patientsError);
+          
+          if (patients) {
+            // Mettre à jour le store
+            usePatientStore.setState({ patients: patients });
+            toast.success(`✅ ${patients.length} patient(s) synchronisé(s)`);
+          } else {
+            toast.info('Aucun patient trouvé pour ces assignations');
+          }
+        } else {
+          toast.info('Aucune assignation trouvée pour cet aidant');
+          usePatientStore.setState({ patients: [] });
+        }
+      } else {
+        toast.error('Aidant non trouvé');
+      }
+    } catch (error) {
+      console.error('❌ Erreur synchronisation:', error);
+      toast.error('Erreur lors de la synchronisation');
     } finally {
       setIsSyncing(false);
     }
@@ -148,7 +224,7 @@ const PatientsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="maxw-5xl mx-auto space-y-5 p-3 sm:p-4">
+      <div className="max-w-5xl mx-auto space-y-5 p-3 sm:p-4">
         <div className="h-20 bg-white rounded-3xl animate-pulse shadow-sm" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
@@ -189,7 +265,6 @@ const PatientsPage = () => {
             </p>
           </div>
 
-          {/* ✅ Bouton Ajouter - Caché pour les aidants */}
           {canManage && (
             <button
               onClick={handleAdd}
@@ -270,7 +345,7 @@ const PatientsPage = () => {
       {/* BOUTON SYNC POUR AIDANTS */}
       {/* ========================================== */}
       {isAidant && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleSync}
             disabled={isSyncing}
@@ -279,6 +354,48 @@ const PatientsPage = () => {
           >
             <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
             {isSyncing ? 'Synchronisation...' : '🔄 Synchroniser les patients'}
+          </button>
+          <button
+            onClick={async () => {
+              console.log('🔍 FORCE SYNC - Vérification directe');
+              try {
+                const { data: aidant } = await supabase
+                  .from('aidants')
+                  .select('id, user_id')
+                  .eq('user_id', user?.id)
+                  .single();
+                console.log('🔍 Aidant direct:', aidant);
+                
+                if (aidant) {
+                  const { data: assignments } = await supabase
+                    .from('patient_aidant_assignments')
+                    .select('patient_id')
+                    .eq('aidant_id', aidant.id)
+                    .eq('is_active', true);
+                  console.log('🔍 Assignations directes:', assignments);
+                  
+                  if (assignments && assignments.length > 0) {
+                    const patientIds = assignments.map(a => a.patient_id);
+                    const { data: patients } = await supabase
+                      .from('patients')
+                      .select('*')
+                      .in('id', patientIds);
+                    console.log('🔍 Patients trouvés:', patients);
+                    
+                    if (patients) {
+                      usePatientStore.setState({ patients: patients });
+                      toast.success(`✅ ${patients.length} patient(s) synchronisé(s)`);
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error('Force sync error:', e);
+              }
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition hover:opacity-90"
+            style={{ background: '#F59E0B15', color: '#F59E0B' }}
+          >
+            ⚡ Debug
           </button>
           <span className="text-[10px] text-gray-400">
             Mise à jour manuelle des patients assignés
@@ -335,9 +452,18 @@ const PatientsPage = () => {
           )}
 
           {isAidant && patients.length === 0 && !searchTerm && categoryFilter === 'all' && (
-            <p className="text-xs text-amber-600 mt-2">
-              💡 Aucun patient ne vous est encore assigné. Contactez l'administrateur.
-            </p>
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-amber-600">
+                💡 Aucun patient ne vous est encore assigné. Contactez l'administrateur.
+              </p>
+              <button
+                onClick={handleSync}
+                className="text-xs font-bold px-4 py-2 rounded-xl"
+                style={{ background: colors.primary + '12', color: colors.primary }}
+              >
+                🔄 Vérifier les assignations
+              </button>
+            </div>
           )}
         </section>
       )}
