@@ -1,6 +1,5 @@
 // 📁 src/features/orders/pages/OrderDetailPage.tsx
-// 📌 Détails d'une commande - Cycle de vie simplifié
-
+ 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -156,10 +155,22 @@ const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
         bg: '#9E9E9E15', 
         label: 'Créée' 
       },
-      en_cours: { 
+      en_attente: { 
         icon: <Clock size={14} />, 
         color: '#FF9800', 
         bg: '#FF980015', 
+        label: 'En attente' 
+      },
+      disponible: { 
+        icon: <AlertCircle size={14} />, 
+        color: '#F44336', 
+        bg: '#F4433615', 
+        label: 'Disponible' 
+      },
+      en_cours: { 
+        icon: <Clock size={14} />, 
+        color: '#2196F3', 
+        bg: '#2196F315', 
         label: 'En cours' 
       },
       livree: { 
@@ -206,9 +217,8 @@ const OrderDetailPage = () => {
   const navigate = useNavigate();
 
   const { profile, role } = useAuthStore();
-  const { currentOrder, fetchOrderById, updateOrderStatus, isLoading } = useOrderStore();
+  const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, isLoading } = useOrderStore();
 
-  // ✅ Jargon dynamique selon le rôle
   const {
     singular,
     getCategoryLabel,
@@ -231,7 +241,6 @@ const OrderDetailPage = () => {
     if (id) fetchOrderById(id);
   }, [id]);
 
-  // ✅ Empêcher le scroll du body quand le modal est ouvert
   useEffect(() => {
     if (showProofModal) {
       document.body.style.overflow = 'hidden';
@@ -243,7 +252,6 @@ const OrderDetailPage = () => {
     };
   }, [showProofModal]);
 
-  // ✅ Actions simplifiées
   const handleStatusChange = async (status: string) => {
     if (!id) return;
 
@@ -253,9 +261,23 @@ const OrderDetailPage = () => {
       await updateOrderStatus(id, status as any);
       toast.success(`Commande ${getStatusLabel(status)}`);
       fetchOrderById(id);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(error.message || 'Erreur lors de la mise à jour');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleTakeOrder = async () => {
+    if (!id) return;
+    setIsUpdating(true);
+    try {
+      await takeOrder(id);
+      toast.success('✅ Commande prise en charge');
+      fetchOrderById(id);
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de la prise de commande');
     } finally {
       setIsUpdating(false);
     }
@@ -264,6 +286,8 @@ const OrderDetailPage = () => {
   const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
       creee: 'Créée',
+      en_attente: 'En attente',
+      disponible: 'Disponible (urgent)',
       en_cours: 'En cours',
       livree: 'Livrée',
       validee: 'Validée',
@@ -332,9 +356,9 @@ const OrderDetailPage = () => {
       setProofPreview(null);
 
       fetchOrderById(id);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Erreur lors de l'upload de la preuve");
+      toast.error(error.message || "Erreur lors de l'upload de la preuve");
     } finally {
       setIsUpdating(false);
     }
@@ -364,15 +388,15 @@ const OrderDetailPage = () => {
 
   const order = currentOrder;
 
-  // ✅ Libellé dynamique pour le bénéficiaire
   const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
 
   // ✅ Vérifier si l'utilisateur peut agir
+  const canTake = (order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
   const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
-  const canCancel = (order.status === 'creee' || order.status === 'en_cours') && isAdminOrCoordinator;
-
+  const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
   const isPonctual = order.order_type === 'ponctual';
+  const isUrgent = order.status === 'disponible' || order.status === 'en_attente';
 
   return (
     <div className="space-y-5 pb-10">
@@ -393,6 +417,12 @@ const OrderDetailPage = () => {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <StatusBadge status={order.status} colors={colors} />
+              {isUrgent && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">
+                  <AlertCircle size={14} />
+                  Urgent
+                </span>
+              )}
               {isPonctual && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-600">
                   <ShoppingBag size={14} />
@@ -425,8 +455,21 @@ const OrderDetailPage = () => {
           </div>
         </div>
 
-        {/* ✅ ACTIONS SIMPLIFIÉES */}
+        {/* ✅ ACTIONS SIMPLIFIÉES AVEC NOUVEAUX STATUTS */}
         <div className="mt-4 flex flex-wrap gap-2">
+          {/* AIDANT : Prendre une commande en attente ou disponible */}
+          {canTake && (
+            <ActionButton
+              label={order.status === 'disponible' ? 'Prendre (Urgent)' : 'Prendre'}
+              color={order.status === 'disponible' ? '#F44336' : '#FF9800'}
+              icon={order.status === 'disponible' ? <AlertCircle size={17} /> : <Play size={17} />}
+              disabled={isUpdating}
+              onClick={handleTakeOrder}
+              isLoading={isUpdating}
+            />
+          )}
+
+          {/* AIDANT : Accepter une commande créée */}
           {canAccept && (
             <ActionButton
               label="Accepter"
@@ -438,6 +481,7 @@ const OrderDetailPage = () => {
             />
           )}
 
+          {/* AIDANT : Livrer une commande en cours */}
           {canDeliver && (
             <ActionButton
               label="Livrer"
@@ -449,6 +493,7 @@ const OrderDetailPage = () => {
             />
           )}
 
+          {/* ADMIN : Annuler */}
           {canCancel && (
             <ActionButton
               label="Annuler"
@@ -469,7 +514,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* RÉSUMÉ */}
+      {/* RÉSUMÉ - Inchangé */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MiniCard
           icon={<Package size={20} />}
@@ -477,30 +522,27 @@ const OrderDetailPage = () => {
           value={order.type || 'Non précisé'}
           color={colors.primary}
         />
-
         <MiniCard
           icon={<Banknote size={20} />}
           label="Montant"
           value={formatCurrency(order.estimated_amount || 0)}
           color={colors.primary}
         />
-
         <MiniCard
           icon={<MapPin size={20} />}
           label="Adresse"
           value={order.address || 'Non précisée'}
           color={colors.secondary || colors.primary}
         />
-
         <MiniCard
           icon={<Clock size={20} />}
           label="Statut"
           value={getStatusLabel(order.status)}
-          color={colors.primary}
+          color={getStatusColor(order.status)}
         />
       </div>
 
-      {/* PERSONNES */}
+      {/* PERSONNES - Inchangé */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
@@ -542,7 +584,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* ARTICLES */}
+      {/* ARTICLES - Inchangé */}
       {order.items && order.items.length > 0 && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
           <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
@@ -572,7 +614,7 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* DOCUMENTS */}
+      {/* DOCUMENTS - Inchangé */}
       {(order.prescription_url || order.proof_url) && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
           <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
@@ -602,7 +644,7 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* ✅ SUIVI SIMPLIFIÉ */}
+      {/* ✅ SUIVI - AVEC NOUVEAUX STATUTS */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Clock size={18} style={{ color: colors.primary }} />
@@ -617,6 +659,14 @@ const OrderDetailPage = () => {
               <p className="text-sm text-red-500">Cette commande a été annulée.</p>
             </div>
           </div>
+        ) : order.status === 'disponible' ? (
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 border border-red-200">
+            <AlertCircle size={24} style={{ color: '#F44336' }} />
+            <div>
+              <p className="font-bold text-red-600">🚨 Commande urgente</p>
+              <p className="text-sm text-red-500">Cette commande est disponible pour tous les aidants. Premier arrivé, premier servi !</p>
+            </div>
+          </div>
         ) : (
           <>
             <div className="flex items-center gap-2">
@@ -628,15 +678,15 @@ const OrderDetailPage = () => {
 
                 return (
                   <div key={status} className="flex items-center flex-1">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                          isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
-                        } ${isCurrent ? 'ring-2 ring-offset-2' : ''}`}
-                        style={{ 
-                          background: isDone ? colors.primary : '#e5e7eb',
-                          ...(isCurrent && { '--tw-ring-color': colors.primary } as React.CSSProperties),
-                        }}
-                      >
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                        isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
+                      } ${isCurrent ? 'ring-2 ring-offset-2' : ''}`}
+                      style={{ 
+                        background: isDone ? colors.primary : '#e5e7eb',
+                        ...(isCurrent && { '--tw-ring-color': colors.primary } as React.CSSProperties),
+                      }}
+                    >
                       {isDone ? <CheckCircle size={14} /> : index + 1}
                     </div>
                     {index < 3 && (
@@ -664,6 +714,16 @@ const OrderDetailPage = () => {
           Dernière mise à jour : {formatDateTime(order.updated_at)}
         </p>
 
+        {order.status === 'en_attente' && (
+          <div className="mt-3 p-3 rounded-xl bg-yellow-50 border border-yellow-200 flex items-start gap-2">
+            <Clock size={18} style={{ color: '#FF9800' }} className="mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-yellow-700">En attente de prise</p>
+              <p className="text-xs text-yellow-600">L'aidant assigné a 30 minutes pour prendre la commande.</p>
+            </div>
+          </div>
+        )}
+
         {order.status === 'livree' && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
             <Clock size={18} style={{ color: '#2196F3' }} className="mt-0.5" />
@@ -685,7 +745,7 @@ const OrderDetailPage = () => {
         )}
       </div>
 
-      {/* MODAL PREUVE LIVRAISON */}
+      {/* MODAL PREUVE LIVRAISON - Inchangé */}
       {showProofModal && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto"
@@ -782,6 +842,20 @@ const OrderDetailPage = () => {
       )}
     </div>
   );
+};
+
+// ✅ Helper pour la couleur du statut
+const getStatusColor = (status: string): string => {
+  const colors: Record<string, string> = {
+    creee: '#9E9E9E',
+    en_attente: '#FF9800',
+    disponible: '#F44336',
+    en_cours: '#2196F3',
+    livree: '#2196F3',
+    validee: '#4CAF50',
+    annulee: '#9E9E9E',
+  };
+  return colors[status] || '#9E9E9E';
 };
 
 export default OrderDetailPage;
