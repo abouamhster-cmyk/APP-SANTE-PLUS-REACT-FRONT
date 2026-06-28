@@ -1,11 +1,12 @@
-// 📁 NotificationsPage.tsx (Modern UI Version)
+// 📁 src/features/notifications/pages/NotificationsPage.tsx
 
-import { Bell, Check, X } from 'lucide-react';
+import { Bell, Check, X, Mail, Inbox } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDateTime } from '@/utils/helpers';
+import { Illustration } from '@/components/ui/Illustration';
 
 const NotificationsPage = () => {
   const { profile, role } = useAuthStore();
@@ -25,17 +26,26 @@ const NotificationsPage = () => {
     return "Vos notifications apparaîtront ici.";
   };
 
+  const getEmptyTitle = () => {
+    if (isFamily) return "Aucune notification pour vos proches";
+    if (isAidant) return "Aucune mission en attente";
+    if (isAdminOrCoordinator) return "Aucune alerte administrative";
+    return "Aucune notification";
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
 
-      {/* HEADER MODERNE */}
+      {/* ============================================================
+      HEADER
+      ============================================================ */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 
             className="text-2xl font-extrabold tracking-tight"
             style={{ color: colors.text }}
           >
-            🔔 Notifications
+            Notifications
           </h1>
           <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
             {unreadCount > 0
@@ -59,7 +69,9 @@ const NotificationsPage = () => {
         )}
       </div>
 
-      {/* LISTE */}
+      {/* ============================================================
+      LISTE DES NOTIFICATIONS
+      ============================================================ */}
       {notifications.length > 0 ? (
         <div className="space-y-3">
           {notifications.map((notification) => {
@@ -72,10 +84,10 @@ const NotificationsPage = () => {
                 className={`group relative rounded-2xl p-4 transition-all duration-300 cursor-pointer border ${
                   isUnread
                     ? 'bg-white shadow-md hover:shadow-lg'
-                    : 'bg-gray-50 opacity-70'
+                    : 'bg-gray-50/70 opacity-75'
                 }`}
                 style={{
-                  borderColor: isUnread ? colors.primary + '40' : '#eee',
+                  borderColor: isUnread ? colors.primary + '40' : '#e5e7eb',
                 }}
               >
                 {/* INDICATEUR GAUCHE */}
@@ -90,7 +102,7 @@ const NotificationsPage = () => {
 
                   {/* CONTENU */}
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h4
                         className="font-semibold text-sm"
                         style={{ color: colors.text }}
@@ -109,6 +121,12 @@ const NotificationsPage = () => {
                           Nouveau
                         </span>
                       )}
+
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500"
+                      >
+                        {notification.type || 'Système'}
+                      </span>
                     </div>
 
                     <p
@@ -118,12 +136,22 @@ const NotificationsPage = () => {
                       {notification.body}
                     </p>
 
-                    <p
-                      className="text-xs mt-2"
-                      style={{ color: colors.text + '50' }}
-                    >
-                      {formatDateTime(notification.created_at)}
-                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <p
+                        className="text-xs"
+                        style={{ color: colors.text + '50' }}
+                      >
+                        {formatDateTime(notification.created_at)}
+                      </p>
+                      {notification.is_read && (
+                        <span
+                          className="text-[10px]"
+                          style={{ color: colors.text + '30' }}
+                        >
+                          ✓ Lu
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* ACTIONS */}
@@ -144,20 +172,19 @@ const NotificationsPage = () => {
           })}
         </div>
       ) : (
-        // EMPTY STATE PREMIUM
-        <div className="bg-white rounded-3xl p-12 text-center shadow-md">
-          <div
-            className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center mb-5"
-            style={{
-              background: colors.primary + '15',
-              color: colors.primary,
-            }}
-          >
-            <Bell size={36} />
-          </div>
+        /* ============================================================
+        EMPTY STATE MODERN
+        ============================================================ */
+        <div className="bg-white rounded-3xl p-12 text-center shadow-md border border-black/5">
+          <Illustration 
+            type="message" 
+            size="lg" 
+            className="mx-auto mb-5 opacity-40"
+            color={colors.primary}
+          />
 
           <h3 className="text-lg font-bold" style={{ color: colors.text }}>
-            Aucune notification
+            {getEmptyTitle()}
           </h3>
 
           <p
@@ -167,12 +194,16 @@ const NotificationsPage = () => {
             {getEmptyMessage()}
           </p>
 
-          <p
-            className="text-xs mt-3"
-            style={{ color: colors.text + '40' }}
+          <div
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium"
+            style={{
+              background: colors.primary + '08',
+              color: colors.primary + '80',
+            }}
           >
-            Vous serez alerté en temps réel.
-          </p>
+            <Bell size={14} />
+            Alertes en temps réel
+          </div>
         </div>
       )}
     </div>
