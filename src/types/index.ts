@@ -1,4 +1,5 @@
 // 📁 src/types/index.ts
+// ✅ VERSION COMPLÈTE ET CORRIGÉE
 
 // =============================================
 // TYPES COMPLETS - SANTÉ PLUS SERVICES
@@ -7,7 +8,18 @@
 export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
 export type ProcheCategory = 'senior' | 'maman_bebe';
 export type PatientCategory = 'senior' | 'maman_bebe';
-export type VisitStatus = 'planifiee' | 'en_attente' | 'en_cours' | 'terminee' | 'validee' | 'annulee' | 'replanifiee' | 'no_show';
+
+// ✅ VISITE STATUS - Inclut 'refusee'
+export type VisitStatus = 
+  | 'planifiee' 
+  | 'en_attente' 
+  | 'en_cours' 
+  | 'terminee' 
+  | 'validee' 
+  | 'annulee' 
+  | 'replanifiee' 
+  | 'no_show'
+  | 'refusee';
 
 // ✅ CYCLE DE VIE SIMPLIFIÉ DES COMMANDES
 // creee → en_cours (aidant accepte) → livree (aidant livre) → validee (auto après 12h)
@@ -22,11 +34,10 @@ export type PaymentStatus = 'en_attente' | 'valide' | 'echoue' | 'rembourse' | '
 export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
 export type NotificationType = 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
 
-// ✅ Type de commande (abonnement ou ponctuelle)
 export type OrderType = 'subscription' | 'ponctual';
 
 // =============================================
-// OFFER TYPE - GRILLE TARIFAIRE
+// OFFER TYPE
 // =============================================
 
 export type OfferCategory = 'senior' | 'maman_bebe' | 'pack_confort' | 'ponctuelle';
