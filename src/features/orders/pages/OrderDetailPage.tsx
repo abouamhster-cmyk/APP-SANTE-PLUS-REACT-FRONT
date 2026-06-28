@@ -1,7 +1,7 @@
 // 📁 src/features/orders/pages/OrderDetailPage.tsx
 // 📌 Détails d'une commande - Cycle de vie simplifié
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,6 +18,15 @@ import {
   Image,
   Banknote,
   Play,
+  ShoppingBag,
+  FileText,
+  Calendar,
+  Phone,
+  Mail,
+  Star,
+  Award,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -25,8 +34,172 @@ import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime } from '@/utils/helpers';
+import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+
+// =============================================
+// SOUS-COMPOSANTS
+// =============================================
+
+interface ActionButtonProps {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  disabled?: boolean;
+  onClick: () => void;
+  isLoading?: boolean;
+}
+
+const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || isLoading}
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50"
+      style={{ background: color }}
+    >
+      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
+      {isLoading ? 'Chargement...' : label}
+    </button>
+  );
+};
+
+interface MiniCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: string;
+}
+
+const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
+  return (
+    <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border border-black/5 min-w-0">
+      <div
+        className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3"
+        style={{ background: color + '14', color }}
+      >
+        {icon}
+      </div>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="font-black text-sm mt-1 break-words" style={{ color }}>
+        {value}
+      </p>
+    </div>
+  );
+};
+
+interface PersonBoxProps {
+  icon: React.ReactNode;
+  title: string;
+  name: string;
+  detail: string;
+  detailIcon?: React.ReactNode;
+}
+
+const PersonBox = ({ icon, title, name, detail, detailIcon }: PersonBoxProps) => {
+  return (
+    <div className="rounded-2xl bg-gray-50 p-4 border border-black/5">
+      <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
+        {icon}
+        {title}
+      </div>
+      <p className="font-bold text-gray-900 break-words">{name}</p>
+      <p className="text-sm text-gray-500 mt-1 break-words flex items-center gap-1">
+        {detailIcon}
+        {detail}
+      </p>
+    </div>
+  );
+};
+
+interface DocButtonProps {
+  icon: React.ReactNode;
+  title: string;
+  color: string;
+  onClick: () => void;
+}
+
+const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-2xl bg-gray-50 p-4 border border-black/5 text-left hover:bg-gray-100 transition group"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-105 transition"
+            style={{ background: color + '14', color }}
+          >
+            {icon}
+          </div>
+          <p className="font-bold text-gray-900">{title}</p>
+        </div>
+        <Eye size={20} style={{ color }} className="opacity-50 group-hover:opacity-100 transition" />
+      </div>
+    </button>
+  );
+};
+
+interface StatusBadgeProps {
+  status: string;
+  colors: any;
+}
+
+const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
+  const getStatusConfig = (status: string) => {
+    const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
+      creee: { 
+        icon: <Package size={14} />, 
+        color: '#9E9E9E', 
+        bg: '#9E9E9E15', 
+        label: 'Créée' 
+      },
+      en_cours: { 
+        icon: <Clock size={14} />, 
+        color: '#FF9800', 
+        bg: '#FF980015', 
+        label: 'En cours' 
+      },
+      livree: { 
+        icon: <Truck size={14} />, 
+        color: '#2196F3', 
+        bg: '#2196F315', 
+        label: 'Livrée' 
+      },
+      validee: { 
+        icon: <CheckCircle size={14} />, 
+        color: '#4CAF50', 
+        bg: '#4CAF5015', 
+        label: 'Validée' 
+      },
+      annulee: { 
+        icon: <XCircle size={14} />, 
+        color: '#F44336', 
+        bg: '#F4433615', 
+        label: 'Annulée' 
+      },
+    };
+    return map[status] || map['creee'];
+  };
+
+  const config = getStatusConfig(status);
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+      style={{ background: config.bg, color: config.color }}
+    >
+      {config.icon}
+      {config.label}
+    </span>
+  );
+};
+
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
 
 const OrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -49,6 +222,8 @@ const OrderDetailPage = () => {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
@@ -56,28 +231,17 @@ const OrderDetailPage = () => {
     if (id) fetchOrderById(id);
   }, [id]);
 
-  // ✅ Cycle de vie simplifié - Statuts
-  const getStatusColor = (status: string) => {
-    const map: Record<string, string> = {
-      creee: '#9E9E9E',      // Gris - Créée
-      en_cours: '#FF9800',   // Orange - En cours
-      livree: '#2196F3',     // Bleu - Livrée
-      validee: '#4CAF50',    // Vert - Validée
-      annulee: '#F44336',    // Rouge - Annulée
+  // ✅ Empêcher le scroll du body quand le modal est ouvert
+  useEffect(() => {
+    if (showProofModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
     };
-    return map[status] || '#9E9E9E';
-  };
-
-  const getStatusLabel = (status: string) => {
-    const map: Record<string, string> = {
-      creee: '📝 Créée',
-      en_cours: '🔄 En cours',
-      livree: '📦 Livrée',
-      validee: '✅ Validée',
-      annulee: '❌ Annulée',
-    };
-    return map[status] || status;
-  };
+  }, [showProofModal]);
 
   // ✅ Actions simplifiées
   const handleStatusChange = async (status: string) => {
@@ -95,6 +259,17 @@ const OrderDetailPage = () => {
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const map: Record<string, string> = {
+      creee: 'Créée',
+      en_cours: 'En cours',
+      livree: 'Livrée',
+      validee: 'Validée',
+      annulee: 'Annulée',
+    };
+    return map[status] || status;
   };
 
   const handleProofSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,7 +318,6 @@ const OrderDetailPage = () => {
         data: { publicUrl },
       } = supabase.storage.from('orders').getPublicUrl(fileName);
 
-      // ✅ Passer directement à livree
       await updateOrderStatus(id, 'livree');
 
       await supabase
@@ -178,12 +352,9 @@ const OrderDetailPage = () => {
     return (
       <div className="min-h-[420px] flex items-center justify-center">
         <div className="text-center">
-          <div
-            className="w-12 h-12 border-4 border-t-transparent rounded-full animate-spin mx-auto mb-4"
-            style={{
-              borderColor: colors.primary,
-              borderTopColor: 'transparent',
-            }}
+          <Loader2
+            className="w-12 h-12 animate-spin mx-auto mb-4"
+            style={{ color: colors.primary }}
           />
           <p style={{ color: colors.text }}>Chargement...</p>
         </div>
@@ -192,7 +363,6 @@ const OrderDetailPage = () => {
   }
 
   const order = currentOrder;
-  const statusColor = getStatusColor(order.status);
 
   // ✅ Libellé dynamique pour le bénéficiaire
   const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
@@ -201,6 +371,8 @@ const OrderDetailPage = () => {
   const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
   const canCancel = (order.status === 'creee' || order.status === 'en_cours') && isAdminOrCoordinator;
+
+  const isPonctual = order.order_type === 'ponctual';
 
   return (
     <div className="space-y-5 pb-10">
@@ -219,15 +391,20 @@ const OrderDetailPage = () => {
           </button>
 
           <div className="min-w-0 flex-1">
-            <div
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2"
-              style={{
-                background: statusColor + '15',
-                color: statusColor,
-              }}
-            >
-              <Clock size={14} />
-              {getStatusLabel(order.status)}
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <StatusBadge status={order.status} colors={colors} />
+              {isPonctual && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-600">
+                  <ShoppingBag size={14} />
+                  Ponctuelle
+                </span>
+              )}
+              {order.is_paid && isPonctual && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
+                  <CheckCircle size={14} />
+                  Payée
+                </span>
+              )}
             </div>
 
             <h1
@@ -237,15 +414,19 @@ const OrderDetailPage = () => {
               {order.description || 'Détail de commande'}
             </h1>
 
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
-              #{order.id.slice(0, 8)} • {formatDateTime(order.created_at)}
+            <p className="text-sm mt-1 flex items-center gap-2" style={{ color: colors.text + '70' }}>
+              <span>#{order.id.slice(0, 8)}</span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <Calendar size={14} />
+                {formatDateTime(order.created_at)}
+              </span>
             </p>
           </div>
         </div>
 
         {/* ✅ ACTIONS SIMPLIFIÉES */}
         <div className="mt-4 flex flex-wrap gap-2">
-          {/* 📝 Créée → Accepter (passe en cours) */}
           {canAccept && (
             <ActionButton
               label="Accepter"
@@ -253,10 +434,10 @@ const OrderDetailPage = () => {
               icon={<Play size={17} />}
               disabled={isUpdating}
               onClick={() => handleStatusChange('en_cours')}
+              isLoading={isUpdating}
             />
           )}
 
-          {/* 🔄 En cours → Livrer (passe en livrée) */}
           {canDeliver && (
             <ActionButton
               label="Livrer"
@@ -264,10 +445,10 @@ const OrderDetailPage = () => {
               icon={<Truck size={17} />}
               disabled={isUpdating}
               onClick={() => setShowProofModal(true)}
+              isLoading={isUpdating}
             />
           )}
 
-          {/* ❌ Annuler */}
           {canCancel && (
             <ActionButton
               label="Annuler"
@@ -275,10 +456,10 @@ const OrderDetailPage = () => {
               icon={<XCircle size={17} />}
               disabled={isUpdating}
               onClick={() => handleStatusChange('annulee')}
+              isLoading={isUpdating}
             />
           )}
 
-          {/* ✅ Validée - afficher un badge */}
           {order.status === 'validee' && (
             <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-green-600 font-bold text-sm bg-green-50 border border-green-200">
               <CheckCircle size={17} />
@@ -315,13 +496,14 @@ const OrderDetailPage = () => {
           icon={<Clock size={20} />}
           label="Statut"
           value={getStatusLabel(order.status)}
-          color={statusColor}
+          color={colors.primary}
         />
       </div>
 
       {/* PERSONNES */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
-        <h2 className="font-black mb-4" style={{ color: colors.text }}>
+        <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
+          <Users size={18} style={{ color: colors.primary }} />
           Personnes concernées
         </h2>
 
@@ -335,6 +517,7 @@ const OrderDetailPage = () => {
                 : 'Non spécifié'
             }
             detail={order.patient?.phone || 'Aucun téléphone'}
+            detailIcon={<Phone size={12} />}
           />
 
           <PersonBox
@@ -342,6 +525,7 @@ const OrderDetailPage = () => {
             title="Famille"
             name={order.family?.full_name || 'Non spécifiée'}
             detail={order.family?.email || 'Aucun email'}
+            detailIcon={<Mail size={12} />}
           />
 
           <PersonBox
@@ -350,9 +534,10 @@ const OrderDetailPage = () => {
             name={order.aidant?.user?.full_name || 'Non assigné'}
             detail={
               order.aidant
-                ? `${order.aidant.rating || 0} ⭐ • ${order.aidant.total_missions || 0} missions`
+                ? `${order.aidant.rating || 0} • ${order.aidant.total_missions || 0} missions`
                 : 'En attente'
             }
+            detailIcon={order.aidant ? <Star size={12} /> : undefined}
           />
         </div>
       </div>
@@ -360,7 +545,8 @@ const OrderDetailPage = () => {
       {/* ARTICLES */}
       {order.items && order.items.length > 0 && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
-          <h2 className="font-black mb-4" style={{ color: colors.text }}>
+          <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
+            <ShoppingBag size={18} style={{ color: colors.primary }} />
             Articles
           </h2>
 
@@ -389,7 +575,8 @@ const OrderDetailPage = () => {
       {/* DOCUMENTS */}
       {(order.prescription_url || order.proof_url) && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
-          <h2 className="font-black mb-4" style={{ color: colors.text }}>
+          <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
+            <FileText size={18} style={{ color: colors.primary }} />
             Documents
           </h2>
 
@@ -415,70 +602,44 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* ✅ SUIVI SIMPLIFIÉ (3 étapes) */}
+      {/* ✅ SUIVI SIMPLIFIÉ */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
-        <h2 className="font-black mb-4" style={{ color: colors.text }}>
+        <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
+          <Clock size={18} style={{ color: colors.primary }} />
           Suivi de la commande
         </h2>
 
-        <div className="flex flex-wrap gap-2">
-          {['creee', 'en_cours', 'livree', 'validee'].map((status) => {
-            const statusIndex = ['creee', 'en_cours', 'livree', 'validee'].indexOf(status);
-            const currentIndex = ['creee', 'en_cours', 'livree', 'validee'].indexOf(order.status);
-            const isDone = currentIndex >= statusIndex;
-            const isCurrent = order.status === status;
-
-            // Si la commande est annulée, on n'affiche pas la suite
-            if (order.status === 'annulee') {
-              return (
-                <span
-                  key={status}
-                  className="px-3 py-2 rounded-full text-xs font-semibold bg-red-100 text-red-600 border border-red-200"
-                >
-                  ❌ Annulée
-                </span>
-              );
-            }
-
-            return (
-              <span
-                key={status}
-                className={`px-3 py-2 rounded-full text-xs font-semibold transition-all ${
-                  isDone
-                    ? 'text-white'
-                    : 'bg-gray-100 text-gray-400'
-                } ${isCurrent ? 'ring-2 ring-offset-2' : ''}`}
-                style={{
-                  background: isDone ? colors.primary : '#f3f4f6',
-                  color: isDone ? 'white' : '#9ca3af',
-                }}
-              >
-                {isDone ? '✅' : '○'} {getStatusLabel(status)}
-              </span>
-            );
-          })}
-        </div>
-
-        {/* ✅ Barre de progression */}
-        {order.status !== 'annulee' && order.status !== 'validee' && (
-          <div className="mt-4">
+        {order.status === 'annulee' ? (
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 border border-red-200">
+            <XCircle size={24} style={{ color: '#F44336' }} />
+            <div>
+              <p className="font-bold text-red-600">Commande annulée</p>
+              <p className="text-sm text-red-500">Cette commande a été annulée.</p>
+            </div>
+          </div>
+        ) : (
+          <>
             <div className="flex items-center gap-2">
-              {['creee', 'en_cours', 'livree'].map((status, index) => {
-                const statusIndex = ['creee', 'en_cours', 'livree'].indexOf(status);
-                const currentIndex = ['creee', 'en_cours', 'livree'].indexOf(order.status);
+              {['creee', 'en_cours', 'livree', 'validee'].map((status, index) => {
+                const statusIndex = ['creee', 'en_cours', 'livree', 'validee'].indexOf(status);
+                const currentIndex = ['creee', 'en_cours', 'livree', 'validee'].indexOf(order.status);
                 const isDone = currentIndex >= statusIndex;
+                const isCurrent = order.status === status;
 
                 return (
                   <div key={status} className="flex items-center flex-1">
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                         isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
-                      }`}
-                      style={{ background: isDone ? colors.primary : '#e5e7eb' }}
+                      } ${isCurrent ? 'ring-2 ring-offset-2' : ''}`}
+                      style={{ 
+                        background: isDone ? colors.primary : '#e5e7eb',
+                        ringColor: isCurrent ? colors.primary : undefined,
+                      }}
                     >
-                      {isDone ? <CheckCircle size={16} /> : index + 1}
+                      {isDone ? <CheckCircle size={14} /> : index + 1}
                     </div>
-                    {index < 2 && (
+                    {index < 3 && (
                       <div
                         className={`flex-1 h-1 mx-1 transition-all ${
                           isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-200'
@@ -493,42 +654,60 @@ const OrderDetailPage = () => {
               <span>Créée</span>
               <span>En cours</span>
               <span>Livrée</span>
+              <span>Validée</span>
+            </div>
+          </>
+        )}
+
+        <p className="text-sm mt-4 text-gray-500 flex items-center gap-1">
+          <Clock size={14} />
+          Dernière mise à jour : {formatDateTime(order.updated_at)}
+        </p>
+
+        {order.status === 'livree' && (
+          <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
+            <Clock size={18} style={{ color: '#2196F3' }} className="mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-700">Validation automatique</p>
+              <p className="text-xs text-blue-600">Cette commande sera automatiquement validée dans 12h.</p>
             </div>
           </div>
         )}
 
-        <p className="text-sm mt-4 text-gray-500">
-          Dernière mise à jour : {formatDateTime(order.updated_at)}
-        </p>
-
-        {/* ✅ Info validation automatique */}
-        {order.status === 'livree' && (
-          <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
-            <p className="text-sm text-blue-700 flex items-center gap-2">
-              <Clock size={18} />
-              <span>Cette commande sera automatiquement validée dans 12h.</span>
-            </p>
-          </div>
-        )}
-
-        {/* ✅ Info commande ponctuelle payée */}
-        {order.order_type === 'ponctual' && order.is_paid && (
-          <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200">
-            <p className="text-sm text-green-700 flex items-center gap-2">
-              <CheckCircle size={18} />
-              <span>Commande ponctuelle - Paiement effectué</span>
-            </p>
+        {isPonctual && order.is_paid && (
+          <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
+            <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-green-700">Paiement effectué</p>
+              <p className="text-xs text-green-600">Commande ponctuelle - Paiement confirmé.</p>
+            </div>
           </div>
         )}
       </div>
 
       {/* MODAL PREUVE LIVRAISON */}
       {showProofModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md p-5 shadow-2xl">
-            <h2 className="text-xl font-black mb-1" style={{ color: colors.text }}>
-              Confirmer la livraison
-            </h2>
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowProofModal(false);
+          }}
+        >
+          <div 
+            className="bg-white rounded-[2rem] w-full max-w-md p-5 shadow-2xl my-8"
+            ref={modalRef}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-black" style={{ color: colors.text }}>
+                Confirmer la livraison
+              </h2>
+              <button
+                onClick={() => setShowProofModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition"
+              >
+                <XCircle size={20} style={{ color: colors.text }} />
+              </button>
+            </div>
 
             <p className="text-sm mb-4 text-gray-500">
               Ajoutez une photo comme preuve de livraison.
@@ -548,7 +727,7 @@ const OrderDetailPage = () => {
                       setProofFile(null);
                       setProofPreview(null);
                     }}
-                    className="absolute top-3 right-3 w-10 h-10 rounded-2xl bg-red-500 text-white flex items-center justify-center"
+                    className="absolute top-3 right-3 w-10 h-10 rounded-2xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition"
                   >
                     <XCircle size={20} />
                   </button>
@@ -556,7 +735,9 @@ const OrderDetailPage = () => {
               ) : (
                 <>
                   <div className="text-center">
-                    <Camera size={42} className="mx-auto mb-3" style={{ color: colors.primary }} />
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '10' }}>
+                      <Camera size={32} style={{ color: colors.primary }} />
+                    </div>
                     <p className="font-semibold" style={{ color: colors.text }}>
                       Sélectionner une photo
                     </p>
@@ -577,7 +758,7 @@ const OrderDetailPage = () => {
             <div className="grid grid-cols-2 gap-3 mt-5">
               <button
                 onClick={() => setShowProofModal(false)}
-                className="py-3 rounded-2xl font-semibold border hover:bg-gray-50"
+                className="py-3 rounded-2xl font-semibold border hover:bg-gray-50 transition"
                 style={{
                   borderColor: colors.border || '#e5e0d8',
                   color: colors.text,
@@ -589,10 +770,11 @@ const OrderDetailPage = () => {
               <button
                 onClick={handleProofUpload}
                 disabled={!proofFile || isUpdating}
-                className="py-3 rounded-2xl text-white font-bold disabled:opacity-50"
+                className="py-3 rounded-2xl text-white font-bold transition hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: colors.primary }}
               >
-                {isUpdating ? '...' : 'Confirmer'}
+                {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                {isUpdating ? 'Envoi...' : 'Confirmer'}
               </button>
             </div>
           </div>
@@ -601,109 +783,5 @@ const OrderDetailPage = () => {
     </div>
   );
 };
-
-// =============================================
-// SOUS-COMPOSANTS
-// =============================================
-
-interface ActionButtonProps {
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  disabled?: boolean;
-  onClick: () => void;
-}
-
-const ActionButton = ({ label, icon, color, disabled, onClick }: ActionButtonProps) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold disabled:opacity-50"
-      style={{ background: color }}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-};
-
-interface MiniCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: string;
-}
-
-const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
-  return (
-    <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border border-black/5 min-w-0">
-      <div
-        className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3"
-        style={{ background: color + '14', color }}
-      >
-        {icon}
-      </div>
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="font-black text-sm mt-1 break-words" style={{ color }}>
-        {value}
-      </p>
-    </div>
-  );
-};
-
-interface PersonBoxProps {
-  icon: React.ReactNode;
-  title: string;
-  name: string;
-  detail: string;
-}
-
-const PersonBox = ({ icon, title, name, detail }: PersonBoxProps) => {
-  return (
-    <div className="rounded-2xl bg-gray-50 p-4 border border-black/5">
-      <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
-        {icon}
-        {title}
-      </div>
-      <p className="font-bold text-gray-900 break-words">{name}</p>
-      <p className="text-sm text-gray-500 mt-1 break-words">{detail}</p>
-    </div>
-  );
-};
-
-interface DocButtonProps {
-  icon: React.ReactNode;
-  title: string;
-  color: string;
-  onClick: () => void;
-}
-
-const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
-  return (
-    <button
-      onClick={onClick}
-      className="rounded-2xl bg-gray-50 p-4 border border-black/5 text-left hover:bg-gray-100 transition"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3"
-            style={{ background: color + '14', color }}
-          >
-            {icon}
-          </div>
-          <p className="font-bold text-gray-900">{title}</p>
-        </div>
-        <Eye size={20} style={{ color }} />
-      </div>
-    </button>
-  );
-};
-
-function getStatusIndex(status: string): number {
-  const order = ['creee', 'en_cours', 'livree', 'validee'];
-  return order.indexOf(status);
-}
 
 export default OrderDetailPage;
