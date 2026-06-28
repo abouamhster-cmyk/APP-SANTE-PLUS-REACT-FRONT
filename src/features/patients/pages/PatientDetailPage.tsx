@@ -8,6 +8,7 @@ import {
   Edit2,
   Trash2,
   Calendar,
+  Eye,
   MapPin,
   Phone,
   User,
