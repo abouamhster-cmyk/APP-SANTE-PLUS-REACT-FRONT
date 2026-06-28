@@ -15,6 +15,11 @@ import {
   Activity,
   UserPlus,
   Award,
+  AlertCircle,
+  Package,
+  Truck,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -42,6 +47,13 @@ const AdminDashboardPage = () => {
     totalRevenue: 0,
     monthlyRevenue: 0,
     growth: 0,
+    // ✅ NOUVEAUX STATS
+    visitsWaitingApproval: 0,
+    visitsExpired: 0,
+    ordersWaiting: 0,
+    ordersAvailable: 0,
+    visitsPendingPayment: 0,
+    ordersPendingPayment: 0,
   });
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -73,17 +85,31 @@ const AdminDashboardPage = () => {
       const [
         { count: visitsToday },
         { count: visitsInProgress },
+        // ✅ NOUVEAUX STATS VISITES
+        { count: visitsWaitingApproval },
+        { count: visitsExpired },
+        { count: visitsPendingPayment },
       ] = await Promise.all([
         supabase.from('visites').select('*', { count: 'exact', head: true }).eq('scheduled_date', today),
         supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'en_cours'),
+        supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'planifiee').is('approved_at', null).is('refused_at', null),
+        supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'expire'),
+        supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'attente_paiement'),
       ]);
 
       const [
         { count: totalOrders },
         { count: pendingOrders },
+        // ✅ NOUVEAUX STATS COMMANDES
+        { count: ordersWaiting },
+        { count: ordersAvailable },
+        { count: ordersPendingPayment },
       ] = await Promise.all([
         supabase.from('commandes').select('*', { count: 'exact', head: true }),
         supabase.from('commandes').select('*', { count: 'exact', head: true }).in('status', ['creee', 'en_attente']),
+        supabase.from('commandes').select('*', { count: 'exact', head: true }).eq('status', 'en_attente'),
+        supabase.from('commandes').select('*', { count: 'exact', head: true }).eq('status', 'disponible'),
+        supabase.from('commandes').select('*', { count: 'exact', head: true }).eq('status', 'attente_paiement'),
       ]);
 
       const { data: payments } = await supabase
@@ -128,6 +154,12 @@ const AdminDashboardPage = () => {
         totalRevenue,
         monthlyRevenue,
         growth,
+        visitsWaitingApproval: visitsWaitingApproval || 0,
+        visitsExpired: visitsExpired || 0,
+        ordersWaiting: ordersWaiting || 0,
+        ordersAvailable: ordersAvailable || 0,
+        visitsPendingPayment: visitsPendingPayment || 0,
+        ordersPendingPayment: ordersPendingPayment || 0,
       });
     } catch (error) {
       console.error('Fetch dashboard error:', error);
@@ -153,6 +185,8 @@ const AdminDashboardPage = () => {
       </div>
     );
   }
+
+  const hasAlerts = stats.visitsExpired > 0 || stats.ordersAvailable > 0 || stats.visitsWaitingApproval > 0;
 
   const statCards = [
     {
@@ -201,7 +235,7 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16 sm:pb-8">
-      {/* HEADER DE STYLE BANNIÈRE DOUCE */}
+      {/* HEADER AVEC ALERTE */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{
@@ -240,9 +274,45 @@ const AdminDashboardPage = () => {
             <span className="hidden sm:inline">Actualiser</span>
           </button>
         </div>
+
+        {/* ✅ BANDEAU D'ALERTES */}
+        {hasAlerts && (
+          <div className="relative z-10 mt-4 flex flex-wrap gap-2">
+            {stats.visitsExpired > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                <AlertCircle size={14} />
+                {stats.visitsExpired} visite(s) expirée(s)
+              </div>
+            )}
+            {stats.ordersAvailable > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                <AlertCircle size={14} />
+                {stats.ordersAvailable} commande(s) urgente(s)
+              </div>
+            )}
+            {stats.visitsWaitingApproval > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
+                <Clock size={14} />
+                {stats.visitsWaitingApproval} visite(s) en attente
+              </div>
+            )}
+            {stats.visitsPendingPayment > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                <CreditCard size={14} />
+                {stats.visitsPendingPayment} visite(s) en attente de paiement
+              </div>
+            )}
+            {stats.ordersPendingPayment > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
+                <CreditCard size={14} />
+                {stats.ordersPendingPayment} commande(s) en attente de paiement
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
-      {/* STATS COMPACTES ÉPURÉES */}
+      {/* STATS COMPACTES */}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {statCards.map((card, index) => (
           <CompactStat
@@ -254,6 +324,42 @@ const AdminDashboardPage = () => {
             color={card.color}
           />
         ))}
+      </section>
+
+      {/* ALERTES DÉTAILLÉES */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <AlertCard
+          label="Visites en attente"
+          value={stats.visitsWaitingApproval}
+          icon={<Clock size={16} />}
+          color="#FF9800"
+          onClick={() => navigate('/app/visits')}
+          badge="24-48h"
+        />
+        <AlertCard
+          label="Visites expirées"
+          value={stats.visitsExpired}
+          icon={<AlertCircle size={16} />}
+          color="#F44336"
+          onClick={() => navigate('/app/admin/visits/validation')}
+          badge="À réassigner"
+        />
+        <AlertCard
+          label="Commandes en attente"
+          value={stats.ordersWaiting}
+          icon={<Clock size={16} />}
+          color="#FF9800"
+          onClick={() => navigate('/app/orders')}
+          badge="30min"
+        />
+        <AlertCard
+          label="Commandes urgentes"
+          value={stats.ordersAvailable}
+          icon={<AlertCircle size={16} />}
+          color="#F44336"
+          onClick={() => navigate('/app/orders')}
+          badge="Disponibles"
+        />
       </section>
 
       {/* CROISSANCE ET ACTIVITÉ RAPIDE */}
@@ -284,7 +390,7 @@ const AdminDashboardPage = () => {
           </div>
         </div>
 
-        {/* ACTIVITÉ RAPIDE EN GRID PILL */}
+        {/* ACTIVITÉ RAPIDE */}
         <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)]">
           <div className="flex items-center gap-2 mb-4">
             <Activity size={16} style={{ color: colors.primary }} />
@@ -300,8 +406,8 @@ const AdminDashboardPage = () => {
               icon={<Calendar size={16} />}
             />
             <QuickStat
-              label="Tâches en attente"
-              value={stats.pendingOrders + stats.pendingRegistrations}
+              label="En attente"
+              value={stats.visitsWaitingApproval + stats.ordersWaiting}
               color="#f59e0b"
               icon={<Clock size={16} />}
             />
@@ -312,13 +418,31 @@ const AdminDashboardPage = () => {
               icon={<Award size={16} />}
             />
             <QuickStat
-              label="Membres actifs"
-              value={stats.activeUsers}
-              color="#8b5cf6"
-              icon={<UserCheck size={16} />}
+              label="Alertes"
+              value={stats.visitsExpired + stats.ordersAvailable}
+              color="#ef4444"
+              icon={<AlertCircle size={16} />}
             />
           </div>
         </div>
+      </section>
+
+      {/* ACTIVITÉ RÉCENTE - VISITES ET COMMANDES */}
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RecentActivityCard
+          title="Visites récentes"
+          type="visits"
+          count={stats.visitsToday}
+          color={colors.primary}
+          onClick={() => navigate('/app/visits')}
+        />
+        <RecentActivityCard
+          title="Commandes récentes"
+          type="orders"
+          count={stats.totalOrders}
+          color={colors.primary}
+          onClick={() => navigate('/app/orders')}
+        />
       </section>
     </div>
   );
@@ -361,7 +485,54 @@ const CompactStat = ({ label, value, sub, icon, color }: CompactStatProps) => {
 };
 
 // =============================================
-// QUICK STAT COMPONENT
+// ALERT CARD
+// =============================================
+
+interface AlertCardProps {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  color: string;
+  onClick: () => void;
+  badge?: string;
+}
+
+const AlertCard = ({ label, value, icon, color, onClick, badge }: AlertCardProps) => {
+  const isUrgent = value > 0;
+  
+  return (
+    <button
+      onClick={onClick}
+      className={`bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border-l-4 transition hover:shadow-md text-left w-full ${
+        isUrgent ? 'hover:scale-[1.01]' : ''
+      }`}
+      style={{ borderLeftColor: isUrgent ? color : '#e5e7eb' }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+            {icon}
+            {label}
+          </p>
+          <p className={`text-xl font-extrabold ${isUrgent ? 'animate-pulse' : ''}`} style={{ color: isUrgent ? color : '#9ca3af' }}>
+            {value}
+          </p>
+        </div>
+        {badge && isUrgent && (
+          <span
+            className="px-2 py-1 rounded-full text-[8px] font-bold text-white"
+            style={{ background: color }}
+          >
+            {badge}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+};
+
+// =============================================
+// QUICK STAT
 // =============================================
 
 interface QuickStatProps {
@@ -382,6 +553,66 @@ const QuickStat = ({ label, value, color, icon }: QuickStatProps) => {
         <p className="text-[9px] text-gray-400 font-medium truncate">{label}</p>
       </div>
     </div>
+  );
+};
+
+// =============================================
+// RECENT ACTIVITY CARD
+// =============================================
+
+interface RecentActivityCardProps {
+  title: string;
+  type: 'visits' | 'orders';
+  count: number;
+  color: string;
+  onClick: () => void;
+}
+
+const RecentActivityCard = ({ title, type, count, color, onClick }: RecentActivityCardProps) => {
+  const getIcon = () => {
+    if (type === 'visits') return <Calendar size={18} />;
+    return <ShoppingBag size={18} />;
+  };
+
+  const getStatuses = () => {
+    if (type === 'visits') {
+      return [
+        { label: 'Planifiées', icon: <Calendar size={12} />, color: '#4CAF50' },
+        { label: 'En cours', icon: <Clock size={12} />, color: '#FF9800' },
+        { label: 'Terminées', icon: <CheckCircle size={12} />, color: '#2196F3' },
+      ];
+    }
+    return [
+      { label: 'Créées', icon: <Package size={12} />, color: '#9E9E9E' },
+      { label: 'En cours', icon: <Clock size={12} />, color: '#FF9800' },
+      { label: 'Livrées', icon: <Truck size={12} />, color: '#2196F3' },
+    ];
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)] text-left w-full hover:shadow-md transition"
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '14', color }}>
+          {getIcon()}
+        </div>
+        <h2 className="font-bold text-xs tracking-wider uppercase text-gray-400">{title}</h2>
+        <span className="ml-auto text-xs font-bold text-gray-400">{count} total</span>
+      </div>
+      <div className="flex justify-between">
+        {getStatuses().map((status, index) => (
+          <div key={index} className="text-center">
+            <p className="text-sm font-extrabold" style={{ color: status.color }}>{0}</p>
+            <p className="text-[8px] text-gray-400 flex items-center gap-0.5 justify-center">
+              {status.icon}
+              {status.label}
+            </p>
+          </div>
+        ))}
+      </div>
+    </button>
   );
 };
 
