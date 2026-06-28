@@ -4,7 +4,7 @@ export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
 export type ProcheCategory = 'senior' | 'maman_bebe';
 export type PatientCategory = 'senior' | 'maman_bebe';
 
-// ✅ VISITE STATUS - COMPLET (tous les statuts utilisés)
+// ✅ VISITE STATUS - TOUS LES STATUTS UTILISÉS EN PRODUCTION
 export type VisitStatus = 
   | 'planifiee' 
   | 'en_attente' 
@@ -16,19 +16,19 @@ export type VisitStatus =
   | 'replanifiee' 
   | 'no_show'
   | 'refusee'
-  | 'expire'           
-  | 'attente_paiement'; 
+  | 'expire'          
+  | 'attente_paiement';
 
-// ✅ ORDER STATUS - COMPLET (tous les statuts utilisés)
+// ✅ ORDER STATUS - TOUS LES STATUTS UTILISÉS EN PRODUCTION
 export type OrderStatus = 
   | 'creee'        
   | 'en_attente'    
-  | 'disponible'     
+  | 'disponible'    
   | 'en_cours'     
   | 'livree'       
   | 'validee'      
   | 'annulee'
-  | 'attente_paiement'; 
+  | 'attente_paiement';
 
 export type PaymentStatus = 'en_attente' | 'valide' | 'echoue' | 'rembourse' | 'annule' | 'en_attente_de_confirmation';
 export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
@@ -221,7 +221,6 @@ export interface Visit {
   reminded_at?: string | null;
   reminder_count?: number;
   notified_at?: string | null;
-  // ✅ Propriétés pour les visites ponctuelles
   is_ponctual?: boolean;
 }
 
@@ -274,7 +273,6 @@ export interface Order {
   is_paid?: boolean;
   created_at: string;
   updated_at: string;
-  // ✅ Propriétés pour les commandes ponctuelles
   is_ponctual?: boolean;
 }
 
