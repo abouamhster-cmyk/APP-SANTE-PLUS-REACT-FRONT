@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
- 
+
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -27,6 +27,9 @@ import {
   Handshake,
   FileCheck,
   Package,
+  Home,
+  Shield,
+  UserCog,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -59,7 +62,7 @@ const MainLayout = () => {
   const colors = getThemeColors(themeName);
   const logoConfig = getLogoByRole(role, profile?.patient_category);
 
-  const isFamilyWithoutPatient = role === 'family' && !profile?.patient_category;
+  // ✅ SUPPRIMÉ : isFamilyWithoutPatient (plus utilisé dans le header)
 
   // =============================================
   // DÉTECTION MOBILE
@@ -191,7 +194,6 @@ const MainLayout = () => {
       '/app/admin/visits/validation': 'Validation visites',
     };
 
-    // Vérifier les chemins avec paramètres (ex: /app/patients/123)
     for (const [key, value] of Object.entries(titles)) {
       if (path.startsWith(key)) return value;
     }
@@ -297,18 +299,22 @@ const MainLayout = () => {
               </h2>
 
               <div className="flex items-center gap-2">
-                {/* Badge rôle */}
+                {/* Badge rôle - sans émoji */}
                 <span
-                  className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
                   style={{
                     background: colors.primary + '15',
                     color: colors.primary,
                   }}
                 >
-                  {role === 'aidant' ? '🦸 Aidant' :
-                   role === 'family' ? '👨‍👩‍👦 Famille' :
-                   role === 'coordinator' ? '👔 Coord' :
-                   role === 'admin' ? '👑 Admin' : ''}
+                  {role === 'aidant' && <Briefcase size={12} />}
+                  {role === 'family' && <Users size={12} />}
+                  {role === 'coordinator' && <UserCog size={12} />}
+                  {role === 'admin' && <Shield size={12} />}
+                  {role === 'aidant' ? ' Aidant' :
+                   role === 'family' ? ' Famille' :
+                   role === 'coordinator' ? ' Coord' :
+                   role === 'admin' ? ' Admin' : ''}
                 </span>
 
                 <Link
@@ -327,6 +333,8 @@ const MainLayout = () => {
                 </Link>
               </div>
             </div>
+
+            {/* ✅ SECTION SUPPRIMÉE - Message "Pas de proche" (doublon) */}
           </div>
         </header>
 
@@ -372,12 +380,13 @@ const SidebarContent = ({
   onLogout,
   showClose,
 }: SidebarContentProps) => {
-  const getRoleEmoji = () => {
-    if (role === 'aidant') return '🦸';
-    if (role === 'family') return '👨‍👩‍👦';
-    if (role === 'coordinator') return '👔';
-    if (role === 'admin') return '👑';
-    return '👤';
+  // ✅ Remplacé les émojis par des icônes
+  const getRoleIcon = () => {
+    if (role === 'aidant') return <Briefcase size={14} />;
+    if (role === 'family') return <Users size={14} />;
+    if (role === 'coordinator') return <UserCog size={14} />;
+    if (role === 'admin') return <Shield size={14} />;
+    return <User size={14} />;
   };
 
   const getRoleLabel = () => {
@@ -455,8 +464,8 @@ const SidebarContent = ({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{profile?.full_name || 'Utilisateur'}</p>
-            <p className="text-xs flex items-center gap-1" style={{ color: colors.primary }}>
-              <span>{getRoleEmoji()}</span>
+            <p className="text-xs flex items-center gap-1.5" style={{ color: colors.primary }}>
+              <span className="shrink-0">{getRoleIcon()}</span>
               <span>{getRoleLabel()}</span>
             </p>
           </div>
