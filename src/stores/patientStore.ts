@@ -32,6 +32,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     return profile?.role === 'admin' || profile?.role === 'coordinator' || profile?.role === 'family';
   },
 
+  // ✅ FETCH PATIENTS - CORRIGÉ
   fetchPatients: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -42,17 +43,68 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         return;
       }
 
-      let patientIds: string[] = [];
+      console.log('🔍 fetchPatients - Rôle:', profile?.role);
+      console.log('🔍 fetchPatients - User ID:', user.id);
 
+      // 👔 ADMIN / COORDINATEUR → Tous les patients (PAS DE FILTRE)
+      if (profile?.role === 'admin' || profile?.role === 'coordinator') {
+        console.log('👔 Admin/Coord - Récupération de tous les patients');
+        const { data, error } = await supabase
+          .from('patients')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('❌ Erreur récupération patients:', error);
+          throw error;
+        }
+        
+        console.log(`✅ ${data?.length || 0} patients récupérés pour admin`);
+        set({ patients: data || [], isLoading: false });
+        return;
+      }
+
+      // 👨‍👩‍👦 FAMILLE → Ses patients via patient_family_links
       if (profile?.role === 'family') {
-        const { data: links } = await supabase
+        console.log('👨‍👩‍👦 Famille - Récupération des patients liés');
+        const { data: links, error: linksError } = await supabase
           .from('patient_family_links')
           .select('patient_id')
           .eq('family_id', user.id);
 
-        patientIds = links?.map(l => l.patient_id) || [];
-      } else if (profile?.role === 'aidant') {
-        console.log('🔍 Récupération patients pour aidant:', user.id);
+        if (linksError) {
+          console.error('❌ Erreur récupération liens famille:', linksError);
+          set({ patients: [], isLoading: false });
+          return;
+        }
+
+        const patientIds = links?.map(l => l.patient_id) || [];
+        console.log(`📋 ${patientIds.length} patients liés à la famille`);
+
+        if (patientIds.length === 0) {
+          set({ patients: [], isLoading: false });
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('patients')
+          .select('*')
+          .in('id', patientIds)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('❌ Erreur récupération patients:', error);
+          throw error;
+        }
+
+        console.log(`✅ ${data?.length || 0} patients récupérés pour la famille`);
+        set({ patients: data || [], isLoading: false });
+        return;
+      }
+
+      // 🦸 AIDANT → Patients assignés via patient_aidant_assignments
+      if (profile?.role === 'aidant') {
+        console.log('🦸 Aidant - Récupération des patients assignés');
         
         const { data: aidant, error: aidantError } = await supabase
           .from('aidants')
@@ -76,59 +128,57 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
         if (assignError) {
           console.error('❌ Erreur récupération assignations:', assignError);
+          set({ patients: [], isLoading: false });
+          return;
         }
 
         console.log('📋 Assignations trouvées:', assignments?.length || 0);
 
-        if (assignments && assignments.length > 0) {
-          patientIds = assignments.map(a => a.patient_id).filter(Boolean);
+        if (!assignments || assignments.length === 0) {
+          console.log('ℹ️ Aucune assignation trouvée pour cet aidant');
+          set({ patients: [], isLoading: false });
+          return;
         }
 
-        if (patientIds.length === 0) {
-          console.log('🔍 Aucune assignation, recherche via visites...');
-          const { data: visits } = await supabase
-            .from('visites')
-            .select('patient_id')
-            .eq('aidant_id', aidant.id)
-            .not('patient_id', 'is', null);
+        const patientIds = assignments.map(a => a.patient_id).filter(Boolean);
+        console.log('📋 Patient IDs:', patientIds);
 
-          if (visits) {
-            patientIds = [...new Set(visits.map(v => v.patient_id).filter(Boolean))];
-          }
-        }
-      } else if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         const { data, error } = await supabase
           .from('patients')
           .select('*')
+          .in('id', patientIds)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Erreur récupération patients:', error);
+          throw error;
+        }
+
+        console.log(`✅ ${data?.length || 0} patients récupérés pour l'aidant`);
         set({ patients: data || [], isLoading: false });
         return;
       }
 
-      if (patientIds.length === 0) {
-        set({ patients: [], isLoading: false });
-        return;
-      }
-
+      // Fallback
+      console.log('⚠️ Rôle non reconnu, récupération de tous les patients');
       const { data, error } = await supabase
         .from('patients')
         .select('*')
-        .in('id', patientIds)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      
-      console.log(`✅ ${data?.length || 0} patients récupérés pour l'aidant`);
+      if (error) {
+        console.error('❌ Erreur récupération patients:', error);
+        throw error;
+      }
+
       set({ patients: data || [], isLoading: false });
     } catch (error: any) {
-      console.error('❌ Erreur récupération des proches:', error);
+      console.error('❌ Erreur récupération des patients:', error);
       set({ error: error.message, isLoading: false });
     }
   },
 
-  // ✅ syncAidantPatients - RETOURNE Promise<void>
+  // ✅ SYNC AIDANT PATIENTS
   syncAidantPatients: async () => {
     try {
       const { user, profile } = useAuthStore.getState();
@@ -190,7 +240,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       console.log(`✅ ${patients?.length || 0} patients synchronisés`);
       set({ patients: patients || [], isLoading: false });
       
-      // ✅ NE PAS retourner de valeur
       return;
     } catch (error) {
       console.error('❌ Sync aidant patients error:', error);
@@ -199,6 +248,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
+  // ✅ FETCH PATIENT BY ID
   fetchPatientById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -278,6 +328,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
+  // ✅ CREATE PATIENT
   createPatient: async (data: Partial<Patient>) => {
     try {
       set({ isLoading: true, error: null });
@@ -329,6 +380,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
+  // ✅ UPDATE PATIENT
   updatePatient: async (id: string, data: Partial<Patient>) => {
     try {
       set({ isLoading: true, error: null });
@@ -379,6 +431,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
+  // ✅ DELETE PATIENT
   deletePatient: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
