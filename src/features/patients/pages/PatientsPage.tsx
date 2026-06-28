@@ -151,7 +151,7 @@ const PatientsPage = () => {
     );
   };
 
-  // ✅ SYNCHRONISATION MANUELLE AVEC LOGS
+  // ✅ SYNCHRONISATION MANUELLE
   const handleSync = async () => {
     setIsSyncing(true);
     console.log('🔄 Synchronisation manuelle - Début');
@@ -160,7 +160,6 @@ const PatientsPage = () => {
       console.log('🔍 User ID:', user?.id);
       console.log('🔍 Rôle:', role);
       
-      // Récupérer l'aidant
       const { data: aidant, error: aidantError } = await supabase
         .from('aidants')
         .select('id, user_id, is_verified, status')
@@ -171,7 +170,6 @@ const PatientsPage = () => {
       console.log('🔍 Aidant Error:', aidantError);
       
       if (aidant) {
-        // Récupérer les assignations
         const { data: assignments, error: assignError } = await supabase
           .from('patient_aidant_assignments')
           .select('patient_id, is_active')
@@ -193,15 +191,15 @@ const PatientsPage = () => {
           console.log('🔍 Patients trouvés:', patients);
           console.log('🔍 Patients Error:', patientsError);
           
-          if (patients) {
-            // Mettre à jour le store
+          if (patients && patients.length > 0) {
             usePatientStore.setState({ patients: patients });
             toast.success(`✅ ${patients.length} patient(s) synchronisé(s)`);
           } else {
-            toast.info('Aucun patient trouvé pour ces assignations');
+            toast('Aucun patient trouvé pour ces assignations', { icon: 'ℹ️' });
+            usePatientStore.setState({ patients: [] });
           }
         } else {
-          toast.info('Aucune assignation trouvée pour cet aidant');
+          toast('Aucune assignation trouvée pour cet aidant', { icon: 'ℹ️' });
           usePatientStore.setState({ patients: [] });
         }
       } else {
@@ -382,14 +380,19 @@ const PatientsPage = () => {
                       .in('id', patientIds);
                     console.log('🔍 Patients trouvés:', patients);
                     
-                    if (patients) {
+                    if (patients && patients.length > 0) {
                       usePatientStore.setState({ patients: patients });
                       toast.success(`✅ ${patients.length} patient(s) synchronisé(s)`);
+                    } else {
+                      toast('Aucun patient trouvé', { icon: 'ℹ️' });
                     }
+                  } else {
+                    toast('Aucune assignation trouvée', { icon: 'ℹ️' });
                   }
                 }
               } catch (e) {
                 console.error('Force sync error:', e);
+                toast.error('Erreur lors du debug');
               }
             }}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition hover:opacity-90"
