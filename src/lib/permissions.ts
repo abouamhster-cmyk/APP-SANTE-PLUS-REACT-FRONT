@@ -349,7 +349,6 @@ export const getThemeColors = (theme: ThemeType | string) => {
 
 export const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    // Visites
     planifiee: '#4CAF50',
     en_attente: '#FF9800',
     acceptee: '#2196F3',
@@ -362,20 +361,16 @@ export const getStatusColor = (status: string): string => {
     replanifiee: '#FF5722',
     no_show: '#795548',
     attente_paiement: '#8b5cf6',
-    // Commandes
     creee: '#9E9E9E',
     disponible: '#F44336',
     livree: '#2196F3',
-    // Paiements
     valide: '#4CAF50',
     echoue: '#F44336',
     rembourse: '#9E9E9E',
     en_attente_de_confirmation: '#FF9800',
-    // Abonnements
     actif: '#4CAF50',
     suspendu: '#FF9800',
     en_cours_de_renouvellement: '#2196F3',
-    // Inscriptions
     info_requise: '#2196F3',
     en_cours_de_traitement: '#9C27B0',
   };
@@ -384,7 +379,6 @@ export const getStatusColor = (status: string): string => {
 
 export const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
-    // Visites
     planifiee: 'Planifiée',
     en_attente: 'En attente',
     acceptee: 'Acceptée',
@@ -397,21 +391,16 @@ export const getStatusLabel = (status: string): string => {
     replanifiee: 'Replanifiée',
     no_show: 'Absent',
     attente_paiement: 'En attente paiement',
-    // Commandes
     creee: 'Créée',
     disponible: 'Disponible',
     livree: 'Livrée',
-    // Paiements
     valide: 'Validé',
     echoue: 'Échoué',
     rembourse: 'Remboursé',
     en_attente_de_confirmation: 'En attente de confirmation',
-    // Abonnements
     actif: 'Actif',
-    expire: 'Expiré',
     suspendu: 'Suspendu',
     en_cours_de_renouvellement: 'En cours de renouvellement',
-    // Inscriptions
     info_requise: 'Info requise',
     en_cours_de_traitement: 'En cours de traitement',
   };
