@@ -77,7 +77,6 @@ const PatientDetailPage = () => {
     confirmPayment,
   } = useVisitStore();
 
-  // ✅ Subscription Guard avec logs
   const { 
     hasActiveSubscription, 
     remainingVisits, 
@@ -103,16 +102,6 @@ const PatientDetailPage = () => {
   const isFamilyRole = role === 'family';
   const isAdminRole = isAdminOrCoordinator;
 
-  // ✅ LOGS POUR DÉBOGUER
-  console.log('🔍 PatientDetail - Subscription Guard:', {
-    hasActiveSubscription,
-    remainingVisits,
-    isExpired,
-    hasNeverSubscribed,
-    subLoading,
-    patientId: currentPatient?.id,
-  });
-
   const canManage = canManagePatients();
 
   useEffect(() => {
@@ -131,37 +120,26 @@ const PatientDetailPage = () => {
 
   // ✅ VÉRIFIER SI L'AIDANT PEUT DÉMARRER UNE VISITE
   const canStartVisit = () => {
-    // ✅ Vérifier que c'est un aidant
     if (!isAidantRole) return false;
-    
-    // ✅ Vérifier qu'il y a un patient
     if (!currentPatient) return false;
-    
-    // ✅ Vérifier qu'il y a un abonnement actif
     if (!hasActiveSubscription) {
       console.log('⚠️ Pas d\'abonnement actif pour ce patient');
       return false;
     }
-    
-    // ✅ Vérifier qu'il reste des visites
     if (remainingVisits <= 0) {
       console.log('⚠️ Plus de visites disponibles');
       return false;
     }
-    
-    // ✅ Vérifier qu'aucune visite n'est en cours
     const hasActiveVisit = patientVisits.some((v) => v.status === 'en_cours');
     if (hasActiveVisit) {
       console.log('⚠️ Une visite est déjà en cours pour ce patient');
       return false;
     }
-
-    // ✅ Vérifier que le statut du patient est actif
-    if (currentPatient.status !== 'active') {
+    // ✅ CORRECTION : utilisation de l'optional chaining
+    if (currentPatient?.status !== 'active') {
       console.log('⚠️ Le patient n\'est pas actif');
       return false;
     }
-
     console.log('✅ L\'aidant peut démarrer une visite');
     return true;
   };
@@ -183,7 +161,6 @@ const PatientDetailPage = () => {
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toTimeString().slice(0, 5);
 
-      // ✅ Créer une visite
       const visit = await createVisit({
         patient_id: currentPatient.id,
         scheduled_date: today,
@@ -194,7 +171,6 @@ const PatientDetailPage = () => {
         actions: [],
       });
 
-      // ✅ Démarrer la visite
       await startVisit(visit.id);
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
@@ -209,16 +185,101 @@ const PatientDetailPage = () => {
     }
   };
 
-  // ... (le reste des fonctions handleApprove, handleRefuse, handleComplete, etc. restent inchangés)
+  const handleApprove = async (visitId: string) => {
+    try {
+      await approveVisit(visitId);
+      toast.success('Visite approuvée');
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'approbation');
+    }
+  };
 
-  // ✅ AFFICHAGE DU BOUTON DÉMARRER
+  const handleRefuse = async (visitId: string) => {
+    const reason = prompt('Motif du refus :');
+    if (!reason) return;
+    try {
+      await refuseVisit(visitId, reason);
+      toast.error('Visite refusée');
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du refus');
+    }
+  };
+
+  const handleComplete = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
+    if (!activeVisitId) return;
+    setIsCompleting(true);
+    try {
+      await completeVisit(activeVisitId, data);
+      toast.success('Visite terminée');
+      setShowCompleteModal(false);
+      setActiveVisitId(null);
+      fetchVisits();
+      fetchPatientById(id!);
+    } catch (error: any) {
+      console.error('❌ Erreur finalisation:', error);
+      toast.error(error?.message || 'Erreur lors de la finalisation');
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const handleCancel = async (visitId: string) => {
+    if (!window.confirm('Annuler cette visite ?')) return;
+    try {
+      await cancelVisit(visitId);
+      toast.success('Visite annulée');
+      fetchVisits();
+      fetchPatientById(id!);
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'annulation');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!canManage) {
+      toast.error('Vous n\'avez pas les droits pour supprimer un patient');
+      return;
+    }
+    if (window.confirm(confirmDelete)) {
+      try {
+        await deletePatient(id!);
+        toast.success(deleted);
+        navigate('/app/patients');
+      } catch (error: any) {
+        toast.error(error.message || 'Erreur lors de la suppression');
+      }
+    }
+  };
+
+  const handleEdit = () => {
+    if (!canManage) {
+      toast.error('Vous n\'avez pas les droits pour modifier un patient');
+      return;
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleModalSuccess = () => {
+    setIsModalOpen(false);
+    fetchPatientById(id!);
+    toast.success(updated);
+  };
+
+  const handleVisitModalSuccess = () => {
+    setShowVisitModal(false);
+    fetchVisits();
+    fetchPatientById(id!);
+    toast.success('Visite planifiée');
+  };
+
   const renderStartButton = () => {
     if (!isAidantRole) return null;
 
     const canStart = canStartVisit();
     const isDisabled = !canStart || isStarting;
 
-    // ✅ Messages d'information selon la raison du blocage
     let tooltip = '';
     if (!hasActiveSubscription) tooltip = 'Aucun abonnement actif';
     else if (remainingVisits <= 0) tooltip = 'Plus de visites disponibles';
@@ -243,7 +304,6 @@ const PatientDetailPage = () => {
     );
   };
 
-  // ✅ AFFICHAGE DE L'ÉTAT DE L'ABONNEMENT
   const renderSubscriptionStatus = () => {
     if (!isAidantRole) return null;
 
@@ -291,8 +351,6 @@ const PatientDetailPage = () => {
     );
   };
 
-  // ... (le reste du composant reste inchangé jusqu'au render)
-
   if (isLoading || !currentPatient) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -311,9 +369,7 @@ const PatientDetailPage = () => {
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
-      {/* ============================================================
-      EN-TÊTE
-      ============================================================ */}
+      {/* EN-TÊTE */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button
@@ -337,7 +393,7 @@ const PatientDetailPage = () => {
         {canManage && (
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleEdit}
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
               style={{ background: colors.primary + '15', color: colors.primary }}
             >
@@ -345,12 +401,7 @@ const PatientDetailPage = () => {
               <span>{edit}</span>
             </button>
             <button
-              onClick={() => {
-                if (window.confirm(confirmDelete)) {
-                  deletePatient(id!);
-                  navigate('/app/patients');
-                }
-              }}
+              onClick={handleDelete}
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
               style={{ background: '#F44336' + '15' }}
             >
@@ -361,9 +412,7 @@ const PatientDetailPage = () => {
         )}
       </div>
 
-      {/* ============================================================
-      STATS
-      ============================================================ */}
+      {/* STATS */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Âge" value={person.age || 'N/A'} color={colors.text} />
         <StatCard
@@ -384,9 +433,7 @@ const PatientDetailPage = () => {
         />
       </div>
 
-      {/* ============================================================
-      ACTIONS RAPIDES
-      ============================================================ */}
+      {/* ACTIONS RAPIDES */}
       {(isAidantRole || isFamilyRole || isAdminRole) && (
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -406,11 +453,9 @@ const PatientDetailPage = () => {
                 {isFamilyRole && 'Planifiez une visite pour votre proche'}
                 {isAdminRole && 'Gérez les visites du patient'}
               </p>
-              {/* ✅ AFFICHAGE DE L'ÉTAT DE L'ABONNEMENT */}
               {renderSubscriptionStatus()}
             </div>
             <div className="flex flex-wrap gap-2">
-              {/* ✅ BOUTON DÉMARRER - ACTIF SEULEMENT SI CONDITIONS REMPLIES */}
               {isAidantRole && renderStartButton()}
 
               {isFamilyRole && (
@@ -445,7 +490,6 @@ const PatientDetailPage = () => {
             </div>
           </div>
 
-          {/* ✅ ALERTES */}
           {activeVisits.length > 0 && (
             <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
               <p className="text-sm text-blue-700 flex items-center gap-2">
@@ -475,9 +519,7 @@ const PatientDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      TABS
-      ============================================================ */}
+      {/* TABS */}
       <div className="flex border-b" style={{ borderColor: colors.border }}>
         {['info', 'visits', 'notes'].map((tab) => (
           <button
@@ -501,11 +543,8 @@ const PatientDetailPage = () => {
         ))}
       </div>
 
-      {/* ============================================================
-      CONTENU DES TABS
-      ============================================================ */}
+      {/* CONTENU DES TABS */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        {/* TAB INFO */}
         {activeTab === 'info' && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
@@ -545,7 +584,6 @@ const PatientDetailPage = () => {
           </div>
         )}
 
-        {/* TAB VISITES */}
         {activeTab === 'visits' && (
           <div>
             {patientVisits.length > 0 ? (
@@ -557,17 +595,9 @@ const PatientDetailPage = () => {
                       key={visit.id}
                       visit={visit}
                       colors={colors}
-                      onCancel={() => {
-                        if (window.confirm('Annuler cette visite ?')) {
-                          cancelVisit(visit.id);
-                          fetchVisits();
-                        }
-                      }}
-                      onApprove={() => approveVisit(visit.id)}
-                      onRefuse={() => {
-                        const reason = prompt('Motif du refus :');
-                        if (reason) refuseVisit(visit.id, reason);
-                      }}
+                      onCancel={() => handleCancel(visit.id)}
+                      onApprove={() => handleApprove(visit.id)}
+                      onRefuse={() => handleRefuse(visit.id)}
                       onStart={() => {
                         setActiveVisitId(visit.id);
                         setShowCompleteModal(true);
@@ -607,7 +637,6 @@ const PatientDetailPage = () => {
           </div>
         )}
 
-        {/* TAB NOTES */}
         {activeTab === 'notes' && (
           <div>
             {person.notes ? (
@@ -624,20 +653,13 @@ const PatientDetailPage = () => {
         )}
       </div>
 
-      {/* ============================================================
-      MODALS
-      ============================================================ */}
-
+      {/* MODALS */}
       <PatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         mode="edit"
         patient={person}
-        onSuccess={() => {
-          setIsModalOpen(false);
-          fetchPatientById(id!);
-          toast.success(updated);
-        }}
+        onSuccess={handleModalSuccess}
       />
 
       <VisitModal
@@ -646,12 +668,7 @@ const PatientDetailPage = () => {
         mode="create"
         visit={null}
         patients={[person]}
-        onSuccess={() => {
-          setShowVisitModal(false);
-          fetchVisits();
-          fetchPatientById(id!);
-          toast.success('Visite planifiée');
-        }}
+        onSuccess={handleVisitModalSuccess}
       />
 
       {showCompleteModal && activeVisitId && (
@@ -663,21 +680,7 @@ const PatientDetailPage = () => {
           }}
           visit={{ patient: person }}
           patientCategory={person.category || 'senior'}
-          onSubmit={async (data) => {
-            setIsCompleting(true);
-            try {
-              await completeVisit(activeVisitId, data);
-              toast.success('Visite terminée');
-              setShowCompleteModal(false);
-              setActiveVisitId(null);
-              fetchVisits();
-              fetchPatientById(id!);
-            } catch (error) {
-              toast.error('Erreur lors de la finalisation');
-            } finally {
-              setIsCompleting(false);
-            }
-          }}
+          onSubmit={handleComplete}
           isLoading={isCompleting}
         />
       )}
@@ -802,7 +805,6 @@ const VisitCard = ({
       </div>
 
       <div className="flex flex-wrap gap-2 shrink-0">
-        {/* AIDANT : Approuver/Refuser les visites en attente */}
         {isPending && isAidant && (
           <>
             <button
@@ -824,7 +826,6 @@ const VisitCard = ({
           </>
         )}
 
-        {/* AIDANT : Démarrer une visite acceptée */}
         {isAccepted && isAidant && (
           <button
             onClick={(e) => { e.stopPropagation(); onStart?.(); }}
@@ -836,7 +837,6 @@ const VisitCard = ({
           </button>
         )}
 
-        {/* ADMIN/FAMILLE : Annuler */}
         {(visit.status === 'planifiee' || visit.status === 'en_attente') && (isAdmin || isFamily) && (
           <button
             onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
