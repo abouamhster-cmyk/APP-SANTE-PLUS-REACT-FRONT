@@ -1,5 +1,5 @@
 // 📁 src/stores/authStore.ts
-
+ 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/lib/supabase';
@@ -24,6 +24,9 @@ interface AuthState {
   refreshProfile: () => Promise<void>;
   switchRole: (role: UserRole) => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
+  isAidant: () => boolean;
+  isFamily: () => boolean;
+  isAdminOrCoordinator: () => boolean;
 }
 
 const initialState = {
@@ -33,10 +36,8 @@ const initialState = {
   isAuthenticated: false,
 };
 
-// ✅ Flag pour éviter les doubles initialisations
 let isInitializing = false;
 
-// ✅ Timeout
 const withTimeout = async <T,>(
   request: PromiseLike<T>,
   timeoutMs = 8000
@@ -56,7 +57,6 @@ const withTimeout = async <T,>(
   }
 };
 
-// ✅ Fallback profil - TOUTES LES PROPRIÉTÉS REQUISES
 const makeFallbackProfile = (user: any): Profile => {
   return {
     id: user.id,
@@ -83,21 +83,17 @@ const makeFallbackProfile = (user: any): Profile => {
   };
 };
 
-// ✅ Profil cache
 const profileCache = new Map<string, { data: Profile; timestamp: number }>();
-const CACHE_DURATION = 60000; // 1 minute
+const CACHE_DURATION = 60000;
 
-// ✅ fetchProfileSafe optimisé
 const fetchProfileSafe = async (userId: string): Promise<Profile | null> => {
   try {
-    // Vérifier le cache
     const cached = profileCache.get(userId);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       console.log('✅ Profil récupéré depuis le cache');
       return cached.data;
     }
 
-    // Requête légère - seulement les champs nécessaires
     const result = await withTimeout(
       supabase
         .from('profiles')
@@ -115,7 +111,6 @@ const fetchProfileSafe = async (userId: string): Promise<Profile | null> => {
     }
 
     if (data) {
-      // ✅ S'assurer que toutes les propriétés sont présentes
       const fullProfile: Profile = {
         id: data.id,
         full_name: data.full_name || '',
@@ -136,7 +131,6 @@ const fetchProfileSafe = async (userId: string): Promise<Profile | null> => {
         updated_at: data.updated_at || new Date().toISOString(),
       };
 
-      // Mettre en cache
       profileCache.set(userId, { data: fullProfile, timestamp: Date.now() });
       return fullProfile;
     }
@@ -182,19 +176,29 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      // =============================================
-      // INITIALIZE - AVEC VÉRIFICATION DE DOUBLE INIT
-      // =============================================
+      isAidant: () => {
+        const { profile } = get();
+        return profile?.role === 'aidant';
+      },
+
+      isFamily: () => {
+        const { profile } = get();
+        return profile?.role === 'family';
+      },
+
+      isAdminOrCoordinator: () => {
+        const { profile } = get();
+        return profile?.role === 'admin' || profile?.role === 'coordinator';
+      },
+
       initialize: async () => {
         const state = get();
 
-        // ✅ Vérifier si déjà initialisé ou en cours
         if (state.isInitializing || isInitializing) {
           console.log('ℹ️ Auth already initializing, skipping...');
           return;
         }
 
-        // ✅ Vérifier si déjà initialisé avec succès
         if (state.isInitialized && state.isAuthenticated) {
           console.log('ℹ️ Auth already initialized, skipping...');
           return;
@@ -210,7 +214,6 @@ export const useAuthStore = create<AuthState>()(
         });
 
         try {
-          // 1. Récupérer la session
           const { data, error } = await withTimeout(
             supabase.auth.getSession(),
             8000
@@ -250,10 +253,8 @@ export const useAuthStore = create<AuthState>()(
 
           console.log('✅ Active session:', session.user.id);
 
-          // 2. Créer un profil fallback IMMÉDIAT
           const fallbackProfile = makeFallbackProfile(session.user);
 
-          // 3. CONNECTER L'UTILISATEUR IMMÉDIATEMENT
           set({
             user: session.user,
             profile: fallbackProfile,
@@ -264,7 +265,6 @@ export const useAuthStore = create<AuthState>()(
             isInitializing: false,
           });
 
-          // 4. CHARGER LE VRAI PROFIL EN ARRIÈRE-PLAN
           const profile = await fetchProfileSafe(session.user.id);
 
           if (profile) {
@@ -281,7 +281,6 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error('❌ Auth initialization error:', error);
 
-          // ✅ Si on a déjà un utilisateur, on garde le fallback
           const currentUser = get().user;
           if (currentUser) {
             const fallbackProfile = makeFallbackProfile(currentUser);
@@ -318,9 +317,6 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // =============================================
-      // REFRESH PROFILE
-      // =============================================
       refreshProfile: async () => {
         const { user } = get();
 
@@ -339,16 +335,12 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      // =============================================
-      // LOGOUT
-      // =============================================
       logout: async () => {
         try {
           await supabase.auth.signOut();
         } catch (error) {
           console.error('Logout error:', error);
         } finally {
-          // ✅ Vider le cache
           profileCache.clear();
           localStorage.removeItem('auth-storage');
 
@@ -363,14 +355,25 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      // =============================================
-      // SWITCH ROLE
-      // =============================================
       switchRole: async (role: UserRole) => {
-        const { user } = get();
+        const { user, profile } = get();
 
         if (!user) {
           throw new Error('No user');
+        }
+
+        // ❌ Les aidants ne peuvent pas changer de rôle
+        if (profile?.role === 'aidant') {
+          throw new Error('Les aidants ne peuvent pas changer de rôle');
+        }
+
+        const allowedRoles = ['family', 'coordinator'];
+        if (role === 'admin' && profile?.role !== 'admin') {
+          throw new Error('Non autorisé à passer en admin');
+        }
+
+        if (!allowedRoles.includes(role) && role !== 'admin') {
+          throw new Error('Rôle invalide');
         }
 
         const { error } = await supabase
@@ -383,24 +386,20 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
 
-        // ✅ Vider le cache pour forcer le rechargement
         profileCache.delete(user.id);
 
-        const profile = await fetchProfileSafe(user.id);
+        const newProfile = await fetchProfileSafe(user.id);
 
-        if (!profile) {
+        if (!newProfile) {
           throw new Error('Profil introuvable après changement de rôle');
         }
 
         set({
           role,
-          profile,
+          profile: newProfile,
         });
       },
 
-      // =============================================
-      // UPDATE PROFILE
-      // =============================================
       updateProfile: async (data: Partial<Profile>) => {
         const { user } = get();
 
@@ -418,7 +417,6 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
 
-        // ✅ Vider le cache
         profileCache.delete(user.id);
 
         set((state) => ({
@@ -439,15 +437,11 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
-// =============================================
-// AUTH STATE CHANGE LISTENER - OPTIMISÉ
-// =============================================
 let authListenerInitialized = false;
 
 supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('🔐 Auth state change:', event, session?.user?.id);
 
-  // ✅ Éviter les doublons de traitement
   if (authListenerInitialized && event === 'SIGNED_IN') {
     console.log('ℹ️ Auth listener déjà initialisé, skip...');
     return;
@@ -470,15 +464,12 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 
   if (session?.user) {
     const currentState = useAuthStore.getState();
-
-    // ✅ Vérifier si le profil existe déjà
     const currentProfile =
       currentState.profile?.id === session.user.id ? currentState.profile : null;
 
     const fallbackProfile =
       currentProfile || makeFallbackProfile(session.user);
 
-    // ✅ Connexion immédiate avec fallback
     useAuthStore.setState({
       user: session.user,
       profile: fallbackProfile,
@@ -489,7 +480,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       isInitializing: false,
     });
 
-    // ✅ Chargement du vrai profil en arrière-plan (seulement si pas déjà fait)
     if (!currentProfile) {
       const profile = await fetchProfileSafe(session.user.id);
 
