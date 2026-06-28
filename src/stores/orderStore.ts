@@ -6,20 +6,49 @@ import { Order, OrderStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast';
 
+// =============================================
+// STATUS LABELS - COMPLET AVEC TOUS LES STATUTS
+// =============================================
+
+const STATUS_LABELS: Record<OrderStatus, string> = {
+  creee: 'Créée',
+  en_attente: 'En attente',
+  disponible: 'Disponible',
+  en_cours: 'En cours',
+  livree: 'Livrée',
+  validee: 'Validée',
+  annulee: 'Annulée',
+  attente_paiement: 'En attente paiement',
+};
+
+const STATUS_COLORS: Record<OrderStatus, string> = {
+  creee: '#9E9E9E',
+  en_attente: '#FF9800',
+  disponible: '#F44336',
+  en_cours: '#2196F3',
+  livree: '#2196F3',
+  validee: '#4CAF50',
+  annulee: '#9E9E9E',
+  attente_paiement: '#8b5cf6',
+};
+
+// =============================================
+// ORDER STORE
+// =============================================
+
 interface OrderState {
   orders: Order[];
   currentOrder: Order | null;
   isLoading: boolean;
   error: string | null;
   
+  // Actions
   fetchOrders: () => Promise<void>;
   fetchOrderById: (id: string) => Promise<void>;
   createOrder: (data: Partial<Order>) => Promise<Order>;
   updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
-  
-  // ✅ NOUVELLES MÉTHODES
   confirmPayment: (id: string, transactionId: string) => Promise<void>;
   takeOrder: (id: string) => Promise<void>;
   acceptOrder: (id: string) => Promise<void>;
@@ -27,61 +56,12 @@ interface OrderState {
   markOrderReady: (id: string) => Promise<void>;
   startDelivery: (id: string, location?: { lat: number; lng: number }) => Promise<void>;
   completeDelivery: (id: string, proof_url?: string) => Promise<void>;
-  
   getAssignedOrders: () => Order[];
   getAvailableOrders: () => Order[];
   getDeliveryOrders: () => Order[];
   canManageOrders: () => boolean;
   clearError: () => void;
 }
-
-const notifyStatusChange = async (orderId: string, status: OrderStatus) => {
-  try {
-    const { data: order } = await supabase
-      .from('commandes')
-      .select('family_id, patient_id, aidant_id')
-      .eq('id', orderId)
-      .single();
-
-    if (!order) return;
-
-    const statusLabels: Record<OrderStatus, string> = {
-      creee: 'créée',
-      en_cours: 'en cours',
-      livree: 'livrée',
-      validee: 'validée',
-      annulee: 'annulée',
-    };
-
-    await supabase.from('notifications').insert({
-      user_id: order.family_id,
-      title: '📦 Mise à jour commande',
-      body: `Votre commande est maintenant ${statusLabels[status] || status}`,
-      type: 'commande',
-      data: { order_id: orderId, status },
-    });
-
-    if (status === 'livree' && order.aidant_id) {
-      const { data: aidant } = await supabase
-        .from('aidants')
-        .select('user_id')
-        .eq('id', order.aidant_id)
-        .single();
-
-      if (aidant) {
-        await supabase.from('notifications').insert({
-          user_id: aidant.user_id,
-          title: '✅ Commande livrée',
-          body: 'La commande a été livrée avec succès !',
-          type: 'commande',
-          data: { order_id: orderId, status },
-        });
-      }
-    }
-  } catch (error) {
-    console.error('Notify status change error:', error);
-  }
-};
 
 export const useOrderStore = create<OrderState>((set, get) => ({
   orders: [],
@@ -96,7 +76,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH ORDERS - FILTRÉ PAR RÔLE
+  // FETCH ORDERS
   // =============================================
   fetchOrders: async () => {
     try {
@@ -246,7 +226,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE ORDER - AVEC VÉRIFICATION PERMISSIONS
+  // CREATE ORDER
   // =============================================
   createOrder: async (data: Partial<Order>) => {
     try {
@@ -255,21 +235,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const { user, profile } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // ❌ Les aidants ne peuvent pas créer de commandes
       if (profile?.role === 'aidant') {
         throw new Error('Les aidants ne peuvent pas créer de commandes');
       }
 
       const isPonctual = data.order_type === 'ponctual' || false;
       let status: OrderStatus = 'creee';
-      let requiresPayment = false;
 
       if (isPonctual) {
         status = 'attente_paiement';
-        requiresPayment = true;
       }
 
-      // Vérifier le quota si abonnement
       if (!isPonctual && data.patient_id) {
         const { data: subscription } = await supabase
           .from('abonnements')
@@ -280,7 +256,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
         if (subscription && subscription.remaining_orders <= 0) {
           status = 'attente_paiement';
-          requiresPayment = true;
         }
       }
 
@@ -303,8 +278,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         delivery_notes: data.delivery_notes || null,
         order_type: isPonctual ? 'ponctual' : 'subscription',
         is_paid: false,
+        is_ponctual: isPonctual,
         metadata: {
-          requires_payment: requiresPayment,
+          requires_payment: status === 'attente_paiement',
           created_by: user.id,
           created_at: new Date().toISOString(),
         }
@@ -340,7 +316,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         family,
       };
 
-      // ✅ Notification selon le statut
       if (status === 'attente_paiement') {
         await supabase.from('notifications').insert({
           user_id: user.id,
@@ -349,35 +324,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           type: 'commande',
           data: { order_id: newOrder.id, status: 'attente_paiement' },
         });
-      } else {
-        // ✅ Notifier l'aidant assigné ou tous les aidants disponibles
-        if (newOrder.aidant_id) {
-          await supabase.from('notifications').insert({
-            user_id: newOrder.aidant_id,
-            title: '🛒 Nouvelle commande à prendre',
-            body: `Commande de ${family?.full_name || 'un client'} - ${data.description}`,
-            type: 'commande',
-            data: { order_id: newOrder.id, action: 'take' },
-          });
-        } else {
-          const { data: aidants } = await supabase
-            .from('aidants')
-            .select('user_id')
-            .eq('available', true)
-            .eq('is_verified', true);
-
-          if (aidants && aidants.length > 0) {
-            for (const aidant of aidants) {
-              await supabase.from('notifications').insert({
-                user_id: aidant.user_id,
-                title: '🛒 Nouvelle commande disponible',
-                body: `Commande de ${family?.full_name || 'un client'} - ${data.description}`,
-                type: 'commande',
-                data: { order_id: newOrder.id, action: 'take' },
-              });
-            }
-          }
-        }
       }
 
       set((state) => ({
@@ -394,7 +340,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // ✅ CONFIRMER PAIEMENT
+  // CONFIRMER PAIEMENT
   // =============================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
@@ -429,25 +375,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ Notifier les aidants disponibles
-      const { data: aidants } = await supabase
-        .from('aidants')
-        .select('user_id')
-        .eq('available', true)
-        .eq('is_verified', true);
-
-      if (aidants && aidants.length > 0) {
-        for (const aidant of aidants) {
-          await supabase.from('notifications').insert({
-            user_id: aidant.user_id,
-            title: '🛒 Nouvelle commande disponible',
-            body: `Commande de ${order.family_id} - ${order.description}`,
-            type: 'commande',
-            data: { order_id: id, action: 'take' },
-          });
-        }
-      }
-
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
         currentOrder: data,
@@ -463,7 +390,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // ✅ PRENDRE UNE COMMANDE (aidant)
+  // PRENDRE UNE COMMANDE (aidant)
   // =============================================
   takeOrder: async (id: string) => {
     try {
@@ -480,11 +407,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (fetchError) throw fetchError;
 
-      if (order.status !== 'creee' && order.status !== 'disponible') {
+      if (order.status !== 'creee' && order.status !== 'en_attente' && order.status !== 'disponible') {
         throw new Error('Cette commande n\'est pas disponible');
       }
 
-      // Vérifier que l'aidant est disponible
       const { data: aidant, error: aidantError } = await supabase
         .from('aidants')
         .select('id, available, is_verified')
@@ -512,7 +438,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // Notification à la famille
       if (order.family_id) {
         await supabase.from('notifications').insert({
           user_id: order.family_id,
@@ -538,7 +463,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // ACCEPT ORDER (alias pour takeOrder)
+  // ACCEPT ORDER (alias)
   // =============================================
   acceptOrder: async (id: string) => {
     return get().takeOrder(id);
@@ -728,8 +653,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      await notifyStatusChange(id, 'livree');
-
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
         isLoading: false,
@@ -759,13 +682,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      await notifyStatusChange(id, status);
-
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? { ...o, ...order } : o),
         currentOrder: order,
         isLoading: false,
       }));
+
+      toast.success(`Commande ${STATUS_LABELS[status]}`);
     } catch (error: any) {
       console.error('❌ Update order status error:', error);
       set({ error: error.message, isLoading: false });
