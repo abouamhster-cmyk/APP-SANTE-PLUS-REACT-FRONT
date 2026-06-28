@@ -32,21 +32,24 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   subscription: null,
   watchId: null,
 
-  fetchActiveVisits: async () => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      // ✅ ÉTAPE 1 : Récupérer les visites en cours
-      const { data: visits, error } = await supabase
-        .from('visites')
-        .select('*')
-        .eq('status', 'en_cours');
+fetchActiveVisits: async () => {
+  try {
+    set({ isLoading: true, error: null });
+    
+    // ✅ Spécifier la clé étrangère explicite
+    const { data: visits, error } = await supabase
+      .from('visites')
+      .select(`
+        *,
+        patient:patients!visites_patient_id_fkey(*)
+      `)
+      .eq('status', 'en_cours');
 
-      if (error) {
-        console.error('❌ Erreur fetch active visits:', error);
-        set({ error: error.message, isLoading: false });
-        return;
-      }
+    if (error) {
+      console.error('❌ Erreur fetch active visits:', error);
+      set({ error: error.message, isLoading: false });
+      return;
+    }
 
       // ✅ ÉTAPE 2 : Récupérer les patients SEPAREMENT
       const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
