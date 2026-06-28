@@ -240,14 +240,6 @@ const DashboardPage = () => {
         <div className="absolute inset-0 bg-black/5" />
         
         <div className="relative z-10 min-h-[180px] md:min-h-[200px] p-6 sm:p-8 flex flex-col justify-between">
-          <div className="flex items-start justify-between">
-            <span 
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase backdrop-blur-md bg-white/15 border border-white/20 text-white"
-            >
-              <Sparkles size={11} />
-              Accompagnement humain
-            </span>
-          </div>
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-1.5 max-w-xl">
