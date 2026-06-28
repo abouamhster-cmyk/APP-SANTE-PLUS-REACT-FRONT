@@ -1,18 +1,24 @@
 // 📁 src/components/auth/ProtectedRoute.tsx
-
+ 
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useContractStore } from '@/stores/contractStore';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ContractModal } from '@/components/contract/ContractModal';
 import { useEffect, useState } from 'react';
-import { Scale } from 'lucide-react';
+import { Scale, ShieldAlert } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  allowedRoles?: ('admin' | 'coordinator' | 'family' | 'aidant')[];
+  redirectTo?: string;
 }
 
-export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ 
+  children, 
+  allowedRoles = ['admin', 'coordinator', 'family', 'aidant'],
+  redirectTo = '/login'
+}: ProtectedRouteProps) => {
   const location = useLocation();
   const { 
     isAuthenticated, 
@@ -50,16 +56,24 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     }
   }, [needsAcceptance, hasAccepted]);
 
+  // ✅ Vérifier les permissions par rôle
+  const hasRequiredRole = () => {
+    if (!profile) return false;
+    return allowedRoles.includes(profile.role as any);
+  };
+
   console.log('🛡️ ProtectedRoute:', {
     isAuthenticated,
     isInitialized,
     authLoading,
     userId: user?.id,
+    role: profile?.role,
     path: location.pathname,
+    allowedRoles,
+    hasRequiredRole: hasRequiredRole(),
     needsAcceptance,
     hasAccepted,
     isBlocked,
-    isChecking,
   });
 
   // =============================================
@@ -82,10 +96,47 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (!isAuthenticated || !user) {
     return (
       <Navigate
-        to="/login"
+        to={redirectTo}
         replace
         state={{ from: location.pathname }}
       />
+    );
+  }
+
+  // =============================================
+  // RÔLE NON AUTORISÉ
+  // =============================================
+  if (!hasRequiredRole()) {
+    return (
+      <div 
+        className="min-h-screen w-full flex items-center justify-center p-4"
+        style={{ background: 'var(--color-background, #f5f0e8)' }}
+      >
+        <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-sm border border-black/5">
+          <div 
+            className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'var(--color-primary)15' }}
+          >
+            <ShieldAlert size={40} style={{ color: 'var(--color-primary)' }} />
+          </div>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
+            ⛔ Accès non autorisé
+          </h2>
+          <p className="text-sm mt-2" style={{ color: 'var(--color-text-light)' }}>
+            Vous n'avez pas les droits nécessaires pour accéder à cette page.
+          </p>
+          <p className="text-xs mt-1" style={{ color: 'var(--color-text-light)' }}>
+            Rôle actuel : <strong>{profile?.role || 'Inconnu'}</strong>
+          </p>
+          <button
+            onClick={() => window.location.href = '/app'}
+            className="mt-4 px-6 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90"
+            style={{ background: 'var(--color-primary)' }}
+          >
+            Retourner au tableau de bord
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -95,7 +146,6 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (isBlocked && contract) {
     return (
       <>
-        {/* Modal du contrat - bloquant */}
         <ContractModal
           isOpen={true}
           contract={{
@@ -112,12 +162,10 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
             setIsBlocked(false);
           }}
           onClose={() => {
-            // Déconnexion si l'utilisateur refuse
             useAuthStore.getState().logout();
           }}
         />
 
-        {/* Fond bloquant */}
         <div 
           className="fixed inset-0 z-[150] flex items-center justify-center pointer-events-none"
           style={{ background: 'var(--color-background, #f5f0e8)' }}
