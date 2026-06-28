@@ -26,13 +26,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  // ✅ Vérifier si l'utilisateur peut gérer les patients
   canManagePatients: () => {
     const { profile } = useAuthStore.getState();
     return profile?.role === 'admin' || profile?.role === 'coordinator' || profile?.role === 'family';
   },
 
-  // ✅ Récupérer les patients - FILTRÉ PAR RÔLE
+  // ✅ RÉCUPÉRER LES PATIENTS - AVEC LA NOUVELLE TABLE D'ASSIGNATION
   fetchPatients: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -55,15 +54,38 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         patientIds = links?.map(l => l.patient_id) || [];
       }
       
-      // 🦸 AIDANT → Patients assignés via les visites
+      // 🦸 AIDANT → Patients assignés via patient_aidant_assignments
       else if (profile?.role === 'aidant') {
+        // ✅ 1. Récupérer l'aidant
         const { data: aidant, error: aidantError } = await supabase
           .from('aidants')
           .select('id')
           .eq('user_id', user.id)
           .single();
 
-        if (!aidantError && aidant) {
+        if (aidantError) {
+          console.error('❌ Erreur récupération aidant:', aidantError);
+          set({ patients: [], isLoading: false });
+          return;
+        }
+
+        // ✅ 2. Récupérer les assignations actives
+        const { data: assignments, error: assignError } = await supabase
+          .from('patient_aidant_assignments')
+          .select('patient_id')
+          .eq('aidant_id', aidant.id)
+          .eq('is_active', true);
+
+        if (assignError) {
+          console.error('❌ Erreur récupération assignations:', assignError);
+        }
+
+        if (assignments && assignments.length > 0) {
+          patientIds = assignments.map(a => a.patient_id).filter(Boolean);
+        }
+
+        // ✅ 3. Si aucune assignation, récupérer via les visites (fallback)
+        if (patientIds.length === 0) {
           const { data: visits } = await supabase
             .from('visites')
             .select('patient_id')
@@ -109,7 +131,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ✅ Récupérer un patient par ID - AVEC VÉRIFICATION PERMISSIONS
+  // ... (le reste du store reste inchangé)
   fetchPatientById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -120,7 +142,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         return;
       }
 
-      // Récupérer le patient
       const { data, error } = await supabase
         .from('patients')
         .select('*')
@@ -156,14 +177,28 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           .single();
 
         if (aidant) {
-          const { data: visit } = await supabase
-            .from('visites')
+          // ✅ Vérifier via patient_aidant_assignments
+          const { data: assignment } = await supabase
+            .from('patient_aidant_assignments')
             .select('id')
             .eq('aidant_id', aidant.id)
             .eq('patient_id', id)
-            .limit(1)
+            .eq('is_active', true)
             .maybeSingle();
-          hasAccess = !!visit;
+          
+          if (assignment) {
+            hasAccess = true;
+          } else {
+            // Fallback via visites
+            const { data: visit } = await supabase
+              .from('visites')
+              .select('id')
+              .eq('aidant_id', aidant.id)
+              .eq('patient_id', id)
+              .limit(1)
+              .maybeSingle();
+            hasAccess = !!visit;
+          }
         }
       }
 
@@ -179,7 +214,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ✅ Créer un patient - SEULS ADMIN/COORDINATEUR/FAMILLE
+  // ... (créer, modifier, supprimer restent inchangés)
   createPatient: async (data: Partial<Patient>) => {
     try {
       set({ isLoading: true, error: null });
@@ -187,7 +222,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       const { user, profile } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // ❌ Les aidants ne peuvent pas créer de patients
       if (profile?.role === 'aidant') {
         throw new Error('Les aidants ne peuvent pas créer de patients');
       }
@@ -204,7 +238,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       if (error) throw error;
 
-      // Créer le lien famille-patient
       await supabase
         .from('patient_family_links')
         .insert({
@@ -213,7 +246,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           is_primary: true,
         });
 
-      // Mettre à jour la catégorie du profil
       if (data.category) {
         await supabase
           .from('profiles')
@@ -234,7 +266,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ✅ Modifier un patient - SEULS ADMIN/COORDINATEUR OU FAMILLE PROPRIÉTAIRE
   updatePatient: async (id: string, data: Partial<Patient>) => {
     try {
       set({ isLoading: true, error: null });
@@ -242,12 +273,10 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       const { user, profile } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // ❌ Les aidants ne peuvent pas modifier les patients
       if (profile?.role === 'aidant') {
         throw new Error('Les aidants ne peuvent pas modifier les patients');
       }
 
-      // Vérifier les permissions
       let canEdit = false;
 
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
@@ -287,14 +316,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ✅ Supprimer un patient - SEULS ADMIN/COORDINATEUR
   deletePatient: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
       const { profile } = useAuthStore.getState();
 
-      // ❌ Seuls admin/coord peuvent supprimer
       if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
         throw new Error('Non autorisé à supprimer des patients');
       }
@@ -302,6 +329,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       // Supprimer les liens familiaux
       await supabase
         .from('patient_family_links')
+        .delete()
+        .eq('patient_id', id);
+
+      // ✅ Supprimer les assignations aidant
+      await supabase
+        .from('patient_aidant_assignments')
         .delete()
         .eq('patient_id', id);
 
