@@ -1,5 +1,5 @@
 // 📁 src/features/journal/pages/JournalPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import {
   Calendar,
@@ -12,12 +12,17 @@ import {
   FileText,
   TrendingUp,
   Award,
+  List,
+  LayoutGrid,
+  BarChart3,
+  ChevronRight,
 } from 'lucide-react';
 import { useJournalStore } from '@/stores/journalStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
+import { Illustration } from '@/components/ui/Illustration';
 import { RatingModal } from '../components/RatingModal';
 import { VisitDetailsModal } from '../components/VisitDetailsModal';
 import toast from 'react-hot-toast';
@@ -89,10 +94,10 @@ const JournalPage = () => {
   }
 
   const getPageTitle = () => {
-    if (isFamily) return '📋 Journal de bord - Proches';
-    if (isAidant) return '📋 Journal de bord - Personnes accompagnées';
-    if (isAdminOrCoordinator) return '📋 Journal de bord - Bénéficiaires';
-    return '📋 Journal de bord';
+    if (isFamily) return 'Journal de bord - Proches';
+    if (isAidant) return 'Journal de bord - Personnes accompagnées';
+    if (isAdminOrCoordinator) return 'Journal de bord - Bénéficiaires';
+    return 'Journal de bord';
   };
 
   const statLabels = {
@@ -131,36 +136,39 @@ const JournalPage = () => {
           <div className="flex gap-1">
             <button
               onClick={() => setViewMode('timeline')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 viewMode === 'timeline' ? 'text-white' : 'text-gray-600'
               }`}
               style={{
                 background: viewMode === 'timeline' ? colors.primary : 'transparent',
               }}
             >
-              📅
+              <List size={12} />
+              Liste
             </button>
             <button
               onClick={() => setViewMode('weekly')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 viewMode === 'weekly' ? 'text-white' : 'text-gray-600'
               }`}
               style={{
                 background: viewMode === 'weekly' ? colors.primary : 'transparent',
               }}
             >
-              📆
+              <LayoutGrid size={12} />
+              Semaine
             </button>
             <button
               onClick={() => setViewMode('stats')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                 viewMode === 'stats' ? 'text-white' : 'text-gray-600'
               }`}
               style={{
                 background: viewMode === 'stats' ? colors.primary : 'transparent',
               }}
             >
-              📊
+              <BarChart3 size={12} />
+              Stats
             </button>
           </div>
         </div>
@@ -200,16 +208,22 @@ const JournalPage = () => {
       {viewMode === 'weekly' && (
         <section className="space-y-3">
           {weeklyEntries.length === 0 ? (
-            <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <Calendar size={32} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm text-gray-400">Aucune visite</p>
+            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+              <Illustration type="calendar" size="lg" className="mx-auto mb-3 opacity-30" />
+              <h3 className="text-sm font-bold" style={{ color: colors.text }}>
+                Aucune visite
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">Aucune visite enregistrée pour le moment</p>
             </div>
           ) : (
             weeklyEntries.map(({ week, entries: weekEntries }) => (
               <div key={week} className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-                <p className="text-xs font-bold mb-2" style={{ color: colors.text }}>
-                  📅 Semaine {week.split('-W')[1]} - {weekEntries.length} visite(s)
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar size={14} style={{ color: colors.primary }} />
+                  <p className="text-xs font-bold" style={{ color: colors.text }}>
+                    Semaine {week.split('-W')[1]} — {weekEntries.length} visite{weekEntries.length > 1 ? 's' : ''}
+                  </p>
+                </div>
                 <div className="space-y-1.5">
                   {weekEntries.map((entry) => (
                     <div
@@ -222,7 +236,7 @@ const JournalPage = () => {
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <div
-                          className="w-1.5 h-1.5 rounded-full"
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
                           style={{
                             background: entry.status === 'validee' ? '#4CAF50' : '#FF9800',
                           }}
@@ -230,18 +244,22 @@ const JournalPage = () => {
                         <p className="text-xs font-medium truncate" style={{ color: colors.text }}>
                           {entry.patient?.first_name} {entry.patient?.last_name}
                         </p>
-                        <p className="text-[9px] text-gray-400">
+                        <p className="text-[9px] text-gray-400 shrink-0">
                           {formatDate(entry.date)} {entry.time}
                         </p>
                       </div>
                       <span
-                        className="px-1.5 py-0.5 rounded-full text-[8px] font-bold"
+                        className="px-1.5 py-0.5 rounded-full text-[8px] font-bold shrink-0"
                         style={{
                           background: entry.status === 'validee' ? '#4CAF5015' : '#FF980015',
                           color: entry.status === 'validee' ? '#4CAF50' : '#FF9800',
                         }}
                       >
-                        {entry.status === 'validee' ? '✅' : '⏳'}
+                        {entry.status === 'validee' ? (
+                          <CheckCircle size={8} />
+                        ) : (
+                          <Clock size={8} />
+                        )}
                       </span>
                     </div>
                   ))}
@@ -256,9 +274,12 @@ const JournalPage = () => {
       {viewMode === 'timeline' && (
         <section className="space-y-2">
           {entries.length === 0 ? (
-            <div className="bg-white rounded-2xl p-6 text-center shadow-sm">
-              <Calendar size={32} className="mx-auto mb-3 opacity-30" />
-              <p className="text-sm text-gray-400">Aucune visite pour le moment</p>
+            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+              <Illustration type="calendar" size="lg" className="mx-auto mb-3 opacity-30" />
+              <h3 className="text-sm font-bold" style={{ color: colors.text }}>
+                Aucune visite
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">Aucune visite enregistrée pour le moment</p>
             </div>
           ) : (
             entries.map((entry) => (
@@ -316,12 +337,12 @@ const StatCard = ({ icon, label, value, color }: StatCardProps) => {
   return (
     <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '15', color }}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '15', color }}>
           {icon}
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-base font-black" style={{ color }}>{value}</p>
-          <p className="text-[8px] text-gray-400">{label}</p>
+          <p className="text-[8px] text-gray-400 uppercase tracking-wider">{label}</p>
         </div>
       </div>
     </div>
@@ -398,13 +419,23 @@ const JournalEntryCompact = ({ entry, colors, onRate, onViewDetails }: JournalEn
 
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span
-            className="px-1.5 py-0.5 rounded-full text-[8px] font-bold"
+            className="px-1.5 py-0.5 rounded-full text-[8px] font-bold flex items-center gap-0.5"
             style={{
               background: entry.status === 'validee' ? '#4CAF5015' : '#FF980015',
               color: entry.status === 'validee' ? '#4CAF50' : '#FF9800',
             }}
           >
-            {entry.status === 'validee' ? '✅' : '⏳'}
+            {entry.status === 'validee' ? (
+              <>
+                <CheckCircle size={8} />
+                Validée
+              </>
+            ) : (
+              <>
+                <Clock size={8} />
+                En attente
+              </>
+            )}
           </span>
 
           {isRated ? (
@@ -426,10 +457,11 @@ const JournalEntryCompact = ({ entry, colors, onRate, onViewDetails }: JournalEn
 
           <button
             onClick={onViewDetails}
-            className="text-[9px] font-medium hover:underline"
+            className="text-[9px] font-medium hover:underline flex items-center gap-0.5"
             style={{ color: colors.primary }}
           >
             Détails
+            <ChevronRight size={10} />
           </button>
         </div>
       </div>
