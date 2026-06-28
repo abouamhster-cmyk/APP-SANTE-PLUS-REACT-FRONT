@@ -57,7 +57,7 @@ const MissionsPage = () => {
       }
 
       try {
-        const { data: profile, error: profileError } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('is_active, role')
           .eq('id', user.id)
@@ -81,8 +81,8 @@ const MissionsPage = () => {
           return;
         }
 
-        const isVerified = profile?.is_active === true &&
-          profile?.role === 'aidant' &&
+        const isVerified = profileData?.is_active === true &&
+          profileData?.role === 'aidant' &&
           aidant?.is_verified === true &&
           aidant?.status === 'approved';
 
@@ -124,7 +124,7 @@ const MissionsPage = () => {
       fetchVisits();
       fetchOrders();
     }
-  }, [isVerified]);
+  }, [isVerified, fetchVisits, fetchOrders]);
 
   if (isChecking) {
     return (
@@ -272,6 +272,7 @@ const MissionsPage = () => {
       creee: '#9E9E9E',
       disponible: '#F44336',
       livree: '#2196F3',
+      attente_paiement: '#8b5cf6',
     };
     return map[status] || '#9E9E9E';
   };
@@ -290,6 +291,7 @@ const MissionsPage = () => {
       creee: 'Créée',
       disponible: 'Disponible (urgent)',
       livree: 'Livrée',
+      attente_paiement: 'En attente paiement',
     };
     return map[status] || status;
   };
@@ -735,7 +737,7 @@ const MissionItemCompact = ({
       </div>
 
       {/* ✅ Barre de progression simplifiée */}
-      {item.status !== 'annulee' && item.status !== 'validee' && (
+      {item.status !== 'annulee' && item.status !== 'validee' && item.status !== 'attente_paiement' && (
         <div className="mt-2 flex items-center gap-1">
           {['creee', 'en_cours', 'livree'].map((status, index) => {
             const statusIndex = ['creee', 'en_cours', 'livree'].indexOf(status);
