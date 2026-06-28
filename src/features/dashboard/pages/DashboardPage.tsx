@@ -74,15 +74,15 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  // 🦸 AIDANT
+  // 🦸 AIDANT - ✅ Missions redirige vers /app/missions
   if (role === 'aidant') {
     tiles.push(
-      { icon: <Calendar size={20} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
-      { icon: <Briefcase size={20} />, label: 'Planning', color: '#10b981', path: '/app/planning' },
+      { icon: <Briefcase size={20} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
+      { icon: <Calendar size={20} />, label: 'Planning', color: '#10b981', path: '/app/planning' },
       { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
       { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
       { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
-      { icon: <CreditCard size={20} />, label: 'Abonnement', color: '#8b5cf6', path: '/app/billing' },
+      // ❌ Abonnement SUPPRIMÉ
       { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
       { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
@@ -158,6 +158,11 @@ const DashboardPage = () => {
   const colors = getThemeColors(themeName);
 
   useEffect(() => {
+    console.log('🔍 Dashboard - Rôle:', role);
+    console.log('🔍 Dashboard - Patients:', patients.length);
+    console.log('🔍 Dashboard - Visites:', visits.length);
+    console.log('🔍 Dashboard - Commandes:', orders.length);
+    
     fetchPatients();
     fetchVisits();
     fetchOrders();
@@ -172,10 +177,12 @@ const DashboardPage = () => {
   // 📌 STATISTIQUES
   const stats = {
     proches: patients.length,
-    upcomingVisits: visits.filter((v) => v.status === 'planifiee').length,
-    pendingOrders: orders.filter((o) => o.status === 'creee' || o.status === 'en_cours').length,
+    upcomingVisits: visits.filter((v) => v.status === 'planifiee' || v.status === 'acceptee').length,
+    pendingOrders: orders.filter((o) => o.status === 'creee' || o.status === 'en_attente' || o.status === 'disponible').length,
     completedVisits: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
   };
+
+  console.log('📊 Stats Dashboard:', stats);
 
   const tiles = getTilesForRole(role, colors, stats, patients.length);
 
@@ -453,7 +460,7 @@ const DashboardPage = () => {
           {stats.upcomingVisits > 0 ? (
             <div className="space-y-2.5">
               {visits
-                .filter((v) => v.status === 'planifiee' || v.status === 'en_cours')
+                .filter((v) => v.status === 'planifiee' || v.status === 'acceptee' || v.status === 'en_cours')
                 .slice(0, 2)
                 .map((visit) => (
                   <VisitCard key={visit.id} visit={visit} compact onClick={() => navigate(`/app/visits/${visit.id}`)} />
@@ -484,7 +491,7 @@ const DashboardPage = () => {
           {stats.pendingOrders > 0 ? (
             <div className="space-y-2.5">
               {orders
-                .filter((o) => o.status === 'creee' || o.status === 'en_cours')
+                .filter((o) => o.status === 'creee' || o.status === 'en_attente' || o.status === 'en_cours' || o.status === 'disponible')
                 .slice(0, 2)
                 .map((order) => (
                   <OrderCard key={order.id} order={order} compact onClick={() => navigate(`/app/orders/${order.id}`)} />
