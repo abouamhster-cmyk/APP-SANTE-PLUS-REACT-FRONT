@@ -1,5 +1,5 @@
 // 📁 src/features/visits/pages/VisitsPage.tsx
-
+ 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,6 +11,7 @@ import {
   CheckCircle,
   PlayCircle,
   XCircle,
+  AlertCircle,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -26,7 +27,7 @@ const VisitsPage = () => {
   const navigate = useNavigate();
 
   const { profile, role } = useAuthStore();
-  const { visits, isLoading, fetchVisits } = useVisitStore();
+  const { visits, isLoading, fetchVisits, approveVisit, refuseVisit, startVisit, cancelVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
 
   const {
@@ -46,37 +47,56 @@ const VisitsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  const canPlanify = isAdminOrCoordinator;
+  const canPlanify = isAdminOrCoordinator || isFamily;
   const canStartVisit = isAidant || isAdminOrCoordinator;
-  const canCancelVisit = isAdminOrCoordinator;
+  const canCancelVisit = isAdminOrCoordinator || isFamily;
+  const canApprove = isAidant;
 
   useEffect(() => {
     fetchVisits();
     fetchPatients();
   }, []);
 
-  // ✅ FILTRES EN SELECT (compact)
+  // ✅ FILTRES AVEC NOUVEAUX STATUTS
   const statusFilterOptions = useMemo(() => {
     if (isAdminOrCoordinator) {
       return [
         { value: 'all', label: 'Toutes les visites' },
-        { value: 'planifiee', label: 'Planifiées' },
-        { value: 'en_cours', label: 'En cours' },
-        { value: 'terminee', label: 'Terminées' },
-        { value: 'validee', label: 'Validées' },
-        { value: 'annulee', label: 'Annulées' },
-        { value: 'replanifiee', label: 'Replanifiées' },
-        { value: 'no_show', label: 'Absents' },
+        { value: 'planifiee', label: '📋 Planifiées' },
+        { value: 'en_attente', label: '⏳ En attente' },
+        { value: 'acceptee', label: '✅ Acceptées' },
+        { value: 'en_cours', label: '🔄 En cours' },
+        { value: 'terminee', label: '📝 Terminées' },
+        { value: 'validee', label: '✔️ Validées' },
+        { value: 'annulee', label: '❌ Annulées' },
+        { value: 'refusee', label: '🚫 Refusées' },
+        { value: 'expire', label: '⏰ Expirées' },
       ];
     }
 
     if (isAidant) {
       return [
         { value: 'all', label: 'Toutes les missions' },
-        { value: 'planifiee', label: 'À venir' },
-        { value: 'en_cours', label: 'En cours' },
-        { value: 'terminee', label: 'Terminées' },
-        { value: 'annulee', label: 'Annulées' },
+        { value: 'planifiee', label: '📋 À valider' },
+        { value: 'en_attente', label: '⏳ En attente' },
+        { value: 'acceptee', label: '✅ Acceptées' },
+        { value: 'en_cours', label: '🔄 En cours' },
+        { value: 'terminee', label: '📝 Terminées' },
+        { value: 'annulee', label: '❌ Annulées' },
+        { value: 'refusee', label: '🚫 Refusées' },
+      ];
+    }
+
+    if (isFamily) {
+      return [
+        { value: 'all', label: 'Toutes les visites' },
+        { value: 'planifiee', label: '📋 Planifiées' },
+        { value: 'en_attente', label: '⏳ En attente' },
+        { value: 'acceptee', label: '✅ Acceptées' },
+        { value: 'en_cours', label: '🔄 En cours' },
+        { value: 'terminee', label: '📝 Terminées' },
+        { value: 'validee', label: '✔️ Validées' },
+        { value: 'annulee', label: '❌ Annulées' },
       ];
     }
 
@@ -87,15 +107,16 @@ const VisitsPage = () => {
       { value: 'terminee', label: 'Terminées' },
       { value: 'annulee', label: 'Annulées' },
     ];
-  }, [isAidant, isAdminOrCoordinator]);
+  }, [isAidant, isAdminOrCoordinator, isFamily]);
 
   const stats = {
     total: visits.length,
     planned: visits.filter((v) => v.status === 'planifiee').length,
+    pending: visits.filter((v) => v.status === 'en_attente').length,
+    accepted: visits.filter((v) => v.status === 'acceptee').length,
     inProgress: visits.filter((v) => v.status === 'en_cours').length,
-    completed: visits.filter(
-      (v) => v.status === 'terminee' || v.status === 'validee'
-    ).length,
+    completed: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
+    expired: visits.filter((v) => v.status === 'expire').length,
   };
 
   const sortedVisits = useMemo(() => {
@@ -117,6 +138,10 @@ const VisitsPage = () => {
   };
 
   const handleAdd = () => {
+    if (!canPlanify) {
+      toast.error('Vous n\'avez pas les droits pour planifier une visite');
+      return;
+    }
     setSelectedVisit(null);
     setModalMode('create');
     setIsModalOpen(true);
@@ -128,15 +153,36 @@ const VisitsPage = () => {
     toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
   };
 
+  const handleApproveVisit = async (visitId: string) => {
+    try {
+      await approveVisit(visitId);
+      toast.success('Visite approuvée');
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'approbation');
+    }
+  };
+
+  const handleRefuseVisit = async (visitId: string) => {
+    const reason = prompt('Motif du refus :');
+    if (!reason) return;
+
+    try {
+      await refuseVisit(visitId, reason);
+      toast.error('Visite refusée');
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du refus');
+    }
+  };
+
   const handleStartVisit = async (visitId: string) => {
     try {
-      const { startVisit } = useVisitStore.getState();
       await startVisit(visitId);
       toast.success('Visite démarrée');
       fetchVisits();
-    } catch (error) {
-      console.error(error);
-      toast.error('Erreur lors du démarrage');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du démarrage');
     }
   };
 
@@ -144,13 +190,11 @@ const VisitsPage = () => {
     if (!window.confirm('Annuler cette visite ?')) return;
 
     try {
-      const { cancelVisit } = useVisitStore.getState();
       await cancelVisit(visitId);
       toast.success('Visite annulée');
       fetchVisits();
-    } catch (error) {
-      console.error(error);
-      toast.error("Erreur lors de l'annulation");
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'annulation');
     }
   };
 
@@ -196,6 +240,9 @@ const VisitsPage = () => {
 
             <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
               {visits.length} visite{visits.length > 1 ? 's' : ''} au total
+              {stats.expired > 0 && (
+                <span className="ml-2 text-red-500">⚠️ {stats.expired} expirée(s)</span>
+              )}
             </p>
           </div>
 
@@ -212,8 +259,8 @@ const VisitsPage = () => {
         </div>
       </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* STATS COMPACTES - AVEC NOUVEAUX STATUTS */}
+      <section className="grid grid-cols-2 lg:grid-cols-6 gap-2">
         <CompactStatBox
           icon={<Calendar size={16} />}
           label="Total"
@@ -222,25 +269,37 @@ const VisitsPage = () => {
         />
         <CompactStatBox
           icon={<Clock size={16} />}
-          label="Planifiées"
-          value={stats.planned}
-          color="#4CAF50"
+          label="À valider"
+          value={stats.planned + stats.pending}
+          color="#FF9800"
+        />
+        <CompactStatBox
+          icon={<CheckCircle size={16} />}
+          label="Acceptées"
+          value={stats.accepted}
+          color="#2196F3"
         />
         <CompactStatBox
           icon={<PlayCircle size={16} />}
           label="En cours"
           value={stats.inProgress}
-          color="#FF9800"
+          color="#4CAF50"
         />
         <CompactStatBox
           icon={<CheckCircle size={16} />}
           label="Terminées"
           value={stats.completed}
-          color="#2196F3"
+          color="#9C27B0"
+        />
+        <CompactStatBox
+          icon={<AlertCircle size={16} />}
+          label="Expirées"
+          value={stats.expired}
+          color="#F44336"
         />
       </section>
 
-      {/* FILTRE EN SELECT (compact) */}
+      {/* FILTRE EN SELECT */}
       <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
         <div className="flex items-center gap-3">
           <Filter size={16} className="text-gray-400" />
@@ -275,12 +334,12 @@ const VisitsPage = () => {
                 onClick={() => navigate(`/app/visits/${visit.id}`)}
                 showActions={true}
                 onStart={
-                  canStartVisit && visit.status === 'planifiee'
+                  canStartVisit && (visit.status === 'acceptee' || visit.status === 'planifiee')
                     ? () => handleStartVisit(visit.id)
                     : undefined
                 }
                 onCancel={
-                  canCancelVisit && visit.status === 'planifiee'
+                  canCancelVisit && (visit.status === 'planifiee' || visit.status === 'en_attente')
                     ? () => handleCancelVisit(visit.id)
                     : undefined
                 }
@@ -300,6 +359,8 @@ const VisitsPage = () => {
           >
             {filterStatus === 'annulee' ? (
               <XCircle size={24} />
+            ) : filterStatus === 'expire' ? (
+              <AlertCircle size={24} />
             ) : (
               <Calendar size={24} />
             )}
