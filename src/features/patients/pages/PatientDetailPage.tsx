@@ -1,6 +1,5 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
-// 📌 Détails d'une personne 
-
+ 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -48,7 +47,6 @@ const PatientDetailPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
 
-  // ✅ Jargon dynamique selon le rôle
   const {
     singular,
     detail,
@@ -65,10 +63,7 @@ const PatientDetailPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ============================================================
-  // STORES
-  // ============================================================
-  const { currentPatient, fetchPatientById, deletePatient, isLoading } = usePatientStore();
+  const { currentPatient, fetchPatientById, deletePatient, isLoading, canManagePatients } = usePatientStore();
   const {
     visits,
     fetchVisits,
@@ -79,13 +74,11 @@ const PatientDetailPage = () => {
     cancelVisit,
     approveVisit,
     refuseVisit,
+    confirmPayment,
   } = useVisitStore();
 
   const { remainingVisits, hasActiveSubscription } = useSubscriptionGuard();
 
-  // ============================================================
-  // ÉTATS
-  // ============================================================
   const [activeTab, setActiveTab] = useState<'info' | 'visits' | 'notes'>('info');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
@@ -103,9 +96,9 @@ const PatientDetailPage = () => {
   const isFamilyRole = role === 'family';
   const isAdminRole = isAdminOrCoordinator;
 
-  // ============================================================
-  // EFFETS
-  // ============================================================
+  // ✅ Vérifier si l'utilisateur peut gérer les patients
+  const canManage = canManagePatients();
+
   useEffect(() => {
     if (id) {
       fetchPatientById(id);
@@ -119,10 +112,6 @@ const PatientDetailPage = () => {
       setPatientVisits(filtered);
     }
   }, [visits, id]);
-
-  // ============================================================
-  // ACTIONS SUR LES VISITES
-  // ============================================================
 
   const handleStartVisit = async () => {
     if (!currentPatient) return;
@@ -167,6 +156,11 @@ const PatientDetailPage = () => {
   };
 
   const handlePlanifyVisit = () => {
+    // ✅ Seuls admin/coord ou famille peuvent planifier
+    if (!isAdminRole && !isFamilyRole) {
+      toast.error('Vous n\'avez pas les droits pour planifier une visite');
+      return;
+    }
     setSelectedVisit(null);
     setVisitModalMode('create');
     setShowVisitModal(true);
@@ -177,8 +171,8 @@ const PatientDetailPage = () => {
       await approveVisit(visitId);
       fetchVisits();
       toast.success('Visite approuvée');
-    } catch (error) {
-      toast.error('Erreur lors de l\'approbation');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'approbation');
     }
   };
 
@@ -190,8 +184,8 @@ const PatientDetailPage = () => {
       await refuseVisit(visitId, reason);
       fetchVisits();
       toast.error('Visite refusée');
-    } catch (error) {
-      toast.error('Erreur lors du refus');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du refus');
     }
   };
 
@@ -222,28 +216,34 @@ const PatientDetailPage = () => {
       toast.success('Visite annulée');
       fetchVisits();
       fetchPatientById(id!);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error('Erreur lors de l\'annulation');
+      toast.error(error.message || 'Erreur lors de l\'annulation');
     }
   };
 
-  // ============================================================
-  // ACTIONS SUR LE PATIENT
-  // ============================================================
   const handleDelete = async () => {
+    if (!canManage) {
+      toast.error('Vous n\'avez pas les droits pour supprimer un patient');
+      return;
+    }
+
     if (window.confirm(confirmDelete)) {
       try {
         await deletePatient(id!);
         toast.success(deleted);
         navigate('/app/patients');
-      } catch (error) {
-        toast.error('Erreur lors de la suppression');
+      } catch (error: any) {
+        toast.error(error.message || 'Erreur lors de la suppression');
       }
     }
   };
 
   const handleEdit = () => {
+    if (!canManage) {
+      toast.error('Vous n\'avez pas les droits pour modifier un patient');
+      return;
+    }
     setIsModalOpen(true);
   };
 
@@ -262,18 +262,17 @@ const PatientDetailPage = () => {
     toast.success('Visite planifiée');
   };
 
-  // ============================================================
-  // HELPERS
-  // ============================================================
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'planifiee': return '#4CAF50';
       case 'en_attente': return '#FF9800';
+      case 'acceptee': return '#2196F3';
       case 'en_cours': return '#2196F3';
       case 'terminee': return '#9C27B0';
       case 'validee': return '#4CAF50';
       case 'annulee': return '#F44336';
       case 'refusee': return '#F44336';
+      case 'expire': return '#795548';
       default: return '#9E9E9E';
     }
   };
@@ -282,18 +281,16 @@ const PatientDetailPage = () => {
     switch (status) {
       case 'planifiee': return 'Planifiée';
       case 'en_attente': return 'En attente';
+      case 'acceptee': return 'Acceptée';
       case 'en_cours': return 'En cours';
       case 'terminee': return 'Terminée';
       case 'validee': return 'Validée';
       case 'annulee': return 'Annulée';
       case 'refusee': return 'Refusée';
+      case 'expire': return 'Expirée';
       default: return status;
     }
   };
-
-  // ============================================================
-  // RENDU
-  // ============================================================
 
   if (isLoading || !currentPatient) {
     return (
@@ -309,6 +306,7 @@ const PatientDetailPage = () => {
   const person = currentPatient;
   const activeVisits = patientVisits.filter((v) => v.status === 'en_cours');
   const pendingVisits = patientVisits.filter((v) => v.status === 'planifiee' && !v.approved_at && !v.refused_at);
+  const acceptedVisits = patientVisits.filter((v) => v.status === 'acceptee');
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
@@ -330,27 +328,39 @@ const PatientDetailPage = () => {
             <p className="text-sm flex items-center gap-1.5" style={{ color: colors.text + '99' }}>
               <User size={14} />
               {getCategoryLabel(person.category)}
+              {isAidant && <span className="text-xs text-amber-600 ml-2">(Assigné)</span>}
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleEdit}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
-            style={{ background: colors.primary + '15', color: colors.primary }}
-          >
-            <Edit2 size={18} />
-            <span>{edit}</span>
-          </button>
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
-            style={{ background: '#F44336' + '15' }}
-          >
-            <Trash2 size={18} />
-            <span>Supprimer</span>
-          </button>
-        </div>
+
+        {/* ✅ Boutons d'édition - Cachés pour les aidants */}
+        {canManage && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleEdit}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
+              style={{ background: colors.primary + '15', color: colors.primary }}
+            >
+              <Edit2 size={18} />
+              <span>{edit}</span>
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
+              style={{ background: '#F44336' + '15' }}
+            >
+              <Trash2 size={18} />
+              <span>Supprimer</span>
+            </button>
+          </div>
+        )}
+
+        {isAidant && !canManage && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+            <ShieldAlert size={16} className="text-amber-500" />
+            <span className="text-xs text-amber-600">Lecture seule</span>
+          </div>
+        )}
       </div>
 
       {/* ============================================================
@@ -396,6 +406,7 @@ const PatientDetailPage = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              {/* ✅ AIDANT : Démarrer et Approuver/Refuser */}
               {isAidantRole && (
                 <>
                   <button
@@ -407,6 +418,8 @@ const PatientDetailPage = () => {
                     {isStarting ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
                     {isStarting ? 'Démarrage...' : 'Démarrer'}
                   </button>
+
+                  {/* ✅ Visites en attente d'approbation */}
                   {pendingVisits.length > 0 && (
                     <div className="flex gap-1">
                       {pendingVisits.slice(0, 2).map((visit) => (
@@ -431,8 +444,18 @@ const PatientDetailPage = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* ✅ Visites acceptées - En attente du jour J */}
+                  {acceptedVisits.length > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                      <Clock size={12} />
+                      <span>{acceptedVisits.length} visite(s) acceptée(s) en attente</span>
+                    </div>
+                  )}
                 </>
               )}
+
+              {/* ✅ FAMILLE : Planifier */}
               {isFamilyRole && (
                 <button
                   onClick={handlePlanifyVisit}
@@ -443,6 +466,8 @@ const PatientDetailPage = () => {
                   Planifier
                 </button>
               )}
+
+              {/* ✅ ADMIN : Assigner */}
               {isAdminRole && (
                 <button
                   onClick={handlePlanifyVisit}
@@ -455,11 +480,22 @@ const PatientDetailPage = () => {
               )}
             </div>
           </div>
+
+          {/* ✅ Alertes */}
           {activeVisits.length > 0 && (
             <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
               <p className="text-sm text-blue-700 flex items-center gap-2">
                 <Clock size={18} />
                 <span>Une visite est en cours pour ce patient.</span>
+              </p>
+            </div>
+          )}
+
+          {pendingVisits.length > 0 && isAidantRole && (
+            <div className="mt-3 p-3 rounded-xl bg-yellow-50 border border-yellow-200">
+              <p className="text-sm text-yellow-700 flex items-center gap-2">
+                <AlertCircle size={18} />
+                <span>{pendingVisits.length} visite(s) en attente d'approbation.</span>
               </p>
             </div>
           )}
@@ -496,7 +532,7 @@ const PatientDetailPage = () => {
       CONTENU DES TABS
       ============================================================ */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        {/* TAB INFO */}
+        {/* TAB INFO - Inchangé */}
         {activeTab === 'info' && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
@@ -536,7 +572,7 @@ const PatientDetailPage = () => {
           </div>
         )}
 
-        {/* TAB VISITES */}
+        {/* TAB VISITES - AVEC NOUVEAUX STATUTS */}
         {activeTab === 'visits' && (
           <div>
             {patientVisits.length > 0 ? (
@@ -566,7 +602,7 @@ const PatientDetailPage = () => {
               <div className="text-center py-12" style={{ color: colors.text + '60' }}>
                 <Illustration type="calendar" size="lg" className="mx-auto mb-4 opacity-40" />
                 <p className="font-medium" style={{ color: colors.text }}>{noVisits}</p>
-                {(isFamilyRole || isAidantRole) && (
+                {(isFamilyRole || isAdminRole) && (
                   <button
                     onClick={handlePlanifyVisit}
                     className="mt-4 px-4 py-2 rounded-xl text-white font-medium text-sm inline-flex items-center gap-2"
@@ -581,7 +617,7 @@ const PatientDetailPage = () => {
           </div>
         )}
 
-        {/* TAB NOTES */}
+        {/* TAB NOTES - Inchangé */}
         {activeTab === 'notes' && (
           <div>
             {person.notes ? (
@@ -637,7 +673,7 @@ const PatientDetailPage = () => {
 };
 
 // ============================================================
-// SOUS-COMPOSANTS
+// SOUS-COMPOSANTS (inchangés)
 // ============================================================
 
 interface StatCardProps {
@@ -682,11 +718,13 @@ const VisitCard = ({
     switch (status) {
       case 'planifiee': return '#4CAF50';
       case 'en_attente': return '#FF9800';
+      case 'acceptee': return '#2196F3';
       case 'en_cours': return '#2196F3';
       case 'terminee': return '#9C27B0';
       case 'validee': return '#4CAF50';
       case 'annulee': return '#F44336';
       case 'refusee': return '#F44336';
+      case 'expire': return '#795548';
       default: return '#9E9E9E';
     }
   };
@@ -695,11 +733,13 @@ const VisitCard = ({
     switch (status) {
       case 'planifiee': return 'Planifiée';
       case 'en_attente': return 'En attente';
+      case 'acceptee': return 'Acceptée';
       case 'en_cours': return 'En cours';
       case 'terminee': return 'Terminée';
       case 'validee': return 'Validée';
       case 'annulee': return 'Annulée';
       case 'refusee': return 'Refusée';
+      case 'expire': return 'Expirée';
       default: return status;
     }
   };
@@ -707,17 +747,21 @@ const VisitCard = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'planifiee': return <Calendar size={14} />;
+      case 'en_attente': return <Clock size={14} />;
+      case 'acceptee': return <CheckCircle size={14} />;
       case 'en_cours': return <Play size={14} />;
       case 'terminee': return <CheckCircle size={14} />;
       case 'validee': return <CheckCircle size={14} />;
       case 'annulee': return <XCircle size={14} />;
       case 'refusee': return <XCircle size={14} />;
+      case 'expire': return <AlertCircle size={14} />;
       default: return <Clock size={14} />;
     }
   };
 
   const statusColor = getStatusColor(visit.status);
   const isPending = visit.status === 'planifiee' && !visit.approved_at && !visit.refused_at;
+  const isAccepted = visit.status === 'acceptee';
 
   return (
     <div
@@ -754,6 +798,12 @@ const VisitCard = ({
               En attente d'approbation
             </span>
           )}
+          {isAccepted && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 bg-blue-100 text-blue-700">
+              <CheckCircle size={12} />
+              Acceptée - En attente
+            </span>
+          )}
         </div>
         {visit.aidant && (
           <p className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
@@ -767,15 +817,10 @@ const VisitCard = ({
              visit.assignment_type === 'intervalle' ? '⏰ Intervalle' : '📌 Ponctuelle'}
           </p>
         )}
-        {visit.duration_minutes && (
-          <p className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
-            <Clock size={12} />
-            {visit.duration_minutes} min
-          </p>
-        )}
       </div>
 
       <div className="flex flex-wrap gap-2 shrink-0">
+        {/* ✅ AIDANT : Approuver/Refuser les visites en attente */}
         {isPending && isAidant && (
           <>
             <button
@@ -796,7 +841,9 @@ const VisitCard = ({
             </button>
           </>
         )}
-        {visit.status === 'planifiee' && isAidant && !isPending && (
+
+        {/* ✅ AIDANT : Démarrer une visite acceptée (jour J) */}
+        {isAccepted && isAidant && (
           <button
             onClick={(e) => { e.stopPropagation(); onStart?.(); }}
             className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
@@ -806,7 +853,9 @@ const VisitCard = ({
             Démarrer
           </button>
         )}
-        {visit.status === 'planifiee' && (isAdmin || isFamily) && (
+
+        {/* ✅ ADMIN/FAMILLE : Annuler */}
+        {(visit.status === 'planifiee' || visit.status === 'en_attente') && (isAdmin || isFamily) && (
           <button
             onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
             className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
@@ -816,6 +865,7 @@ const VisitCard = ({
             Annuler
           </button>
         )}
+
         <button
           onClick={(e) => { e.stopPropagation(); onView?.(); }}
           className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:bg-gray-100 flex items-center gap-1"
