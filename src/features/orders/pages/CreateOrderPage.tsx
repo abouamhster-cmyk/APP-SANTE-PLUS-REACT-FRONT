@@ -1030,4 +1030,158 @@ const CreateOrderPage = () => {
 
               <button
                 type="button"
-                onClick
+                onClick={() => navigate('/app/orders')}
+                className="w-full py-3.5 rounded-2xl font-semibold border transition hover:bg-gray-50"
+                style={{
+                  borderColor: colors.border || '#e5e0d8',
+                  color: colors.text,
+                }}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </aside>
+      </form>
+
+      {/* ✅ MODAL DE PAIEMENT POUR COMMANDE PONCTUELLE */}
+      {showPaymentModal && (
+        <PaymentModal
+          isOpen={true}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setPendingOrderData(null);
+            isRedirecting.current = false;
+          }}
+          offer={{
+            id: `ponctual-${formData.type}`,
+            name: `Commande ${TYPE_LABELS[formData.type] || formData.type} (ponctuelle)`,
+            price: paymentAmount,
+            period: 'intervention',
+            features: ['Commande unique', 'Sans abonnement', 'Livraison rapide'],
+            visitsPerWeek: null,
+            durationDays: 1,
+            badge: 'Ponctuelle',
+            category: 'ponctuelle',
+          }}
+          onSuccess={handlePaymentSuccess}
+          orderData={pendingOrderData}
+          forcePonctual={true}
+        />
+      )}
+    </div>
+  );
+};
+
+// =============================================
+// SOUS-COMPOSANTS
+// =============================================
+
+interface ModernPanelProps {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  color: string;
+  children: React.ReactNode;
+}
+
+const ModernPanel = ({ icon, title, subtitle, color, children }: ModernPanelProps) => {
+  return (
+    <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+      <div className="flex items-start gap-3 mb-5">
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+          style={{
+            background: color + '14',
+            color,
+          }}
+        >
+          {icon}
+        </div>
+
+        <div>
+          <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">
+            {title}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+            {subtitle}
+          </p>
+        </div>
+      </div>
+
+      {children}
+    </section>
+  );
+};
+
+interface FieldProps {
+  label: string;
+  required?: boolean;
+  optional?: boolean;
+  color: string;
+  children: React.ReactNode;
+}
+
+const Field = ({ label, required, optional, color, children }: FieldProps) => {
+  return (
+    <label className="block">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-sm font-semibold" style={{ color }}>
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </span>
+
+        {optional && (
+          <span className="text-[11px] uppercase tracking-wide text-gray-400">
+            Optionnel
+          </span>
+        )}
+      </div>
+
+      {children}
+    </label>
+  );
+};
+
+interface CompactHeaderStatProps {
+  label: string;
+  value: string | number;
+  color: string;
+  icon?: React.ReactNode;
+}
+
+const CompactHeaderStat = ({ label, value, color, icon }: CompactHeaderStatProps) => {
+  return (
+    <div className="rounded-2xl bg-gray-50 border border-black/5 px-3 py-2.5 text-center">
+      {icon && (
+        <div className="flex justify-center mb-0.5" style={{ color }}>
+          {icon}
+        </div>
+      )}
+      <p className="text-[10px] text-gray-500 leading-tight">
+        {label}
+      </p>
+      <p className="text-sm font-bold mt-0.5 truncate" style={{ color }}>
+        {value}
+      </p>
+    </div>
+  );
+};
+
+interface SummaryLineProps {
+  label: string;
+  value: React.ReactNode;
+}
+
+const SummaryLine = ({ label, value }: SummaryLineProps) => {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm font-semibold text-gray-900 text-right">
+        {value}
+      </span>
+    </div>
+  );
+};
+
+export default CreateOrderPage;
