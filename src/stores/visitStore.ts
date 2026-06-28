@@ -620,7 +620,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         isLoading: false,
       }));
 
-      toast.warning('❌ Visite refusée');
+      toast.error('❌ Visite refusée');
     } catch (error: any) {
       console.error('❌ Refuse visit error:', error);
       set({ error: error.message, isLoading: false });
