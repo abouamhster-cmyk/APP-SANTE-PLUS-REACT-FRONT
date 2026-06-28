@@ -1,5 +1,5 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
-
+ 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Users as UsersIcon,
   UserSearch,
+  ShieldAlert,
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
@@ -24,10 +25,6 @@ import { Illustration } from '@/components/ui/Illustration';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { PatientModal } from '../components/PatientModal';
 import toast from 'react-hot-toast';
-
-// =============================================
-// COMPOSANT PRINCIPAL
-// =============================================
 
 const PatientsPage = () => {
   const navigate = useNavigate();
@@ -45,7 +42,7 @@ const PatientsPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  const { patients, isLoading, fetchPatients, deletePatient } = usePatientStore();
+  const { patients, isLoading, fetchPatients, deletePatient, canManagePatients } = usePatientStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -55,17 +52,12 @@ const PatientsPage = () => {
 
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
-  // =============================================
-  // EFFETS
-  // =============================================
+  // ✅ Vérifier si l'utilisateur peut gérer les patients
+  const canManage = canManagePatients();
 
   useEffect(() => {
     fetchPatients();
   }, []);
-
-  // =============================================
-  // FILTRES
-  // =============================================
 
   const filteredPatients = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
@@ -84,30 +76,39 @@ const PatientsPage = () => {
     });
   }, [patients, searchTerm, categoryFilter]);
 
-  // =============================================
-  // ACTIONS
-  // =============================================
-
   const handleDelete = async (id: string) => {
+    if (!canManage) {
+      toast.error('Vous n\'avez pas les droits pour supprimer un patient');
+      return;
+    }
+
     if (!window.confirm(`Voulez-vous vraiment supprimer ce ${singular} ?`)) return;
 
     try {
       await deletePatient(id);
       toast.success(`${singular.charAt(0).toUpperCase() + singular.slice(1)} supprimé`);
       fetchPatients();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error(`Erreur lors de la suppression`);
+      toast.error(error.message || `Erreur lors de la suppression`);
     }
   };
 
   const handleEdit = (patient: any) => {
+    if (!canManage) {
+      toast.error('Vous n\'avez pas les droits pour modifier un patient');
+      return;
+    }
     setSelectedPatient(patient);
     setModalMode('edit');
     setIsModalOpen(true);
   };
 
   const handleAdd = () => {
+    if (!canManage) {
+      toast.error('Vous n\'avez pas les droits pour ajouter un patient');
+      return;
+    }
     setSelectedPatient(null);
     setModalMode('create');
     setIsModalOpen(true);
@@ -123,20 +124,12 @@ const PatientsPage = () => {
     );
   };
 
-  // =============================================
-  // STATS
-  // =============================================
-
   const stats = {
     total: patients.length,
     senior: patients.filter((p) => p.category === 'senior').length,
     maman: patients.filter((p) => p.category === 'maman_bebe').length,
     active: patients.filter((p) => p.status === 'active').length,
   };
-
-  // =============================================
-  // RENDU - CHARGEMENT
-  // =============================================
 
   if (isLoading) {
     return (
@@ -156,10 +149,6 @@ const PatientsPage = () => {
       </div>
     );
   }
-
-  // =============================================
-  // RENDU - PRINCIPAL
-  // =============================================
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
@@ -181,16 +170,28 @@ const PatientsPage = () => {
             </div>
             <p className="text-xs" style={{ color: colors.textLight }}>
               {getCountLabel(patients.length)}
+              {isAidant && <span className="ml-2 text-[10px] text-amber-600">(Patients assignés uniquement)</span>}
             </p>
           </div>
-          <button
-            onClick={handleAdd}
-            className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white transition hover:opacity-90 shrink-0 flex items-center gap-1.5"
-            style={{ background: colors.primary }}
-          >
-            <UserPlus size={14} />
-            {add}
-          </button>
+
+          {/* ✅ Bouton Ajouter - Caché pour les aidants */}
+          {canManage && (
+            <button
+              onClick={handleAdd}
+              className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white transition hover:opacity-90 shrink-0 flex items-center gap-1.5"
+              style={{ background: colors.primary }}
+            >
+              <UserPlus size={14} />
+              {add}
+            </button>
+          )}
+
+          {isAidant && !canManage && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-amber-50 border border-amber-200">
+              <ShieldAlert size={16} className="text-amber-500" />
+              <span className="text-xs text-amber-600">Lecture seule</span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -260,9 +261,9 @@ const PatientsPage = () => {
               key={patient.id}
               patient={patient}
               onClick={() => navigate(`/app/patients/${patient.id}`)}
-              onEdit={() => handleEdit(patient)}
-              onDelete={() => handleDelete(patient.id)}
-              showActions
+              onEdit={canManage ? () => handleEdit(patient) : undefined}
+              onDelete={canManage ? () => handleDelete(patient.id) : undefined}
+              showActions={canManage}
               compact
             />
           ))}
@@ -287,7 +288,7 @@ const PatientsPage = () => {
               : emptyAction}
           </p>
 
-          {!searchTerm && categoryFilter === 'all' && (
+          {!searchTerm && categoryFilter === 'all' && canManage && (
             <button
               onClick={handleAdd}
               className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-bold text-sm"
@@ -301,16 +302,18 @@ const PatientsPage = () => {
       )}
 
       {/* ========================================== */}
-      {/* BOUTON MOBILE */}
+      {/* BOUTON MOBILE - Caché pour les aidants */}
       {/* ========================================== */}
-      <button
-        onClick={handleAdd}
-        className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
-        style={{ background: colors.primary }}
-        aria-label={add}
-      >
-        <Plus size={22} />
-      </button>
+      {canManage && (
+        <button
+          onClick={handleAdd}
+          className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
+          style={{ background: colors.primary }}
+          aria-label={add}
+        >
+          <Plus size={22} />
+        </button>
+      )}
 
       {/* ========================================== */}
       {/* MODAL */}
