@@ -69,7 +69,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ Récupérer les relations séparément
+      // Récupérer les relations séparément
       const patientIds = [...new Set(discharges?.map(d => d.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
@@ -305,7 +305,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
     }
   },
 
-  // ✅ FINAL - updateDischarge avec type correct
+  // ✅ CORRIGÉ - updateDischarge avec toutes les propriétés requises
   updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
     try {
       set({ isLoading: true, error: null });
@@ -322,12 +322,11 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ Si pas de résultat, on ne fait rien
       if (!discharge) {
         throw new Error('Sortie non trouvée');
       }
 
-      // ✅ Récupérer les relations séparément
+      // Récupérer les relations séparément
       let patient = null;
       if (discharge.patient_id) {
         const { data: patientData } = await supabase
@@ -378,9 +377,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      // ✅ Construction avec id garanti
+      // ✅ Construction complète avec TOUTES les propriétés
       const fullDischarge: HospitalDischarge = {
         id: discharge.id,
+        proche_id: discharge.patient_id || '', // ✅ AJOUTÉ
         patient_id: discharge.patient_id || '',
         family_id: discharge.family_id || '',
         coordinator_id: discharge.coordinator_id || null,
@@ -404,10 +404,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         recommendations: discharge.recommendations || null,
         created_at: discharge.created_at || new Date().toISOString(),
         updated_at: discharge.updated_at || new Date().toISOString(),
-        patient,
-        family,
-        coordinator,
-        aidant,
+        patient: patient || undefined,
+        family: family || undefined,
+        coordinator: coordinator || undefined,
+        aidant: aidant || undefined,
       };
 
       set((state) => ({
