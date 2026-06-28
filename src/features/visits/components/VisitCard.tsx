@@ -1,13 +1,11 @@
 // 📁 src/components/visits/VisitCard.tsx
-// 📌 Carte d'une visite 
-
-import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, AlertCircle, UserCheck, Users } from 'lucide-react';
+ 
+import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, AlertCircle, UserCheck, Users, Clock as ClockIcon } from 'lucide-react';
 import { Visit } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate } from '@/utils/helpers';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Illustration } from '@/components/ui/Illustration';
 
 interface VisitCardProps {
   visit: Visit;
@@ -16,6 +14,8 @@ interface VisitCardProps {
   onCancel?: () => void;
   onView?: () => void;
   onClick?: () => void;
+  onApprove?: () => void;
+  onRefuse?: () => void;
   showActions?: boolean;
   compact?: boolean;
 }
@@ -27,21 +27,29 @@ export const VisitCard = ({
   onCancel, 
   onView,
   onClick,
+  onApprove,
+  onRefuse,
   showActions = false,
   compact = false 
 }: VisitCardProps) => {
   const colors = getThemeColors('senior');
   
-  // ✅ Jargon dynamique selon le rôle
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
+  // ✅ NOUVEAUX STATUTS
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'planifiee': return '#4CAF50';
-      case 'en_cours': return '#FF9800';
-      case 'terminee': return '#2196F3';
-      case 'validee': return '#9C27B0';
+      case 'en_attente': return '#FF9800';
+      case 'acceptee': return '#2196F3';
+      case 'en_cours': return '#2196F3';
+      case 'terminee': return '#9C27B0';
+      case 'validee': return '#4CAF50';
       case 'annulee': return '#F44336';
+      case 'refusee': return '#F44336';
+      case 'expire': return '#795548';
+      case 'replanifiee': return '#FF5722';
+      case 'no_show': return '#795548';
       default: return '#9E9E9E';
     }
   };
@@ -49,13 +57,41 @@ export const VisitCard = ({
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'planifiee': return 'Planifiée';
+      case 'en_attente': return 'En attente';
+      case 'acceptee': return 'Acceptée';
       case 'en_cours': return 'En cours';
       case 'terminee': return 'Terminée';
       case 'validee': return 'Validée';
       case 'annulee': return 'Annulée';
+      case 'refusee': return 'Refusée';
+      case 'expire': return 'Expirée';
+      case 'replanifiee': return 'Replanifiée';
+      case 'no_show': return 'Absent';
       default: return status;
     }
   };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'planifiee': return <Calendar size={12} />;
+      case 'en_attente': return <ClockIcon size={12} />;
+      case 'acceptee': return <CheckCircle size={12} />;
+      case 'en_cours': return <Play size={12} />;
+      case 'terminee': return <CheckCircle size={12} />;
+      case 'validee': return <CheckCircle size={12} />;
+      case 'annulee': return <XCircle size={12} />;
+      case 'refusee': return <XCircle size={12} />;
+      case 'expire': return <AlertCircle size={12} />;
+      default: return <ClockIcon size={12} />;
+    }
+  };
+
+  const isPendingApproval = visit.status === 'planifiee' || visit.status === 'en_attente';
+  const isAccepted = visit.status === 'acceptee';
+  const isInProgress = visit.status === 'en_cours';
+  const isExpired = visit.status === 'expire';
+  const isRefused = visit.status === 'refusee';
+  const isCompleted = visit.status === 'terminee' || visit.status === 'validee';
 
   // ✅ Version compacte
   if (compact) {
@@ -72,18 +108,25 @@ export const VisitCard = ({
                 {visit.patient?.first_name} {visit.patient?.last_name}
               </p>
               <span 
-                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium"
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5"
                 style={{ 
                   background: getStatusColor(visit.status) + '20',
                   color: getStatusColor(visit.status),
                 }}
               >
+                {getStatusIcon(visit.status)}
                 {getStatusLabel(visit.status)}
               </span>
               {visit.is_urgent && (
                 <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5" style={{ background: '#F44336' + '15', color: '#F44336' }}>
                   <AlertCircle size={10} />
                   Urgent
+                </span>
+              )}
+              {isExpired && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-red-100 text-red-600">
+                  <AlertCircle size={10} />
+                  Expirée
                 </span>
               )}
             </div>
@@ -106,9 +149,32 @@ export const VisitCard = ({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {showActions && visit.status === 'planifiee' && onStart && (isAidant || isAdminOrCoordinator) && (
+            {/* ✅ AIDANT : Approuver/Refuser */}
+            {showActions && isPendingApproval && isAidant && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
+                  className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                  style={{ background: '#4CAF50' }}
+                  title="Approuver"
+                >
+                  <CheckCircle size={14} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
+                  className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                  style={{ background: '#F44336' }}
+                  title="Refuser"
+                >
+                  <XCircle size={14} />
+                </button>
+              </>
+            )}
+
+            {/* ✅ AIDANT : Démarrer une visite acceptée */}
+            {showActions && isAccepted && isAidant && (
               <button
-                onClick={(e) => { e.stopPropagation(); onStart(); }}
+                onClick={(e) => { e.stopPropagation(); onStart?.(); }}
                 className="p-1.5 rounded-lg text-white transition hover:opacity-80"
                 style={{ background: '#4CAF50' }}
                 title="Démarrer"
@@ -116,9 +182,11 @@ export const VisitCard = ({
                 <Play size={14} />
               </button>
             )}
-            {showActions && visit.status === 'en_cours' && onComplete && (isAidant || isAdminOrCoordinator) && (
+
+            {/* ✅ AIDANT : Terminer une visite en cours */}
+            {showActions && isInProgress && isAidant && (
               <button
-                onClick={(e) => { e.stopPropagation(); onComplete(); }}
+                onClick={(e) => { e.stopPropagation(); onComplete?.(); }}
                 className="p-1.5 rounded-lg text-white transition hover:opacity-80"
                 style={{ background: '#2196F3' }}
                 title="Terminer"
@@ -126,6 +194,19 @@ export const VisitCard = ({
                 <CheckCircle size={14} />
               </button>
             )}
+
+            {/* ✅ ADMIN/FAMILLE : Annuler */}
+            {showActions && (isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
+                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                style={{ background: '#F44336' }}
+                title="Annuler"
+              >
+                <XCircle size={14} />
+              </button>
+            )}
+
             {onView && (
               <button
                 onClick={(e) => { e.stopPropagation(); onView(); }}
@@ -157,18 +238,25 @@ export const VisitCard = ({
               {visit.patient?.first_name} {visit.patient?.last_name}
             </h3>
             <span 
-              className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+              className="px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1"
               style={{ 
                 background: getStatusColor(visit.status) + '20',
                 color: getStatusColor(visit.status),
               }}
             >
+              {getStatusIcon(visit.status)}
               {getStatusLabel(visit.status)}
             </span>
             {visit.is_urgent && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: '#F44336' + '15', color: '#F44336' }}>
                 <AlertCircle size={12} />
                 Urgent
+              </span>
+            )}
+            {isExpired && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-600">
+                <AlertCircle size={12} />
+                Expirée
               </span>
             )}
           </div>
@@ -182,9 +270,32 @@ export const VisitCard = ({
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {showActions && visit.status === 'planifiee' && onStart && (isAidant || isAdminOrCoordinator) && (
+          {/* ✅ AIDANT : Approuver/Refuser */}
+          {showActions && isPendingApproval && isAidant && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+                style={{ background: '#4CAF50' }}
+              >
+                <CheckCircle size={14} />
+                Approuver
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+                style={{ background: '#F44336' }}
+              >
+                <XCircle size={14} />
+                Refuser
+              </button>
+            </>
+          )}
+
+          {/* ✅ AIDANT : Démarrer une visite acceptée */}
+          {showActions && isAccepted && isAidant && (
             <button
-              onClick={(e) => { e.stopPropagation(); onStart(); }}
+              onClick={(e) => { e.stopPropagation(); onStart?.(); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
               style={{ background: '#4CAF50' }}
             >
@@ -192,9 +303,11 @@ export const VisitCard = ({
               Démarrer
             </button>
           )}
-          {showActions && visit.status === 'en_cours' && onComplete && (isAidant || isAdminOrCoordinator) && (
+
+          {/* ✅ AIDANT : Terminer une visite en cours */}
+          {showActions && isInProgress && isAidant && (
             <button
-              onClick={(e) => { e.stopPropagation(); onComplete(); }}
+              onClick={(e) => { e.stopPropagation(); onComplete?.(); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
               style={{ background: '#2196F3' }}
             >
@@ -202,9 +315,11 @@ export const VisitCard = ({
               Terminer
             </button>
           )}
-          {showActions && visit.status === 'planifiee' && onCancel && isAdminOrCoordinator && (
+
+          {/* ✅ ADMIN/FAMILLE : Annuler */}
+          {showActions && (isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
             <button
-              onClick={(e) => { e.stopPropagation(); onCancel(); }}
+              onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
               style={{ background: '#F44336' }}
             >
@@ -212,6 +327,19 @@ export const VisitCard = ({
               Annuler
             </button>
           )}
+
+          {/* ✅ ADMIN : Réassigner (expirée/refusée) */}
+          {showActions && (isExpired || isRefused) && isAdminOrCoordinator && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onView?.(); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              style={{ background: '#FF5722' }}
+            >
+              <AlertCircle size={14} />
+              Réassigner
+            </button>
+          )}
+
           {onView && (
             <button
               onClick={(e) => { e.stopPropagation(); onView(); }}
@@ -251,7 +379,7 @@ export const VisitCard = ({
         </div>
       )}
 
-      {/* Badge de type si présent */}
+      {/* Badge de type */}
       {visit.visit_type && visit.visit_type !== 'ponctuelle' && (
         <div className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: colors.primary }}>
           {visit.visit_type === 'permanente' ? (
@@ -265,6 +393,14 @@ export const VisitCard = ({
               <span>Visite sur intervalle</span>
             </>
           ) : null}
+        </div>
+      )}
+
+      {/* ✅ Badge d'expiration */}
+      {isExpired && (
+        <div className="mt-3 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
+          <AlertCircle size={14} />
+          <span>Expirée - Réassignation nécessaire</span>
         </div>
       )}
     </div>
