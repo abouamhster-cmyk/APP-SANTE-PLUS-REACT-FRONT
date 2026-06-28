@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit } from '@/types';
 import { useAuthStore } from './authStore';
+import toast from 'react-hot-toast';
 
 interface VisitState {
   visits: Visit[];
