@@ -263,7 +263,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         actions: data.actions || [],
         notes: data.notes || null,
         is_urgent: data.is_urgent || false,
-        // ✅ Nouveaux champs
         visit_type: data.visit_type || 'ponctuelle',
         assignment_type: data.assignment_type || 'ponctuelle',
         recurrence_days: data.recurrence_days || null,
@@ -503,7 +502,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('visites')
         .select(`
           *,
-          patient:patients(*)
+          patient:patients!visites_patient_id_fkey(*)
         `)
         .eq('id', id)
         .single();
@@ -563,8 +562,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('visites')
         .select(`
           *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*))
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
         `)
         .eq('id', id)
         .single();
@@ -643,8 +642,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('visites')
         .select(`
           *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*))
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
         `)
         .eq('id', id)
         .single();
@@ -719,86 +718,92 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   // =============================================
   // ✅ RÉCUPÉRER LES VISITES EN ATTENTE D'APPROBATION
   // =============================================
- 
-getPendingVisits: async () => {
-  try {
-    set({ isLoading: true, error: null });
+  getPendingVisits: async () => {
+    try {
+      set({ isLoading: true, error: null });
 
-    const { data, error } = await supabase
-      .from('visites')
-      .select(`
-        *,
-        patient:patients!visites_patient_id_fkey(*),
-        aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
-      `)
-      .eq('status', 'planifiee')
-      .is('approved_at', null)
-      .is('refused_at', null)
-      .order('created_at', { ascending: true });
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
+        `)
+        .eq('status', 'planifiee')
+        .is('approved_at', null)
+        .is('refused_at', null)
+        .order('created_at', { ascending: true });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    set({ isLoading: false });
-    return data || [];
-  } catch (error: any) {
-    console.error('❌ Get pending visits error:', error);
-    set({ error: error.message, isLoading: false });
-    return [];
-  }
-},
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get pending visits error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
+  },
 
- getVisitsNeedingReassign: async () => {
-  try {
-    set({ isLoading: true, error: null });
+  // =============================================
+  // ✅ RÉCUPÉRER LES VISITES NÉCESSITANT UNE RÉASSIGNATION
+  // =============================================
+  getVisitsNeedingReassign: async () => {
+    try {
+      set({ isLoading: true, error: null });
 
-    const twentyFourHoursAgo = new Date();
-    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
-    const { data, error } = await supabase
-      .from('visites')
-      .select(`
-        *,
-        patient:patients!visites_patient_id_fkey(*),
-        aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
-      `)
-      .or(`status.eq.refusee, and(status.eq.planifiee, created_at.lt.${twentyFourHoursAgo.toISOString()}, approved_at.is.null, refused_at.is.null)`)
-      .order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
+        `)
+        .or(`status.eq.refusee, and(status.eq.planifiee, created_at.lt.${twentyFourHoursAgo.toISOString()}, approved_at.is.null, refused_at.is.null)`)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    set({ isLoading: false });
-    return data || [];
-  } catch (error: any) {
-    console.error('❌ Get visits needing reassign error:', error);
-    set({ error: error.message, isLoading: false });
-    return [];
-  }
-},
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get visits needing reassign error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
+  },
 
- getVisitsByPatient: async (patientId: string) => {
-  try {
-    set({ isLoading: true, error: null });
+  // =============================================
+  // ✅ RÉCUPÉRER LES VISITES D'UN PATIENT
+  // =============================================
+  getVisitsByPatient: async (patientId: string) => {
+    try {
+      set({ isLoading: true, error: null });
 
-    const { data, error } = await supabase
-      .from('visites')
-      .select(`
-        *,
-        patient:patients!visites_patient_id_fkey(*),
-        aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
-      `)
-      .eq('patient_id', patientId)
-      .order('scheduled_date', { ascending: true });
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles(*))
+        `)
+        .eq('patient_id', patientId)
+        .order('scheduled_date', { ascending: true });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    set({ isLoading: false });
-    return data || [];
-  } catch (error: any) {
-    console.error('❌ Get visits by patient error:', error);
-    set({ error: error.message, isLoading: false });
-    return [];
-  }
-},
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get visits by patient error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
+  },
+
   // =============================================
   // CLEAR ERROR
   // =============================================
