@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
-import { Loader2, CheckCircle, Users } from 'lucide-react';
+import { Loader2, CheckCircle, Users, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Aidant {
@@ -150,7 +150,7 @@ const AssignAidantPage = () => {
         .maybeSingle();
 
       if (existing) {
-        toast.info(`✅ ${patient.first_name} ${patient.last_name} est déjà assigné à ${aidant.user?.full_name}`);
+        toast(`✅ ${patient.first_name} ${patient.last_name} est déjà assigné à ${aidant.user?.full_name}`, { icon: 'ℹ️' });
         setIsSaving(false);
         return;
       }
@@ -209,7 +209,7 @@ const AssignAidantPage = () => {
 
     const unassignedPatients = patients.filter(p => !assignments[p.id]);
     if (unassignedPatients.length === 0) {
-      toast.info('Tous les patients sont déjà assignés');
+      toast('Tous les patients sont déjà assignés', { icon: 'ℹ️' });
       return;
     }
 
@@ -237,15 +237,6 @@ const AssignAidantPage = () => {
   const getAidantName = (userId: string) => {
     const aidant = aidants.find(a => a.user_id === userId);
     return aidant?.user?.full_name || 'Non assigné';
-  };
-
-  const getAidantStatus = (userId: string) => {
-    const aidant = aidants.find(a => a.user_id === userId);
-    if (!aidant) return null;
-    return {
-      available: aidant.available,
-      specialties: aidant.specialties,
-    };
   };
 
   if (isLoading) {
