@@ -1,5 +1,6 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
- 
+// ✅ VERSION CORRIGÉE - FILTRAGE DES OFFRES PAR TYPE DE COMPTE
+
 import { useEffect, useState } from 'react';
 import {
   CreditCard,
@@ -53,6 +54,15 @@ const BillingPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ Récupérer la catégorie du patient
+  const patientCategory = profile?.patient_category;
+
+  // ✅ Déterminer si c'est un compte personnel
+  const isPersonalAccount = role === 'family' && !patientCategory;
+
+  // ✅ Déterminer si c'est un aidant
+  const isAidantRole = role === 'aidant';
+
   useEffect(() => {
     if (!offersInitialized) {
       fetchOffers();
@@ -64,28 +74,73 @@ const BillingPage = () => {
     fetchPayments();
   }, []);
 
+  // ✅ FILTRAGE DES OFFRES SELON LE TYPE DE COMPTE
   useEffect(() => {
     if (offers.length === 0) return;
 
     let filtered: Offer[] = [];
 
-    switch (activeTab) {
-      case 'senior':
-        filtered = offers.filter(o => o.category === 'senior' || o.category === 'pack_confort');
-        break;
-      case 'maman_bebe':
-        filtered = offers.filter(o => o.category === 'maman_bebe' || o.category === 'pack_confort');
-        break;
-      case 'ponctuelle':
-        filtered = offers.filter(o => o.category === 'ponctuelle' || o.type === 'ponctuelle');
-        break;
-      default:
-        filtered = offers;
-        break;
+    // 🚫 AIDANT → Aucune offre
+    if (isAidantRole) {
+      setFilteredOffers([]);
+      return;
     }
 
+    // ✅ ADMIN/COORD → Toutes les offres
+    if (role === 'admin' || role === 'coordinator') {
+      filtered = offers;
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // ✅ COMPTE PERSONNEL → Uniquement Pack Confort
+    if (isPersonalAccount) {
+      filtered = offers.filter(o => 
+        o.category === 'pack_confort' || 
+        o.type === 'ponctuelle' ||
+        o.id?.startsWith('ponctual-')
+      );
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // ✅ COMPTE SENIOR → Senior + Pack Confort
+    if (patientCategory === 'senior') {
+      filtered = offers.filter(o => 
+        o.category === 'senior' || 
+        o.category === 'pack_confort' ||
+        o.type === 'ponctuelle' ||
+        o.id?.startsWith('ponctual-')
+      );
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // ✅ COMPTE MAMAN & BÉBÉ → Maman & Bébé + Pack Confort
+    if (patientCategory === 'maman_bebe') {
+      filtered = offers.filter(o => 
+        o.category === 'maman_bebe' || 
+        o.category === 'pack_confort' ||
+        o.type === 'ponctuelle' ||
+        o.id?.startsWith('ponctual-')
+      );
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // Fallback → Toutes les offres
+    filtered = offers;
     setFilteredOffers(filtered);
-  }, [offers, activeTab]);
+  }, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
+
+  // ✅ Filtrer les onglets visibles
+  const getVisibleTabs = () => {
+    if (isAidantRole) return [];
+    if (isPersonalAccount) return ['all', 'ponctuelle'];
+    if (patientCategory === 'senior') return ['all', 'senior', 'ponctuelle'];
+    if (patientCategory === 'maman_bebe') return ['all', 'maman_bebe', 'ponctuelle'];
+    return ['all', 'senior', 'maman_bebe', 'ponctuelle'];
+  };
 
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
   const hasActiveSubscription = subscriptions.some((sub) => sub.status === 'actif');
@@ -141,22 +196,34 @@ const BillingPage = () => {
     );
   }
 
-  const userCategory = profile?.patient_category;
-  const tabs = [
-    { id: 'all', label: `Toutes (${stats.total})` },
-    { id: 'senior', label: `👴 Senior (${stats.senior})` },
-    { id: 'maman_bebe', label: `👶 Maman (${stats.maman})` },
-    { id: 'ponctuelle', label: `⚡ Ponctuelle (${stats.ponctuelle})` },
-  ];
+  // ✅ Si l'utilisateur est un aidant, afficher un message
+  if (isAidantRole) {
+    return (
+      <div className="max-w-5xl mx-auto pb-8">
+        <section className="bg-white rounded-3xl p-8 text-center shadow-sm border border-black/5">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.primary + '15' }}>
+            <ShieldCheck size={32} style={{ color: colors.primary }} />
+          </div>
+          <h2 className="text-xl font-bold" style={{ color: colors.text }}>
+            🦸 Espace Aidant
+          </h2>
+          <p className="text-sm mt-2 max-w-md mx-auto" style={{ color: colors.text + '70' }}>
+            En tant qu'aidant, vous n'avez pas besoin de souscrire d'abonnement. 
+            Les visites et commandes vous sont assignées par l'administration.
+          </p>
+          <p className="text-xs mt-4" style={{ color: colors.text + '50' }}>
+            Vous pouvez consulter vos missions dans l'onglet "Missions" et "Commandes".
+          </p>
+        </section>
+      </div>
+    );
+  }
 
-  // Filtrer les tabs selon le rôle/catégorie
-  const visibleTabs = userCategory
-    ? tabs.filter(t => t.id === 'all' || t.id === userCategory || t.id === 'ponctuelle')
-    : tabs;
+  const visibleTabs = getVisibleTabs();
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12 sm:pb-8">
-      {/* HEADER DE STYLE BANNIÈRE DOUCE */}
+      {/* HEADER */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{
@@ -173,7 +240,7 @@ const BillingPage = () => {
               }}
             >
               <CreditCard size={11} />
-              {isFamily ? 'Abonnement Proches' : isAidant ? 'Abonnement Aidant' : 'Facturation'}
+              {isPersonalAccount ? 'Abonnement Confort' : isFamily ? 'Abonnement Proches' : 'Facturation'}
             </div>
 
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
@@ -187,7 +254,7 @@ const BillingPage = () => {
         </div>
       </section>
 
-      {/* ABONNEMENT ACTIF (Résumé haut de gamme) */}
+      {/* ABONNEMENT ACTIF */}
       {activeSubscription && (
         <section
           className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border-l-4 transition-all"
@@ -224,24 +291,35 @@ const BillingPage = () => {
         </section>
       )}
 
-      {/* FILTRES PAR CATÉGORIES (Style Pill) */}
-      <section className="bg-white rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
-          {visibleTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap`}
-              style={{
-                background: activeTab === tab.id ? colors.primary : 'transparent',
-                color: activeTab === tab.id ? '#ffffff' : '#64748b',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* FILTRES PAR CATÉGORIES */}
+      {visibleTabs.length > 0 && (
+        <section className="bg-white rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+            {visibleTabs.map((tabId) => {
+              const label = {
+                'all': `Toutes (${filteredOffers.length})`,
+                'senior': `👴 Senior (${offers.filter(o => o.category === 'senior' || o.category === 'pack_confort').length})`,
+                'maman_bebe': `👶 Maman (${offers.filter(o => o.category === 'maman_bebe' || o.category === 'pack_confort').length})`,
+                'ponctuelle': `⚡ Ponctuelle (${offers.filter(o => o.category === 'ponctuelle' || o.type === 'ponctuelle').length})`,
+              }[tabId] || tabId;
+
+              return (
+                <button
+                  key={tabId}
+                  onClick={() => setActiveTab(tabId as any)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap`}
+                  style={{
+                    background: activeTab === tabId ? colors.primary : 'transparent',
+                    color: activeTab === tabId ? '#ffffff' : '#64748b',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* GRILLE DES OFFRES DISPONIBLES */}
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -264,15 +342,17 @@ const BillingPage = () => {
               Aucun service disponible
             </p>
             <p className="text-[11px] text-gray-400 mt-1">
-              {activeTab === 'all'
-                ? "Aucune formule n'est proposée pour le moment."
-                : 'Aucune offre disponible dans cette catégorie.'}
+              {isAidantRole
+                ? 'En tant qu\'aidant, vous n\'avez pas accès aux abonnements.'
+                : isPersonalAccount
+                  ? 'Aucune offre Pack Confort disponible pour le moment.'
+                  : 'Aucune offre disponible pour votre type de compte.'}
             </p>
           </div>
         )}
       </section>
 
-      {/* HISTORIQUE DES TRANSACTIONS ÉPURÉ */}
+      {/* HISTORIQUE DES TRANSACTIONS */}
       <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)]">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
