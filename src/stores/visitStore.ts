@@ -1,6 +1,5 @@
 // 📁 src/stores/visitStore.ts
-// ✅ VERSION CORRIGÉE - NOUVEAUX STATUTS ET MÉTHODES
-
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
