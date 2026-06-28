@@ -7,7 +7,7 @@ import {
   UserCheck,
   Calendar,
   ShoppingBag,
-  CreditCard,
+  CreditCard,       
   TrendingUp,
   TrendingDown,
   Clock,
@@ -48,7 +48,6 @@ const AdminDashboardPage = () => {
     totalRevenue: 0,
     monthlyRevenue: 0,
     growth: 0,
-    // ✅ NOUVEAUX STATS
     visitsWaitingApproval: 0,
     visitsExpired: 0,
     ordersWaiting: 0,
@@ -86,7 +85,6 @@ const AdminDashboardPage = () => {
       const [
         { count: visitsToday },
         { count: visitsInProgress },
-        // ✅ NOUVEAUX STATS VISITES
         { count: visitsWaitingApproval },
         { count: visitsExpired },
         { count: visitsPendingPayment },
@@ -101,7 +99,6 @@ const AdminDashboardPage = () => {
       const [
         { count: totalOrders },
         { count: pendingOrders },
-        // ✅ NOUVEAUX STATS COMMANDES
         { count: ordersWaiting },
         { count: ordersAvailable },
         { count: ordersPendingPayment },
@@ -276,7 +273,7 @@ const AdminDashboardPage = () => {
           </button>
         </div>
 
-        {/* ✅ BANDEAU D'ALERTES */}
+        {/* BANDEAU D'ALERTES */}
         {hasAlerts && (
           <div className="relative z-10 mt-4 flex flex-wrap gap-2">
             {stats.visitsExpired > 0 && (
