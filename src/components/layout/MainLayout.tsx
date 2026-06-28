@@ -327,29 +327,6 @@ const MainLayout = () => {
                 </Link>
               </div>
             </div>
-
-            {/* Message "Pas de proche" */}
-            {isFamilyWithoutPatient && (
-              <div
-                className="mt-2 flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm"
-                style={{
-                  background: colors.primary + '10',
-                  border: `1px solid ${colors.primary + '20'}`,
-                }}
-              >
-                <AlertCircle size={16} style={{ color: colors.primary }} />
-                <span style={{ color: colors.text + '80' }}>
-                  💡 Vous n'avez pas encore de proche associé.
-                  <button
-                    onClick={() => navigate('/app/patients')}
-                    className="font-medium hover:underline ml-1"
-                    style={{ color: colors.primary }}
-                  >
-                    Ajouter un proche
-                  </button>
-                </span>
-              </div>
-            )}
           </div>
         </header>
 
