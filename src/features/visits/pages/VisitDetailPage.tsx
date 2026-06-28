@@ -1,20 +1,38 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
-// 📌 Détails d'une visite
+// 📌 Détails d'une visite 
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Calendar, Clock, MapPin, User, 
-  CheckCircle, XCircle, Play, Edit2, Phone, 
-  Mail, Heart, Baby, AlertCircle, Camera, Image,
-  Mic, MicOff, Trash2, Loader2
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  User,
+  CheckCircle,
+  XCircle,
+  Play,
+  Edit2,
+  Phone,
+  Mail,
+  Heart,
+  Baby,
+  AlertCircle,
+  Camera,
+  Image,
+  Mic,
+  MicOff,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
+
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, formatDateTime } from '@/utils/helpers';
 import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
+import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -26,7 +44,7 @@ const VisitDetailPage = () => {
 
   // ✅ Jargon dynamique selon le rôle
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
+    singular,
     getCategoryLabel,
     isAidant,
     isCoordinator,
@@ -47,17 +65,21 @@ const VisitDetailPage = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
+  // ✅ Refs pour le scroll
+  const modalContentRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
-  const fileInputRef = useState<HTMLInputElement | null>(null);
-  const audioRef = useState<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
   // ✅ Actions disponibles selon la catégorie du proche
-  const availableActions = currentVisit?.patient?.category === 'maman_bebe' 
-    ? VISIT_ACTIONS_MAMAN 
+  const availableActions = currentVisit?.patient?.category === 'maman_bebe'
+    ? VISIT_ACTIONS_MAMAN
     : VISIT_ACTIONS_SENIOR;
 
   useEffect(() => {
@@ -77,6 +99,18 @@ const VisitDetailPage = () => {
       setPhotoPreviews([]);
       setIsRecording(false);
     }
+  }, [showCompleteModal]);
+
+  // ✅ Empêcher le scroll du body quand le modal est ouvert
+  useEffect(() => {
+    if (showCompleteModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, [showCompleteModal]);
 
   const handleStart = async () => {
@@ -116,6 +150,7 @@ const VisitDetailPage = () => {
 
       recorder.start();
       setIsRecording(true);
+      toast.success('🎙️ Enregistrement démarré');
     } catch (error) {
       console.error('Erreur accès microphone:', error);
       toast.error('Impossible d\'accéder au microphone. Vérifiez les permissions.');
@@ -126,6 +161,7 @@ const VisitDetailPage = () => {
     if (mediaRecorder && isRecording) {
       mediaRecorder.stop();
       setIsRecording(false);
+      toast.success('⏹️ Enregistrement arrêté');
     }
   };
 
@@ -133,6 +169,11 @@ const VisitDetailPage = () => {
     setAudioUrl(null);
     setAudioBlob(null);
     setAudioChunks([]);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    toast.success('🗑️ Enregistrement supprimé');
   };
 
   // ✅ Photos
@@ -208,8 +249,8 @@ const VisitDetailPage = () => {
         }
       }
 
-      await completeVisit(id!, { 
-        actions: selectedActions, 
+      await completeVisit(id!, {
+        actions: selectedActions,
         notes: notes,
         photos: photoUrls,
       });
@@ -217,7 +258,7 @@ const VisitDetailPage = () => {
       if (audioUrlUploaded) {
         await supabase
           .from('visites')
-          .update({ 
+          .update({
             metadata: {
               audio_url: audioUrlUploaded,
               photos: photoUrls,
@@ -305,8 +346,10 @@ const VisitDetailPage = () => {
   const visit = currentVisit;
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
+    <div className="space-y-6 pb-24 sm:pb-10">
+      {/* ============================================================
+      EN-TÊTE
+      ============================================================ */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button
@@ -320,9 +363,9 @@ const VisitDetailPage = () => {
               Visite du {formatDate(visit.scheduled_date)}
             </h1>
             <div className="flex flex-wrap items-center gap-2 mt-1">
-              <span 
-                className="px-3 py-1 rounded-full text-xs font-medium flex items-center space-x-1"
-                style={{ 
+              <span
+                className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5"
+                style={{
                   background: getStatusColor(visit.status) + '20',
                   color: getStatusColor(visit.status),
                 }}
@@ -331,9 +374,12 @@ const VisitDetailPage = () => {
                 <span>{getStatusLabel(visit.status)}</span>
               </span>
               {visit.is_urgent && (
-                <span className="px-3 py-1 rounded-full text-xs font-medium flex items-center space-x-1" style={{ background: '#F44336' + '20', color: '#F44336' }}>
+                <span
+                  className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5"
+                  style={{ background: '#F44336' + '20', color: '#F44336' }}
+                >
                   <AlertCircle size={14} />
-                  <span>⚠️ Urgent</span>
+                  <span>Urgent</span>
                 </span>
               )}
               <span className="text-xs" style={{ color: colors.text + '60' }}>
@@ -349,7 +395,7 @@ const VisitDetailPage = () => {
             <button
               onClick={handleStart}
               disabled={isUpdating}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
               style={{ background: '#4CAF50' }}
             >
               <Play size={18} />
@@ -360,7 +406,7 @@ const VisitDetailPage = () => {
             <button
               onClick={() => setShowCompleteModal(true)}
               disabled={isUpdating}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
               style={{ background: '#2196F3' }}
             >
               <CheckCircle size={18} />
@@ -371,7 +417,7 @@ const VisitDetailPage = () => {
             <button
               onClick={handleCancel}
               disabled={isUpdating}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
               style={{ background: '#F44336' }}
             >
               <XCircle size={18} />
@@ -389,7 +435,7 @@ const VisitDetailPage = () => {
                   toast.error('Erreur lors de la validation');
                 }
               }}
-              className="flex items-center space-x-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
               style={{ background: '#9C27B0' }}
             >
               <CheckCircle size={18} />
@@ -399,84 +445,65 @@ const VisitDetailPage = () => {
         </div>
       </div>
 
-      {/* Informations principales */}
+      {/* ============================================================
+      INFORMATIONS PRINCIPALES
+      ============================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>
-            {isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire'}
-          </p>
-          <p className="font-semibold flex items-center space-x-2" style={{ color: colors.text }}>
-            <User size={18} />
-            <span>{visit.patient?.first_name} {visit.patient?.last_name}</span>
-          </p>
-          <p className="text-sm" style={{ color: colors.text + '60' }}>
-            {getCategoryLabel(visit.patient?.category || 'senior')}
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>Date & Heure</p>
-          <p className="font-semibold flex items-center space-x-2" style={{ color: colors.text }}>
-            <Calendar size={18} />
-            <span>{formatDate(visit.scheduled_date)}</span>
-          </p>
-          <p className="text-sm" style={{ color: colors.text + '60' }}>
-            <Clock size={14} className="inline mr-1" />
-            {visit.scheduled_time} ({visit.duration_minutes} min)
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>Aidant</p>
-          {visit.aidant ? (
-            <div>
-              <p className="font-semibold" style={{ color: colors.text }}>
-                {visit.aidant.user?.full_name || 'Aidant'}
-              </p>
-              <p className="text-sm" style={{ color: colors.text + '60' }}>
-                ⭐ {visit.aidant.rating || 0} • {visit.aidant.total_missions || 0} missions
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: colors.text + '40' }}>Non assigné</p>
-          )}
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <p className="text-sm" style={{ color: colors.text + '60' }}>Durée</p>
-          <p className="font-semibold" style={{ color: colors.text }}>
-            {visit.duration_minutes || 60} minutes
-          </p>
-          {visit.start_time && (
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              Début: {formatTime(visit.start_time)}
-            </p>
-          )}
-          {visit.end_time && (
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
-              Fin: {formatTime(visit.end_time)}
-            </p>
-          )}
-        </div>
+        <InfoCard
+          icon={<User size={18} />}
+          label={isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire'}
+          value={`${visit.patient?.first_name} ${visit.patient?.last_name}`}
+          sub={getCategoryLabel(visit.patient?.category || 'senior')}
+          color={colors.text}
+        />
+        <InfoCard
+          icon={<Calendar size={18} />}
+          label="Date & Heure"
+          value={formatDate(visit.scheduled_date)}
+          sub={`${visit.scheduled_time} (${visit.duration_minutes} min)`}
+          color={colors.text}
+        />
+        <InfoCard
+          icon={<User size={18} />}
+          label="Aidant"
+          value={visit.aidant?.user?.full_name || 'Non assigné'}
+          sub={visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente'}
+          color={visit.aidant ? colors.text : colors.text + '40'}
+        />
+        <InfoCard
+          icon={<Clock size={18} />}
+          label="Durée"
+          value={`${visit.duration_minutes || 60} minutes`}
+          sub={visit.start_time ? `Début: ${formatTime(visit.start_time)}` : 'Non démarrée'}
+          color={colors.text}
+        />
       </div>
 
-      {/* Adresse */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="font-semibold mb-3 flex items-center space-x-2" style={{ color: colors.text }}>
+      {/* ============================================================
+      ADRESSE
+      ============================================================ */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+        <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
           <MapPin size={20} />
-          <span>📍 Adresse</span>
+          Adresse
         </h3>
-        <p style={{ color: colors.text + '80' }}>{visit.patient?.address}</p>
+        <p style={{ color: colors.text + '80' }}>{visit.patient?.address || 'Adresse non renseignée'}</p>
         {visit.patient?.phone && (
-          <p className="mt-2 text-sm" style={{ color: colors.text + '60' }}>
-            📞 {visit.patient.phone}
+          <p className="mt-2 text-sm flex items-center gap-2" style={{ color: colors.text + '60' }}>
+            <Phone size={14} />
+            {visit.patient.phone}
           </p>
         )}
       </div>
 
-      {/* Actions réalisées */}
+      {/* ============================================================
+      ACTIONS RÉALISÉES
+      ============================================================ */}
       {visit.actions && visit.actions.length > 0 && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-3 flex items-center space-x-2" style={{ color: colors.text }}>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
             <CheckCircle size={20} style={{ color: '#4CAF50' }} />
-            <span>✅ Actions réalisées</span>
+            Actions réalisées
           </h3>
           <div className="flex flex-wrap gap-2">
             {visit.actions.map((action, index) => (
@@ -492,32 +519,40 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* Notes */}
+      {/* ============================================================
+      NOTES
+      ============================================================ */}
       {visit.notes && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-3 flex items-center space-x-2" style={{ color: colors.text }}>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
             <Edit2 size={20} />
-            <span>📝 Notes</span>
+            Notes
           </h3>
           <p style={{ color: colors.text + '80' }}>{visit.notes}</p>
         </div>
       )}
 
-      {/* Photos */}
+      {/* ============================================================
+      PHOTOS
+      ============================================================ */}
       {visit.photos && visit.photos.length > 0 && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-3 flex items-center space-x-2" style={{ color: colors.text }}>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
             <Image size={20} />
-            <span>📸 Photos</span>
+            Photos
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {visit.photos.map((photo: any, index: number) => (
-              <div key={index} className="relative aspect-square rounded-lg overflow-hidden border" style={{ borderColor: colors.border }}>
+              <div
+                key={index}
+                className="relative aspect-square rounded-lg overflow-hidden border cursor-pointer"
+                style={{ borderColor: colors.border }}
+                onClick={() => window.open(photo.photo_url || photo, '_blank')}
+              >
                 <img
                   src={photo.photo_url || photo}
                   alt={`Photo ${index + 1}`}
-                  className="w-full h-full object-cover cursor-pointer"
-                  onClick={() => window.open(photo.photo_url || photo, '_blank')}
+                  className="w-full h-full object-cover"
                 />
                 {photo.caption && (
                   <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50">
@@ -530,25 +565,40 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* Rapport */}
+      {/* ============================================================
+      RAPPORT
+      ============================================================ */}
       {visit.report && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h3 className="font-semibold mb-3 flex items-center space-x-2" style={{ color: colors.text }}>
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
             <Edit2 size={20} />
-            <span>📄 Rapport</span>
+            Rapport
           </h3>
           <p style={{ color: colors.text + '80' }}>{visit.report}</p>
         </div>
       )}
 
-      {/* MODAL DE FIN DE VISITE */}
+      {/* ============================================================
+      MODAL DE FIN DE VISITE
+      ============================================================ */}
       {showCompleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.primary + '20' }}>
+        <div
+          ref={modalRef}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          style={{ animation: 'fadeIn 0.2s ease-out' }}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
+            style={{ animation: 'scaleIn 0.3s ease-out' }}
+          >
+            {/* Header - Fixe */}
+            <div
+              className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b shrink-0 rounded-t-3xl"
+              style={{ borderColor: colors.primary + '20' }}
+            >
               <div>
                 <h2 className="text-xl font-bold" style={{ color: colors.text }}>
-                  ✅ Terminer la visite
+                  Terminer la visite
                 </h2>
                 <p className="text-sm" style={{ color: colors.text + '60' }}>
                   {visit.patient?.first_name} {visit.patient?.last_name} • {formatDate(visit.scheduled_date)}
@@ -563,17 +613,22 @@ const VisitDetailPage = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            {/* Content - Scrollable */}
+            <div
+              ref={modalContentRef}
+              className="flex-1 overflow-y-auto p-6 space-y-6"
+              style={{ scrollBehavior: 'smooth' }}
+            >
               {/* 1. ACTIONS RÉALISÉES */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
+                <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
                   Actions réalisées *
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {availableActions.map((action) => (
                     <label
                       key={action.id}
-                      className={`flex items-center space-x-2 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
+                      className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
                         selectedActions.includes(action.id)
                           ? 'border-[--color-primary] bg-[--color-primary]10'
                           : 'border-gray-200 hover:border-gray-300'
@@ -605,13 +660,13 @@ const VisitDetailPage = () => {
 
               {/* 2. NOTES */}
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: colors.text }}>
+                <label className="block text-sm font-bold mb-1.5" style={{ color: colors.text }}>
                   Notes
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border outline-none transition focus:ring-2 resize-none text-sm"
+                  className="w-full px-4 py-3 rounded-2xl border outline-none transition focus:ring-2 resize-none text-sm"
                   style={{
                     borderColor: colors.border || '#e5e0d8',
                     background: 'var(--color-background, #f5f0e8)',
@@ -624,19 +679,19 @@ const VisitDetailPage = () => {
 
               {/* 3. AUDIO */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
+                <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
                   Enregistrement audio
                   <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>
-                    (optionnel - pour les non-francophones)
+                    (optionnel)
                   </span>
                 </label>
-                <div className="p-4 rounded-xl border" style={{ borderColor: colors.border }}>
+                <div className="p-4 rounded-2xl border" style={{ borderColor: colors.border }}>
                   {!audioUrl ? (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
-                            isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-200'
+                            isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-100'
                           }`}
                         >
                           {isRecording ? (
@@ -680,8 +735,12 @@ const VisitDetailPage = () => {
                           <CheckCircle size={24} className="text-green-500" />
                         </div>
                         <div className="flex-1">
-                          <audio controls className="w-full h-10">
-                            <source src={audioUrl} type="audio/webm" />
+                          <audio
+                            ref={audioRef}
+                            controls
+                            className="w-full h-10"
+                            src={audioUrl}
+                          >
                             Votre navigateur ne supporte pas la lecture audio.
                           </audio>
                         </div>
@@ -699,7 +758,7 @@ const VisitDetailPage = () => {
 
               {/* 4. PHOTOS */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
+                <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
                   Photos
                   <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>
                     (optionnel - {photos.length}/5)
@@ -711,17 +770,18 @@ const VisitDetailPage = () => {
                       <img src={preview} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
                       <button
                         onClick={() => removePhoto(index)}
-                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition"
+                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition shadow-lg"
                       >
                         <XCircle size={14} />
                       </button>
                     </div>
                   ))}
                   {photos.length < 5 && (
-                    <label className="w-20 h-20 rounded-xl border-2 border-dashed flex items-center justify-center cursor-pointer hover:bg-gray-50 transition">
+                    <label className="w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition">
                       <Camera size={24} className="text-gray-400" />
+                      <span className="text-[10px] text-gray-400 mt-1">Ajouter</span>
                       <input
-                        ref={fileInputRef[1]}
+                        ref={fileInputRef}
                         type="file"
                         accept="image/*"
                         multiple
@@ -734,10 +794,14 @@ const VisitDetailPage = () => {
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white border-t p-6 flex gap-3" style={{ borderColor: colors.border }}>
+            {/* Footer - Fixe */}
+            <div
+              className="sticky bottom-0 bg-white border-t p-6 flex gap-3 shrink-0 rounded-b-3xl"
+              style={{ borderColor: colors.border }}
+            >
               <button
                 onClick={() => setShowCompleteModal(false)}
-                className="flex-1 py-3 rounded-xl font-medium border transition hover:bg-gray-50"
+                className="flex-1 py-3 rounded-2xl font-medium border transition hover:bg-gray-50"
                 style={{ borderColor: colors.border, color: colors.text }}
                 disabled={isUploading}
               >
@@ -746,7 +810,7 @@ const VisitDetailPage = () => {
               <button
                 onClick={handleComplete}
                 disabled={isUploading || selectedActions.length === 0}
-                className="flex-1 py-3 rounded-xl text-white font-medium transition hover:opacity-80 flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-2xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ background: colors.primary }}
               >
                 {isUploading ? (
@@ -765,8 +829,51 @@ const VisitDetailPage = () => {
           </div>
         </div>
       )}
+
+      {/* ============================================================
+      STYLES D'ANIMATION
+      ============================================================ */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 };
+
+// ============================================================
+// SOUS-COMPOSANTS
+// ============================================================
+
+interface InfoCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+  color?: string;
+}
+
+const InfoCard = ({ icon, label, value, sub, color }: InfoCardProps) => (
+  <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+    <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text, #6b7280)' + '60' }}>
+      {icon}
+      {label}
+    </div>
+    <p className="font-semibold mt-1" style={{ color: color || 'var(--color-text, #2d2d2d)' }}>
+      {value}
+    </p>
+    {sub && (
+      <p className="text-xs mt-0.5" style={{ color: 'var(--color-text, #6b7280)' + '50' }}>
+        {sub}
+      </p>
+    )}
+  </div>
+);
 
 export default VisitDetailPage;
