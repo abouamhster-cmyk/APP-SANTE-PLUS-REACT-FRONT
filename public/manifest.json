@@ -4,9 +4,12 @@
   "description": "Accompagnement humain et coordination à domicile",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f5f0e8",
   "theme_color": "#1a4a3a",
-  "orientation": "portrait",
+  "categories": ["health", "medical", "care"],
+  "lang": "fr",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icon-72.png",
