@@ -1,6 +1,5 @@
 // 📁 src/services/notificationService.ts
-// ✅ VERSION CORRIGÉE - FILTRAGE PAR RÔLE ET NOUVEAUX STATUTS
-
+ 
 import { supabase } from '@/lib/supabase';
 import { getMessaging, getToken, onMessage, deleteToken } from 'firebase/messaging';
 import { initializeApp, getApp, getApps } from 'firebase/app';
