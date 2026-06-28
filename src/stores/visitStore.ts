@@ -242,7 +242,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       // Déterminer le statut initial
-      const isPonctual = data.is_ponctual || false;
+      const isPonctual = data.visit_type === 'ponctuelle' || false;
       let status: VisitStatus = 'planifiee';
 
       if (isPonctual) {
