@@ -154,6 +154,7 @@ export interface Aidant {
 // =============================================
 // VISITE
 // =============================================
+ 
 export interface Visit {
   id: string;
   reference: string;
@@ -188,6 +189,24 @@ export interface Visit {
   created_at: string;
   updated_at: string;
   photos?: VisitPhoto[];
+  metadata?: any;
+  visit_type?: 'ponctuelle' | 'permanente' | 'intervalle';
+  assignment_type?: 'ponctuelle' | 'permanente' | 'intervalle';
+  recurrence_days?: string[] | null;
+  recurrence_time?: string | null;
+  intervalle_start?: string | null;
+  intervalle_end?: string | null;
+  is_recurring?: boolean;
+  requested_by?: string | null;
+  assigned_by?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  refused_by?: string | null;
+  refused_at?: string | null;
+  refusal_reason?: string | null;
+  reminded_at?: string | null;
+  reminder_count?: number;
+  notified_at?: string | null;
 }
 
 export type VisitWithPatient = Visit;
