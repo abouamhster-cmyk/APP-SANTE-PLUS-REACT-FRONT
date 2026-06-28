@@ -7,36 +7,27 @@ import { UserRole } from '@/types';
 // =============================================
 export const PERMISSIONS = {
   family: {
-    // Patients
     canViewPatients: true,
     canCreatePatients: true,
-    canEditPatients: true,      // Ses propres patients
+    canEditPatients: true,
     canDeletePatients: false,
-    
-    // Visites
     canViewVisits: true,
-    canCreateVisits: true,      // Peut planifier
-    canEditVisits: true,        // Ses visites
+    canCreateVisits: true,
+    canEditVisits: true,
     canStartVisits: false,
     canCompleteVisits: false,
     canValidateVisits: false,
     canApproveVisits: false,
     canRefuseVisits: false,
-    canCancelVisits: true,      // Ses visites planifiées
-    
-    // Commandes
+    canCancelVisits: true,
     canCreateOrders: true,
     canViewOrders: true,
     canEditOrders: true,
     canManageOrders: false,
     canTakeOrders: false,
     canDeliverOrders: false,
-    
-    // Messagerie
     canSendMessages: true,
     canViewMessages: true,
-    
-    // Autres
     canViewBilling: true,
     canManageSubscription: true,
     canViewMap: true,
@@ -54,41 +45,32 @@ export const PERMISSIONS = {
   },
   
   aidant: {
-    // Patients
-    canViewPatients: true,      // Uniquement ses assignés
+    canViewPatients: true,
     canCreatePatients: false,
     canEditPatients: false,
     canDeletePatients: false,
-    
-    // Visites
-    canViewVisits: true,        // Uniquement ses assignées
+    canViewVisits: true,
     canCreateVisits: false,
     canEditVisits: false,
-    canStartVisits: true,       // Ses visites acceptées
-    canCompleteVisits: true,    // Ses visites en cours
+    canStartVisits: true,
+    canCompleteVisits: true,
     canValidateVisits: false,
-    canApproveVisits: true,     // Approuver/Refuser les visites planifiées
+    canApproveVisits: true,
     canRefuseVisits: true,
     canCancelVisits: false,
-    
-    // Commandes
     canCreateOrders: false,
-    canViewOrders: true,        // Uniquement ses assignées
+    canViewOrders: true,
     canEditOrders: false,
     canManageOrders: false,
-    canTakeOrders: true,        // Prendre les commandes disponibles
-    canDeliverOrders: true,     // Livrer les commandes en cours
-    
-    // Messagerie
-    canSendMessages: true,      // Avec ses patients/familles
+    canTakeOrders: true,
+    canDeliverOrders: true,
+    canSendMessages: true,
     canViewMessages: true,
-    
-    // Autres
     canViewBilling: false,
     canManageSubscription: false,
     canViewMap: true,
     canViewEducation: false,
-    canManageProfile: true,     // Ses infos personnelles
+    canManageProfile: true,
     canViewStats: false,
     canManageUsers: false,
     canViewRegistrations: false,
@@ -101,13 +83,10 @@ export const PERMISSIONS = {
   },
   
   coordinator: {
-    // Patients
     canViewPatients: true,
     canCreatePatients: true,
     canEditPatients: true,
     canDeletePatients: true,
-    
-    // Visites
     canViewVisits: true,
     canCreateVisits: true,
     canEditVisits: true,
@@ -117,20 +96,14 @@ export const PERMISSIONS = {
     canApproveVisits: false,
     canRefuseVisits: false,
     canCancelVisits: true,
-    
-    // Commandes
     canCreateOrders: false,
     canViewOrders: true,
     canEditOrders: true,
     canManageOrders: true,
     canTakeOrders: false,
     canDeliverOrders: false,
-    
-    // Messagerie
     canSendMessages: true,
     canViewMessages: true,
-    
-    // Autres
     canViewBilling: true,
     canManageSubscription: true,
     canViewMap: true,
@@ -148,13 +121,10 @@ export const PERMISSIONS = {
   },
   
   admin: {
-    // Patients
     canViewPatients: true,
     canCreatePatients: true,
     canEditPatients: true,
     canDeletePatients: true,
-    
-    // Visites
     canViewVisits: true,
     canCreateVisits: true,
     canEditVisits: true,
@@ -164,20 +134,14 @@ export const PERMISSIONS = {
     canApproveVisits: false,
     canRefuseVisits: false,
     canCancelVisits: true,
-    
-    // Commandes
     canCreateOrders: false,
     canViewOrders: true,
     canEditOrders: true,
     canManageOrders: true,
     canTakeOrders: false,
     canDeliverOrders: false,
-    
-    // Messagerie
     canSendMessages: true,
     canViewMessages: true,
-    
-    // Autres
     canViewBilling: true,
     canManageSubscription: true,
     canViewMap: true,
@@ -199,7 +163,6 @@ export const PERMISSIONS = {
 // HELPERS
 // =============================================
 
-// ✅ Vérifier une permission spécifique
 export const hasPermission = (
   role: UserRole | null,
   permission: keyof typeof PERMISSIONS.family
@@ -209,7 +172,6 @@ export const hasPermission = (
   return perm?.[permission] || false;
 };
 
-// ✅ Vérifier plusieurs permissions (au moins une)
 export const hasAnyPermission = (
   role: UserRole | null,
   permissions: (keyof typeof PERMISSIONS.family)[]
@@ -218,7 +180,6 @@ export const hasAnyPermission = (
   return permissions.some(p => hasPermission(role, p));
 };
 
-// ✅ Vérifier toutes les permissions
 export const hasAllPermissions = (
   role: UserRole | null,
   permissions: (keyof typeof PERMISSIONS.family)[]
@@ -227,44 +188,37 @@ export const hasAllPermissions = (
   return permissions.every(p => hasPermission(role, p));
 };
 
-// ✅ Obtenir le rôle d'un utilisateur
 export const getUserRole = (profile: any): UserRole | null => {
   if (!profile) return null;
   return profile.role as UserRole;
 };
 
-// ✅ Vérifier si un utilisateur peut gérer les patients
 export const canManagePatients = (role: UserRole | null): boolean => {
   return role === 'admin' || role === 'coordinator' || role === 'family';
 };
 
-// ✅ Vérifier si un utilisateur peut gérer les visites
 export const canManageVisits = (role: UserRole | null): boolean => {
   return role === 'admin' || role === 'coordinator' || role === 'family';
 };
 
-// ✅ Vérifier si un utilisateur peut gérer les commandes
 export const canManageOrders = (role: UserRole | null): boolean => {
   return role === 'admin' || role === 'coordinator' || role === 'family';
 };
 
-// ✅ Vérifier si un utilisateur peut voir les données admin
 export const isAdminOrCoordinator = (role: UserRole | null): boolean => {
   return role === 'admin' || role === 'coordinator';
 };
 
-// ✅ Vérifier si un utilisateur est un aidant
 export const isAidant = (role: UserRole | null): boolean => {
   return role === 'aidant';
 };
 
-// ✅ Vérifier si un utilisateur est une famille
 export const isFamily = (role: UserRole | null): boolean => {
   return role === 'family';
 };
 
 // =============================================
-// THÈMES PAR RÔLE - BRANDING OFFICIEL
+// THÈMES PAR RÔLE
 // =============================================
 
 export type ThemeType = 'senior' | 'maman' | 'aidant' | 'coordinator';
@@ -286,7 +240,7 @@ export const getThemeByRole = (
 };
 
 // =============================================
-// COULEURS DES THÈMES - BRANDING OFFICIEL
+// COULEURS DES THÈMES
 // =============================================
 
 export const getThemeColors = (theme: ThemeType | string) => {
@@ -363,7 +317,7 @@ export const getThemeColors = (theme: ThemeType | string) => {
         visitImage: '/assets/images/banners/coord-visit.png',
       };
       
-    default:
+    default: // senior
       return {
         primary: '#1a4a3a',
         primaryDark: '#0d2a22',
@@ -395,7 +349,7 @@ export const getThemeColors = (theme: ThemeType | string) => {
 
 export const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    // Visites - NOUVEAUX STATUTS
+    // Visites - COMPLET
     planifiee: '#4CAF50',
     en_attente: '#FF9800',
     acceptee: '#2196F3',
@@ -409,16 +363,11 @@ export const getStatusColor = (status: string): string => {
     no_show: '#795548',
     attente_paiement: '#8b5cf6',
     
-    // Commandes - NOUVEAUX STATUTS
+    // Commandes - COMPLET
     creee: '#9E9E9E',
-    en_attente: '#FF9800',
     disponible: '#F44336',
-    en_cours: '#2196F3',
     livree: '#2196F3',
-    validee: '#4CAF50',
-    annulee: '#9E9E9E',
     attente_paiement: '#8b5cf6',
-    refusee: '#F44336',
     
     // Paiements
     valide: '#4CAF50',
@@ -428,7 +377,6 @@ export const getStatusColor = (status: string): string => {
     
     // Abonnements
     actif: '#4CAF50',
-    expire: '#F44336',
     suspendu: '#FF9800',
     en_cours_de_renouvellement: '#2196F3',
     
@@ -441,7 +389,7 @@ export const getStatusColor = (status: string): string => {
 
 export const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
-    // Visites - NOUVEAUX STATUTS
+    // Visites - COMPLET
     planifiee: 'Planifiée',
     en_attente: 'En attente',
     acceptee: 'Acceptée',
@@ -455,16 +403,11 @@ export const getStatusLabel = (status: string): string => {
     no_show: 'Absent',
     attente_paiement: 'En attente paiement',
     
-    // Commandes - NOUVEAUX STATUTS
+    // Commandes - COMPLET
     creee: 'Créée',
-    en_attente: 'En attente',
     disponible: 'Disponible',
-    en_cours: 'En cours',
     livree: 'Livrée',
-    validee: 'Validée',
-    annulee: 'Annulée',
     attente_paiement: 'En attente paiement',
-    refusee: 'Refusée',
     
     // Paiements
     valide: 'Validé',
