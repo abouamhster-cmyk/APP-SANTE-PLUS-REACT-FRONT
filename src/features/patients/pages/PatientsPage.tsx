@@ -15,6 +15,7 @@ import {
   Users as UsersIcon,
   UserSearch,
   ShieldAlert,
+  RefreshCw,
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
@@ -42,13 +43,14 @@ const PatientsPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  const { patients, isLoading, fetchPatients, deletePatient, canManagePatients } = usePatientStore();
+  const { patients, isLoading, fetchPatients, deletePatient, canManagePatients, syncAidantPatients } = usePatientStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
@@ -124,6 +126,19 @@ const PatientsPage = () => {
     );
   };
 
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncAidantPatients();
+      toast.success('✅ Patients synchronisés avec succès');
+    } catch (error: any) {
+      console.error('Erreur synchronisation:', error);
+      toast.error(error.message || 'Erreur lors de la synchronisation');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const stats = {
     total: patients.length,
     senior: patients.filter((p) => p.category === 'senior').length,
@@ -133,7 +148,7 @@ const PatientsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="max-w-5xl mx-auto space-y-5 p-3 sm:p-4">
+      <div className="maxw-5xl mx-auto space-y-5 p-3 sm:p-4">
         <div className="h-20 bg-white rounded-3xl animate-pulse shadow-sm" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
@@ -252,6 +267,26 @@ const PatientsPage = () => {
       </section>
 
       {/* ========================================== */}
+      {/* BOUTON SYNC POUR AIDANTS */}
+      {/* ========================================== */}
+      {isAidant && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition hover:opacity-90 disabled:opacity-50"
+            style={{ background: colors.primary + '12', color: colors.primary }}
+          >
+            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+            {isSyncing ? 'Synchronisation...' : '🔄 Synchroniser les patients'}
+          </button>
+          <span className="text-[10px] text-gray-400">
+            Mise à jour manuelle des patients assignés
+          </span>
+        </div>
+      )}
+
+      {/* ========================================== */}
       {/* LISTE DES PATIENTS */}
       {/* ========================================== */}
       {filteredPatients.length > 0 ? (
@@ -297,6 +332,12 @@ const PatientsPage = () => {
               <UserPlus size={14} />
               {add}
             </button>
+          )}
+
+          {isAidant && patients.length === 0 && !searchTerm && categoryFilter === 'all' && (
+            <p className="text-xs text-amber-600 mt-2">
+              💡 Aucun patient ne vous est encore assigné. Contactez l'administrateur.
+            </p>
           )}
         </section>
       )}
