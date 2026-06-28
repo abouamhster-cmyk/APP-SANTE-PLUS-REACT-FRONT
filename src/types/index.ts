@@ -1,39 +1,38 @@
 // 📁 src/types/index.ts
-// ✅ VERSION COMPLÈTE ET CORRIGÉE
-
-// =============================================
-// TYPES COMPLETS - SANTÉ PLUS SERVICES
-// =============================================
-
+ 
 export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
 export type ProcheCategory = 'senior' | 'maman_bebe';
 export type PatientCategory = 'senior' | 'maman_bebe';
 
-// ✅ VISITE STATUS - Inclut 'refusee'
+// ✅ VISITE STATUS - COMPLET (tous les statuts utilisés)
 export type VisitStatus = 
   | 'planifiee' 
   | 'en_attente' 
+  | 'acceptee'        
   | 'en_cours' 
   | 'terminee' 
   | 'validee' 
   | 'annulee' 
   | 'replanifiee' 
   | 'no_show'
-  | 'refusee';
+  | 'refusee'
+  | 'expire'           
+  | 'attente_paiement'; 
 
-// ✅ CYCLE DE VIE SIMPLIFIÉ DES COMMANDES
-// creee → en_cours (aidant accepte) → livree (aidant livre) → validee (auto après 12h)
+// ✅ ORDER STATUS - COMPLET (tous les statuts utilisés)
 export type OrderStatus = 
-  | 'creee'        // 📝 Créée par la famille
-  | 'en_cours'     // 🔄 Acceptée par l'aidant (en cours)
-  | 'livree'       // 📦 Livrée par l'aidant
-  | 'validee'      // ✅ Validée automatiquement après 12h
-  | 'annulee';     // ❌ Annulée
+  | 'creee'        
+  | 'en_attente'    
+  | 'disponible'     
+  | 'en_cours'     
+  | 'livree'       
+  | 'validee'      
+  | 'annulee'
+  | 'attente_paiement'; 
 
 export type PaymentStatus = 'en_attente' | 'valide' | 'echoue' | 'rembourse' | 'annule' | 'en_attente_de_confirmation';
 export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
 export type NotificationType = 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
-
 export type OrderType = 'subscription' | 'ponctual';
 
 // =============================================
@@ -68,6 +67,7 @@ export interface Offer {
 // =============================================
 // PROFIL
 // =============================================
+
 export interface Profile {
   id: string;
   full_name: string;
@@ -91,6 +91,7 @@ export interface Profile {
 // =============================================
 // PROCHE (ex-PATIENT)
 // =============================================
+
 export interface Proche {
   id: string;
   first_name: string;
@@ -123,6 +124,7 @@ export type Patient = Proche;
 // =============================================
 // PROCHE FAMILY LINK
 // =============================================
+
 export interface ProcheFamilyLink {
   id: string;
   proche_id: string;
@@ -141,6 +143,7 @@ export type PatientFamilyLink = ProcheFamilyLink;
 // =============================================
 // AIDANT
 // =============================================
+
 export interface Aidant {
   id: string;
   user_id: string;
@@ -165,7 +168,7 @@ export interface Aidant {
 // =============================================
 // VISITE
 // =============================================
- 
+
 export interface Visit {
   id: string;
   reference: string;
@@ -218,6 +221,8 @@ export interface Visit {
   reminded_at?: string | null;
   reminder_count?: number;
   notified_at?: string | null;
+  // ✅ Propriétés pour les visites ponctuelles
+  is_ponctual?: boolean;
 }
 
 export type VisitWithPatient = Visit;
@@ -225,6 +230,7 @@ export type VisitWithPatient = Visit;
 // =============================================
 // VISITE PHOTO
 // =============================================
+
 export interface VisitPhoto {
   id: string;
   visite_id: string;
@@ -236,8 +242,9 @@ export interface VisitPhoto {
 }
 
 // =============================================
-// COMMANDE - CYCLE DE VIE SIMPLIFIÉ
+// COMMANDE - CYCLE DE VIE COMPLET
 // =============================================
+
 export interface Order {
   id: string;
   proche_id: string | null;
@@ -267,6 +274,8 @@ export interface Order {
   is_paid?: boolean;
   created_at: string;
   updated_at: string;
+  // ✅ Propriétés pour les commandes ponctuelles
+  is_ponctual?: boolean;
 }
 
 export interface OrderItem {
@@ -280,6 +289,7 @@ export interface OrderItem {
 // =============================================
 // MESSAGE & CONVERSATION
 // =============================================
+
 export interface Conversation {
   id: string;
   participant_ids: string[];
@@ -317,6 +327,7 @@ export interface Message {
 // =============================================
 // OFFRE & ABONNEMENT
 // =============================================
+
 export interface OfferDB {
   id: string;
   name: string;
@@ -367,6 +378,7 @@ export interface Subscription {
 // =============================================
 // PAIEMENT
 // =============================================
+
 export interface Payment {
   id: string;
   abonnement_id: string | null;
@@ -390,6 +402,7 @@ export interface Payment {
 // =============================================
 // NOTIFICATION
 // =============================================
+
 export interface Notification {
   id: string;
   user_id: string;
@@ -410,6 +423,7 @@ export interface Notification {
 // =============================================
 // INSCRIPTION
 // =============================================
+
 export interface Inscription {
   id: string;
   user_id: string | null;
@@ -432,6 +446,7 @@ export interface Inscription {
 // =============================================
 // RATING
 // =============================================
+
 export interface Rating {
   id: string;
   visite_id: string;
@@ -451,6 +466,7 @@ export interface Rating {
 // =============================================
 // EMERGENCY CONTACT
 // =============================================
+
 export interface EmergencyContact {
   id: string;
   proche_id: string;
@@ -472,6 +488,7 @@ export type EmergencyContactWithPatient = EmergencyContact;
 // =============================================
 // STATISTIQUES
 // =============================================
+
 export interface DashboardStats {
   proches: number;
   patients: number;
