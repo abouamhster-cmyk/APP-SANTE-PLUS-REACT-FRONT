@@ -1,5 +1,5 @@
 // 📁 src/lib/permissions.ts
-
+ 
 import { UserRole } from '@/types';
 
 // =============================================
@@ -7,19 +7,36 @@ import { UserRole } from '@/types';
 // =============================================
 export const PERMISSIONS = {
   family: {
+    // Patients
     canViewPatients: true,
-    canCreatePatients: false,
-    canEditPatients: false,
+    canCreatePatients: true,
+    canEditPatients: true,      // Ses propres patients
     canDeletePatients: false,
+    
+    // Visites
     canViewVisits: true,
+    canCreateVisits: true,      // Peut planifier
+    canEditVisits: true,        // Ses visites
     canStartVisits: false,
     canCompleteVisits: false,
     canValidateVisits: false,
+    canApproveVisits: false,
+    canRefuseVisits: false,
+    canCancelVisits: true,      // Ses visites planifiées
+    
+    // Commandes
     canCreateOrders: true,
     canViewOrders: true,
+    canEditOrders: true,
     canManageOrders: false,
+    canTakeOrders: false,
+    canDeliverOrders: false,
+    
+    // Messagerie
     canSendMessages: true,
     canViewMessages: true,
+    
+    // Autres
     canViewBilling: true,
     canManageSubscription: true,
     canViewMap: true,
@@ -35,25 +52,43 @@ export const PERMISSIONS = {
     canManageSettings: false,
     canViewLogs: false,
   },
+  
   aidant: {
-    canViewPatients: false,
+    // Patients
+    canViewPatients: true,      // Uniquement ses assignés
     canCreatePatients: false,
     canEditPatients: false,
     canDeletePatients: false,
-    canViewVisits: true,
-    canStartVisits: true,
-    canCompleteVisits: true,
+    
+    // Visites
+    canViewVisits: true,        // Uniquement ses assignées
+    canCreateVisits: false,
+    canEditVisits: false,
+    canStartVisits: true,       // Ses visites acceptées
+    canCompleteVisits: true,    // Ses visites en cours
     canValidateVisits: false,
+    canApproveVisits: true,     // Approuver/Refuser les visites planifiées
+    canRefuseVisits: true,
+    canCancelVisits: false,
+    
+    // Commandes
     canCreateOrders: false,
-    canViewOrders: true,
-    canManageOrders: true,
-    canSendMessages: true,
+    canViewOrders: true,        // Uniquement ses assignées
+    canEditOrders: false,
+    canManageOrders: false,
+    canTakeOrders: true,        // Prendre les commandes disponibles
+    canDeliverOrders: true,     // Livrer les commandes en cours
+    
+    // Messagerie
+    canSendMessages: true,      // Avec ses patients/familles
     canViewMessages: true,
+    
+    // Autres
     canViewBilling: false,
     canManageSubscription: false,
     canViewMap: true,
     canViewEducation: false,
-    canManageProfile: true,
+    canManageProfile: true,     // Ses infos personnelles
     canViewStats: false,
     canManageUsers: false,
     canViewRegistrations: false,
@@ -64,20 +99,38 @@ export const PERMISSIONS = {
     canManageSettings: false,
     canViewLogs: false,
   },
+  
   coordinator: {
+    // Patients
     canViewPatients: true,
     canCreatePatients: true,
     canEditPatients: true,
     canDeletePatients: true,
+    
+    // Visites
     canViewVisits: true,
+    canCreateVisits: true,
+    canEditVisits: true,
     canStartVisits: false,
     canCompleteVisits: false,
     canValidateVisits: true,
+    canApproveVisits: false,
+    canRefuseVisits: false,
+    canCancelVisits: true,
+    
+    // Commandes
     canCreateOrders: false,
     canViewOrders: true,
+    canEditOrders: true,
     canManageOrders: true,
+    canTakeOrders: false,
+    canDeliverOrders: false,
+    
+    // Messagerie
     canSendMessages: true,
     canViewMessages: true,
+    
+    // Autres
     canViewBilling: true,
     canManageSubscription: true,
     canViewMap: true,
@@ -89,24 +142,42 @@ export const PERMISSIONS = {
     canProcessRegistrations: true,
     canManageAidants: true,
     canManageCoordinators: false,
-    canManageOffers: false,
+    canManageOffers: true,
     canManageSettings: false,
     canViewLogs: false,
   },
+  
   admin: {
+    // Patients
     canViewPatients: true,
     canCreatePatients: true,
     canEditPatients: true,
     canDeletePatients: true,
+    
+    // Visites
     canViewVisits: true,
+    canCreateVisits: true,
+    canEditVisits: true,
     canStartVisits: false,
     canCompleteVisits: false,
     canValidateVisits: true,
+    canApproveVisits: false,
+    canRefuseVisits: false,
+    canCancelVisits: true,
+    
+    // Commandes
     canCreateOrders: false,
     canViewOrders: true,
+    canEditOrders: true,
     canManageOrders: true,
+    canTakeOrders: false,
+    canDeliverOrders: false,
+    
+    // Messagerie
     canSendMessages: true,
     canViewMessages: true,
+    
+    // Autres
     canViewBilling: true,
     canManageSubscription: true,
     canViewMap: true,
@@ -127,6 +198,8 @@ export const PERMISSIONS = {
 // =============================================
 // HELPERS
 // =============================================
+
+// ✅ Vérifier une permission spécifique
 export const hasPermission = (
   role: UserRole | null,
   permission: keyof typeof PERMISSIONS.family
@@ -134,6 +207,60 @@ export const hasPermission = (
   if (!role) return false;
   const perm = PERMISSIONS[role as keyof typeof PERMISSIONS];
   return perm?.[permission] || false;
+};
+
+// ✅ Vérifier plusieurs permissions (au moins une)
+export const hasAnyPermission = (
+  role: UserRole | null,
+  permissions: (keyof typeof PERMISSIONS.family)[]
+): boolean => {
+  if (!role) return false;
+  return permissions.some(p => hasPermission(role, p));
+};
+
+// ✅ Vérifier toutes les permissions
+export const hasAllPermissions = (
+  role: UserRole | null,
+  permissions: (keyof typeof PERMISSIONS.family)[]
+): boolean => {
+  if (!role) return false;
+  return permissions.every(p => hasPermission(role, p));
+};
+
+// ✅ Obtenir le rôle d'un utilisateur
+export const getUserRole = (profile: any): UserRole | null => {
+  if (!profile) return null;
+  return profile.role as UserRole;
+};
+
+// ✅ Vérifier si un utilisateur peut gérer les patients
+export const canManagePatients = (role: UserRole | null): boolean => {
+  return role === 'admin' || role === 'coordinator' || role === 'family';
+};
+
+// ✅ Vérifier si un utilisateur peut gérer les visites
+export const canManageVisits = (role: UserRole | null): boolean => {
+  return role === 'admin' || role === 'coordinator' || role === 'family';
+};
+
+// ✅ Vérifier si un utilisateur peut gérer les commandes
+export const canManageOrders = (role: UserRole | null): boolean => {
+  return role === 'admin' || role === 'coordinator' || role === 'family';
+};
+
+// ✅ Vérifier si un utilisateur peut voir les données admin
+export const isAdminOrCoordinator = (role: UserRole | null): boolean => {
+  return role === 'admin' || role === 'coordinator';
+};
+
+// ✅ Vérifier si un utilisateur est un aidant
+export const isAidant = (role: UserRole | null): boolean => {
+  return role === 'aidant';
+};
+
+// ✅ Vérifier si un utilisateur est une famille
+export const isFamily = (role: UserRole | null): boolean => {
+  return role === 'family';
 };
 
 // =============================================
@@ -263,35 +390,48 @@ export const getThemeColors = (theme: ThemeType | string) => {
 };
 
 // =============================================
-// STATUS HELPERS - SANS DOUBLONS
+// STATUS HELPERS - AVEC NOUVEAUX STATUTS
 // =============================================
 
 export const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    // Visites
+    // Visites - NOUVEAUX STATUTS
     planifiee: '#4CAF50',
+    en_attente: '#FF9800',
+    acceptee: '#2196F3',
     en_cours: '#2196F3',
     terminee: '#9C27B0',
     validee: '#4CAF50',
     annulee: '#F44336',
+    refusee: '#F44336',
+    expire: '#795548',
     replanifiee: '#FF5722',
     no_show: '#795548',
-    // Commandes
+    attente_paiement: '#8b5cf6',
+    
+    // Commandes - NOUVEAUX STATUTS
     creee: '#9E9E9E',
-    acceptee: '#2196F3',
-    en_preparation: '#FF9800',
-    en_livraison: '#FF5722',
-    livree: '#4CAF50',
+    en_attente: '#FF9800',
+    disponible: '#F44336',
+    en_cours: '#2196F3',
+    livree: '#2196F3',
+    validee: '#4CAF50',
+    annulee: '#9E9E9E',
+    attente_paiement: '#8b5cf6',
     refusee: '#F44336',
+    
     // Paiements
     valide: '#4CAF50',
     echoue: '#F44336',
     rembourse: '#9E9E9E',
+    en_attente_de_confirmation: '#FF9800',
+    
     // Abonnements
     actif: '#4CAF50',
     expire: '#F44336',
     suspendu: '#FF9800',
     en_cours_de_renouvellement: '#2196F3',
+    
     // Inscriptions
     info_requise: '#2196F3',
     en_cours_de_traitement: '#9C27B0',
@@ -301,30 +441,43 @@ export const getStatusColor = (status: string): string => {
 
 export const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
-    // Visites
+    // Visites - NOUVEAUX STATUTS
     planifiee: 'Planifiée',
+    en_attente: 'En attente',
+    acceptee: 'Acceptée',
     en_cours: 'En cours',
     terminee: 'Terminée',
     validee: 'Validée',
     annulee: 'Annulée',
+    refusee: 'Refusée',
+    expire: 'Expirée',
     replanifiee: 'Replanifiée',
     no_show: 'Absent',
-    // Commandes
+    attente_paiement: 'En attente paiement',
+    
+    // Commandes - NOUVEAUX STATUTS
     creee: 'Créée',
-    acceptee: 'Acceptée',
-    en_preparation: 'En préparation',
-    en_livraison: 'En livraison',
+    en_attente: 'En attente',
+    disponible: 'Disponible',
+    en_cours: 'En cours',
     livree: 'Livrée',
+    validee: 'Validée',
+    annulee: 'Annulée',
+    attente_paiement: 'En attente paiement',
     refusee: 'Refusée',
+    
     // Paiements
     valide: 'Validé',
     echoue: 'Échoué',
     rembourse: 'Remboursé',
+    en_attente_de_confirmation: 'En attente de confirmation',
+    
     // Abonnements
     actif: 'Actif',
     expire: 'Expiré',
     suspendu: 'Suspendu',
     en_cours_de_renouvellement: 'En cours de renouvellement',
+    
     // Inscriptions
     info_requise: 'Info requise',
     en_cours_de_traitement: 'En cours de traitement',
@@ -345,10 +498,6 @@ export const getRoleLabel = (role: string): string => {
   };
   return labels[role] || role;
 };
-
-// =============================================
-// RÔLE COLORS - BRANDING OFFICIEL
-// =============================================
 
 export const getRoleColor = (role: string): string => {
   const colors: Record<string, string> = {
