@@ -1,6 +1,5 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
-// ✅ Version compacte
-
+ 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -19,6 +18,7 @@ import {
   Eye,
   ClipboardList,
   ShieldAlert,
+  AlertCircle,
 } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
@@ -34,8 +34,8 @@ type TabType = 'missions' | 'deliveries' | 'available';
 const MissionsPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
-  const { visits, fetchVisits, startVisit, isLoading } = useVisitStore();
-  const { orders, fetchOrders, acceptOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
+  const { visits, fetchVisits, startVisit, approveVisit, refuseVisit, isLoading } = useVisitStore();
+  const { orders, fetchOrders, takeOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
 
   const { isAidant } = useTerminology();
 
@@ -49,7 +49,6 @@ const MissionsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Vérifier si l'aidant est validé
   useEffect(() => {
     const checkAidantStatus = async () => {
       if (!user) {
@@ -99,7 +98,6 @@ const MissionsPage = () => {
     checkAidantStatus();
   }, [user]);
 
-  // ✅ Récupérer l'ID de l'aidant
   useEffect(() => {
     const getAidantId = async () => {
       if (!user) return;
@@ -128,7 +126,6 @@ const MissionsPage = () => {
     }
   }, [isVerified]);
 
-  // ✅ Si l'aidant n'est pas encore vérifié
   if (isChecking) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -163,11 +160,13 @@ const MissionsPage = () => {
     );
   }
 
-  // ✅ Filtrer les données
   const myMissions = visits.filter(v => v.aidant_id === aidantId);
   const assignedOrders = orders.filter(o => o.aidant_id === aidantId);
-  const availableOrders = orders.filter(o => o.status === 'creee' && !o.aidant_id);
+  const availableOrders = orders.filter(o => o.status === 'en_attente' || o.status === 'disponible');
   const deliveryOrders = assignedOrders.filter(o => o.status === 'en_cours' || o.status === 'livree');
+
+  const pendingVisits = myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
+  const acceptedVisits = myMissions.filter(v => v.status === 'acceptee');
 
   const getFilteredItems = () => {
     if (activeTab === 'missions') {
@@ -187,6 +186,8 @@ const MissionsPage = () => {
   const stats = {
     missions: {
       total: myMissions.length,
+      pending: pendingVisits.length,
+      accepted: acceptedVisits.length,
       inProgress: myMissions.filter(v => v.status === 'en_cours').length,
       completed: myMissions.filter(v => v.status === 'terminee' || v.status === 'validee').length,
     },
@@ -198,23 +199,46 @@ const MissionsPage = () => {
     available: availableOrders.length,
   };
 
+  const handleApprove = async (id: string) => {
+    try {
+      await approveVisit(id);
+      toast.success('Visite approuvée');
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'approbation');
+    }
+  };
+
+  const handleRefuse = async (id: string) => {
+    const reason = prompt('Motif du refus :');
+    if (!reason) return;
+
+    try {
+      await refuseVisit(id, reason);
+      toast.error('Visite refusée');
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du refus');
+    }
+  };
+
   const handleStart = async (id: string) => {
     try {
       await startVisit(id);
       toast.success('Mission démarrée 🚀');
       fetchVisits();
-    } catch (error) {
-      toast.error('Erreur lors du démarrage');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du démarrage');
     }
   };
 
-  const handleAcceptOrder = async (id: string) => {
+  const handleTakeOrder = async (id: string) => {
     try {
-      await acceptOrder(id);
-      toast.success('Commande acceptée ✅');
+      await takeOrder(id);
+      toast.success('Commande prise en charge ✅');
       fetchOrders();
-    } catch (error) {
-      toast.error('Erreur lors de l\'acceptation');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de la prise de commande');
     }
   };
 
@@ -223,8 +247,8 @@ const MissionsPage = () => {
       await completeDelivery(id);
       toast.success('Livraison terminée ✅');
       fetchOrders();
-    } catch (error) {
-      toast.error('Erreur lors de la livraison');
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de la livraison');
     }
   };
 
@@ -237,11 +261,16 @@ const MissionsPage = () => {
   const getStatusColor = (status: string) => {
     const map: Record<string, string> = {
       planifiee: '#4CAF50',
-      en_cours: '#FF9800',
-      terminee: '#2196F3',
-      validee: '#9C27B0',
+      en_attente: '#FF9800',
+      acceptee: '#2196F3',
+      en_cours: '#2196F3',
+      terminee: '#9C27B0',
+      validee: '#4CAF50',
       annulee: '#F44336',
+      refusee: '#F44336',
+      expire: '#795548',
       creee: '#9E9E9E',
+      disponible: '#F44336',
       livree: '#2196F3',
     };
     return map[status] || '#9E9E9E';
@@ -249,12 +278,17 @@ const MissionsPage = () => {
 
   const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
-      planifiee: 'Planifiée',
+      planifiee: 'À valider',
+      en_attente: 'En attente',
+      acceptee: 'Acceptée',
       en_cours: 'En cours',
       terminee: 'Terminée',
       validee: 'Validée',
       annulee: 'Annulée',
+      refusee: 'Refusée',
+      expire: 'Expirée',
       creee: 'Créée',
+      disponible: 'Disponible (urgent)',
       livree: 'Livrée',
     };
     return map[status] || status;
@@ -281,13 +315,16 @@ const MissionsPage = () => {
     );
   }
 
-  // ✅ Options de filtre
   const filterOptions = [
     { value: 'all', label: 'Toutes' },
-    { value: 'planifiee', label: 'Planifiées' },
-    { value: 'en_cours', label: 'En cours' },
-    { value: 'terminee', label: 'Terminées' },
-    { value: 'annulee', label: 'Annulées' },
+    { value: 'planifiee', label: '📋 À valider' },
+    { value: 'en_attente', label: '⏳ En attente' },
+    { value: 'acceptee', label: '✅ Acceptées' },
+    { value: 'en_cours', label: '🔄 En cours' },
+    { value: 'terminee', label: '📝 Terminées' },
+    { value: 'validee', label: '✔️ Validées' },
+    { value: 'annulee', label: '❌ Annulées' },
+    { value: 'refusee', label: '🚫 Refusées' },
   ];
 
   return (
@@ -313,6 +350,12 @@ const MissionsPage = () => {
 
             <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
               {stats.missions.total} missions • {stats.deliveries.total} livraisons
+              {stats.missions.pending > 0 && (
+                <span className="ml-2 text-yellow-500">⏳ {stats.missions.pending} à valider</span>
+              )}
+              {stats.available > 0 && (
+                <span className="ml-2 text-red-500">🚨 {stats.available} commandes urgentes</span>
+              )}
             </p>
           </div>
 
@@ -334,7 +377,7 @@ const MissionsPage = () => {
           label="Missions"
           value={stats.missions.total}
           color={colors.primary}
-          sub={`${stats.missions.inProgress} en cours`}
+          sub={`${stats.missions.pending} à valider`}
         />
         <CompactStat
           icon={<Truck size={14} />}
@@ -344,11 +387,11 @@ const MissionsPage = () => {
           sub={`${stats.deliveries.inProgress} en cours`}
         />
         <CompactStat
-          icon={<Package size={14} />}
+          icon={stats.available > 0 ? <AlertCircle size={14} /> : <Package size={14} />}
           label="Disponibles"
           value={stats.available}
-          color="#4CAF50"
-          sub="à prendre"
+          color={stats.available > 0 ? '#F44336' : '#4CAF50'}
+          sub={stats.available > 0 ? '🚨 Urgentes' : 'à prendre'}
         />
         <CompactStat
           icon={<CheckCircle size={14} />}
@@ -412,8 +455,10 @@ const MissionsPage = () => {
               type={activeTab}
               colors={colors}
               aidantId={aidantId}
+              onApprove={() => handleApprove(item.id)}
+              onRefuse={() => handleRefuse(item.id)}
               onStart={() => handleStart(item.id)}
-              onAccept={() => handleAcceptOrder(item.id)}
+              onTakeOrder={() => handleTakeOrder(item.id)}
               onDeliver={() => handleDeliverOrder(item.id)}
               onView={() => {
                 if (activeTab === 'missions' && item?.id) {
@@ -496,8 +541,10 @@ interface MissionItemCompactProps {
   type: TabType;
   colors: any;
   aidantId: string | null;
+  onApprove: () => void;
+  onRefuse: () => void;
   onStart: () => void;
-  onAccept: () => void;
+  onTakeOrder: () => void;
   onDeliver: () => void;
   onView: () => void;
   getStatusColor: (status: string) => string;
@@ -512,8 +559,10 @@ const MissionItemCompact = ({
   type,
   colors,
   aidantId,
+  onApprove,
+  onRefuse,
   onStart,
-  onAccept,
+  onTakeOrder,
   onDeliver,
   onView,
   getStatusColor,
@@ -523,9 +572,9 @@ const MissionItemCompact = ({
   formatCurrency,
 }: MissionItemCompactProps) => {
   const isMission = type === 'missions';
-  const isAssignedToMe = item.aidant_id === aidantId;
-  const isAvailable = item.status === 'planifiee' && !item.aidant_id;
-  const isOrderAvailable = item.status === 'creee' && !item.aidant_id;
+  const isPending = item.status === 'planifiee' || item.status === 'en_attente';
+  const isAccepted = item.status === 'acceptee';
+  const isInProgress = item.status === 'en_cours';
 
   if (isMission) {
     return (
@@ -565,7 +614,28 @@ const MissionItemCompact = ({
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {isAvailable && (
+            {/* ✅ AIDANT : Approuver/Refuser */}
+            {isPending && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onApprove(); }}
+                  className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                  style={{ background: '#4CAF50' }}
+                >
+                  <CheckCircle size={12} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRefuse(); }}
+                  className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                  style={{ background: '#F44336' }}
+                >
+                  <XCircle size={12} />
+                </button>
+              </>
+            )}
+
+            {/* ✅ AIDANT : Démarrer une visite acceptée */}
+            {isAccepted && (
               <button
                 onClick={(e) => { e.stopPropagation(); onStart(); }}
                 className="px-2 py-1 rounded-lg text-white text-xs font-medium"
@@ -574,6 +644,7 @@ const MissionItemCompact = ({
                 <Play size={12} />
               </button>
             )}
+
             <button
               onClick={(e) => { e.stopPropagation(); onView(); }}
               className="p-1.5 rounded-lg hover:bg-gray-100 transition"
@@ -588,7 +659,8 @@ const MissionItemCompact = ({
   }
 
   // ✅ Pour les commandes
-  const isAccepted = item.status === 'en_cours';
+  const isAvailable = item.status === 'en_attente' || item.status === 'disponible';
+  const isAcceptedOrder = item.status === 'en_cours';
   const isDelivered = item.status === 'livree' || item.status === 'validee';
 
   return (
@@ -619,20 +691,30 @@ const MissionItemCompact = ({
             >
               {getStatusLabel(item.status)}
             </span>
+            {item.status === 'disponible' && (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-100 text-red-600">
+                🚨 Urgent
+              </span>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {isOrderAvailable && (
+          {/* ✅ AIDANT : Prendre une commande disponible */}
+          {isAvailable && (
             <button
-              onClick={(e) => { e.stopPropagation(); onAccept(); }}
-              className="px-2 py-1 rounded-lg text-white text-xs font-medium"
-              style={{ background: '#4CAF50' }}
+              onClick={(e) => { e.stopPropagation(); onTakeOrder(); }}
+              className={`px-2 py-1 rounded-lg text-white text-xs font-medium ${
+                item.status === 'disponible' ? 'animate-pulse' : ''
+              }`}
+              style={{ background: item.status === 'disponible' ? '#F44336' : '#FF9800' }}
             >
-              <CheckCircle size={12} />
+              <Package size={12} />
             </button>
           )}
-          {isAccepted && (
+
+          {/* ✅ AIDANT : Livrer une commande en cours */}
+          {isAcceptedOrder && (
             <button
               onClick={(e) => { e.stopPropagation(); onDeliver(); }}
               className="px-2 py-1 rounded-lg text-white text-xs font-medium"
@@ -641,6 +723,7 @@ const MissionItemCompact = ({
               <Truck size={12} />
             </button>
           )}
+
           <button
             onClick={(e) => { e.stopPropagation(); onView(); }}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition"
