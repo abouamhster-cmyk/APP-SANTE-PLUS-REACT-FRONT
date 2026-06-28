@@ -1,6 +1,5 @@
 // 📁 src/features/patients/components/PatientModal.tsx
-// 📌 Modal d'ajout/modification d'une personne (proche/bénéficiaire/personne accompagnée)
-
+ 
 import { useEffect, useState } from 'react';
 import {
   X,
@@ -18,10 +17,12 @@ import {
   FileText,
   Pill,
   Stethoscope,
+  ShieldAlert,
 } from 'lucide-react';
 
 import { Patient, PatientCategory } from '@/types';
 import { usePatientStore } from '@/stores/patientStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getThemeColors } from '@/lib/permissions';
 import toast from 'react-hot-toast';
@@ -41,9 +42,9 @@ export const PatientModal = ({
   patient,
   onSuccess,
 }: PatientModalProps) => {
-  const { createPatient, updatePatient } = usePatientStore();
+  const { createPatient, updatePatient, canManagePatients } = usePatientStore();
+  const { profile } = useAuthStore();
   
-  // ✅ Jargon dynamique selon le rôle
   const {
     singular,
     add,
@@ -54,6 +55,7 @@ export const PatientModal = ({
   } = useTerminology();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(true);
 
   const colors = getThemeColors('senior');
 
@@ -73,6 +75,21 @@ export const PatientModal = ({
     conditions: '',
     medical_history: '',
   });
+
+  // ✅ Vérifier les permissions à l'ouverture
+  useEffect(() => {
+    if (isOpen) {
+      const canManage = canManagePatients();
+      // ❌ Les aidants ne peuvent pas gérer les patients
+      if (profile?.role === 'aidant' || !canManage) {
+        setIsAuthorized(false);
+        toast.error('Vous n\'avez pas les droits pour gérer les patients');
+        setTimeout(() => onClose(), 1500);
+        return;
+      }
+      setIsAuthorized(true);
+    }
+  }, [isOpen, profile, canManagePatients, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -94,7 +111,6 @@ export const PatientModal = ({
         conditions: patient.conditions || '',
         medical_history: patient.medical_history || '',
       });
-
       return;
     }
 
@@ -136,6 +152,12 @@ export const PatientModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ✅ Vérification supplémentaire des permissions
+    if (!canManagePatients() || profile?.role === 'aidant') {
+      toast.error('Vous n\'avez pas les droits pour effectuer cette action');
+      return;
+    }
 
     if (!formData.first_name.trim()) {
       toast.error('Veuillez renseigner le prénom');
@@ -181,9 +203,9 @@ export const PatientModal = ({
       }
 
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ Erreur enregistrement ${singular}:`, error);
-      toast.error(`Erreur lors de l'enregistrement`);
+      toast.error(error.message || `Erreur lors de l'enregistrement`);
     } finally {
       setIsLoading(false);
     }
@@ -191,17 +213,29 @@ export const PatientModal = ({
 
   if (!isOpen) return null;
 
+  // ✅ Si non autorisé, afficher un message
+  if (!isAuthorized) {
+    return (
+      <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-[2px] flex items-end sm:items-center justify-center">
+        <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.primary + '15' }}>
+            <ShieldAlert size={32} style={{ color: colors.primary }} />
+          </div>
+          <h3 className="text-lg font-bold" style={{ color: colors.text }}>
+            ⛔ Accès non autorisé
+          </h3>
+          <p className="text-sm mt-2" style={{ color: colors.text + '60' }}>
+            Vous n'avez pas les droits pour gérer les patients.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const modalTitle = mode === 'create' ? add : edit;
   const modalDescription = mode === 'create'
     ? 'Renseignez les informations utiles.'
     : `Mettez à jour les informations du ${singular}.`;
-
-  const getServiceIcon = () => {
-    if (formData.category === 'maman_bebe') {
-      return <Baby size={22} />;
-    }
-    return <UserCircle size={22} />;
-  };
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/45 backdrop-blur-[2px] flex items-end sm:items-center justify-center">
@@ -533,7 +567,7 @@ export const PatientModal = ({
 };
 
 // =============================================
-// SOUS-COMPOSANTS
+// SOUS-COMPOSANTS (inchangés)
 // =============================================
 
 interface ColorsLike {
@@ -554,7 +588,6 @@ const SectionHeader = ({ title, description, colors }: SectionHeaderProps) => {
       <h3 className="font-black leading-tight" style={{ color: colors.text }}>
         {title}
       </h3>
-
       <p className="text-xs mt-0.5" style={{ color: colors.text + '65' }}>
         {description}
       </p>
