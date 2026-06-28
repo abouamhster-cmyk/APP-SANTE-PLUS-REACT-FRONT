@@ -25,6 +25,7 @@ import {
   ClipboardList,
   FileText,
   ShieldAlert,
+  Zap,
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
