@@ -1,13 +1,26 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
- 
+
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Plus, Search, Users, Filter } from 'lucide-react';
+import { 
+  User, 
+  Plus, 
+  Search, 
+  Users, 
+  Filter,
+  UserPlus,
+  UserCircle,
+  Baby,
+  CheckCircle,
+  Users as UsersIcon,
+  UserSearch,
+} from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
+import { Illustration } from '@/components/ui/Illustration';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { PatientModal } from '../components/PatientModal';
 import toast from 'react-hot-toast';
@@ -160,19 +173,22 @@ const PatientsPage = () => {
       >
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
-              👥 {list}
-            </h1>
+            <div className="flex items-center gap-2">
+              <UsersIcon size={20} style={{ color: colors.primary }} />
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+                {list}
+              </h1>
+            </div>
             <p className="text-xs" style={{ color: colors.textLight }}>
               {getCountLabel(patients.length)}
             </p>
           </div>
           <button
             onClick={handleAdd}
-            className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white transition hover:opacity-90 shrink-0"
+            className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white transition hover:opacity-90 shrink-0 flex items-center gap-1.5"
             style={{ background: colors.primary }}
           >
-            <Plus size={14} className="inline mr-1.5" />
+            <UserPlus size={14} />
             {add}
           </button>
         </div>
@@ -182,10 +198,30 @@ const PatientsPage = () => {
       {/* STATS */}
       {/* ========================================== */}
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Users size={16} />} />
-        <StatCard label="Senior" value={stats.senior} color="#4CAF50" icon="👴" />
-        <StatCard label="Maman" value={stats.maman} color="#E8B4B8" icon="👶" />
-        <StatCard label="Actifs" value={stats.active} color="#2196F3" icon="✅" />
+        <StatCard 
+          label="Total" 
+          value={stats.total} 
+          color={colors.primary} 
+          icon={<UsersIcon size={16} />} 
+        />
+        <StatCard 
+          label="Senior" 
+          value={stats.senior} 
+          color="#4CAF50" 
+          icon={<UserCircle size={16} />} 
+        />
+        <StatCard 
+          label="Maman" 
+          value={stats.maman} 
+          color="#E8B4B8" 
+          icon={<Baby size={16} />} 
+        />
+        <StatCard 
+          label="Actifs" 
+          value={stats.active} 
+          color="#2196F3" 
+          icon={<CheckCircle size={16} />} 
+        />
       </section>
 
       {/* ========================================== */}
@@ -209,8 +245,8 @@ const PatientsPage = () => {
           style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
         >
           <option value="all">Tous</option>
-          <option value="senior">👴 Senior</option>
-          <option value="maman_bebe">👶 Maman</option>
+          <option value="senior">Senior</option>
+          <option value="maman_bebe">Maman & Bébé</option>
         </select>
       </section>
 
@@ -233,12 +269,11 @@ const PatientsPage = () => {
         </section>
       ) : (
         <section className="bg-white rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-black/5">
-          <div
-            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
-            style={{ background: colors.primary + '10', color: colors.primary }}
-          >
-            <User size={22} />
-          </div>
+          <Illustration 
+            type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} 
+            size="lg" 
+            className="mx-auto mb-4 opacity-40"
+          />
 
           <h3 className="text-base font-bold" style={{ color: colors.text }}>
             {searchTerm || categoryFilter !== 'all'
@@ -258,7 +293,8 @@ const PatientsPage = () => {
               className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-bold text-sm"
               style={{ background: colors.primary }}
             >
-              <Plus size={14} /> {add}
+              <UserPlus size={14} />
+              {add}
             </button>
           )}
         </section>
@@ -308,7 +344,7 @@ const StatCard = ({ label, value, color, icon }: StatCardProps) => (
       <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
     </div>
     <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '0d', color }}>
-      {typeof icon === 'string' ? <span className="text-sm">{icon}</span> : icon}
+      {icon}
     </div>
   </div>
 );
