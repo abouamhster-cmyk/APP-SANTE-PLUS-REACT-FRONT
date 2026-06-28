@@ -1,12 +1,34 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
- 
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Mail, Phone, Edit2, Save, Camera, LogOut, ChevronRight,
-  CheckCircle, Lock, Bell, Moon, Sun, Globe, Trash2, X, AlertCircle,
-  Calendar, Users, ShoppingBag, ShieldCheck, Smartphone,
+  Mail,
+  Phone,
+  Edit2,
+  Save,
+  Camera,
+  LogOut,
+  ChevronRight,
+  CheckCircle,
+  Lock,
+  Bell,
+  Moon,
+  Sun,
+  Globe,
+  Trash2,
+  X,
+  AlertCircle,
+  Calendar,
+  Users,
+  ShoppingBag,
+  ShieldCheck,
+  Smartphone,
+  User,
+  UserCircle,
+  Settings,
+  Key,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -15,6 +37,7 @@ import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -113,6 +136,8 @@ const ProfilePage = () => {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [preferenceMessage, setPreferenceMessage] = useState('');
 
+  const formRef = useRef<HTMLDivElement>(null);
+
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -132,10 +157,18 @@ const ProfilePage = () => {
 
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
-  const roleEmojiLabel = role === 'admin' ? '👑 Administrateur' 
-    : role === 'coordinator' ? '👔 Coordinateur' 
-    : role === 'aidant' ? '🦸 Aidant' 
-    : '👨‍👩‍👦 Famille';
+  const getRoleLabel = () => {
+    if (role === 'admin') return 'Administrateur';
+    if (role === 'coordinator') return 'Coordinateur';
+    if (role === 'aidant') return 'Aidant';
+    return 'Famille';
+  };
+
+  const getRoleIcon = () => {
+    if (role === 'admin' || role === 'coordinator') return <ShieldCheck size={14} />;
+    if (role === 'aidant') return <UserCircle size={14} />;
+    return <Users size={14} />;
+  };
 
   // =============================================
   // EFFETS
@@ -211,7 +244,7 @@ const ProfilePage = () => {
       setAvatarFile(null);
       setIsEditing(false);
       if (refreshProfile) await refreshProfile();
-      toast.success('✅ Profil mis à jour');
+      toast.success('Profil mis à jour');
     } catch (error: any) {
       toast.error(error?.message || 'Erreur lors de la mise à jour');
     } finally { setIsLoading(false); }
@@ -253,7 +286,7 @@ const ProfilePage = () => {
       const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword });
       if (error) throw error;
       
-      toast.success('✅ Mot de passe mis à jour');
+      toast.success('Mot de passe mis à jour');
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
@@ -273,25 +306,21 @@ const ProfilePage = () => {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non trouvé');
       
-      // Récupérer les patients liés
       const { data: links } = await supabase
         .from('patient_family_links')
         .select('patient_id')
         .eq('family_id', user.id);
       const patientIds = links?.map(l => l.patient_id) || [];
       
-      // Supprimer les patients
       if (patientIds.length > 0) {
         await supabase.from('patients').delete().in('id', patientIds);
       }
       
-      // Supprimer les liens, inscriptions, notifications, profil
       await supabase.from('patient_family_links').delete().eq('family_id', user.id);
       await supabase.from('inscriptions').delete().eq('user_id', user.id);
       await supabase.from('notifications').delete().eq('user_id', user.id);
       await supabase.from('profiles').delete().eq('id', user.id);
       
-      // Supprimer l'utilisateur Auth
       const { data: sessionData } = await supabase.auth.getSession();
       await fetch(`${import.meta.env.VITE_API_URL}/auth/delete-account`, {
         method: 'POST',
@@ -305,7 +334,7 @@ const ProfilePage = () => {
       localStorage.removeItem('sante_plus_preferences');
       localStorage.removeItem('auth-storage');
       await supabase.auth.signOut();
-      toast.success('✅ Compte supprimé avec succès');
+      toast.success('Compte supprimé avec succès');
       navigate('/login');
     } catch (error: any) {
       toast.error(error?.message || 'Erreur lors de la suppression');
@@ -320,7 +349,7 @@ const ProfilePage = () => {
     const nextValue = !formData.preferences.notifications;
     savePreferences(
       { ...formData.preferences, notifications: nextValue }, 
-      nextValue ? '🔔 Notifications activées' : '🔕 Notifications désactivées'
+      nextValue ? 'Notifications activées' : 'Notifications désactivées'
     );
     if (notificationsEnabled !== nextValue) toggleNotifications?.();
   };
@@ -330,7 +359,7 @@ const ProfilePage = () => {
     applyThemeMode(nextValue);
     savePreferences(
       { ...formData.preferences, darkMode: nextValue }, 
-      nextValue ? '🌙 Mode sombre activé' : '☀️ Mode clair activé'
+      nextValue ? 'Mode sombre activé' : 'Mode clair activé'
     );
   };
 
@@ -386,41 +415,47 @@ const ProfilePage = () => {
       <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           
-         {/* Avatar */}
-           <div className="relative mx-auto sm:mx-0">
-             <div 
-               className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm"
-               style={{ background: colors.primary }}
-             >
-               {avatarPreview ? (
-                 <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover rounded-3xl" />
-               ) : (
-                 // ✅ CORRECTION : passer une chaîne vide par défaut si profile?.full_name est undefined
-                 getInitials(profile?.full_name || '')
-               )}
-             </div>
-             {isEditing && (
-               <label 
-                 className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer hover:scale-105 transition"
-                 style={{ color: colors.primary }}
-               >
-                 <Camera size={15} />
-                 <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-               </label>
-             )}
-           </div>
+          {/* Avatar */}
+          <div className="relative mx-auto sm:mx-0">
+            <div 
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm"
+              style={{ background: colors.primary }}
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover rounded-3xl" />
+              ) : (
+                getInitials(profile?.full_name || '')
+              )}
+            </div>
+            {isEditing && (
+              <label 
+                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer hover:scale-105 transition"
+                style={{ color: colors.primary }}
+              >
+                <Camera size={15} />
+                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+              </label>
+            )}
+          </div>
 
           {/* Infos utilisateur */}
           <div className="flex-1 text-center sm:text-left min-w-0">
             <h1 className="text-xl sm:text-2xl font-extrabold truncate" style={{ color: colors.text }}>
               {profile?.full_name || 'Utilisateur'}
             </h1>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-              {roleEmojiLabel}
-            </p>
+            <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-1">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                {getRoleIcon()}
+                {getRoleLabel()}
+              </span>
+            </div>
             <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4 mt-2 text-xs opacity-70">
-              <span className="flex items-center gap-1.5"><Mail size={13} /> {profile?.email || '-'}</span>
-              <span className="flex items-center gap-1.5"><Phone size={13} /> {profile?.phone || 'Non renseigné'}</span>
+              <span className="flex items-center gap-1.5">
+                <Mail size={13} /> {profile?.email || '-'}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Phone size={13} /> {profile?.phone || 'Non renseigné'}
+              </span>
             </div>
           </div>
 
@@ -452,7 +487,7 @@ const ProfilePage = () => {
       {/* ========================================== */}
       {isEditing && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
-          <h3 className="text-sm font-bold mb-4" style={{ color: colors.text }}>✏️ Modifier mes informations</h3>
+          <h3 className="text-sm font-bold mb-4" style={{ color: colors.text }}>Modifier mes informations</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input 
               value={formData.full_name} 
@@ -482,7 +517,7 @@ const ProfilePage = () => {
             className="w-full mt-4 py-3 rounded-2xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60"
             style={{ background: colors.primary }}
           >
-            {isLoading ? '⏳ Enregistrement...' : '💾 Enregistrer'}
+            {isLoading ? 'Enregistrement...' : 'Enregistrer'}
           </button>
         </section>
       )}
@@ -495,14 +530,17 @@ const ProfilePage = () => {
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
-            className={`px-4 py-2 rounded-xl text-[10px] font-bold capitalize transition-all ${
+            className={`px-4 py-2 rounded-xl text-[10px] font-bold capitalize transition-all flex items-center gap-1.5 ${
               activeTab === tab ? 'bg-white shadow-sm' : 'text-gray-400'
             }`}
             style={{ color: activeTab === tab ? colors.primary : undefined }}
           >
-            {tab === 'profile' && '👤 Profil'}
-            {tab === 'settings' && '⚙️ Préférences'}
-            {tab === 'security' && '🔒 Sécurité'}
+            {tab === 'profile' && <User size={13} />}
+            {tab === 'settings' && <Settings size={13} />}
+            {tab === 'security' && <Lock size={13} />}
+            {tab === 'profile' && 'Profil'}
+            {tab === 'settings' && 'Préférences'}
+            {tab === 'security' && 'Sécurité'}
           </button>
         ))}
       </div>
@@ -518,7 +556,7 @@ const ProfilePage = () => {
             <InfoField label="Nom complet" value={profile?.full_name || '-'} />
             <InfoField label="Email" value={profile?.email || '-'} />
             <InfoField label="Téléphone" value={profile?.phone || '-'} />
-            <InfoField label="Rôle" value={role || '-'} />
+            <InfoField label="Rôle" value={getRoleLabel() || '-'} />
             <InfoField label="Membre depuis" value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'} />
             <InfoField label="Dernière mise à jour" value={profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString('fr-FR') : '-'} />
           </div>
@@ -582,7 +620,10 @@ const ProfilePage = () => {
                   <p className="text-xs text-gray-400">{navigator.userAgent?.split(' ').slice(-2).join(' ') || 'Navigateur'}</p>
                 </div>
               </div>
-              <span className="text-[10px] px-2 py-1 rounded-full bg-green-50 text-green-600 font-bold">✅ Actif</span>
+              <span className="text-[10px] px-2 py-1 rounded-full bg-green-50 text-green-600 font-bold flex items-center gap-1">
+                <CheckCircle size={10} />
+                Actif
+              </span>
             </div>
             <button 
               onClick={() => setShowDeleteModal(true)} 
@@ -590,7 +631,7 @@ const ProfilePage = () => {
             >
               <Trash2 size={16} />
               <div className="text-left">
-                <p className="text-sm">🗑️ Supprimer mon compte</p>
+                <p className="text-sm">Supprimer mon compte</p>
                 <p className="text-[10px] font-normal text-red-400">⚠️ Supprime définitivement votre compte et tous vos proches</p>
               </div>
             </button>
@@ -605,7 +646,8 @@ const ProfilePage = () => {
         onClick={handleLogout} 
         className="w-full flex items-center justify-center gap-2 text-xs font-bold text-red-500 p-4 rounded-3xl border border-red-100 hover:bg-red-50 transition"
       >
-        <LogOut size={16} /> Se déconnecter
+        <LogOut size={16} />
+        Se déconnecter
       </button>
 
       {/* ========================================== */}
@@ -614,11 +656,16 @@ const ProfilePage = () => {
 
       {/* Modal Changer mot de passe */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 my-8">
             <div className="flex items-center justify-between">
-              <h3 className="font-black" style={{ color: colors.text }}>🔒 Nouveau mot de passe</h3>
-              <button onClick={() => setShowPasswordModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+              <div className="flex items-center gap-2">
+                <Key size={20} style={{ color: colors.primary }} />
+                <h3 className="font-black" style={{ color: colors.text }}>Nouveau mot de passe</h3>
+              </div>
+              <button onClick={() => setShowPasswordModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X size={18} />
+              </button>
             </div>
             <p className="text-xs text-gray-400">Entrez votre mot de passe actuel puis choisissez-en un nouveau.</p>
             <input 
@@ -649,19 +696,24 @@ const ProfilePage = () => {
 
       {/* Modal Langue */}
       {showLanguageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-black" style={{ color: colors.text }}>🌍 Choisir la langue</h3>
-              <button onClick={() => setShowLanguageModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+              <div className="flex items-center gap-2">
+                <Globe size={20} style={{ color: colors.primary }} />
+                <h3 className="font-black" style={{ color: colors.text }}>Choisir la langue</h3>
+              </div>
+              <button onClick={() => setShowLanguageModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <X size={18} />
+              </button>
             </div>
             <div className="space-y-2">
               <button onClick={() => handleLanguageChange('fr')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'fr' ? colors.primary : colors.border }}>
-                <span>🇫🇷 Français</span>
+                <span>Français</span>
                 {formData.preferences.language === 'fr' && <CheckCircle size={16} style={{ color: colors.primary }} />}
               </button>
               <button onClick={() => handleLanguageChange('en')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'en' ? colors.primary : colors.border }}>
-                <span>🇬🇧 English</span>
+                <span>English</span>
                 {formData.preferences.language === 'en' && <CheckCircle size={16} style={{ color: colors.primary }} />}
               </button>
             </div>
@@ -671,17 +723,20 @@ const ProfilePage = () => {
 
       {/* Modal Suppression */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#FEF2F2', color: '#EF4444' }}>
-              <AlertCircle size={24} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#FEF2F2' }}>
+                <AlertCircle size={28} style={{ color: '#EF4444' }} />
+              </div>
+              <h3 className="font-black text-center" style={{ color: colors.text }}>Supprimer le compte</h3>
+              <p className="text-center text-sm text-gray-500 mt-2">
+                Cette action est irréversible. Toutes vos données seront supprimées.
+              </p>
+              <p className="text-center text-sm font-bold text-red-500 mt-2">
+                Êtes-vous sûr de vouloir continuer ?
+              </p>
             </div>
-            <h3 className="text-center font-black" style={{ color: colors.text }}>🗑️ Supprimer le compte</h3>
-            <p className="text-center text-sm text-gray-500 mt-2">
-              Cette action est irréversible. Toutes vos données seront supprimées.
-              <br />
-              <span className="font-bold text-red-500">Êtes-vous sûr de vouloir continuer ?</span>
-            </p>
             <div className="flex gap-2 mt-6">
               <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm border" style={{ borderColor: colors.border, color: colors.text }}>Annuler</button>
               <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-white" style={{ background: '#EF4444' }}>Supprimer</button>
