@@ -1,5 +1,5 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
-// 📌 Détails d'une personne - Version production avec gestion des visites
+// 📌 Détails d'une personne 
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -20,6 +20,11 @@ import {
   XCircle,
   Loader2,
   AlertCircle,
+  Users,
+  UserPlus,
+  ClipboardList,
+  FileText,
+  ShieldAlert,
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
@@ -29,6 +34,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
+import { Illustration } from '@/components/ui/Illustration';
 import { PatientModal } from '../components/PatientModal';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitModal } from '@/features/visits/components/VisitModal';
@@ -73,7 +79,6 @@ const PatientDetailPage = () => {
     refuseVisit,
   } = useVisitStore();
 
-  // ✅ Correction : useSubscriptionGuard sans refresh (utiliser fetchSubscriptions à la place)
   const { remainingVisits, hasActiveSubscription } = useSubscriptionGuard();
 
   // ============================================================
@@ -117,7 +122,6 @@ const PatientDetailPage = () => {
   // ACTIONS SUR LES VISITES
   // ============================================================
 
-  // Démarrer une visite immédiatement (aidant)
   const handleStartVisit = async () => {
     if (!currentPatient) return;
 
@@ -150,7 +154,7 @@ const PatientDetailPage = () => {
       await startVisit(visit.id);
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
-      toast.success('✅ Visite démarrée !');
+      toast.success('Visite démarrée');
       fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur démarrage:', error);
@@ -160,25 +164,22 @@ const PatientDetailPage = () => {
     }
   };
 
-  // Planifier une visite (famille ou aidant)
   const handlePlanifyVisit = () => {
     setSelectedVisit(null);
     setVisitModalMode('create');
     setShowVisitModal(true);
   };
 
-  // Approuver une visite (aidant)
   const handleApproveVisit = async (visitId: string) => {
     try {
       await approveVisit(visitId);
       fetchVisits();
-      toast.success('✅ Visite approuvée');
+      toast.success('Visite approuvée');
     } catch (error) {
       toast.error('Erreur lors de l\'approbation');
     }
   };
 
-  // Refuser une visite (aidant)
   const handleRefuseVisit = async (visitId: string) => {
     const reason = prompt('Motif du refus :');
     if (!reason) return;
@@ -186,23 +187,21 @@ const PatientDetailPage = () => {
     try {
       await refuseVisit(visitId, reason);
       fetchVisits();
-      toast.error('❌ Visite refusée');
+      toast.error('Visite refusée');
     } catch (error) {
       toast.error('Erreur lors du refus');
     }
   };
 
-  // Terminer une visite (aidant)
   const handleCompleteVisit = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
     if (!activeVisitId) return;
 
     setIsCompleting(true);
     try {
       await completeVisit(activeVisitId, data);
-      toast.success('✅ Visite terminée ! En attente de validation.');
+      toast.success('Visite terminée');
       setShowCompleteModal(false);
       setActiveVisitId(null);
-      // ✅ Rafraîchir les données
       fetchVisits();
       fetchPatientById(id!);
     } catch (error: any) {
@@ -213,7 +212,6 @@ const PatientDetailPage = () => {
     }
   };
 
-  // Annuler une visite
   const handleCancelVisit = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
 
@@ -259,7 +257,7 @@ const PatientDetailPage = () => {
     setShowVisitModal(false);
     fetchVisits();
     fetchPatientById(id!);
-    toast.success('Visite planifiée avec succès');
+    toast.success('Visite planifiée');
   };
 
   // ============================================================
@@ -280,25 +278,14 @@ const PatientDetailPage = () => {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'planifiee': return '📅 Planifiée';
-      case 'en_attente': return '⏳ En attente';
-      case 'en_cours': return '🔄 En cours';
-      case 'terminee': return '✅ Terminée';
-      case 'validee': return '✅ Validée';
-      case 'annulee': return '❌ Annulée';
-      case 'refusee': return '❌ Refusée';
+      case 'planifiee': return 'Planifiée';
+      case 'en_attente': return 'En attente';
+      case 'en_cours': return 'En cours';
+      case 'terminee': return 'Terminée';
+      case 'validee': return 'Validée';
+      case 'annulee': return 'Annulée';
+      case 'refusee': return 'Refusée';
       default: return status;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'planifiee': return <Calendar size={16} />;
-      case 'en_cours': return <Play size={16} />;
-      case 'terminee': return <CheckCircle size={16} />;
-      case 'validee': return <CheckCircle size={16} />;
-      case 'annulee': return <XCircle size={16} />;
-      default: return <Clock size={16} />;
     }
   };
 
@@ -310,7 +297,7 @@ const PatientDetailPage = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" style={{ color: colors.primary }} />
           <p style={{ color: colors.text }}>Chargement...</p>
         </div>
       </div>
@@ -338,7 +325,8 @@ const PatientDetailPage = () => {
             <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
               {person.first_name} {person.last_name}
             </h1>
-            <p className="text-sm" style={{ color: colors.text + '99' }}>
+            <p className="text-sm flex items-center gap-1.5" style={{ color: colors.text + '99' }}>
+              <User size={14} />
               {getCategoryLabel(person.category)}
             </p>
           </div>
@@ -346,7 +334,7 @@ const PatientDetailPage = () => {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handleEdit}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
             style={{ background: colors.primary + '15', color: colors.primary }}
           >
             <Edit2 size={18} />
@@ -354,7 +342,7 @@ const PatientDetailPage = () => {
           </button>
           <button
             onClick={handleDelete}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
             style={{ background: '#F44336' + '15' }}
           >
             <Trash2 size={18} />
@@ -370,7 +358,7 @@ const PatientDetailPage = () => {
         <StatCard label="Âge" value={person.age || 'N/A'} color={colors.text} />
         <StatCard
           label="Statut"
-          value={person.status === 'active' ? '✅ Actif' : '❌ Inactif'}
+          value={person.status === 'active' ? 'Actif' : 'Inactif'}
           color={person.status === 'active' ? '#4CAF50' : '#F44336'}
         />
         <StatCard label="Visites" value={patientVisits.length} color={colors.primary} />
@@ -393,13 +381,14 @@ const PatientDetailPage = () => {
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1">
-              <p className="font-medium" style={{ color: colors.text }}>
-                🚀 Actions
+              <p className="font-medium flex items-center gap-2" style={{ color: colors.text }}>
+                <Zap size={16} style={{ color: colors.primary }} />
+                Actions
               </p>
               <p className="text-xs" style={{ color: colors.text + '60' }}>
                 {isAidantRole && (hasActiveSubscription && remainingVisits > 0
                   ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} restante${remainingVisits > 1 ? 's' : ''}`
-                  : '⚠️ Plus de visites disponibles')}
+                  : 'Plus de visites disponibles')}
                 {isFamilyRole && 'Planifiez une visite pour votre proche'}
                 {isAdminRole && 'Gérez les visites du patient'}
               </p>
@@ -422,17 +411,19 @@ const PatientDetailPage = () => {
                         <div key={visit.id} className="flex gap-1">
                           <button
                             onClick={() => handleApproveVisit(visit.id)}
-                            className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                            className="px-2 py-1 rounded-lg text-white text-xs font-medium flex items-center gap-1"
                             style={{ background: '#4CAF50' }}
                           >
-                            ✅ Accepter
+                            <CheckCircle size={12} />
+                            Accepter
                           </button>
                           <button
                             onClick={() => handleRefuseVisit(visit.id)}
-                            className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                            className="px-2 py-1 rounded-lg text-white text-xs font-medium flex items-center gap-1"
                             style={{ background: '#F44336' }}
                           >
-                            ❌ Refuser
+                            <XCircle size={12} />
+                            Refuser
                           </button>
                         </div>
                       ))}
@@ -447,7 +438,7 @@ const PatientDetailPage = () => {
                   style={{ background: colors.primary }}
                 >
                   <Calendar size={16} />
-                  Planifier une visite
+                  Planifier
                 </button>
               )}
               {isAdminRole && (
@@ -457,7 +448,7 @@ const PatientDetailPage = () => {
                   style={{ background: colors.primary }}
                 >
                   <Plus size={16} />
-                  Assigner une visite
+                  Assigner
                 </button>
               )}
             </div>
@@ -481,7 +472,7 @@ const PatientDetailPage = () => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab as any)}
-            className={`px-6 py-3 font-medium transition relative ${
+            className={`px-6 py-3 font-medium transition relative flex items-center gap-2 ${
               activeTab === tab ? 'border-b-2' : ''
             }`}
             style={{
@@ -489,6 +480,9 @@ const PatientDetailPage = () => {
               color: activeTab === tab ? colors.primary : colors.text + '60',
             }}
           >
+            {tab === 'info' && <User size={14} />}
+            {tab === 'visits' && <Calendar size={14} />}
+            {tab === 'notes' && <FileText size={14} />}
             {tab === 'info' && 'Informations'}
             {tab === 'visits' && `Visites (${patientVisits.length})`}
             {tab === 'notes' && 'Notes'}
@@ -503,34 +497,38 @@ const PatientDetailPage = () => {
         {/* TAB INFO */}
         {activeTab === 'info' && (
           <div className="space-y-4">
-            <div className="flex items-center space-x-3 text-sm" style={{ color: colors.text + '80' }}>
+            <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
               <MapPin size={18} />
               <span>{person.address}</span>
             </div>
             {person.phone && (
-              <div className="flex items-center space-x-3 text-sm" style={{ color: colors.text + '80' }}>
+              <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
                 <Phone size={18} />
                 <span>{person.phone}</span>
               </div>
             )}
             {person.emergency_contact && (
-              <div className="flex items-center space-x-3 text-sm" style={{ color: colors.text + '80' }}>
-                <span>🆘</span>
+              <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
+                <ShieldAlert size={18} style={{ color: '#F44336' }} />
                 <span>Urgence: {person.emergency_contact}</span>
               </div>
             )}
             {person.allergies && (
-              <div className="p-3 rounded-xl" style={{ background: '#FF5722' + '10' }}>
-                <p className="text-sm font-medium" style={{ color: '#FF5722' }}>
-                  ⚠️ Allergies: {person.allergies}
-                </p>
+              <div className="p-3 rounded-xl flex items-start gap-3" style={{ background: '#FF5722' + '10' }}>
+                <AlertCircle size={18} style={{ color: '#FF5722' }} className="mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: '#FF5722' }}>Allergies</p>
+                  <p className="text-sm" style={{ color: '#FF5722' }}>{person.allergies}</p>
+                </div>
               </div>
             )}
             {person.treatments && (
-              <div className="p-3 rounded-xl" style={{ background: colors.primary + '10' }}>
-                <p className="text-sm" style={{ color: colors.primary }}>
-                  💊 Traitements: {person.treatments}
-                </p>
+              <div className="p-3 rounded-xl flex items-start gap-3" style={{ background: colors.primary + '10' }}>
+                <ClipboardList size={18} style={{ color: colors.primary }} className="mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium" style={{ color: colors.primary }}>Traitements</p>
+                  <p className="text-sm" style={{ color: colors.primary }}>{person.treatments}</p>
+                </div>
               </div>
             )}
           </div>
@@ -563,16 +561,16 @@ const PatientDetailPage = () => {
                   ))}
               </div>
             ) : (
-              <div className="text-center py-8" style={{ color: colors.text + '60' }}>
-                <Calendar size={48} className="mx-auto mb-3 opacity-30" />
-                <p>{noVisits}</p>
+              <div className="text-center py-12" style={{ color: colors.text + '60' }}>
+                <Illustration type="calendar" size="lg" className="mx-auto mb-4 opacity-40" />
+                <p className="font-medium" style={{ color: colors.text }}>{noVisits}</p>
                 {(isFamilyRole || isAidantRole) && (
                   <button
                     onClick={handlePlanifyVisit}
-                    className="mt-4 px-4 py-2 rounded-xl text-white font-medium text-sm"
+                    className="mt-4 px-4 py-2 rounded-xl text-white font-medium text-sm inline-flex items-center gap-2"
                     style={{ background: colors.primary }}
                   >
-                    <Plus size={16} className="inline mr-1" />
+                    <Plus size={16} />
                     Planifier une visite
                   </button>
                 )}
@@ -589,7 +587,8 @@ const PatientDetailPage = () => {
                 <p style={{ color: colors.text }}>{person.notes}</p>
               </div>
             ) : (
-              <div className="text-center py-8" style={{ color: colors.text + '60' }}>
+              <div className="text-center py-12" style={{ color: colors.text + '60' }}>
+                <Illustration type="empty" size="lg" className="mx-auto mb-4 opacity-30" />
                 <p>{noNotes}</p>
               </div>
             )}
@@ -601,7 +600,6 @@ const PatientDetailPage = () => {
       MODALS
       ============================================================ */}
 
-      {/* Modal modification patient */}
       <PatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -610,7 +608,6 @@ const PatientDetailPage = () => {
         onSuccess={handleModalSuccess}
       />
 
-      {/* Modal planification visite */}
       <VisitModal
         isOpen={showVisitModal}
         onClose={() => setShowVisitModal(false)}
@@ -620,7 +617,6 @@ const PatientDetailPage = () => {
         onSuccess={handleVisitModalSuccess}
       />
 
-      {/* Modal fin de visite */}
       {showCompleteModal && activeVisitId && (
         <CompleteVisitModal
           isOpen={true}
@@ -650,7 +646,7 @@ interface StatCardProps {
 
 const StatCard = ({ label, value, color }: StatCardProps) => (
   <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-    <p className="text-xs" style={{ color: 'var(--color-text, #6b7280)' + '60' }}>{label}</p>
+    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text, #6b7280)' + '60' }}>{label}</p>
     <p className="text-lg font-bold" style={{ color }}>{value}</p>
   </div>
 );
@@ -695,14 +691,26 @@ const VisitCard = ({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'planifiee': return '📅 Planifiée';
-      case 'en_attente': return '⏳ En attente';
-      case 'en_cours': return '🔄 En cours';
-      case 'terminee': return '✅ Terminée';
-      case 'validee': return '✅ Validée';
-      case 'annulee': return '❌ Annulée';
-      case 'refusee': return '❌ Refusée';
+      case 'planifiee': return 'Planifiée';
+      case 'en_attente': return 'En attente';
+      case 'en_cours': return 'En cours';
+      case 'terminee': return 'Terminée';
+      case 'validee': return 'Validée';
+      case 'annulee': return 'Annulée';
+      case 'refusee': return 'Refusée';
       default: return status;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'planifiee': return <Calendar size={14} />;
+      case 'en_cours': return <Play size={14} />;
+      case 'terminee': return <CheckCircle size={14} />;
+      case 'validee': return <CheckCircle size={14} />;
+      case 'annulee': return <XCircle size={14} />;
+      case 'refusee': return <XCircle size={14} />;
+      default: return <Clock size={14} />;
     }
   };
 
@@ -717,9 +725,12 @@ const VisitCard = ({
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium" style={{ color: colors.text }}>
-            📅 {formatDate(visit.scheduled_date)} à {formatTime(visit.scheduled_time)}
-          </p>
+          <div className="flex items-center gap-1.5">
+            {getStatusIcon(visit.status)}
+            <p className="font-medium" style={{ color: colors.text }}>
+              {formatDate(visit.scheduled_date)} à {formatTime(visit.scheduled_time)}
+            </p>
+          </div>
           <span
             className="px-2 py-0.5 rounded-full text-xs font-medium"
             style={{
@@ -730,30 +741,34 @@ const VisitCard = ({
             {getStatusLabel(visit.status)}
           </span>
           {visit.is_urgent && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">
-              ⚠️ Urgent
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 bg-red-100 text-red-600">
+              <AlertCircle size={12} />
+              Urgent
             </span>
           )}
           {isPending && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-              ⏳ En attente d'approbation
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 bg-yellow-100 text-yellow-700">
+              <Clock size={12} />
+              En attente d'approbation
             </span>
           )}
         </div>
         {visit.aidant && (
-          <p className="text-xs" style={{ color: colors.text + '60' }}>
-            🧑‍⚕️ Aidant: {visit.aidant.user?.full_name || 'Non assigné'}
+          <p className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
+            <User size={12} />
+            Aidant: {visit.aidant.user?.full_name || 'Non assigné'}
           </p>
         )}
         {visit.assignment_type && (
           <p className="text-xs" style={{ color: colors.text + '60' }}>
-            📌 {visit.assignment_type === 'permanente' ? '🔄 Permanente' : 
-               visit.assignment_type === 'intervalle' ? '⏰ Intervalle' : '📌 Ponctuelle'}
+            {visit.assignment_type === 'permanente' ? '🔄 Permanente' : 
+             visit.assignment_type === 'intervalle' ? '⏰ Intervalle' : '📌 Ponctuelle'}
           </p>
         )}
         {visit.duration_minutes && (
-          <p className="text-xs" style={{ color: colors.text + '60' }}>
-            ⏱️ {visit.duration_minutes} min
+          <p className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
+            <Clock size={12} />
+            {visit.duration_minutes} min
           </p>
         )}
       </div>
@@ -763,45 +778,48 @@ const VisitCard = ({
           <>
             <button
               onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
-              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
               style={{ background: '#4CAF50' }}
             >
-              ✅ Accepter
+              <CheckCircle size={12} />
+              Accepter
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
-              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
               style={{ background: '#F44336' }}
             >
-              ❌ Refuser
+              <XCircle size={12} />
+              Refuser
             </button>
           </>
         )}
         {visit.status === 'planifiee' && isAidant && !isPending && (
           <button
             onClick={(e) => { e.stopPropagation(); onStart?.(); }}
-            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
             style={{ background: '#4CAF50' }}
           >
-            <Play size={14} className="inline mr-1" />
+            <Play size={12} />
             Démarrer
           </button>
         )}
         {visit.status === 'planifiee' && (isAdmin || isFamily) && (
           <button
             onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
-            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
             style={{ background: '#F44336' }}
           >
-            <XCircle size={14} className="inline mr-1" />
+            <XCircle size={12} />
             Annuler
           </button>
         )}
         <button
           onClick={(e) => { e.stopPropagation(); onView?.(); }}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:bg-gray-100"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:bg-gray-100 flex items-center gap-1"
           style={{ color: colors.primary }}
         >
+          <Eye size={14} />
           Détails
         </button>
       </div>
