@@ -6,6 +6,7 @@ export { InfoRow } from './InfoRow';
 export { LoadingSkeleton } from './LoadingSkeleton';
 export { LoadingSpinner } from './LoadingSpinner';
 export { Logo } from './Logo';
+export { Illustration } from './Illustration';
 export { RoleBanner } from './RoleBanner';
 
  export { default as ModalDefault } from './Modal';
