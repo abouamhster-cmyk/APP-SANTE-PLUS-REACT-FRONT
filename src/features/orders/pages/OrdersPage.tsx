@@ -1,5 +1,5 @@
 // 📁 src/features/orders/pages/OrdersPage.tsx
-
+ 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -14,6 +14,7 @@ import {
   Filter,
   List,
   ClipboardList,
+  AlertCircle,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -24,20 +25,22 @@ import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
 import toast from 'react-hot-toast';
 
-// ✅ Filtres avec icônes
+// ✅ FILTRES AVEC NOUVEAUX STATUTS
 const statusFilters = [
   { key: 'all', label: 'Toutes', icon: <List size={12} /> },
-  { key: 'creee', label: 'Créées', icon: <Package size={12} /> },
-  { key: 'en_cours', label: 'En cours', icon: <Clock size={12} /> },
-  { key: 'livree', label: 'Livrées', icon: <Truck size={12} /> },
-  { key: 'validee', label: 'Validées', icon: <CheckCircle size={12} /> },
-  { key: 'annulee', label: 'Annulées', icon: <X size={12} /> },
+  { key: 'creee', label: '📝 Créées', icon: <Package size={12} /> },
+  { key: 'en_attente', label: '⏳ En attente (30min)', icon: <Clock size={12} /> },
+  { key: 'disponible', label: '🚨 Disponibles (urgent)', icon: <AlertCircle size={12} /> },
+  { key: 'en_cours', label: '🔄 En cours', icon: <Clock size={12} /> },
+  { key: 'livree', label: '📦 Livrées', icon: <Truck size={12} /> },
+  { key: 'validee', label: '✅ Validées', icon: <CheckCircle size={12} /> },
+  { key: 'annulee', label: '❌ Annulées', icon: <X size={12} /> },
 ];
 
 const OrdersPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  const { orders, isLoading, fetchOrders, updateOrderStatus } = useOrderStore();
+  const { orders, isLoading, fetchOrders, updateOrderStatus, takeOrder } = useOrderStore();
 
   const {
     singular,
@@ -58,7 +61,6 @@ const OrdersPage = () => {
     fetchOrders();
   }, []);
 
-  // ✅ Nettoyer les données en attente au chargement
   useEffect(() => {
     const saved = sessionStorage.getItem('pending_ponctual_order');
     if (saved) {
@@ -85,12 +87,11 @@ const OrdersPage = () => {
     });
   }, [orders, search, activeStatus]);
 
-  // ✅ Statistiques avec les nouveaux statuts
   const stats = {
     total: orders.length,
-    pending: orders.filter(
-      (order) => order.status === 'creee' || order.status === 'en_cours'
-    ).length,
+    pending: orders.filter((order) => order.status === 'en_attente').length,
+    available: orders.filter((order) => order.status === 'disponible').length,
+    inProgress: orders.filter((order) => order.status === 'en_cours').length,
     delivery: orders.filter((order) => order.status === 'livree').length,
     completed: orders.filter((order) => order.status === 'validee').length,
   };
@@ -106,6 +107,7 @@ const OrdersPage = () => {
         en_cours: 'Commande acceptée et en cours',
         livree: 'Commande livrée avec succès',
         annulee: 'Commande annulée',
+        disponible: 'Commande disponible pour tous les aidants',
       };
 
       toast.success(statusMessages[status] || `Commande ${status}`);
@@ -121,7 +123,22 @@ const OrdersPage = () => {
     }
   };
 
-  // ✅ Libellé dynamique
+  const handleTakeOrder = async (id: string) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    try {
+      await takeOrder(id);
+      toast.success('✅ Commande prise en charge');
+      await fetchOrders();
+    } catch (error: any) {
+      console.error('❌ Erreur prise commande:', error);
+      toast.error(error?.message || 'Erreur lors de la prise de commande');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const getPageTitle = () => {
     if (isFamily) return 'Mes commandes';
     if (isAidant) return 'Commandes à livrer';
@@ -129,7 +146,6 @@ const OrdersPage = () => {
     return 'Commandes';
   };
 
-  // ✅ Message vide dynamique
   const getEmptyMessage = () => {
     if (isFamily) return 'Créez votre première commande.';
     if (isAidant) return 'Aucune commande disponible pour le moment.';
@@ -179,6 +195,9 @@ const OrdersPage = () => {
 
             <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
               {orders.length} commande{orders.length > 1 ? 's' : ''}
+              {stats.available > 0 && (
+                <span className="ml-2 text-red-500">🚨 {stats.available} urgente(s)</span>
+              )}
             </p>
           </div>
 
@@ -195,8 +214,8 @@ const OrdersPage = () => {
         </div>
       </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* STATS COMPACTES - AVEC NOUVEAUX STATUTS */}
+      <section className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <CompactStat
           icon={<Package size={14} />}
           label="Total"
@@ -205,9 +224,15 @@ const OrdersPage = () => {
         />
         <CompactStat
           icon={<Clock size={14} />}
-          label="En cours"
+          label="En attente"
           value={stats.pending}
           color="#FF9800"
+        />
+        <CompactStat
+          icon={<AlertCircle size={14} />}
+          label="Urgentes"
+          value={stats.available}
+          color="#F44336"
         />
         <CompactStat
           icon={<Truck size={14} />}
@@ -264,6 +289,7 @@ const OrdersPage = () => {
               order={order}
               onClick={() => navigate(`/app/orders/${order.id}`)}
               onStatusChange={(status) => handleStatusChange(order.id, status)}
+              onTakeOrder={isAidant || isAdminOrCoordinator ? () => handleTakeOrder(order.id) : undefined}
               showActions={true}
               compact
             />
