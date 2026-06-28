@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
-import { Loader2, CheckCircle, Users } from 'lucide-react';
+import { Loader2, CheckCircle, Users, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Aidant {
@@ -122,9 +122,20 @@ const AssignAidantPage = () => {
     }
   };
 
+  // ✅ FONCTION D'ASSIGNATION CORRIGÉE
   const handleAssign = async (patientId: string, aidantUserId: string) => {
+    // ✅ Si "Sélectionner" est choisi (chaîne vide), ne rien faire
+    if (!aidantUserId) {
+      toast('Veuillez sélectionner un aidant', { icon: 'ℹ️' });
+      return;
+    }
+
     setIsSaving(true);
     try {
+      console.log('🔍 Assignation - Début');
+      console.log('🔍 Patient ID:', patientId);
+      console.log('🔍 Aidant User ID:', aidantUserId);
+
       // ✅ 1. Trouver l'aidant par user_id
       const aidant = aidants.find(a => a.user_id === aidantUserId);
       if (!aidant) {
@@ -133,6 +144,8 @@ const AssignAidantPage = () => {
         return;
       }
 
+      console.log('✅ Aidant trouvé:', aidant.id);
+
       const patient = patients.find(p => p.id === patientId);
       if (!patient) {
         toast.error('Patient non trouvé');
@@ -140,14 +153,20 @@ const AssignAidantPage = () => {
         return;
       }
 
+      console.log('✅ Patient trouvé:', patient.id);
+
       // ✅ 2. Vérifier si une assignation existe déjà
-      const { data: existing } = await supabase
+      const { data: existing, error: checkError } = await supabase
         .from('patient_aidant_assignments')
         .select('id')
         .eq('patient_id', patientId)
         .eq('aidant_id', aidant.id)
         .eq('is_active', true)
         .maybeSingle();
+
+      if (checkError) {
+        console.error('❌ Erreur vérification existante:', checkError);
+      }
 
       if (existing) {
         toast(`✅ ${patient.first_name} ${patient.last_name} est déjà assigné à ${aidant.user?.full_name}`, { icon: 'ℹ️' });
@@ -156,13 +175,17 @@ const AssignAidantPage = () => {
       }
 
       // ✅ 3. Désactiver les anciennes assignations pour ce patient
-      await supabase
+      const { error: deactivateError } = await supabase
         .from('patient_aidant_assignments')
         .update({ is_active: false })
         .eq('patient_id', patientId);
 
+      if (deactivateError) {
+        console.error('❌ Erreur désactivation anciennes:', deactivateError);
+      }
+
       // ✅ 4. Créer la nouvelle assignation
-      const { error } = await supabase
+      const { data: newAssignment, error: insertError } = await supabase
         .from('patient_aidant_assignments')
         .insert({
           patient_id: patientId,
@@ -170,21 +193,33 @@ const AssignAidantPage = () => {
           assigned_by: user?.id,
           assignment_type: 'permanente',
           is_active: true,
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (insertError) {
+        console.error('❌ Erreur insertion:', insertError);
+        toast.error(`Erreur: ${insertError.message}`);
+        setIsSaving(false);
+        return;
+      }
+
+      console.log('✅ Assignation créée:', newAssignment);
 
       // ✅ 5. Mettre à jour l'état local
       setAssignments(prev => ({ ...prev, [patientId]: aidantUserId }));
 
       // ✅ 6. Notification à l'aidant
-      await supabase.from('notifications').insert({
+      const { error: notifError } = await supabase.from('notifications').insert({
         user_id: aidantUserId,
         title: '📋 Patient assigné',
         body: `Vous accompagnez à présent ${patient.first_name} ${patient.last_name}.`,
         type: 'system',
         data: { patient_id: patientId },
       });
+
+      if (notifError) {
+        console.error('❌ Erreur notification:', notifError);
+      }
 
       // ✅ 7. Synchroniser les patients chez l'aidant
       await syncAidantPatients();
@@ -194,13 +229,14 @@ const AssignAidantPage = () => {
       // ✅ 8. Rafraîchir les données
       await fetchData();
     } catch (error) {
-      console.error('Erreur assignation:', error);
+      console.error('❌ Erreur assignation:', error);
       toast.error('Erreur lors de l\'assignation');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // ✅ ASSIGNATION MULTIPLE
   const handleAssignAll = async (aidantUserId: string) => {
     if (!aidantUserId) {
       toast.error('Veuillez sélectionner un aidant');
@@ -221,7 +257,6 @@ const AssignAidantPage = () => {
       for (const patient of unassignedPatients) {
         await handleAssign(patient.id, aidantUserId);
         successCount++;
-        // Petit délai pour éviter les rate limits
         await new Promise(resolve => setTimeout(resolve, 300));
       }
       toast.success(`✅ ${successCount} patient(s) assignés avec succès`);
@@ -330,7 +365,7 @@ const AssignAidantPage = () => {
                   <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Patient</th>
                   <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Catégorie</th>
                   <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Aidant Assigné</th>
-                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Modifier</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: colors.border }}>
