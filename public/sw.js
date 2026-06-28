@@ -11,15 +11,34 @@ const STATIC_ASSETS = [
   '/manifest.json',
   '/favicon.ico',
   '/apple-touch-icon.png',
-  '/masked-icon.svg',
   '/icon-72.png',
   '/icon-96.png',
   '/icon-128.png',
   '/icon-144.png',
   '/icon-152.png',
   '/icon-192.png',
-  '/icon-384.png',
+  '/icon-256.png',
   '/icon-512.png',
+  '/icon-1024.png',
+  '/icon-16.png',
+  '/icon-20.png',
+  '/icon-29.png',
+  '/icon-32.png',
+  '/icon-40.png',
+  '/icon-50.png',
+  '/icon-57.png',
+  '/icon-58.png',
+  '/icon-60.png',
+  '/icon-64.png',
+  '/icon-76.png',
+  '/icon-80.png',
+  '/icon-87.png',
+  '/icon-100.png',
+  '/icon-114.png',
+  '/icon-120.png',
+  '/icon-167.png',
+  '/icon-180.png',
+  '/icon-source.png',
 ];
 
 // ============================================================
@@ -80,6 +99,11 @@ self.addEventListener('fetch', (event) => {
 
   // ✅ Ignorer les requêtes de statistiques
   if (event.request.url.includes('analytics') || event.request.url.includes('telemetry')) {
+    return;
+  }
+
+  // ✅ Ignorer les requêtes vers les services externes
+  if (event.request.url.includes('google') || event.request.url.includes('facebook') || event.request.url.includes('firebase')) {
     return;
   }
 
