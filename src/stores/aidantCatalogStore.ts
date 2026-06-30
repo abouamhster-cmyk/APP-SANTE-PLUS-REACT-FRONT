@@ -8,12 +8,15 @@ import {
   AidantFilters, 
   DEFAULT_FILTERS,
   AidantCatalogState
-} from '@/types';  // ← Import depuis index.ts
+} from '@/types';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-sante-plus-react.onrender.com/api';
 
 export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
+  // ============================================================
+  // ÉTAT INITIAL
+  // ============================================================
   aidants: [],
   selectedAidant: null,
   assignments: [],
