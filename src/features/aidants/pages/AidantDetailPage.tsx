@@ -106,7 +106,7 @@ const AidantDetailPage = () => {
   }
 
   const isAlreadyAssigned = assignments.some(
-    (a) => a.aidant_id === aidant.id && a.status === 'active'
+    (a) => a.family_id === aidant.user_id && a.status === 'active'
   );
 
   return (
