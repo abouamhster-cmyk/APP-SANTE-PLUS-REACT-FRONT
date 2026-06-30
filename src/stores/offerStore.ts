@@ -25,8 +25,8 @@ interface OfferState {
 const OFFERS_CACHE_KEY = 'sante_plus_offers_cache';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// ✅ URL de l'API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const useOfferStore = create<OfferState>((set, get) => ({
   offers: [],
@@ -71,7 +71,7 @@ export const useOfferStore = create<OfferState>((set, get) => ({
       console.log('🔄 Chargement des offres depuis la base de données...');
 
       // ✅ Appel API
-      const response = await fetch(`${API_BASE_URL}/offers`);
+      const response = await fetch(`${API_URL}/offers`);
 
       if (!response.ok) {
         const errorData = await response.json();
