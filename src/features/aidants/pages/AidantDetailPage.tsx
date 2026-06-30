@@ -105,9 +105,8 @@ const AidantDetailPage = () => {
     );
   }
 
-  // ✅ CORRECTION : Utiliser family_id car l'aidant est stocké dans family_id
-  const isAlreadyAssigned = assignments.some(
-    (a) => a.family_id === aidant.user_id
+   const isAlreadyAssigned = assignments.some(
+    (a) => a.family_id === aidant.user_id && a.relationship !== 'cancelled'
   );
 
   return (
