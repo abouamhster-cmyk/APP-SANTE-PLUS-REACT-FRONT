@@ -1,4 +1,4 @@
-// 📁 src/features/aidants/pages/AidantCatalogPage.tsx
+// 📁 frontend/src/features/aidants/pages/AidantCatalogPage.tsx
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -8,13 +8,13 @@ import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
+import { AidantProfile } from '@/types';
 import { AidantCard } from '../components/AidantCard';
 import { AidantFilters } from '../components/AidantFilters';
 import { AssignAidantModal } from '../components/AssignAidantModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
-import { AidantProfile } from '@/types/aidant'; 
 
 const AidantCatalogPage = () => {
   const navigate = useNavigate();
@@ -32,7 +32,7 @@ const AidantCatalogPage = () => {
 
   const { isFamily } = useTerminology();
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedAidant, setSelectedAidant] = useState<any>(null);
+  const [selectedAidant, setSelectedAidant] = useState<AidantProfile | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -58,7 +58,7 @@ const AidantCatalogPage = () => {
     );
   });
 
-  const handleAssign = (aidant: any) => {
+  const handleAssign = (aidant: AidantProfile) => {
     if (patients.length === 0) {
       toast.error('Vous devez d\'abord ajouter un proche');
       return;
