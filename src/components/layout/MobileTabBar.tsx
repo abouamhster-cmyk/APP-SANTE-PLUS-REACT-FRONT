@@ -34,7 +34,7 @@ interface MobileTabBarProps {
 }
 
 // =============================================
-// 5 ÉLÉMENTS MAX PAR RÔLE
+// 5 ÉLÉMENTS MAX PAR RÔLE - CORRIGÉ
 // =============================================
 
 const getMainItems = (role: string | null) => {
@@ -69,7 +69,7 @@ const getMainItems = (role: string | null) => {
     return [
       ...base,
       { icon: <ClipboardList size={22} />, label: 'Inscriptions', path: '/app/registrations' },
-      { icon: <UserCheck size={22} />, label: 'Aidants', path: '/app/aidants' },
+      // ❌ SUPPRIMÉ : "Aidants" (les admins n'ont pas besoin de voir le catalogue)
       { icon: <Users size={22} />, label: 'Utilisateurs', path: '/app/users' },
       { icon: <Settings size={22} />, label: 'Paramètres', path: '/app/settings' },
     ];
