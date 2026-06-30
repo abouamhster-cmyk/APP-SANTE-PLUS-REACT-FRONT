@@ -5,7 +5,7 @@
 
 export type AidantSpecialty = 'senior' | 'maman_bebe' | 'accompagnement' | 'autre';
 export type AidantAvailabilityStatus = 'available' | 'full' | 'unavailable';
-export type AssignmentType = 'permanente' | 'temporaire' | 'ponctuelle';
+export type AssignmentType = 'permanente' | 'temporaire' | 'ponctuelle' | 'cancelled';
 export type AssignmentStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
 // ============================================================
