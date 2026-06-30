@@ -1,4 +1,4 @@
-// 📁 frontend/src/features/aidants/pages/AidantCatalogPage.tsx
+// 📁 src/features/aidants/pages/AidantCatalogPage.tsx
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -39,13 +39,18 @@ const AidantCatalogPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ Redirection si l'utilisateur n'est pas une famille
   useEffect(() => {
-    fetchAidants();
-    if (isFamily) {
-      fetchPatients();
-      fetchMyAssignments();
+    if (profile?.role !== 'family') {
+      console.log('🔴 Accès refusé - Redirection vers dashboard');
+      navigate('/app');
+      return;
     }
-  }, []);
+    
+    fetchAidants();
+    fetchPatients();
+    fetchMyAssignments();
+  }, [profile, navigate]);
 
   // Filtrer les aidants par recherche
   const filteredAidants = aidants.filter((aidant) => {
@@ -81,6 +86,11 @@ const AidantCatalogPage = () => {
         <LoadingSpinner size="lg" text="Chargement des aidants..." />
       </div>
     );
+  }
+
+  // ✅ Si l'utilisateur n'est pas une famille, ne pas afficher la page
+  if (profile?.role !== 'family') {
+    return null;
   }
 
   return (
