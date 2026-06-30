@@ -1,6 +1,9 @@
+// 📁 src/app/Router.tsx
+
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { RoleGuard } from '@/components/auth/RoleGuard';
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 
@@ -35,9 +38,7 @@ export const AppRouter = () => {
       </Route>
 
       {/* Routes protégées */}
-      
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        
         <Route path="/app" element={<DashboardPage />} />
         <Route path="/app/dashboard" element={<DashboardPage />} />
         <Route path="/app/patients" element={<PatientsPage />} />
@@ -49,10 +50,23 @@ export const AppRouter = () => {
         <Route path="/app/notifications" element={<NotificationsPage />} />
         <Route path="/app/profile" element={<ProfilePage />} />
         
-        {/* 🦸 AIDANTS CATALOG */}
-        <Route path="/app/aidants" element={<AidantCatalogPage />} />
-        <Route path="/app/aidants/:id" element={<AidantDetailPage />} />
-        
+        {/* 🦸 AIDANTS CATALOG - UNIQUEMENT POUR LES FAMILLES */}
+        <Route 
+          path="/app/aidants" 
+          element={
+            <RoleGuard allowedRoles={['family']}>
+              <AidantCatalogPage />
+            </RoleGuard>
+          } 
+        />
+        <Route 
+          path="/app/aidants/:id" 
+          element={
+            <RoleGuard allowedRoles={['family']}>
+              <AidantDetailPage />
+            </RoleGuard>
+          } 
+        />
       </Route>
 
       {/* Redirections */}
