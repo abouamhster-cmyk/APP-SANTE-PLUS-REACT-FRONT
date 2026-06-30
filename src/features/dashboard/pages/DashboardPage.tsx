@@ -160,21 +160,33 @@ const DashboardPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ Charger les données au montage
   useEffect(() => {
     console.log('🔍 Dashboard - Rôle:', role);
-    console.log('🔍 Dashboard - Patients:', patients.length);
-    console.log('🔍 Dashboard - Visites:', visits.length);
-    console.log('🔍 Dashboard - Commandes:', orders.length);
+    console.log('🔍 Dashboard - Patients (avant fetch):', patients.length);
+    console.log('🔍 Dashboard - Visites (avant fetch):', visits.length);
+    console.log('🔍 Dashboard - Commandes (avant fetch):', orders.length);
     
-    fetchPatients();
-    fetchVisits();
-    fetchOrders();
+    const loadData = async () => {
+      await Promise.all([
+        fetchPatients(),
+        fetchVisits(),
+        fetchOrders(),
+      ]);
+      console.log('✅ Dashboard - Données chargées');
+      console.log('🔍 Dashboard - Patients (après fetch):', patients.length);
+    };
+    
+    loadData();
     setGreeting(getGreeting());
   }, []);
 
+  // ✅ Mettre à jour isMaman quand les patients changent
   useEffect(() => {
     const hasMamanPatient = patients.some((p) => p.category === 'maman_bebe');
     setIsMaman(hasMamanPatient);
+    console.log('🔍 Dashboard - hasMamanPatient:', hasMamanPatient);
+    console.log('🔍 Dashboard - patients.length:', patients.length);
   }, [patients]);
 
   // 📌 STATISTIQUES
@@ -448,9 +460,9 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* PROCHES - UNIQUEMENT SI PRÉSENT */}
+      {/* PROCHES - S'AFFICHE TOUJOURS POUR LES FAMILLES AVEC PATIENT */}
       {/* ========================================== */}
-      {hasProches && (
+      {isFamily && hasProches && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
@@ -474,6 +486,17 @@ const DashboardPage = () => {
               />
             ))}
           </div>
+          {patients.length > 2 && (
+            <div className="mt-3 text-center">
+              <button
+                onClick={() => navigate('/app/patients')}
+                className="text-xs font-bold hover:underline"
+                style={{ color: colors.primary }}
+              >
+                Voir les {patients.length} proches
+              </button>
+            </div>
+          )}
         </section>
       )}
 
