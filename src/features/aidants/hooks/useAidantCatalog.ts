@@ -9,7 +9,7 @@ import {
   DEFAULT_FILTERS, 
   AssignmentType,
   AidantSpecialty 
-} from '@/types/aidant';  // ← IMPORT DEPUIS aidant.ts
+} from '@/types';
 import toast from 'react-hot-toast';
 
 export const useAidantCatalog = () => {
