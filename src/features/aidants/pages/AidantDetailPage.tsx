@@ -1,4 +1,4 @@
-// 📁 src/features/aidants/pages/AidantDetailPage.tsx
+// 📁 frontend/src/features/aidants/pages/AidantDetailPage.tsx
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -105,8 +105,9 @@ const AidantDetailPage = () => {
     );
   }
 
+  // ✅ CORRECTION : Utiliser family_id car l'aidant est stocké dans family_id
   const isAlreadyAssigned = assignments.some(
-    (a) => a.family_id === aidant.user_id && a.status === 'active'
+    (a) => a.family_id === aidant.user_id
   );
 
   return (
