@@ -162,7 +162,7 @@ const PatientDetailPage = () => {
       const now = new Date().toTimeString().slice(0, 5);
 
       const visit = await createVisit({
-        patient_id: currentPatient.id,
+        patient_id: currentPatient?.id,
         scheduled_date: today,
         scheduled_time: now,
         duration_minutes: 60,
@@ -351,6 +351,7 @@ const PatientDetailPage = () => {
     );
   };
 
+  // ✅ SI LE PATIENT N'EST PAS CHARGÉ
   if (isLoading || !currentPatient) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
