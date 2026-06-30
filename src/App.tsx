@@ -1,5 +1,5 @@
 // 📁 src/App.tsx
- 
+
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -110,6 +110,12 @@ import JournalPage from '@/features/journal/pages/JournalPage';
 // DISCHARGE (SORTIE HÔPITAL)
 // ============================================================
 import DischargePage from '@/features/discharge/pages/DischargePage';
+
+// ============================================================
+// 🦸 AIDANTS CATALOG
+// ============================================================
+import AidantCatalogPage from '@/features/aidants/pages/AidantCatalogPage';
+import AidantDetailPage from '@/features/aidants/pages/AidantDetailPage';
 
 // ============================================================
 // STORES
@@ -335,6 +341,10 @@ function App() {
 
               {/* 🏥 SORTIE D'HÔPITAL */}
               <Route path="/app/discharge" element={<DischargePage />} />
+
+              {/* 🦸 AIDANTS CATALOG */}
+              <Route path="/app/aidants" element={<AidantCatalogPage />} />
+              <Route path="/app/aidants/:id" element={<AidantDetailPage />} />
 
               {/* ============================================================
                   👔 ROUTES ADMIN
