@@ -1,7 +1,5 @@
 // 📁 frontend/src/types/aidant.ts
-// ============================================================
-// TYPES UNIFIÉS - TOUS LES TYPES POUR LA GESTION DES AIDANTS
-// ============================================================
+
 
 export type AidantSpecialty = 'senior' | 'maman_bebe' | 'accompagnement' | 'autre';
 export type AidantAvailabilityStatus = 'available' | 'full' | 'unavailable';
@@ -75,7 +73,7 @@ export interface PatientAssignment {
 export interface AidantAssignment {
   id: string;
   patient_id: string;
-  family_id: string;          // ← L'aidant est stocké dans family_id
+  family_id: string;          // L'aidant est stocké dans family_id
   is_primary: boolean;
   relationship: AssignmentType;
   created_at: string;
@@ -91,7 +89,7 @@ export interface AidantAssignment {
 }
 
 // ============================================================
-// PROFIL AIDANT - VERSION COMPACTE (pour les listes)
+// PROFIL AIDANT - VERSION COMPACTE
 // ============================================================
 
 export interface AidantProfileCompact {
@@ -166,4 +164,18 @@ export interface AssignAidantResponse {
     assignment: AidantAssignment;
     aidant: AidantProfile;
   };
+}
+
+// ============================================================
+// ÉTAT DU STORE
+// ============================================================
+
+export interface AidantCatalogState {
+  aidants: AidantProfile[];
+  selectedAidant: AidantProfile | null;
+  assignments: AidantAssignment[];
+  isLoading: boolean;
+  error: string | null;
+  filters: AidantFilters;
+  totalCount: number;
 }
