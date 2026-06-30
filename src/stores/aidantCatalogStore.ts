@@ -58,7 +58,6 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
         throw new Error('Token manquant');
       }
 
-      // Construire l'URL avec les paramètres
       const params = new URLSearchParams();
       Object.entries(currentFilters).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
@@ -268,7 +267,6 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
     set((state) => ({
       filters: { ...state.filters, ...filters },
     }));
-    // Recharger avec les nouveaux filtres
     get().fetchAidants();
   },
 
