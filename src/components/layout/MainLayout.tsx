@@ -94,7 +94,7 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE
+  // NAVIGATION PAR RÔLE - CORRIGÉE
   // =============================================
   const navItems = useMemo(() => {
     const base = [
@@ -139,8 +139,7 @@ const MainLayout = () => {
         { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', path: '/app/admin' },
         { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
         { icon: <UserCheck size={20} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
-        { icon: <Users size={20} />, label: 'Aidants', path: '/app/aidants' },
-        { icon: <Handshake size={20} />, label: 'Assigner aidant', path: '/app/assign-aidants' },
+         { icon: <Handshake size={20} />, label: 'Assigner aidant', path: '/app/assign-aidants' },
         { icon: <Users size={20} />, label: 'Utilisateurs', path: '/app/users' },
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <FileCheck size={20} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
