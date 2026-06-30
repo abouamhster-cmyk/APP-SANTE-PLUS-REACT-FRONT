@@ -83,7 +83,7 @@ const DischargePage = () => {
   };
 
   const filterOptions = [
-    { value: 'all', label: '📋 Toutes' },
+    { value: 'all', label: '📋 Toutes les demandes' },
     { value: 'pending', label: '📋 En attente' },
     { value: 'planned', label: '📅 Planifiées' },
     { value: 'in_progress', label: '🚗 En cours' },
@@ -94,16 +94,16 @@ const DischargePage = () => {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse" />
+        <div className="h-20 bg-white rounded-2xl animate-pulse shadow-sm" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse shadow-sm" />
           ))}
         </div>
-        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="h-12 bg-white rounded-xl animate-pulse shadow-sm" />
         <div className="space-y-2">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+            <div key={item} className="h-16 bg-white rounded-xl animate-pulse shadow-sm" />
           ))}
         </div>
       </div>
@@ -111,14 +111,14 @@ const DischargePage = () => {
   }
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10">
+    <div className="space-y-4 pb-24 sm:pb-10 px-4 sm:px-0">
 
       {/* HEADER */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+      <section className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-2"
               style={{
                 background: colors.primary + '12',
                 color: colors.primary,
@@ -128,11 +128,11 @@ const DischargePage = () => {
               Sortie
             </div>
 
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+            <h1 className="text-xl font-extrabold tracking-tight" style={{ color: colors.text }}>
               {getPageTitle()}
             </h1>
 
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+            <p className="text-xs mt-0.5 text-gray-400 font-medium">
               {stats.total} demande{stats.total > 1 ? 's' : ''} au total
             </p>
           </div>
@@ -140,18 +140,18 @@ const DischargePage = () => {
           {isFamilyRole && (
             <button
               onClick={() => setShowRequestModal(true)}
-              className="px-3 py-2 rounded-xl text-white font-bold text-sm flex items-center gap-1.5"
+              className="px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center gap-1.5 transition-all hover:opacity-90 active:scale-95 shadow-sm"
               style={{ background: colors.primary }}
             >
               <Plus size={16} />
-              <span className="hidden sm:inline">Demander</span>
+              <span>Demander</span>
             </button>
           )}
         </div>
       </section>
 
       {/* STATS */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <CompactStat label="Total" value={stats.total} color={colors.primary} icon={<Hospital size={14} />} />
         <CompactStat label="En attente" value={stats.pending} color="#FF9800" icon={<Clock size={14} />} />
         <CompactStat label="En cours" value={stats.in_progress} color="#2196F3" icon={<Calendar size={14} />} />
@@ -159,13 +159,15 @@ const DischargePage = () => {
       </section>
 
       {/* FILTRE */}
-      <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
-        <div className="flex items-center gap-2">
-          <Filter size={14} className="text-gray-400" />
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 bg-gray-50 rounded-lg text-gray-400 shrink-0">
+            <Filter size={14} />
+          </div>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
-            className="flex-1 px-2 py-1.5 text-xs rounded-xl border bg-gray-50 outline-none"
+            className="flex-1 px-3 py-2 text-xs font-semibold rounded-xl border bg-gray-50/50 outline-none transition cursor-pointer text-gray-700"
             style={{ borderColor: colors.border, color: colors.text }}
           >
             {filterOptions.map((opt) => (
@@ -179,42 +181,46 @@ const DischargePage = () => {
 
       {/* LISTE */}
       {filteredDischarges.length > 0 ? (
-        <section className="space-y-2">
+        <section className="space-y-2.5">
           {filteredDischarges.map((discharge) => (
             <div
               key={discharge.id}
-              className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
+              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 border-l-4 cursor-pointer hover:bg-gray-50/40 transition-colors duration-200"
               style={{ borderLeftColor: getStatusColor(discharge.status) }}
               onClick={() => {
                 setSelectedDischarge(discharge);
                 setShowDetailsModal(true);
               }}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-3">
+                    {/* Squircle Avatar */}
                     <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm"
                       style={{ background: colors.primary }}
                     >
                       {discharge.patient?.first_name?.[0]}{discharge.patient?.last_name?.[0]}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold truncate" style={{ color: colors.text }}>
+                    
+                    <div className="min-w-0 space-y-1">
+                      <p className="text-sm font-bold text-gray-800 truncate">
                         {discharge.patient?.first_name} {discharge.patient?.last_name}
                       </p>
-                      <div className="flex items-center gap-1.5 text-[9px] flex-wrap" style={{ color: colors.text + '50' }}>
-                        <span className="flex items-center gap-0.5">
-                          <Hospital size={10} /> {discharge.hospital_name}
+                      
+                      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-gray-400 font-medium">
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Hospital size={11} className="text-gray-300" /> {discharge.hospital_name}
                         </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-0.5">
-                          <Calendar size={10} /> {formatDate(discharge.discharge_date)}
+                        <span className="text-gray-300 hidden xs:inline">•</span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Calendar size={11} className="text-gray-300" /> {formatDate(discharge.discharge_date)}
                         </span>
+                        <span className="text-gray-300 hidden xs:inline">•</span>
                         <span
-                          className="px-1.5 py-0.5 rounded-full text-[8px] font-medium"
+                          className="px-2 py-0.5 rounded-full text-[9px] font-bold mt-0.5 inline-block"
                           style={{
-                            background: getStatusColor(discharge.status) + '20',
+                            background: getStatusColor(discharge.status) + '12',
                             color: getStatusColor(discharge.status),
                           }}
                         >
@@ -227,14 +233,14 @@ const DischargePage = () => {
 
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={(e) => { e.stopPropagation();
+                    onClick={(e) => { 
+                      e.stopPropagation();
                       setSelectedDischarge(discharge);
                       setShowDetailsModal(true);
                     }}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                    style={{ color: colors.primary }}
+                    className="p-2 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors duration-150"
                   >
-                    <Eye size={14} />
+                    <Eye size={16} />
                   </button>
                 </div>
               </div>
@@ -242,12 +248,14 @@ const DischargePage = () => {
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-2xl p-6 text-center shadow-sm">
-          <Hospital size={32} className="mx-auto mb-3 opacity-30" />
-          <h3 className="text-sm font-bold" style={{ color: colors.text }}>
+        <section className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-3">
+            <Hospital size={24} className="text-gray-300" />
+          </div>
+          <h3 className="text-sm font-bold text-gray-700">
             {filter !== 'all' ? 'Aucune sortie dans cette catégorie' : 'Aucune sortie d\'hôpital'}
           </h3>
-          <p className="text-xs text-gray-400 mt-1">{getEmptyMessage()}</p>
+          <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto leading-relaxed">{getEmptyMessage()}</p>
         </section>
       )}
 
@@ -293,15 +301,13 @@ interface CompactStatProps {
 
 const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between gap-1">
-        <div>
-          <p className="text-[9px] font-medium text-gray-400">{label}</p>
-          <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
-        </div>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '15', color }}>
-          {icon}
-        </div>
+    <div className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex items-center justify-between gap-3">
+      <div className="space-y-0.5 min-w-0">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">{label}</p>
+        <p className="text-xl font-black truncate" style={{ color }}>{value}</p>
+      </div>
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '10', color }}>
+        {icon}
       </div>
     </div>
   );
