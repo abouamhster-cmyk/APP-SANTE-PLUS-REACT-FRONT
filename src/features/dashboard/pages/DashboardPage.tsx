@@ -229,7 +229,7 @@ const DashboardPage = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-44 rounded-2xl bg-white animate-pulse shadow-sm" />
+        <div className="h-44 rounded-3xl bg-white animate-pulse shadow-sm" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-16 bg-white rounded-xl animate-pulse shadow-sm" />
@@ -240,12 +240,12 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-8">
+    <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       {/* ========================================== */}
       {/* HERO - Bannière NEUTRE */}
       {/* ========================================== */}
       <section
-        className="relative overflow-hidden rounded-3xl min-h-[180px] md:min-h-[200px] shadow-sm transition-all"
+        className="relative overflow-hidden rounded-3xl min-h-[190px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
         style={{
           backgroundImage: `
             linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%),
@@ -257,15 +257,15 @@ const DashboardPage = () => {
       >
         <div className="absolute inset-0 bg-black/5" />
         
-        <div className="relative z-10 min-h-[180px] md:min-h-[200px] p-6 sm:p-8 flex flex-col justify-between">
+        <div className="relative z-10 min-h-[190px] md:min-h-[210px] p-6 sm:p-8 flex flex-col justify-between">
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div className="space-y-1.5 max-w-xl">
-              <p className="text-white/90 text-sm font-medium drop-shadow">
+            <div className="space-y-2 max-w-xl">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-white text-xs font-semibold drop-shadow-sm">
                 {greeting}, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
-              </p>
+              </span>
 
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight drop-shadow">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
                 {heroTitle()}
               </h1>
 
@@ -274,19 +274,19 @@ const DashboardPage = () => {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2.5 shrink-0 self-start md:self-end">
+            <div className="flex flex-wrap gap-2.5 shrink-0 self-start md:self-end mt-2 md:mt-0">
               <button
                 onClick={() => navigate('/app/visits')}
-                className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-transform hover:opacity-95 active:scale-[0.98] shadow-lg"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg"
                 style={{ background: colors.primary }}
               >
                 Voir les visites
-                <ArrowRight size={14} />
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
               </button>
 
               <button
                 onClick={() => navigate('/app/messages')}
-                className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold px-4 py-2.5 rounded-xl border border-white/20 transition-colors hover:bg-white/30"
+                className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold px-4 py-2.5 rounded-xl border border-white/20 transition-colors hover:bg-white/30 active:scale-[0.97]"
               >
                 Messages
               </button>
@@ -299,11 +299,11 @@ const DashboardPage = () => {
       {/* MESSAGE D'ACCUEIL - NEUTRE (SANS OBLIGATION DE PROCHE) */}
       {/* ========================================== */}
       {isFamily && !hasProches && (
-        <section className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-black/5">
+        <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="flex-1 text-center md:text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-3" style={{ background: colors.primary + '10', color: colors.primary }}>
-                <Compass size={14} />
+                <Compass size={14} className="animate-spin-slow" />
                 Découvrez nos services
               </div>
               <h2 className="text-xl md:text-2xl font-extrabold" style={{ color: colors.text }}>
@@ -313,10 +313,10 @@ const DashboardPage = () => {
                 Vous pouvez consulter nos offres d'accompagnement, planifier des visites 
                 ou passer des commandes. Si vous le souhaitez, vous pouvez également ajouter un proche.
               </p>
-              <div className="flex flex-wrap gap-3 mt-4">
+              <div className="flex flex-wrap gap-3 mt-4 justify-center md:justify-start">
                 <button
                   onClick={() => navigate('/app/billing')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-sm transition hover:opacity-90"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.97] shadow-sm"
                   style={{ background: colors.primary }}
                 >
                   <CreditCard size={16} />
@@ -324,7 +324,7 @@ const DashboardPage = () => {
                 </button>
                 <button
                   onClick={() => navigate('/app/patients')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition hover:bg-gray-50 border"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-gray-50 border active:scale-[0.97]"
                   style={{ borderColor: colors.border, color: colors.text }}
                 >
                   <UserPlus size={16} />
@@ -333,7 +333,7 @@ const DashboardPage = () => {
               </div>
             </div>
             <div className="flex-shrink-0">
-              <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center" style={{ background: colors.primary + '08' }}>
+              <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl flex items-center justify-center transform rotate-3 hover:rotate-0 transition-transform duration-300" style={{ background: colors.primary + '08' }}>
                 <Compass size={40} style={{ color: colors.primary }} />
               </div>
             </div>
@@ -410,12 +410,12 @@ const DashboardPage = () => {
       {/* ========================================== */}
       {/* GRILLE D'ACTIONS RAPIDES */}
       {/* ========================================== */}
-      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-        <div className="flex items-center justify-between mb-4">
+      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+        <div className="flex items-center justify-between mb-4 px-1">
           <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
             Menu rapide
           </h2>
-          <span className="text-[10px] text-gray-400 font-medium">{tiles.length} outils disponibles</span>
+          <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full font-semibold">{tiles.length} outils disponibles</span>
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -423,20 +423,20 @@ const DashboardPage = () => {
             <button
               key={index}
               onClick={() => navigate(tile.path)}
-              className="flex flex-col items-center justify-center p-3 rounded-2xl transition-all hover:bg-gray-50/50 group"
+              className="flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-300 hover:bg-gray-50/70 hover:shadow-sm active:scale-95 group relative overflow-hidden"
             >
               <div
-                className="w-11 h-11 rounded-2xl flex items-center justify-center mb-2 transition-transform group-hover:scale-105"
+                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 shadow-inner"
                 style={{ background: tile.color + '0a', color: tile.color }}
               >
                 {tile.icon}
               </div>
-              <span className="text-[10px] font-medium text-center leading-tight text-gray-600 truncate w-full">
+              <span className="text-[11px] font-semibold text-center leading-tight text-gray-600 truncate w-full transition-colors group-hover:text-gray-900">
                 {tile.label}
               </span>
               {tile.badge !== undefined && tile.badge > 0 && (
                 <span
-                  className="mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  className="mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all group-hover:scale-105"
                   style={{ background: tile.color + '12', color: tile.color }}
                 >
                   {tile.badge}
@@ -451,17 +451,17 @@ const DashboardPage = () => {
       {/* PROCHES - Cartes fluides (uniquement si présent) */}
       {/* ========================================== */}
       {hasProches && (
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-          <div className="flex items-center justify-between mb-3">
+        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+          <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
               {getProchesTitle()}
             </h2>
             <button
               onClick={() => navigate('/app/patients')}
-              className="text-xs font-semibold flex items-center gap-1 hover:underline"
+              className="group text-xs font-bold flex items-center gap-1 hover:underline"
               style={{ color: colors.primary }}
             >
-              Voir tout <ArrowRight size={12} />
+              Voir tout <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -484,14 +484,14 @@ const DashboardPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* VISITES */}
           {stats.upcomingVisits > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-              <div className="flex items-center justify-between mb-3">
+            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+              <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
                   Prochaines visites
                 </h2>
                 <button
                   onClick={() => navigate('/app/visits')}
-                  className="text-xs font-semibold flex items-center gap-1 hover:underline"
+                  className="text-xs font-bold hover:underline"
                   style={{ color: colors.primary }}
                 >
                   Tout voir
@@ -510,14 +510,14 @@ const DashboardPage = () => {
 
           {/* COMMANDES */}
           {stats.pendingOrders > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-              <div className="flex items-center justify-between mb-3">
+            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+              <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
                   Commandes récentes
                 </h2>
                 <button
                   onClick={() => navigate('/app/orders')}
-                  className="text-xs font-semibold flex items-center gap-1 hover:underline"
+                  className="text-xs font-bold hover:underline"
                   style={{ color: colors.primary }}
                 >
                   Tout voir
@@ -540,31 +540,31 @@ const DashboardPage = () => {
       {/* MESSAGE SI AUCUNE ACTIVITÉ MAIS AVEC PROCHES */}
       {/* ========================================== */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
-        <section className="bg-white rounded-3xl p-6 text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
-            <Lightbulb size={24} style={{ color: colors.primary }} />
+        <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm transition-transform hover:scale-105 duration-300" style={{ background: colors.primary + '08' }}>
+            <Lightbulb size={28} style={{ color: colors.primary }} />
           </div>
-          <h3 className="font-bold text-base" style={{ color: colors.text }}>
+          <h3 className="font-extrabold text-base" style={{ color: colors.text }}>
             💡 Commencez à utiliser Santé Plus
           </h3>
-          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto">
+          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto leading-relaxed">
             Planifiez votre première visite ou passez votre première commande pour découvrir nos services.
           </p>
-          <div className="flex flex-wrap justify-center gap-3 mt-4">
+          <div className="flex flex-wrap justify-center gap-3 mt-5">
             <button
               onClick={() => navigate('/app/visits')}
-              className="px-4 py-2 rounded-xl text-white font-bold text-sm"
+              className="px-5 py-2.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.97] shadow-sm flex items-center gap-1.5"
               style={{ background: colors.primary }}
             >
-              <Calendar size={14} className="inline mr-1.5" />
+              <Calendar size={14} />
               Planifier une visite
             </button>
             <button
               onClick={() => navigate('/app/orders/create')}
-              className="px-4 py-2 rounded-xl font-bold text-sm border"
+              className="px-5 py-2.5 rounded-xl font-bold text-sm border transition-all hover:bg-gray-50 active:scale-[0.97] flex items-center gap-1.5"
               style={{ borderColor: colors.border, color: colors.text }}
             >
-              <ShoppingBag size={14} className="inline mr-1.5" />
+              <ShoppingBag size={14} />
               Passer une commande
             </button>
           </div>
@@ -574,9 +574,9 @@ const DashboardPage = () => {
       {/* ========================================== */}
       {/* FOOTER DISCRET */}
       {/* ========================================== */}
-      <footer className="text-center py-4">
+      <footer className="text-center py-6">
          <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
-          <Heart size={10} className="text-red-400" />
+          <Heart size={10} className="text-red-400 fill-red-400" />
           Santé Plus Services — Votre accompagnement de confiance
          </p>
       </footer>
@@ -600,18 +600,18 @@ const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition text-left w-full flex items-center justify-between"
+      className="bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.01)] border border-gray-100/50 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 transition-all duration-300 text-left w-full flex items-center justify-between group"
     >
-      <div className="space-y-0.5">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+      <div className="space-y-1">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
           {label}
         </p>
-        <p className="text-xl font-extrabold" style={{ color }}>
+        <p className="text-2xl font-black transition-all" style={{ color }}>
           {value}
         </p>
       </div>
       <div
-        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6"
         style={{ background: color + '0d', color }}
       >
         {icon}
@@ -637,17 +637,17 @@ const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 text-left hover:shadow-md transition-all group"
+      className="bg-white rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.015)] border border-gray-100 text-left hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all duration-300 group"
     >
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: color + '10', color }}>
+      <div className="flex flex-col sm:flex-row items-start gap-4">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 duration-300 shadow-inner" style={{ background: color + '10', color }}>
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-sm" style={{ color }}>{title}</h4>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-light, #6b7280)' }}>{description}</p>
-          <span className="inline-block mt-2 text-xs font-bold group-hover:underline" style={{ color }}>
-            {buttonText} <ArrowRight size={12} className="inline" />
+          <h4 className="font-extrabold text-sm" style={{ color }}>{title}</h4>
+          <p className="text-xs mt-1 text-gray-500 leading-relaxed">{description}</p>
+          <span className="inline-flex items-center gap-1 mt-3 text-xs font-bold transition-all group-hover:translate-x-1" style={{ color }}>
+            {buttonText} <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
           </span>
         </div>
       </div>
