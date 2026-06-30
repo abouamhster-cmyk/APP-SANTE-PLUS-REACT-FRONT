@@ -15,6 +15,7 @@ export interface AidantProfile {
   rating: number;
   total_missions: number;
   completed_missions: number;
+  cancelled_missions: number;
   bio: string;
   address: string;
   zones: string[];
@@ -28,25 +29,51 @@ export interface AidantProfile {
   availability_status: 'available' | 'full' | 'unavailable';
   hourly_rate?: number;
   average_response_time?: number;
-  assignments?: AidantAssignment[];
+  patients?: PatientAssignment[];
   reviews?: AidantReview[];
+}
+
+export interface PatientAssignment {
+  patient_id: string;
+  patient: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    address: string;
+    category: string;
+  };
+  is_primary: boolean;
+  created_at: string;
 }
 
 export interface AidantAssignment {
   id: string;
-  aidant_id: string;
-  family_id: string;
   patient_id: string;
+  family_id: string;
+  is_primary: boolean;
+  relationship: string;
+  created_at: string;
   patient?: {
     id: string;
     first_name: string;
     last_name: string;
+    address: string;
+    category: string;
+    status: string;
   };
-  status: 'pending' | 'active' | 'completed' | 'cancelled';
-  assigned_at: string;
-  expires_at: string | null;
-  is_primary: boolean;
-  notes: string | null;
+  aidant?: {
+    id: string;
+    user_id: string;
+    specialties: string[];
+    available: boolean;
+    rating: number;
+    user: {
+      full_name: string;
+      email: string;
+      phone: string;
+      avatar_url: string | null;
+    };
+  };
 }
 
 export interface AidantReview {
