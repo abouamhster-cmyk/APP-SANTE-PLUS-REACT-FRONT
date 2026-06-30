@@ -74,15 +74,15 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  // 🦸 AIDANT - ✅ Missions redirige vers /app/missions
+  // 🦸 AIDANT - ✅ CARTE CORRIGÉE
   if (role === 'aidant') {
     tiles.push(
-      { icon: <Briefcase size={20} />, label: 'Missions', color: colors.primary, path: '/app/missions', badge: stats.upcomingVisits },
+      // ✅ "Missions" devient "Personnes accompagnées" car il redirige vers /app/patients
+      { icon: <Users size={20} />, label: 'Personnes accompagnées', color: colors.primary, path: '/app/patients', badge: patientsCount },
       { icon: <Calendar size={20} />, label: 'Planning', color: '#10b981', path: '/app/planning' },
       { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
       { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
       { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
-      // ❌ Abonnement SUPPRIMÉ
       { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
       { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
@@ -340,7 +340,7 @@ const DashboardPage = () => {
       {/* ========================================== */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          label={isFamily ? 'Proches suivis' : isAidant ? 'Missions' : 'Bénéficiaires'}
+          label={isFamily ? 'Proches suivis' : isAidant ? 'Personnes accompagnées' : 'Bénéficiaires'}
           value={stats.proches}
           icon={<Users size={16} />}
           color={colors.primary}
