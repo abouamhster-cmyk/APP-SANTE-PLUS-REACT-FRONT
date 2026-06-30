@@ -31,7 +31,7 @@ interface PaymentState {
 }
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'https://sante-plus-backend-main.onrender.com/api';
+  import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const usePaymentStore = create<PaymentState>((set, get) => ({
   subscriptions: [],
