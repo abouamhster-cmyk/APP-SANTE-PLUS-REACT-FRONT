@@ -129,6 +129,7 @@ export const useAidantCatalog = () => {
   }, [aidants]);
 
   const getActiveAssignments = useCallback(() => {
+    // ✅ Correction : vérifier si relationship est 'cancelled'
     return assignments.filter(a => a.relationship !== 'cancelled');
   }, [assignments]);
 
