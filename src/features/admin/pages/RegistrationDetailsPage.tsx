@@ -20,6 +20,9 @@ import { formatDate, formatCurrency } from '@/utils/helpers';
 import { InfoRow } from '@/components/ui/InfoRow';
 import toast from 'react-hot-toast';
 
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
 interface Registration {
   id: string;
   user_id: string | null;
@@ -130,13 +133,11 @@ const RegistrationDetailsPage = () => {
     if (!registration) return;
     setIsProcessing(true);
     try {
-      const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-'));
-      if (!storageKey) throw new Error('Session non trouvée');
-      const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      const token = session?.access_token;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Token manquant');
 
-      const response = await fetch('https://app-sante-plus-react.onrender.com/api/auth/admin/process-registration', {
+      const response = await fetch(`${API_URL}/auth/admin/process-registration`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
