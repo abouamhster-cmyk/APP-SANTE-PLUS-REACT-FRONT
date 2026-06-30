@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Filter, Star, MapPin, Briefcase } from 'lucide-react';
-import { AidantFilters as FiltersType, DEFAULT_FILTERS, AidantSpecialty } from '@/types';
+import { AidantFilters as FiltersType, DEFAULT_FILTERS, AidantSpecialty } from '@/types';  
 
 const SPECIALTIES = [
   { value: 'senior', label: '👴 Senior' },
