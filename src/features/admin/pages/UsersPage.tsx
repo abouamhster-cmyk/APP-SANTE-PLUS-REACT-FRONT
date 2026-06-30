@@ -23,6 +23,9 @@ import { Modal, ModalActions } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
 import toast from 'react-hot-toast';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+
  
 interface User {
   id: string;
