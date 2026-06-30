@@ -1,8 +1,8 @@
-// 📁 src/features/aidants/components/AidantFilters.tsx
+// 📁 frontend/src/features/aidants/components/AidantFilters.tsx
 
 import { useState } from 'react';
 import { X, Filter, Star, MapPin, Briefcase } from 'lucide-react';
-import { AidantFilters as FiltersType } from '@/types/aidantCatalog';
+import { AidantFilters as FiltersType, DEFAULT_FILTERS } from '@/types/aidant';
 
 const SPECIALTIES = [
   { value: 'senior', label: '👴 Senior' },
@@ -34,7 +34,7 @@ export const AidantFilters = ({
   onClose,
   colors,
 }: AidantFiltersProps) => {
-  const [localFilters, setLocalFilters] = useState(filters);
+  const [localFilters, setLocalFilters] = useState<FiltersType>(filters);
 
   const handleChange = (key: keyof FiltersType, value: any) => {
     setLocalFilters((prev) => ({ ...prev, [key]: value }));
@@ -46,13 +46,8 @@ export const AidantFilters = ({
   };
 
   const handleReset = () => {
-    const defaultFilters = {
-      onlyAvailable: true,
-      sortBy: 'rating',
-      sortOrder: 'desc',
-      limit: 20,
-      offset: 0,
-    };
+    // ✅ Utilisation de DEFAULT_FILTERS importé
+    const defaultFilters = { ...DEFAULT_FILTERS };
     setLocalFilters(defaultFilters);
     onFilterChange(defaultFilters);
     onClose();
@@ -79,7 +74,7 @@ export const AidantFilters = ({
           </label>
           <select
             value={localFilters.specialty || ''}
-            onChange={(e) => handleChange('specialty', e.target.value || undefined)}
+            onChange={(e) => handleChange('specialty', e.target.value as AidantSpecialty || undefined)}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
             style={{ borderColor: colors.border, background: 'var(--color-background)' }}
           >
@@ -159,8 +154,8 @@ export const AidantFilters = ({
             Trier par
           </label>
           <select
-            value={localFilters.sortBy || 'rating'}
-            onChange={(e) => handleChange('sortBy', e.target.value as any)}
+            value={localFilters.sortBy}
+            onChange={(e) => handleChange('sortBy', e.target.value as 'rating' | 'experience_years' | 'total_missions' | 'active_assignments')}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
             style={{ borderColor: colors.border, background: 'var(--color-background)' }}
           >
@@ -177,7 +172,7 @@ export const AidantFilters = ({
             Ordre
           </label>
           <select
-            value={localFilters.sortOrder || 'desc'}
+            value={localFilters.sortOrder}
             onChange={(e) => handleChange('sortOrder', e.target.value as 'asc' | 'desc')}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
             style={{ borderColor: colors.border, background: 'var(--color-background)' }}
