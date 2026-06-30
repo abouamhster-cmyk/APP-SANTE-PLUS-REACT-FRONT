@@ -14,6 +14,7 @@ import { AssignAidantModal } from '../components/AssignAidantModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
+import { AidantProfile } from '@/types/aidant'; 
 
 const AidantCatalogPage = () => {
   const navigate = useNavigate();
