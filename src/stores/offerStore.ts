@@ -26,7 +26,7 @@ const OFFERS_CACHE_KEY = 'sante_plus_offers_cache';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // ✅ URL de l'API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-sante-plus-react.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const useOfferStore = create<OfferState>((set, get) => ({
   offers: [],
