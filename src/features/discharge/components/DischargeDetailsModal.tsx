@@ -118,26 +118,33 @@ export const DischargeDetailsModal = ({ discharge, onClose, onUpdate, colors }: 
   const canCancel = ['pending', 'assessing', 'planned'].includes(discharge.status);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]">
+      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl border border-gray-100">
         {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.primary + '20' }}>
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md z-10 flex items-center justify-between p-6 border-b" style={{ borderColor: colors.primary + '20' }}>
           <div>
             <h2 className="text-xl font-bold" style={{ color: colors.text }}>🏥 Détails de la sortie</h2>
-            <p className="text-sm" style={{ color: colors.text + '60' }}>
+            <p className="text-xs font-semibold mt-0.5" style={{ color: colors.text + '80' }}>
               {getPatientLabel()} : {discharge.patient?.first_name} {discharge.patient?.last_name}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
-            <X size={24} />
+          <button onClick={onClose} className="p-2 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-gray-600 transition-colors duration-150">
+            <X size={20} />
           </button>
         </div>
 
         {/* Contenu */}
         <div className="p-6 space-y-6">
           {/* Statut */}
-          <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: getStatusColor(discharge.status) + '10' }}>
-            <span className="text-2xl">
+          <div 
+            className="flex items-center gap-3.5 p-4 rounded-2xl border border-l-4" 
+            style={{ 
+              backgroundColor: getStatusColor(discharge.status) + '08',
+              borderColor: getStatusColor(discharge.status) + '20',
+              borderLeftColor: getStatusColor(discharge.status)
+            }}
+          >
+            <span className="text-2xl shrink-0">
               {discharge.status === 'pending' ? '📋' :
                discharge.status === 'assessing' ? '🔍' :
                discharge.status === 'planned' ? '📅' :
@@ -145,11 +152,11 @@ export const DischargeDetailsModal = ({ discharge, onClose, onUpdate, colors }: 
                discharge.status === 'completed' ? '✅' : '❌'}
             </span>
             <div>
-              <p className="font-bold" style={{ color: getStatusColor(discharge.status) }}>
+              <p className="font-bold text-sm" style={{ color: getStatusColor(discharge.status) }}>
                 {getStatusLabel(discharge.status)}
               </p>
               {discharge.completed_at && (
-                <p className="text-xs" style={{ color: colors.text + '50' }}>
+                <p className="text-[10px] text-gray-400 font-semibold mt-0.5">
                   Terminée le {formatDate(discharge.completed_at)}
                 </p>
               )}
@@ -158,45 +165,47 @@ export const DischargeDetailsModal = ({ discharge, onClose, onUpdate, colors }: 
 
           {/* Infos */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InfoItem icon={<Hospital size={18} />} label="Hôpital" value={discharge.hospital_name} />
-            <InfoItem icon={<Stethoscope size={18} />} label="Service" value={discharge.hospital_service || 'Non précisé'} />
-            <InfoItem icon={<User size={18} />} label="Médecin" value={discharge.doctor_name || 'Non précisé'} />
-            <InfoItem icon={<Calendar size={18} />} label="Date de sortie" value={formatDate(discharge.discharge_date)} />
-            <InfoItem icon={<Clock size={18} />} label="Heure" value={discharge.discharge_time || 'Non précisée'} />
-            <InfoItem icon={<User size={18} />} label="Aidant assigné" value={discharge.aidant?.user?.full_name || 'Non assigné'} />
+            <InfoItem icon={<Hospital size={16} />} label="Hôpital" value={discharge.hospital_name} colors={colors} />
+            <InfoItem icon={<Stethoscope size={16} />} label="Service" value={discharge.hospital_service || 'Non précisé'} colors={colors} />
+            <InfoItem icon={<User size={16} />} label="Médecin" value={discharge.doctor_name || 'Non précisé'} colors={colors} />
+            <InfoItem icon={<Calendar size={16} />} label="Date de sortie" value={formatDate(discharge.discharge_date)} colors={colors} />
+            <InfoItem icon={<Clock size={16} />} label="Heure" value={discharge.discharge_time || 'Non précisée'} colors={colors} />
+            <InfoItem icon={<User size={16} />} label="Aidant assigné" value={discharge.aidant?.user?.full_name || 'Non assigné'} colors={colors} />
           </div>
 
           {/* Notes */}
           {discharge.coordinator_notes && (
-            <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-              <p className="text-sm font-bold mb-1" style={{ color: colors.text }}>📝 Notes du coordinateur</p>
-              <p className="text-sm" style={{ color: colors.text + '70' }}>{discharge.coordinator_notes}</p>
+            <div className="p-4 rounded-2xl border border-gray-100" style={{ background: colors.primary + '05' }}>
+              <p className="text-xs font-bold mb-1.5 uppercase tracking-wider" style={{ color: colors.text }}>📝 Notes du coordinateur</p>
+              <p className="text-sm leading-relaxed" style={{ color: colors.text + '90' }}>{discharge.coordinator_notes}</p>
             </div>
           )}
 
           {/* Évaluation */}
           {discharge.status === 'completed' && discharge.satisfaction_rating && (
-            <div className="p-4 rounded-xl" style={{ background: '#4CAF5010' }}>
-              <p className="text-sm font-bold mb-1" style={{ color: '#4CAF50' }}>⭐ Évaluation</p>
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-green-600">{discharge.satisfaction_rating}/5</span>
+            <div className="p-4 rounded-2xl border border-green-100" style={{ backgroundColor: '#4CAF5005' }}>
+              <p className="text-xs font-bold mb-1.5 uppercase tracking-wider text-green-600">⭐ Évaluation de la prestation</p>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-black text-green-600">
+                  {discharge.satisfaction_rating} <span className="text-xs text-green-400 font-bold">/ 5</span>
+                </span>
                 {discharge.satisfaction_comment && (
-                  <span className="text-sm text-gray-500">« {discharge.satisfaction_comment} »</span>
+                  <span className="text-xs text-gray-500 italic border-l border-green-100/50 pl-3">« {discharge.satisfaction_comment} »</span>
                 )}
               </div>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+          <div className="flex flex-wrap gap-3 pt-5 border-t border-gray-100">
             {canComplete && (
               <button
                 onClick={handleComplete}
                 disabled={isSubmitting}
-                className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl text-white font-bold text-sm transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: '#4CAF50' }}
               >
-                <CheckCircle size={18} />
+                <CheckCircle size={16} />
                 Terminer la sortie
               </button>
             )}
@@ -204,10 +213,10 @@ export const DischargeDetailsModal = ({ discharge, onClose, onUpdate, colors }: 
               <button
                 onClick={handleCancel}
                 disabled={isSubmitting}
-                className="flex-1 py-3 rounded-xl font-bold transition hover:bg-red-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl font-bold text-sm transition-colors hover:bg-red-50 flex items-center justify-center gap-2"
                 style={{ color: '#F44336', border: '1px solid #F44336' }}
               >
-                <X size={18} />
+                <X size={16} />
                 Annuler
               </button>
             )}
@@ -226,17 +235,21 @@ interface InfoItemProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  colors: any;
 }
 
-const InfoItem = ({ icon, label, value }: InfoItemProps) => {
+const InfoItem = ({ icon, label, value, colors }: InfoItemProps) => {
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--color-primary, #1a4a3a)10' }}>
+      <div 
+        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner" 
+        style={{ backgroundColor: colors.primary + '0d', color: colors.primary }}
+      >
         {icon}
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-        <p className="text-sm font-semibold" style={{ color: 'var(--color-text, #2d2d2d)' }}>{value}</p>
+        <p className="text-sm font-semibold text-gray-800 truncate" style={{ color: colors.text }}>{value}</p>
       </div>
     </div>
   );
