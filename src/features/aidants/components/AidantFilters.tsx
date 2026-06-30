@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Filter, Star, MapPin, Briefcase } from 'lucide-react';
-import { AidantFilters as FiltersType, DEFAULT_FILTERS } from '@/types/aidant';
+import { AidantFilters as FiltersType, DEFAULT_FILTERS, AidantSpecialty } from '@/types';
 
 const SPECIALTIES = [
   { value: 'senior', label: '👴 Senior' },
@@ -46,7 +46,6 @@ export const AidantFilters = ({
   };
 
   const handleReset = () => {
-    // ✅ Utilisation de DEFAULT_FILTERS importé
     const defaultFilters = { ...DEFAULT_FILTERS };
     setLocalFilters(defaultFilters);
     onFilterChange(defaultFilters);
