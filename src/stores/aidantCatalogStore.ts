@@ -11,7 +11,7 @@ import {
 } from '@/types';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://sante-plus-backend-main.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
   // ============================================================
