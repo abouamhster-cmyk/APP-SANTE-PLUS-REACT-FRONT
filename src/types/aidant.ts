@@ -1,5 +1,7 @@
 // 📁 frontend/src/types/aidant.ts
-
+// ============================================================
+// TYPES UNIFIÉS - GESTION DES AIDANTS
+// ============================================================
 
 export type AidantSpecialty = 'senior' | 'maman_bebe' | 'accompagnement' | 'autre';
 export type AidantAvailabilityStatus = 'available' | 'full' | 'unavailable';
@@ -73,7 +75,7 @@ export interface PatientAssignment {
 export interface AidantAssignment {
   id: string;
   patient_id: string;
-  family_id: string;          // L'aidant est stocké dans family_id
+  family_id: string;
   is_primary: boolean;
   relationship: AssignmentType;
   created_at: string;
@@ -167,10 +169,11 @@ export interface AssignAidantResponse {
 }
 
 // ============================================================
-// ÉTAT DU STORE
+// ÉTAT DU STORE - CORRIGÉ AVEC TOUTES LES ACTIONS
 // ============================================================
 
 export interface AidantCatalogState {
+  // État
   aidants: AidantProfile[];
   selectedAidant: AidantProfile | null;
   assignments: AidantAssignment[];
@@ -178,4 +181,14 @@ export interface AidantCatalogState {
   error: string | null;
   filters: AidantFilters;
   totalCount: number;
+
+  // Actions
+  fetchAidants: (filters?: Partial<AidantFilters>) => Promise<void>;
+  fetchAidantById: (id: string) => Promise<void>;
+  fetchMyAssignments: () => Promise<void>;
+  assignAidant: (aidantId: string, patientId: string, assignmentType?: string) => Promise<void>;
+  revokeAssignment: (assignmentId: string) => Promise<void>;
+  setFilters: (filters: Partial<AidantFilters>) => void;
+  clearError: () => void;
+  reset: () => void;
 }
