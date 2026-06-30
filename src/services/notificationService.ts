@@ -8,6 +8,9 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { NotificationType } from '@/types';
 import toast from 'react-hot-toast';
 
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
 // ✅ Configuration Firebase
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -120,21 +123,18 @@ export const requestNotificationPermission = async (userId: string) => {
 
     const { data: sessionData } = await supabase.auth.getSession();
 
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/notifications/register-token`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionData.session?.access_token}`,
-        },
-        body: JSON.stringify({
-          token,
-          device_info: navigator.userAgent,
-          user_id: userId,
-        }),
-      }
-    );
+    const response = await fetch(`${API_URL}/notifications/register-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionData.session?.access_token}`,
+      },
+      body: JSON.stringify({
+        token,
+        device_info: navigator.userAgent,
+        user_id: userId,
+      }),
+    });
 
     if (!response.ok) {
       throw new Error("Erreur lors de l'enregistrement du token");
@@ -161,7 +161,7 @@ export const removePushToken = async (token?: string) => {
 
     const { data: sessionData } = await supabase.auth.getSession();
 
-    await fetch(`${import.meta.env.VITE_API_URL}/notifications/remove-token`, {
+    await fetch(`${API_URL}/notifications/remove-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -179,6 +179,7 @@ export const removePushToken = async (token?: string) => {
   }
 };
 
+ 
 // ============================================================
 // NOTIFICATIONS POUR LES AIDANTS - FILTRÉES PAR ASSIGNATION
 // ============================================================
