@@ -4,7 +4,12 @@ import { useCallback, useMemo } from 'react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
-import { AidantFilters, DEFAULT_FILTERS, AssignmentType } from '@/types/aidant';
+import { 
+  AidantFilters, 
+  DEFAULT_FILTERS, 
+  AssignmentType,
+  AidantSpecialty 
+} from '@/types/aidant';  // ← IMPORT DEPUIS aidant.ts
 import toast from 'react-hot-toast';
 
 export const useAidantCatalog = () => {
