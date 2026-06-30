@@ -3,7 +3,8 @@
 import axios from 'axios';
 import { supabase } from './supabase';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com';
+// ✅ URL UNIQUE - Utiliser la variable d'environnement avec fallback
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -55,7 +56,6 @@ export const procheAPI = {
   delete: (id: string) => api.delete(`/patients/${id}`),
   getVisits: (id: string) => api.get(`/patients/${id}/visits`),
   getOrders: (id: string) => api.get(`/patients/${id}/orders`),
-  // ✅ NOUVEAU : Assigner un aidant à un patient
   assignAidant: (patientId: string, aidantId: string, assignmentType: string = 'permanente') => 
     api.post(`/patients/${patientId}/assign-aidant`, { aidantId, assignmentType }),
   getAidants: (patientId: string) => api.get(`/patients/${patientId}/aidants`),
@@ -64,7 +64,7 @@ export const procheAPI = {
 export const patientAPI = procheAPI;
 
 // =============================================
-// VISITS API - AVEC NOUVEAUX STATUTS
+// VISITS API
 // =============================================
 export const visitAPI = {
   getAll: () => api.get('/visits'),
@@ -72,29 +72,23 @@ export const visitAPI = {
   create: (data: any) => api.post('/visits', data),
   update: (id: string, data: any) => api.put(`/visits/${id}`, data),
   delete: (id: string) => api.delete(`/visits/${id}`),
-  
-  // ✅ NOUVEAUX STATUTS
   approve: (id: string) => api.post(`/visits/${id}/approve`),
   refuse: (id: string, reason: string) => api.post(`/visits/${id}/refuse`, { reason }),
   reassign: (id: string, aidantId: string, assignmentType: string = 'ponctuelle') => 
     api.post(`/visits/${id}/reassign`, { aidant_id: aidantId, assignment_type: assignmentType }),
   confirmPayment: (id: string, transactionId: string) => 
     api.post(`/visits/${id}/confirm-payment`, { transaction_id: transactionId }),
-  
-  // ✅ EXISTANTS
   start: (id: string) => api.post(`/visits/${id}/start`),
   complete: (id: string, data: any) => api.post(`/visits/${id}/complete`, data),
   validate: (id: string) => api.post(`/visits/${id}/validate`),
   cancel: (id: string) => api.post(`/visits/${id}/cancel`),
   addPhoto: (id: string, photo: FormData) => api.post(`/visits/${id}/photos`, photo),
-  
-  // ✅ RÉCUPÉRATION
   getPending: () => api.get('/visits/pending'),
   getNeedingReassign: () => api.get('/visits/needing-reassign'),
 };
 
 // =============================================
-// ORDERS API - AVEC NOUVEAUX STATUTS
+// ORDERS API
 // =============================================
 export const orderAPI = {
   getAll: () => api.get('/orders'),
@@ -102,8 +96,6 @@ export const orderAPI = {
   create: (data: any) => api.post('/orders', data),
   update: (id: string, data: any) => api.put(`/orders/${id}`, data),
   delete: (id: string) => api.delete(`/orders/${id}`),
-  
-  // ✅ NOUVEAUX STATUTS
   take: (id: string) => api.post(`/orders/${id}/take`),
   accept: (id: string) => api.post(`/orders/${id}/accept`),
   prepare: (id: string) => api.post(`/orders/${id}/prepare`),
@@ -112,8 +104,6 @@ export const orderAPI = {
   validate: (id: string) => api.post(`/orders/${id}/validate`),
   confirmPayment: (id: string, transactionId: string) => 
     api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId }),
-  
-  // ✅ UPDATE STATUS (générique)
   updateStatus: (id: string, status: string) => api.post(`/orders/${id}/status`, { status }),
 };
 
@@ -167,11 +157,10 @@ export const adminAPI = {
   getOffers: () => api.get('/admin/offers'),
   createOffer: (data: any) => api.post('/admin/offers', data),
   updateOffer: (id: string, data: any) => api.put(`/admin/offers/${id}`, data),
-  
-  // ✅ NOUVEAU : Gestion des aidants
   getAvailableAidants: () => api.get('/admin/aidants/available'),
   assignAidant: (data: { familyId: string; aidantId: string; assignmentType: string }) => 
     api.post('/admin/assign-aidant', data),
+  deleteUser: (userId: string) => api.delete(`/admin/users/${userId}`),
 };
 
 // =============================================
@@ -207,3 +196,5 @@ export const offersAPI = {
   delete: (id: string) => api.delete(`/offers/${id}`),
   sync: () => api.post('/offers/sync'),
 };
+
+export default api;
