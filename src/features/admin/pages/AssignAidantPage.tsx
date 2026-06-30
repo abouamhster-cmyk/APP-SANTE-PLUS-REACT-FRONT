@@ -186,20 +186,28 @@ const AssignAidantPage = () => {
         setIsSaving(false);
         return;
       }
-
+ 
+      
       // ✅ 3. Compter les assignations actuelles de l'aidant
-      const { count: currentCount } = await supabase
+      const { count: currentCount, error: countError } = await supabase
         .from('patient_family_links')
         .select('id', { count: 'exact', head: true })
         .eq('family_id', aidant.user_id);
-
+      
+      if (countError) {
+        console.error('❌ Erreur comptage:', countError);
+      }
+      
+      // ✅ CORRECTION : currentCount peut être null
+      const currentAssignments = currentCount || 0;
       const maxAssignments = aidant.max_assignments || 4;
-      if (currentCount >= maxAssignments) {
-        toast.error(`Cet aidant a déjà ${currentCount} assignations (maximum ${maxAssignments})`);
+      
+      if (currentAssignments >= maxAssignments) {
+        toast.error(`Cet aidant a déjà ${currentAssignments} assignations (maximum ${maxAssignments})`);
         setIsSaving(false);
         return;
       }
-
+      
       // ✅ 4. Créer l'assignation dans patient_family_links
       const { data: newAssignment, error: insertError } = await supabase
         .from('patient_family_links')
@@ -213,25 +221,26 @@ const AssignAidantPage = () => {
           can_receive_notifications: true,
         })
         .select();
-
+      
       if (insertError) {
         console.error('❌ Erreur insertion:', insertError);
         toast.error(`Erreur: ${insertError.message}`);
         setIsSaving(false);
         return;
       }
-
-      console.log('✅ Assignation créée:', newAssignment);
-
+      
       // ✅ 5. Mettre à jour current_assignments
       await supabase
         .from('aidants')
         .update({
-          current_assignments: (currentCount || 0) + 1,
-          available: (currentCount || 0) + 1 < maxAssignments,
+          current_assignments: currentAssignments + 1,
+          available: (currentAssignments + 1) < maxAssignments,
           updated_at: new Date().toISOString(),
         })
         .eq('id', aidant.id);
+
+
+      
 
       // ✅ 6. Mettre à jour l'état local
       setAssignments(prev => ({
