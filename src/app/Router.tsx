@@ -18,6 +18,8 @@ import BillingPage from '@/features/billing/pages/BillingPage';
 import MapPage from '@/features/map/pages/MapPage';
 import NotificationsPage from '@/features/notifications/pages/NotificationsPage';
 import ProfilePage from '@/features/profile/pages/ProfilePage';
+import AidantCatalogPage from '@/features/aidants/pages/AidantCatalogPage';
+import AidantDetailPage from '@/features/aidants/pages/AidantDetailPage';
 
 export const AppRouter = () => {
   const { user, role } = useAuthStore();
@@ -33,7 +35,9 @@ export const AppRouter = () => {
       </Route>
 
       {/* Routes protégées */}
+      
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+        
         <Route path="/app" element={<DashboardPage />} />
         <Route path="/app/dashboard" element={<DashboardPage />} />
         <Route path="/app/patients" element={<PatientsPage />} />
@@ -44,6 +48,11 @@ export const AppRouter = () => {
         <Route path="/app/map" element={<MapPage />} />
         <Route path="/app/notifications" element={<NotificationsPage />} />
         <Route path="/app/profile" element={<ProfilePage />} />
+        
+        {/* 🦸 AIDANTS CATALOG */}
+        <Route path="/app/aidants" element={<AidantCatalogPage />} />
+        <Route path="/app/aidants/:id" element={<AidantDetailPage />} />
+        
       </Route>
 
       {/* Redirections */}
