@@ -106,6 +106,7 @@ const MainLayout = () => {
       return [
         ...base,
         { icon: <Users size={20} />, label: 'Proches', path: '/app/patients' },
+        { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants' }, 
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
         { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
