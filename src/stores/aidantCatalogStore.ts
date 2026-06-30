@@ -2,8 +2,17 @@
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import { AidantProfile, AidantAssignment, AidantFilters } from from '@/types/aidant'; 
+import { 
+  AidantProfile, 
+  AidantAssignment, 
+  AidantFilters, 
+  DEFAULT_FILTERS 
+} from '@/types/aidant'; 
 import toast from 'react-hot-toast';
+
+// ============================================================
+// ÉTAT DU STORE
+// ============================================================
 
 interface AidantCatalogState {
   aidants: AidantProfile[];
@@ -33,7 +42,7 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
   assignments: [],
   isLoading: false,
   error: null,
-  filters: { ...DEFAULT_FILTERS }, 
+  filters: { ...DEFAULT_FILTERS },
   totalCount: 0,
 
   // ============================================================
@@ -275,13 +284,7 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
       assignments: [],
       isLoading: false,
       error: null,
-      filters: {
-        onlyAvailable: true,
-        sortBy: 'rating',
-        sortOrder: 'desc',
-        limit: 20,
-        offset: 0,
-      },
+      filters: { ...DEFAULT_FILTERS },
       totalCount: 0,
     });
   },
