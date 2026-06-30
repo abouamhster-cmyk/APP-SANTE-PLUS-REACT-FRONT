@@ -12,14 +12,110 @@
   "dir": "ltr",
   "icons": [
     {
+      "src": "/icon-16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-20.png",
+      "sizes": "20x20",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-29.png",
+      "sizes": "29x29",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-40.png",
+      "sizes": "40x40",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-50.png",
+      "sizes": "50x50",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-57.png",
+      "sizes": "57x57",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-58.png",
+      "sizes": "58x58",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-60.png",
+      "sizes": "60x60",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-64.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icon-72.png",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "any"
     },
     {
+      "src": "/icon-76.png",
+      "sizes": "76x76",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-80.png",
+      "sizes": "80x80",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-87.png",
+      "sizes": "87x87",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icon-96.png",
       "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-100.png",
+      "sizes": "100x100",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-114.png",
+      "sizes": "114x114",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-120.png",
+      "sizes": "120x120",
       "type": "image/png",
       "purpose": "any"
     },
@@ -38,6 +134,18 @@
     {
       "src": "/icon-152.png",
       "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-167.png",
+      "sizes": "167x167",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-180.png",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
