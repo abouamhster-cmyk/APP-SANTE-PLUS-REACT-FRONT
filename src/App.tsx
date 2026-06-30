@@ -8,6 +8,7 @@ import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { InstallPrompt } from '@/components/PWA/InstallPrompt';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { RoleGuard } from '@/components/auth/RoleGuard';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
@@ -85,7 +86,7 @@ import PlanningPage from '@/features/help/pages/PlanningPage';
 import HistoryPage from '@/features/help/pages/HistoryPage';
 
 // ============================================================
-// ADMIN PAGES
+// ADMIN PAGES - AVEC ROLE GUARD
 // ============================================================
 import AdminDashboardPage from '@/features/admin/pages/AdminDashboardPage';
 import AdminPaymentsPage from '@/features/admin/pages/AdminPaymentsPage';
@@ -347,21 +348,112 @@ function App() {
               <Route path="/app/aidants/:id" element={<AidantDetailPage />} />
 
               {/* ============================================================
-                  👔 ROUTES ADMIN
+                  👔 ROUTES ADMIN - PROTÉGÉES PAR RÔLE
                   ============================================================ */}
-              <Route path="/app/admin" element={<AdminDashboardPage />} />
-              <Route path="/app/admin-payments" element={<AdminPaymentsPage />} />
-              <Route path="/app/admin-subscriptions" element={<AdminSubscriptionsPage />} />
-              <Route path="/app/admin-notifications" element={<AdminNotificationsPage />} />
-              <Route path="/app/admin/visits/validation" element={<AdminVisitValidationPage />} />
-              <Route path="/app/registrations" element={<RegistrationsPage />} />
-              <Route path="/app/registrations/:id" element={<RegistrationDetailsPage />} />
-              <Route path="/app/aidants" element={<AidantsPage />} />
-              <Route path="/app/aidant-candidates" element={<AidantCandidatesPage />} />
-              <Route path="/app/assign-aidants" element={<AssignAidantPage />} />
-              <Route path="/app/users" element={<UsersPage />} />
-              <Route path="/app/offers" element={<OffersPage />} />
-              <Route path="/app/settings" element={<SettingsPage />} />
+              <Route 
+                path="/app/admin" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AdminDashboardPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/admin-payments" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AdminPaymentsPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/admin-subscriptions" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AdminSubscriptionsPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/admin-notifications" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AdminNotificationsPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/admin/visits/validation" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AdminVisitValidationPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/registrations" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <RegistrationsPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/registrations/:id" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <RegistrationDetailsPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/aidants" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AidantsPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/aidant-candidates" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AidantCandidatesPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/assign-aidants" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <AssignAidantPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/users" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <UsersPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/offers" 
+                element={
+                  <RoleGuard allowedRoles={['admin', 'coordinator']}>
+                    <OffersPage />
+                  </RoleGuard>
+                } 
+              />
+              <Route 
+                path="/app/settings" 
+                element={
+                  <RoleGuard allowedRoles={['admin']}>
+                    <SettingsPage />
+                  </RoleGuard>
+                } 
+              />
             </Route>
 
             {/* ============================================================
