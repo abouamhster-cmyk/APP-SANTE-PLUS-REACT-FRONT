@@ -1,5 +1,5 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -29,6 +29,10 @@ import {
   Handshake,
   FileCheck,
   UserPlus,
+  TrendingUp,
+  Lightbulb,
+  Rocket,
+  Compass,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -74,10 +78,9 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  // 🦸 AIDANT - ✅ CARTE CORRIGÉE
+  // 🦸 AIDANT
   if (role === 'aidant') {
     tiles.push(
-      // ✅ "Missions" devient "Personnes accompagnées" car il redirige vers /app/patients
       { icon: <Users size={20} />, label: 'Personnes accompagnées', color: colors.primary, path: '/app/patients', badge: patientsCount },
       { icon: <Calendar size={20} />, label: 'Planning', color: '#10b981', path: '/app/planning' },
       { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
@@ -188,20 +191,25 @@ const DashboardPage = () => {
 
   const isLoading = patientsLoading || visitsLoading || ordersLoading;
 
+  // ✅ DÉTERMINER L'IMAGE DE LA BANNIÈRE
   const heroImage = isMaman
     ? '/assets/images/banners/maman-banner.png'
     : '/assets/images/banners/senior-banner.png';
 
+  // ✅ DÉTERMINER LE TITRE DE LA BANNIÈRE - NEUTRE
   const heroTitle = () => {
-    if (isMaman) return 'Votre espace maman & bébé.';
+    if (isMaman) return 'Bienvenue dans votre espace maman & bébé.';
+    if (isFamily && patients.length === 0) return 'Bienvenue sur Santé Plus Services.';
     if (isFamily) return 'Un suivi clair pour votre proche.';
     if (isAidant) return 'Vos missions en un coup d\'œil.';
     if (isAdminOrCoordinator) return 'Gestion de la plateforme.';
     return 'Bienvenue sur Santé Plus.';
   };
 
+  // ✅ DESCRIPTION DE LA BANNIÈRE - NEUTRE
   const heroDescription = () => {
     if (isMaman) return 'Visites, messages et commandes réunis dans un espace simple.';
+    if (isFamily && patients.length === 0) return 'Gérez vos services d\'accompagnement en toute simplicité.';
     if (isFamily) return 'Gardez une vue rapide sur les visites et commandes.';
     if (isAidant) return 'Retrouvez vos missions et communications au même endroit.';
     if (isAdminOrCoordinator) return 'Supervisez l\'ensemble des activités.';
@@ -214,6 +222,9 @@ const DashboardPage = () => {
     if (isAdminOrCoordinator) return 'Bénéficiaires suivis';
     return 'Personnes suivies';
   };
+
+  // ✅ VÉRIFIER SI L'UTILISATEUR A DES PROCHES
+  const hasProches = patients.length > 0;
 
   if (isLoading) {
     return (
@@ -231,7 +242,7 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8">
       {/* ========================================== */}
-      {/* HERO - Bannière avec image de fond */}
+      {/* HERO - Bannière NEUTRE */}
       {/* ========================================== */}
       <section
         className="relative overflow-hidden rounded-3xl min-h-[180px] md:min-h-[200px] shadow-sm transition-all"
@@ -285,52 +296,47 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* MESSAGE - Compte sans proche */}
+      {/* MESSAGE D'ACCUEIL - NEUTRE (SANS OBLIGATION DE PROCHE) */}
       {/* ========================================== */}
-      {(isFamily || isAidant) && patients.length === 0 && (
-        <section
-          className="bg-white rounded-3xl p-5 border-none shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-        >
-          <div className="flex items-start gap-4">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{
-                background: colors.primary + '0d',
-                color: colors.primary,
-              }}
-            >
-              <User size={20} />
-            </div>
-            <div className="space-y-0.5">
-              <h3 className="font-bold text-sm" style={{ color: colors.text }}>
-                Commencer votre parcours
-              </h3>
-              <p className="text-xs max-w-lg" style={{ color: colors.textLight }}>
-                {isFamily 
-                  ? 'Ajoutez un proche ou explorez nos abonnements pour planifier vos premières visites.'
-                  : 'Vous recevrez vos premières personnes à accompagner dès que l\'administration les aura validées.'}
+      {isFamily && !hasProches && (
+        <section className="bg-white rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-black/5">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="flex-1 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-3" style={{ background: colors.primary + '10', color: colors.primary }}>
+                <Compass size={14} />
+                Découvrez nos services
+              </div>
+              <h2 className="text-xl md:text-2xl font-extrabold" style={{ color: colors.text }}>
+                🌱 Bienvenue dans votre espace
+              </h2>
+              <p className="text-sm mt-2 max-w-lg" style={{ color: colors.textLight }}>
+                Vous pouvez consulter nos offres d'accompagnement, planifier des visites 
+                ou passer des commandes. Si vous le souhaitez, vous pouvez également ajouter un proche.
               </p>
+              <div className="flex flex-wrap gap-3 mt-4">
+                <button
+                  onClick={() => navigate('/app/billing')}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-sm transition hover:opacity-90"
+                  style={{ background: colors.primary }}
+                >
+                  <CreditCard size={16} />
+                  Voir les offres
+                </button>
+                <button
+                  onClick={() => navigate('/app/patients')}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition hover:bg-gray-50 border"
+                  style={{ borderColor: colors.border, color: colors.text }}
+                >
+                  <UserPlus size={16} />
+                  Ajouter un proche (optionnel)
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="flex gap-2 shrink-0">
-            {isFamily && (
-              <button
-                onClick={() => navigate('/app/patients')}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-white text-xs font-bold transition-opacity hover:opacity-90"
-                style={{ background: colors.primary }}
-              >
-                <UserPlus size={14} />
-                Ajouter un proche
-              </button>
-            )}
-            <button
-              onClick={() => navigate('/app/billing')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gray-50 hover:bg-gray-100 transition-colors"
-              style={{ color: colors.text }}
-            >
-              Voir les offres
-            </button>
+            <div className="flex-shrink-0">
+              <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center" style={{ background: colors.primary + '08' }}>
+                <Compass size={40} style={{ color: colors.primary }} />
+              </div>
+            </div>
           </div>
         </section>
       )}
@@ -340,14 +346,14 @@ const DashboardPage = () => {
       {/* ========================================== */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          label={isFamily ? 'Proches suivis' : isAidant ? 'Personnes accompagnées' : 'Bénéficiaires'}
-          value={stats.proches}
-          icon={<Users size={16} />}
-          color={colors.primary}
-          onClick={() => navigate('/app/patients')}
+          label={isFamily ? (hasProches ? 'Proches suivis' : 'Compte') : isAidant ? 'Missions' : 'Bénéficiaires'}
+          value={hasProches ? stats.proches : '✓'}
+          icon={hasProches ? <Users size={16} /> : <CheckCircle size={16} />}
+          color={hasProches ? colors.primary : '#10b981'}
+          onClick={() => navigate(hasProches ? '/app/patients' : '/app/profile')}
         />
         <StatCard
-          label="Visites prévues"
+          label="Visites"
           value={stats.upcomingVisits}
           icon={<Calendar size={16} />}
           color="#10b981"
@@ -368,6 +374,38 @@ const DashboardPage = () => {
           onClick={() => navigate('/app/visits')}
         />
       </section>
+
+      {/* ========================================== */}
+      {/* SUGGESTIONS POUR L'UTILISATEUR SANS PROCHE */}
+      {/* ========================================== */}
+      {isFamily && !hasProches && (
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <SuggestionCard
+            icon={<CreditCard size={24} />}
+            title="Découvrir les offres"
+            description="Choisissez la formule d'abonnement adaptée"
+            color={colors.primary}
+            onClick={() => navigate('/app/billing')}
+            buttonText="Voir les offres"
+          />
+          <SuggestionCard
+            icon={<UserPlus size={24} />}
+            title="Ajouter un proche"
+            description="Si vous souhaitez accompagner quelqu'un"
+            color={colors.primary}
+            onClick={() => navigate('/app/patients')}
+            buttonText="Ajouter (optionnel)"
+          />
+          <SuggestionCard
+            icon={<MessageCircle size={24} />}
+            title="Contacter l'équipe"
+            description="Une question ? Nous sommes là pour vous aider"
+            color={colors.primary}
+            onClick={() => navigate('/app/messages')}
+            buttonText="Écrire un message"
+          />
+        </section>
+      )}
 
       {/* ========================================== */}
       {/* GRILLE D'ACTIONS RAPIDES */}
@@ -410,9 +448,9 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* PROCHES - Cartes fluides */}
+      {/* PROCHES - Cartes fluides (uniquement si présent) */}
       {/* ========================================== */}
-      {patients.length > 0 && (
+      {hasProches && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
@@ -442,69 +480,96 @@ const DashboardPage = () => {
       {/* ========================================== */}
       {/* CONTENU DOUBLE COLONNE : VISITES / COMMANDES */}
       {/* ========================================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* VISITES */}
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
-              Prochaines visites
-            </h2>
+      {(stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* VISITES */}
+          {stats.upcomingVisits > 0 && (
+            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+                  Prochaines visites
+                </h2>
+                <button
+                  onClick={() => navigate('/app/visits')}
+                  className="text-xs font-semibold flex items-center gap-1 hover:underline"
+                  style={{ color: colors.primary }}
+                >
+                  Tout voir
+                </button>
+              </div>
+              <div className="space-y-2.5">
+                {visits
+                  .filter((v) => v.status === 'planifiee' || v.status === 'acceptee' || v.status === 'en_cours')
+                  .slice(0, 2)
+                  .map((visit) => (
+                    <VisitCard key={visit.id} visit={visit} compact onClick={() => navigate(`/app/visits/${visit.id}`)} />
+                  ))}
+              </div>
+            </section>
+          )}
+
+          {/* COMMANDES */}
+          {stats.pendingOrders > 0 && (
+            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+                  Commandes récentes
+                </h2>
+                <button
+                  onClick={() => navigate('/app/orders')}
+                  className="text-xs font-semibold flex items-center gap-1 hover:underline"
+                  style={{ color: colors.primary }}
+                >
+                  Tout voir
+                </button>
+              </div>
+              <div className="space-y-2.5">
+                {orders
+                  .filter((o) => o.status === 'creee' || o.status === 'en_attente' || o.status === 'en_cours' || o.status === 'disponible')
+                  .slice(0, 2)
+                  .map((order) => (
+                    <OrderCard key={order.id} order={order} compact onClick={() => navigate(`/app/orders/${order.id}`)} />
+                  ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* MESSAGE SI AUCUNE ACTIVITÉ MAIS AVEC PROCHES */}
+      {/* ========================================== */}
+      {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
+        <section className="bg-white rounded-3xl p-6 text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
+            <Lightbulb size={24} style={{ color: colors.primary }} />
+          </div>
+          <h3 className="font-bold text-base" style={{ color: colors.text }}>
+            💡 Commencez à utiliser Santé Plus
+          </h3>
+          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto">
+            Planifiez votre première visite ou passez votre première commande pour découvrir nos services.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 mt-4">
             <button
               onClick={() => navigate('/app/visits')}
-              className="text-xs font-semibold flex items-center gap-1 hover:underline"
-              style={{ color: colors.primary }}
+              className="px-4 py-2 rounded-xl text-white font-bold text-sm"
+              style={{ background: colors.primary }}
             >
-              Tout voir
+              <Calendar size={14} className="inline mr-1.5" />
+              Planifier une visite
             </button>
-          </div>
-          {stats.upcomingVisits > 0 ? (
-            <div className="space-y-2.5">
-              {visits
-                .filter((v) => v.status === 'planifiee' || v.status === 'acceptee' || v.status === 'en_cours')
-                .slice(0, 2)
-                .map((visit) => (
-                  <VisitCard key={visit.id} visit={visit} compact onClick={() => navigate(`/app/visits/${visit.id}`)} />
-                ))}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <Calendar size={24} className="mx-auto mb-2 text-gray-300" />
-              <p className="text-[11px] text-gray-400">Aucune visite planifiée</p>
-            </div>
-          )}
-        </section>
-
-        {/* COMMANDES */}
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
-              Commandes récentes
-            </h2>
             <button
-              onClick={() => navigate('/app/orders')}
-              className="text-xs font-semibold flex items-center gap-1 hover:underline"
-              style={{ color: colors.primary }}
+              onClick={() => navigate('/app/orders/create')}
+              className="px-4 py-2 rounded-xl font-bold text-sm border"
+              style={{ borderColor: colors.border, color: colors.text }}
             >
-              Tout voir
+              <ShoppingBag size={14} className="inline mr-1.5" />
+              Passer une commande
             </button>
           </div>
-          {stats.pendingOrders > 0 ? (
-            <div className="space-y-2.5">
-              {orders
-                .filter((o) => o.status === 'creee' || o.status === 'en_attente' || o.status === 'en_cours' || o.status === 'disponible')
-                .slice(0, 2)
-                .map((order) => (
-                  <OrderCard key={order.id} order={order} compact onClick={() => navigate(`/app/orders/${order.id}`)} />
-                ))}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <ShoppingBag size={24} className="mx-auto mb-2 text-gray-300" />
-              <p className="text-[11px] text-gray-400">Aucune commande en cours</p>
-            </div>
-          )}
         </section>
-      </div>
+      )}
 
       {/* ========================================== */}
       {/* FOOTER DISCRET */}
@@ -512,6 +577,7 @@ const DashboardPage = () => {
       <footer className="text-center py-4">
          <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
           <Heart size={10} className="text-red-400" />
+          Santé Plus Services — Votre accompagnement de confiance
          </p>
       </footer>
     </div>
@@ -524,7 +590,7 @@ const DashboardPage = () => {
 
 interface StatCardProps {
   label: string;
-  value: number;
+  value: string | number;
   icon: React.ReactNode;
   color: string;
   onClick: () => void;
@@ -549,6 +615,41 @@ const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => {
         style={{ background: color + '0d', color }}
       >
         {icon}
+      </div>
+    </button>
+  );
+};
+
+// =============================================
+// SUGGESTION CARD
+// =============================================
+
+interface SuggestionCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  color: string;
+  onClick: () => void;
+  buttonText: string;
+}
+
+const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }: SuggestionCardProps) => {
+  return (
+    <button
+      onClick={onClick}
+      className="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 text-left hover:shadow-md transition-all group"
+    >
+      <div className="flex items-start gap-4">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ background: color + '10', color }}>
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-sm" style={{ color }}>{title}</h4>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-light, #6b7280)' }}>{description}</p>
+          <span className="inline-block mt-2 text-xs font-bold group-hover:underline" style={{ color }}>
+            {buttonText} <ArrowRight size={12} className="inline" />
+          </span>
+        </div>
       </div>
     </button>
   );
