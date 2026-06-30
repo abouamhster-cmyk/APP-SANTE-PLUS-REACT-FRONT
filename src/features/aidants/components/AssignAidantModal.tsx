@@ -1,4 +1,4 @@
-// 📁 src/features/aidants/components/AssignAidantModal.tsx
+// 📁 frontend/src/features/aidants/components/AssignAidantModal.tsx
 
 import { useState } from 'react';
 import { X, CheckCircle, AlertCircle, User, Users, UserPlus } from 'lucide-react';
