@@ -8,6 +8,9 @@ import { formatDate } from '@/utils/helpers';
 import { UserCheck, Check, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
 interface AidantCandidate {
   id: string;
   user_id: string;
@@ -90,13 +93,11 @@ const AidantCandidatesPage = () => {
 
     setIsProcessing(true);
     try {
-      const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-'));
-      if (!storageKey) throw new Error('Session non trouvée');
-      const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      const token = session?.access_token;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Token manquant');
 
-      const response = await fetch('https://app-sante-plus-react.onrender.com/api/auth/admin/approve-aidant', {
+      const response = await fetch(`${API_URL}/auth/admin/approve-aidant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -129,13 +130,11 @@ const AidantCandidatesPage = () => {
 
     setIsProcessing(true);
     try {
-      const storageKey = Object.keys(localStorage).find(k => k.startsWith('sb-'));
-      if (!storageKey) throw new Error('Session non trouvée');
-      const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
-      const token = session?.access_token;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Token manquant');
 
-      const response = await fetch('https://app-sante-plus-react.onrender.com/api/auth/admin/reject-aidant', {
+      const response = await fetch(`${API_URL}/auth/admin/reject-aidant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
