@@ -6,33 +6,10 @@ import {
   AidantProfile, 
   AidantAssignment, 
   AidantFilters, 
-  DEFAULT_FILTERS 
-} from '@/types/aidant'; 
+  DEFAULT_FILTERS,
+  AidantCatalogState
+} from '@/types';  // ← Import depuis index.ts
 import toast from 'react-hot-toast';
-
-// ============================================================
-// ÉTAT DU STORE
-// ============================================================
-
-interface AidantCatalogState {
-  aidants: AidantProfile[];
-  selectedAidant: AidantProfile | null;
-  assignments: AidantAssignment[];
-  isLoading: boolean;
-  error: string | null;
-  filters: AidantFilters;
-  totalCount: number;
-
-  // Actions
-  fetchAidants: (filters?: Partial<AidantFilters>) => Promise<void>;
-  fetchAidantById: (id: string) => Promise<void>;
-  fetchMyAssignments: () => Promise<void>;
-  assignAidant: (aidantId: string, patientId: string, assignmentType?: string) => Promise<void>;
-  revokeAssignment: (assignmentId: string) => Promise<void>;
-  setFilters: (filters: Partial<AidantFilters>) => void;
-  clearError: () => void;
-  reset: () => void;
-}
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-sante-plus-react.onrender.com/api';
 
