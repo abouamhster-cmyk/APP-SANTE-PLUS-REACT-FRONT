@@ -208,23 +208,53 @@ const DashboardPage = () => {
     ? '/assets/images/banners/maman-banner.png'
     : '/assets/images/banners/senior-banner.png';
 
-  // ✅ DÉTERMINER LE TITRE DE LA BANNIÈRE - NEUTRE
+  // ✅ DÉTERMINER LE TITRE DE LA BANNIÈRE PAR RÔLE
   const heroTitle = () => {
-    if (isMaman) return 'Bienvenue dans votre espace maman & bébé.';
-    if (isFamily && patients.length === 0) return 'Bienvenue sur Santé Plus Services.';
-    if (isFamily) return 'Un suivi clair pour votre proche.';
-    if (isAidant) return 'Vos missions en un coup d\'œil.';
-    if (isAdminOrCoordinator) return 'Gestion de la plateforme.';
+    // Admin / Coordinator
+    if (isAdminOrCoordinator) {
+      return '👔 Supervision de la plateforme';
+    }
+    // Aidant
+    if (isAidant) {
+      return '🦸 Vos missions en un coup d\'œil';
+    }
+    // Famille avec Maman & Bébé
+    if (isMaman) {
+      return '🌸 Bienvenue dans votre espace maman & bébé';
+    }
+    // Famille avec patient(s)
+    if (isFamily && patients.length > 0) {
+      return '👨‍👩‍👦 Un suivi clair pour votre proche';
+    }
+    // Famille sans patient
+    if (isFamily && patients.length === 0) {
+      return '🌱 Bienvenue sur Santé Plus Services';
+    }
     return 'Bienvenue sur Santé Plus.';
   };
 
-  // ✅ DESCRIPTION DE LA BANNIÈRE - NEUTRE
+  // ✅ DESCRIPTION DE LA BANNIÈRE PAR RÔLE
   const heroDescription = () => {
-    if (isMaman) return 'Visites, messages et commandes réunis dans un espace simple.';
-    if (isFamily && patients.length === 0) return 'Gérez vos services d\'accompagnement en toute simplicité.';
-    if (isFamily) return 'Gardez une vue rapide sur les visites et commandes.';
-    if (isAidant) return 'Retrouvez vos missions et communications au même endroit.';
-    if (isAdminOrCoordinator) return 'Supervisez l\'ensemble des activités.';
+    // Admin / Coordinator
+    if (isAdminOrCoordinator) {
+      return 'Supervisez l\'ensemble des activités et gérez les utilisateurs.';
+    }
+    // Aidant
+    if (isAidant) {
+      return 'Retrouvez vos missions, planning et communications au même endroit.';
+    }
+    // Famille avec Maman & Bébé
+    if (isMaman) {
+      return 'Visites, messages et commandes réunis dans un espace simple pour vous et bébé.';
+    }
+    // Famille avec patient(s)
+    if (isFamily && patients.length > 0) {
+      return 'Gardez une vue rapide sur les visites et commandes de votre proche.';
+    }
+    // Famille sans patient
+    if (isFamily && patients.length === 0) {
+      return 'Gérez vos services d\'accompagnement en toute simplicité.';
+    }
     return 'Gérez vos accompagnements en toute simplicité.';
   };
 
@@ -254,7 +284,7 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       {/* ========================================== */}
-      {/* HERO - Bannière NEUTRE */}
+      {/* HERO - Bannière adaptée au rôle */}
       {/* ========================================== */}
       <section
         className="relative overflow-hidden rounded-3xl min-h-[190px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
@@ -354,37 +384,110 @@ const DashboardPage = () => {
       )}
 
       {/* ========================================== */}
-      {/* STATS - Épurées et légères */}
+      {/* STATS - Adaptées au rôle */}
       {/* ========================================== */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard
-          label={isFamily ? (hasProches ? 'Proches suivis' : 'Compte') : isAidant ? 'Personnes accompagnées' : 'Bénéficiaires'}
-          value={hasProches ? stats.proches : '✓'}
-          icon={hasProches ? <Users size={16} /> : <CheckCircle size={16} />}
-          color={hasProches ? colors.primary : '#10b981'}
-          onClick={() => navigate(hasProches ? '/app/patients' : '/app/profile')}
-        />
-        <StatCard
-          label="Visites"
-          value={stats.upcomingVisits}
-          icon={<Calendar size={16} />}
-          color="#10b981"
-          onClick={() => navigate('/app/visits')}
-        />
-        <StatCard
-          label="Commandes"
-          value={stats.pendingOrders}
-          icon={<ShoppingBag size={16} />}
-          color="#f59e0b"
-          onClick={() => navigate('/app/orders')}
-        />
-        <StatCard
-          label="Interventions"
-          value={stats.completedVisits}
-          icon={<CheckCircle size={16} />}
-          color="#3b82f6"
-          onClick={() => navigate('/app/visits')}
-        />
+        {/* Famille */}
+        {isFamily && (
+          <>
+            <StatCard
+              label={hasProches ? 'Proches suivis' : 'Compte'}
+              value={hasProches ? stats.proches : '✓'}
+              icon={hasProches ? <Users size={16} /> : <CheckCircle size={16} />}
+              color={hasProches ? colors.primary : '#10b981'}
+              onClick={() => navigate(hasProches ? '/app/patients' : '/app/profile')}
+            />
+            <StatCard
+              label="Visites"
+              value={stats.upcomingVisits}
+              icon={<Calendar size={16} />}
+              color="#10b981"
+              onClick={() => navigate('/app/visits')}
+            />
+            <StatCard
+              label="Commandes"
+              value={stats.pendingOrders}
+              icon={<ShoppingBag size={16} />}
+              color="#f59e0b"
+              onClick={() => navigate('/app/orders')}
+            />
+            <StatCard
+              label="Terminées"
+              value={stats.completedVisits}
+              icon={<CheckCircle size={16} />}
+              color="#3b82f6"
+              onClick={() => navigate('/app/visits')}
+            />
+          </>
+        )}
+
+        {/* Aidant */}
+        {isAidant && (
+          <>
+            <StatCard
+              label="Personnes accompagnées"
+              value={stats.proches}
+              icon={<Users size={16} />}
+              color={colors.primary}
+              onClick={() => navigate('/app/patients')}
+            />
+            <StatCard
+              label="Missions"
+              value={visits.filter(v => v.status === 'planifiee' || v.status === 'acceptee').length}
+              icon={<Calendar size={16} />}
+              color="#10b981"
+              onClick={() => navigate('/app/missions')}
+            />
+            <StatCard
+              label="Commandes"
+              value={stats.pendingOrders}
+              icon={<ShoppingBag size={16} />}
+              color="#f59e0b"
+              onClick={() => navigate('/app/orders')}
+            />
+            <StatCard
+              label="Historique"
+              value={visits.filter(v => v.status === 'terminee' || v.status === 'validee').length}
+              icon={<History size={16} />}
+              color="#78350f"
+              onClick={() => navigate('/app/history')}
+            />
+          </>
+        )}
+
+        {/* Admin / Coordinator */}
+        {isAdminOrCoordinator && (
+          <>
+            <StatCard
+              label="Bénéficiaires"
+              value={stats.proches}
+              icon={<Users size={16} />}
+              color={colors.primary}
+              onClick={() => navigate('/app/patients')}
+            />
+            <StatCard
+              label="Inscriptions"
+              value={0} // À remplacer par le vrai compteur
+              icon={<ClipboardList size={16} />}
+              color="#f59e0b"
+              onClick={() => navigate('/app/registrations')}
+            />
+            <StatCard
+              label="Aidants"
+              value={0} // À remplacer par le vrai compteur
+              icon={<UserCheck size={16} />}
+              color="#3b82f6"
+              onClick={() => navigate('/app/aidants')}
+            />
+            <StatCard
+              label="Revenus"
+              value="0 FCFA" // À remplacer par le vrai montant
+              icon={<TrendingUp size={16} />}
+              color="#10b981"
+              onClick={() => navigate('/app/admin-payments')}
+            />
+          </>
+        )}
       </section>
 
       {/* ========================================== */}
@@ -420,7 +523,7 @@ const DashboardPage = () => {
       )}
 
       {/* ========================================== */}
-      {/* GRILLE D'ACTIONS RAPIDES */}
+      {/* GRILLE D'ACTIONS RAPIDES - Adaptée au rôle */}
       {/* ========================================== */}
       <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
         <div className="flex items-center justify-between mb-4 px-1">
@@ -460,9 +563,9 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* PROCHES - S'AFFICHE TOUJOURS POUR LES FAMILLES AVEC PATIENT */}
+      {/* PROCHES - UNIQUEMENT POUR FAMILLES ET AIDANTS AVEC PATIENTS */}
       {/* ========================================== */}
-      {isFamily && hasProches && (
+      {(isFamily || isAidant) && hasProches && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
@@ -501,9 +604,9 @@ const DashboardPage = () => {
       )}
 
       {/* ========================================== */}
-      {/* CONTENU DOUBLE COLONNE : VISITES / COMMANDES */}
+      {/* CONTENU DOUBLE COLONNE - FAMILLES SEULEMENT */}
       {/* ========================================== */}
-      {(stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
+      {isFamily && (stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* VISITES */}
           {stats.upcomingVisits > 0 && (
@@ -560,7 +663,35 @@ const DashboardPage = () => {
       )}
 
       {/* ========================================== */}
-      {/* MESSAGE SI AUCUNE ACTIVITÉ MAIS AVEC PROCHES */}
+      {/* CONTENU POUR AIDANT - MISSIONS RÉCENTES */}
+      {/* ========================================== */}
+      {isAidant && visits.filter(v => v.status === 'planifiee' || v.status === 'acceptee').length > 0 && (
+        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+              📋 Missions à venir
+            </h2>
+            <button
+              onClick={() => navigate('/app/missions')}
+              className="text-xs font-bold hover:underline"
+              style={{ color: colors.primary }}
+            >
+              Tout voir
+            </button>
+          </div>
+          <div className="space-y-2.5">
+            {visits
+              .filter((v) => v.status === 'planifiee' || v.status === 'acceptee')
+              .slice(0, 3)
+              .map((visit) => (
+                <VisitCard key={visit.id} visit={visit} compact onClick={() => navigate(`/app/visits/${visit.id}`)} />
+              ))}
+          </div>
+        </section>
+      )}
+
+      {/* ========================================== */}
+      {/* MESSAGE SI AUCUNE ACTIVITÉ MAIS AVEC PROCHES (FAMILLE) */}
       {/* ========================================== */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
         <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
