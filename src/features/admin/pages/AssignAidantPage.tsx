@@ -1,11 +1,11 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
-import { Loader2, CheckCircle, Users, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, Users, RefreshCw, XCircle, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Aidant {
@@ -20,6 +20,8 @@ interface Aidant {
   available: boolean;
   status: string;
   is_verified: boolean;
+  max_assignments: number;
+  current_assignments: number;
 }
 
 interface Patient {
@@ -30,15 +32,23 @@ interface Patient {
   category: string;
 }
 
+// ✅ TYPES D'ASSIGNATION
+const ASSIGNMENT_TYPES = [
+  { value: 'permanente', label: '📌 Permanente', color: '#10B981' },
+  { value: 'temporaire', label: '⏳ Temporaire', color: '#F59E0B' },
+  { value: 'ponctuelle', label: '⚡ Ponctuelle', color: '#3B82F6' },
+];
+
 const AssignAidantPage = () => {
   const { profile, role, user } = useAuthStore();
   const { syncAidantPatients } = usePatientStore();
   const [aidants, setAidants] = useState<Aidant[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const [assignments, setAssignments] = useState<Record<string, { aidantUserId: string; type: string }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedAidant, setSelectedAidant] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>('permanente');
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -51,7 +61,7 @@ const AssignAidantPage = () => {
     try {
       setIsLoading(true);
 
-      // ✅ 1. Récupérer les aidants approuvés
+      // ✅ 1. Récupérer les aidants approuvés avec leurs assignations
       const { data: aidantsData, error: aidantsError } = await supabase
         .from('aidants')
         .select('*')
@@ -93,22 +103,26 @@ const AssignAidantPage = () => {
       if (patientsError) throw patientsError;
       setPatients(patientsData || []);
 
-      // ✅ 3. Récupérer les assignations existantes
+      // ✅ 3. Récupérer les assignations existantes depuis patient_family_links
       const { data: existingAssignments, error: assignError } = await supabase
-        .from('patient_aidant_assignments')
-        .select('patient_id, aidant_id')
-        .eq('is_active', true);
+        .from('patient_family_links')
+        .select('patient_id, family_id, relationship')
+        .eq('is_primary', true);
 
       if (assignError) {
         console.error('❌ Erreur récupération assignations:', assignError);
       }
 
-      const newAssignments: Record<string, string> = {};
+      const newAssignments: Record<string, { aidantUserId: string; type: string }> = {};
       if (existingAssignments) {
         for (const assign of existingAssignments) {
-          const aidant = aidantsWithUser.find((a: any) => a.id === assign.aidant_id);
+          // Trouver l'aidant correspondant à family_id
+          const aidant = aidantsWithUser.find((a: any) => a.user_id === assign.family_id);
           if (aidant) {
-            newAssignments[assign.patient_id] = aidant.user_id;
+            newAssignments[assign.patient_id] = {
+              aidantUserId: aidant.user_id,
+              type: assign.relationship || 'permanente',
+            };
           }
         }
       }
@@ -122,9 +136,8 @@ const AssignAidantPage = () => {
     }
   };
 
-  // ✅ FONCTION D'ASSIGNATION CORRIGÉE
-  const handleAssign = async (patientId: string, aidantUserId: string) => {
-    // ✅ Si "Sélectionner" est choisi (chaîne vide), ne rien faire
+  // ✅ FONCTION D'ASSIGNATION AVEC TYPE
+  const handleAssign = async (patientId: string, aidantUserId: string, assignmentType: string = 'permanente') => {
     if (!aidantUserId) {
       toast('Veuillez sélectionner un aidant', { icon: 'ℹ️' });
       return;
@@ -135,6 +148,7 @@ const AssignAidantPage = () => {
       console.log('🔍 Assignation - Début');
       console.log('🔍 Patient ID:', patientId);
       console.log('🔍 Aidant User ID:', aidantUserId);
+      console.log('🔍 Type:', assignmentType);
 
       // ✅ 1. Trouver l'aidant par user_id
       const aidant = aidants.find(a => a.user_id === aidantUserId);
@@ -155,13 +169,12 @@ const AssignAidantPage = () => {
 
       console.log('✅ Patient trouvé:', patient.id);
 
-      // ✅ 2. Vérifier si une assignation existe déjà
+      // ✅ 2. Vérifier si le patient est déjà assigné à cet aidant
       const { data: existing, error: checkError } = await supabase
-        .from('patient_aidant_assignments')
+        .from('patient_family_links')
         .select('id')
         .eq('patient_id', patientId)
-        .eq('aidant_id', aidant.id)
-        .eq('is_active', true)
+        .eq('family_id', aidant.user_id)
         .maybeSingle();
 
       if (checkError) {
@@ -174,25 +187,30 @@ const AssignAidantPage = () => {
         return;
       }
 
-      // ✅ 3. Désactiver les anciennes assignations pour ce patient
-      const { error: deactivateError } = await supabase
-        .from('patient_aidant_assignments')
-        .update({ is_active: false })
-        .eq('patient_id', patientId);
+      // ✅ 3. Compter les assignations actuelles de l'aidant
+      const { count: currentCount } = await supabase
+        .from('patient_family_links')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', aidant.user_id);
 
-      if (deactivateError) {
-        console.error('❌ Erreur désactivation anciennes:', deactivateError);
+      const maxAssignments = aidant.max_assignments || 4;
+      if (currentCount >= maxAssignments) {
+        toast.error(`Cet aidant a déjà ${currentCount} assignations (maximum ${maxAssignments})`);
+        setIsSaving(false);
+        return;
       }
 
-      // ✅ 4. Créer la nouvelle assignation
+      // ✅ 4. Créer l'assignation dans patient_family_links
       const { data: newAssignment, error: insertError } = await supabase
-        .from('patient_aidant_assignments')
+        .from('patient_family_links')
         .insert({
           patient_id: patientId,
-          aidant_id: aidant.id,
-          assigned_by: user?.id,
-          assignment_type: 'permanente',
-          is_active: true,
+          family_id: aidant.user_id,
+          is_primary: true,
+          relationship: assignmentType,
+          can_manage_visits: true,
+          can_manage_orders: true,
+          can_receive_notifications: true,
         })
         .select();
 
@@ -205,28 +223,37 @@ const AssignAidantPage = () => {
 
       console.log('✅ Assignation créée:', newAssignment);
 
-      // ✅ 5. Mettre à jour l'état local
-      setAssignments(prev => ({ ...prev, [patientId]: aidantUserId }));
+      // ✅ 5. Mettre à jour current_assignments
+      await supabase
+        .from('aidants')
+        .update({
+          current_assignments: (currentCount || 0) + 1,
+          available: (currentCount || 0) + 1 < maxAssignments,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', aidant.id);
 
-      // ✅ 6. Notification à l'aidant
-      const { error: notifError } = await supabase.from('notifications').insert({
+      // ✅ 6. Mettre à jour l'état local
+      setAssignments(prev => ({
+        ...prev,
+        [patientId]: { aidantUserId, type: assignmentType }
+      }));
+
+      // ✅ 7. Notification à l'aidant
+      await supabase.from('notifications').insert({
         user_id: aidantUserId,
         title: '📋 Patient assigné',
-        body: `Vous accompagnez à présent ${patient.first_name} ${patient.last_name}.`,
+        body: `Vous accompagnez à présent ${patient.first_name} ${patient.last_name} (${assignmentType}).`,
         type: 'system',
-        data: { patient_id: patientId },
+        data: { patient_id: patientId, assignment_type: assignmentType },
       });
 
-      if (notifError) {
-        console.error('❌ Erreur notification:', notifError);
-      }
-
-      // ✅ 7. Synchroniser les patients chez l'aidant
+      // ✅ 8. Synchroniser les patients chez l'aidant
       await syncAidantPatients();
 
-      toast.success(`✅ ${patient.first_name} ${patient.last_name} assigné avec succès à ${aidant.user?.full_name}`);
+      toast.success(`✅ ${patient.first_name} ${patient.last_name} assigné avec succès à ${aidant.user?.full_name} (${assignmentType})`);
       
-      // ✅ 8. Rafraîchir les données
+      // ✅ 9. Rafraîchir les données
       await fetchData();
     } catch (error) {
       console.error('❌ Erreur assignation:', error);
@@ -236,8 +263,8 @@ const AssignAidantPage = () => {
     }
   };
 
-  // ✅ ASSIGNATION MULTIPLE
-  const handleAssignAll = async (aidantUserId: string) => {
+  // ✅ ASSIGNATION MULTIPLE AVEC TYPE
+  const handleAssignAll = async (aidantUserId: string, assignmentType: string = 'permanente') => {
     if (!aidantUserId) {
       toast.error('Veuillez sélectionner un aidant');
       return;
@@ -249,13 +276,13 @@ const AssignAidantPage = () => {
       return;
     }
 
-    if (!window.confirm(`Assigner ${unassignedPatients.length} patient(s) à cet aidant ?`)) return;
+    if (!window.confirm(`Assigner ${unassignedPatients.length} patient(s) à cet aidant avec le type "${assignmentType}" ?`)) return;
 
     setIsSaving(true);
     try {
       let successCount = 0;
       for (const patient of unassignedPatients) {
-        await handleAssign(patient.id, aidantUserId);
+        await handleAssign(patient.id, aidantUserId, assignmentType);
         successCount++;
         await new Promise(resolve => setTimeout(resolve, 300));
       }
@@ -272,6 +299,16 @@ const AssignAidantPage = () => {
   const getAidantName = (userId: string) => {
     const aidant = aidants.find(a => a.user_id === userId);
     return aidant?.user?.full_name || 'Non assigné';
+  };
+
+  const getAssignmentTypeLabel = (type: string) => {
+    const found = ASSIGNMENT_TYPES.find(t => t.value === type);
+    return found?.label || type;
+  };
+
+  const getAssignmentTypeColor = (type: string) => {
+    const found = ASSIGNMENT_TYPES.find(t => t.value === type);
+    return found?.color || '#9CA3AF';
   };
 
   if (isLoading) {
@@ -315,7 +352,7 @@ const AssignAidantPage = () => {
         </div>
       </section>
 
-      {/* ASSIGNATION MULTIPLE */}
+      {/* ASSIGNATION MULTIPLE AVEC TYPE */}
       {unassignedCount > 0 && (
         <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-black/5">
           <div className="flex flex-col sm:flex-row gap-3 items-center">
@@ -329,13 +366,30 @@ const AssignAidantPage = () => {
                 <option value="">Sélectionner un aidant</option>
                 {aidants.map((aidant) => (
                   <option key={aidant.id} value={aidant.user_id}>
-                    {aidant.user?.full_name} {aidant.available ? '🟢' : '🔴'} - {aidant.specialties?.join(', ')}
+                    {aidant.user?.full_name} {aidant.available ? '🟢' : '🔴'} - 
+                    {aidant.specialties?.slice(0, 2).join(', ')}
+                    {aidant.specialties?.length > 2 && '...'}
+                    {` (${aidant.current_assignments || 0}/${aidant.max_assignments || 4})`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-0 w-full">
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
+                style={{ borderColor: colors.border, color: colors.text }}
+              >
+                {ASSIGNMENT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
                   </option>
                 ))}
               </select>
             </div>
             <button
-              onClick={() => handleAssignAll(selectedAidant)}
+              onClick={() => handleAssignAll(selectedAidant, selectedType)}
               disabled={isSaving || !selectedAidant}
               className="px-4 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-50 whitespace-nowrap flex items-center gap-2"
               style={{ background: colors.primary }}
@@ -365,14 +419,15 @@ const AssignAidantPage = () => {
                   <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Patient</th>
                   <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Catégorie</th>
                   <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Aidant Assigné</th>
+                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Type</th>
                   <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: colors.border }}>
                 {patients.map((patient) => {
-                  const assignedUserId = assignments[patient.id];
-                  const isAssigned = !!assignedUserId;
-                  const aidant = aidants.find(a => a.user_id === assignedUserId);
+                  const assignment = assignments[patient.id];
+                  const isAssigned = !!assignment;
+                  const aidant = aidants.find(a => a.user_id === assignment?.aidantUserId);
 
                   return (
                     <tr key={patient.id} className="hover:bg-gray-50/50 transition">
@@ -392,7 +447,7 @@ const AssignAidantPage = () => {
                           <div className="flex items-center gap-2">
                             <CheckCircle size={12} className="text-green-500" />
                             <span className="font-semibold text-xs" style={{ color: colors.primary }}>
-                              {aidant?.user?.full_name || getAidantName(assignedUserId)}
+                              {aidant?.user?.full_name || getAidantName(assignment.aidantUserId)}
                             </span>
                             {aidant?.available && (
                               <span className="text-[8px] text-green-600">🟢 Dispo</span>
@@ -402,22 +457,65 @@ const AssignAidantPage = () => {
                           <span className="text-gray-400 text-xs">Non assigné</span>
                         )}
                       </td>
+                      <td className="px-4 py-3">
+                        {isAssigned ? (
+                          <span 
+                            className="px-2 py-0.5 rounded-full text-[9px] font-medium"
+                            style={{
+                              background: getAssignmentTypeColor(assignment.type) + '20',
+                              color: getAssignmentTypeColor(assignment.type),
+                            }}
+                          >
+                            {getAssignmentTypeLabel(assignment.type)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-2">
-                        <select
-                          value={assignedUserId || ''}
-                          onChange={(e) => handleAssign(patient.id, e.target.value)}
-                          disabled={isSaving}
-                          className="px-2 py-1.5 rounded-lg border outline-none text-xs transition min-w-[120px]"
-                          style={{ borderColor: colors.border, color: colors.text }}
-                        >
-                          <option value="">Sélectionner</option>
-                          {aidants.map((aidant) => (
-                            <option key={aidant.id} value={aidant.user_id}>
-                              {aidant.user?.full_name} {aidant.available ? '🟢' : '🔴'}
-                              {aidant.specialties?.length > 0 && ` (${aidant.specialties.join(', ')})`}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={assignment?.aidantUserId || ''}
+                            onChange={(e) => handleAssign(patient.id, e.target.value, selectedType)}
+                            disabled={isSaving}
+                            className="px-2 py-1.5 rounded-lg border outline-none text-xs transition min-w-[100px]"
+                            style={{ borderColor: colors.border, color: colors.text }}
+                          >
+                            <option value="">Sélectionner</option>
+                            {aidants.map((aidant) => (
+                              <option key={aidant.id} value={aidant.user_id}>
+                                {aidant.user?.full_name} 
+                                {aidant.available ? ' 🟢' : ' 🔴'}
+                                {` (${aidant.current_assignments || 0}/${aidant.max_assignments || 4})`}
+                              </option>
+                            ))}
+                          </select>
+                          {isAssigned && (
+                            <button
+                              onClick={async () => {
+                                if (window.confirm(`Retirer l'assignation de ${patient.first_name} ${patient.last_name} ?`)) {
+                                  await supabase
+                                    .from('patient_family_links')
+                                    .delete()
+                                    .eq('patient_id', patient.id)
+                                    .eq('family_id', aidant?.user_id);
+                                  
+                                  setAssignments(prev => {
+                                    const newState = { ...prev };
+                                    delete newState[patient.id];
+                                    return newState;
+                                  });
+                                  
+                                  await fetchData();
+                                  toast.success('Assignation retirée');
+                                }
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-red-50 transition text-red-500"
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
