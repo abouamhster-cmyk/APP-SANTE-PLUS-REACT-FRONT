@@ -149,7 +149,7 @@ export interface ProcheFamilyLink {
 export type PatientFamilyLink = ProcheFamilyLink;
 
 // =============================================
-// AIDANT (version existante - ne pas supprimer car utilisée ailleurs)
+// AIDANT (version existante)
 // =============================================
 
 export interface Aidant {
@@ -172,8 +172,6 @@ export interface Aidant {
   created_at: string;
   updated_at: string;
 }
-
-
 
 // =============================================
 // VISITE
@@ -251,7 +249,7 @@ export interface VisitPhoto {
 }
 
 // =============================================
-// COMMANDE - CYCLE DE VIE COMPLET
+// COMMANDE
 // =============================================
 
 export interface Order {
