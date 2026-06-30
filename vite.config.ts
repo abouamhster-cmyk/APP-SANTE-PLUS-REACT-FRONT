@@ -114,7 +114,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://app-sante-plus-react.onrender.com',
+        target: 'https://app-react-back.onrender.com',
         changeOrigin: true,
         secure: false,
         configure: (proxy) => {
