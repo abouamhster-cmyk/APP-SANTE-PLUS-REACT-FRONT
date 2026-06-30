@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MobileTabBar.tsx
- 
+
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -47,13 +47,13 @@ const getMainItems = (role: string | null) => {
     return [
       ...base,
       { icon: <Users size={22} />, label: 'Proches', path: '/app/patients' },
+      { icon: <UserCheck size={22} />, label: 'Aidants', path: '/app/aidants' },
       { icon: <Calendar size={22} />, label: 'Visites', path: '/app/visits' },
-      { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
       { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
-  // 🦸 AIDANT (5 items max) - ✅ Abonnement SUPPRIMÉ
+  // 🦸 AIDANT (5 items max)
   if (role === 'aidant') {
     return [
       ...base,
@@ -95,12 +95,11 @@ const getMoreItems = (role: string | null) => {
     ];
   }
 
-  // 🦸 AIDANT - ✅ Abonnement SUPPRIMÉ
+  // 🦸 AIDANT
   if (role === 'aidant') {
     return [
       { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
       { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
-      // ❌ Abonnement SUPPRIMÉ
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
       { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications' },
     ];
