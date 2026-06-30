@@ -18,6 +18,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
+// ✅ URL UNIQUE (pour les appels API si besoin)
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
 interface Registration {
   id: string;
   user_id: string | null;
@@ -79,6 +82,7 @@ const RegistrationsPage = () => {
   const fetchRegistrations = async () => {
     try {
       setIsLoading(true);
+      // ✅ Utilisation directe de Supabase (pas de localStorage)
       const { data: inscriptions, error: inscriptionsError } = await supabase
         .from('inscriptions')
         .select('*')
