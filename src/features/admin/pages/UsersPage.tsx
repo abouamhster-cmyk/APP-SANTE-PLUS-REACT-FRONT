@@ -191,20 +191,27 @@ const UsersPage = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.')) return;
+ 
+const handleDeleteUser = async (userId: string) => {
+  if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
 
-    try {
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      if (error) throw error;
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${sessionData.session?.access_token}`,
+      },
+    });
 
-      toast.success('Utilisateur supprimé');
-      fetchUsers();
-    } catch (error) {
-      console.error('Delete user error:', error);
-      toast.error('Erreur lors de la suppression');
-    }
-  };
+    if (!response.ok) throw new Error('Erreur lors de la suppression');
+    
+    toast.success('Utilisateur supprimé');
+    fetchUsers();
+  } catch (error) {
+    toast.error('Erreur lors de la suppression');
+  }
+};
 
   if (isLoading) {
     return (
