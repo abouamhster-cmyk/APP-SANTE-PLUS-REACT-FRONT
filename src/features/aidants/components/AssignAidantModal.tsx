@@ -1,7 +1,7 @@
 // 📁 src/features/aidants/components/AssignAidantModal.tsx
 
 import { useState } from 'react';
-import { X, CheckCircle, AlertCircle, User, Users } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, User, Users, UserPlus } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { toast } from 'react-hot-toast';
 
