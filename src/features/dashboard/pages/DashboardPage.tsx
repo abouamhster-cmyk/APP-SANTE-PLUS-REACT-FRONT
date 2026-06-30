@@ -296,7 +296,7 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* MESSAGE D'ACCUEIL - NEUTRE (SANS OBLIGATION DE PROCHE) */}
+      {/* MESSAGE D'ACCUEIL - UNIQUEMENT POUR LES FAMILLES SANS PATIENT */}
       {/* ========================================== */}
       {isFamily && !hasProches && (
         <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
@@ -376,7 +376,7 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* SUGGESTIONS POUR L'UTILISATEUR SANS PROCHE */}
+      {/* SUGGESTIONS - UNIQUEMENT POUR LES FAMILLES SANS PATIENT */}
       {/* ========================================== */}
       {isFamily && !hasProches && (
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -448,7 +448,7 @@ const DashboardPage = () => {
       </section>
 
       {/* ========================================== */}
-      {/* PROCHES - Cartes fluides (uniquement si présent) */}
+      {/* PROCHES - UNIQUEMENT SI PRÉSENT */}
       {/* ========================================== */}
       {hasProches && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
