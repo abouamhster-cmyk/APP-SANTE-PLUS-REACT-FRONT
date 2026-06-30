@@ -1,7 +1,7 @@
 // 📁 frontend/src/features/aidants/components/AssignAidantModal.tsx
 
 import { useState } from 'react';
-import { X, CheckCircle, AlertCircle, User, Users, UserPlus } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, User, Users, UserPlus, Info } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { toast } from 'react-hot-toast';
 
@@ -13,6 +13,28 @@ interface AssignAidantModalProps {
   onSuccess: () => void;
   colors: any;
 }
+
+// ✅ TYPES D'ASSIGNATION AVEC DESCRIPTIONS
+const ASSIGNMENT_TYPES = [
+  { 
+    value: 'permanente', 
+    label: '📌 Permanente', 
+    description: 'L\'aidant suit le patient sur le long terme',
+    icon: '📌'
+  },
+  { 
+    value: 'temporaire', 
+    label: '⏳ Temporaire', 
+    description: 'Pour une période définie (ex: convalescence)',
+    icon: '⏳'
+  },
+  { 
+    value: 'ponctuelle', 
+    label: '⚡ Ponctuelle', 
+    description: 'Pour une intervention unique',
+    icon: '⚡'
+  },
+];
 
 export const AssignAidantModal = ({
   isOpen,
@@ -39,12 +61,19 @@ export const AssignAidantModal = ({
     try {
       await assignAidant(aidant.id, selectedPatientId, assignmentType);
       onSuccess();
-    } catch (error) {
-      // L'erreur est déjà gérée dans le store
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const getSelectedTypeDescription = () => {
+    const type = ASSIGNMENT_TYPES.find(t => t.value === assignmentType);
+    return type?.description || '';
+  };
+
+  const remainingSlots = Math.max(0, (aidant.max_assignments || 4) - (aidant.active_assignments || 0));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -105,6 +134,11 @@ export const AssignAidantModal = ({
               <span>
                 {aidant.active_assignments || 0}/{aidant.max_assignments || 4} actives
               </span>
+              {remainingSlots > 0 && (
+                <span className="text-green-600 font-bold">
+                  ({remainingSlots} place{remainingSlots > 1 ? 's' : ''} disponible{remainingSlots > 1 ? 's' : ''})
+                </span>
+              )}
             </div>
           </div>
 
@@ -147,45 +181,37 @@ export const AssignAidantModal = ({
             )}
           </div>
 
-          {/* Type d'assignation */}
+          {/* Type d'assignation - Version améliorée avec 3 options */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
               Type d'assignation
             </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAssignmentType('permanente')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
-                  assignmentType === 'permanente'
-                    ? 'text-white'
-                    : 'border hover:bg-gray-50'
-                }`}
-                style={{
-                  background: assignmentType === 'permanente' ? colors.primary : 'transparent',
-                  borderColor: colors.border,
-                  color: assignmentType === 'permanente' ? 'white' : colors.text,
-                }}
-              >
-                📌 Permanente
-              </button>
-              <button
-                type="button"
-                onClick={() => setAssignmentType('temporaire')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
-                  assignmentType === 'temporaire'
-                    ? 'text-white'
-                    : 'border hover:bg-gray-50'
-                }`}
-                style={{
-                  background: assignmentType === 'temporaire' ? colors.primary : 'transparent',
-                  borderColor: colors.border,
-                  color: assignmentType === 'temporaire' ? 'white' : colors.text,
-                }}
-              >
-                ⏳ Temporaire
-              </button>
+            <div className="grid grid-cols-3 gap-2">
+              {ASSIGNMENT_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setAssignmentType(type.value)}
+                  className={`p-2.5 rounded-xl text-xs font-bold transition-all ${
+                    assignmentType === type.value
+                      ? 'text-white shadow-sm scale-[1.02]'
+                      : 'border hover:bg-gray-50'
+                  }`}
+                  style={{
+                    background: assignmentType === type.value ? colors.primary : 'transparent',
+                    borderColor: assignmentType === type.value ? colors.primary : colors.border,
+                    color: assignmentType === type.value ? 'white' : colors.text,
+                  }}
+                >
+                  <div className="text-base">{type.icon}</div>
+                  {type.label}
+                </button>
+              ))}
             </div>
+            <p className="text-[10px] mt-1.5 text-gray-400 flex items-center gap-1">
+              <Info size={12} />
+              {getSelectedTypeDescription()}
+            </p>
           </div>
 
           {/* Information */}
@@ -211,8 +237,10 @@ export const AssignAidantModal = ({
           <button
             onClick={handleSubmit}
             disabled={isLoading || !selectedPatientId || !aidant.is_available}
-            className="flex-1 py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{ background: colors.primary }}
+            className="flex-1 py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ 
+              background: (isLoading || !selectedPatientId || !aidant.is_available) ? '#9CA3AF' : colors.primary 
+            }}
           >
             {isLoading ? (
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -228,3 +256,5 @@ export const AssignAidantModal = ({
     </div>
   );
 };
+
+export default AssignAidantModal;
