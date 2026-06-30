@@ -1,5 +1,13 @@
-// 📁 src/types/index.ts
- 
+// 📁 frontend/src/types/index.ts
+
+// ============================================================
+// EXPORTER TOUS LES TYPES AIDANTS
+// ============================================================
+export * from './aidant';
+
+// ============================================================
+// TOUS LES AUTRES TYPES EXISTANTS
+// ============================================================
 export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
 export type ProcheCategory = 'senior' | 'maman_bebe';
 export type PatientCategory = 'senior' | 'maman_bebe';
@@ -141,7 +149,7 @@ export interface ProcheFamilyLink {
 export type PatientFamilyLink = ProcheFamilyLink;
 
 // =============================================
-// AIDANT
+// AIDANT (version existante - ne pas supprimer car utilisée ailleurs)
 // =============================================
 
 export interface Aidant {
@@ -164,6 +172,8 @@ export interface Aidant {
   created_at: string;
   updated_at: string;
 }
+
+
 
 // =============================================
 // VISITE
