@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
- 
+
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -106,7 +106,7 @@ const MainLayout = () => {
       return [
         ...base,
         { icon: <Users size={20} />, label: 'Proches', path: '/app/patients' },
-        { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants' }, 
+        { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants' },
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
         { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
@@ -118,7 +118,7 @@ const MainLayout = () => {
       ];
     }
 
-    // 🦸 AIDANT - ✅ Abonnement SUPPRIMÉ
+    // 🦸 AIDANT
     if (role === 'aidant') {
       return [
         ...base,
@@ -127,7 +127,6 @@ const MainLayout = () => {
         { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
         { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
-        // ❌ Abonnement SUPPRIMÉ pour les aidants
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
         { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
@@ -160,12 +159,11 @@ const MainLayout = () => {
   }, [role]);
 
   // =============================================
-  // TITRE DE LA PAGE - CORRIGÉ
+  // TITRE DE LA PAGE
   // =============================================
   const pageTitle = useMemo(() => {
     const path = location.pathname;
 
-    // ✅ Correspondances exactes
     const exactTitles: Record<string, string> = {
       '/app': 'Tableau de bord',
       '/app/dashboard': 'Tableau de bord',
@@ -195,15 +193,12 @@ const MainLayout = () => {
       '/app/admin/visits/validation': 'Validation visites',
     };
 
-    // ✅ Vérifier les correspondances exactes
     if (exactTitles[path]) return exactTitles[path];
 
-    // ✅ Vérifier les correspondances partielles
     for (const [key, value] of Object.entries(exactTitles)) {
       if (path.startsWith(key) && key !== '/app') return value;
     }
 
-    // ✅ Si aucun titre trouvé, retourner un titre par défaut selon le rôle
     if (role === 'aidant') return 'Missions';
     if (role === 'family') return 'Tableau de bord';
     if (role === 'admin' || role === 'coordinator') return 'Administration';
