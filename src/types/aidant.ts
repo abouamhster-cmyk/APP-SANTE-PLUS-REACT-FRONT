@@ -1,7 +1,6 @@
 // 📁 frontend/src/types/aidant.ts
-
 // ============================================================
-// TYPES DE BASE (CENTRALISÉS)
+// TYPES UNIFIÉS - TOUS LES TYPES POUR LA GESTION DES AIDANTS
 // ============================================================
 
 export type AidantSpecialty = 'senior' | 'maman_bebe' | 'accompagnement' | 'autre';
@@ -10,7 +9,7 @@ export type AssignmentType = 'permanente' | 'temporaire' | 'ponctuelle';
 export type AssignmentStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
 // ============================================================
-// INTERFACES PRINCIPALES
+// INTERFACE UTILISATEUR AIDANT
 // ============================================================
 
 export interface AidantUser {
@@ -20,6 +19,10 @@ export interface AidantUser {
   phone: string;
   avatar_url: string | null;
 }
+
+// ============================================================
+// PROFIL AIDANT - VERSION COMPLÈTE
+// ============================================================
 
 export interface AidantProfile {
   id: string;
@@ -48,6 +51,10 @@ export interface AidantProfile {
   reviews?: AidantReview[];
 }
 
+// ============================================================
+// PATIENT ASSIGNÉ À UN AIDANT
+// ============================================================
+
 export interface PatientAssignment {
   patient_id: string;
   patient: {
@@ -61,10 +68,14 @@ export interface PatientAssignment {
   created_at: string;
 }
 
+// ============================================================
+// ASSIGNATION AIDANT → PATIENT
+// ============================================================
+
 export interface AidantAssignment {
   id: string;
   patient_id: string;
-  family_id: string;
+  family_id: string;          // ← L'aidant est stocké dans family_id
   is_primary: boolean;
   relationship: AssignmentType;
   created_at: string;
@@ -79,6 +90,10 @@ export interface AidantAssignment {
   aidant?: AidantProfileCompact;
 }
 
+// ============================================================
+// PROFIL AIDANT - VERSION COMPACTE (pour les listes)
+// ============================================================
+
 export interface AidantProfileCompact {
   id: string;
   user_id: string;
@@ -87,6 +102,10 @@ export interface AidantProfileCompact {
   rating: number;
   user: AidantUser;
 }
+
+// ============================================================
+// AVIS SUR UN AIDANT
+// ============================================================
 
 export interface AidantReview {
   id: string;
@@ -107,7 +126,7 @@ export interface AidantReview {
 }
 
 // ============================================================
-// FILTRES ET REQUÊTES
+// FILTRES POUR LE CATALOGUE
 // ============================================================
 
 export interface AidantFilters {
@@ -131,7 +150,7 @@ export const DEFAULT_FILTERS: AidantFilters = {
 };
 
 // ============================================================
-// ASSIGNATION
+// REQUÊTES D'ASSIGNATION
 // ============================================================
 
 export interface AssignAidantRequest {
