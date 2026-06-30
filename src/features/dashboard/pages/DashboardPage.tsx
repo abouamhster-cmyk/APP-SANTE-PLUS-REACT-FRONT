@@ -303,7 +303,7 @@ const DashboardPage = () => {
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="flex-1 text-center md:text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-3" style={{ background: colors.primary + '10', color: colors.primary }}>
-                <Compass size={14} className="animate-spin-slow" />
+                <Compass size={14} />
                 Découvrez nos services
               </div>
               <h2 className="text-xl md:text-2xl font-extrabold" style={{ color: colors.text }}>
@@ -346,7 +346,7 @@ const DashboardPage = () => {
       {/* ========================================== */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
-          label={isFamily ? (hasProches ? 'Proches suivis' : 'Compte') : isAidant ? 'Missions' : 'Bénéficiaires'}
+          label={isFamily ? (hasProches ? 'Proches suivis' : 'Compte') : isAidant ? 'Personnes accompagnées' : 'Bénéficiaires'}
           value={hasProches ? stats.proches : '✓'}
           icon={hasProches ? <Users size={16} /> : <CheckCircle size={16} />}
           color={hasProches ? colors.primary : '#10b981'}
