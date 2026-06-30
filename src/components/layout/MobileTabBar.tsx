@@ -34,7 +34,7 @@ interface MobileTabBarProps {
 }
 
 // =============================================
-// 5 ÉLÉMENTS MAX PAR RÔLE - CORRIGÉ
+// ÉLÉMENTS PRINCIPAUX - STRICTEMENT 4 MAX (Pour laisser la 5e place au bouton "Plus")
 // =============================================
 
 const getMainItems = (role: string | null) => {
@@ -42,34 +42,31 @@ const getMainItems = (role: string | null) => {
     { icon: <Home size={22} />, label: 'Accueil', path: '/app' },
   ];
 
-  // 👨‍👩‍👦 FAMILLE (5 items max)
+  // 👨‍👩‍👦 FAMILLE (4 items max)
   if (role === 'family') {
     return [
       ...base,
       { icon: <Users size={22} />, label: 'Proches', path: '/app/patients' },
-      { icon: <UserCheck size={22} />, label: 'Aidants', path: '/app/aidants' },
       { icon: <Calendar size={22} />, label: 'Visites', path: '/app/visits' },
       { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
-  // 🦸 AIDANT (5 items max)
+  // 🦸 AIDANT (4 items max)
   if (role === 'aidant') {
     return [
       ...base,
       { icon: <Briefcase size={22} />, label: 'Missions', path: '/app/missions' },
       { icon: <Calendar size={22} />, label: 'Planning', path: '/app/planning' },
-      { icon: <ShoppingBag size={22} />, label: 'Commandes', path: '/app/orders' },
       { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
-  // 👔 ADMIN / COORDINATEUR (5 items max)
+  // 👔 ADMIN / COORDINATEUR (4 items max)
   if (role === 'admin' || role === 'coordinator') {
     return [
       ...base,
       { icon: <ClipboardList size={22} />, label: 'Inscriptions', path: '/app/registrations' },
-      // ❌ SUPPRIMÉ : "Aidants" (les admins n'ont pas besoin de voir le catalogue)
       { icon: <Users size={22} />, label: 'Utilisateurs', path: '/app/users' },
       { icon: <Settings size={22} />, label: 'Paramètres', path: '/app/settings' },
     ];
@@ -79,13 +76,14 @@ const getMainItems = (role: string | null) => {
 };
 
 // =============================================
-// MENU "PLUS" - TOUS LES AUTRES
+// MENU "PLUS" - TOUS LES AUTRES ÉLÉMENTS
 // =============================================
 
 const getMoreItems = (role: string | null) => {
   // 👨‍👩‍👦 FAMILLE
   if (role === 'family') {
     return [
+      { icon: <UserCheck size={18} />, label: 'Aidants', path: '/app/aidants' }, // Déplacé ici pour libérer de la place
       { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
       { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
       { icon: <BookOpen size={18} />, label: 'Journal', path: '/app/journal' },
@@ -98,6 +96,7 @@ const getMoreItems = (role: string | null) => {
   // 🦸 AIDANT
   if (role === 'aidant') {
     return [
+      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' }, // Déplacé ici pour libérer de la place
       { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
       { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
@@ -139,12 +138,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
   const mainItems = getMainItems(role);
   const moreItems = getMoreItems(role);
 
-  // ✅ Vérifier si le chemin actuel est dans le menu "Plus"
-  const isInMoreItems = (path: string) => {
-    return moreItems.some(item => item.path === path);
-  };
-
-  // ✅ Si la page actuelle est dans "Plus", fermer le menu
   const handleLinkClick = () => {
     setShowMore(false);
   };
@@ -156,10 +149,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
     return location.pathname.startsWith(path);
   };
 
-  // ✅ Compter les notifications pour l'icône "Plus"
   const hasUnreadNotifications = unreadCount > 0;
-
-  // ✅ Vérifier si on est sur une page qui nécessite d'afficher "Plus" actif
   const isMoreActive = moreItems.some(item => isActive(item.path));
 
   return (
@@ -170,7 +160,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         paddingBottom: 'max(4px, env(safe-area-inset-bottom))',
       }}
     >
-      {/* ✅ 5 ITEMS PRINCIPAUX */}
+      {/* ✅ RENDU DES 4 BOUTONS PRINCIPAUX */}
       {mainItems.map((item) => {
         const active = isActive(item.path);
 
@@ -182,13 +172,13 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
             className="flex flex-col items-center justify-center py-1 px-2 min-w-[48px] transition-all relative"
           >
             <div
-              className={`transition-all ${active ? 'scale-110' : ''}`}
+              className={`transition-all duration-200 ${active ? 'scale-105' : ''}`}
               style={{ color: active ? colors.primary : '#9CA3AF' }}
             >
               {item.icon}
             </div>
             <span
-              className={`text-[9px] font-medium mt-0.5 transition-all ${
+              className={`text-[9px] font-semibold mt-0.5 transition-all ${
                 active ? 'opacity-100' : 'opacity-60'
               }`}
               style={{ color: active ? colors.primary : '#9CA3AF' }}
@@ -196,10 +186,10 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
               {item.label}
             </span>
 
-            {/* Notification sur l'icône Accueil */}
+            {/* Indicateur de notification sur Accueil */}
             {item.path === '/app' && unreadCount > 0 && (
               <span
-                className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 text-[9px] text-white rounded-full flex items-center justify-center"
+                className="absolute top-0 right-0.5 min-w-4 h-4 px-1 text-[9px] text-white rounded-full flex items-center justify-center font-bold"
                 style={{ background: colors.primary }}
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
@@ -209,33 +199,36 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         );
       })}
 
-      {/* ✅ BOUTON "PLUS" avec indicateur de notifications */}
+      {/* ✅ 5e ÉLÉMENT : LE BOUTON "PLUS" */}
       {moreItems.length > 0 && (
         <div className="relative">
           <button
             onClick={() => setShowMore(!showMore)}
             className="flex flex-col items-center justify-center py-1 px-2 min-w-[48px] transition-all relative"
           >
-            <div style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}>
+            <div 
+              className="transition-transform duration-200"
+              style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
+            >
               <Menu size={22} />
             </div>
             <span
-              className="text-[9px] font-medium mt-0.5"
+              className="text-[9px] font-semibold mt-0.5"
               style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
             >
               Plus
             </span>
 
-            {/* ✅ Indicateur de notification sur "Plus" */}
+            {/* Indicateur de notification sur "Plus" */}
             {hasUnreadNotifications && (
               <span
-                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                className="absolute top-1 right-1.5 w-2 h-2 rounded-full"
                 style={{ background: colors.primary }}
               />
             )}
           </button>
 
-          {/* ✅ MENU DÉROULANT "PLUS" */}
+          {/* MENU DÉROULANT "PLUS" */}
           {showMore && (
             <div
               className="absolute bottom-14 right-0 bg-white rounded-2xl shadow-xl border p-2 w-56 max-h-64 overflow-y-auto"
@@ -249,20 +242,16 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                     key={item.path}
                     to={item.path}
                     onClick={handleLinkClick}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition ${
-                      active
-                        ? 'text-[--color-primary] bg-[--color-primary]/10'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors duration-150"
                     style={{
-                      color: active ? colors.primary : undefined,
+                      color: active ? colors.primary : '#4B5563',
                       background: active ? colors.primary + '10' : undefined,
                     }}
                   >
-                    <span style={{ color: active ? colors.primary : '#6B7280' }}>
+                    <span style={{ color: active ? colors.primary : '#9CA3AF' }}>
                       {item.icon}
                     </span>
-                    <span>{item.label}</span>
+                    <span className="font-medium text-xs">{item.label}</span>
                     {active && (
                       <span
                         className="ml-auto w-1.5 h-1.5 rounded-full"
