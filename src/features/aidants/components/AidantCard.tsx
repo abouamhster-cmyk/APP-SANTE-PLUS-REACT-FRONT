@@ -1,22 +1,17 @@
 // 📁 frontend/src/features/aidants/components/AidantCard.tsx
 
-import { useState } from 'react';
-import { Star, MapPin, Clock, Briefcase, CheckCircle, AlertCircle } from 'lucide-react';
+import { Star, MapPin, Clock, Briefcase, CheckCircle, AlertCircle, User } from 'lucide-react';
 import { AidantProfile } from '@/types/aidantCatalog';
-import { getThemeColors } from '@/lib/permissions';
-import { cn } from '@/utils/helpers';
 
 interface AidantCardProps {
   aidant: AidantProfile;
   onClick: () => void;
   onAssign: () => void;
+  colors: any;
   compact?: boolean;
 }
 
-export const AidantCard = ({ aidant, onClick, onAssign, compact = false }: AidantCardProps) => {
-  const colors = getThemeColors('senior');
-  const [isHovered, setIsHovered] = useState(false);
-
+export const AidantCard = ({ aidant, onClick, onAssign, colors, compact = false }: AidantCardProps) => {
   const getSpecialtyLabel = (specialty: string) => {
     const labels: Record<string, string> = {
       senior: '👴 Senior',
@@ -29,42 +24,20 @@ export const AidantCard = ({ aidant, onClick, onAssign, compact = false }: Aidan
 
   const getStatusBadge = () => {
     if (!aidant.is_available) {
-      return {
-        label: 'Indisponible',
-        icon: <AlertCircle size={14} />,
-        color: '#EF4444',
-        bg: '#FEF2F2',
-      };
+      return { label: 'Indisponible', icon: <AlertCircle size={14} />, color: '#EF4444', bg: '#FEF2F2' };
     }
     if (aidant.active_assignments >= aidant.max_assignments) {
-      return {
-        label: 'Complet',
-        icon: <AlertCircle size={14} />,
-        color: '#F59E0B',
-        bg: '#FFFBEB',
-      };
+      return { label: 'Complet', icon: <AlertCircle size={14} />, color: '#F59E0B', bg: '#FFFBEB' };
     }
-    return {
-      label: 'Disponible',
-      icon: <CheckCircle size={14} />,
-      color: '#10B981',
-      bg: '#ECFDF5',
-    };
+    return { label: 'Disponible', icon: <CheckCircle size={14} />, color: '#10B981', bg: '#ECFDF5' };
   };
 
   const status = getStatusBadge();
 
   return (
     <div
-      className={cn(
-        'bg-white rounded-2xl p-5 shadow-sm border transition-all duration-200 cursor-pointer hover:shadow-md',
-        compact ? 'p-3' : 'p-5'
-      )}
-      style={{
-        borderColor: isHovered ? colors.primary : 'transparent',
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="bg-white rounded-2xl p-5 shadow-sm border transition-all duration-200 cursor-pointer hover:shadow-md"
+      style={{ borderColor: colors.border }}
       onClick={onClick}
     >
       <div className="flex items-start gap-4">
@@ -134,7 +107,7 @@ export const AidantCard = ({ aidant, onClick, onAssign, compact = false }: Aidan
               {aidant.average_response_time || '~5'} min
             </span>
             <span className="flex items-center gap-1">
-              <CheckCircle size={12} />
+              <User size={12} />
               {aidant.active_assignments || 0}/{aidant.max_assignments || 4} missions
             </span>
           </div>
