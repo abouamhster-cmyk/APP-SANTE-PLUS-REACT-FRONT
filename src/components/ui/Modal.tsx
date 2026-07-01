@@ -249,3 +249,84 @@ export const ModalWithConfirm = ({
     </Modal>
   );
 };
+
+
+
+
+// 📁 src/components/ui/Modal.tsx - AJOUTER À LA FIN DU FICHIER
+
+// =============================================
+// MODAL WITH FORM
+// =============================================
+
+interface ModalWithFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (e: React.FormEvent) => void;
+  title: string;
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
+  confirmLabel?: string;
+  cancelLabel?: string;
+  isLoading?: boolean;
+  className?: string;
+}
+
+export const ModalWithForm = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  title,
+  children,
+  icon,
+  maxWidth = 'lg',
+  confirmLabel = 'Confirmer',
+  cancelLabel = 'Annuler',
+  isLoading = false,
+  className,
+}: ModalWithFormProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <form onSubmit={onSubmit}>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={title}
+        icon={icon}
+        maxWidth={maxWidth}
+        className={className}
+        actions={
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 py-2.5 rounded-xl font-medium border hover:bg-gray-50 transition disabled:opacity-50"
+              style={{ borderColor: 'var(--color-border, #e5e7eb)', color: 'var(--color-text, #2d2d2d)' }}
+            >
+              {cancelLabel}
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ background: 'var(--color-primary, #1a4a3a)' }}
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                confirmLabel
+              )}
+            </button>
+          </div>
+        }
+      >
+        {children}
+      </Modal>
+    </form>
+  );
+};
+
+ export default Modal;
