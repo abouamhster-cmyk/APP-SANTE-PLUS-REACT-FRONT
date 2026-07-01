@@ -32,7 +32,6 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, formatDateTime } from '@/utils/helpers';
 import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
 import { Illustration } from '@/components/ui/Illustration';
-// ✅ Importer CompleteVisitModal transformé en page
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -41,15 +40,15 @@ const VisitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  const { 
-    currentVisit, 
-    fetchVisitById, 
-    startVisit, 
-    completeVisit, 
-    cancelVisit, 
-    approveVisit, 
-    refuseVisit, 
-    isLoading 
+  const {
+    currentVisit,
+    fetchVisitById,
+    startVisit,
+    completeVisit,
+    cancelVisit,
+    approveVisit,
+    refuseVisit,
+    isLoading
   } = useVisitStore();
 
   const {
@@ -477,7 +476,7 @@ const VisitDetailPage = () => {
             >
               <Play size={18} />
               <span>Démarrer</span>
-              < /button>
+            </button>
           )}
 
           {/* AIDANT : Terminer une visite en cours */}
@@ -532,7 +531,6 @@ const VisitDetailPage = () => {
               onClick={() => {
                 const newAidantId = prompt('ID du nouvel aidant :');
                 if (!newAidantId) return;
-                // TODO: Implémenter la réassignation
                 toast('Réassignation à implémenter', { icon: 'ℹ️' });
               }}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
