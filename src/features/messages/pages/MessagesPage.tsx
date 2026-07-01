@@ -21,6 +21,7 @@ import {
   AtSign,
   Search,
   Loader2,
+  UserPlus,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -246,18 +247,20 @@ const MessagesPage = () => {
     if (!currentUserId) return;
 
     try {
-      // Récupérer les conversations
       const { data: convData, error: convError } = await supabase
         .from('conversations')
         .select('*')
         .contains('participant_ids', [currentUserId])
         .order('last_message_at', { ascending: false });
 
-      if (convError) throw convError;
+      if (convError) {
+        console.error('❌ Conversations error:', convError);
+        return;
+      }
 
       const conversationsWithParticipants = await Promise.all(
         (convData || []).map(async (conv) => {
-          const participantIds = conv.participant_ids.filter((id: string) => id !== currentUserId);
+          const participantIds = (conv.participant_ids || []).filter((id: string) => id !== currentUserId);
           let participants: SenderProfile[] = [];
 
           if (participantIds.length > 0) {
@@ -277,7 +280,7 @@ const MessagesPage = () => {
           }
 
           // Récupérer le dernier message
-          const { data: lastMessage } = await supabase
+          const { data: lastMessage, error: lastError } = await supabase
             .from('messages')
             .select('*')
             .eq('conversation_id', conv.id)
@@ -285,10 +288,11 @@ const MessagesPage = () => {
             .limit(1)
             .maybeSingle();
 
+          // ✅ CORRIGÉ : Utiliser undefined au lieu de null
           return {
             ...conv,
             participants,
-            last_message: lastMessage || null,
+            last_message: (!lastError && lastMessage) ? lastMessage : undefined,
           } as Conversation;
         })
       );
@@ -298,6 +302,8 @@ const MessagesPage = () => {
         (c) => c.id === GLOBAL_CONVERSATION_ID
       );
 
+      let finalConversations = [...conversationsWithParticipants];
+
       if (!hasGlobal) {
         const globalConv: Conversation = {
           id: GLOBAL_CONVERSATION_ID,
@@ -306,16 +312,16 @@ const MessagesPage = () => {
           name: '💬 Général',
           last_message_at: new Date().toISOString(),
           participants: [],
-          last_message: null,
+          last_message: undefined,
         };
-        conversationsWithParticipants.unshift(globalConv);
+        finalConversations.unshift(globalConv);
       }
 
-      setConversations(conversationsWithParticipants);
+      setConversations(finalConversations);
 
       // Sélectionner la première conversation si aucune n'est sélectionnée
       if (!currentConversationId || currentConversationId === GLOBAL_CONVERSATION_ID) {
-        setCurrentConversationId(conversationsWithParticipants[0]?.id || GLOBAL_CONVERSATION_ID);
+        setCurrentConversationId(finalConversations[0]?.id || GLOBAL_CONVERSATION_ID);
       }
 
     } catch (error) {
@@ -340,7 +346,10 @@ const MessagesPage = () => {
         .order('created_at', { ascending: true })
         .limit(200);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Messages error:', error);
+        return;
+      }
 
       const rawMessages = data || [];
 
