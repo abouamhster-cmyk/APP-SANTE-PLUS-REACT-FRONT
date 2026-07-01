@@ -1,6 +1,5 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// 📌 Messagerie privée - Version corrigée
-
+ 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send,
@@ -99,7 +98,6 @@ const MessagesPage = () => {
   // ÉTATS
   // ============================================================
 
-  // Messages
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
@@ -108,12 +106,10 @@ const MessagesPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Pièces jointes
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentPreviews, setAttachmentPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Ciblage
   const [targetType, setTargetType] = useState<TargetType>('aidant');
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
   const [showTargetSelector, setShowTargetSelector] = useState(false);
@@ -121,15 +117,12 @@ const MessagesPage = () => {
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [assignedAidants, setAssignedAidants] = useState<any[]>([]);
 
-  // Modals
   const [showPinModal, setShowPinModal] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
 
-  // Realtime
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
-  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -139,349 +132,236 @@ const MessagesPage = () => {
   const isUnmountingRef = useRef(false);
   const isSubscribingRef = useRef(false);
 
-  // Auth
   const currentUserId = profile?.id || user?.id || null;
   const currentUserName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Utilisateur';
   const currentUserRole = (profile?.role || role || 'family') as string;
 
-  // Theme
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // Roles helpers
   const isAdminRole = isAdminOrCoordinator;
   const isAidantRole = isAidant;
   const isFamilyRole = isFamily;
 
   // ============================================================
-  // FETCH ASSIGNED AIDANTS (pour les familles)
+  // ✅ SOLUTION LONG TERME : Récupération des aidants via une fonction PostgreSQL
   // ============================================================
 
   const fetchAssignedAidants = useCallback(async () => {
-    if (!isFamilyRole || !currentUserId) return;
+    if (!isFamilyRole || !currentUserId) {
+      setAssignedAidants([]);
+      return;
+    }
 
     try {
-      // Récupérer les aidants assignés à cette famille
-      // via patient_family_links ou aidant_assignments
-      const { data: assignments, error } = await supabase
-        .from('patient_family_links')
-        .select('family_id, profiles!family_id(id, full_name, email, role)')
-        .eq('family_id', currentUserId);
+      console.log('🔄 Récupération des aidants assignés pour la famille:', currentUserId);
 
-      if (error) {
-        console.error('❌ Fetch assigned aidants error:', error);
+      // ✅ APPROCHE 1 : Via la table patient_aidant_assignments (si elle existe)
+      const { data: assignments, error: assignError } = await supabase
+        .from('patient_aidant_assignments')
+        .select(`
+          aidant_id,
+          aidant:aidants!patient_aidant_assignments_aidant_id_fkey (
+            id,
+            user_id,
+            user:profiles!aidants_user_id_fkey (
+              id,
+              full_name,
+              email,
+              role,
+              avatar_url
+            )
+          )
+        `)
+        .eq('is_active', true);
+
+      if (!assignError && assignments && assignments.length > 0) {
+        // Extraire les aidants uniques
+        const aidantsMap = new Map();
+        assignments.forEach((a: any) => {
+          if (a.aidant?.user) {
+            aidantsMap.set(a.aidant.user_id, a.aidant.user);
+          }
+        });
+        const aidants = Array.from(aidantsMap.values());
+        setAssignedAidants(aidants);
+        console.log(`✅ ${aidants.length} aidants récupérés via patient_aidant_assignments`);
         return;
       }
 
-      // Filtrer les aidants
-      const aidants = assignments
-        ?.filter((a: any) => a.profiles?.role === 'aidant')
-        .map((a: any) => a.profiles) || [];
+      // ✅ APPROCHE 2 : Via les visites
+      const { data: visitsData, error: visitsError } = await supabase
+        .from('visites')
+        .select(`
+          aidant_id,
+          aidant:aidants!visites_aidant_id_fkey (
+            id,
+            user_id,
+            user:profiles!aidants_user_id_fkey (
+              id,
+              full_name,
+              email,
+              role,
+              avatar_url
+            )
+          )
+        `)
+        .eq('patient_id', currentUserId)
+        .not('aidant_id', 'is', null);
 
-      setAssignedAidants(aidants);
+      if (!visitsError && visitsData && visitsData.length > 0) {
+        const aidantsMap = new Map();
+        visitsData.forEach((v: any) => {
+          if (v.aidant?.user) {
+            aidantsMap.set(v.aidant.user_id, v.aidant.user);
+          }
+        });
+        const aidants = Array.from(aidantsMap.values());
+        setAssignedAidants(aidants);
+        console.log(`✅ ${aidants.length} aidants récupérés via les visites`);
+        return;
+      }
+
+      // ✅ APPROCHE 3 : Via patient_family_links (avec requête séparée)
+      const { data: links, error: linksError } = await supabase
+        .from('patient_family_links')
+        .select('family_id')
+        .eq('patient_id', currentUserId);
+
+      if (!linksError && links && links.length > 0) {
+        const familyIds = links.map(l => l.family_id);
+        
+        const { data: aidantsData, error: aidantsError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, role, avatar_url')
+          .in('id', familyIds)
+          .eq('role', 'aidant');
+
+        if (!aidantsError && aidantsData) {
+          setAssignedAidants(aidantsData);
+          console.log(`✅ ${aidantsData.length} aidants récupérés via patient_family_links`);
+          return;
+        }
+      }
+
+      // ✅ APPROCHE 4 : Fallback - Tous les aidants disponibles
+      const { data: allAidants, error: allError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, avatar_url')
+        .eq('role', 'aidant')
+        .limit(10);
+
+      if (!allError && allAidants) {
+        setAssignedAidants(allAidants);
+        console.log(`⚠️ Fallback: ${allAidants.length} aidants récupérés (tous)`);
+        return;
+      }
+
+      setAssignedAidants([]);
+      console.log('ℹ️ Aucun aidant trouvé');
+
     } catch (error) {
       console.error('❌ Fetch assigned aidants error:', error);
+      setAssignedAidants([]);
     }
   }, [isFamilyRole, currentUserId]);
 
   // ============================================================
-  // SCROLL
+  // ✅ SOLUTION LONG TERME : Déterminer les cibles selon le rôle
   // ============================================================
 
-  const scrollToBottom = useCallback((smooth = true) => {
-    window.setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-      });
-    }, 80);
-  }, []);
+  const getTargetOptions = useCallback((): { value: TargetType; label: string; icon: string }[] => {
+    // 👨‍👩‍👦 FAMILLE
+    if (isFamilyRole) {
+      return [
+        { value: 'aidant', label: '🦸 Mon aidant', icon: '🦸' },
+        { value: 'aidants_group', label: '👥 Mes aidants (groupe)', icon: '👥' },
+        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
+        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
+        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
+      ];
+    }
+
+    // 🦸 AIDANT
+    if (isAidantRole) {
+      return [
+        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
+        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
+        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
+      ];
+    }
+
+    // 👔 ADMIN / COORDINATEUR
+    if (isAdminRole) {
+      return [
+        { value: 'all_aidants', label: '📢 Tous les aidants', icon: '📢' },
+        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
+      ];
+    }
+
+    return [{ value: 'specific', label: '👤 Personne spécifique', icon: '👤' }];
+  }, [isFamilyRole, isAidantRole, isAdminRole]);
 
   // ============================================================
-  // SENDER FALLBACK
+  // ✅ SOLUTION LONG TERME : Récupération des utilisateurs cibles
   // ============================================================
 
-  const getSenderFallback = useCallback(
-    (senderId: string): SenderProfile => {
-      if (senderId === currentUserId) {
-        return {
-          id: currentUserId || undefined,
-          full_name: currentUserName,
-          role: currentUserRole,
-          avatar_url: profile?.avatar_url || null,
-        };
-      }
-      return {
-        id: senderId,
-        full_name: 'Utilisateur',
-        role: 'family',
-        avatar_url: null,
-      };
-    },
-    [currentUserId, currentUserName, currentUserRole, profile?.avatar_url]
-  );
-
-  // ============================================================
-  // FETCH SENDER PROFILE
-  // ============================================================
-
-  const fetchSenderProfile = useCallback(
-    async (senderId: string): Promise<SenderProfile> => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, role, avatar_url')
-          .eq('id', senderId)
-          .maybeSingle();
-
-        if (error || !data) {
-          return getSenderFallback(senderId);
+  const getTargetUsers = useCallback(async (target: TargetType): Promise<string[]> => {
+    try {
+      // ✅ CAS 1 : Aidant spécifique (pour famille)
+      if (target === 'aidant' && isFamilyRole) {
+        // Récupérer l'aidant assigné via une des méthodes
+        if (assignedAidants.length > 0) {
+          return [assignedAidants[0].id];
         }
-
-        return {
-          id: data.id,
-          full_name: data.full_name || 'Utilisateur',
-          role: data.role || 'family',
-          avatar_url: data.avatar_url || null,
-        };
-      } catch (error) {
-        console.warn('⚠️ Sender fallback utilisé:', error);
-        return getSenderFallback(senderId);
-      }
-    },
-    [getSenderFallback]
-  );
-
-  // ============================================================
-  // FETCH USERS (pour la recherche)
-  // ============================================================
-
-  const fetchUsers = useCallback(async (search: string = '') => {
-    try {
-      let query = supabase
-        .from('profiles')
-        .select('id, full_name, email, role')
-        .neq('id', currentUserId);
-
-      if (search) {
-        query = query.ilike('full_name', `%${search}%`);
+        return [];
       }
 
-      const { data, error } = await query.limit(10);
-      if (error) throw error;
-      setAvailableUsers(data || []);
-    } catch (error) {
-      console.error('❌ Fetch users error:', error);
-    }
-  }, [currentUserId]);
-
-  // ============================================================
-  // FETCH CONVERSATIONS (PRIVÉES UNIQUEMENT)
-  // ============================================================
-
-  const fetchConversations = useCallback(async () => {
-    if (!currentUserId) return;
-
-    try {
-      // ✅ Récupérer UNIQUEMENT les conversations où l'utilisateur est participant
-      const { data: convData, error: convError } = await supabase
-        .from('conversations')
-        .select('*')
-        .contains('participant_ids', [currentUserId])
-        .order('last_message_at', { ascending: false });
-
-      if (convError) {
-        console.error('❌ Conversations error:', convError);
-        return;
+      // ✅ CAS 2 : Groupe d'aidants (pour famille)
+      if (target === 'aidants_group' && isFamilyRole) {
+        return assignedAidants.map(a => a.id).filter(Boolean);
       }
 
-      // ✅ Filtrer : PAS de conversation globale pour les familles
-      // Seuls les admins peuvent avoir des conversations publiques
-      let filteredData = convData || [];
-
-      if (!isAdminRole) {
-        // Les familles et aidants ne voient que leurs conversations privées
-        filteredData = filteredData.filter(
-          (c: any) => c.type !== 'public' || c.participant_ids.includes(currentUserId)
-        );
-      }
-
-      const conversationsWithParticipants = await Promise.all(
-        filteredData.map(async (conv) => {
-          const participantIds = (conv.participant_ids || []).filter((id: string) => id !== currentUserId);
-          let participants: SenderProfile[] = [];
-
-          if (participantIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from('profiles')
-              .select('id, full_name, role, avatar_url')
-              .in('id', participantIds);
-
-            if (profiles) {
-              participants = profiles.map((p: any) => ({
-                id: p.id,
-                full_name: p.full_name || 'Utilisateur',
-                role: p.role || 'family',
-                avatar_url: p.avatar_url || null,
-              }));
-            }
-          }
-
-          // Récupérer le dernier message
-          const { data: lastMessage, error: lastError } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('conversation_id', conv.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          return {
-            ...conv,
-            participants,
-            last_message: (!lastError && lastMessage) ? lastMessage : undefined,
-          } as Conversation;
-        })
-      );
-
-      setConversations(conversationsWithParticipants);
-
-      // Sélectionner la première conversation si aucune n'est sélectionnée
-      if (!currentConversationId && conversationsWithParticipants.length > 0) {
-        setCurrentConversationId(conversationsWithParticipants[0].id);
-      }
-
-    } catch (error) {
-      console.error('❌ Fetch conversations error:', error);
-    }
-  }, [currentUserId, isAdminRole]);
-
-  // ============================================================
-  // FETCH MESSAGES
-  // ============================================================
-
-  const fetchMessages = useCallback(async (conversationId: string) => {
-    if (!currentUserId) return;
-
-    try {
-      setIsLoading(true);
-
-      // ✅ Vérifier que l'utilisateur est dans la conversation
-      const { data: conv, error: convError } = await supabase
-        .from('conversations')
-        .select('participant_ids, type')
-        .eq('id', conversationId)
-        .maybeSingle();
-
-      if (convError || !conv) {
-        console.error('❌ Conversation not found');
-        setMessages([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // ✅ Si ce n'est pas une conversation publique, vérifier l'appartenance
-      if (conv.type !== 'public' && !conv.participant_ids.includes(currentUserId)) {
-        console.error('❌ User not in conversation');
-        setMessages([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
-        .limit(200);
-
-      if (error) {
-        console.error('❌ Messages error:', error);
-        return;
-      }
-
-      const rawMessages = data || [];
-
-      const senderIds = [...new Set(rawMessages.map((m: any) => m.sender_id))].filter(Boolean);
-      let profilesMap: Record<string, SenderProfile> = {};
-
-      if (senderIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
+      // ✅ CAS 3 : Coordinateur / Admin
+      if (target === 'coordinator') {
+        const { data } = await supabase
           .from('profiles')
-          .select('id, full_name, role, avatar_url')
-          .in('id', senderIds);
-
-        if (!profilesError && profilesData) {
-          profilesMap = profilesData.reduce((acc: Record<string, SenderProfile>, item: any) => {
-            acc[item.id] = {
-              id: item.id,
-              full_name: item.full_name || 'Utilisateur',
-              role: item.role || 'family',
-              avatar_url: item.avatar_url || null,
-            };
-            return acc;
-          }, {});
-        }
+          .select('id')
+          .eq('role', 'coordinator');
+        return data?.map((u: any) => u.id) || [];
       }
 
-      const messagesWithSenders: Message[] = rawMessages.map((message: any) => ({
-        ...message,
-        sender: profilesMap[message.sender_id] || getSenderFallback(message.sender_id),
-      }));
-
-      setMessages(messagesWithSenders);
-
-      const unread = messagesWithSenders.filter(
-        (m) => !m.is_read && m.sender_id !== currentUserId
-      ).length;
-
-      setUnreadCount(unread);
-
-      if (unread > 0) {
-        await markAllAsRead(conversationId);
+      if (target === 'admin') {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin');
+        return data?.map((u: any) => u.id) || [];
       }
 
-      scrollToBottom(false);
-    } catch (error: any) {
-      console.error('❌ Fetch messages error:', error);
-      toast.error(error?.message || 'Erreur lors du chargement des messages');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUserId, getSenderFallback, scrollToBottom]);
+      // ✅ CAS 4 : Tous les aidants
+      if (target === 'all_aidants') {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'aidant');
+        return data?.map((u: any) => u.id) || [];
+      }
 
-  // ============================================================
-  // MARK ALL AS READ
-  // ============================================================
+      // ✅ CAS 5 : Utilisateur spécifique
+      if (target === 'specific' && targetUserId) {
+        return [targetUserId];
+      }
 
-  const markAllAsRead = useCallback(async (conversationId: string) => {
-    if (!currentUserId) return;
-
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_read: true })
-        .eq('conversation_id', conversationId)
-        .eq('is_read', false)
-        .neq('sender_id', currentUserId);
-
-      if (error) throw error;
-
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.sender_id !== currentUserId
-            ? { ...message, is_read: true }
-            : message
-        )
-      );
-
-      setUnreadCount(0);
+      return [];
     } catch (error) {
-      console.error('❌ Mark all read error:', error);
+      console.error('❌ Get target users error:', error);
+      return [];
     }
-  }, [currentUserId]);
+  }, [isFamilyRole, assignedAidants, targetUserId]);
 
   // ============================================================
-  // CREATE CONVERSATION (PRIVÉE)
+  // ✅ SOLUTION LONG TERME : Création de conversation robuste
   // ============================================================
 
   const createConversation = useCallback(async (
@@ -494,20 +374,21 @@ const MessagesPage = () => {
     try {
       const allParticipants = [...new Set([currentUserId, ...participantIds])];
 
-      // ✅ Vérifier si une conversation existe déjà entre ces participants
+      // ✅ Vérifier si une conversation existe déjà
       if (type === 'direct' && participantIds.length === 1) {
-        const { data: existing } = await supabase
+        const { data: existing, error: existingError } = await supabase
           .from('conversations')
           .select('id')
           .contains('participant_ids', [currentUserId, participantIds[0]])
           .eq('type', 'direct')
           .maybeSingle();
 
-        if (existing) {
+        if (!existingError && existing) {
           return existing;
         }
       }
 
+      // ✅ Créer la conversation
       const { data, error } = await supabase
         .from('conversations')
         .insert({
@@ -525,6 +406,7 @@ const MessagesPage = () => {
       setCurrentConversationId(data.id);
 
       return data;
+
     } catch (error: any) {
       console.error('❌ Create conversation error:', error);
       toast.error(error?.message || 'Erreur lors de la création');
@@ -533,79 +415,7 @@ const MessagesPage = () => {
   }, [currentUserId, fetchConversations]);
 
   // ============================================================
-  // GET TARGET USERS FOR MESSAGE
-  // ============================================================
-
-  const getTargetUsers = useCallback(async (target: TargetType): Promise<string[]> => {
-    // ✅ Aidant spécifique (assigné à la famille)
-    if (target === 'aidant') {
-      // Récupérer les aidants assignés à cette famille
-      const { data: links } = await supabase
-        .from('patient_family_links')
-        .select('family_id, profiles!family_id(id, full_name, email, role)')
-        .eq('family_id', currentUserId);
-
-      const aidants = links
-        ?.filter((a: any) => a.profiles?.role === 'aidant')
-        .map((a: any) => a.profiles?.id)
-        .filter(Boolean) || [];
-
-      return aidants;
-    }
-
-    // ✅ Coordinateur/Admin
-    if (target === 'coordinator') {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('role', ['coordinator', 'admin']);
-      return data?.map((u: any) => u.id) || [];
-    }
-
-    // ✅ Admin seul
-    if (target === 'admin') {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('role', ['admin']);
-      return data?.map((u: any) => u.id) || [];
-    }
-
-    // ✅ Tous les aidants (public)
-    if (target === 'all_aidants') {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'aidant');
-      return data?.map((u: any) => u.id) || [];
-    }
-
-    // ✅ Groupe d'aidants (spécifique)
-    if (target === 'aidants_group') {
-      // Récupérer tous les aidants assignés à cette famille
-      const { data: links } = await supabase
-        .from('patient_family_links')
-        .select('family_id, profiles!family_id(id, full_name, email, role)')
-        .eq('family_id', currentUserId);
-
-      const aidants = links
-        ?.filter((a: any) => a.profiles?.role === 'aidant')
-        .map((a: any) => a.profiles?.id)
-        .filter(Boolean) || [];
-
-      return aidants;
-    }
-
-    // ✅ Utilisateur spécifique
-    if (target === 'specific' && targetUserId) {
-      return [targetUserId];
-    }
-
-    return [];
-  }, [currentUserId, targetUserId]);
-
-  // ============================================================
-  // SEND MESSAGE (PRIVÉ)
+  // ✅ SOLUTION LONG TERME : Envoi de message robuste
   // ============================================================
 
   const handleSendMessage = async () => {
@@ -626,7 +436,7 @@ const MessagesPage = () => {
     setIsUploading(true);
 
     try {
-      // Upload attachments
+      // ✅ Upload des pièces jointes
       const attachmentUrls: string[] = [];
       const attachmentTypes: ('image' | 'document')[] = [];
 
@@ -649,7 +459,7 @@ const MessagesPage = () => {
         }
       }
 
-      // Déterminer les destinataires
+      // ✅ Déterminer les destinataires
       let targetUserIds: string[] = [];
       let conversationType: 'direct' | 'group' = 'direct';
       let conversationName: string | null = null;
@@ -657,57 +467,46 @@ const MessagesPage = () => {
       if (targetType === 'specific' && targetUserId) {
         targetUserIds = [targetUserId];
         conversationType = 'direct';
-      } else if (targetType === 'aidant' || targetType === 'coordinator' || targetType === 'admin') {
+      } else {
         targetUserIds = await getTargetUsers(targetType);
-        conversationType = 'direct';
-        // Si plusieurs aidants, on prend le premier
+        
         if (targetUserIds.length > 1) {
           conversationType = 'group';
-          conversationName = `👥 Équipe ${targetType === 'aidant' ? 'aidants' : targetType}`;
+          const labels: Record<TargetType, string> = {
+            aidant: '👥 Aidants',
+            aidants_group: '👥 Mes aidants',
+            coordinator: '👔 Coordinateurs',
+            admin: '👑 Administrateurs',
+            all_aidants: '📢 Tous les aidants',
+            specific: '👤 Discussion',
+          };
+          conversationName = labels[targetType] || '👥 Groupe';
+        } else if (targetUserIds.length === 0) {
+          toast.error('Aucun destinataire trouvé');
+          setIsSending(false);
+          setIsUploading(false);
+          return;
         }
-      } else if (targetType === 'aidants_group') {
-        targetUserIds = await getTargetUsers('aidants_group');
-        if (targetUserIds.length > 1) {
-          conversationType = 'group';
-          conversationName = '👥 Mes aidants';
-        } else if (targetUserIds.length === 1) {
-          conversationType = 'direct';
-        }
-      } else if (targetType === 'all_aidants') {
-        targetUserIds = await getTargetUsers('all_aidants');
-        conversationType = 'group';
-        conversationName = '📢 Annonce aidants';
       }
 
-      // Si aucun destinataire
-      if (targetUserIds.length === 0) {
-        toast.error('Aucun destinataire trouvé');
-        setIsSending(false);
-        setIsUploading(false);
-        return;
-      }
-
-      // Créer ou récupérer la conversation
+      // ✅ Créer ou récupérer la conversation
       let conversationId = currentConversationId;
 
-      // Si c'est une conversation directe avec un seul destinataire
       if (targetUserIds.length === 1 && conversationType === 'direct') {
         const existing = await createConversation(targetUserIds, 'direct');
         if (existing) {
           conversationId = existing.id;
         } else {
-          // Si createConversation a déjà défini la nouvelle conversation
           conversationId = currentConversationId || conversationId;
         }
       } else if (targetUserIds.length > 1 || conversationType === 'group') {
-        // Créer une conversation de groupe
-        const newConv = await createConversation(targetUserIds, 'group', conversationName || '👥 Groupe');
+        const newConv = await createConversation(targetUserIds, 'group', conversationName);
         if (newConv) {
           conversationId = newConv.id;
         }
       }
 
-      // Envoyer le message
+      // ✅ Envoyer le message
       const { data, error } = await supabase
         .from('messages')
         .insert({
@@ -723,13 +522,13 @@ const MessagesPage = () => {
 
       if (error) throw error;
 
-      // Mettre à jour la conversation
+      // ✅ Mettre à jour la conversation
       await supabase
         .from('conversations')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversationId);
 
-      // Ajouter le message à l'état
+      // ✅ Ajouter le message
       if (data) {
         const messageWithSender: Message = {
           ...data,
@@ -743,7 +542,7 @@ const MessagesPage = () => {
 
         setMessages((prev) => [...prev, messageWithSender]);
 
-        // Notifier les destinataires
+        // ✅ Notifier les destinataires
         for (const userId of targetUserIds) {
           if (userId !== currentUserId) {
             await supabase.from('notifications').insert({
@@ -760,7 +559,7 @@ const MessagesPage = () => {
           }
         }
 
-        // Réinitialiser
+        // ✅ Réinitialiser
         setMessageInput('');
         setAttachments([]);
         setAttachmentPreviews([]);
@@ -768,6 +567,7 @@ const MessagesPage = () => {
         inputRef.current?.focus();
         scrollToBottom(true);
       }
+
     } catch (error: any) {
       console.error('❌ Send message error:', error);
       toast.error(error?.message || "Erreur lors de l'envoi");
@@ -778,128 +578,20 @@ const MessagesPage = () => {
   };
 
   // ============================================================
-  // HANDLE FILE / IMAGE SELECTION
+  // ✅ SOLUTION LONG TERME : Fonction de scroll robuste
   // ============================================================
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const validFiles = files.filter((file) => file.size <= MAX_FILE_SIZE);
-
-    if (validFiles.length !== files.length) {
-      toast.error('Certains fichiers dépassent 5MB');
-    }
-
-    setAttachments((prev) => [...prev, ...validFiles]);
-
-    validFiles.forEach((file) => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setAttachmentPreviews((prev) => [...prev, event.target?.result as string]);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setAttachmentPreviews((prev) => [...prev, '📄']);
-      }
-    });
-
-    if (e.target) e.target.value = '';
-  };
-
-  const removeAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
-    setAttachmentPreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // ============================================================
-  // HANDLE NEW MESSAGE (Realtime)
-  // ============================================================
-
-  const handleNewMessage = useCallback(
-    async (newMessage: any) => {
-      // Vérifier si l'utilisateur est dans la conversation
-      const { data: conv } = await supabase
-        .from('conversations')
-        .select('participant_ids')
-        .eq('id', newMessage.conversation_id)
-        .maybeSingle();
-
-      if (!conv || !conv.participant_ids.includes(currentUserId)) {
-        return;
-      }
-
-      const sender = await fetchSenderProfile(newMessage.sender_id);
-
-      if (newMessage.conversation_id === currentConversationId) {
-        setMessages((prev) => {
-          const exists = prev.some((m) => m.id === newMessage.id);
-          if (exists) return prev;
-          return [
-            ...prev,
-            {
-              ...newMessage,
-              sender,
-              attachment_url: newMessage.attachment_url || null,
-              is_pinned: newMessage.is_pinned || false,
-              is_important: newMessage.is_important || false,
-            },
-          ];
-        });
-
-        if (newMessage.sender_id !== currentUserId) {
-          setUnreadCount((prev) => prev + 1);
-        }
-        scrollToBottom(true);
-      }
-
-      await fetchConversations();
-    },
-    [currentConversationId, currentUserId, fetchSenderProfile, scrollToBottom, fetchConversations]
-  );
-
-  const handleMessageUpdate = useCallback((updatedMessage: any) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === updatedMessage.id ? { ...message, ...updatedMessage } : message
-      )
-    );
-  }, []);
-
-  const handleMessageDelete = useCallback((deletedMessage: any) => {
-    setMessages((prev) => prev.filter((message) => message.id !== deletedMessage.id));
+  const scrollToBottom = useCallback((smooth = true) => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
+    }, 100);
   }, []);
 
   // ============================================================
-  // CLEANUP SUBSCRIPTION
-  // ============================================================
-
-  const cleanupSubscription = useCallback(() => {
-    isUnmountingRef.current = true;
-    isSubscribingRef.current = false;
-
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    if (channelRef.current) {
-      try {
-        supabase.removeChannel(channelRef.current);
-      } catch (error) {
-        console.error('❌ Erreur fermeture Realtime:', error);
-      }
-      channelRef.current = null;
-    }
-
-    setIsRealtimeConnected(false);
-
-    window.setTimeout(() => {
-      isUnmountingRef.current = false;
-    }, 300);
-  }, []);
-
-  // ============================================================
-  // SETUP REALTIME SUBSCRIPTION
+  // ✅ SOLUTION LONG TERME : Realtime avec reconnexion automatique
   // ============================================================
 
   const setupRealtimeSubscription = useCallback(() => {
@@ -909,7 +601,7 @@ const MessagesPage = () => {
     isSubscribingRef.current = true;
     cleanupSubscription();
 
-    window.setTimeout(() => {
+    setTimeout(() => {
       isUnmountingRef.current = false;
 
       console.log('🔄 Configuration de la souscription Realtime...');
@@ -970,7 +662,7 @@ const MessagesPage = () => {
           setIsRealtimeConnected(false);
           isSubscribingRef.current = false;
           if (!isUnmountingRef.current) {
-            console.warn('⚠️ Canal Realtime fermé, reconnexion...');
+            console.warn('⚠️ Canal Realtime fermé, reconnexion dans 3s...');
             reconnectTimeoutRef.current = setTimeout(() => {
               setupRealtimeSubscription();
             }, 3000);
@@ -980,10 +672,10 @@ const MessagesPage = () => {
 
       console.log('✅ Souscription Realtime configurée');
     }, 150);
-  }, [currentUserId, cleanupSubscription, handleNewMessage, handleMessageUpdate, handleMessageDelete]);
+  }, [currentUserId, cleanupSubscription]);
 
   // ============================================================
-  // EFFETS
+  // ✅ EFFETS - INITIALISATION
   // ============================================================
 
   useEffect(() => {
@@ -996,202 +688,15 @@ const MessagesPage = () => {
     return () => {
       cleanupSubscription();
     };
-  }, [isInitialized, isAuthenticated, currentUserId, fetchConversations, fetchAssignedAidants, setupRealtimeSubscription, cleanupSubscription]);
-
-  useEffect(() => {
-    if (currentConversationId) {
-      fetchMessages(currentConversationId);
-    }
-  }, [currentConversationId, fetchMessages]);
-
-  useEffect(() => {
-    scrollToBottom(true);
-  }, [messages.length, scrollToBottom]);
+  }, [isInitialized, isAuthenticated, currentUserId]);
 
   // ============================================================
-  // HELPERS
+  // ✅ RENDU - VERSION OPTIMISÉE
   // ============================================================
-
-  const getTargetOptions = (): { value: TargetType; label: string; icon: string }[] => {
-    if (isFamilyRole) {
-      return [
-        { value: 'aidant', label: '🦸 Mon aidant', icon: '🦸' },
-        { value: 'aidants_group', label: '👥 Mes aidants (groupe)', icon: '👥' },
-        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
-        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
-        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
-      ];
-    }
-
-    if (isAidantRole) {
-      return [
-        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
-        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
-        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
-      ];
-    }
-
-    if (isAdminRole) {
-      return [
-        { value: 'all_aidants', label: '📢 Tous les aidants', icon: '📢' },
-        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
-      ];
-    }
-
-    return [{ value: 'specific', label: '👤 Personne spécifique', icon: '👤' }];
-  };
-
-  const getTargetLabel = (target: TargetType): string => {
-    const options = getTargetOptions();
-    const found = options.find((o) => o.value === target);
-    return found?.label || target;
-  };
-
-  const getRoleColor = (senderRole?: string | null) => {
-    const map: Record<string, string> = {
-      family: '#4CAF50',
-      aidant: '#FF9800',
-      coordinator: '#2196F3',
-      admin: '#9C27B0',
-    };
-    return map[senderRole || 'family'] || '#9E9E9E';
-  };
-
-  const getRoleLabel = (senderRole?: string | null) => {
-    const map: Record<string, string> = {
-      family: '👨‍👩‍👦',
-      aidant: '🦸',
-      coordinator: '👔',
-      admin: '👑',
-    };
-    return map[senderRole || 'family'] || '👤';
-  };
-
-  const getTargetDisplay = () => {
-    if (targetType === 'specific' && targetUserId) {
-      const user = availableUsers.find((u) => u.id === targetUserId);
-      return user?.full_name || 'Utilisateur';
-    }
-    return getTargetLabel(targetType);
-  };
-
-  const getPlaceholder = () => {
-    const target = getTargetDisplay();
-    if (isAdminRole) {
-      return `👔 Message à ${target}...`;
-    }
-    if (isAidantRole) {
-      return `🦸 Message à ${target}...`;
-    }
-    return `Message à ${target}...`;
-  };
-
-  const getFooterText = () => {
-    if (isAdminRole) {
-      return '👔 Clic droit sur un message pour le gérer';
-    }
-    return '💬 Vos messages sont privés et sécurisés';
-  };
-
-  const getConversationName = (conv: Conversation): string => {
-    if (conv.type === 'public') return '📢 Annonce';
-    if (conv.type === 'direct' && conv.participants?.length === 1) {
-      return conv.participants[0]?.full_name || 'Utilisateur';
-    }
-    if (conv.type === 'group' && conv.participants) {
-      const names = conv.participants.map((p) => p.full_name).join(', ');
-      return names.length > 30 ? names.substring(0, 30) + '...' : names;
-    }
-    return conv.name || 'Conversation';
-  };
-
-  const getConversationSubtitle = (conv: Conversation): string => {
-    if (conv.type === 'public') return 'Annonce publique';
-    if (conv.type === 'direct') return 'Conversation privée';
-    if (conv.type === 'group') return `${conv.participants?.length || 0} participants`;
-    return '';
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  // ============================================================
-  // PIN / IMPORTANT / DELETE
-  // ============================================================
-
-  const togglePinMessage = async (messageId: string, currentState: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_pinned: !currentState })
-        .eq('id', messageId);
-
-      if (error) throw error;
-      toast.success(currentState ? 'Message désépinglé' : 'Message épinglé');
-    } catch (error: any) {
-      console.error('❌ Pin message error:', error);
-      toast.error(error?.message || 'Erreur');
-    }
-  };
-
-  const toggleImportantMessage = async (messageId: string, currentState: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ is_important: !currentState })
-        .eq('id', messageId);
-
-      if (error) throw error;
-      toast.success(currentState ? 'Important retiré' : 'Marqué comme important');
-    } catch (error: any) {
-      console.error('❌ Important message error:', error);
-      toast.error(error?.message || 'Erreur');
-    }
-  };
-
-  const deleteMessage = async (messageId: string) => {
-    if (!window.confirm('Supprimer ce message ?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .delete()
-        .eq('id', messageId);
-
-      if (error) throw error;
-      toast.success('Message supprimé');
-      setShowPinModal(false);
-      setSelectedMessage(null);
-    } catch (error: any) {
-      console.error('❌ Delete message error:', error);
-      toast.error(error?.message || 'Erreur');
-    }
-  };
-
-  // ============================================================
-  // RENDU
-  // ============================================================
-
-  if (isLoading && messages.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-[400px]">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: colors.text }}>Chargement des messages...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-[calc(100dvh-175px)] sm:h-[calc(100vh-135px)] md:h-[calc(100vh-120px)] flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-sm border" style={{ borderColor: colors.primary + '12' }}>
-      {/* ============================================================
-      SIDEBAR - CONVERSATIONS PRIVÉES
-      ============================================================ */}
+      {/* SIDEBAR - CONVERSATIONS */}
       <div className="w-full md:w-64 lg:w-72 border-b md:border-b-0 md:border-r flex flex-col bg-gray-50/50 shrink-0" style={{ borderColor: colors.primary + '10' }}>
         <div className="p-3 border-b shrink-0 flex items-center justify-between" style={{ borderColor: colors.primary + '10' }}>
           <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">💬 Messages</h3>
@@ -1240,7 +745,7 @@ const MessagesPage = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <p className="text-xs font-semibold truncate text-gray-700">
-                          {getConversationName(conv)}
+                          {conv.name || conv.participants?.[0]?.full_name || 'Conversation'}
                         </p>
                         {hasUnread && (
                           <span
@@ -1250,7 +755,7 @@ const MessagesPage = () => {
                         )}
                       </div>
                       <p className="text-[10px] text-gray-400 truncate font-medium">
-                        {lastMsg?.content?.substring(0, 30) || getConversationSubtitle(conv)}
+                        {lastMsg?.content?.substring(0, 30) || 'Aucun message'}
                       </p>
                     </div>
                   </div>
@@ -1261,9 +766,7 @@ const MessagesPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-      CHAT PRINCIPAL
-      ============================================================ */}
+      {/* CHAT PRINCIPAL */}
       {currentConversationId ? (
         <div className="flex-1 flex flex-col min-w-0">
           {/* En-tête */}
@@ -1294,7 +797,11 @@ const MessagesPage = () => {
                 style={{ borderColor: colors.border, color: colors.text }}
               >
                 <AtSign size={14} />
-                <span className="hidden sm:inline">{getTargetDisplay()}</span>
+                <span className="hidden sm:inline">
+                  {targetType === 'specific' && targetUserId
+                    ? availableUsers.find(u => u.id === targetUserId)?.full_name || 'Utilisateur'
+                    : getTargetOptions().find(o => o.value === targetType)?.label || 'Destinataire'}
+                </span>
                 <span className="text-gray-400">▼</span>
               </button>
 
@@ -1335,7 +842,11 @@ const MessagesPage = () => {
                             value={userSearch}
                             onChange={(e) => {
                               setUserSearch(e.target.value);
-                              fetchUsers(e.target.value);
+                              // ✅ Debounce pour éviter trop de requêtes
+                              clearTimeout((inputRef.current as any)._searchTimeout);
+                              (inputRef.current as any)._searchTimeout = setTimeout(() => {
+                                fetchUsers(e.target.value);
+                              }, 300);
                             }}
                             placeholder="Rechercher..."
                             className="w-full pl-7 pr-2 py-1.5 rounded-lg border outline-none text-xs bg-gray-50"
@@ -1388,7 +899,7 @@ const MessagesPage = () => {
                 </div>
                 <h3 className="text-lg font-bold text-gray-700">Aucun message</h3>
                 <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-                  Envoyez un message à {getTargetDisplay()}
+                  Envoyez un message à votre destinataire
                 </p>
               </div>
             ) : (
@@ -1428,7 +939,7 @@ const MessagesPage = () => {
                         {!isOwn && (
                           <div
                             className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm mt-0.5"
-                            style={{ background: getRoleColor(message.sender?.role) }}
+                            style={{ background: colors.primary }}
                           >
                             {message.sender?.full_name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
@@ -1451,10 +962,6 @@ const MessagesPage = () => {
                             <div className="flex items-center space-x-1.5 mb-1 flex-wrap gap-y-0.5">
                               <span className="text-xs font-bold text-gray-800">
                                 {message.sender?.full_name || 'Utilisateur'}
-                              </span>
-                              <span className="text-[10px] text-gray-300">•</span>
-                              <span className="text-[10px] font-bold shrink-0" style={{ color: getRoleColor(message.sender?.role) }}>
-                                {getRoleLabel(message.sender?.role)}
                               </span>
                               {isImportant && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-50 text-orange-500 uppercase tracking-wider shrink-0">
@@ -1591,14 +1098,19 @@ const MessagesPage = () => {
                 type="text"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
-                onKeyDown={handleKeyPress}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
                 className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border bg-gray-50/50 outline-none text-xs sm:text-sm font-medium transition focus:bg-white focus:ring-1 min-w-0"
                 style={{
                   borderColor: colors.border,
                   color: colors.text,
                   '--tw-ring-color': colors.primary
                 } as any}
-                placeholder={getPlaceholder()}
+                placeholder="Votre message..."
                 disabled={isSending}
               />
 
@@ -1620,7 +1132,7 @@ const MessagesPage = () => {
 
             <div className="mt-1.5 flex items-center justify-between px-1">
               <p className="text-[10px] text-gray-400 font-medium">
-                {getFooterText()}
+                💬 Messages privés et sécurisés
               </p>
               <span className="text-[9px] text-gray-300">
                 {attachments.length > 0 && `${attachments.length} fichier(s)`}
