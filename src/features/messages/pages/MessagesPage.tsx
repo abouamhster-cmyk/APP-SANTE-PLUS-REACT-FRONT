@@ -1,5 +1,6 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
- 
+// ✅ VERSION COMPLÈTE CORRIGÉE
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send,
@@ -143,20 +144,10 @@ const MessagesPage = () => {
   const isFamilyRole = isFamily;
 
   // ============================================================
-  // FONCTIONS UTILITAIRES (définies avant utilisation)
+  // FONCTIONS UTILITAIRES SÉCURISÉES (définies en premier)
   // ============================================================
 
-  // ✅ SCROLL TO BOTTOM - définie en premier
-  const scrollToBottom = useCallback((smooth = true) => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end',
-      });
-    }, 100);
-  }, []);
-
-  // ✅ Fonction de formatage sécurisée pour les dates
+  // ✅ Formatage sécurisé des dates
   const formatDateSafe = (date: string | null | undefined): string => {
     if (!date) return '';
     try {
@@ -165,6 +156,26 @@ const MessagesPage = () => {
       return '';
     }
   };
+
+  // ✅ Formatage sécurisé des heures
+  const formatTimeSafe = (time: string | null | undefined): string => {
+    if (!time) return '';
+    try {
+      return formatTime(time);
+    } catch {
+      return '';
+    }
+  };
+
+  // ✅ Scroll to bottom
+  const scrollToBottom = useCallback((smooth = true) => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
+    }, 100);
+  }, []);
 
   // ============================================================
   // FETCH CONVERSATIONS
@@ -418,7 +429,6 @@ const MessagesPage = () => {
         await markAllAsRead(conversationId);
       }
 
-      // ✅ scrollToBottom est maintenant défini
       scrollToBottom(false);
     } catch (error: any) {
       console.error('❌ Fetch messages error:', error);
@@ -1422,7 +1432,7 @@ const MessagesPage = () => {
                           )}
 
                           <div className="flex items-center justify-end space-x-1 mt-1 opacity-60">
-                            <span className="text-[10px]">{formatTime(message.created_at)}</span>
+                            <span className="text-[10px]">{formatTimeSafe(message.created_at)}</span>
                             {isOwn && (
                               <span className="text-[10px] shrink-0">
                                 {message.is_read ? <CheckCheck size={12} /> : <Check size={12} />}
