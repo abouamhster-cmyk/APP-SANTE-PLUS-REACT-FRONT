@@ -285,8 +285,11 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
+      {/* ========================================== */}
+      {/* HERO BANNER - Optimisée pour Mobile (Moins haute, plus large) */}
+      {/* ========================================== */}
       <section
-        className="relative overflow-hidden rounded-3xl min-h-[190px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
+        className="relative overflow-hidden rounded-3xl min-h-[130px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
         style={{
           backgroundImage: `
             linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%),
@@ -298,24 +301,24 @@ const DashboardPage = () => {
       >
         <div className="absolute inset-0 bg-black/5" />
         
-        <div className="relative z-10 min-h-[190px] md:min-h-[210px] p-6 sm:p-8 flex flex-col justify-between">
+        <div className="relative z-10 min-h-[130px] md:min-h-[210px] p-4 sm:p-8 flex flex-col justify-between">
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div className="space-y-2 max-w-xl">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-white text-xs font-semibold drop-shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+            <div className="space-y-1 sm:space-y-2 max-w-xl">
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 sm:py-1 rounded-full bg-white/10 backdrop-blur-md text-white text-[10px] sm:text-xs font-semibold drop-shadow-sm">
                 {greeting}, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
               </span>
 
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
+              <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
                 {heroTitle()}
               </h1>
 
-              <p className="text-white/80 text-sm leading-relaxed drop-shadow max-w-md">
+              <p className="hidden xs:block text-white/85 text-[11px] sm:text-sm leading-relaxed drop-shadow max-w-md">
                 {heroDescription()}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start md:self-end mt-2 md:mt-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 shrink-0 self-start md:self-end mt-1 md:mt-0">
               <RefreshButton 
                 size="sm" 
                 showText={false}
@@ -326,16 +329,16 @@ const DashboardPage = () => {
 
               <button
                 onClick={() => navigate('/app/visits')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg"
+                className="group inline-flex items-center gap-1 text-white text-[11px] sm:text-xs font-bold px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg"
                 style={{ background: colors.primary }}
               >
                 Voir les visites
-                <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+                <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
               </button>
 
               <button
                 onClick={() => navigate('/app/messages')}
-                className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md text-white text-xs font-bold px-4 py-2.5 rounded-xl border border-white/20 transition-colors hover:bg-white/30 active:scale-[0.97]"
+                className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-md text-white text-[11px] sm:text-xs font-bold px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-white/20 transition-colors hover:bg-white/30 active:scale-[0.97]"
               >
                 Messages
               </button>
@@ -488,12 +491,15 @@ const DashboardPage = () => {
         )}
       </section>
 
+      {/* ========================================== */}
+      {/* SUGGESTIONS ÉPURÉES (Max 2 suggestions d'onboarding) */}
+      {/* ========================================== */}
       {isFamily && !hasProches && (
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SuggestionCard
             icon={<CreditCard size={24} />}
             title="Découvrir les offres"
-            description="Choisissez la formule d'abonnement adaptée"
+            description="Choisissez la formule d'abonnement adaptée à vos besoins d'accompagnement."
             color={colors.primary}
             onClick={() => navigate('/app/billing')}
             buttonText="Voir les offres"
@@ -501,18 +507,10 @@ const DashboardPage = () => {
           <SuggestionCard
             icon={<UserPlus size={24} />}
             title="Ajouter un proche"
-            description="Si vous souhaitez accompagner quelqu'un"
+            description="Renseignez le profil de la personne pour lancer son accompagnement."
             color={colors.primary}
             onClick={() => navigate('/app/patients')}
             buttonText="Ajouter (optionnel)"
-          />
-          <SuggestionCard
-            icon={<MessageCircle size={24} />}
-            title="Contacter l'équipe"
-            description="Une question ? Nous sommes là pour vous aider"
-            color={colors.primary}
-            onClick={() => navigate('/app/messages')}
-            buttonText="Écrire un message"
           />
         </section>
       )}
@@ -775,7 +773,7 @@ const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }
         <div className="flex-1 min-w-0">
           <h4 className="font-extrabold text-sm" style={{ color }}>{title}</h4>
           <p className="text-xs mt-1 text-gray-500 leading-relaxed">{description}</p>
-          <span className="inline-flex items-center gap-1 mt-3 text-xs font-bold transition-all group-hover:translate-x-1" style={{ color }}>
+          <span className="inline-block mt-2 text-xs font-bold group-hover:underline" style={{ color }}>
             {buttonText} <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
           </span>
         </div>
