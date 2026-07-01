@@ -27,6 +27,12 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency } from '@/utils/helpers';
+// ✅ IMPORTER le hook de rafraîchissement
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+// ✅ IMPORTER le bouton de rafraîchissement
+import { RefreshButton } from '@/components/ui/RefreshButton';
+// ✅ IMPORTER le composant AdminStats
+import { AdminStats } from '@/components/admin/AdminStats';
 import toast from 'react-hot-toast';
 
 const AdminDashboardPage = () => {
@@ -58,6 +64,12 @@ const AdminDashboardPage = () => {
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  // ✅ UTILISER le hook de rafraîchissement
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchDashboardData,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des données'),
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -233,7 +245,7 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16 sm:pb-8">
-      {/* HEADER AVEC ALERTE */}
+      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{
@@ -262,15 +274,12 @@ const AdminDashboardPage = () => {
             </p>
           </div>
 
-          <button
-            onClick={fetchDashboardData}
-            disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors hover:bg-white/40"
-            style={{ background: colors.primary + '12', color: colors.primary }}
-          >
-            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Actualiser</span>
-          </button>
+          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT MODERNISÉ */}
+          <RefreshButton 
+            onRefresh={() => {
+              toast.success('📊 Tableau de bord actualisé');
+            }}
+          />
         </div>
 
         {/* BANDEAU D'ALERTES */}
@@ -309,6 +318,9 @@ const AdminDashboardPage = () => {
           </div>
         )}
       </section>
+
+      {/* ✅ STATS AVEC RAFRAÎCHISSEMENT AUTOMATIQUE */}
+      <AdminStats colors={colors} />
 
       {/* STATS COMPACTES */}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
