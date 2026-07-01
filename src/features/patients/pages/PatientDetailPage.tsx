@@ -39,6 +39,10 @@ import { Illustration } from '@/components/ui/Illustration';
 import { PatientModal } from '../components/PatientModal';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitModal } from '@/features/visits/components/VisitModal';
+// ✅ IMPORTER le hook de rafraîchissement
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+// ✅ IMPORTER le bouton de rafraîchissement
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -104,6 +108,17 @@ const PatientDetailPage = () => {
 
   const canManage = canManagePatients();
 
+  // ✅ UTILISER le hook de rafraîchissement
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: async () => {
+      if (id) {
+        await fetchPatientById(id);
+        await fetchVisits();
+      }
+    },
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des données'),
+  });
+
   useEffect(() => {
     if (id) {
       fetchPatientById(id);
@@ -135,7 +150,6 @@ const PatientDetailPage = () => {
       console.log('⚠️ Une visite est déjà en cours pour ce patient');
       return false;
     }
-    // ✅ CORRECTION : utilisation de l'optional chaining
     if (currentPatient?.status !== 'active') {
       console.log('⚠️ Le patient n\'est pas actif');
       return false;
@@ -175,8 +189,9 @@ const PatientDetailPage = () => {
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
       toast.success('🚀 Visite démarrée !');
-      fetchVisits();
-      fetchPatientById(id!);
+      // ✅ Recharger après démarrage
+      await fetchVisits();
+      await fetchPatientById(id!);
     } catch (error: any) {
       console.error('❌ Erreur démarrage:', error);
       toast.error(error?.message || 'Erreur lors du démarrage');
@@ -189,7 +204,8 @@ const PatientDetailPage = () => {
     try {
       await approveVisit(visitId);
       toast.success('Visite approuvée');
-      fetchVisits();
+      // ✅ Recharger après approbation
+      await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de l\'approbation');
     }
@@ -201,7 +217,8 @@ const PatientDetailPage = () => {
     try {
       await refuseVisit(visitId, reason);
       toast.error('Visite refusée');
-      fetchVisits();
+      // ✅ Recharger après refus
+      await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors du refus');
     }
@@ -215,8 +232,9 @@ const PatientDetailPage = () => {
       toast.success('Visite terminée');
       setShowCompleteModal(false);
       setActiveVisitId(null);
-      fetchVisits();
-      fetchPatientById(id!);
+      // ✅ Recharger après complétion
+      await fetchVisits();
+      await fetchPatientById(id!);
     } catch (error: any) {
       console.error('❌ Erreur finalisation:', error);
       toast.error(error?.message || 'Erreur lors de la finalisation');
@@ -230,8 +248,9 @@ const PatientDetailPage = () => {
     try {
       await cancelVisit(visitId);
       toast.success('Visite annulée');
-      fetchVisits();
-      fetchPatientById(id!);
+      // ✅ Recharger après annulation
+      await fetchVisits();
+      await fetchPatientById(id!);
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de l\'annulation');
     }
@@ -263,12 +282,14 @@ const PatientDetailPage = () => {
 
   const handleModalSuccess = () => {
     setIsModalOpen(false);
+    // ✅ Recharger après modification
     fetchPatientById(id!);
     toast.success(updated);
   };
 
   const handleVisitModalSuccess = () => {
     setShowVisitModal(false);
+    // ✅ Recharger après création de visite
     fetchVisits();
     fetchPatientById(id!);
     toast.success('Visite planifiée');
@@ -370,7 +391,7 @@ const PatientDetailPage = () => {
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
-      {/* EN-TÊTE */}
+      {/* EN-TÊTE AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button
@@ -391,26 +412,41 @@ const PatientDetailPage = () => {
           </div>
         </div>
 
-        {canManage && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleEdit}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
-              style={{ background: colors.primary + '15', color: colors.primary }}
-            >
-              <Edit2 size={18} />
-              <span>{edit}</span>
-            </button>
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
-              style={{ background: '#F44336' + '15' }}
-            >
-              <Trash2 size={18} />
-              <span>Supprimer</span>
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
+          <RefreshButton 
+            size="sm" 
+            showText={false}
+            onRefresh={() => {
+              if (id) {
+                fetchPatientById(id);
+                fetchVisits();
+              }
+              toast.success('🔄 Données actualisées');
+            }}
+          />
+
+          {canManage && (
+            <>
+              <button
+                onClick={handleEdit}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
+                style={{ background: colors.primary + '15', color: colors.primary }}
+              >
+                <Edit2 size={18} />
+                <span>{edit}</span>
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
+                style={{ background: '#F44336' + '15' }}
+              >
+                <Trash2 size={18} />
+                <span>Supprimer</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* STATS */}
