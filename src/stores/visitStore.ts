@@ -1,5 +1,5 @@
-// 📁 src/stores/visitStore.ts - VERSION COMPLÈTE CORRIGÉE
- 
+// 📁 src/stores/visitStore.ts 
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
@@ -19,14 +19,11 @@ interface VisitState {
   lastFetch: number | null;
   isCacheInvalidated: boolean;
   
-  // Actions
   fetchVisits: (force?: boolean) => Promise<void>;
   fetchVisitById: (id: string) => Promise<void>;
-  createVisit: (data: Partial<Visit>) => Promise<Visit>;
+  createVisit: (data: Partial<Visit> & { target_type?: 'personal' | 'patient'; target_name?: string }) => Promise<Visit>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
-  
-  // ✅ NOUVEAUX STATUTS
   confirmPayment: (id: string, transactionId: string) => Promise<void>;
   approveVisit: (id: string) => Promise<void>;
   refuseVisit: (id: string, reason: string) => Promise<void>;
@@ -35,11 +32,8 @@ interface VisitState {
   completeVisit: (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => Promise<void>;
   validateVisit: (id: string) => Promise<void>;
   cancelVisit: (id: string) => Promise<void>;
-  
-  // ✅ GESTION DU CACHE
   invalidateCache: () => void;
   refresh: () => Promise<void>;
-  
   getPendingVisits: () => Promise<Visit[]>;
   getVisitsNeedingReassign: () => Promise<Visit[]>;
   getVisitsByPatient: (patientId: string) => Promise<Visit[]>;
@@ -52,7 +46,7 @@ interface VisitState {
 // ============================================================
 
 const CACHE_KEY = 'sante_plus_visits_cache';
-const CACHE_DURATION = 60000; // 1 minute
+const CACHE_DURATION = 60000;
 
 const getCachedVisits = (): { data: Visit[]; timestamp: number } | null => {
   try {
@@ -91,13 +85,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   lastFetch: null,
   isCacheInvalidated: false,
 
-  // ✅ Vérifier si l'utilisateur peut gérer les visites
   canManageVisits: () => {
     const { profile } = useAuthStore.getState();
     return profile?.role === 'admin' || profile?.role === 'coordinator';
   },
 
-  // ✅ Invalider le cache
   invalidateCache: () => {
     clearCachedVisits();
     set({ 
@@ -108,7 +100,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     console.log('🔄 Cache visites invalidé');
   },
 
-  // ✅ Rafraîchir forcé
   refresh: async () => {
     get().invalidateCache();
     await get().fetchVisits(true);
@@ -161,17 +152,19 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let query = supabase.from('visites').select('*');
 
       if (profile?.role === 'family') {
+        // ✅ Récupérer les patients liés ET les visites personnelles
         const { data: links } = await supabase
           .from('patient_family_links')
           .select('patient_id')
           .eq('family_id', user.id);
 
-        const patientIds = links?.map(l => l.patient_id) || [];
+        const patientIds = links?.map(l => l.patient_id).filter(Boolean) || [];
+        
+        // ✅ OR condition : patient_id dans la liste OU user_id = user.id (visites personnelles)
         if (patientIds.length > 0) {
-          query = query.in('patient_id', patientIds);
+          query = query.or(`patient_id.in.(${patientIds.join(',')}), user_id.eq.${user.id}`);
         } else {
-          set({ visits: [], isLoading: false, isInitialized: true });
-          return;
+          query = query.eq('user_id', user.id);
         }
       } else if (profile?.role === 'aidant') {
         const { data: aidant } = await supabase
@@ -251,7 +244,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
       }));
 
-      // ✅ Mettre en cache
       setCachedVisits(visitsWithRelations);
       
       set({ 
@@ -264,7 +256,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Fetch visits error:', error);
       
-      // En cas d'erreur, utiliser le cache
       const cached = getCachedVisits();
       if (cached && cached.data.length > 0) {
         set({
@@ -288,7 +279,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       
-      // ✅ Vérifier dans le cache d'abord
       const state = get();
       const cachedVisit = state.visits.find(v => v.id === id);
       if (cachedVisit) {
@@ -357,9 +347,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // CREATE VISIT - AVEC INVALIDATION DE CACHE
+  // CREATE VISIT - AVEC TARGET_TYPE
   // ============================================================
-  createVisit: async (data: Partial<Visit>) => {
+  createVisit: async (data: Partial<Visit> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
     try {
       set({ isLoading: true, error: null });
       
@@ -370,6 +360,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         throw new Error('Les aidants ne peuvent pas créer de visites');
       }
 
+      // ✅ Déterminer target_type et target_name
+      const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
+      const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
+
       const isPonctual = data.visit_type === 'ponctuelle' || false;
       let status: VisitStatus = 'planifiee';
 
@@ -377,21 +371,25 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         status = 'attente_paiement';
       }
 
-      if (!isPonctual && data.patient_id) {
+      // ✅ Vérifier le quota sur le COMPTE (pas sur le patient)
+      if (!isPonctual) {
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_visits, status')
-          .eq('patient_id', data.patient_id)
+          .eq('user_id', user.id)   // ✅ LIÉ AU COMPTE
           .eq('status', 'actif')
           .maybeSingle();
 
-        if (subscription && subscription.remaining_visits <= 0) {
+        if (!subscription || subscription.remaining_visits <= 0) {
           status = 'attente_paiement';
         }
       }
 
       const visitData = {
-        patient_id: data.patient_id,
+        user_id: user.id,              // ✅ COMPTE QUI PLANIFIE
+        patient_id: data.patient_id || null,
+        target_type: targetType,
+        target_name: targetName,
         aidant_id: data.aidant_id || null,
         coordinator_id: profile?.role === 'family' ? null : user.id,
         scheduled_date: data.scheduled_date,
@@ -435,20 +433,30 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         patient,
       };
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
-
-      // ✅ Recharger les données
       await get().fetchVisits(true);
 
-      // Notifications
+      // ✅ Notifications avec target_name
+      const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
+
       if (data.aidant_id && status !== 'attente_paiement') {
         await supabase.from('notifications').insert({
           user_id: data.aidant_id,
           title: '📅 Nouvelle visite à valider',
-          body: `Visite pour ${patient?.first_name || 'Patient'} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
+          body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
           type: 'visite',
           data: { visit_id: newVisit.id, action: 'approve' },
+        });
+      }
+
+      // ✅ Notification à la famille/personnel
+      if (status === 'attente_paiement') {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: '💳 Visite en attente de paiement',
+          body: `Visite pour ${targetDisplay} - Paiement requis.`,
+          type: 'visite',
+          data: { visit_id: newVisit.id, status: 'attente_paiement' },
         });
       }
 
@@ -463,7 +471,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // UPDATE VISIT - AVEC INVALIDATION DE CACHE
+  // UPDATE VISIT
   // ============================================================
   updateVisit: async (id: string, data: Partial<Visit>) => {
     try {
@@ -483,7 +491,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -501,7 +508,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // DELETE VISIT - AVEC INVALIDATION DE CACHE
+  // DELETE VISIT
   // ============================================================
   deleteVisit: async (id: string) => {
     try {
@@ -519,7 +526,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -533,7 +539,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CONFIRMER PAIEMENT - AVEC INVALIDATION DE CACHE
+  // CONFIRMER PAIEMENT
   // ============================================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
@@ -567,7 +573,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -585,7 +590,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ APPROUVER UNE VISITE - AVEC INVALIDATION DE CACHE
+  // APPROUVER UNE VISITE
   // ============================================================
   approveVisit: async (id: string) => {
     try {
@@ -623,7 +628,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -637,7 +641,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ REFUSER UNE VISITE - AVEC INVALIDATION DE CACHE
+  // REFUSER UNE VISITE
   // ============================================================
   refuseVisit: async (id: string, reason: string) => {
     try {
@@ -672,7 +676,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -686,7 +689,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ RÉASSIGNER UNE VISITE - AVEC INVALIDATION DE CACHE
+  // RÉASSIGNER UNE VISITE
   // ============================================================
   reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
     try {
@@ -725,7 +728,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -739,7 +741,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // START VISIT - AVEC INVALIDATION DE CACHE
+  // START VISIT
   // ============================================================
   startVisit: async (id: string) => {
     try {
@@ -773,7 +775,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -787,7 +788,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // COMPLETE VISIT - AVEC INVALIDATION DE CACHE
+  // COMPLETE VISIT
   // ============================================================
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
     try {
@@ -826,7 +827,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -840,7 +840,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // VALIDATE VISIT - AVEC INVALIDATION DE CACHE
+  // VALIDATE VISIT - AVEC DÉCOMPTE SUR LE COMPTE
   // ============================================================
   validateVisit: async (id: string) => {
     try {
@@ -853,7 +853,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       const { data: visit, error: fetchError } = await supabase
         .from('visites')
-        .select('status, patient_id')
+        .select('status, user_id')
         .eq('id', id)
         .single();
 
@@ -878,7 +878,25 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
+      // ✅ DÉCOMPTE SUR LE COMPTE (user_id)
+      const { data: subscription, error: subError } = await supabase
+        .from('abonnements')
+        .select('id, remaining_visits, used_visits, total_visits, user_id')
+        .eq('user_id', visit.user_id)   // ✅ LIÉ AU COMPTE
+        .eq('status', 'actif')
+        .maybeSingle();
+
+      if (subscription && !subError && subscription.remaining_visits > 0) {
+        await supabase
+          .from('abonnements')
+          .update({
+            used_visits: subscription.used_visits + 1,
+            remaining_visits: subscription.remaining_visits - 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', subscription.id);
+      }
+
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -892,7 +910,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // CANCEL VISIT - AVEC INVALIDATION DE CACHE
+  // CANCEL VISIT
   // ============================================================
   cancelVisit: async (id: string) => {
     try {
@@ -912,14 +930,19 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let canCancel = false;
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         canCancel = true;
-      } else if (profile?.role === 'family' && visit.patient_id) {
-        const { data: link } = await supabase
-          .from('patient_family_links')
-          .select('id')
-          .eq('family_id', user.id)
-          .eq('patient_id', visit.patient_id)
-          .maybeSingle();
-        canCancel = !!link;
+      } else if (profile?.role === 'family') {
+        // ✅ La famille peut annuler ses visites (personnelles ET patients)
+        if (visit.user_id === user.id) {
+          canCancel = true;
+        } else if (visit.patient_id) {
+          const { data: link } = await supabase
+            .from('patient_family_links')
+            .select('id')
+            .eq('family_id', user.id)
+            .eq('patient_id', visit.patient_id)
+            .maybeSingle();
+          canCancel = !!link;
+        }
       }
 
       if (!canCancel) {
@@ -942,7 +965,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -1064,9 +1086,5 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
-
-// ============================================================
-// EXPORT PAR DÉFAUT
-// ============================================================
 
 export default useVisitStore;
