@@ -22,17 +22,8 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
     registrations: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const { refreshAll, isRefreshing } = useRefreshableData({
-    onRefresh: fetchStats,
-    onError: (error) => toast.error('Erreur lors du rafraîchissement'),
-  });
 
-  const colors = propColors || getThemeColors('senior');
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
+  // ✅ DÉCLARER fetchStats AVANT de l'utiliser dans useRefreshableData
   const fetchStats = async () => {
     try {
       setIsLoading(true);
@@ -72,6 +63,18 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
       setIsLoading(false);
     }
   };
+
+  // ✅ MAINTENANT on peut utiliser fetchStats dans le hook
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchStats,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement'),
+  });
+
+  const colors = propColors || getThemeColors('senior');
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   if (isLoading) {
     return (
