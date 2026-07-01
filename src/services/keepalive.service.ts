@@ -5,21 +5,37 @@
  * Version améliorée avec gestion d'URL robuste
  */
 
+// ✅ CONSTANTE UNIQUE - Sans /api en double
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ✅ Fonction utilitaire pour normaliser les URLs
 const normalizeUrl = (base: string, endpoint: string): string => {
-  // Nettoyer le base URL
+  // Nettoyer le base URL (enlever les slashs en fin)
   let cleanBase = base.replace(/\/+$/, '');
   
-  // Nettoyer l'endpoint
+  // Nettoyer l'endpoint (enlever les slashs en début)
   let cleanEndpoint = endpoint.replace(/^\/+/, '');
   
-  // Si l'endpoint commence déjà par "api/", ne pas ajouter un deuxième "api"
+  // ✅ Si l'endpoint commence déjà par "api/", on le garde tel quel
   if (cleanEndpoint.startsWith('api/')) {
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
+  // ✅ Si le base contient déjà "api", on ne l'ajoute pas
+  if (cleanBase.includes('/api')) {
+    return `${cleanBase}/${cleanEndpoint}`;
+  }
+  
+  // ✅ Si l'endpoint est "health" ou "billing/health", on ajoute "api"
+  if (cleanEndpoint === 'health' || cleanEndpoint === 'billing/health') {
+    // Pour billing/health, on garde le chemin complet
+    if (cleanEndpoint === 'billing/health') {
+      return `${cleanBase}/${cleanEndpoint}`;
+    }
+    return `${cleanBase}/api/${cleanEndpoint}`;
+  }
+  
+  // ✅ Cas général
   return `${cleanBase}/${cleanEndpoint}`;
 };
 
@@ -41,12 +57,12 @@ class KeepAliveService {
   private pendingPings: Set<string> = new Set();
 
   private config: KeepAliveConfig = {
-    interval: 2.5 * 60 * 1000, // 2.5 minutes
+    interval: 3 * 60 * 1000, // 3 minutes
     endpoints: [
-      '/health',           // ✅ Pas de /api en double
-      '/api/health',       // ✅ Avec /api
-      '/billing/health',   // ✅ Avec /billing
-      '/api/offers',       // ✅ Avec /api
+      '/health',           // ✅ Test simple
+      '/api/health',       // ✅ Test avec /api
+      '/billing/health',   // ✅ Test billing
+      '/api/offers',       // ✅ Test offers
     ],
     enabled: true,
   };
@@ -57,7 +73,7 @@ class KeepAliveService {
     }
     console.log('📡 Keep-Alive Service initialisé');
     console.log(`📡 API_URL: ${API_URL}`);
-    console.log(`📡 Endpoints: ${this.config.endpoints.join(', ')}`);
+    console.log(`📡 Endpoints configurés: ${this.config.endpoints.join(', ')}`);
   }
 
   /**
@@ -79,7 +95,7 @@ class KeepAliveService {
     this.wakeUpAttempts = 0;
     this._isBackendAwake = false;
 
-    // Ping immédiat
+    // Ping immédiat pour réveiller le backend
     this.wakeUpBackend();
 
     // Puis ping régulier
@@ -91,17 +107,16 @@ class KeepAliveService {
   }
 
   /**
-   * Réveiller le backend - tentative agressive
+   * Réveiller le backend - tentative agressive avec plusieurs endpoints
    */
   private async wakeUpBackend() {
     console.log('🌙 [Wake-Up] Tentative de réveil du backend...');
     
     // ✅ Ordre des endpoints : les plus légers d'abord
-    const endpoints = ['/health', '/api/health', '/billing/health'];
+    const wakeEndpoints = ['/health', '/api/health', '/billing/health'];
     
-    for (const endpoint of endpoints) {
+    for (const endpoint of wakeEndpoints) {
       try {
-        // ✅ Utilisation de normalizeUrl
         const url = normalizeUrl(API_URL, endpoint);
         console.log(`🌙 [Wake-Up] Tentative sur ${url}`);
         
@@ -180,6 +195,8 @@ class KeepAliveService {
     try {
       // ✅ Utilisation de normalizeUrl pour éviter le double /api
       const url = normalizeUrl(API_URL, endpoint);
+      
+      console.log(`📡 Ping: ${url}`);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -280,7 +297,7 @@ class KeepAliveService {
   }
 }
 
-// ✅ Singleton
+// ✅ Singleton avec configuration
 export const keepAliveService = new KeepAliveService({
   enabled: true,
   interval: 3 * 60 * 1000, // 3 minutes
@@ -292,23 +309,27 @@ export const keepAliveService = new KeepAliveService({
   ],
 });
 
-// ✅ Initialisation - avec vérification
+// ✅ Initialisation
 export const initKeepAlive = () => {
   console.log('🚀 Initialisation Keep-Alive');
   
-  // ✅ Vérifier que l'URL est correcte
+  // ✅ Afficher les URLs qui seront utilisées
   console.log(`📡 API_URL: ${API_URL}`);
-  console.log(`📡 Exemple URL: ${normalizeUrl(API_URL, '/health')}`);
+  console.log(`📡 Exemples d'URLs générées:`);
+  console.log(`   - /health → ${normalizeUrl(API_URL, '/health')}`);
+  console.log(`   - /api/health → ${normalizeUrl(API_URL, '/api/health')}`);
+  console.log(`   - /billing/health → ${normalizeUrl(API_URL, '/billing/health')}`);
+  console.log(`   - /api/offers → ${normalizeUrl(API_URL, '/api/offers')}`);
   
   keepAliveService.start();
   
-  // Ping après 1 seconde
+  // Ping après 1 seconde pour réveiller immédiatement
   setTimeout(() => {
     keepAliveService.pingNow();
   }, 1000);
 };
 
-// ✅ Préchargement du backend
+// ✅ Préchargement du backend (à appeler sur la page de login)
 export const preheatBackend = async (): Promise<boolean> => {
   console.log('🔥 Préchargement du backend...');
   return await keepAliveService.pingNow();
