@@ -21,11 +21,11 @@ class KeepAliveService {
   private isRunning = false;
   private wakeUpAttempts = 0;
   private maxWakeUpAttempts = 3;
-  private isBackendAwake = false;
+  private _isBackendAwake = false; // ✅ RENOMMÉ AVEC UNDERSCORE
   private pendingPings: Set<string> = new Set();
 
   private config: KeepAliveConfig = {
-    interval: 2.5 * 60 * 1000, // 2.5 minutes (plus agressif)
+    interval: 2.5 * 60 * 1000, // 2.5 minutes
     endpoints: [
       '/health',
       '/api/health',
@@ -58,7 +58,7 @@ class KeepAliveService {
     console.log('🔄 Démarrage du service Keep-Alive (immédiat)...');
     this.isRunning = true;
     this.wakeUpAttempts = 0;
-    this.isBackendAwake = false;
+    this._isBackendAwake = false;
 
     // ✅ PING IMMÉDIAT - Réveille le backend
     this.wakeUpBackend();
@@ -77,7 +77,6 @@ class KeepAliveService {
   private async wakeUpBackend() {
     console.log('🌙 [Wake-Up] Tentative de réveil du backend...');
     
-    // Ping tous les endpoints en parallèle
     const endpoints = ['/health', '/api/health', '/billing/health', '/api/offers'];
     
     for (const endpoint of endpoints) {
@@ -99,7 +98,7 @@ class KeepAliveService {
 
         if (response.ok) {
           console.log(`✅ [Wake-Up] Backend réveillé via ${endpoint}`);
-          this.isBackendAwake = true;
+          this._isBackendAwake = true;
           this.wakeUpAttempts = 0;
           
           if (this.config.onWakeUp) {
@@ -129,7 +128,7 @@ class KeepAliveService {
   private async pingAll() {
     const timestamp = new Date().toISOString();
     
-    if (!this.isBackendAwake) {
+    if (!this._isBackendAwake) {
       console.log(`📡 [${timestamp}] Ping Keep-Alive (tentative de réveil)...`);
       await this.wakeUpBackend();
       return;
@@ -173,17 +172,17 @@ class KeepAliveService {
         if (this.config.onPing) {
           this.config.onPing(endpoint, response.status);
         }
-        this.isBackendAwake = true;
+        this._isBackendAwake = true;
       } else {
         console.warn(`⚠️ Ping: ${endpoint} (${response.status})`);
-        this.isBackendAwake = false;
+        this._isBackendAwake = false;
         if (this.config.onError) {
           this.config.onError(endpoint, { status: response.status });
         }
       }
     } catch (error) {
       console.warn(`⚠️ Ping échoué: ${endpoint}`, error);
-      this.isBackendAwake = false;
+      this._isBackendAwake = false;
       this.pendingPings.delete(endpoint);
       if (this.config.onError) {
         this.config.onError(endpoint, error);
@@ -200,7 +199,7 @@ class KeepAliveService {
       this.intervalId = null;
     }
     this.isRunning = false;
-    this.isBackendAwake = false;
+    this._isBackendAwake = false;
     console.log('⏹️ Keep-Alive arrêté');
   }
 
@@ -212,10 +211,10 @@ class KeepAliveService {
   }
 
   /**
-   * Vérifier si le backend est réveillé
+   * Vérifier si le backend est réveillé - PUBLIC
    */
   isBackendAwake(): boolean {
-    return this.isBackendAwake;
+    return this._isBackendAwake;
   }
 
   /**
@@ -242,7 +241,7 @@ class KeepAliveService {
   async pingNow(): Promise<boolean> {
     console.log('🔄 Ping manuel...');
     await this.wakeUpBackend();
-    return this.isBackendAwake;
+    return this._isBackendAwake;
   }
 }
 
