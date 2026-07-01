@@ -1,5 +1,6 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
- 
+// ✅ VERSION COMPLÈTE ET CORRIGÉE
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send,
@@ -1301,13 +1302,13 @@ const MessagesPage = () => {
             ) : (
               messages.map((message, index) => {
                 const isOwn = message.sender_id === currentUserId;
-                const showDate =
-                  index === 0 ||
+                
+                // ✅ Correction de l'affichage de la date
+                const prevMessage = messages[index - 1];
+                const currentDate = message.created_at ? formatDate(message.created_at) : '';
+                const prevDate = prevMessage?.created_at ? formatDate(prevMessage.created_at) : '';
+                const showDate = currentDate !== prevDate;
 
-                 const prevMessage = messages[index - 1];
-                 const currentDate = message.created_at ? formatDate(message.created_at) : '';
-                 const prevDate = prevMessage?.created_at ? formatDate(prevMessage.created_at) : '';
-                 const showDate = currentDate !== prevDate;
                 const isPinned = !!message.is_pinned;
                 const isImportant = !!message.is_important;
 
@@ -1319,7 +1320,7 @@ const MessagesPage = () => {
                           className="text-[10px] font-bold px-3 py-1 rounded-full border bg-white"
                           style={{ borderColor: colors.border, color: colors.text + '80' }}
                         >
-                          {formatDate(message.created_at)}
+                          {currentDate}
                         </span>
                       </div>
                     )}
