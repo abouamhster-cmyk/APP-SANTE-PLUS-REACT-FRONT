@@ -23,8 +23,9 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
-import { RatingModal } from '../components/RatingModal';
-import { VisitDetailsModal } from '../components/VisitDetailsModal';
+// ✅ Importer les modals transformés en pages
+import { RatingModal } from '@/features/journal/components/RatingModal';
+import { VisitDetailsModal } from '@/features/journal/components/VisitDetailsModal';
 import toast from 'react-hot-toast';
 
 const JournalPage = () => {
@@ -301,7 +302,7 @@ const JournalPage = () => {
         </section>
       )}
 
-      {/* MODALS */}
+      {/* ✅ MODALS - Maintenant en plein écran via les wrappers */}
       {showRatingModal && selectedVisit && (
         <RatingModal
           visit={selectedVisit}
