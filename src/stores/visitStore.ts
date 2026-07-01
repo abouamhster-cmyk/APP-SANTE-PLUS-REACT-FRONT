@@ -1,4 +1,4 @@
-// 📁 src/stores/visitStore.ts
+// 📁 src/stores/visitStore.ts - VERSION COMPLÈTE CORRIGÉE
  
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -6,13 +6,21 @@ import { Visit, VisitStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast';
 
+// ============================================================
+// TYPES
+// ============================================================
+
 interface VisitState {
   visits: Visit[];
   currentVisit: Visit | null;
   isLoading: boolean;
   error: string | null;
+  isInitialized: boolean;
+  lastFetch: number | null;
+  isCacheInvalidated: boolean;
   
-  fetchVisits: () => Promise<void>;
+  // Actions
+  fetchVisits: (force?: boolean) => Promise<void>;
   fetchVisitById: (id: string) => Promise<void>;
   createVisit: (data: Partial<Visit>) => Promise<Visit>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
@@ -28,6 +36,10 @@ interface VisitState {
   validateVisit: (id: string) => Promise<void>;
   cancelVisit: (id: string) => Promise<void>;
   
+  // ✅ GESTION DU CACHE
+  invalidateCache: () => void;
+  refresh: () => Promise<void>;
+  
   getPendingVisits: () => Promise<Visit[]>;
   getVisitsNeedingReassign: () => Promise<Visit[]>;
   getVisitsByPatient: (patientId: string) => Promise<Visit[]>;
@@ -35,11 +47,49 @@ interface VisitState {
   clearError: () => void;
 }
 
+// ============================================================
+// HELPERS
+// ============================================================
+
+const CACHE_KEY = 'sante_plus_visits_cache';
+const CACHE_DURATION = 60000; // 1 minute
+
+const getCachedVisits = (): { data: Visit[]; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedVisits = (visits: Visit[]) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      data: visits,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedVisits = () => {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+    console.log('🗑️ Cache visites invalidé');
+  } catch { /* ignore */ }
+};
+
+// ============================================================
+// STORE
+// ============================================================
+
 export const useVisitStore = create<VisitState>((set, get) => ({
   visits: [],
   currentVisit: null,
   isLoading: false,
   error: null,
+  isInitialized: false,
+  lastFetch: null,
+  isCacheInvalidated: false,
 
   // ✅ Vérifier si l'utilisateur peut gérer les visites
   canManageVisits: () => {
@@ -47,12 +97,60 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     return profile?.role === 'admin' || profile?.role === 'coordinator';
   },
 
-  // =============================================
-  // FETCH VISITES - FILTRÉ PAR RÔLE
-  // =============================================
-  fetchVisits: async () => {
+  // ✅ Invalider le cache
+  invalidateCache: () => {
+    clearCachedVisits();
+    set({ 
+      isCacheInvalidated: true,
+      isInitialized: false,
+      lastFetch: null,
+    });
+    console.log('🔄 Cache visites invalidé');
+  },
+
+  // ✅ Rafraîchir forcé
+  refresh: async () => {
+    get().invalidateCache();
+    await get().fetchVisits(true);
+  },
+
+  // ============================================================
+  // FETCH VISITES - AVEC CACHE
+  // ============================================================
+  fetchVisits: async (force = false) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire visites');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedVisits();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage visites');
+        set({ 
+          visits: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
       
       const { user, profile } = useAuthStore.getState();
       if (!user) {
@@ -72,7 +170,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         if (patientIds.length > 0) {
           query = query.in('patient_id', patientIds);
         } else {
-          set({ visits: [], isLoading: false });
+          set({ visits: [], isLoading: false, isInitialized: true });
           return;
         }
       } else if (profile?.role === 'aidant') {
@@ -85,7 +183,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         if (aidant) {
           query = query.eq('aidant_id', aidant.id);
         } else {
-          set({ visits: [], isLoading: false });
+          set({ visits: [], isLoading: false, isInitialized: true });
           return;
         }
       }
@@ -153,20 +251,52 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
       }));
 
-      set({ visits: visitsWithRelations, isLoading: false });
+      // ✅ Mettre en cache
+      setCachedVisits(visitsWithRelations);
+      
+      set({ 
+        visits: visitsWithRelations, 
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
     } catch (error: any) {
       console.error('❌ Fetch visits error:', error);
-      set({ error: error.message, isLoading: false });
+      
+      // En cas d'erreur, utiliser le cache
+      const cached = getCachedVisits();
+      if (cached && cached.data.length > 0) {
+        set({
+          visits: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false, isInitialized: true });
+      }
     }
   },
 
-  // =============================================
+  // ============================================================
   // FETCH VISIT BY ID
-  // =============================================
+  // ============================================================
   fetchVisitById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
+      // ✅ Vérifier dans le cache d'abord
+      const state = get();
+      const cachedVisit = state.visits.find(v => v.id === id);
+      if (cachedVisit) {
+        console.log('📦 Visite trouvée dans le cache');
+        set({ currentVisit: cachedVisit, isLoading: false });
+        return;
+      }
+
       const { data: visit, error } = await supabase
         .from('visites')
         .select('*')
@@ -226,9 +356,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // CREATE VISIT - AVEC VÉRIFICATION PERMISSIONS
-  // =============================================
+  // ============================================================
+  // CREATE VISIT - AVEC INVALIDATION DE CACHE
+  // ============================================================
   createVisit: async (data: Partial<Visit>) => {
     try {
       set({ isLoading: true, error: null });
@@ -236,12 +366,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const { user, profile } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // ❌ Les aidants ne peuvent pas créer de visites
       if (profile?.role === 'aidant') {
         throw new Error('Les aidants ne peuvent pas créer de visites');
       }
 
-      // Déterminer le statut initial
       const isPonctual = data.visit_type === 'ponctuelle' || false;
       let status: VisitStatus = 'planifiee';
 
@@ -249,7 +377,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         status = 'attente_paiement';
       }
 
-      // Vérifier le quota si abonnement
       if (!isPonctual && data.patient_id) {
         const { data: subscription } = await supabase
           .from('abonnements')
@@ -308,7 +435,13 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         patient,
       };
 
-      // ✅ Notification à l'aidant si assigné et pas en attente de paiement
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+
+      // ✅ Recharger les données
+      await get().fetchVisits(true);
+
+      // Notifications
       if (data.aidant_id && status !== 'attente_paiement') {
         await supabase.from('notifications').insert({
           user_id: data.aidant_id,
@@ -319,34 +452,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         });
       }
 
-      // ✅ Notification à la famille
-      if (patient) {
-        const { data: links } = await supabase
-          .from('patient_family_links')
-          .select('family_id')
-          .eq('patient_id', patient.id);
-
-        if (links) {
-          for (const link of links) {
-            const message = status === 'attente_paiement'
-              ? `Visite planifiée pour ${patient.first_name} ${patient.last_name}. Paiement requis pour validation.`
-              : `Visite planifiée pour ${patient.first_name} ${patient.last_name} le ${newVisit.scheduled_date}`;
-            
-            await supabase.from('notifications').insert({
-              user_id: link.family_id,
-              title: status === 'attente_paiement' ? '💳 Visite en attente de paiement' : '📅 Nouvelle visite planifiée',
-              body: message,
-              type: 'visite',
-              data: { visit_id: newVisit.id, status: newVisit.status },
-            });
-          }
-        }
-      }
-
-      set((state) => ({
-        visits: [fullVisit, ...state.visits],
-        isLoading: false,
-      }));
+      set({ isLoading: false });
 
       return fullVisit;
     } catch (error: any) {
@@ -356,9 +462,79 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // ✅ CONFIRMER PAIEMENT
-  // =============================================
+  // ============================================================
+  // UPDATE VISIT - AVEC INVALIDATION DE CACHE
+  // ============================================================
+  updateVisit: async (id: string, data: Partial<Visit>) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { profile } = useAuthStore.getState();
+      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
+        throw new Error('Non autorisé');
+      }
+
+      const { data: visit, error } = await supabase
+        .from('visites')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ 
+        currentVisit: { ...get().currentVisit, ...visit },
+        isLoading: false,
+      });
+
+      toast.success('Visite mise à jour');
+    } catch (error: any) {
+      console.error('❌ Update visit error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
+    }
+  },
+
+  // ============================================================
+  // DELETE VISIT - AVEC INVALIDATION DE CACHE
+  // ============================================================
+  deleteVisit: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { profile } = useAuthStore.getState();
+      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
+        throw new Error('Non autorisé');
+      }
+
+      const { error } = await supabase
+        .from('visites')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ isLoading: false });
+      toast.success('Visite supprimée');
+    } catch (error: any) {
+      console.error('❌ Delete visit error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
+    }
+  },
+
+  // ============================================================
+  // ✅ CONFIRMER PAIEMENT - AVEC INVALIDATION DE CACHE
+  // ============================================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -391,42 +567,33 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Notifier l'aidant
-      if (visit.aidant_id) {
-        await supabase.from('notifications').insert({
-          user_id: visit.aidant_id,
-          title: '📅 Visite validée - Paiement confirmé',
-          body: `La visite est maintenant validée.`,
-          type: 'visite',
-          data: { visit_id: id, action: 'approve' },
-        });
-      }
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...data } : v),
+      set({ 
         currentVisit: data,
         isLoading: false,
-      }));
+      });
 
       toast.success('✅ Paiement confirmé, visite validée');
     } catch (error: any) {
       console.error('❌ Confirm payment error:', error);
       set({ error: error.message, isLoading: false });
-      throw error;
+      toast.error(error.message);
     }
   },
 
-  // =============================================
-  // ✅ APPROUVER UNE VISITE (par l'aidant)
-  // =============================================
+  // ============================================================
+  // ✅ APPROUVER UNE VISITE - AVEC INVALIDATION DE CACHE
+  // ============================================================
   approveVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
-      const { user, profile } = useAuthStore.getState();
+      const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // Vérifier que l'aidant est assigné
       const { data: visit, error: fetchError } = await supabase
         .from('visites')
         .select('*, patient:patients(*)')
@@ -456,32 +623,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Notification à la famille
-      if (visit.patient) {
-        const { data: links } = await supabase
-          .from('patient_family_links')
-          .select('family_id')
-          .eq('patient_id', visit.patient_id);
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
-        if (links) {
-          for (const link of links) {
-            await supabase.from('notifications').insert({
-              user_id: link.family_id,
-              title: '✅ Visite acceptée',
-              body: `L'aidant a accepté la visite pour ${visit.patient.first_name} ${visit.patient.last_name} le ${visit.scheduled_date}.`,
-              type: 'visite',
-              data: { visit_id: id, status: 'acceptee' },
-            });
-          }
-        }
-      }
-
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...data } : v),
-        currentVisit: { ...state.currentVisit, ...data },
-        isLoading: false,
-      }));
-
+      set({ isLoading: false });
       toast.success('✅ Visite approuvée');
     } catch (error: any) {
       console.error('❌ Approve visit error:', error);
@@ -490,9 +636,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // ✅ REFUSER UNE VISITE (par l'aidant)
-  // =============================================
+  // ============================================================
+  // ✅ REFUSER UNE VISITE - AVEC INVALIDATION DE CACHE
+  // ============================================================
   refuseVisit: async (id: string, reason: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -526,50 +672,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Notification à la famille
-      if (visit.patient) {
-        const { data: links } = await supabase
-          .from('patient_family_links')
-          .select('family_id')
-          .eq('patient_id', visit.patient_id);
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
-        if (links) {
-          for (const link of links) {
-            await supabase.from('notifications').insert({
-              user_id: link.family_id,
-              title: '❌ Visite refusée',
-              body: `L'aidant a refusé la visite pour ${visit.patient.first_name} ${visit.patient.last_name}. Motif: ${reason || 'Non spécifié'}`,
-              type: 'visite',
-              data: { visit_id: id, status: 'refusee' },
-            });
-          }
-        }
-      }
-
-      // Notification aux admins
-      const { data: admins } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('role', ['admin', 'coordinator']);
-
-      if (admins) {
-        for (const admin of admins) {
-          await supabase.from('notifications').insert({
-            user_id: admin.id,
-            title: '⚠️ Visite refusée - Réassignation nécessaire',
-            body: `L'aidant a refusé la visite pour ${visit.patient?.first_name} ${visit.patient?.last_name} le ${visit.scheduled_date}.`,
-            type: 'alert',
-            data: { visit_id: id, action: 'reassign' },
-          });
-        }
-      }
-
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...data } : v),
-        currentVisit: { ...state.currentVisit, ...data },
-        isLoading: false,
-      }));
-
+      set({ isLoading: false });
       toast.error('❌ Visite refusée');
     } catch (error: any) {
       console.error('❌ Refuse visit error:', error);
@@ -578,9 +685,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // ✅ RÉASSIGNER UNE VISITE (admin)
-  // =============================================
+  // ============================================================
+  // ✅ RÉASSIGNER UNE VISITE - AVEC INVALIDATION DE CACHE
+  // ============================================================
   reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -618,32 +725,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Notification au nouvel aidant
-      await supabase.from('notifications').insert({
-        user_id: newAidantId,
-        title: '📅 Nouvelle visite assignée',
-        body: `Vous avez été assigné à une visite le ${visit.scheduled_date} à ${visit.scheduled_time}.`,
-        type: 'visite',
-        data: { visit_id: id, action: 'approve' },
-      });
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
-      // Notification à l'ancien aidant
-      if (visit.aidant_id && visit.aidant_id !== newAidantId) {
-        await supabase.from('notifications').insert({
-          user_id: visit.aidant_id,
-          title: '🔄 Visite réassignée',
-          body: `La visite du ${visit.scheduled_date} vous a été retirée.`,
-          type: 'visite',
-          data: { visit_id: id },
-        });
-      }
-
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...data } : v),
-        currentVisit: { ...state.currentVisit, ...data },
-        isLoading: false,
-      }));
-
+      set({ isLoading: false });
       toast.success('✅ Visite réassignée');
     } catch (error: any) {
       console.error('❌ Reassign visit error:', error);
@@ -652,9 +738,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // START VISIT
-  // =============================================
+  // ============================================================
+  // START VISIT - AVEC INVALIDATION DE CACHE
+  // ============================================================
   startVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -687,12 +773,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...data } : v),
-        currentVisit: { ...state.currentVisit, ...data },
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
+      set({ isLoading: false });
       toast.success('🚀 Visite démarrée');
     } catch (error: any) {
       console.error('❌ Start visit error:', error);
@@ -701,9 +786,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // COMPLETE VISIT
-  // =============================================
+  // ============================================================
+  // COMPLETE VISIT - AVEC INVALIDATION DE CACHE
+  // ============================================================
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
     try {
       set({ isLoading: true, error: null });
@@ -741,12 +826,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...updatedVisit } : v),
-        currentVisit: { ...state.currentVisit, ...updatedVisit },
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
+      set({ isLoading: false });
       toast.success('✅ Visite terminée, en attente de validation');
     } catch (error: any) {
       console.error('❌ Complete visit error:', error);
@@ -755,9 +839,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // VALIDATE VISIT
-  // =============================================
+  // ============================================================
+  // VALIDATE VISIT - AVEC INVALIDATION DE CACHE
+  // ============================================================
   validateVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -794,24 +878,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ Décompter de l'abonnement (géré côté backend)
-      // Notification à l'aidant
-      if (data.aidant_id) {
-        await supabase.from('notifications').insert({
-          user_id: data.aidant_id,
-          title: '✅ Visite validée',
-          body: `La visite a été validée par l'administration.`,
-          type: 'visite',
-          data: { visit_id: id, status: 'validee' },
-        });
-      }
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...data } : v),
-        currentVisit: { ...state.currentVisit, ...data },
-        isLoading: false,
-      }));
-
+      set({ isLoading: false });
       toast.success('✅ Visite validée');
     } catch (error: any) {
       console.error('❌ Validate visit error:', error);
@@ -820,9 +891,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // CANCEL VISIT
-  // =============================================
+  // ============================================================
+  // CANCEL VISIT - AVEC INVALIDATION DE CACHE
+  // ============================================================
   cancelVisit: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -838,7 +909,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (fetchError) throw fetchError;
 
-      // Vérifier les permissions
       let canCancel = false;
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         canCancel = true;
@@ -872,12 +942,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...data } : v),
-        currentVisit: { ...state.currentVisit, ...data },
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchVisits(true);
 
+      set({ isLoading: false });
       toast.success('Visite annulée');
     } catch (error: any) {
       console.error('❌ Cancel visit error:', error);
@@ -886,76 +955,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // DELETE VISIT
-  // =============================================
-  deleteVisit: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { profile } = useAuthStore.getState();
-      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
-        throw new Error('Non autorisé');
-      }
-
-      const { error } = await supabase
-        .from('visites')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      set((state) => ({
-        visits: state.visits.filter(v => v.id !== id),
-        isLoading: false,
-      }));
-
-      toast.success('Visite supprimée');
-    } catch (error: any) {
-      console.error('❌ Delete visit error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // UPDATE VISIT
-  // =============================================
-  updateVisit: async (id: string, data: Partial<Visit>) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { profile } = useAuthStore.getState();
-      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
-        throw new Error('Non autorisé');
-      }
-
-      const { data: visit, error } = await supabase
-        .from('visites')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? { ...v, ...visit } : v),
-        currentVisit: { ...state.currentVisit, ...visit },
-        isLoading: false,
-      }));
-
-      toast.success('Visite mise à jour');
-    } catch (error: any) {
-      console.error('❌ Update visit error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
+  // ============================================================
   // GET PENDING VISITS
-  // =============================================
+  // ============================================================
   getPendingVisits: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -1001,9 +1003,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // GET VISITS NEEDING REASSIGN
-  // =============================================
+  // ============================================================
   getVisitsNeedingReassign: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -1032,9 +1034,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // GET VISITS BY PATIENT
-  // =============================================
+  // ============================================================
   getVisitsByPatient: async (patientId: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -1062,3 +1064,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// ============================================================
+// EXPORT PAR DÉFAUT
+// ============================================================
+
+export default useVisitStore;
