@@ -43,6 +43,11 @@ import { getGreeting } from '@/utils/helpers';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 
+// ✅ IMPORTER le hook de rafraîchissement
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+// ✅ IMPORTER le bouton de rafraîchissement
+import { RefreshButton } from '@/components/ui/RefreshButton';
+
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { PatientCard } from '@/components/patients/PatientCard';
@@ -159,6 +164,18 @@ const DashboardPage = () => {
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  // ✅ UTILISER le hook de rafraîchissement
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: async () => {
+      await Promise.all([
+        fetchPatients(true),
+        fetchVisits(),
+        fetchOrders(),
+      ]);
+    },
+    onError: (error) => toast.error('Erreur lors du rafraîchissement du tableau de bord'),
+  });
 
   // ✅ Charger les données au montage
   useEffect(() => {
@@ -284,7 +301,7 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       {/* ========================================== */}
-      {/* HERO - Bannière adaptée au rôle */}
+      {/* HERO - Bannière adaptée au rôle avec bouton de rafraîchissement */}
       {/* ========================================== */}
       <section
         className="relative overflow-hidden rounded-3xl min-h-[190px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
@@ -316,7 +333,16 @@ const DashboardPage = () => {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2.5 shrink-0 self-start md:self-end mt-2 md:mt-0">
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start md:self-end mt-2 md:mt-0">
+              {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
+              <RefreshButton 
+                size="sm" 
+                showText={false}
+                onRefresh={() => {
+                  toast.success('🔄 Tableau de bord actualisé');
+                }}
+              />
+
               <button
                 onClick={() => navigate('/app/visits')}
                 className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg"
