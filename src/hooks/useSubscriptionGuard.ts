@@ -42,14 +42,14 @@ export const useSubscriptionGuard = () => {
 
     const checkSubscription = async () => {
       try {
-        // Récupérer l'abonnement le plus récent
+        // ✅ Récupérer l'abonnement le plus récent du compte (user_id)
         const { data: subscriptions, error } = await supabase
           .from('abonnements')
           .select(`
             *,
             offre:offres(*)
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', user.id)   // ✅ LIÉ AU COMPTE
           .order('created_at', { ascending: false })
           .limit(1);
 
