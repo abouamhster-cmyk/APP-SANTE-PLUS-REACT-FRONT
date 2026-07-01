@@ -13,6 +13,9 @@ interface CreatePaymentData {
   email?: string | null;
   is_ponctual?: boolean;
   order_data?: any;
+  patient_id?: string | null;      // ✅ NOUVEAU - optionnel
+  target_type?: 'personal' | 'patient'; // ✅ NOUVEAU
+  target_name?: string;            // ✅ NOUVEAU
 }
 
 // =============================================
@@ -23,7 +26,6 @@ const SUBSCRIPTIONS_CACHE_KEY = 'sante_plus_subscriptions_cache';
 const PAYMENTS_CACHE_KEY = 'sante_plus_payments_cache';
 const CACHE_DURATION = 60000; // 1 minute
 
-// Subscriptions cache
 const getCachedSubscriptions = (): { data: Subscription[]; timestamp: number } | null => {
   try {
     const cached = localStorage.getItem(SUBSCRIPTIONS_CACHE_KEY);
@@ -48,7 +50,6 @@ const clearCachedSubscriptions = () => {
   } catch { /* ignore */ }
 };
 
-// Payments cache
 const getCachedPayments = (): { data: Payment[]; timestamp: number } | null => {
   try {
     const cached = localStorage.getItem(PAYMENTS_CACHE_KEY);
@@ -93,15 +94,12 @@ interface PaymentState {
   subscribeToOffer: (offreId: string, patientId?: string) => Promise<Subscription>;
   cancelSubscription: (subscriptionId: string) => Promise<void>;
   
-  // ✅ GESTION DU CACHE
   invalidateCache: () => void;
   refresh: () => Promise<void>;
-  
   clearError: () => void;
 }
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const usePaymentStore = create<PaymentState>((set, get) => ({
   subscriptions: [],
@@ -112,7 +110,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   lastFetch: null,
   isCacheInvalidated: false,
 
-  // ✅ Invalider le cache
   invalidateCache: () => {
     clearCachedSubscriptions();
     clearCachedPayments();
@@ -124,7 +121,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
     console.log('🔄 Cache paiements invalidé');
   },
 
-  // ✅ Rafraîchir forcé
   refresh: async () => {
     get().invalidateCache();
     await Promise.all([
@@ -178,6 +174,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         return;
       }
 
+      // ✅ Récupérer les abonnements du compte (user_id)
       const { data, error } = await supabase
         .from('abonnements')
         .select(`
@@ -191,7 +188,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
 
       const subscriptions = data || [];
 
-      // ✅ Mettre en cache
       setCachedSubscriptions(subscriptions);
       
       set({
@@ -293,7 +289,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
 
       const payments = paymentsWithUser || [];
 
-      // ✅ Mettre en cache
       setCachedPayments(payments);
       
       set({
@@ -327,7 +322,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE PAYMENT - AVEC INVALIDATION DE CACHE
+  // CREATE PAYMENT - AVEC NOUVEAUX CHAMPS
   // =============================================
   createPayment: async (data: CreatePaymentData) => {
     try {
@@ -354,9 +349,16 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
 
       const isPonctual = data.is_ponctual || false;
 
+      // ✅ NOUVEAUX CHAMPS
+      const patientId = data.patient_id || null;
+      const targetType = data.target_type || (patientId ? 'patient' : 'personal');
+      const targetName = data.target_name || profile?.full_name || user.email || 'Client';
+
       console.log('📤 Envoi paiement avec is_ponctual:', isPonctual);
       console.log('📤 Envoi paiement avec abonnement_id:', data.abonnement_id);
-      console.log('📤 Envoi paiement avec order_data:', data.order_data);
+      console.log('📤 Envoi paiement avec patient_id:', patientId);
+      console.log('📤 Envoi paiement avec target_type:', targetType);
+      console.log('📤 Envoi paiement avec target_name:', targetName);
 
       const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
         method: 'POST',
@@ -376,6 +378,9 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           user_id: user.id,
           is_ponctual: isPonctual,
           order_data: data.order_data || null,
+          patient_id: patientId,       // ✅ NOUVEAU
+          target_type: targetType,     // ✅ NOUVEAU
+          target_name: targetName,     // ✅ NOUVEAU
         }),
       });
 
@@ -391,7 +396,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         throw new Error("Le lien de paiement n'a pas été généré");
       }
 
-      // Enregistrer le paiement
+      // ✅ Enregistrer le paiement avec les métadonnées complètes
       const { data: payment, error: dbError } = await supabase
         .from('paiements')
         .insert({
@@ -408,6 +413,9 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
             payment_url: paymentUrl,
             is_ponctual: isPonctual,
             order_data: data.order_data || null,
+            patient_id: patientId,
+            target_type: targetType,
+            target_name: targetName,
           },
         })
         .select()
@@ -417,7 +425,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         console.warn('⚠️ Erreur sauvegarde paiement:', dbError);
       }
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await Promise.all([
         get().fetchSubscriptions(true),
@@ -440,7 +447,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE PONCTUAL PAYMENT - AVEC INVALIDATION DE CACHE
+  // CREATE PONCTUAL PAYMENT
   // =============================================
   createPonctualPayment: async (data: { amount: number; description: string; orderId?: string }) => {
     try {
@@ -525,7 +532,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         paymentWithUser = { ...payment, user: profileData };
       }
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await Promise.all([
         get().fetchSubscriptions(true),
@@ -548,7 +554,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // SUBSCRIBE TO OFFER - AVEC INVALIDATION DE CACHE
+  // SUBSCRIBE TO OFFER - patient_id OPTIONNEL
   // =============================================
   subscribeToOffer: async (offreId: string, patientId?: string) => {
     try {
@@ -588,21 +594,28 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           break;
       }
 
+      // ✅ patient_id est optionnel
+      const subscriptionData: any = {
+        user_id: user.id,
+        offre_id: offreId,
+        status: 'en_attente',
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0],
+        auto_renew: true,
+        total_visits: offre.total_visits || offre.visits_per_month || 0,
+        remaining_visits: offre.total_visits || offre.visits_per_month || 0,
+        total_orders: offre.total_orders || 0,
+        remaining_orders: offre.total_orders || 0,
+      };
+
+      // ✅ patient_id n'est ajouté que s'il est fourni
+      if (patientId) {
+        subscriptionData.patient_id = patientId;
+      }
+
       const { data: subscription, error } = await supabase
         .from('abonnements')
-        .insert({
-          user_id: user.id,
-          patient_id: patientId || null,
-          offre_id: offreId,
-          status: 'en_attente',
-          start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          auto_renew: true,
-          total_visits: offre.total_visits || offre.visits_per_month || 0,
-          remaining_visits: offre.total_visits || offre.visits_per_month || 0,
-          total_orders: offre.total_orders || 0,
-          remaining_orders: offre.total_orders || 0,
-        })
+        .insert(subscriptionData)
         .select(`
           *,
           offre:offres(*)
@@ -621,7 +634,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         },
       });
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchSubscriptions(true);
 
@@ -639,7 +651,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // CANCEL SUBSCRIPTION - AVEC INVALIDATION DE CACHE
+  // CANCEL SUBSCRIPTION
   // =============================================
   cancelSubscription: async (subscriptionId: string) => {
     try {
@@ -668,7 +680,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         });
       }
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchSubscriptions(true);
 
