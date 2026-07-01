@@ -1,5 +1,3 @@
-// 📁 src/components/ui/LoadingSpinner.tsx
-
 import { useAuthStore } from '@/stores/authStore';
 import { getLogoByRole } from '@/lib/constants';
 import { cn } from '@/utils/helpers';
@@ -21,10 +19,10 @@ export const LoadingSpinner = ({
   const logoConfig = getLogoByRole(role, profile?.patient_category);
 
   const sizes = {
-    sm: 'w-14 h-14',
-    md: 'w-20 h-20',
-    lg: 'w-28 h-28',
-    xl: 'w-36 h-36',
+    sm: 'w-16 h-16',
+    md: 'w-24 h-24',
+    lg: 'w-32 h-32',
+    xl: 'w-40 h-40',
   };
 
   const textSizes = {
@@ -34,46 +32,49 @@ export const LoadingSpinner = ({
     xl: 'text-xl',
   };
 
-  const spinner = (
-    <div className={cn('flex flex-col items-center justify-center', className)}>
+  const borderWidth = {
+    sm: '2px',
+    md: '3px',
+    lg: '4px',
+    xl: '5px',
+  };
+
+  const spinnerContent = (
+    <div className={cn('text-center', className)}>
       
-      {/* SPINNER */}
-      <div className={cn('relative', sizes[size])}>
+      {/* Spinner */}
+      <div className={cn('relative mx-auto mb-5', sizes[size])}>
         
-        {/* ring principal */}
+        {/* Cercle animé */}
         <div
           className="absolute inset-0 rounded-full animate-spin"
           style={{
-            border: '3px solid rgba(0,0,0,0.08)',
-            borderTopColor: 'var(--color-primary, #1a4a3a)',
+            border: `${borderWidth[size]} solid var(--color-primary, #1a4a3a)`,
+            borderTopColor: 'transparent',
+            borderRightColor: 'transparent',
           }}
         />
 
-        {/* ring secondaire (luxe effect) */}
-        <div
-          className="absolute inset-1 rounded-full animate-spin"
-          style={{
-            border: '2px solid transparent',
-            borderTopColor: 'var(--color-primary, #1a4a3a)',
-            animationDuration: '1.8s',
-            opacity: 0.5,
-          }}
-        />
+        {/* 💎 Cercle interne premium */}
+        <div className="absolute inset-2 rounded-full bg-white shadow-inner flex items-center justify-center">
+          
+          {/* 🟢 Logo parfaitement circulaire */}
+          <div className="w-3/4 h-3/4 rounded-full overflow-hidden flex items-center justify-center bg-white">
+            
+            <img
+              src={logoConfig.icon}
+              alt="Santé Plus"
+              className="w-full h-full object-cover"
+            />
+          </div>
 
-        {/* LOGO */}
-        <div className="absolute inset-3 flex items-center justify-center">
-          <img
-            src={logoConfig.icon}
-            alt="logo"
-            className="w-full h-full object-contain opacity-90"
-          />
         </div>
       </div>
 
-      {/* TEXT */}
+      {/* Texte */}
       {text && (
         <p
-          className={cn('mt-4 font-medium tracking-tight', textSizes[size])}
+          className={cn('font-medium tracking-wide', textSizes[size])}
           style={{ color: 'var(--color-text, #2d2d2d)' }}
         >
           {text}
@@ -87,16 +88,15 @@ export const LoadingSpinner = ({
       <div
         className="fixed inset-0 z-[9999] flex items-center justify-center"
         style={{
-          background: 'rgba(245, 240, 232, 0.85)',
-          backdropFilter: 'blur(6px)',
+          background: 'var(--color-background, #f5f0e8)',
         }}
       >
-        {spinner}
+        {spinnerContent}
       </div>
     );
   }
 
-  return spinner;
+  return spinnerContent;
 };
 
 export default LoadingSpinner;
