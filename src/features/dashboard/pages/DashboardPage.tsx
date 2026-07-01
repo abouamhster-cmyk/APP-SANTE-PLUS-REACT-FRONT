@@ -347,49 +347,6 @@ const DashboardPage = () => {
         </div>
       </section>
 
-      {isFamily && !hasProches && (
-        <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="flex-1 text-center md:text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-3" style={{ background: colors.primary + '10', color: colors.primary }}>
-                <Compass size={14} />
-                Découvrez nos services
-              </div>
-              <h2 className="text-xl md:text-2xl font-extrabold" style={{ color: colors.text }}>
-                🌱 Bienvenue dans votre espace
-              </h2>
-              <p className="text-sm mt-2 max-w-lg" style={{ color: colors.textLight }}>
-                Vous pouvez consulter nos offres d'accompagnement, planifier des visites 
-                ou passer des commandes. Si vous le souhaitez, vous pouvez également ajouter un proche.
-              </p>
-              <div className="flex flex-wrap gap-3 mt-4 justify-center md:justify-start">
-                <button
-                  onClick={() => navigate('/app/billing')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.97] shadow-sm"
-                  style={{ background: colors.primary }}
-                >
-                  <CreditCard size={16} />
-                  Voir les offres
-                </button>
-                <button
-                  onClick={() => navigate('/app/patients')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all hover:bg-gray-50 border active:scale-[0.97]"
-                  style={{ borderColor: colors.border, color: colors.text }}
-                >
-                  <UserPlus size={16} />
-                  Ajouter un proche (optionnel)
-                </button>
-              </div>
-            </div>
-            <div className="flex-shrink-0">
-              <div className="w-24 h-24 md:w-32 md:h-32 rounded-3xl flex items-center justify-center transform rotate-3 hover:rotate-0 transition-transform duration-300" style={{ background: colors.primary + '08' }}>
-                <Compass size={40} style={{ color: colors.primary }} />
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {isFamily && (
           <>
