@@ -1303,8 +1303,11 @@ const MessagesPage = () => {
                 const isOwn = message.sender_id === currentUserId;
                 const showDate =
                   index === 0 ||
-                  formatDate(message.created_at) !== formatDate(messages[index - 1]?.created_at);
 
+                 const prevMessage = messages[index - 1];
+                 const currentDate = message.created_at ? formatDate(message.created_at) : '';
+                 const prevDate = prevMessage?.created_at ? formatDate(prevMessage.created_at) : '';
+                 const showDate = currentDate !== prevDate;
                 const isPinned = !!message.is_pinned;
                 const isImportant = !!message.is_important;
 
