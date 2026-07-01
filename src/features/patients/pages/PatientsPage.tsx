@@ -25,6 +25,10 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { PatientModal } from '../components/PatientModal';
+// ✅ IMPORTER le hook de rafraîchissement
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+// ✅ IMPORTER le bouton de rafraîchissement
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -44,7 +48,17 @@ const PatientsPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  const { patients, isLoading, fetchPatients, deletePatient, canManagePatients, syncAidantPatients } = usePatientStore();
+  const { 
+    patients, 
+    isLoading, 
+    fetchPatients, 
+    deletePatient, 
+    canManagePatients, 
+    syncAidantPatients,
+    // ✅ Ajouter ces méthodes si elles existent, sinon on utilise fetchPatients
+    refresh,
+    invalidateCache,
+  } = usePatientStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -56,6 +70,18 @@ const PatientsPage = () => {
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
   const canManage = canManagePatients();
+
+  // ✅ UTILISER le hook de rafraîchissement
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: async () => {
+      if (isAidant) {
+        await syncAidantPatients();
+      } else {
+        await fetchPatients(true); // Force refresh
+      }
+    },
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des patients'),
+  });
 
   // ✅ CHARGEMENT INITIAL + SYNC POUR AIDANT
   useEffect(() => {
@@ -110,7 +136,12 @@ const PatientsPage = () => {
     try {
       await deletePatient(id);
       toast.success(`${singular.charAt(0).toUpperCase() + singular.slice(1)} supprimé`);
-      fetchPatients();
+      // ✅ Recharger après suppression
+      if (isAidant) {
+        await syncAidantPatients();
+      } else {
+        await fetchPatients(true);
+      }
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || `Erreur lors de la suppression`);
@@ -141,7 +172,7 @@ const PatientsPage = () => {
     if (isAidant) {
       syncAidantPatients();
     } else {
-      fetchPatients();
+      fetchPatients(true); // Force refresh
     }
     setIsModalOpen(false);
     toast.success(
@@ -243,7 +274,7 @@ const PatientsPage = () => {
     <div className="max-w-5xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
       
       {/* ========================================== */}
-      {/* HEADER */}
+      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       {/* ========================================== */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
@@ -263,23 +294,39 @@ const PatientsPage = () => {
             </p>
           </div>
 
-          {canManage && (
-            <button
-              onClick={handleAdd}
-              className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white transition hover:opacity-90 shrink-0 flex items-center gap-1.5"
-              style={{ background: colors.primary }}
-            >
-              <UserPlus size={14} />
-              {add}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
+            <RefreshButton 
+              size="sm" 
+              showText={false}
+              onRefresh={() => {
+                if (isAidant) {
+                  syncAidantPatients();
+                } else {
+                  fetchPatients(true);
+                }
+                toast.success('🔄 Patients actualisés');
+              }}
+            />
 
-          {isAidant && !canManage && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-amber-50 border border-amber-200">
-              <ShieldAlert size={16} className="text-amber-500" />
-              <span className="text-xs text-amber-600">Lecture seule</span>
-            </div>
-          )}
+            {canManage && (
+              <button
+                onClick={handleAdd}
+                className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white transition hover:opacity-90 shrink-0 flex items-center gap-1.5"
+                style={{ background: colors.primary }}
+              >
+                <UserPlus size={14} />
+                {add}
+              </button>
+            )}
+
+            {isAidant && !canManage && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-amber-50 border border-amber-200">
+                <ShieldAlert size={16} className="text-amber-500" />
+                <span className="text-xs text-amber-600">Lecture seule</span>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
