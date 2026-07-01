@@ -7,6 +7,7 @@ export const useKeepAlive = () => {
   const [isActive, setIsActive] = useState(keepAliveService.isActive());
   const [lastPing, setLastPing] = useState<Date | null>(null);
   const [pingStatus, setPingStatus] = useState<'ok' | 'error' | 'pending'>('pending');
+  // ✅ Utiliser la méthode publique isBackendAwake()
   const [isBackendAwake, setIsBackendAwake] = useState(keepAliveService.isBackendAwake());
 
   useEffect(() => {
@@ -17,13 +18,15 @@ export const useKeepAlive = () => {
 
     // Mettre à jour l'état
     setIsActive(keepAliveService.isActive());
+    // ✅ Utiliser la méthode publique
     setIsBackendAwake(keepAliveService.isBackendAwake());
 
     // Callbacks pour suivre les pings
     const onPing = (endpoint: string, status: number) => {
       setLastPing(new Date());
       setPingStatus(status >= 200 && status < 300 ? 'ok' : 'error');
-      setIsBackendAwake(status >= 200 && status < 300);
+      // ✅ Utiliser la méthode publique
+      setIsBackendAwake(keepAliveService.isBackendAwake());
     };
 
     const onError = (endpoint: string, error: any) => {
@@ -46,6 +49,7 @@ export const useKeepAlive = () => {
 
     // Vérifier l'état toutes les 10 secondes
     const interval = setInterval(() => {
+      // ✅ Utiliser la méthode publique
       setIsBackendAwake(keepAliveService.isBackendAwake());
     }, 10000);
 
