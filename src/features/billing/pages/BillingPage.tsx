@@ -149,22 +149,22 @@ const BillingPage = () => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif');
   };
 
-  const openPayment = (offer: Offer) => {
-    if (offer.category === 'ponctuelle') {
-      setSelectedOffer(offer);
-      setIsPaymentOpen(true);
-      return;
-    }
-
-    if (hasActiveSubscription) {
-      toast.error('Vous avez déjà un abonnement actif');
-      return;
-    }
-
+ const openPayment = (offer: Offer) => {
+  if (offer.category === 'ponctuelle' || offer.type === 'ponctuelle') {
     setSelectedOffer(offer);
     setIsPaymentOpen(true);
-  };
+    return;
+  }
 
+  if (hasActiveSubscription) {
+    toast.error('Vous avez déjà un abonnement actif');
+    return;
+  }
+
+  setSelectedOffer(offer);
+  setIsPaymentOpen(true);
+};
+  
   const handlePaymentSuccess = async () => {
     await fetchSubscriptions();
     await fetchPayments();
@@ -393,6 +393,8 @@ const BillingPage = () => {
         }}
         offer={selectedOffer}
         onSuccess={handlePaymentSuccess}
+        orderData={null} // ✅ Pour les offres ponctuelles, pas besoin de orderData
+        forcePonctual={selectedOffer?.category === 'ponctuelle' || selectedOffer?.type === 'ponctuelle'}
       />
 
       {showDayPicker && selectedSubscription && (
