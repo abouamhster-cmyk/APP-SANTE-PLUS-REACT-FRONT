@@ -308,9 +308,6 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ThemeProvider>
-          {/* ✅ INDICATEUR KEEP-ALIVE */}
-          <KeepAliveIndicator showLabel={false} position="bottom-right" />
-
           <Routes>
             {/* ============================================================
                 ROUTES PUBLIQUES
