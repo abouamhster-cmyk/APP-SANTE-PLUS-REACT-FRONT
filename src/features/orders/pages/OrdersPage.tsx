@@ -23,6 +23,10 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
+// ✅ IMPORTER le hook de rafraîchissement
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+// ✅ IMPORTER le bouton de rafraîchissement
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import toast from 'react-hot-toast';
 
 // ✅ FILTRES AVEC NOUVEAUX STATUTS
@@ -56,6 +60,12 @@ const OrdersPage = () => {
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  // ✅ UTILISER le hook de rafraîchissement
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchOrders,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des commandes'),
+  });
 
   useEffect(() => {
     fetchOrders();
@@ -112,9 +122,8 @@ const OrdersPage = () => {
 
       toast.success(statusMessages[status] || `Commande ${status}`);
 
-      setTimeout(async () => {
-        await fetchOrders();
-      }, 500);
+      // ✅ Recharger après mise à jour
+      await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur mise à jour:', error);
       toast.error(error?.message || 'Erreur lors de la mise à jour');
@@ -130,6 +139,7 @@ const OrdersPage = () => {
     try {
       await takeOrder(id);
       toast.success('✅ Commande prise en charge');
+      // ✅ Recharger après prise de commande
       await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
@@ -174,7 +184,7 @@ const OrdersPage = () => {
 
   return (
     <div className="w-full max-w-full overflow-hidden space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
+      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <section className="w-full bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -201,16 +211,28 @@ const OrdersPage = () => {
             </p>
           </div>
 
-          {isFamily && (
-            <button
-              onClick={() => navigate('/app/orders/create')}
-              className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold text-sm"
-              style={{ background: colors.primary }}
-            >
-              <Plus size={16} />
-              Nouvelle
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
+            <RefreshButton 
+              size="sm" 
+              showText={false}
+              onRefresh={() => {
+                fetchOrders();
+                toast.success('🔄 Commandes actualisées');
+              }}
+            />
+
+            {isFamily && (
+              <button
+                onClick={() => navigate('/app/orders/create')}
+                className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold text-sm"
+                style={{ background: colors.primary }}
+              >
+                <Plus size={16} />
+                Nouvelle
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
