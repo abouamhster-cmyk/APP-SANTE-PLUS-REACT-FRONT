@@ -19,7 +19,7 @@ const ASSIGNMENT_TYPES = [
   { 
     value: 'permanente', 
     label: '📌 Permanente', 
-    description: 'L\'aidant suit le patient sur le long terme',
+    description: "L'aidant suit le patient sur le long terme",
     icon: '📌'
   },
   { 
@@ -49,18 +49,17 @@ export const AssignAidantModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const { assignAidant } = useAidantCatalogStore();
 
-  // ✅ NOUVEAU : option "Pour moi"
+  // ✅ Option "Pour moi"
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('patient');
 
   if (!isOpen) return null;
 
- 
   const handleSubmit = async () => {
     if (targetType === 'patient' && !selectedPatientId) {
       toast.error('Veuillez sélectionner un proche');
       return;
     }
-  
+
     setIsLoading(true);
     try {
       // ✅ patientId = null si targetType === 'personal'
@@ -81,7 +80,6 @@ export const AssignAidantModal = ({
   };
 
   const remainingSlots = Math.max(0, (aidant.max_assignments || 4) - (aidant.active_assignments || 0));
-
   const hasPatients = patients.length > 0;
 
   return (
@@ -151,7 +149,7 @@ export const AssignAidantModal = ({
             </div>
           </div>
 
-          {/* ✅ NOUVEAU : Choix du destinataire */}
+          {/* ✅ Choix du destinataire */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
               <User size={14} className="inline mr-1" />
