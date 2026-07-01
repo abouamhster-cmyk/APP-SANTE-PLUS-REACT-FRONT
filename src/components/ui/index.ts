@@ -14,5 +14,4 @@ export { default as InfoRowDefault } from './InfoRow';
 export { default as LoadingSpinnerDefault } from './LoadingSpinner';
 export { default as LogoDefault } from './Logo';
 
-export { default as ModalDefault } from './Modal';
-
+ 
