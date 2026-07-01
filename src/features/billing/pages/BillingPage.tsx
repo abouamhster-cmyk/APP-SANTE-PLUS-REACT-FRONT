@@ -149,21 +149,27 @@ const BillingPage = () => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif');
   };
 
- const openPayment = (offer: Offer) => {
-  if (offer.category === 'ponctuelle' || offer.type === 'ponctuelle') {
-    setSelectedOffer(offer);
-    setIsPaymentOpen(true);
-    return;
-  }
+    const openPayment = (offer: Offer) => {
+      // ✅ Si c'est une offre ponctuelle
+      if (offer.category === 'ponctuelle' || offer.type === 'ponctuelle') {
+        setSelectedOffer(offer);
+        // ✅ orderData = null pour les paiements directs sans commande
+        setPendingOrderData(null);
+        setIsPaymentOpen(true);
+        return;
+      }
+    
+      if (hasActiveSubscription) {
+        toast.error('Vous avez déjà un abonnement actif');
+        return;
+      }
+    
+      setSelectedOffer(offer);
+      // ✅ orderData = null pour les abonnements
+      setPendingOrderData(null);
+      setIsPaymentOpen(true);
+    };
 
-  if (hasActiveSubscription) {
-    toast.error('Vous avez déjà un abonnement actif');
-    return;
-  }
-
-  setSelectedOffer(offer);
-  setIsPaymentOpen(true);
-};
   
   const handlePaymentSuccess = async () => {
     await fetchSubscriptions();
@@ -385,17 +391,18 @@ const BillingPage = () => {
       </section>
 
       {/* MODALS */}
-      <PaymentModal
-        isOpen={isPaymentOpen}
-        onClose={() => {
-          setIsPaymentOpen(false);
-          setSelectedOffer(null);
-        }}
-        offer={selectedOffer}
-        onSuccess={handlePaymentSuccess}
-        orderData={null} // ✅ Pour les offres ponctuelles, pas besoin de orderData
-        forcePonctual={selectedOffer?.category === 'ponctuelle' || selectedOffer?.type === 'ponctuelle'}
-      />
+        <PaymentModal
+          isOpen={isPaymentOpen}
+          onClose={() => {
+            setIsPaymentOpen(false);
+            setSelectedOffer(null);
+            setPendingOrderData(null);
+          }}
+          offer={selectedOffer}
+          onSuccess={handlePaymentSuccess}
+          orderData={pendingOrderData}
+          forcePonctual={selectedOffer?.category === 'ponctuelle' || selectedOffer?.type === 'ponctuelle'}
+        />
 
       {showDayPicker && selectedSubscription && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
