@@ -1,6 +1,6 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ------
- 
+// ✅ VERSION COMPLÈTE CORRIGÉE
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send,
@@ -80,6 +80,30 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 type TimeoutId = ReturnType<typeof setTimeout>;
 
 // ============================================================
+// FONCTIONS UTILITAIRES EXTERNES (hors composant)
+// ============================================================
+
+// ✅ Formatage sécurisé des dates - version robuste
+const formatDateSafe = (date: string | null | undefined): string => {
+  if (!date) return '';
+  try {
+    return formatDate(date);
+  } catch {
+    return '';
+  }
+};
+
+// ✅ Formatage sécurisé des heures - version robuste
+const formatTimeSafe = (time: string | null | undefined): string => {
+  if (!time) return '';
+  try {
+    return formatTime(time);
+  } catch {
+    return '';
+  }
+};
+
+// ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
 
@@ -144,30 +168,9 @@ const MessagesPage = () => {
   const isFamilyRole = isFamily;
 
   // ============================================================
-  // FONCTIONS UTILITAIRES SÉCURISÉES (définies en premier)
+  // SCROLL TO BOTTOM
   // ============================================================
 
-  // ✅ Formatage sécurisé des dates
-  const formatDateSafe = (date: string | null | undefined): string => {
-    if (!date) return '';
-    try {
-      return formatDate(date);
-    } catch {
-      return '';
-    }
-  };
-
-  // ✅ Formatage sécurisé des heures
-  const formatTimeSafe = (time: string | null | undefined): string => {
-    if (!time) return '';
-    try {
-      return formatTime(time);
-    } catch {
-      return '';
-    }
-  };
-
-  // ✅ Scroll to bottom
   const scrollToBottom = useCallback((smooth = true) => {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({
