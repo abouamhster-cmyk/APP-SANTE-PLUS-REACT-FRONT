@@ -5,17 +5,85 @@ import { supabase } from '@/lib/supabase';
 import { JournalEntry, JournalStats } from '@/types';
 import { useAuthStore } from './authStore';
 
+// =============================================
+// HELPERS DE CACHE
+// =============================================
+
+const JOURNAL_ENTRIES_CACHE_KEY = 'sante_plus_journal_entries_cache';
+const JOURNAL_STATS_CACHE_KEY = 'sante_plus_journal_stats_cache';
+const CACHE_DURATION = 60000; // 1 minute
+
+const getCachedEntries = (): { data: JournalEntry[]; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(JOURNAL_ENTRIES_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedEntries = (entries: JournalEntry[]) => {
+  try {
+    localStorage.setItem(JOURNAL_ENTRIES_CACHE_KEY, JSON.stringify({
+      data: entries,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedEntries = () => {
+  try {
+    localStorage.removeItem(JOURNAL_ENTRIES_CACHE_KEY);
+    console.log('🗑️ Cache journal entries invalidé');
+  } catch { /* ignore */ }
+};
+
+const getCachedStats = (): { data: JournalStats; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(JOURNAL_STATS_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedStats = (stats: JournalStats) => {
+  try {
+    localStorage.setItem(JOURNAL_STATS_CACHE_KEY, JSON.stringify({
+      data: stats,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedStats = () => {
+  try {
+    localStorage.removeItem(JOURNAL_STATS_CACHE_KEY);
+    console.log('🗑️ Cache journal stats invalidé');
+  } catch { /* ignore */ }
+};
+
+// =============================================
+// STORE
+// =============================================
+
 interface JournalState {
   entries: JournalEntry[];
   stats: JournalStats | null;
   isLoading: boolean;
   error: string | null;
+  isInitialized: boolean;
+  lastFetch: number | null;
+  isCacheInvalidated: boolean;
   
-  fetchEntries: (patientId?: string) => Promise<void>;
-  fetchStats: (patientId?: string) => Promise<void>;
+  fetchEntries: (force?: boolean, patientId?: string) => Promise<void>;
+  fetchStats: (force?: boolean, patientId?: string) => Promise<void>;
   addRating: (visitId: string, rating: number, feedback: string) => Promise<void>;
   getEntriesByDate: (date: string) => JournalEntry[];
   getEntriesByWeek: () => { week: string; entries: JournalEntry[] }[];
+  
+  // ✅ GESTION DU CACHE
+  invalidateCache: () => void;
+  refresh: () => Promise<void>;
+  
   clearError: () => void;
 }
 
@@ -24,14 +92,75 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   stats: null,
   isLoading: false,
   error: null,
+  isInitialized: false,
+  lastFetch: null,
+  isCacheInvalidated: false,
 
-  fetchEntries: async (patientId?: string) => {
+  // ✅ Invalider le cache
+  invalidateCache: () => {
+    clearCachedEntries();
+    clearCachedStats();
+    set({ 
+      isCacheInvalidated: true,
+      isInitialized: false,
+      lastFetch: null,
+    });
+    console.log('🔄 Cache journal invalidé');
+  },
+
+  // ✅ Rafraîchir forcé
+  refresh: async () => {
+    get().invalidateCache();
+    await get().fetchEntries(true);
+    await get().fetchStats(true);
+  },
+
+  // =============================================
+  // FETCH ENTRIES - AVEC CACHE
+  // =============================================
+  fetchEntries: async (force = false, patientId?: string) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    // Si un patientId est fourni, on force le rafraîchissement
+    if (patientId) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire journal entries');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedEntries();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage journal entries');
+        set({ 
+          entries: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
       
       const { user, profile } = useAuthStore.getState();
       if (!user) {
-        set({ entries: [], isLoading: false });
+        set({ entries: [], isLoading: false, isInitialized: true });
         return;
       }
 
@@ -51,7 +180,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         if (patientIds.length > 0) {
           query = query.in('patient_id', patientIds);
         } else {
-          set({ entries: [], isLoading: false });
+          set({ entries: [], isLoading: false, isInitialized: true });
           return;
         }
       }
@@ -165,14 +294,75 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         };
       });
 
-      set({ entries, isLoading: false });
+      // ✅ Mettre en cache
+      setCachedEntries(entries);
+      
+      set({ 
+        entries, 
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
     } catch (error: any) {
       console.error('❌ Fetch journal entries error:', error);
-      set({ error: error.message, isLoading: false });
+      
+      // En cas d'erreur, utiliser le cache
+      const cached = getCachedEntries();
+      if (cached && cached.data.length > 0) {
+        set({
+          entries: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false, isInitialized: true });
+      }
     }
   },
 
-  fetchStats: async (patientId?: string) => {
+  // =============================================
+  // FETCH STATS - AVEC CACHE
+  // =============================================
+  fetchStats: async (force = false, patientId?: string) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    if (patientId) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire journal stats');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedStats();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage journal stats');
+        set({ 
+          stats: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
       const { entries } = get();
       
@@ -212,23 +402,48 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
+      const stats: JournalStats = {
+        total_visits: totalVisits,
+        validated_visits: validatedVisits,
+        pending_visits: pendingVisits,
+        average_rating: averageRating,
+        total_aidants: aidants.size,
+        visits_by_week: visitsByWeek,
+        actions_frequency: actionsFrequency,
+      };
+
+      // ✅ Mettre en cache
+      setCachedStats(stats);
+      
       set({
-        stats: {
-          total_visits: totalVisits,
-          validated_visits: validatedVisits,
-          pending_visits: pendingVisits,
-          average_rating: averageRating,
-          total_aidants: aidants.size,
-          visits_by_week: visitsByWeek,
-          actions_frequency: actionsFrequency,
-        },
+        stats,
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
       });
     } catch (error: any) {
       console.error('❌ Fetch stats error:', error);
-      set({ error: error.message });
+      
+      const cached = getCachedStats();
+      if (cached && cached.data) {
+        set({
+          stats: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false, isInitialized: true });
+      }
     }
   },
 
+  // =============================================
+  // ADD RATING - AVEC INVALIDATION DE CACHE
+  // =============================================
   addRating: async (visitId: string, rating: number, feedback: string) => {
     try {
       const { user } = useAuthStore.getState();
@@ -245,6 +460,12 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
       if (error) throw error;
 
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchEntries(true);
+      await get().fetchStats(true);
+
+      // Mise à jour locale immédiate
       set((state) => ({
         entries: state.entries.map(entry =>
           entry.visit_id === visitId
@@ -252,8 +473,6 @@ export const useJournalStore = create<JournalState>((set, get) => ({
             : entry
         ),
       }));
-
-      await get().fetchStats();
     } catch (error: any) {
       console.error('❌ Add rating error:', error);
       set({ error: error.message });
