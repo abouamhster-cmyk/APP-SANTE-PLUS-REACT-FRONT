@@ -9,7 +9,7 @@ interface KeepAliveIndicatorProps {
   className?: string;
   showLabel?: boolean;
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
-  showOnLogin?: boolean; // Afficher même sur la page de login
+  showOnLogin?: boolean;
 }
 
 export const KeepAliveIndicator = ({
@@ -23,12 +23,10 @@ export const KeepAliveIndicator = ({
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
-    // Afficher l'indicateur après 1.5 secondes (plus rapide)
     const timer = setTimeout(() => setIsVisible(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Vérifier si on est sur la page de login
   const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
 
   if (!isVisible) return null;
@@ -55,13 +53,6 @@ export const KeepAliveIndicator = ({
     return <Zap size={14} className="animate-pulse" />;
   };
 
-  const getStatusLabel = () => {
-    if (pingStatus === 'ok' && isBackendAwake) return '🟢 Connecté';
-    if (pingStatus === 'ok' && !isBackendAwake) return '🟡 Réveil en cours...';
-    if (pingStatus === 'error') return '🔴 Déconnecté';
-    return '🟡 Connexion...';
-  };
-
   return (
     <div
       className={cn(
@@ -79,7 +70,11 @@ export const KeepAliveIndicator = ({
         {getStatusIcon()}
       </span>
       {showLabel && (
-        <span>{getStatusLabel()}</span>
+        <span>
+          {pingStatus === 'ok' && isBackendAwake ? '🟢 Connecté' :
+           pingStatus === 'ok' && !isBackendAwake ? '🟡 Réveil en cours...' :
+           pingStatus === 'error' ? '🔴 Déconnecté' : '🟡 Connexion...'}
+        </span>
       )}
       {lastPing && showLabel && (
         <span className="text-[9px] text-gray-400 border-l border-gray-200 pl-2">
