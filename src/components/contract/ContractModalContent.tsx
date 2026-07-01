@@ -1,0 +1,266 @@
+// 📁 src/components/contract/ContractModalContent.tsx
+// 📌 Contenu du contrat (sans wrapper modal)
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Scale,
+  ChevronDown,
+  Clock,
+  FileText,
+  AlertTriangle,
+  ThumbsUp,
+  Loader2,
+  ArrowLeft,
+} from 'lucide-react';
+import { getThemeColors } from '@/lib/permissions';
+import { useAuthStore } from '@/stores/authStore';
+import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
+
+interface ContractModalContentProps {
+  contract: {
+    id: string;
+    title: string;
+    content: string;
+    version: string;
+    role: string;
+    summary?: string | null;
+    created_at?: string;
+  } | null;
+  onAccept: () => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}
+
+// =============================================
+// PROGRESS BAR
+// =============================================
+const ProgressBar = ({ progress }: { progress: number }) => {
+  const colors = getThemeColors('senior');
+  return (
+    <div className="w-full h-[2px] bg-black/5 rounded-full overflow-hidden">
+      <motion.div
+        className="h-full"
+        style={{ background: colors.primary }}
+        initial={{ width: 0 }}
+        animate={{ width: `${Math.min(progress, 100)}%` }}
+        transition={{ duration: 0.4 }}
+      />
+    </div>
+  );
+};
+
+export const ContractModalContent = ({
+  contract,
+  onAccept,
+  onCancel,
+  isLoading,
+}: ContractModalContentProps) => {
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [isChecked, setIsChecked] = useState(false);
+  const [readTime, setReadTime] = useState(0);
+  const [showSummary, setShowSummary] = useState(true);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  const colors = getThemeColors('senior');
+
+  const getRoleLabel = (role: string) => {
+    const roles: Record<string, { label: string; icon: string }> = {
+      family: { label: 'Famille', icon: '👨‍👩‍👦' },
+      aidant: { label: 'Aidant', icon: '🦸' },
+      coordinator: { label: 'Coordinateur', icon: '👔' },
+      admin: { label: 'Administrateur', icon: '👑' },
+    };
+    return roles[role] || { label: role, icon: '👤' };
+  };
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const isBottom =
+      Math.abs(target.scrollHeight - target.scrollTop - target.clientHeight) < 20;
+
+    if (isBottom) setScrolledToBottom(true);
+  }, []);
+
+  useEffect(() => {
+    if (!contract) return;
+
+    const interval = setInterval(() => {
+      setReadTime((prev) => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [contract]);
+
+  if (!contract) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <AlertTriangle size={40} className="text-gray-300 mb-4" />
+        <p className="text-gray-500">Contrat non disponible</p>
+      </div>
+    );
+  }
+
+  const roleInfo = getRoleLabel(contract.role);
+  const readMinutes = Math.floor(readTime / 60);
+  const readSeconds = readTime % 60;
+  const progress = scrolledToBottom ? 100 : Math.min((readTime / 15) * 100, 95);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* HEADER AVEC RETOUR */}
+      <div className="flex-shrink-0 pb-4 border-b" style={{ borderColor: colors.border }}>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onCancel}
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Retour"
+          >
+            <ArrowLeft size={22} className="text-gray-700" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: colors.primary + '10', color: colors.primary }}
+              >
+                <Scale size={18} />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold truncate" style={{ color: colors.text }}>
+                  {contract.title}
+                </h2>
+                <div className="flex items-center gap-2 text-[11px] opacity-60">
+                  <span>{roleInfo.icon} {roleInfo.label}</span>
+                  <span>•</span>
+                  <span>v{contract.version}</span>
+                  <span>•</span>
+                  <span>{readMinutes > 0 ? `${readMinutes}m` : ''}{readSeconds}s</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-3">
+          <ProgressBar progress={progress} />
+        </div>
+      </div>
+
+      {/* CONTENT */}
+      <div
+        ref={contentRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto py-4"
+        style={{ color: colors.text }}
+      >
+        {/* SUMMARY */}
+        {contract.summary && showSummary && (
+          <div className="mb-5 p-4 rounded-xl border border-black/5 bg-black/[0.02]">
+            <div className="flex gap-3">
+              <FileText size={18} style={{ color: colors.primary }} />
+              <div>
+                <p className="text-sm font-medium">Résumé</p>
+                <p className="text-sm opacity-70 mt-1">
+                  {contract.summary}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CONTENT - Rendu HTML sécurisé */}
+        <div
+          className="prose prose-sm max-w-none"
+          style={{
+            fontSize: '14.5px',
+            lineHeight: '1.7',
+            color: colors.text,
+          }}
+          dangerouslySetInnerHTML={{ __html: contract.content }}
+        />
+
+        {/* SCROLL INDICATOR */}
+        {!scrolledToBottom && (
+          <div className="text-center mt-6">
+            <div className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-full bg-black/5">
+              <ChevronDown size={14} />
+              Lire jusqu'en bas pour continuer
+            </div>
+          </div>
+        )}
+
+        {/* DONE */}
+        {scrolledToBottom && (
+          <motion.div
+            className="mt-6 text-center text-green-600 text-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            ✅ Contrat entièrement lu
+          </motion.div>
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <div className="flex-shrink-0 pt-4 border-t" style={{ borderColor: colors.border }}>
+        <div className="flex flex-col gap-4">
+          {/* CHECKBOX */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={(e) => setIsChecked(e.target.checked)}
+              disabled={!scrolledToBottom}
+              className="w-4 h-4 mt-1 rounded border border-black/20"
+              style={{ accentColor: colors.primary }}
+            />
+            <p className="text-sm">
+              <span className="font-medium">
+                J'accepte les conditions
+              </span>
+              <br />
+              <span className="text-xs opacity-60">
+                Vous confirmez avoir lu et compris le contrat.
+              </span>
+            </p>
+          </div>
+
+          {/* ACTIONS */}
+          <div className="flex gap-3">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-3 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition flex items-center justify-center gap-2"
+            >
+              <AlertTriangle size={16} />
+              Refuser
+            </button>
+            <button
+              onClick={onAccept}
+              disabled={!isChecked || !scrolledToBottom || isLoading}
+              className="flex-1 py-3 rounded-lg text-white font-medium transition-all duration-200 hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-40"
+              style={{
+                background: (!isChecked || !scrolledToBottom || isLoading)
+                  ? '#E5E7EB'
+                  : colors.primary,
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />
+                  Traitement...
+                </>
+              ) : (
+                <>
+                  <ThumbsUp size={16} />
+                  Accepter
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ContractModalContent;
