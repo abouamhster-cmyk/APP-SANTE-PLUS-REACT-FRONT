@@ -1,7 +1,9 @@
 // 📁 src/components/ui/InfoModal.tsx
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/utils/helpers';
 
 interface InfoModalProps {
   isOpen: boolean;
@@ -10,6 +12,7 @@ interface InfoModalProps {
   children: ReactNode;
   icon?: ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  className?: string;
 }
 
 export const InfoModal = ({
@@ -19,7 +22,37 @@ export const InfoModal = ({
   children,
   icon,
   maxWidth = 'lg',
+  className,
 }: InfoModalProps) => {
+  // ✅ Empêcher le scroll du body
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
+  // ✅ Fermer avec Echap
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const maxWidthClasses = {
@@ -37,47 +70,67 @@ export const InfoModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className={`bg-white rounded-3xl w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] overflow-hidden shadow-2xl`}>
-        {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b" style={{ borderColor: colors.border }}>
-          <div className="flex items-center gap-3 min-w-0">
-            {icon && (
-              <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-                style={{ background: colors.primary + '15', color: colors.primary }}
-              >
-                {icon}
-              </div>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="modal-overlay" onClick={onClose}>
+          <motion.div
+            className={cn(
+              'modal-card',
+              maxWidthClasses[maxWidth],
+              className
             )}
-            <h2 className="text-xl font-black truncate" style={{ color: colors.text }}>
-              {title}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition shrink-0"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <X size={22} />
-          </button>
-        </div>
+            {/* Header */}
+            <div className="modal-header" style={{ borderColor: colors.border }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {icon && (
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: colors.primary + '12', color: colors.primary }}
+                    >
+                      {icon}
+                    </div>
+                  )}
+                  <h2 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
+                    {title}
+                  </h2>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-xl hover:bg-gray-100 transition shrink-0 flex items-center justify-center"
+                  aria-label="Fermer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
 
-        {/* Content */}
-        <div className="p-5 overflow-y-auto max-h-[70vh] scrollbar-thin scrollbar-thumb-gray-200">
-          {children}
-        </div>
+            {/* Body */}
+            <div className="modal-body">
+              {children}
+            </div>
 
-        {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t p-4" style={{ borderColor: colors.border }}>
-          <button
-            onClick={onClose}
-            className="w-full py-3 rounded-xl font-bold transition hover:opacity-80"
-            style={{ background: colors.primary + '12', color: colors.primary }}
-          >
-            Fermer
-          </button>
+            {/* Footer */}
+            <div className="modal-footer" style={{ borderColor: colors.border }}>
+              <button
+                onClick={onClose}
+                className="w-full py-2.5 sm:py-3 rounded-xl font-bold transition hover:opacity-80 text-sm"
+                style={{ background: colors.primary + '12', color: colors.primary }}
+              >
+                Fermer
+              </button>
+            </div>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 };
+
+export default InfoModal;
