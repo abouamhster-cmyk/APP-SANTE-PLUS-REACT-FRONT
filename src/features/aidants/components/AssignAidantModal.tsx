@@ -54,16 +54,18 @@ export const AssignAidantModal = ({
 
   if (!isOpen) return null;
 
+ 
   const handleSubmit = async () => {
     if (targetType === 'patient' && !selectedPatientId) {
       toast.error('Veuillez sélectionner un proche');
       return;
     }
-
+  
     setIsLoading(true);
     try {
       // ✅ patientId = null si targetType === 'personal'
       const patientId = targetType === 'patient' ? selectedPatientId : null;
+      // ✅ assignAidant accepte maintenant string | null
       await assignAidant(aidant.id, patientId, assignmentType);
       onSuccess();
     } catch (error: any) {
