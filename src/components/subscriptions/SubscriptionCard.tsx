@@ -1,8 +1,8 @@
 // 📁 src/components/subscriptions/SubscriptionCard.tsx
-// 📌 Carte d'abonnement
+// 📌 Carte d'abonnement - LIÉE AU COMPTE
 
 import { useState } from 'react';
-import { Calendar, CheckCircle, XCircle, Clock, TrendingUp, Package, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, TrendingUp, Package, Calendar as CalendarIcon, User } from 'lucide-react';
 import { Subscription } from '@/types';
 import { formatDate } from '@/utils/helpers';
 import { getThemeColors } from '@/lib/permissions';
@@ -25,7 +25,7 @@ export const SubscriptionCard = ({
 }: SubscriptionCardProps) => {
   // ✅ Jargon dynamique selon le rôle
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
+    singular,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -39,13 +39,21 @@ export const SubscriptionCard = ({
   const isExpired = subscription.status === 'expire';
   const isPending = subscription.status === 'en_attente';
 
-  // ✅ Libellé dynamique pour le patient
+  // ✅ Libellé dynamique pour le patient (optionnel)
   const getPatientLabel = () => {
     if (isFamily) return 'Proche';
     if (isAidant) return 'Personne accompagnée';
     if (isAdminOrCoordinator) return 'Bénéficiaire';
     return 'Patient';
   };
+
+  // ✅ Déterminer si l'abonnement est lié à un patient ou personnel
+  const hasPatient = subscription.patient_id;
+  const targetType = hasPatient ? 'patient' : 'personal';
+  const targetLabel = hasPatient ? getPatientLabel() : 'Personnel';
+  const targetName = hasPatient 
+    ? `${subscription.patient?.first_name || ''} ${subscription.patient?.last_name || ''}` 
+    : subscription.user?.full_name || 'Compte';
 
   const progressVisits = subscription.total_visits > 0 
     ? (subscription.used_visits / subscription.total_visits) * 100 
@@ -79,6 +87,18 @@ export const SubscriptionCard = ({
           <p className="text-sm" style={{ color: colors.text + '60' }}>
             {getCategoryLabel(subscription.offre?.category || 'senior')}
           </p>
+          {/* ✅ Affichage du destinataire */}
+          <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: colors.text + '50' }}>
+            <User size={12} style={{ color: colors.primary }} />
+            <span>
+              {targetLabel}: {targetName || 'Non spécifié'}
+            </span>
+            {targetType === 'personal' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">
+                Personnel
+              </span>
+            )}
+          </div>
         </div>
         <p className="text-xl font-bold" style={{ color: colors.primary }}>
           {subscription.offre?.price?.toLocaleString()} FCFA
