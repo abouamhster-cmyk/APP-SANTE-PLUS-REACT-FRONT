@@ -5,7 +5,8 @@ import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { getThemeColors } from '@/lib/permissions';
-import { Loader2, CreditCard, ExternalLink } from 'lucide-react';
+import { getPonctualPrice } from '@/stores/visitStore';
+import { Loader2, CreditCard, ExternalLink, Calendar, Clock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface VisitPaymentModalProps {
@@ -27,12 +28,11 @@ export const VisitPaymentModal = ({
 
   const colors = getThemeColors('senior');
 
-  const amount = visit.duration_minutes <= 60 ? 7500 : 7500 * Math.ceil(visit.duration_minutes / 60);
+  const amount = getPonctualPrice(visit.duration_minutes || 60);
 
   const handlePayment = async () => {
     setIsLoading(true);
     try {
-      // ✅ Créer le paiement
       const result = await createPayment({
         amount,
         description: `Visite ponctuelle - ${visit.target_name || 'Personnel'}`,
@@ -48,6 +48,8 @@ export const VisitPaymentModal = ({
           duration_minutes: visit.duration_minutes,
           scheduled_date: visit.scheduled_date,
           scheduled_time: visit.scheduled_time,
+          target_type: visit.target_type || 'personal',
+          target_name: visit.target_name || 'Personnel',
         },
       });
 
@@ -58,8 +60,6 @@ export const VisitPaymentModal = ({
       }
 
       toast.success('Redirection vers FedaPay...');
-      
-      // ✅ Rediriger vers FedaPay
       window.location.href = paymentUrl;
     } catch (error: any) {
       console.error('❌ Payment error:', error);
@@ -99,11 +99,24 @@ export const VisitPaymentModal = ({
                 Visite ponctuelle
               </p>
               <p className="text-sm text-gray-500 mt-0.5">
-                {visit.target_name || 'Personnel'} • {visit.duration_minutes} min
+                {visit.target_name || 'Personnel'} • {visit.duration_minutes || 60} min
               </p>
-              <p className="text-xs text-gray-400 mt-1">
-                📅 {new Date(visit.scheduled_date).toLocaleDateString('fr-FR')} à {visit.scheduled_time}
-              </p>
+              <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                <span className="flex items-center gap-1">
+                  <Calendar size={12} />
+                  {new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock size={12} />
+                  {visit.scheduled_time}
+                </span>
+                {visit.target_type === 'patient' && visit.patient && (
+                  <span className="flex items-center gap-1">
+                    <User size={12} />
+                    {visit.patient.first_name}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -114,6 +127,9 @@ export const VisitPaymentModal = ({
             <p className="text-2xl font-black mt-1" style={{ color: colors.primary }}>
               {amount.toLocaleString()} FCFA
             </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              💳 Paiement unique sans engagement
+            </p>
           </div>
         </div>
 
@@ -123,7 +139,7 @@ export const VisitPaymentModal = ({
         >
           <p className="text-xs leading-relaxed text-gray-600">
             💡 Le paiement est requis pour planifier cette visite. 
-            Vous serez redirigé vers FedaPay pour finaliser le paiement.
+            Vous serez redirigé vers FedaPay pour finaliser le paiement en toute sécurité.
           </p>
         </div>
 
