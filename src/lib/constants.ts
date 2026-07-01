@@ -242,6 +242,52 @@ const MAMAN_OFFERS: Offer[] = [
 ];
 
 // =============================================
+// ⭐ PACKS CONFORT
+// =============================================
+
+const PACK_CONFORT_OFFERS: Offer[] = [
+  {
+    id: 'cfc4dd4c-5bf9-49e5-a28e-998cf92cff0b',
+    name: 'Pack Confort Mensuel',
+    price: 45000,
+    period: 'mois',
+    visitsPerWeek: null,
+    durationDays: 30,
+    features: ['Commandes illimitées', 'Support prioritaire', 'Suivi personnalisé'],
+    badge: '⭐ Populaire',
+    category: 'pack_confort',
+    total_visits: 0,
+    total_orders: 10,
+  },
+  {
+    id: 'ee102cda-2639-4c85-bc7c-9f57b83bf81a',
+    name: 'Pack Confort Trimestriel',
+    price: 120000,
+    period: 'trimestre',
+    visitsPerWeek: null,
+    durationDays: 90,
+    features: ['Commandes illimitées', 'Support prioritaire', 'Économie 10%'],
+    badge: '💰 Économie',
+    category: 'pack_confort',
+    total_visits: 0,
+    total_orders: 30,
+  },
+  {
+    id: '85818a8f-2674-4ea3-8d9a-211cf3c452f3',
+    name: 'Pack Confort Annuel',
+    price: 480000,
+    period: 'an',
+    visitsPerWeek: null,
+    durationDays: 365,
+    features: ['Commandes illimitées', 'Support prioritaire', 'Économie 20%', 'Accès prioritaire'],
+    badge: '💰 Meilleur rapport',
+    category: 'pack_confort',
+    total_visits: 0,
+    total_orders: 120,
+  },
+];
+
+// =============================================
 // ⚡ INTERVENTIONS PONCTUELLES
 // =============================================
 
@@ -281,6 +327,7 @@ const PONCTUAL_OFFERS: Offer[] = [
 export const PLANS: Record<string, Offer[]> = {
   senior: SENIOR_OFFERS,
   maman: MAMAN_OFFERS,
+  pack_confort: PACK_CONFORT_OFFERS,   
   ponctuelle: PONCTUAL_OFFERS,
 };
 
@@ -291,6 +338,7 @@ export const PLANS: Record<string, Offer[]> = {
 export const OFFERS: Record<OfferCategory, Offer[]> = {
   senior: SENIOR_OFFERS,
   maman_bebe: MAMAN_OFFERS,
+  pack_confort: PACK_CONFORT_OFFERS,   
   ponctuelle: PONCTUAL_OFFERS,
 };
 
@@ -303,7 +351,12 @@ export const getOffersByCategory = (category: OfferCategory): Offer[] => {
 };
 
 export const getAllOffers = (): Offer[] => {
-  return [...SENIOR_OFFERS, ...MAMAN_OFFERS, ...PONCTUAL_OFFERS];
+  return [
+    ...SENIOR_OFFERS,
+    ...MAMAN_OFFERS,
+    ...PACK_CONFORT_OFFERS,   
+    ...PONCTUAL_OFFERS,
+  ];
 };
 
 export const getOfferById = (id: string): Offer | undefined => {
