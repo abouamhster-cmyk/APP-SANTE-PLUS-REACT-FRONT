@@ -1,4 +1,4 @@
-// 📁 src/App.tsx
+ // 📁 src/App.tsx
 
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -13,6 +13,11 @@ import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
+
+// ✅ IMPORTER le service Keep-Alive
+import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
+// ✅ IMPORTER l'indicateur Keep-Alive
+import { KeepAliveIndicator } from '@/components/ui/KeepAliveIndicator';
 
 // ============================================================
 // AUTH PAGES
@@ -164,6 +169,7 @@ function App() {
   // ============================================================
   const hasInitialized = useRef(false);
   const hasLoadedOffers = useRef(false);
+  const keepAliveStarted = useRef(false);
 
   // ============================================================
   // EFFETS - GESTION DU RECHARGEMENT
@@ -216,6 +222,34 @@ function App() {
       mounted = false;
     };
   }, [initialize]);
+
+  // ============================================================
+  // ✅ EFFET - INITIALISATION KEEP-ALIVE
+  // ============================================================
+  useEffect(() => {
+    // Démarrer Keep-Alive seulement si authentifié et en production
+    if (isAuthenticated && isAuthInitialized && !keepAliveStarted.current) {
+      console.log('🚀 [App] Initialisation Keep-Alive après authentification');
+      keepAliveStarted.current = true;
+      
+      // Démarrer le service
+      initKeepAlive();
+      
+      // Vérifier que le service est actif
+      if (keepAliveService.isActive()) {
+        console.log('✅ Keep-Alive actif');
+      } else {
+        console.warn('⚠️ Keep-Alive non démarré');
+      }
+    }
+
+    // Arrêter Keep-Alive à la déconnexion
+    if (!isAuthenticated && isAuthInitialized && keepAliveStarted.current) {
+      console.log('🚪 [App] Déconnexion - Arrêt Keep-Alive');
+      keepAliveStarted.current = false;
+      keepAliveService.stop();
+    }
+  }, [isAuthenticated, isAuthInitialized]);
 
   // ============================================================
   // EFFETS - CHARGEMENT DES OFFRES
@@ -274,6 +308,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ThemeProvider>
+          {/* ✅ INDICATEUR KEEP-ALIVE */}
+          <KeepAliveIndicator showLabel={false} position="bottom-right" />
+
           <Routes>
             {/* ============================================================
                 ROUTES PUBLIQUES
