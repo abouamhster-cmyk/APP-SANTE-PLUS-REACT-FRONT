@@ -16,6 +16,7 @@ interface PatientState {
   error: string | null;
   isInitialized: boolean;
   lastFetch: number | null;
+  isCacheInvalidated: boolean;
   
   // Actions
   fetchPatients: (force?: boolean) => Promise<void>;
@@ -27,6 +28,8 @@ interface PatientState {
   clearError: () => void;
   syncAidantPatients: () => Promise<void>;
   reset: () => void;
+  invalidateCache: () => void;
+  refresh: () => Promise<void>;
 }
 
 // ============================================================
@@ -66,6 +69,7 @@ const setCachedPatients = (patients: Patient[]) => {
 const clearCachedPatients = () => {
   try {
     localStorage.removeItem(CACHE_KEY);
+    console.log('🗑️ Cache patients invalidé');
   } catch {
     // Ignorer
   }
@@ -82,14 +86,32 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   error: null,
   isInitialized: false,
   lastFetch: null,
+  isCacheInvalidated: false,
 
   canManagePatients: () => {
     const { profile } = useAuthStore.getState();
     return profile?.role === 'admin' || profile?.role === 'coordinator' || profile?.role === 'family';
   },
 
+  // ✅ Invalider le cache
+  invalidateCache: () => {
+    clearCachedPatients();
+    set({ 
+      isCacheInvalidated: true,
+      isInitialized: false,
+      lastFetch: null,
+    });
+    console.log('🔄 Cache patients invalidé');
+  },
+
+  // ✅ Rafraîchir forcé
+  refresh: async () => {
+    get().invalidateCache();
+    await get().fetchPatients(true);
+  },
+
   // ============================================================
-  // FETCH PATIENTS - VERSION PRODUCTION
+  // FETCH PATIENTS - AVEC FORCE REFRESH
   // ============================================================
   fetchPatients: async (force = false) => {
     const state = get();
@@ -98,6 +120,11 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     if (state.isLoading) {
       console.log('ℹ️ Déjà en cours de chargement, skip...');
       return;
+    }
+
+    // ✅ Si cache invalidé, forcer le rechargement
+    if (state.isCacheInvalidated) {
+      force = true;
     }
 
     // ✅ Si cache valide et pas forcé, utiliser le cache
@@ -115,18 +142,19 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           patients: cached.data, 
           isLoading: false, 
           isInitialized: true,
-          lastFetch: cached.timestamp 
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
         });
         return;
       }
     }
 
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
       
       const { user, profile } = useAuthStore.getState();
       
-      console.log('🔍 fetchPatients - Début');
+      console.log('🔍 fetchPatients - Début (force:', force, ')');
       console.log('🔍 User ID:', user?.id);
       console.log('🔍 Role:', profile?.role);
 
@@ -195,7 +223,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       else if (profile?.role === 'aidant') {
         console.log('🦸 Aidant - Récupération des patients assignés');
         
-        // Récupérer les patients via patient_family_links (l'aidant est dans family_id)
         const { data: links, error: linksError } = await supabase
           .from('patient_family_links')
           .select('patient_id')
@@ -251,6 +278,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         isInitialized: true,
         lastFetch: timestamp,
         error: null,
+        isCacheInvalidated: false,
       });
 
       console.log(`✅ ${patientsData.length} patients chargés avec succès`);
@@ -268,12 +296,14 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           isInitialized: true,
           lastFetch: cached.timestamp,
           error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
         });
       } else {
         set({ 
           error: error.message || 'Erreur lors du chargement des patients', 
           isLoading: false,
           isInitialized: true,
+          isCacheInvalidated: false,
         });
       }
     }
@@ -325,7 +355,15 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }
 
       console.log(`✅ ${patients?.length || 0} patients synchronisés`);
-      set({ patients: patients || [], isLoading: false });
+      
+      // ✅ Mettre à jour le cache
+      setCachedPatients(patients || []);
+      set({ 
+        patients: patients || [], 
+        isLoading: false,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
       
       return;
     } catch (error) {
@@ -407,7 +445,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // CREATE PATIENT
+  // CREATE PATIENT - AVEC INVALIDATION DE CACHE
   // ============================================================
   createPatient: async (data: Partial<Patient>) => {
     try {
@@ -450,15 +488,13 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           .eq('id', user.id);
       }
 
-      // ✅ Mettre à jour le cache
-      const state = get();
-      const updatedPatients = [patient, ...state.patients];
-      setCachedPatients(updatedPatients);
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
 
-      set((state) => ({
-        patients: updatedPatients,
-        isLoading: false,
-      }));
+      // ✅ Recharger les données
+      await get().fetchPatients(true);
+
+      set({ isLoading: false });
 
       return patient;
     } catch (error: any) {
@@ -469,7 +505,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // UPDATE PATIENT
+  // UPDATE PATIENT - AVEC INVALIDATION DE CACHE
   // ============================================================
   updatePatient: async (id: string, data: Partial<Patient>) => {
     try {
@@ -510,13 +546,13 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ Mettre à jour le cache
-      const state = get();
-      const updatedPatients = state.patients.map(p => p.id === id ? patient : p);
-      setCachedPatients(updatedPatients);
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+
+      // ✅ Recharger les données
+      await get().fetchPatients(true);
 
       set((state) => ({
-        patients: updatedPatients,
         currentPatient: patient,
         isLoading: false,
       }));
@@ -528,7 +564,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // DELETE PATIENT
+  // DELETE PATIENT - AVEC INVALIDATION DE CACHE
   // ============================================================
   deletePatient: async (id: string) => {
     try {
@@ -559,15 +595,13 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ Mettre à jour le cache
-      const state = get();
-      const updatedPatients = state.patients.filter(p => p.id !== id);
-      setCachedPatients(updatedPatients);
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
 
-      set((state) => ({
-        patients: updatedPatients,
-        isLoading: false,
-      }));
+      // ✅ Recharger les données
+      await get().fetchPatients(true);
+
+      set({ isLoading: false });
     } catch (error: any) {
       console.error('❌ Erreur suppression du proche:', error);
       set({ error: error.message, isLoading: false });
@@ -589,6 +623,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       error: null,
       isInitialized: false,
       lastFetch: null,
+      isCacheInvalidated: false,
     });
   },
 }));
@@ -597,7 +632,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 // LISTENER: Recharger les patients quand l'utilisateur change
 // ============================================================
 
-// Écouter les changements d'auth pour recharger les patients
 let previousUserId: string | null = null;
 
 supabase.auth.onAuthStateChange((event, session) => {
@@ -607,6 +641,9 @@ supabase.auth.onAuthStateChange((event, session) => {
     if (userId && userId !== previousUserId) {
       console.log('🔄 Auth changé, rechargement des patients...');
       previousUserId = userId;
+      
+      // ✅ Invalider le cache
+      usePatientStore.getState().invalidateCache();
       
       // Attendre que l'utilisateur soit complètement chargé
       setTimeout(() => {
@@ -623,7 +660,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 });
 
 // ============================================================
-// EXPORT PAR DÉFAUT (pour compatibilité)
+// EXPORT PAR DÉFAUT
 // ============================================================
 
 export default usePatientStore;
