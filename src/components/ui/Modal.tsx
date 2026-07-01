@@ -33,38 +33,25 @@ export const Modal = ({
   className,
 }: ModalProps) => {
   const modalRef = useRef<HTMLDivElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Empêcher le scroll du body
+  // 🔒 Lock scroll body
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
     } else {
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-    };
   }, [isOpen]);
 
-  // ✅ Fermer avec Echap
+  // ⌨️ ESC close
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
+  }, [onClose]);
 
-  // ✅ Tailles
   const maxWidthClasses = {
     sm: 'max-w-sm',
     md: 'max-w-md',
@@ -72,96 +59,80 @@ export const Modal = ({
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
     '3xl': 'max-w-3xl',
-    full: 'max-w-4xl',
-  };
-
-  const colors = {
-    primary: 'var(--color-primary, #1a4a3a)',
-    text: 'var(--color-text, #2d2d2d)',
-    border: 'var(--color-border, #e5e0d8)',
+    full: 'max-w-5xl',
   };
 
   if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <div className="modal-overlay" onClick={closeOnOverlayClick ? onClose : undefined}>
-          {/* Modal */}
-          <motion.div
-            ref={modalRef}
-            className={cn(
-              'modal-card',
-              maxWidthClasses[maxWidth],
-              className
-            )}
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* ============================================ */}
-            {/* HEADER - FIXE */}
-            {/* ============================================ */}
-            <div className="modal-header" style={{ borderColor: colors.border }}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  {icon && (
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: colors.primary + '12', color: colors.primary }}
-                    >
-                      {icon}
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <h2 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
-                      {title}
-                    </h2>
-                    {description && (
-                      <p className="text-xs truncate" style={{ color: colors.text + '50' }}>
-                        {description}
-                      </p>
-                    )}
+      <div
+        className="modal-overlay"
+        onClick={closeOnOverlayClick ? onClose : undefined}
+      >
+        <motion.div
+          ref={modalRef}
+          className={cn('modal-card', maxWidthClasses[maxWidth], className)}
+          initial={{ opacity: 0, y: 40, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.96 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* HEADER */}
+          <div className="modal-header">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {icon && (
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-black/5">
+                    {icon}
                   </div>
-                </div>
-                {showClose && (
-                  <button
-                    onClick={onClose}
-                    className="w-8 h-8 rounded-xl hover:bg-gray-100 transition shrink-0 flex items-center justify-center"
-                    aria-label="Fermer"
-                  >
-                    <X size={20} />
-                  </button>
                 )}
-              </div>
-            </div>
 
-            {/* ============================================ */}
-            {/* CONTENT - SCROLLABLE */}
-            {/* ============================================ */}
-            <div ref={bodyRef} className="modal-body">
-              {children}
-            </div>
-
-            {/* ============================================ */}
-            {/* FOOTER - FIXE */}
-            {/* ============================================ */}
-            {actions && (
-              <div className="modal-footer" style={{ borderColor: colors.border }}>
-                {actions}
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-semibold truncate">
+                    {title}
+                  </h2>
+                  {description && (
+                    <p className="text-xs text-black/50 truncate">
+                      {description}
+                    </p>
+                  )}
+                </div>
               </div>
-            )}
-          </motion.div>
-        </div>
-      )}
+
+              {showClose && (
+                <button
+                  onClick={onClose}
+                  className="w-9 h-9 rounded-full hover:bg-black/5 transition flex items-center justify-center"
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* BODY */}
+          <div className="modal-body">
+            {children}
+          </div>
+
+          {/* FOOTER */}
+          {actions && (
+            <div className="modal-footer">
+              {actions}
+            </div>
+          )}
+        </motion.div>
+      </div>
     </AnimatePresence>
   );
 };
 
+
+
 // =============================================
-// MODAL ACTIONS
+// ACTIONS
 // =============================================
 
 interface ModalActionsProps {
@@ -172,8 +143,6 @@ interface ModalActionsProps {
   isLoading?: boolean;
   confirmColor?: string;
   children?: ReactNode;
-  confirmIcon?: ReactNode;
-  className?: string;
 }
 
 export const ModalActions = ({
@@ -184,17 +153,9 @@ export const ModalActions = ({
   isLoading = false,
   confirmColor,
   children,
-  confirmIcon,
-  className,
 }: ModalActionsProps) => {
-  const colors = {
-    primary: 'var(--color-primary, #1a4a3a)',
-    border: 'var(--color-border, #e5e0d8)',
-    text: 'var(--color-text, #2d2d2d)',
-  };
-
   return (
-    <div className={cn('flex flex-col sm:flex-row gap-2.5', className)}>
+    <div className="flex flex-col sm:flex-row gap-2.5">
       {children ? (
         children
       ) : (
@@ -202,25 +163,23 @@ export const ModalActions = ({
           {onCancel && (
             <button
               onClick={onCancel}
-              disabled={isLoading}
-              className="flex-1 py-2.5 sm:py-3 rounded-xl font-medium border transition hover:bg-gray-50 disabled:opacity-50 text-sm"
-              style={{ borderColor: colors.border, color: colors.text }}
+              className="flex-1 py-3 rounded-xl border text-sm hover:bg-black/5 transition"
             >
               {cancelLabel}
             </button>
           )}
+
           {onConfirm && (
             <button
               onClick={onConfirm}
-              disabled={isLoading}
-              className="flex-1 py-2.5 sm:py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              style={{ background: confirmColor || colors.primary }}
+              className="flex-1 py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition hover:opacity-90"
+              style={{ background: confirmColor || '#1a4a3a' }}
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  {confirmIcon || <CheckCircle size={18} />}
+                  <CheckCircle size={18} />
                   {confirmLabel}
                 </>
               )}
@@ -232,8 +191,10 @@ export const ModalActions = ({
   );
 };
 
+
+
 // =============================================
-// MODAL WITH CONFIRM
+// CONFIRM MODAL
 // =============================================
 
 interface ModalWithConfirmProps {
@@ -242,10 +203,6 @@ interface ModalWithConfirmProps {
   onConfirm: () => void;
   title: string;
   message: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  isLoading?: boolean;
-  icon?: ReactNode;
   type?: 'info' | 'warning' | 'danger' | 'success';
 }
 
@@ -255,117 +212,40 @@ export const ModalWithConfirm = ({
   onConfirm,
   title,
   message,
-  confirmLabel = 'Confirmer',
-  cancelLabel = 'Annuler',
-  isLoading = false,
-  icon,
   type = 'info',
 }: ModalWithConfirmProps) => {
-  const colors = {
-    primary: 'var(--color-primary, #1a4a3a)',
-    text: 'var(--color-text, #2d2d2d)',
-    border: 'var(--color-border, #e5e0d8)',
-  };
+  const color = {
+    info: '#1a4a3a',
+    warning: '#FF9800',
+    danger: '#F44336',
+    success: '#4CAF50',
+  }[type];
 
-  const getTypeColor = () => {
-    switch (type) {
-      case 'warning': return '#FF9800';
-      case 'danger': return '#F44336';
-      case 'success': return '#4CAF50';
-      default: return colors.primary;
-    }
-  };
+  const icon = {
+    warning: <AlertCircle size={24} />,
+    danger: <AlertCircle size={24} />,
+    success: <CheckCircle size={24} />,
+    info: <AlertCircle size={24} />,
+  }[type];
 
-  const getTypeIcon = () => {
-    if (icon) return icon;
-    switch (type) {
-      case 'warning': return <AlertCircle size={24} />;
-      case 'danger': return <AlertCircle size={24} />;
-      case 'success': return <CheckCircle size={24} />;
-      default: return <AlertCircle size={24} />;
-    }
-  };
-
-  const typeColor = getTypeColor();
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={title}
-      icon={getTypeIcon()}
-      maxWidth="md"
-      actions={
-        <ModalActions
-          onCancel={onClose}
-          onConfirm={onConfirm}
-          cancelLabel={cancelLabel}
-          confirmLabel={confirmLabel}
-          isLoading={isLoading}
-          confirmColor={typeColor}
-        />
-      }
-    >
-      <div className="py-3 sm:py-4">
-        <p className="text-center text-sm sm:text-base" style={{ color: colors.text }}>
-          {message}
-        </p>
-      </div>
-    </Modal>
-  );
-};
-
-// =============================================
-// MODAL WITH FORM
-// =============================================
-
-interface ModalWithFormProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
-  title: string;
-  children: ReactNode;
-  icon?: ReactNode;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  isLoading?: boolean;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
-}
-
-export const ModalWithForm = ({
-  isOpen,
-  onClose,
-  onSubmit,
-  title,
-  children,
-  icon,
-  confirmLabel = 'Enregistrer',
-  cancelLabel = 'Annuler',
-  isLoading = false,
-  maxWidth = '2xl',
-}: ModalWithFormProps) => {
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={title}
       icon={icon}
-      maxWidth={maxWidth}
+      maxWidth="md"
       actions={
         <ModalActions
           onCancel={onClose}
-          onConfirm={() => {}}
-          confirmLabel={confirmLabel}
-          cancelLabel={cancelLabel}
-          isLoading={isLoading}
+          onConfirm={onConfirm}
+          confirmColor={color}
         />
       }
     >
-      <form id="modal-form" onSubmit={onSubmit} className="space-y-4">
-        {children}
-      </form>
+      <div className="py-4 text-center text-sm sm:text-base">
+        {message}
+      </div>
     </Modal>
   );
 };
-
-export default Modal;
