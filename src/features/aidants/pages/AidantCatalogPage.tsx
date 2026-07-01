@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, RefreshCw, UserPlus, Users } from 'lucide-react';
+import { Search, Filter, RefreshCw, UserPlus, Users, UserCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
@@ -63,11 +63,10 @@ const AidantCatalogPage = () => {
     );
   });
 
+  // ✅ HANDLE ASSIGN - MODIFIÉ POUR PERMETTRE L'ASSIGNATION PERSONNELLE
   const handleAssign = (aidant: AidantProfile) => {
-    if (patients.length === 0) {
-      toast.error('Vous devez d\'abord ajouter un proche');
-      return;
-    }
+    // ✅ Même sans patient, on ouvre le modal
+    // Le modal propose l'option "Personnel" ou "Patient"
     setSelectedAidant(aidant);
     setShowAssignModal(true);
   };
@@ -93,6 +92,9 @@ const AidantCatalogPage = () => {
     return null;
   }
 
+  // ✅ Afficher un message si aucun patient mais le modal gère l'option "Personnel"
+  const hasPatients = patients.length > 0;
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-24 sm:pb-10">
       {/* HEADER */}
@@ -115,6 +117,12 @@ const AidantCatalogPage = () => {
             <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
               {aidants.length} aidant{aidants.length > 1 ? 's' : ''} disponible{aidants.length > 1 ? 's' : ''}
               {assignments.length > 0 && ` • ${assignments.length} assignation${assignments.length > 1 ? 's' : ''} en cours`}
+              {!hasPatients && (
+                <span className="ml-2 text-amber-600 text-[10px] flex items-center gap-1">
+                  <UserCircle size={12} />
+                  Compte personnel - Assignation possible sans proche
+                </span>
+              )}
             </p>
           </div>
 
@@ -150,6 +158,22 @@ const AidantCatalogPage = () => {
             style={{ borderColor: colors.border, background: 'var(--color-background)' }}
           />
         </div>
+
+        {/* ✅ BANNER INFORMATIF POUR COMPTE PERSONNEL */}
+        {!hasPatients && (
+          <div className="mt-3 p-3 rounded-xl flex items-start gap-2" style={{ background: colors.primary + '08' }}>
+            <UserCircle size={16} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-medium" style={{ color: colors.text }}>
+                💡 Compte personnel
+              </p>
+              <p className="text-[10px]" style={{ color: colors.text + '60' }}>
+                Vous pouvez assigner un aidant directement à votre compte personnel,
+                sans avoir à créer un proche au préalable.
+              </p>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* FILTRES */}
@@ -186,6 +210,12 @@ const AidantCatalogPage = () => {
               ? 'Aucun aidant ne correspond à votre recherche.'
               : 'Revenez plus tard, de nouveaux aidants seront disponibles.'}
           </p>
+          {!searchTerm && (
+            <p className="text-[10px] text-gray-400 mt-2">
+              💡 Vous pouvez toujours assigner un aidant à votre compte personnel
+              même sans proche enregistré.
+            </p>
+          )}
         </section>
       )}
 
