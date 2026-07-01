@@ -49,6 +49,9 @@ export const PaymentModal = ({
   } = useTerminology();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [selectedTargetType, setSelectedTargetType] = useState<'personal' | 'patient'>('personal');
+  const [selectedTargetName, setSelectedTargetName] = useState<string>('');
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -79,6 +82,9 @@ export const PaymentModal = ({
   const amount = selectedOffer?.price || 50000;
   const planName = selectedOffer?.name || 'Abonnement Santé Plus';
   const visitsPerWeek = selectedOffer?.visitsPerWeek || selectedOffer?.visits_per_week || null;
+
+  // ✅ Déterminer si l'utilisateur a des patients
+  const hasPatients = orderData?.hasPatients || false;
 
   const getSubscriptionLabel = () => {
     if (isPonctual) return 'ponctuel';
@@ -165,6 +171,8 @@ export const PaymentModal = ({
         address: orderData.address || 'Adresse non spécifiée',
         items: orderData.items || [],
         prescription_url: orderData.prescription_url || null,
+        target_type: selectedTargetType,
+        target_name: selectedTargetName || profile?.full_name || 'Client',
       } : null;
 
       // ✅ CRITIQUE : abonnement_id = UUID de l'offre (ou null pour ponctuel)
@@ -172,6 +180,9 @@ export const PaymentModal = ({
       const subscriptionId = isPonctual ? null : offerId;
 
       console.log('📤 abonnement_id envoyé:', subscriptionId);
+      console.log('📤 target_type envoyé:', selectedTargetType);
+      console.log('📤 target_name envoyé:', selectedTargetName);
+      console.log('📤 patient_id envoyé:', orderData?.patient_id || null);
 
       const result = await createPayment({
         plan_id: offerId,
@@ -181,6 +192,9 @@ export const PaymentModal = ({
         email: profile?.email,
         is_ponctual: isPonctual,
         order_data: orderDataForBackend,
+        patient_id: orderData?.patient_id || null,
+        target_type: selectedTargetType,
+        target_name: selectedTargetName || profile?.full_name || 'Client',
       });
 
       const paymentUrl = result?.payment_url || result?.url || result?.checkout_url;
@@ -237,6 +251,53 @@ export const PaymentModal = ({
                       ? 'Vous allez être redirigé vers le checkout sécurisé FedaPay pour la personne accompagnée.'
                       : 'Vous allez être redirigé vers le checkout sécurisé FedaPay.'}
               </p>
+
+              {/* ✅ Si l'utilisateur a des patients et que ce n'est pas une offre ponctuelle, proposer le choix */}
+              {!isPonctual && orderData?.hasPatients && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Pour qui ?
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTargetType('personal');
+                        setSelectedTargetName(profile?.full_name || 'Personnel');
+                        setSelectedPatientId(null);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        selectedTargetType === 'personal'
+                          ? 'text-white'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                      style={{
+                        background: selectedTargetType === 'personal' ? colors.primary : '#f3f4f6',
+                      }}
+                    >
+                      👤 Personnel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedTargetType('patient');
+                        setSelectedTargetName(orderData?.patient_name || 'Patient');
+                        setSelectedPatientId(orderData?.patient_id || null);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        selectedTargetType === 'patient'
+                          ? 'text-white'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                      style={{
+                        background: selectedTargetType === 'patient' ? colors.primary : '#f3f4f6',
+                      }}
+                    >
+                      👨‍👦 Patient
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
@@ -281,6 +342,14 @@ export const PaymentModal = ({
                 {visitsPerWeek && !isPonctual && (
                   <p className="text-xs text-gray-400 mt-1">
                     📅 {visitsPerWeek} visite{visitsPerWeek > 1 ? 's' : ''} par semaine
+                  </p>
+                )}
+
+                {/* ✅ Afficher le destinataire */}
+                {!isPonctual && orderData?.hasPatients && (
+                  <p className="text-xs font-medium mt-1" style={{ color: colors.primary }}>
+                    Destinataire: {selectedTargetType === 'personal' ? '👤 Personnel' : '👨‍👦 Patient'}
+                    {selectedTargetName && ` (${selectedTargetName})`}
                   </p>
                 )}
               </div>
