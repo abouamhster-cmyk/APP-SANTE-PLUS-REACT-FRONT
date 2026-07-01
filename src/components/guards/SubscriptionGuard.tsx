@@ -1,11 +1,11 @@
 // 📁 src/components/guards/SubscriptionGuard.tsx
- 
+
 import { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { ShieldAlert, CreditCard, ArrowRight, Calendar, ShoppingBag, AlertCircle } from 'lucide-react';
+import { ShieldAlert, CreditCard, ArrowRight, Calendar, ShoppingBag, AlertCircle, User } from 'lucide-react';
 
 interface SubscriptionGuardProps {
   children: ReactNode;
@@ -141,7 +141,6 @@ export const SubscriptionGuard = ({
           <button
             onClick={() => {
               if (action === 'visit') {
-                // Rediriger vers la page de planification avec mode ponctuel
                 navigate('/app/visits/create?mode=ponctual');
               } else {
                 navigate('/app/orders/create?mode=ponctual');
