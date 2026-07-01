@@ -16,6 +16,10 @@ import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
+// ✅ IMPORTER le hook de rafraîchissement
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+// ✅ IMPORTER le bouton de rafraîchissement
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import toast from 'react-hot-toast';
 
 // ✅ URL UNIQUE (pour les appels API si besoin)
@@ -75,6 +79,12 @@ const RegistrationsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ UTILISER le hook de rafraîchissement
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchRegistrations,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des inscriptions'),
+  });
+
   useEffect(() => {
     fetchRegistrations();
   }, []);
@@ -131,6 +141,14 @@ const RegistrationsPage = () => {
     return matchesSearch && matchesStatus;
   });
 
+  // ✅ Statistiques des inscriptions
+  const stats = {
+    total: registrations.length,
+    pending: registrations.filter(r => r.status === 'en_attente').length,
+    validated: registrations.filter(r => r.status === 'validee').length,
+    refused: registrations.filter(r => r.status === 'refusee').length,
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto pb-8">
@@ -141,7 +159,7 @@ const RegistrationsPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Header */}
+      {/* Header avec bouton de rafraîchissement */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
@@ -152,16 +170,42 @@ const RegistrationsPage = () => {
               📋 Inscriptions et dossiers
             </h1>
             <p className="text-xs" style={{ color: colors.textLight }}>
-              Suivi et administration des demandes de souscription
+              {stats.total} dossier{stats.total > 1 ? 's' : ''} • {stats.pending} en attente
             </p>
           </div>
-          <button
-            onClick={fetchRegistrations}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50"
-            style={{ borderColor: colors.border, color: colors.text }}
-          >
-            <RefreshCw size={14} /> Actualiser
-          </button>
+          
+          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT MODERNISÉ */}
+          <RefreshButton 
+            onRefresh={() => {
+              toast.success('📋 Inscriptions actualisées');
+            }}
+          />
+        </div>
+
+        {/* ✅ STATS COMPACTES DES INSCRIPTIONS */}
+        <div className="relative z-10 mt-4 flex flex-wrap gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
+            <Users size={14} />
+            Total: {stats.total}
+          </div>
+          {stats.pending > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
+              <Clock size={14} />
+              En attente: {stats.pending}
+            </div>
+          )}
+          {stats.validated > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
+              <CheckCircle size={14} />
+              Validés: {stats.validated}
+            </div>
+          )}
+          {stats.refused > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
+              <XCircle size={14} />
+              Refusés: {stats.refused}
+            </div>
+          )}
         </div>
       </section>
 
@@ -180,17 +224,21 @@ const RegistrationsPage = () => {
           className="px-3.5 py-2 rounded-xl border outline-none text-xs"
           style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
         >
-          <option value="all">Tous les dossiers</option>
-          <option value="en_attente">⏳ En attente</option>
-          <option value="validee">✅ Validés</option>
-          <option value="refusee">❌ Refusés</option>
+          <option value="all">Tous les dossiers ({stats.total})</option>
+          <option value="en_attente">⏳ En attente ({stats.pending})</option>
+          <option value="validee">✅ Validés ({stats.validated})</option>
+          <option value="refusee">❌ Refusés ({stats.refused})</option>
         </select>
       </section>
 
       {/* Liste épurée */}
       <section className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.015)] overflow-hidden divide-y" style={{ borderColor: colors.border }}>
         {filteredRegistrations.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">Aucun dossier trouvé</div>
+          <div className="p-12 text-center text-gray-400">
+            {searchTerm || statusFilter !== 'all' 
+              ? 'Aucun dossier ne correspond à votre recherche' 
+              : 'Aucun dossier trouvé'}
+          </div>
         ) : (
           filteredRegistrations.map((reg) => (
             <div
@@ -199,16 +247,34 @@ const RegistrationsPage = () => {
               className="p-4 hover:bg-gray-50/50 transition cursor-pointer flex items-center justify-between gap-4"
             >
               <div className="min-w-0 space-y-0.5">
-                <p className="font-bold text-xs" style={{ color: colors.text }}>{reg.user?.full_name || 'Anonyme'}</p>
+                <p className="font-bold text-xs" style={{ color: colors.text }}>
+                  {reg.user?.full_name || 'Anonyme'}
+                </p>
                 <div className="flex items-center gap-2 text-[10px] text-gray-400 flex-wrap">
-                  <span>{reg.user?.email}</span>
+                  <span>{reg.user?.email || 'Email inconnu'}</span>
                   <span>•</span>
-                  <span className="font-semibold" style={{ color: getStatusColor(reg.status) }}>{getStatusLabel(reg.status)}</span>
+                  <span 
+                    className="font-semibold px-1.5 py-0.5 rounded-full text-[8px]"
+                    style={{ 
+                      background: getStatusColor(reg.status) + '15', 
+                      color: getStatusColor(reg.status) 
+                    }}
+                  >
+                    {getStatusLabel(reg.status)}
+                  </span>
                   <span>•</span>
                   <span>{formatDate(reg.created_at)}</span>
                 </div>
               </div>
-              <button className="p-1.5 rounded-lg text-gray-400"><Eye size={14} /></button>
+              <button 
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/app/registrations/${reg.id}`);
+                }}
+              >
+                <Eye size={14} />
+              </button>
             </div>
           ))
         )}
