@@ -1,11 +1,27 @@
 // 📁 src/services/keepalive.service.ts
-
+ 
 /**
  * Service Keep-Alive pour empêcher le backend Render de s'endormir
- * Version améliorée - démarre immédiatement, même sans authentification
+ * Version améliorée avec gestion d'URL robuste
  */
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+// ✅ Fonction utilitaire pour normaliser les URLs
+const normalizeUrl = (base: string, endpoint: string): string => {
+  // Nettoyer le base URL
+  let cleanBase = base.replace(/\/+$/, '');
+  
+  // Nettoyer l'endpoint
+  let cleanEndpoint = endpoint.replace(/^\/+/, '');
+  
+  // Si l'endpoint commence déjà par "api/", ne pas ajouter un deuxième "api"
+  if (cleanEndpoint.startsWith('api/')) {
+    return `${cleanBase}/${cleanEndpoint}`;
+  }
+  
+  return `${cleanBase}/${cleanEndpoint}`;
+};
 
 interface KeepAliveConfig {
   interval: number;
@@ -21,16 +37,16 @@ class KeepAliveService {
   private isRunning = false;
   private wakeUpAttempts = 0;
   private maxWakeUpAttempts = 3;
-  private _isBackendAwake = false; // ✅ RENOMMÉ AVEC UNDERSCORE
+  private _isBackendAwake = false;
   private pendingPings: Set<string> = new Set();
 
   private config: KeepAliveConfig = {
     interval: 2.5 * 60 * 1000, // 2.5 minutes
     endpoints: [
-      '/health',
-      '/api/health',
-      '/billing/health',
-      '/api/offers',
+      '/health',           // ✅ Pas de /api en double
+      '/api/health',       // ✅ Avec /api
+      '/billing/health',   // ✅ Avec /billing
+      '/api/offers',       // ✅ Avec /api
     ],
     enabled: true,
   };
@@ -39,10 +55,13 @@ class KeepAliveService {
     if (config) {
       this.config = { ...this.config, ...config };
     }
+    console.log('📡 Keep-Alive Service initialisé');
+    console.log(`📡 API_URL: ${API_URL}`);
+    console.log(`📡 Endpoints: ${this.config.endpoints.join(', ')}`);
   }
 
   /**
-   * Démarrer le service Keep-Alive immédiatement
+   * Démarrer le service Keep-Alive
    */
   start() {
     if (!this.config.enabled) {
@@ -55,12 +74,12 @@ class KeepAliveService {
       return;
     }
 
-    console.log('🔄 Démarrage du service Keep-Alive (immédiat)...');
+    console.log('🔄 Démarrage du service Keep-Alive...');
     this.isRunning = true;
     this.wakeUpAttempts = 0;
     this._isBackendAwake = false;
 
-    // ✅ PING IMMÉDIAT - Réveille le backend
+    // Ping immédiat
     this.wakeUpBackend();
 
     // Puis ping régulier
@@ -77,11 +96,15 @@ class KeepAliveService {
   private async wakeUpBackend() {
     console.log('🌙 [Wake-Up] Tentative de réveil du backend...');
     
-    const endpoints = ['/health', '/api/health', '/billing/health', '/api/offers'];
+    // ✅ Ordre des endpoints : les plus légers d'abord
+    const endpoints = ['/health', '/api/health', '/billing/health'];
     
     for (const endpoint of endpoints) {
       try {
-        const url = `${API_URL}${endpoint}`;
+        // ✅ Utilisation de normalizeUrl
+        const url = normalizeUrl(API_URL, endpoint);
+        console.log(`🌙 [Wake-Up] Tentative sur ${url}`);
+        
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -97,7 +120,7 @@ class KeepAliveService {
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          console.log(`✅ [Wake-Up] Backend réveillé via ${endpoint}`);
+          console.log(`✅ [Wake-Up] Backend réveillé via ${endpoint} (${response.status})`);
           this._isBackendAwake = true;
           this.wakeUpAttempts = 0;
           
@@ -105,9 +128,15 @@ class KeepAliveService {
             this.config.onWakeUp();
           }
           return;
+        } else {
+          console.warn(`⚠️ [Wake-Up] ${endpoint} a répondu ${response.status}`);
         }
-      } catch (error) {
-        console.warn(`⚠️ [Wake-Up] Échec via ${endpoint}`);
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.warn(`⚠️ [Wake-Up] Timeout sur ${endpoint}`);
+        } else {
+          console.warn(`⚠️ [Wake-Up] Échec via ${endpoint}:`, error.message);
+        }
       }
     }
 
@@ -115,7 +144,7 @@ class KeepAliveService {
     console.log(`⚠️ [Wake-Up] Tentative ${this.wakeUpAttempts}/${this.maxWakeUpAttempts} échouée`);
 
     if (this.wakeUpAttempts < this.maxWakeUpAttempts) {
-      setTimeout(() => this.wakeUpBackend(), 2000);
+      setTimeout(() => this.wakeUpBackend(), 3000);
     } else {
       console.log('⏳ [Wake-Up] Backend toujours endormi, continuera les pings réguliers');
       this.wakeUpAttempts = 0;
@@ -145,11 +174,13 @@ class KeepAliveService {
   }
 
   /**
-   * Pinger un endpoint spécifique
+   * Pinger un endpoint spécifique - CORRIGÉ
    */
   private async pingEndpoint(endpoint: string) {
     try {
-      const url = `${API_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      // ✅ Utilisation de normalizeUrl pour éviter le double /api
+      const url = normalizeUrl(API_URL, endpoint);
+      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -180,8 +211,12 @@ class KeepAliveService {
           this.config.onError(endpoint, { status: response.status });
         }
       }
-    } catch (error) {
-      console.warn(`⚠️ Ping échoué: ${endpoint}`, error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn(`⚠️ Ping timeout: ${endpoint}`);
+      } else {
+        console.warn(`⚠️ Ping échoué: ${endpoint}`, error.message);
+      }
       this._isBackendAwake = false;
       this.pendingPings.delete(endpoint);
       if (this.config.onError) {
@@ -211,7 +246,7 @@ class KeepAliveService {
   }
 
   /**
-   * Vérifier si le backend est réveillé - PUBLIC
+   * Vérifier si le backend est réveillé
    */
   isBackendAwake(): boolean {
     return this._isBackendAwake;
@@ -245,20 +280,35 @@ class KeepAliveService {
   }
 }
 
-// ✅ Singleton - démarre immédiatement
-export const keepAliveService = new KeepAliveService();
+// ✅ Singleton
+export const keepAliveService = new KeepAliveService({
+  enabled: true,
+  interval: 3 * 60 * 1000, // 3 minutes
+  endpoints: [
+    '/health',
+    '/api/health', 
+    '/billing/health',
+    '/api/offers',
+  ],
+});
 
-// ✅ Initialisation automatique - SANS AUTH
+// ✅ Initialisation - avec vérification
 export const initKeepAlive = () => {
-  console.log('🚀 Initialisation Keep-Alive (démarrage immédiat)');
+  console.log('🚀 Initialisation Keep-Alive');
+  
+  // ✅ Vérifier que l'URL est correcte
+  console.log(`📡 API_URL: ${API_URL}`);
+  console.log(`📡 Exemple URL: ${normalizeUrl(API_URL, '/health')}`);
+  
   keepAliveService.start();
   
+  // Ping après 1 seconde
   setTimeout(() => {
     keepAliveService.pingNow();
   }, 1000);
 };
 
-// ✅ Préchargement du backend (à appeler sur la page de login)
+// ✅ Préchargement du backend
 export const preheatBackend = async (): Promise<boolean> => {
   console.log('🔥 Préchargement du backend...');
   return await keepAliveService.pingNow();
