@@ -1,5 +1,5 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
- 
+
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -32,6 +32,8 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, formatDateTime } from '@/utils/helpers';
 import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
 import { Illustration } from '@/components/ui/Illustration';
+// ✅ Importer CompleteVisitModal transformé en page
+import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -475,7 +477,7 @@ const VisitDetailPage = () => {
             >
               <Play size={18} />
               <span>Démarrer</span>
-            </button>
+              < /button>
           )}
 
           {/* AIDANT : Terminer une visite en cours */}
@@ -676,271 +678,19 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      MODAL DE FIN DE VISITE
-      ============================================================ */}
+      {/* ✅ MODAL COMPLETE VISIT - Maintenant en plein écran via le wrapper */}
       {showCompleteModal && (
-        <div
-          ref={modalRef}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          style={{ animation: 'fadeIn 0.2s ease-out' }}
-        >
-          <div
-            className="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
-            style={{ animation: 'scaleIn 0.3s ease-out' }}
-          >
-            {/* Header - Fixe */}
-            <div
-              className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b shrink-0 rounded-t-3xl"
-              style={{ borderColor: colors.primary + '20' }}
-            >
-              <div>
-                <h2 className="text-xl font-bold" style={{ color: colors.text }}>
-                  Terminer la visite
-                </h2>
-                <p className="text-sm" style={{ color: colors.text + '60' }}>
-                  {visit.patient?.first_name} {visit.patient?.last_name} • {formatDate(visit.scheduled_date)}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCompleteModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition"
-                disabled={isUploading}
-              >
-                <XCircle size={24} style={{ color: colors.text }} />
-              </button>
-            </div>
-
-            {/* Content - Scrollable */}
-            <div
-              ref={modalContentRef}
-              className="flex-1 overflow-y-auto p-6 space-y-6"
-              style={{ scrollBehavior: 'smooth' }}
-            >
-              {/* 1. ACTIONS RÉALISÉES */}
-              <div>
-                <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
-                  Actions réalisées *
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {availableActions.map((action) => (
-                    <label
-                      key={action.id}
-                      className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
-                        selectedActions.includes(action.id)
-                          ? 'border-[--color-primary] bg-[--color-primary]10'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedActions.includes(action.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedActions([...selectedActions, action.id]);
-                          } else {
-                            setSelectedActions(selectedActions.filter(a => a !== action.id));
-                          }
-                        }}
-                        className="hidden"
-                      />
-                      <span className="text-xl">{action.icon}</span>
-                      <span className="text-sm" style={{ color: colors.text }}>
-                        {action.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                {selectedActions.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">* Sélectionnez au moins une action</p>
-                )}
-              </div>
-
-              {/* 2. NOTES */}
-              <div>
-                <label className="block text-sm font-bold mb-1.5" style={{ color: colors.text }}>
-                  Notes
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border outline-none transition focus:ring-2 resize-none text-sm"
-                  style={{
-                    borderColor: colors.border || '#e5e0d8',
-                    background: 'var(--color-background, #f5f0e8)',
-                    color: colors.text,
-                  }}
-                  rows={3}
-                  placeholder="Informations complémentaires sur la visite..."
-                />
-              </div>
-
-              {/* 3. AUDIO */}
-              <div>
-                <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
-                  Enregistrement audio
-                  <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>
-                    (optionnel)
-                  </span>
-                </label>
-                <div className="p-4 rounded-2xl border" style={{ borderColor: colors.border }}>
-                  {!audioUrl ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
-                            isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-100'
-                          }`}
-                        >
-                          {isRecording ? (
-                            <div className="w-4 h-4 bg-white rounded-full" />
-                          ) : (
-                            <Mic size={24} className="text-gray-500" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium" style={{ color: colors.text }}>
-                            {isRecording ? 'Enregistrement en cours...' : 'Cliquez pour enregistrer'}
-                          </p>
-                          <p className="text-xs" style={{ color: colors.text + '40' }}>
-                            {isRecording ? 'Parlez pour décrire la visite' : 'Max 5 minutes'}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={isRecording ? stopRecording : startRecording}
-                        className={`px-4 py-2 rounded-xl text-white font-medium transition ${
-                          isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-[--color-primary] hover:opacity-80'
-                        }`}
-                      >
-                        {isRecording ? (
-                          <span className="flex items-center gap-2">
-                            <MicOff size={18} />
-                            Arrêter
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-2">
-                            <Mic size={18} />
-                            Enregistrer
-                          </span>
-                        )}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                          <CheckCircle size={24} className="text-green-500" />
-                        </div>
-                        <div className="flex-1">
-                          <audio
-                            ref={audioRef}
-                            controls
-                            className="w-full h-10"
-                            src={audioUrl}
-                          >
-                            Votre navigateur ne supporte pas la lecture audio.
-                          </audio>
-                        </div>
-                      </div>
-                      <button
-                        onClick={deleteRecording}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 4. PHOTOS */}
-              <div>
-                <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
-                  Photos
-                  <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>
-                    (optionnel - {photos.length}/5)
-                  </span>
-                </label>
-                <div className="flex flex-wrap gap-3">
-                  {photoPreviews.map((preview, index) => (
-                    <div key={index} className="relative w-20 h-20 rounded-xl overflow-hidden border">
-                      <img src={preview} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => removePhoto(index)}
-                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition shadow-lg"
-                      >
-                        <XCircle size={14} />
-                      </button>
-                    </div>
-                  ))}
-                  {photos.length < 5 && (
-                    <label className="w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition">
-                      <Camera size={24} className="text-gray-400" />
-                      <span className="text-[10px] text-gray-400 mt-1">Ajouter</span>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handlePhotoSelect}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer - Fixe */}
-            <div
-              className="sticky bottom-0 bg-white border-t p-6 flex gap-3 shrink-0 rounded-b-3xl"
-              style={{ borderColor: colors.border }}
-            >
-              <button
-                onClick={() => setShowCompleteModal(false)}
-                className="flex-1 py-3 rounded-2xl font-medium border transition hover:bg-gray-50"
-                style={{ borderColor: colors.border, color: colors.text }}
-                disabled={isUploading}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleComplete}
-                disabled={isUploading || selectedActions.length === 0}
-                className="flex-1 py-3 rounded-2xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: colors.primary }}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" />
-                    Envoi en cours...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle size={20} />
-                    Terminer la visite
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CompleteVisitModal
+          isOpen={true}
+          onClose={() => {
+            setShowCompleteModal(false);
+          }}
+          visit={{ patient: visit.patient }}
+          patientCategory={visit.patient?.category || 'senior'}
+          onSubmit={handleComplete}
+          isLoading={isUploading}
+        />
       )}
-
-      {/* ============================================================
-      STYLES D'ANIMATION
-      ============================================================ */}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes scaleIn {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 };
