@@ -32,8 +32,8 @@ export const ModalFullScreen = ({
   bodyClassName,
   footer,
 }: ModalFullScreenProps) => {
-  // 🔒 Lock scroll body
-  useEffect => {
+  // 🔒 Lock scroll body - CORRIGÉ
+  useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
@@ -57,7 +57,7 @@ export const ModalFullScreen = ({
     };
   }, [isOpen]);
 
-  // ⌨️ ESC close
+  // ⌨️ ESC close - CORRIGÉ
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -97,7 +97,7 @@ export const ModalFullScreen = ({
             bottom: 0,
           }}
         >
-          {/* HEADER - Style identique à la nav */}
+          {/* HEADER */}
           <div
             className={cn(
               'flex-shrink-0 px-4 py-3 border-b border-gray-100/80 bg-white/95 backdrop-blur-sm sticky top-0 z-10',
@@ -109,7 +109,6 @@ export const ModalFullScreen = ({
               backgroundColor: 'rgba(255,255,255,0.95)',
             }}
           >
-            {/* Bouton retour */}
             {showBack && (
               <button
                 onClick={handleBack}
@@ -120,12 +119,10 @@ export const ModalFullScreen = ({
               </button>
             )}
 
-            {/* Titre */}
             <h2 className="flex-1 text-base sm:text-lg font-bold truncate text-gray-900">
               {title}
             </h2>
 
-            {/* Bouton fermeture (optionnel) */}
             {showClose && (
               <button
                 onClick={onClose}
@@ -137,7 +134,7 @@ export const ModalFullScreen = ({
             )}
           </div>
 
-          {/* BODY - Scrollable */}
+          {/* BODY */}
           <div
             className={cn(
               'flex-1 overflow-y-auto overscroll-contain',
@@ -152,7 +149,7 @@ export const ModalFullScreen = ({
             {children}
           </div>
 
-          {/* FOOTER - Optionnel */}
+          {/* FOOTER */}
           {footer && (
             <div
               className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100/80 bg-white/95 backdrop-blur-sm sticky bottom-0 z-10"
