@@ -1,5 +1,5 @@
 // 📁 src/stores/orderStore.ts
- 
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
@@ -7,7 +7,7 @@ import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast';
 
 // =============================================
-// STATUS LABELS - COMPLET AVEC TOUS LES STATUTS
+// STATUS LABELS
 // =============================================
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -37,7 +37,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 // =============================================
 
 const CACHE_KEY = 'sante_plus_orders_cache';
-const CACHE_DURATION = 60000; // 1 minute
+const CACHE_DURATION = 60000;
 
 const getCachedOrders = (): { data: Order[]; timestamp: number } | null => {
   try {
@@ -76,10 +76,9 @@ interface OrderState {
   lastFetch: number | null;
   isCacheInvalidated: boolean;
   
-  // Actions
   fetchOrders: (force?: boolean) => Promise<void>;
   fetchOrderById: (id: string) => Promise<void>;
-  createOrder: (data: Partial<Order>) => Promise<Order>;
+  createOrder: (data: Partial<Order> & { target_type?: 'personal' | 'patient'; target_name?: string }) => Promise<Order>;
   updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
@@ -94,11 +93,8 @@ interface OrderState {
   getAvailableOrders: () => Order[];
   getDeliveryOrders: () => Order[];
   canManageOrders: () => boolean;
-  
-  // ✅ GESTION DU CACHE
   invalidateCache: () => void;
   refresh: () => Promise<void>;
-  
   clearError: () => void;
 }
 
@@ -111,13 +107,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   lastFetch: null,
   isCacheInvalidated: false,
 
-  // ✅ Vérifier si l'utilisateur peut gérer les commandes
   canManageOrders: () => {
     const { profile } = useAuthStore.getState();
     return profile?.role === 'admin' || profile?.role === 'coordinator';
   },
 
-  // ✅ Invalider le cache
   invalidateCache: () => {
     clearCachedOrders();
     set({ 
@@ -128,7 +122,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     console.log('🔄 Cache commandes invalidé');
   },
 
-  // ✅ Rafraîchir forcé
   refresh: async () => {
     get().invalidateCache();
     await get().fetchOrders(true);
@@ -181,7 +174,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       let query = supabase.from('commandes').select('*');
 
       if (profile?.role === 'family') {
-        query = query.eq('family_id', user.id);
+        // ✅ Récupérer les commandes du compte (user_id)
+        query = query.eq('user_id', user.id);
       } else if (profile?.role === 'aidant') {
         const { data: aidant } = await supabase
           .from('aidants')
@@ -242,7 +236,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         })
       );
 
-      // ✅ Mettre en cache
       setCachedOrders(ordersWithRelations);
       
       set({ 
@@ -255,7 +248,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Fetch orders error:', error);
       
-      // En cas d'erreur, utiliser le cache
       const cached = getCachedOrders();
       if (cached && cached.data.length > 0) {
         set({
@@ -273,13 +265,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH ORDER BY ID - AVEC CACHE
+  // FETCH ORDER BY ID
   // =============================================
   fetchOrderById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
-      // ✅ Vérifier dans le cache d'abord
       const state = get();
       const cachedOrder = state.orders.find(o => o.id === id);
       if (cachedOrder) {
@@ -348,9 +339,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE ORDER - AVEC INVALIDATION DE CACHE
+  // CREATE ORDER - AVEC TARGET_TYPE
   // =============================================
-  createOrder: async (data: Partial<Order>) => {
+  createOrder: async (data: Partial<Order> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
     try {
       set({ isLoading: true, error: null });
       
@@ -361,6 +352,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         throw new Error('Les aidants ne peuvent pas créer de commandes');
       }
 
+      // ✅ Déterminer target_type et target_name
+      const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
+      const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
+
       const isPonctual = data.order_type === 'ponctual' || false;
       let status: OrderStatus = 'creee';
 
@@ -368,21 +363,25 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         status = 'attente_paiement';
       }
 
-      if (!isPonctual && data.patient_id) {
+      // ✅ Vérifier le quota sur le COMPTE (pas sur le patient)
+      if (!isPonctual) {
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_orders, status')
-          .eq('patient_id', data.patient_id)
+          .eq('user_id', user.id)   // ✅ LIÉ AU COMPTE
           .eq('status', 'actif')
           .maybeSingle();
 
-        if (subscription && subscription.remaining_orders <= 0) {
+        if (!subscription || subscription.remaining_orders <= 0) {
           status = 'attente_paiement';
         }
       }
 
       const orderData = {
+        user_id: user.id,              // ✅ COMPTE QUI PASSE LA COMMANDE
         patient_id: data.patient_id || null,
+        target_type: targetType,
+        target_name: targetName,
         family_id: user.id,
         aidant_id: data.aidant_id || null,
         type: data.type || 'autre',
@@ -438,17 +437,38 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         family,
       };
 
+      // ✅ Notifications avec target_name
+      const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
+
       if (status === 'attente_paiement') {
         await supabase.from('notifications').insert({
           user_id: user.id,
           title: '💳 Commande en attente de paiement',
-          body: `Votre commande "${data.description}" est en attente de paiement.`,
+          body: `Votre commande "${data.description}" pour ${targetDisplay} est en attente de paiement.`,
           type: 'commande',
           data: { order_id: newOrder.id, status: 'attente_paiement' },
         });
+      } else {
+        // ✅ Notifier les aidants disponibles
+        const { data: aidants } = await supabase
+          .from('aidants')
+          .select('user_id')
+          .eq('available', true)
+          .eq('is_verified', true);
+
+        if (aidants && aidants.length > 0) {
+          for (const aidant of aidants) {
+            await supabase.from('notifications').insert({
+              user_id: aidant.user_id,
+              title: '🛒 Nouvelle commande disponible',
+              body: `Commande de ${targetDisplay} - ${data.description}`,
+              type: 'commande',
+              data: { order_id: newOrder.id, action: 'take' },
+            });
+          }
+        }
       }
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -463,7 +483,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // CONFIRMER PAIEMENT - AVEC INVALIDATION DE CACHE
+  // CONFIRMER PAIEMENT
   // =============================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
@@ -498,7 +518,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -516,7 +535,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // PRENDRE UNE COMMANDE (aidant) - AVEC INVALIDATION DE CACHE
+  // PRENDRE UNE COMMANDE
   // =============================================
   takeOrder: async (id: string) => {
     try {
@@ -564,17 +583,19 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
+      // ✅ Notification avec target_name
+      const targetDisplay = order.target_name || 'un client';
+
       if (order.family_id) {
         await supabase.from('notifications').insert({
           user_id: order.family_id,
           title: '✅ Commande prise en charge',
-          body: `Un aidant a pris votre commande "${order.description}".`,
+          body: `Un aidant a pris votre commande "${order.description}" pour ${targetDisplay}.`,
           type: 'commande',
           data: { order_id: id, status: 'en_cours' },
         });
       }
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -627,7 +648,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -673,7 +693,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -725,7 +744,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -739,7 +757,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // COMPLETE DELIVERY - AVEC INVALIDATION DE CACHE
+  // COMPLETE DELIVERY
   // =============================================
   completeDelivery: async (id: string, proof_url?: string) => {
     try {
@@ -778,7 +796,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -792,7 +809,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE ORDER STATUS - AVEC INVALIDATION DE CACHE
+  // UPDATE ORDER STATUS
   // =============================================
   updateOrderStatus: async (id: string, status: OrderStatus) => {
     try {
@@ -807,7 +824,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -825,7 +841,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE ORDER - AVEC INVALIDATION DE CACHE
+  // UPDATE ORDER
   // =============================================
   updateOrder: async (id: string, data: Partial<Order>) => {
     try {
@@ -845,7 +861,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
@@ -859,7 +874,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // DELETE ORDER - AVEC INVALIDATION DE CACHE
+  // DELETE ORDER
   // =============================================
   deleteOrder: async (id: string) => {
     try {
@@ -877,7 +892,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchOrders(true);
 
