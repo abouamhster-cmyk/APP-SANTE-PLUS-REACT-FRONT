@@ -1,5 +1,6 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
- 
+// ✅ VERSION COMPLÈTE ET CORRIGÉE
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send,
@@ -69,7 +70,6 @@ interface Conversation {
   is_public?: boolean;
 }
 
-type ConversationType = 'private' | 'group' | 'public';
 type TargetType = 'aidant' | 'coordinator' | 'admin' | 'aidants_group' | 'all_aidants' | 'specific';
 
 // ============================================================
@@ -144,7 +144,104 @@ const MessagesPage = () => {
   const isFamilyRole = isFamily;
 
   // ============================================================
-  // ✅ SOLUTION LONG TERME : Récupération des aidants via une fonction PostgreSQL
+  // FETCH CONVERSATIONS
+  // ============================================================
+
+  const fetchConversations = useCallback(async () => {
+    if (!currentUserId) return;
+
+    try {
+      const { data: convData, error: convError } = await supabase
+        .from('conversations')
+        .select('*')
+        .contains('participant_ids', [currentUserId])
+        .order('last_message_at', { ascending: false });
+
+      if (convError) {
+        console.error('❌ Conversations error:', convError);
+        return;
+      }
+
+      let filteredData = convData || [];
+
+      if (!isAdminRole) {
+        filteredData = filteredData.filter(
+          (c: any) => c.type !== 'public' || c.participant_ids.includes(currentUserId)
+        );
+      }
+
+      const conversationsWithParticipants = await Promise.all(
+        filteredData.map(async (conv) => {
+          const participantIds = (conv.participant_ids || []).filter((id: string) => id !== currentUserId);
+          let participants: SenderProfile[] = [];
+
+          if (participantIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, full_name, role, avatar_url')
+              .in('id', participantIds);
+
+            if (profiles) {
+              participants = profiles.map((p: any) => ({
+                id: p.id,
+                full_name: p.full_name || 'Utilisateur',
+                role: p.role || 'family',
+                avatar_url: p.avatar_url || null,
+              }));
+            }
+          }
+
+          const { data: lastMessage, error: lastError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          return {
+            ...conv,
+            participants,
+            last_message: (!lastError && lastMessage) ? lastMessage : undefined,
+          } as Conversation;
+        })
+      );
+
+      setConversations(conversationsWithParticipants);
+
+      if (!currentConversationId && conversationsWithParticipants.length > 0) {
+        setCurrentConversationId(conversationsWithParticipants[0].id);
+      }
+    } catch (error) {
+      console.error('❌ Fetch conversations error:', error);
+    }
+  }, [currentUserId, isAdminRole, currentConversationId]);
+
+  // ============================================================
+  // FETCH USERS
+  // ============================================================
+
+  const fetchUsers = useCallback(async (search: string = '') => {
+    try {
+      let query = supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .neq('id', currentUserId);
+
+      if (search) {
+        query = query.ilike('full_name', `%${search}%`);
+      }
+
+      const { data, error } = await query.limit(10);
+      if (error) throw error;
+      setAvailableUsers(data || []);
+    } catch (error) {
+      console.error('❌ Fetch users error:', error);
+    }
+  }, [currentUserId]);
+
+  // ============================================================
+  // FETCH ASSIGNED AIDANTS
   // ============================================================
 
   const fetchAssignedAidants = useCallback(async () => {
@@ -156,40 +253,7 @@ const MessagesPage = () => {
     try {
       console.log('🔄 Récupération des aidants assignés pour la famille:', currentUserId);
 
-      // ✅ APPROCHE 1 : Via la table patient_aidant_assignments (si elle existe)
-      const { data: assignments, error: assignError } = await supabase
-        .from('patient_aidant_assignments')
-        .select(`
-          aidant_id,
-          aidant:aidants!patient_aidant_assignments_aidant_id_fkey (
-            id,
-            user_id,
-            user:profiles!aidants_user_id_fkey (
-              id,
-              full_name,
-              email,
-              role,
-              avatar_url
-            )
-          )
-        `)
-        .eq('is_active', true);
-
-      if (!assignError && assignments && assignments.length > 0) {
-        // Extraire les aidants uniques
-        const aidantsMap = new Map();
-        assignments.forEach((a: any) => {
-          if (a.aidant?.user) {
-            aidantsMap.set(a.aidant.user_id, a.aidant.user);
-          }
-        });
-        const aidants = Array.from(aidantsMap.values());
-        setAssignedAidants(aidants);
-        console.log(`✅ ${aidants.length} aidants récupérés via patient_aidant_assignments`);
-        return;
-      }
-
-      // ✅ APPROCHE 2 : Via les visites
+      // ✅ Via les visites
       const { data: visitsData, error: visitsError } = await supabase
         .from('visites')
         .select(`
@@ -222,29 +286,7 @@ const MessagesPage = () => {
         return;
       }
 
-      // ✅ APPROCHE 3 : Via patient_family_links (avec requête séparée)
-      const { data: links, error: linksError } = await supabase
-        .from('patient_family_links')
-        .select('family_id')
-        .eq('patient_id', currentUserId);
-
-      if (!linksError && links && links.length > 0) {
-        const familyIds = links.map(l => l.family_id);
-        
-        const { data: aidantsData, error: aidantsError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, role, avatar_url')
-          .in('id', familyIds)
-          .eq('role', 'aidant');
-
-        if (!aidantsError && aidantsData) {
-          setAssignedAidants(aidantsData);
-          console.log(`✅ ${aidantsData.length} aidants récupérés via patient_family_links`);
-          return;
-        }
-      }
-
-      // ✅ APPROCHE 4 : Fallback - Tous les aidants disponibles
+      // ✅ Fallback - Tous les aidants disponibles
       const { data: allAidants, error: allError } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, avatar_url')
@@ -253,13 +295,12 @@ const MessagesPage = () => {
 
       if (!allError && allAidants) {
         setAssignedAidants(allAidants);
-        console.log(`⚠️ Fallback: ${allAidants.length} aidants récupérés (tous)`);
+        console.log(`⚠️ Fallback: ${allAidants.length} aidants récupérés`);
         return;
       }
 
       setAssignedAidants([]);
       console.log('ℹ️ Aucun aidant trouvé');
-
     } catch (error) {
       console.error('❌ Fetch assigned aidants error:', error);
       setAssignedAidants([]);
@@ -267,101 +308,135 @@ const MessagesPage = () => {
   }, [isFamilyRole, currentUserId]);
 
   // ============================================================
-  // ✅ SOLUTION LONG TERME : Déterminer les cibles selon le rôle
+  // FETCH MESSAGES
   // ============================================================
 
-  const getTargetOptions = useCallback((): { value: TargetType; label: string; icon: string }[] => {
-    // 👨‍👩‍👦 FAMILLE
-    if (isFamilyRole) {
-      return [
-        { value: 'aidant', label: '🦸 Mon aidant', icon: '🦸' },
-        { value: 'aidants_group', label: '👥 Mes aidants (groupe)', icon: '👥' },
-        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
-        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
-        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
-      ];
-    }
+  const fetchMessages = useCallback(async (conversationId: string) => {
+    if (!currentUserId) return;
 
-    // 🦸 AIDANT
-    if (isAidantRole) {
-      return [
-        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
-        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
-        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
-      ];
-    }
-
-    // 👔 ADMIN / COORDINATEUR
-    if (isAdminRole) {
-      return [
-        { value: 'all_aidants', label: '📢 Tous les aidants', icon: '📢' },
-        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
-      ];
-    }
-
-    return [{ value: 'specific', label: '👤 Personne spécifique', icon: '👤' }];
-  }, [isFamilyRole, isAidantRole, isAdminRole]);
-
-  // ============================================================
-  // ✅ SOLUTION LONG TERME : Récupération des utilisateurs cibles
-  // ============================================================
-
-  const getTargetUsers = useCallback(async (target: TargetType): Promise<string[]> => {
     try {
-      // ✅ CAS 1 : Aidant spécifique (pour famille)
-      if (target === 'aidant' && isFamilyRole) {
-        // Récupérer l'aidant assigné via une des méthodes
-        if (assignedAidants.length > 0) {
-          return [assignedAidants[0].id];
+      setIsLoading(true);
+
+      const { data: conv, error: convError } = await supabase
+        .from('conversations')
+        .select('participant_ids, type')
+        .eq('id', conversationId)
+        .maybeSingle();
+
+      if (convError || !conv) {
+        console.error('❌ Conversation not found');
+        setMessages([]);
+        setIsLoading(false);
+        return;
+      }
+
+      if (conv.type !== 'public' && !conv.participant_ids.includes(currentUserId)) {
+        console.error('❌ User not in conversation');
+        setMessages([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(200);
+
+      if (error) {
+        console.error('❌ Messages error:', error);
+        return;
+      }
+
+      const rawMessages = data || [];
+
+      const senderIds = [...new Set(rawMessages.map((m: any) => m.sender_id))].filter(Boolean);
+      let profilesMap: Record<string, SenderProfile> = {};
+
+      if (senderIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, role, avatar_url')
+          .in('id', senderIds);
+
+        if (!profilesError && profilesData) {
+          profilesMap = profilesData.reduce((acc: Record<string, SenderProfile>, item: any) => {
+            acc[item.id] = {
+              id: item.id,
+              full_name: item.full_name || 'Utilisateur',
+              role: item.role || 'family',
+              avatar_url: item.avatar_url || null,
+            };
+            return acc;
+          }, {});
         }
-        return [];
       }
 
-      // ✅ CAS 2 : Groupe d'aidants (pour famille)
-      if (target === 'aidants_group' && isFamilyRole) {
-        return assignedAidants.map(a => a.id).filter(Boolean);
+      const messagesWithSenders: Message[] = rawMessages.map((message: any) => ({
+        ...message,
+        sender: profilesMap[message.sender_id] || {
+          id: message.sender_id,
+          full_name: 'Utilisateur',
+          role: 'family',
+          avatar_url: null,
+        },
+      }));
+
+      setMessages(messagesWithSenders);
+
+      const unread = messagesWithSenders.filter(
+        (m) => !m.is_read && m.sender_id !== currentUserId
+      ).length;
+
+      setUnreadCount(unread);
+
+      if (unread > 0) {
+        await markAllAsRead(conversationId);
       }
 
-      // ✅ CAS 3 : Coordinateur / Admin
-      if (target === 'coordinator') {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'coordinator');
-        return data?.map((u: any) => u.id) || [];
-      }
-
-      if (target === 'admin') {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'admin');
-        return data?.map((u: any) => u.id) || [];
-      }
-
-      // ✅ CAS 4 : Tous les aidants
-      if (target === 'all_aidants') {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'aidant');
-        return data?.map((u: any) => u.id) || [];
-      }
-
-      // ✅ CAS 5 : Utilisateur spécifique
-      if (target === 'specific' && targetUserId) {
-        return [targetUserId];
-      }
-
-      return [];
-    } catch (error) {
-      console.error('❌ Get target users error:', error);
-      return [];
+      scrollToBottom(false);
+    } catch (error: any) {
+      console.error('❌ Fetch messages error:', error);
+      toast.error(error?.message || 'Erreur lors du chargement des messages');
+    } finally {
+      setIsLoading(false);
     }
-  }, [isFamilyRole, assignedAidants, targetUserId]);
+  }, [currentUserId]);
 
   // ============================================================
-  // ✅ SOLUTION LONG TERME : Création de conversation robuste
+  // MARK ALL AS READ
+  // ============================================================
+
+  const markAllAsRead = useCallback(async (conversationId: string) => {
+    if (!currentUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .eq('is_read', false)
+        .neq('sender_id', currentUserId);
+
+      if (error) throw error;
+
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.sender_id !== currentUserId
+            ? { ...message, is_read: true }
+            : message
+        )
+      );
+
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('❌ Mark all read error:', error);
+    }
+  }, [currentUserId]);
+
+  // ============================================================
+  // CREATE CONVERSATION
   // ============================================================
 
   const createConversation = useCallback(async (
@@ -374,7 +449,6 @@ const MessagesPage = () => {
     try {
       const allParticipants = [...new Set([currentUserId, ...participantIds])];
 
-      // ✅ Vérifier si une conversation existe déjà
       if (type === 'direct' && participantIds.length === 1) {
         const { data: existing, error: existingError } = await supabase
           .from('conversations')
@@ -388,7 +462,6 @@ const MessagesPage = () => {
         }
       }
 
-      // ✅ Créer la conversation
       const { data, error } = await supabase
         .from('conversations')
         .insert({
@@ -406,7 +479,6 @@ const MessagesPage = () => {
       setCurrentConversationId(data.id);
 
       return data;
-
     } catch (error: any) {
       console.error('❌ Create conversation error:', error);
       toast.error(error?.message || 'Erreur lors de la création');
@@ -415,170 +487,92 @@ const MessagesPage = () => {
   }, [currentUserId, fetchConversations]);
 
   // ============================================================
-  // ✅ SOLUTION LONG TERME : Envoi de message robuste
+  // GET TARGET OPTIONS
   // ============================================================
 
-  const handleSendMessage = async () => {
-    const content = messageInput.trim();
-    const hasAttachments = attachments.length > 0;
-
-    if (!content && !hasAttachments) {
-      toast.error('Veuillez écrire un message ou joindre un fichier');
-      return;
+  const getTargetOptions = useCallback((): { value: TargetType; label: string; icon: string }[] => {
+    if (isFamilyRole) {
+      return [
+        { value: 'aidant', label: '🦸 Mon aidant', icon: '🦸' },
+        { value: 'aidants_group', label: '👥 Mes aidants (groupe)', icon: '👥' },
+        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
+        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
+        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
+      ];
     }
 
-    if (!currentUserId) {
-      toast.error('Session utilisateur introuvable');
-      return;
+    if (isAidantRole) {
+      return [
+        { value: 'coordinator', label: '👔 Coordinateur', icon: '👔' },
+        { value: 'admin', label: '👑 Administrateur', icon: '👑' },
+        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
+      ];
     }
 
-    setIsSending(true);
-    setIsUploading(true);
+    if (isAdminRole) {
+      return [
+        { value: 'all_aidants', label: '📢 Tous les aidants', icon: '📢' },
+        { value: 'specific', label: '👤 Personne spécifique', icon: '👤' },
+      ];
+    }
 
+    return [{ value: 'specific', label: '👤 Personne spécifique', icon: '👤' }];
+  }, [isFamilyRole, isAidantRole, isAdminRole]);
+
+  // ============================================================
+  // GET TARGET USERS
+  // ============================================================
+
+  const getTargetUsers = useCallback(async (target: TargetType): Promise<string[]> => {
     try {
-      // ✅ Upload des pièces jointes
-      const attachmentUrls: string[] = [];
-      const attachmentTypes: ('image' | 'document')[] = [];
-
-      for (const file of attachments) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
-        const filePath = `messages/${currentUserId}/${fileName}`;
-
-        const { data, error } = await supabase.storage
-          .from('messages')
-          .upload(filePath, file);
-
-        if (!error && data) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('messages')
-            .getPublicUrl(filePath);
-
-          attachmentUrls.push(publicUrl);
-          attachmentTypes.push(file.type.startsWith('image/') ? 'image' : 'document');
+      if (target === 'aidant' && isFamilyRole) {
+        if (assignedAidants.length > 0) {
+          return [assignedAidants[0].id];
         }
+        return [];
       }
 
-      // ✅ Déterminer les destinataires
-      let targetUserIds: string[] = [];
-      let conversationType: 'direct' | 'group' = 'direct';
-      let conversationName: string | null = null;
-
-      if (targetType === 'specific' && targetUserId) {
-        targetUserIds = [targetUserId];
-        conversationType = 'direct';
-      } else {
-        targetUserIds = await getTargetUsers(targetType);
-        
-        if (targetUserIds.length > 1) {
-          conversationType = 'group';
-          const labels: Record<TargetType, string> = {
-            aidant: '👥 Aidants',
-            aidants_group: '👥 Mes aidants',
-            coordinator: '👔 Coordinateurs',
-            admin: '👑 Administrateurs',
-            all_aidants: '📢 Tous les aidants',
-            specific: '👤 Discussion',
-          };
-          conversationName = labels[targetType] || '👥 Groupe';
-        } else if (targetUserIds.length === 0) {
-          toast.error('Aucun destinataire trouvé');
-          setIsSending(false);
-          setIsUploading(false);
-          return;
-        }
+      if (target === 'aidants_group' && isFamilyRole) {
+        return assignedAidants.map(a => a.id).filter(Boolean);
       }
 
-      // ✅ Créer ou récupérer la conversation
-      let conversationId = currentConversationId;
-
-      if (targetUserIds.length === 1 && conversationType === 'direct') {
-        const existing = await createConversation(targetUserIds, 'direct');
-        if (existing) {
-          conversationId = existing.id;
-        } else {
-          conversationId = currentConversationId || conversationId;
-        }
-      } else if (targetUserIds.length > 1 || conversationType === 'group') {
-        const newConv = await createConversation(targetUserIds, 'group', conversationName);
-        if (newConv) {
-          conversationId = newConv.id;
-        }
+      if (target === 'coordinator') {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'coordinator');
+        return data?.map((u: any) => u.id) || [];
       }
 
-      // ✅ Envoyer le message
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_id: currentUserId,
-          content: content || null,
-          is_read: false,
-          attachment_url: attachmentUrls.length > 0 ? attachmentUrls.join(',') : null,
-          attachment_type: attachmentTypes.length > 0 ? 'image' : null,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ Mettre à jour la conversation
-      await supabase
-        .from('conversations')
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('id', conversationId);
-
-      // ✅ Ajouter le message
-      if (data) {
-        const messageWithSender: Message = {
-          ...data,
-          sender: {
-            id: currentUserId,
-            full_name: currentUserName,
-            role: currentUserRole,
-            avatar_url: profile?.avatar_url || null,
-          },
-        };
-
-        setMessages((prev) => [...prev, messageWithSender]);
-
-        // ✅ Notifier les destinataires
-        for (const userId of targetUserIds) {
-          if (userId !== currentUserId) {
-            await supabase.from('notifications').insert({
-              user_id: userId,
-              title: `📨 ${currentUserName}`,
-              body: content?.substring(0, 100) || 'Pièce jointe',
-              type: 'message',
-              data: {
-                conversation_id: conversationId,
-                message_id: data.id,
-                sender_id: currentUserId,
-              },
-            });
-          }
-        }
-
-        // ✅ Réinitialiser
-        setMessageInput('');
-        setAttachments([]);
-        setAttachmentPreviews([]);
-
-        inputRef.current?.focus();
-        scrollToBottom(true);
+      if (target === 'admin') {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin');
+        return data?.map((u: any) => u.id) || [];
       }
 
-    } catch (error: any) {
-      console.error('❌ Send message error:', error);
-      toast.error(error?.message || "Erreur lors de l'envoi");
-    } finally {
-      setIsSending(false);
-      setIsUploading(false);
+      if (target === 'all_aidants') {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'aidant');
+        return data?.map((u: any) => u.id) || [];
+      }
+
+      if (target === 'specific' && targetUserId) {
+        return [targetUserId];
+      }
+
+      return [];
+    } catch (error) {
+      console.error('❌ Get target users error:', error);
+      return [];
     }
-  };
+  }, [isFamilyRole, assignedAidants, targetUserId]);
 
   // ============================================================
-  // ✅ SOLUTION LONG TERME : Fonction de scroll robuste
+  // SCROLL TO BOTTOM
   // ============================================================
 
   const scrollToBottom = useCallback((smooth = true) => {
@@ -591,7 +585,214 @@ const MessagesPage = () => {
   }, []);
 
   // ============================================================
-  // ✅ SOLUTION LONG TERME : Realtime avec reconnexion automatique
+  // REMOVE ATTACHMENT
+  // ============================================================
+
+  const removeAttachment = useCallback((index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+    setAttachmentPreviews((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // ============================================================
+  // HANDLE FILE SELECT
+  // ============================================================
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter((file) => file.size <= MAX_FILE_SIZE);
+
+    if (validFiles.length !== files.length) {
+      toast.error('Certains fichiers dépassent 5MB');
+    }
+
+    setAttachments((prev) => [...prev, ...validFiles]);
+
+    validFiles.forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setAttachmentPreviews((prev) => [...prev, event.target?.result as string]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setAttachmentPreviews((prev) => [...prev, '📄']);
+      }
+    });
+
+    if (e.target) e.target.value = '';
+  }, []);
+
+  // ============================================================
+  // TOGGLE PIN MESSAGE
+  // ============================================================
+
+  const togglePinMessage = useCallback(async (messageId: string, currentState: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_pinned: !currentState })
+        .eq('id', messageId);
+
+      if (error) throw error;
+      toast.success(currentState ? 'Message désépinglé' : 'Message épinglé');
+      
+      if (currentConversationId) {
+        await fetchMessages(currentConversationId);
+      }
+    } catch (error: any) {
+      console.error('❌ Pin message error:', error);
+      toast.error(error?.message || 'Erreur');
+    }
+  }, [currentConversationId, fetchMessages]);
+
+  // ============================================================
+  // TOGGLE IMPORTANT MESSAGE
+  // ============================================================
+
+  const toggleImportantMessage = useCallback(async (messageId: string, currentState: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({ is_important: !currentState })
+        .eq('id', messageId);
+
+      if (error) throw error;
+      toast.success(currentState ? 'Important retiré' : 'Marqué comme important');
+      
+      if (currentConversationId) {
+        await fetchMessages(currentConversationId);
+      }
+    } catch (error: any) {
+      console.error('❌ Important message error:', error);
+      toast.error(error?.message || 'Erreur');
+    }
+  }, [currentConversationId, fetchMessages]);
+
+  // ============================================================
+  // DELETE MESSAGE
+  // ============================================================
+
+  const deleteMessage = useCallback(async (messageId: string) => {
+    if (!window.confirm('Supprimer ce message ?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId);
+
+      if (error) throw error;
+      toast.success('Message supprimé');
+      setShowPinModal(false);
+      setSelectedMessage(null);
+      
+      if (currentConversationId) {
+        await fetchMessages(currentConversationId);
+      }
+    } catch (error: any) {
+      console.error('❌ Delete message error:', error);
+      toast.error(error?.message || 'Erreur');
+    }
+  }, [currentConversationId, fetchMessages]);
+
+  // ============================================================
+  // HANDLE NEW MESSAGE (Realtime)
+  // ============================================================
+
+  const handleNewMessage = useCallback(async (newMessage: any) => {
+    if (!currentUserId) return;
+
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('participant_ids')
+      .eq('id', newMessage.conversation_id)
+      .maybeSingle();
+
+    if (!conv || !conv.participant_ids.includes(currentUserId)) {
+      return;
+    }
+
+    if (newMessage.conversation_id === currentConversationId) {
+      setMessages((prev) => {
+        const exists = prev.some((m) => m.id === newMessage.id);
+        if (exists) return prev;
+        return [
+          ...prev,
+          {
+            ...newMessage,
+            sender: {
+              id: newMessage.sender_id,
+              full_name: 'Utilisateur',
+              role: 'family',
+              avatar_url: null,
+            },
+            attachment_url: newMessage.attachment_url || null,
+            is_pinned: newMessage.is_pinned || false,
+            is_important: newMessage.is_important || false,
+          },
+        ];
+      });
+
+      if (newMessage.sender_id !== currentUserId) {
+        setUnreadCount((prev) => prev + 1);
+      }
+      scrollToBottom(true);
+    }
+
+    await fetchConversations();
+  }, [currentConversationId, currentUserId, scrollToBottom, fetchConversations]);
+
+  // ============================================================
+  // HANDLE MESSAGE UPDATE
+  // ============================================================
+
+  const handleMessageUpdate = useCallback((updatedMessage: any) => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === updatedMessage.id ? { ...message, ...updatedMessage } : message
+      )
+    );
+  }, []);
+
+  // ============================================================
+  // HANDLE MESSAGE DELETE
+  // ============================================================
+
+  const handleMessageDelete = useCallback((deletedMessage: any) => {
+    setMessages((prev) => prev.filter((message) => message.id !== deletedMessage.id));
+  }, []);
+
+  // ============================================================
+  // CLEANUP SUBSCRIPTION
+  // ============================================================
+
+  const cleanupSubscription = useCallback(() => {
+    isUnmountingRef.current = true;
+    isSubscribingRef.current = false;
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    if (channelRef.current) {
+      try {
+        supabase.removeChannel(channelRef.current);
+      } catch (error) {
+        console.error('❌ Erreur fermeture Realtime:', error);
+      }
+      channelRef.current = null;
+    }
+
+    setIsRealtimeConnected(false);
+
+    setTimeout(() => {
+      isUnmountingRef.current = false;
+    }, 300);
+  }, []);
+
+  // ============================================================
+  // SETUP REALTIME SUBSCRIPTION
   // ============================================================
 
   const setupRealtimeSubscription = useCallback(() => {
@@ -662,7 +863,7 @@ const MessagesPage = () => {
           setIsRealtimeConnected(false);
           isSubscribingRef.current = false;
           if (!isUnmountingRef.current) {
-            console.warn('⚠️ Canal Realtime fermé, reconnexion dans 3s...');
+            console.warn('⚠️ Canal Realtime fermé, reconnexion...');
             reconnectTimeoutRef.current = setTimeout(() => {
               setupRealtimeSubscription();
             }, 3000);
@@ -672,10 +873,186 @@ const MessagesPage = () => {
 
       console.log('✅ Souscription Realtime configurée');
     }, 150);
-  }, [currentUserId, cleanupSubscription]);
+  }, [currentUserId, cleanupSubscription, handleNewMessage, handleMessageUpdate, handleMessageDelete]);
 
   // ============================================================
-  // ✅ EFFETS - INITIALISATION
+  // SEND MESSAGE
+  // ============================================================
+
+  const handleSendMessage = useCallback(async () => {
+    const content = messageInput.trim();
+    const hasAttachments = attachments.length > 0;
+
+    if (!content && !hasAttachments) {
+      toast.error('Veuillez écrire un message ou joindre un fichier');
+      return;
+    }
+
+    if (!currentUserId) {
+      toast.error('Session utilisateur introuvable');
+      return;
+    }
+
+    setIsSending(true);
+    setIsUploading(true);
+
+    try {
+      // Upload des pièces jointes
+      const attachmentUrls: string[] = [];
+      const attachmentTypes: ('image' | 'document')[] = [];
+
+      for (const file of attachments) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${fileExt}`;
+        const filePath = `messages/${currentUserId}/${fileName}`;
+
+        const { data, error } = await supabase.storage
+          .from('messages')
+          .upload(filePath, file);
+
+        if (!error && data) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('messages')
+            .getPublicUrl(filePath);
+
+          attachmentUrls.push(publicUrl);
+          attachmentTypes.push(file.type.startsWith('image/') ? 'image' : 'document');
+        }
+      }
+
+      // Déterminer les destinataires
+      let targetUserIds: string[] = [];
+      let conversationType: 'direct' | 'group' = 'direct';
+      let conversationName: string | null = null;
+
+      if (targetType === 'specific' && targetUserId) {
+        targetUserIds = [targetUserId];
+        conversationType = 'direct';
+      } else {
+        targetUserIds = await getTargetUsers(targetType);
+        
+        if (targetUserIds.length > 1) {
+          conversationType = 'group';
+          const labels: Record<TargetType, string> = {
+            aidant: '👥 Aidants',
+            aidants_group: '👥 Mes aidants',
+            coordinator: '👔 Coordinateurs',
+            admin: '👑 Administrateurs',
+            all_aidants: '📢 Tous les aidants',
+            specific: '👤 Discussion',
+          };
+          conversationName = labels[targetType] || '👥 Groupe';
+        } else if (targetUserIds.length === 0) {
+          toast.error('Aucun destinataire trouvé');
+          setIsSending(false);
+          setIsUploading(false);
+          return;
+        }
+      }
+
+      // Créer ou récupérer la conversation
+      let conversationId = currentConversationId;
+
+      if (targetUserIds.length === 1 && conversationType === 'direct') {
+        const existing = await createConversation(targetUserIds, 'direct');
+        if (existing) {
+          conversationId = existing.id;
+        } else {
+          conversationId = currentConversationId || conversationId;
+        }
+      } else if (targetUserIds.length > 1 || conversationType === 'group') {
+        const newConv = await createConversation(targetUserIds, 'group', conversationName);
+        if (newConv) {
+          conversationId = newConv.id;
+        }
+      }
+
+      // Envoyer le message
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          content: content || null,
+          is_read: false,
+          attachment_url: attachmentUrls.length > 0 ? attachmentUrls.join(',') : null,
+          attachment_type: attachmentTypes.length > 0 ? 'image' : null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Mettre à jour la conversation
+      await supabase
+        .from('conversations')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', conversationId);
+
+      // Ajouter le message
+      if (data) {
+        const messageWithSender: Message = {
+          ...data,
+          sender: {
+            id: currentUserId,
+            full_name: currentUserName,
+            role: currentUserRole,
+            avatar_url: profile?.avatar_url || null,
+          },
+        };
+
+        setMessages((prev) => [...prev, messageWithSender]);
+
+        // Notifier les destinataires
+        for (const userId of targetUserIds) {
+          if (userId !== currentUserId) {
+            await supabase.from('notifications').insert({
+              user_id: userId,
+              title: `📨 ${currentUserName}`,
+              body: content?.substring(0, 100) || 'Pièce jointe',
+              type: 'message',
+              data: {
+                conversation_id: conversationId,
+                message_id: data.id,
+                sender_id: currentUserId,
+              },
+            });
+          }
+        }
+
+        // Réinitialiser
+        setMessageInput('');
+        setAttachments([]);
+        setAttachmentPreviews([]);
+
+        inputRef.current?.focus();
+        scrollToBottom(true);
+      }
+
+    } catch (error: any) {
+      console.error('❌ Send message error:', error);
+      toast.error(error?.message || "Erreur lors de l'envoi");
+    } finally {
+      setIsSending(false);
+      setIsUploading(false);
+    }
+  }, [
+    messageInput,
+    attachments,
+    currentUserId,
+    targetType,
+    targetUserId,
+    currentUserName,
+    currentUserRole,
+    profile?.avatar_url,
+    getTargetUsers,
+    createConversation,
+    currentConversationId,
+    scrollToBottom,
+  ]);
+
+  // ============================================================
+  // EFFETS
   // ============================================================
 
   useEffect(() => {
@@ -690,9 +1067,30 @@ const MessagesPage = () => {
     };
   }, [isInitialized, isAuthenticated, currentUserId]);
 
+  useEffect(() => {
+    if (currentConversationId) {
+      fetchMessages(currentConversationId);
+    }
+  }, [currentConversationId, fetchMessages]);
+
+  useEffect(() => {
+    scrollToBottom(true);
+  }, [messages.length, scrollToBottom]);
+
   // ============================================================
-  // ✅ RENDU - VERSION OPTIMISÉE
+  // RENDU
   // ============================================================
+
+  if (isLoading && messages.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p style={{ color: colors.text }}>Chargement des messages...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100dvh-175px)] sm:h-[calc(100vh-135px)] md:h-[calc(100vh-120px)] flex flex-col md:flex-row bg-white rounded-2xl overflow-hidden shadow-sm border" style={{ borderColor: colors.primary + '12' }}>
@@ -842,7 +1240,6 @@ const MessagesPage = () => {
                             value={userSearch}
                             onChange={(e) => {
                               setUserSearch(e.target.value);
-                              // ✅ Debounce pour éviter trop de requêtes
                               clearTimeout((inputRef.current as any)._searchTimeout);
                               (inputRef.current as any)._searchTimeout = setTimeout(() => {
                                 fetchUsers(e.target.value);
