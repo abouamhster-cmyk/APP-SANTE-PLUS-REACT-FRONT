@@ -33,6 +33,37 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 };
 
 // =============================================
+// HELPERS DE CACHE
+// =============================================
+
+const CACHE_KEY = 'sante_plus_orders_cache';
+const CACHE_DURATION = 60000; // 1 minute
+
+const getCachedOrders = (): { data: Order[]; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedOrders = (orders: Order[]) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      data: orders,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedOrders = () => {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+    console.log('🗑️ Cache commandes invalidé');
+  } catch { /* ignore */ }
+};
+
+// =============================================
 // ORDER STORE
 // =============================================
 
@@ -41,9 +72,12 @@ interface OrderState {
   currentOrder: Order | null;
   isLoading: boolean;
   error: string | null;
+  isInitialized: boolean;
+  lastFetch: number | null;
+  isCacheInvalidated: boolean;
   
   // Actions
-  fetchOrders: () => Promise<void>;
+  fetchOrders: (force?: boolean) => Promise<void>;
   fetchOrderById: (id: string) => Promise<void>;
   createOrder: (data: Partial<Order>) => Promise<Order>;
   updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
@@ -60,6 +94,11 @@ interface OrderState {
   getAvailableOrders: () => Order[];
   getDeliveryOrders: () => Order[];
   canManageOrders: () => boolean;
+  
+  // ✅ GESTION DU CACHE
+  invalidateCache: () => void;
+  refresh: () => Promise<void>;
+  
   clearError: () => void;
 }
 
@@ -68,6 +107,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   currentOrder: null,
   isLoading: false,
   error: null,
+  isInitialized: false,
+  lastFetch: null,
+  isCacheInvalidated: false,
 
   // ✅ Vérifier si l'utilisateur peut gérer les commandes
   canManageOrders: () => {
@@ -75,12 +117,60 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     return profile?.role === 'admin' || profile?.role === 'coordinator';
   },
 
+  // ✅ Invalider le cache
+  invalidateCache: () => {
+    clearCachedOrders();
+    set({ 
+      isCacheInvalidated: true,
+      isInitialized: false,
+      lastFetch: null,
+    });
+    console.log('🔄 Cache commandes invalidé');
+  },
+
+  // ✅ Rafraîchir forcé
+  refresh: async () => {
+    get().invalidateCache();
+    await get().fetchOrders(true);
+  },
+
   // =============================================
-  // FETCH ORDERS
+  // FETCH ORDERS - AVEC CACHE
   // =============================================
-  fetchOrders: async () => {
+  fetchOrders: async (force = false) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire commandes');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedOrders();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage commandes');
+        set({ 
+          orders: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
       
       const { user, profile } = useAuthStore.getState();
       if (!user) {
@@ -152,20 +242,52 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         })
       );
 
-      set({ orders: ordersWithRelations || [], isLoading: false });
+      // ✅ Mettre en cache
+      setCachedOrders(ordersWithRelations);
+      
+      set({ 
+        orders: ordersWithRelations || [], 
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
     } catch (error: any) {
       console.error('❌ Fetch orders error:', error);
-      set({ error: error.message, isLoading: false });
+      
+      // En cas d'erreur, utiliser le cache
+      const cached = getCachedOrders();
+      if (cached && cached.data.length > 0) {
+        set({
+          orders: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false });
+      }
     }
   },
 
   // =============================================
-  // FETCH ORDER BY ID
+  // FETCH ORDER BY ID - AVEC CACHE
   // =============================================
   fetchOrderById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
+      // ✅ Vérifier dans le cache d'abord
+      const state = get();
+      const cachedOrder = state.orders.find(o => o.id === id);
+      if (cachedOrder) {
+        console.log('📦 Commande trouvée dans le cache');
+        set({ currentOrder: cachedOrder, isLoading: false });
+        return;
+      }
+
       const { data: order, error } = await supabase
         .from('commandes')
         .select('*')
@@ -226,7 +348,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE ORDER
+  // CREATE ORDER - AVEC INVALIDATION DE CACHE
   // =============================================
   createOrder: async (data: Partial<Order>) => {
     try {
@@ -326,10 +448,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         });
       }
 
-      set((state) => ({
-        orders: [fullOrder, ...state.orders],
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
 
       return fullOrder;
     } catch (error: any) {
@@ -340,7 +463,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // CONFIRMER PAIEMENT
+  // CONFIRMER PAIEMENT - AVEC INVALIDATION DE CACHE
   // =============================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
@@ -375,11 +498,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ 
         currentOrder: data,
         isLoading: false,
-      }));
+      });
 
       toast.success('✅ Paiement confirmé, commande disponible');
     } catch (error: any) {
@@ -390,7 +516,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // PRENDRE UNE COMMANDE (aidant)
+  // PRENDRE UNE COMMANDE (aidant) - AVEC INVALIDATION DE CACHE
   // =============================================
   takeOrder: async (id: string) => {
     try {
@@ -448,12 +574,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         });
       }
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        currentOrder: data,
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
 
+      set({ isLoading: false });
       toast.success('✅ Commande prise en charge');
     } catch (error: any) {
       console.error('❌ Take order error:', error);
@@ -502,11 +627,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
 
+      set({ isLoading: false });
       toast.success('📦 Commande en préparation');
     } catch (error: any) {
       console.error('❌ Prepare order error:', error);
@@ -548,11 +673,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
 
+      set({ isLoading: false });
       toast.success('✅ Commande prête à être livrée');
     } catch (error: any) {
       console.error('❌ Mark order ready error:', error);
@@ -600,11 +725,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
 
+      set({ isLoading: false });
       toast.success('🚚 Commande en livraison');
     } catch (error: any) {
       console.error('❌ Start delivery error:', error);
@@ -614,7 +739,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // COMPLETE DELIVERY
+  // COMPLETE DELIVERY - AVEC INVALIDATION DE CACHE
   // =============================================
   completeDelivery: async (id: string, proof_url?: string) => {
     try {
@@ -653,11 +778,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...data } : o),
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
 
+      set({ isLoading: false });
       toast.success('✅ Commande livrée');
     } catch (error: any) {
       console.error('❌ Complete delivery error:', error);
@@ -667,7 +792,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE ORDER STATUS
+  // UPDATE ORDER STATUS - AVEC INVALIDATION DE CACHE
   // =============================================
   updateOrderStatus: async (id: string, status: OrderStatus) => {
     try {
@@ -682,11 +807,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...order } : o),
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ 
         currentOrder: order,
         isLoading: false,
-      }));
+      });
 
       toast.success(`Commande ${STATUS_LABELS[status]}`);
     } catch (error: any) {
@@ -697,7 +825,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE ORDER
+  // UPDATE ORDER - AVEC INVALIDATION DE CACHE
   // =============================================
   updateOrder: async (id: string, data: Partial<Order>) => {
     try {
@@ -717,11 +845,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? { ...o, ...order } : o),
-        currentOrder: order,
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
+      toast.success('Commande mise à jour');
     } catch (error: any) {
       console.error('❌ Update order error:', error);
       set({ error: error.message, isLoading: false });
@@ -730,7 +859,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // DELETE ORDER
+  // DELETE ORDER - AVEC INVALIDATION DE CACHE
   // =============================================
   deleteOrder: async (id: string) => {
     try {
@@ -748,10 +877,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      set((state) => ({
-        orders: state.orders.filter(o => o.id !== id),
-        isLoading: false,
-      }));
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
+      toast.success('Commande supprimée');
     } catch (error: any) {
       console.error('❌ Delete order error:', error);
       set({ error: error.message, isLoading: false });
