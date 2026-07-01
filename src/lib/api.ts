@@ -1,10 +1,29 @@
 // 📁 src/lib/api.ts
- 
+// ✅ VERSION CORRIGÉE
+
 import axios from 'axios';
 import { supabase } from './supabase';
 
-// ✅ URL UNIQUE - Utiliser la variable d'environnement avec fallback
+// ✅ URL UNIQUE - sans /api en double
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+// ✅ Fonction utilitaire pour normaliser les URLs
+const normalizeApiUrl = (endpoint: string): string => {
+  const cleanBase = API_URL.replace(/\/+$/, '');
+  const cleanEndpoint = endpoint.replace(/^\/+/, '');
+  
+  // Si l'endpoint commence déjà par 'api/', on garde
+  if (cleanEndpoint.startsWith('api/')) {
+    return `${cleanBase}/${cleanEndpoint}`;
+  }
+  
+  // Si le base contient déjà 'api', on ne l'ajoute pas
+  if (cleanBase.includes('/api')) {
+    return `${cleanBase}/${cleanEndpoint}`;
+  }
+  
+  return `${cleanBase}/${cleanEndpoint}`;
+};
 
 const api = axios.create({
   baseURL: API_URL,
