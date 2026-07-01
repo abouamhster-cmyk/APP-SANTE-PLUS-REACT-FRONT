@@ -1,99 +1,97 @@
-// 📁 src/stores/orderStore.ts
- 
+// 📁 src/stores/paymentStore.ts
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import { Order, OrderStatus } from '@/types';
+import { Subscription, Payment } from '@/types';
 import { useAuthStore } from './authStore';
-import toast from 'react-hot-toast';
 
-// =============================================
-// STATUS LABELS - COMPLET AVEC TOUS LES STATUTS
-// =============================================
-
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  creee: 'Créée',
-  en_attente: 'En attente',
-  disponible: 'Disponible',
-  en_cours: 'En cours',
-  livree: 'Livrée',
-  validee: 'Validée',
-  annulee: 'Annulée',
-  attente_paiement: 'En attente paiement',
-};
-
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  creee: '#9E9E9E',
-  en_attente: '#FF9800',
-  disponible: '#F44336',
-  en_cours: '#2196F3',
-  livree: '#2196F3',
-  validee: '#4CAF50',
-  annulee: '#9E9E9E',
-  attente_paiement: '#8b5cf6',
-};
+interface CreatePaymentData {
+  amount: number;
+  description?: string;
+  plan_id?: string;
+  abonnement_id?: string;
+  email?: string | null;
+  is_ponctual?: boolean;
+  order_data?: any;
+}
 
 // =============================================
 // HELPERS DE CACHE
 // =============================================
 
-const CACHE_KEY = 'sante_plus_orders_cache';
+const SUBSCRIPTIONS_CACHE_KEY = 'sante_plus_subscriptions_cache';
+const PAYMENTS_CACHE_KEY = 'sante_plus_payments_cache';
 const CACHE_DURATION = 60000; // 1 minute
 
-const getCachedOrders = (): { data: Order[]; timestamp: number } | null => {
+// Subscriptions cache
+const getCachedSubscriptions = (): { data: Subscription[]; timestamp: number } | null => {
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cached = localStorage.getItem(SUBSCRIPTIONS_CACHE_KEY);
     if (cached) return JSON.parse(cached);
     return null;
   } catch { return null; }
 };
 
-const setCachedOrders = (orders: Order[]) => {
+const setCachedSubscriptions = (subscriptions: Subscription[]) => {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
-      data: orders,
+    localStorage.setItem(SUBSCRIPTIONS_CACHE_KEY, JSON.stringify({
+      data: subscriptions,
       timestamp: Date.now(),
     }));
   } catch { /* ignore */ }
 };
 
-const clearCachedOrders = () => {
+const clearCachedSubscriptions = () => {
   try {
-    localStorage.removeItem(CACHE_KEY);
-    console.log('🗑️ Cache commandes invalidé');
+    localStorage.removeItem(SUBSCRIPTIONS_CACHE_KEY);
+    console.log('🗑️ Cache abonnements invalidé');
+  } catch { /* ignore */ }
+};
+
+// Payments cache
+const getCachedPayments = (): { data: Payment[]; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(PAYMENTS_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedPayments = (payments: Payment[]) => {
+  try {
+    localStorage.setItem(PAYMENTS_CACHE_KEY, JSON.stringify({
+      data: payments,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedPayments = () => {
+  try {
+    localStorage.removeItem(PAYMENTS_CACHE_KEY);
+    console.log('🗑️ Cache paiements invalidé');
   } catch { /* ignore */ }
 };
 
 // =============================================
-// ORDER STORE
+// STORE
 // =============================================
 
-interface OrderState {
-  orders: Order[];
-  currentOrder: Order | null;
+interface PaymentState {
+  subscriptions: Subscription[];
+  payments: Payment[];
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
   lastFetch: number | null;
   isCacheInvalidated: boolean;
-  
-  // Actions
-  fetchOrders: (force?: boolean) => Promise<void>;
-  fetchOrderById: (id: string) => Promise<void>;
-  createOrder: (data: Partial<Order>) => Promise<Order>;
-  updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
-  updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
-  deleteOrder: (id: string) => Promise<void>;
-  confirmPayment: (id: string, transactionId: string) => Promise<void>;
-  takeOrder: (id: string) => Promise<void>;
-  acceptOrder: (id: string) => Promise<void>;
-  prepareOrder: (id: string) => Promise<void>;
-  markOrderReady: (id: string) => Promise<void>;
-  startDelivery: (id: string, location?: { lat: number; lng: number }) => Promise<void>;
-  completeDelivery: (id: string, proof_url?: string) => Promise<void>;
-  getAssignedOrders: () => Order[];
-  getAvailableOrders: () => Order[];
-  getDeliveryOrders: () => Order[];
-  canManageOrders: () => boolean;
+
+  fetchSubscriptions: (force?: boolean) => Promise<void>;
+  fetchPayments: (force?: boolean) => Promise<void>;
+  createPayment: (data: CreatePaymentData) => Promise<any>;
+  createPonctualPayment: (data: { amount: number; description: string; orderId?: string }) => Promise<any>;
+  subscribeToOffer: (offreId: string, patientId?: string) => Promise<Subscription>;
+  cancelSubscription: (subscriptionId: string) => Promise<void>;
   
   // ✅ GESTION DU CACHE
   invalidateCache: () => void;
@@ -102,42 +100,43 @@ interface OrderState {
   clearError: () => void;
 }
 
-export const useOrderStore = create<OrderState>((set, get) => ({
-  orders: [],
-  currentOrder: null,
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+export const usePaymentStore = create<PaymentState>((set, get) => ({
+  subscriptions: [],
+  payments: [],
   isLoading: false,
   error: null,
   isInitialized: false,
   lastFetch: null,
   isCacheInvalidated: false,
 
-  // ✅ Vérifier si l'utilisateur peut gérer les commandes
-  canManageOrders: () => {
-    const { profile } = useAuthStore.getState();
-    return profile?.role === 'admin' || profile?.role === 'coordinator';
-  },
-
   // ✅ Invalider le cache
   invalidateCache: () => {
-    clearCachedOrders();
+    clearCachedSubscriptions();
+    clearCachedPayments();
     set({ 
       isCacheInvalidated: true,
       isInitialized: false,
       lastFetch: null,
     });
-    console.log('🔄 Cache commandes invalidé');
+    console.log('🔄 Cache paiements invalidé');
   },
 
   // ✅ Rafraîchir forcé
   refresh: async () => {
     get().invalidateCache();
-    await get().fetchOrders(true);
+    await Promise.all([
+      get().fetchSubscriptions(true),
+      get().fetchPayments(true),
+    ]);
   },
 
   // =============================================
-  // FETCH ORDERS - AVEC CACHE
+  // FETCH SUBSCRIPTIONS - AVEC CACHE
   // =============================================
-  fetchOrders: async (force = false) => {
+  fetchSubscriptions: async (force = false) => {
     const state = get();
     
     if (state.isLoading) {
@@ -150,16 +149,16 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
 
     if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
-      console.log('📦 Utilisation du cache mémoire commandes');
+      console.log('📦 Utilisation du cache mémoire abonnements');
       return;
     }
 
     if (!force) {
-      const cached = getCachedOrders();
+      const cached = getCachedSubscriptions();
       if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-        console.log('📦 Utilisation du cache localStorage commandes');
+        console.log('📦 Utilisation du cache localStorage abonnements');
         set({ 
-          orders: cached.data, 
+          subscriptions: cached.data, 
           isLoading: false, 
           isInitialized: true,
           lastFetch: cached.timestamp,
@@ -171,742 +170,519 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
     try {
       set({ isLoading: true, error: null, isCacheInvalidated: false });
-      
-      const { user, profile } = useAuthStore.getState();
+
+      const { user } = useAuthStore.getState();
+
       if (!user) {
-        set({ orders: [], isLoading: false });
+        set({ subscriptions: [], isLoading: false, isInitialized: true });
         return;
       }
 
-      let query = supabase.from('commandes').select('*');
-
-      if (profile?.role === 'family') {
-        query = query.eq('family_id', user.id);
-      } else if (profile?.role === 'aidant') {
-        const { data: aidant } = await supabase
-          .from('aidants')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (aidant) {
-          query = query.eq('aidant_id', aidant.id);
-        } else {
-          set({ orders: [], isLoading: false });
-          return;
-        }
-      }
-
-      const { data: orders, error } = await query.order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('abonnements')
+        .select(`
+          *,
+          offre:offres(*)
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const ordersWithRelations = await Promise.all(
-        (orders || []).map(async (order) => {
-          let patient = null;
-          if (order.patient_id) {
-            const { data: patientData } = await supabase
-              .from('patients')
-              .select('*')
-              .eq('id', order.patient_id)
-              .single();
-            patient = patientData;
-          }
-
-          let family = null;
-          if (order.family_id) {
-            const { data: familyData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', order.family_id)
-              .single();
-            family = familyData;
-          }
-
-          let aidant = null;
-          if (order.aidant_id) {
-            const { data: aidantData } = await supabase
-              .from('aidants')
-              .select('*, user:profiles(*)')
-              .eq('id', order.aidant_id)
-              .single();
-            aidant = aidantData;
-          }
-
-          return {
-            ...order,
-            patient,
-            family,
-            aidant,
-          };
-        })
-      );
+      const subscriptions = data || [];
 
       // ✅ Mettre en cache
-      setCachedOrders(ordersWithRelations);
+      setCachedSubscriptions(subscriptions);
       
-      set({ 
-        orders: ordersWithRelations || [], 
+      set({
+        subscriptions,
         isLoading: false,
         isInitialized: true,
         lastFetch: Date.now(),
         isCacheInvalidated: false,
       });
     } catch (error: any) {
-      console.error('❌ Fetch orders error:', error);
+      console.error('Fetch subscriptions error:', error);
       
-      // En cas d'erreur, utiliser le cache
-      const cached = getCachedOrders();
+      const cached = getCachedSubscriptions();
       if (cached && cached.data.length > 0) {
         set({
-          orders: cached.data,
+          subscriptions: cached.data,
           isLoading: false,
           isInitialized: true,
           lastFetch: cached.timestamp,
-          error: error.message || 'Erreur de chargement (cache utilisé)',
+          error: error?.message || 'Erreur de chargement (cache utilisé)',
           isCacheInvalidated: false,
         });
       } else {
-        set({ error: error.message, isLoading: false });
+        set({
+          error: error?.message || 'Erreur lors du chargement des abonnements',
+          isLoading: false,
+          isInitialized: true,
+        });
       }
     }
   },
 
   // =============================================
-  // FETCH ORDER BY ID - AVEC CACHE
+  // FETCH PAYMENTS - AVEC CACHE
   // =============================================
-  fetchOrderById: async (id: string) => {
+  fetchPayments: async (force = false) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire paiements');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedPayments();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage paiements');
+        set({ 
+          payments: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
-      set({ isLoading: true, error: null });
-      
-      // ✅ Vérifier dans le cache d'abord
-      const state = get();
-      const cachedOrder = state.orders.find(o => o.id === id);
-      if (cachedOrder) {
-        console.log('📦 Commande trouvée dans le cache');
-        set({ currentOrder: cachedOrder, isLoading: false });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
+
+      const { user } = useAuthStore.getState();
+
+      if (!user) {
+        set({ payments: [], isLoading: false, isInitialized: true });
         return;
       }
 
-      const { data: order, error } = await supabase
-        .from('commandes')
+      const { data, error } = await supabase
+        .from('paiements')
         .select('*')
-        .eq('id', id)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const paymentsWithUser = await Promise.all(
+        (data || []).map(async (payment) => {
+          if (payment.user_id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', payment.user_id)
+              .maybeSingle();
+            return { ...payment, user: profile };
+          }
+          return payment;
+        })
+      );
+
+      const payments = paymentsWithUser || [];
+
+      // ✅ Mettre en cache
+      setCachedPayments(payments);
+      
+      set({
+        payments,
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
+    } catch (error: any) {
+      console.error('Fetch payments error:', error);
+      
+      const cached = getCachedPayments();
+      if (cached && cached.data.length > 0) {
+        set({
+          payments: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error?.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({
+          error: error?.message || 'Erreur lors du chargement des paiements',
+          isLoading: false,
+          isInitialized: true,
+        });
+      }
+    }
+  },
+
+  // =============================================
+  // CREATE PAYMENT - AVEC INVALIDATION DE CACHE
+  // =============================================
+  createPayment: async (data: CreatePaymentData) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { user, profile } = useAuthStore.getState();
+
+      if (!user) {
+        throw new Error('Utilisateur non connecté');
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const amount = Number(data.amount || 0);
+
+      if (!amount || amount <= 0) {
+        throw new Error('Montant invalide');
+      }
+
+      const isPonctual = data.is_ponctual || false;
+
+      console.log('📤 Envoi paiement avec is_ponctual:', isPonctual);
+      console.log('📤 Envoi paiement avec abonnement_id:', data.abonnement_id);
+      console.log('📤 Envoi paiement avec order_data:', data.order_data);
+
+      const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          abonnement_id: isPonctual ? null : (data.abonnement_id || data.plan_id || null),
+          plan_id: data.plan_id || null,
+          montant: amount,
+          amount,
+          description: data.description || 'Abonnement Santé Plus',
+          email_client: data.email || profile?.email || user.email,
+          customer_email: data.email || profile?.email || user.email,
+          customer_name: profile?.full_name || user.email,
+          user_id: user.id,
+          is_ponctual: isPonctual,
+          order_data: data.order_data || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || result?.message || 'Erreur paiement');
+      }
+
+      const paymentUrl = result?.payment_url || result?.url || result?.checkout_url;
+
+      if (!paymentUrl) {
+        throw new Error("Le lien de paiement n'a pas été généré");
+      }
+
+      // Enregistrer le paiement
+      const { data: payment, error: dbError } = await supabase
+        .from('paiements')
+        .insert({
+          user_id: user.id,
+          amount,
+          method: 'fedapay',
+          reference: String(result.transaction_id),
+          status: 'en_attente',
+          abonnement_id: isPonctual ? null : (data.abonnement_id || data.plan_id || null),
+          metadata: {
+            description: data.description,
+            plan_id: data.plan_id || null,
+            transaction_id: String(result.transaction_id),
+            payment_url: paymentUrl,
+            is_ponctual: isPonctual,
+            order_data: data.order_data || null,
+          },
+        })
+        .select()
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          set({ error: 'Commande non trouvée', isLoading: false });
-          return;
-        }
-        throw error;
+      if (dbError) {
+        console.warn('⚠️ Erreur sauvegarde paiement:', dbError);
       }
 
-      let patient = null;
-      if (order.patient_id) {
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', order.patient_id)
-          .single();
-        patient = patientData;
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await Promise.all([
+        get().fetchSubscriptions(true),
+        get().fetchPayments(true),
+      ]);
+
+      set({ isLoading: false });
+
+      return {
+        success: true,
+        payment_url: paymentUrl,
+        transaction_id: result.transaction_id,
+        reference: result.reference,
+      };
+    } catch (error: any) {
+      console.error('Create payment error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // =============================================
+  // CREATE PONCTUAL PAYMENT - AVEC INVALIDATION DE CACHE
+  // =============================================
+  createPonctualPayment: async (data: { amount: number; description: string; orderId?: string }) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { user, profile } = useAuthStore.getState();
+
+      if (!user) {
+        throw new Error('Utilisateur non connecté');
       }
 
-      let family = null;
-      if (order.family_id) {
-        const { data: familyData } = await supabase
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          montant: data.amount,
+          amount: data.amount,
+          description: data.description,
+          email_client: profile?.email || user.email,
+          customer_email: profile?.email || user.email,
+          customer_name: profile?.full_name || user.email,
+          order_id: data.orderId || null,
+          is_ponctual: true,
+          abonnement_id: null,
+          plan_id: null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || result?.message || 'Erreur paiement');
+      }
+
+      const paymentUrl = result?.payment_url || result?.url || result?.checkout_url;
+
+      if (!paymentUrl) {
+        throw new Error("Le lien de paiement n'a pas été généré");
+      }
+
+      const { data: payment, error: dbError } = await supabase
+        .from('paiements')
+        .insert({
+          user_id: user.id,
+          amount: data.amount,
+          method: 'fedapay',
+          reference: String(result.transaction_id),
+          status: 'en_attente',
+          commande_id: data.orderId || null,
+          abonnement_id: null,
+          metadata: {
+            description: data.description,
+            transaction_id: String(result.transaction_id),
+            payment_url: paymentUrl,
+            is_ponctual: true,
+          },
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        console.warn('⚠️ Erreur sauvegarde paiement:', dbError);
+      }
+
+      let paymentWithUser = payment;
+      if (payment?.user_id) {
+        const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', order.family_id)
-          .single();
-        family = familyData;
+          .eq('id', payment.user_id)
+          .maybeSingle();
+        paymentWithUser = { ...payment, user: profileData };
       }
 
-      let aidant = null;
-      if (order.aidant_id) {
-        const { data: aidantData } = await supabase
-          .from('aidants')
-          .select('*, user:profiles(*)')
-          .eq('id', order.aidant_id)
-          .single();
-        aidant = aidantData;
-      }
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await Promise.all([
+        get().fetchSubscriptions(true),
+        get().fetchPayments(true),
+      ]);
 
-      const fullOrder = {
-        ...order,
-        patient,
-        family,
-        aidant,
+      set({ isLoading: false });
+
+      return {
+        success: true,
+        payment_url: paymentUrl,
+        transaction_id: result.transaction_id,
+        reference: result.reference,
       };
-
-      set({ currentOrder: fullOrder, isLoading: false });
     } catch (error: any) {
-      console.error('❌ Fetch order error:', error);
+      console.error('Create ponctual payment error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
   // =============================================
-  // CREATE ORDER - AVEC INVALIDATION DE CACHE
+  // SUBSCRIBE TO OFFER - AVEC INVALIDATION DE CACHE
   // =============================================
-  createOrder: async (data: Partial<Order>) => {
+  subscribeToOffer: async (offreId: string, patientId?: string) => {
     try {
       set({ isLoading: true, error: null });
-      
-      const { user, profile } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
 
-      if (profile?.role === 'aidant') {
-        throw new Error('Les aidants ne peuvent pas créer de commandes');
+      const { user } = useAuthStore.getState();
+
+      if (!user) {
+        throw new Error('Utilisateur non connecté');
       }
 
-      const isPonctual = data.order_type === 'ponctual' || false;
-      let status: OrderStatus = 'creee';
+      const { data: offre, error: offreError } = await supabase
+        .from('offres')
+        .select('*')
+        .eq('id', offreId)
+        .single();
 
-      if (isPonctual) {
-        status = 'attente_paiement';
+      if (offreError) throw offreError;
+
+      if (!offre) {
+        throw new Error('Offre non trouvée');
       }
 
-      if (!isPonctual && data.patient_id) {
-        const { data: subscription } = await supabase
-          .from('abonnements')
-          .select('id, remaining_orders, status')
-          .eq('patient_id', data.patient_id)
-          .eq('status', 'actif')
-          .maybeSingle();
+      const startDate = new Date();
+      const endDate = new Date();
 
-        if (subscription && subscription.remaining_orders <= 0) {
-          status = 'attente_paiement';
-        }
+      switch (offre.type) {
+        case 'trimestrielle':
+          endDate.setMonth(endDate.getMonth() + 3);
+          break;
+        case 'annuelle':
+          endDate.setFullYear(endDate.getFullYear() + 1);
+          break;
+        case 'mensuelle':
+        default:
+          endDate.setMonth(endDate.getMonth() + 1);
+          break;
       }
 
-      const orderData = {
-        patient_id: data.patient_id || null,
-        family_id: user.id,
-        aidant_id: data.aidant_id || null,
-        type: data.type || 'autre',
-        description: data.description || 'Commande',
-        address: data.address || 'Adresse non spécifiée',
-        latitude: data.latitude || null,
-        longitude: data.longitude || null,
-        status: status,
-        estimated_amount: data.estimated_amount || 0,
-        final_amount: data.final_amount || null,
-        delivery_fee: data.delivery_fee || null,
-        tip_amount: data.tip_amount || null,
-        items: data.items || [],
-        prescription_url: data.prescription_url || null,
-        delivery_notes: data.delivery_notes || null,
-        order_type: isPonctual ? 'ponctual' : 'subscription',
-        is_paid: false,
-        is_ponctual: isPonctual,
-        metadata: {
-          requires_payment: status === 'attente_paiement',
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-        }
-      };
-
-      const { data: newOrder, error } = await supabase
-        .from('commandes')
-        .insert(orderData)
-        .select()
+      const { data: subscription, error } = await supabase
+        .from('abonnements')
+        .insert({
+          user_id: user.id,
+          patient_id: patientId || null,
+          offre_id: offreId,
+          status: 'en_attente',
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          auto_renew: true,
+          total_visits: offre.total_visits || offre.visits_per_month || 0,
+          remaining_visits: offre.total_visits || offre.visits_per_month || 0,
+          total_orders: offre.total_orders || 0,
+          remaining_orders: offre.total_orders || 0,
+        })
+        .select(`
+          *,
+          offre:offres(*)
+        `)
         .single();
 
       if (error) throw error;
 
-      let patient = null;
-      if (newOrder.patient_id) {
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', newOrder.patient_id)
-          .single();
-        patient = patientData;
-      }
+      await supabase.from('notifications').insert({
+        user_id: user.id,
+        title: 'Abonnement en attente',
+        body: `Votre abonnement ${offre.name} est en attente de confirmation de paiement`,
+        type: 'paiement',
+        data: {
+          subscription_id: subscription.id,
+        },
+      });
 
-      const { data: family } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', newOrder.family_id)
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchSubscriptions(true);
+
+      set((state) => ({
+        subscriptions: [subscription, ...state.subscriptions],
+        isLoading: false,
+      }));
+
+      return subscription;
+    } catch (error: any) {
+      console.error('Subscribe error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // =============================================
+  // CANCEL SUBSCRIPTION - AVEC INVALIDATION DE CACHE
+  // =============================================
+  cancelSubscription: async (subscriptionId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { data, error } = await supabase
+        .from('abonnements')
+        .update({ status: 'annule' })
+        .eq('id', subscriptionId)
+        .select(`
+          *,
+          offre:offres(*)
+        `)
         .single();
 
-      const fullOrder = {
-        ...newOrder,
-        patient,
-        family,
-      };
+      if (error) throw error;
 
-      if (status === 'attente_paiement') {
+      const { user } = useAuthStore.getState();
+
+      if (user) {
         await supabase.from('notifications').insert({
           user_id: user.id,
-          title: '💳 Commande en attente de paiement',
-          body: `Votre commande "${data.description}" est en attente de paiement.`,
-          type: 'commande',
-          data: { order_id: newOrder.id, status: 'attente_paiement' },
+          title: 'Abonnement annulé',
+          body: `Votre abonnement ${data.offre?.name || ''} a été annulé`,
+          type: 'paiement',
         });
       }
 
       // ✅ INVALIDER LE CACHE
       get().invalidateCache();
-      await get().fetchOrders(true);
+      await get().fetchSubscriptions(true);
 
-      set({ isLoading: false });
-
-      return fullOrder;
-    } catch (error: any) {
-      console.error('❌ Create order error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // CONFIRMER PAIEMENT - AVEC INVALIDATION DE CACHE
-  // =============================================
-  confirmPayment: async (id: string, transactionId: string) => {
-    try {
-      set({ isLoading: true, error: null });
-
-      const { data: order, error: orderError } = await supabase
-        .from('commandes')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (orderError) throw orderError;
-
-      if (order.status !== 'attente_paiement') {
-        throw new Error('Cette commande n\'est pas en attente de paiement');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({
-          status: 'creee',
-          is_paid: true,
-          metadata: {
-            ...(order.metadata || {}),
-            payment_confirmed_at: new Date().toISOString(),
-            transaction_id: transactionId,
-          }
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ 
-        currentOrder: data,
+      set((state) => ({
+        subscriptions: state.subscriptions.map((sub) =>
+          sub.id === subscriptionId ? data : sub
+        ),
         isLoading: false,
-      });
-
-      toast.success('✅ Paiement confirmé, commande disponible');
+      }));
     } catch (error: any) {
-      console.error('❌ Confirm payment error:', error);
+      console.error('Cancel subscription error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
-  },
-
-  // =============================================
-  // PRENDRE UNE COMMANDE (aidant) - AVEC INVALIDATION DE CACHE
-  // =============================================
-  takeOrder: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.status !== 'creee' && order.status !== 'en_attente' && order.status !== 'disponible') {
-        throw new Error('Cette commande n\'est pas disponible');
-      }
-
-      const { data: aidant, error: aidantError } = await supabase
-        .from('aidants')
-        .select('id, available, is_verified')
-        .eq('user_id', user.id)
-        .single();
-
-      if (aidantError || !aidant) {
-        throw new Error('Aidant non trouvé');
-      }
-
-      if (!aidant.available || !aidant.is_verified) {
-        throw new Error('Vous n\'êtes pas disponible ou vérifié');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({
-          status: 'en_cours',
-          aidant_id: aidant.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (order.family_id) {
-        await supabase.from('notifications').insert({
-          user_id: order.family_id,
-          title: '✅ Commande prise en charge',
-          body: `Un aidant a pris votre commande "${order.description}".`,
-          type: 'commande',
-          data: { order_id: id, status: 'en_cours' },
-        });
-      }
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ isLoading: false });
-      toast.success('✅ Commande prise en charge');
-    } catch (error: any) {
-      console.error('❌ Take order error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // ACCEPT ORDER (alias)
-  // =============================================
-  acceptOrder: async (id: string) => {
-    return get().takeOrder(id);
-  },
-
-  // =============================================
-  // PREPARE ORDER
-  // =============================================
-  prepareOrder: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({ 
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ isLoading: false });
-      toast.success('📦 Commande en préparation');
-    } catch (error: any) {
-      console.error('❌ Prepare order error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // MARK ORDER READY
-  // =============================================
-  markOrderReady: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({ 
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ isLoading: false });
-      toast.success('✅ Commande prête à être livrée');
-    } catch (error: any) {
-      console.error('❌ Mark order ready error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // START DELIVERY
-  // =============================================
-  startDelivery: async (id: string, location?: { lat: number; lng: number }) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const updateData: any = { 
-        updated_at: new Date().toISOString(),
-      };
-
-      if (location) {
-        updateData.delivery_location = location;
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ isLoading: false });
-      toast.success('🚚 Commande en livraison');
-    } catch (error: any) {
-      console.error('❌ Start delivery error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // COMPLETE DELIVERY - AVEC INVALIDATION DE CACHE
-  // =============================================
-  completeDelivery: async (id: string, proof_url?: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id, family_id')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
-      }
-
-      const updateData: any = { 
-        status: 'livree' as OrderStatus,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (proof_url) {
-        updateData.proof_url = proof_url;
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ isLoading: false });
-      toast.success('✅ Commande livrée');
-    } catch (error: any) {
-      console.error('❌ Complete delivery error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // =============================================
-  // UPDATE ORDER STATUS - AVEC INVALIDATION DE CACHE
-  // =============================================
-  updateOrderStatus: async (id: string, status: OrderStatus) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { data: order, error } = await supabase
-        .from('commandes')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ 
-        currentOrder: order,
-        isLoading: false,
-      });
-
-      toast.success(`Commande ${STATUS_LABELS[status]}`);
-    } catch (error: any) {
-      console.error('❌ Update order status error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // UPDATE ORDER - AVEC INVALIDATION DE CACHE
-  // =============================================
-  updateOrder: async (id: string, data: Partial<Order>) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { profile } = useAuthStore.getState();
-      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
-        throw new Error('Non autorisé');
-      }
-
-      const { data: order, error } = await supabase
-        .from('commandes')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ isLoading: false });
-      toast.success('Commande mise à jour');
-    } catch (error: any) {
-      console.error('❌ Update order error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // DELETE ORDER - AVEC INVALIDATION DE CACHE
-  // =============================================
-  deleteOrder: async (id: string) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { profile } = useAuthStore.getState();
-      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
-        throw new Error('Non autorisé');
-      }
-
-      const { error } = await supabase
-        .from('commandes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      // ✅ INVALIDER LE CACHE
-      get().invalidateCache();
-      await get().fetchOrders(true);
-
-      set({ isLoading: false });
-      toast.success('Commande supprimée');
-    } catch (error: any) {
-      console.error('❌ Delete order error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
-    }
-  },
-
-  // =============================================
-  // GETTERS
-  // =============================================
-  getAssignedOrders: () => {
-    const { user } = useAuthStore.getState();
-    const state = get();
-    return state.orders.filter(o => o.aidant_id === user?.id);
-  },
-
-  getAvailableOrders: () => {
-    const state = get();
-    return state.orders.filter(o => o.status === 'creee' || o.status === 'disponible');
-  },
-
-  getDeliveryOrders: () => {
-    const state = get();
-    return state.orders.filter(o => o.status === 'en_cours');
   },
 
   clearError: () => set({ error: null }),
