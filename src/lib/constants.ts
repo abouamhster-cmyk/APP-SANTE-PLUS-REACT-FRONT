@@ -255,7 +255,7 @@ const PONCTUAL_OFFERS: Offer[] = [
     durationDays: 1,
     features: ['Présence à domicile', 'Coordination simple', 'Assistance ponctuelle', 'Durée : 2-3 heures'],
     badge: '⚡ Rapide',
-    category: 'senior',
+    category: 'ponctuelle',
     total_visits: 4,
     total_orders: 4,
   },
@@ -268,7 +268,7 @@ const PONCTUAL_OFFERS: Offer[] = [
     durationDays: 1,
     features: ['Accompagnement retour à domicile', 'Installation et mise en place', 'Coordination avec la famille', 'Durée : 3-4 heures'],
     badge: '👶 Nouveau',
-    category: 'maman_bebe',
+    category: 'ponctuelle',
     total_visits: 12,
     total_orders: 4,
   },
@@ -278,17 +278,17 @@ const PONCTUAL_OFFERS: Offer[] = [
 // EXPORTS - PLANS (Fallback)
 // =============================================
 
-export const PLANS = {
+export const PLANS: Record<string, Offer[]> = {
   senior: SENIOR_OFFERS,
   maman: MAMAN_OFFERS,
   ponctuelle: PONCTUAL_OFFERS,
 };
 
 // =============================================
-// EXPORTS - OFFERS (Fallback)
+// EXPORTS - OFFERS (Fallback) - CORRIGÉ AVEC TYPAGE
 // =============================================
 
-export const OFFERS = {
+export const OFFERS: Record<OfferCategory, Offer[]> = {
   senior: SENIOR_OFFERS,
   maman_bebe: MAMAN_OFFERS,
   ponctuelle: PONCTUAL_OFFERS,
