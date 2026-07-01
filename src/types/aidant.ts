@@ -150,12 +150,12 @@ export const DEFAULT_FILTERS: AidantFilters = {
 };
 
 // ============================================================
-// REQUÊTES D'ASSIGNATION
+// REQUÊTES D'ASSIGNATION - CORRIGÉ
 // ============================================================
 
 export interface AssignAidantRequest {
   aidantId: string;
-  patientId: string;
+  patientId?: string | null;  // ✅ Maintenant optionnel et accepte null
   assignmentType?: AssignmentType;
 }
 
@@ -186,7 +186,7 @@ export interface AidantCatalogState {
   fetchAidants: (filters?: Partial<AidantFilters>) => Promise<void>;
   fetchAidantById: (id: string) => Promise<void>;
   fetchMyAssignments: () => Promise<void>;
-  assignAidant: (aidantId: string, patientId: string, assignmentType?: string) => Promise<void>;
+  assignAidant: (aidantId: string, patientId: string | null, assignmentType?: string) => Promise<void>;  // ✅ Accepte string | null
   revokeAssignment: (assignmentId: string) => Promise<void>;
   setFilters: (filters: Partial<AidantFilters>) => void;
   clearError: () => void;
