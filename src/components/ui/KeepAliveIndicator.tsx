@@ -1,7 +1,7 @@
 // 📁 src/components/ui/KeepAliveIndicator.tsx
 
 import { useEffect, useState } from 'react';
-import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, Zap } from 'lucide-react';
 import { useKeepAlive } from '@/hooks/useKeepAlive';
 import { cn } from '@/utils/helpers';
 
@@ -9,23 +9,30 @@ interface KeepAliveIndicatorProps {
   className?: string;
   showLabel?: boolean;
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  showOnLogin?: boolean; // Afficher même sur la page de login
 }
 
 export const KeepAliveIndicator = ({
   className,
   showLabel = false,
   position = 'bottom-right',
+  showOnLogin = true,
 }: KeepAliveIndicatorProps) => {
-  const { isActive, lastPing, pingStatus } = useKeepAlive();
+  const { isActive, lastPing, pingStatus, isBackendAwake } = useKeepAlive();
   const [isVisible, setIsVisible] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
-    // Afficher l'indicateur après 5 secondes
-    const timer = setTimeout(() => setIsVisible(true), 5000);
+    // Afficher l'indicateur après 1.5 secondes (plus rapide)
+    const timer = setTimeout(() => setIsVisible(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
+  // Vérifier si on est sur la page de login
+  const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
+
   if (!isVisible) return null;
+  if (isLoginPage && !showOnLogin) return null;
 
   const positionClasses = {
     'bottom-right': 'bottom-20 right-4 sm:bottom-24 sm:right-6',
@@ -35,15 +42,24 @@ export const KeepAliveIndicator = ({
   };
 
   const getStatusColor = () => {
-    if (pingStatus === 'ok') return 'text-green-500';
+    if (pingStatus === 'ok' && isBackendAwake) return 'text-green-500';
+    if (pingStatus === 'ok' && !isBackendAwake) return 'text-yellow-500';
     if (pingStatus === 'error') return 'text-red-500';
     return 'text-yellow-500';
   };
 
   const getStatusIcon = () => {
-    if (pingStatus === 'ok') return <Wifi size={14} className="animate-pulse" />;
+    if (pingStatus === 'ok' && isBackendAwake) return <Wifi size={14} className="animate-pulse" />;
+    if (pingStatus === 'ok' && !isBackendAwake) return <RefreshCw size={14} className="animate-spin" />;
     if (pingStatus === 'error') return <WifiOff size={14} />;
-    return <RefreshCw size={14} className="animate-spin" />;
+    return <Zap size={14} className="animate-pulse" />;
+  };
+
+  const getStatusLabel = () => {
+    if (pingStatus === 'ok' && isBackendAwake) return '🟢 Connecté';
+    if (pingStatus === 'ok' && !isBackendAwake) return '🟡 Réveil en cours...';
+    if (pingStatus === 'error') return '🔴 Déconnecté';
+    return '🟡 Connexion...';
   };
 
   return (
@@ -52,20 +68,27 @@ export const KeepAliveIndicator = ({
         'fixed z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-sm border border-black/5 text-xs font-medium transition-all duration-300',
         positionClasses[position],
         className,
-        isActive ? 'opacity-100' : 'opacity-50'
+        isActive ? 'opacity-100' : 'opacity-50',
+        isHovered ? 'scale-105 shadow-md' : ''
       )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{ color: 'var(--color-text)' }}
     >
       <span className={getStatusColor()}>
         {getStatusIcon()}
       </span>
       {showLabel && (
-        <span style={{ color: 'var(--color-text)' }}>
-          {pingStatus === 'ok' ? 'Connecté' : pingStatus === 'error' ? 'Déconnecté' : 'Connexion...'}
-        </span>
+        <span>{getStatusLabel()}</span>
       )}
       {lastPing && showLabel && (
-        <span className="text-[9px] text-gray-400">
+        <span className="text-[9px] text-gray-400 border-l border-gray-200 pl-2">
           {lastPing.toLocaleTimeString()}
+        </span>
+      )}
+      {!showLabel && (
+        <span className="text-[8px] text-gray-400 font-mono">
+          {isBackendAwake ? '●' : '○'}
         </span>
       )}
     </div>
