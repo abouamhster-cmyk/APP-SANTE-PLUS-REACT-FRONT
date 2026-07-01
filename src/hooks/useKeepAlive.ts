@@ -8,7 +8,7 @@ export const useKeepAlive = () => {
   const [lastPing, setLastPing] = useState<Date | null>(null);
   const [pingStatus, setPingStatus] = useState<'ok' | 'error' | 'pending'>('pending');
   // ✅ Utiliser la méthode publique isBackendAwake()
-  const [isBackendAwake, setIsBackendAwake] = useState(keepAliveService.isBackendAwake());
+  const [isBackendAwake, setIsBackendAwake] = useState(keepAliveService.isBackendAwake());   
 
   useEffect(() => {
     // Démarrer le service (si pas déjà fait)
