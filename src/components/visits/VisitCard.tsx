@@ -1,4 +1,6 @@
-import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye } from 'lucide-react';
+// 📁 src/components/visits/VisitCard.tsx
+
+import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, UserCircle, Users } from 'lucide-react';
 import { Visit } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { formatDate } from '@/utils/helpers';
@@ -36,6 +38,8 @@ export const VisitCard = ({
       case 'annulee': return '#F44336';
       case 'replanifiee': return '#FF5722';
       case 'no_show': return '#795548';
+      case 'refusee': return '#F44336';
+      case 'expire': return '#795548';
       default: return '#9E9E9E';
     }
   };
@@ -50,10 +54,127 @@ export const VisitCard = ({
       case 'annulee': return 'Annulée';
       case 'replanifiee': return 'Replanifiée';
       case 'no_show': return 'Absent';
+      case 'refusee': return 'Refusée';
+      case 'expire': return 'Expirée';
       default: return status;
     }
   };
 
+  // ✅ Déterminer l'affichage du destinataire
+  const getTargetDisplay = () => {
+    if (visit.target_type === 'personal') {
+      return {
+        icon: <UserCircle size={14} className="text-blue-500" />,
+        label: 'Personnel',
+        name: visit.target_name || visit.user?.full_name || 'Personnel'
+      };
+    }
+    if (visit.patient) {
+      return {
+        icon: <User size={14} />,
+        label: 'Patient',
+        name: `${visit.patient.first_name} ${visit.patient.last_name}`
+      };
+    }
+    return {
+      icon: <User size={14} />,
+      label: 'Destinataire',
+      name: 'Non spécifié'
+    };
+  };
+
+  const targetInfo = getTargetDisplay();
+
+  // ✅ Version compacte
+  if (compact) {
+    return (
+      <div 
+        className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
+        style={{ borderLeftColor: getStatusColor(visit.status) }}
+        onClick={onClick}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
+                {visit.patient?.first_name || visit.target_name || 'Visite'}
+              </p>
+              <span 
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5"
+                style={{ 
+                  background: getStatusColor(visit.status) + '20',
+                  color: getStatusColor(visit.status),
+                }}
+              >
+                {getStatusLabel(visit.status)}
+              </span>
+              {visit.is_urgent && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5" style={{ background: '#F44336' + '15', color: '#F44336' }}>
+                  ⚠️ Urgent
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs mt-1 flex-wrap" style={{ color: colors.text + '50' }}>
+              <span className="flex items-center gap-0.5">
+                <Calendar size={11} />
+                {formatDate(visit.scheduled_date)}
+              </span>
+              <span className="flex items-center gap-0.5">
+                <Clock size={11} />
+                {visit.scheduled_time}
+              </span>
+              {/* ✅ Affichage du destinataire */}
+              <span className="flex items-center gap-0.5">
+                {targetInfo.icon}
+                <span className="truncate max-w-[60px]">{targetInfo.name}</span>
+              </span>
+              {visit.aidant && (
+                <span className="flex items-center gap-0.5">
+                  <User size={11} />
+                  {visit.aidant.user?.full_name?.slice(0, 8) || 'Aidant'}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {showActions && visit.status === 'planifiee' && onStart && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onStart(); }}
+                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                style={{ background: '#4CAF50' }}
+                title="Démarrer"
+              >
+                <Play size={14} />
+              </button>
+            )}
+            {showActions && visit.status === 'en_cours' && onComplete && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onComplete(); }}
+                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                style={{ background: '#2196F3' }}
+                title="Terminer"
+              >
+                <CheckCircle size={14} />
+              </button>
+            )}
+            {onView && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onView(); }}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition"
+                style={{ color: colors.primary }}
+                title="Détails"
+              >
+                <Eye size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Version complète
   return (
     <div 
       className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer hover:border-[var(--color-primary)]/50"
@@ -63,7 +184,7 @@ export const VisitCard = ({
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold truncate" style={{ color: colors.text }}>
-            {visit.patient?.first_name} {visit.patient?.last_name}
+            {visit.patient?.first_name || visit.target_name || 'Visite'}
           </h3>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <span 
@@ -80,6 +201,13 @@ export const VisitCard = ({
                 ⚠️ Urgent
               </span>
             )}
+            {/* ✅ Affichage du destinataire avec target_type */}
+            <span className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
+              {targetInfo.icon}
+              <span>
+                {targetInfo.label}: {targetInfo.name}
+              </span>
+            </span>
             {visit.aidant && (
               <span className="text-xs" style={{ color: colors.text + '60' }}>
                 🧑‍⚕️ {visit.aidant.user?.full_name || 'Non assigné'}
@@ -146,7 +274,7 @@ export const VisitCard = ({
         </div>
         <div className="flex items-center space-x-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
           <MapPin size={14} />
-          <span className="truncate">{visit.patient?.address}</span>
+          <span className="truncate">{visit.patient?.address || visit.target_name || 'Adresse non renseignée'}</span>
         </div>
         <div className="flex items-center space-x-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
           <User size={14} />
