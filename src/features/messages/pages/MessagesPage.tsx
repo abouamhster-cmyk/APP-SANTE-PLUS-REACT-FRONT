@@ -1,6 +1,5 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ VERSION COMPLÈTE ET CORRIGÉE
-
+ 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send,
