@@ -1,6 +1,5 @@
 // 📁 src/components/visits/VisitCard.tsx
-// ✅ VERSION CORRIGÉE
-
+ 
 import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, UserCircle } from 'lucide-react';
 import { Visit } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
