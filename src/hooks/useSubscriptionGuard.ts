@@ -16,6 +16,8 @@ interface SubscriptionStatus {
   totalOrders: number;
   startDate: string | null;
   endDate: string | null;
+  // ✅ AJOUTER role
+  role: string | null;
 }
 
 export const useSubscriptionGuard = () => {
@@ -32,39 +34,40 @@ export const useSubscriptionGuard = () => {
     totalOrders: 0,
     startDate: null,
     endDate: null,
+    role: role, // ✅ AJOUTER role
   });
 
   useEffect(() => {
     if (!user) {
-      setStatus(prev => ({ ...prev, isLoading: false }));
+      setStatus(prev => ({ ...prev, isLoading: false, role: role }));
       return;
     }
 
-    // ✅ SOLUTION LONG TERME : Vérification par rôle
     const checkSubscription = async () => {
       try {
         console.log('🔍 Vérification abonnement pour:', user.id, 'Rôle:', role);
 
-        // ✅ CAS 1 : AIDANT - Pas besoin d'abonnement
+        // ✅ CAS 1 : AIDANT
         if (role === 'aidant') {
           console.log('🦸 Aidant détecté - Pas de vérification d\'abonnement');
           setStatus({
-            hasActiveSubscription: true, // ✅ Toujours actif pour les aidants
+            hasActiveSubscription: true,
             isExpired: false,
             hasNeverSubscribed: false,
-            remainingVisits: 999, // ✅ Illimité
-            remainingOrders: 999, // ✅ Illimité
+            remainingVisits: 999,
+            remainingOrders: 999,
             subscription: null,
             isLoading: false,
             totalVisits: 999,
             totalOrders: 999,
             startDate: null,
             endDate: null,
+            role: role,
           });
           return;
         }
 
-        // ✅ CAS 2 : ADMIN / COORDINATEUR - Pas besoin d'abonnement
+        // ✅ CAS 2 : ADMIN / COORDINATEUR
         if (role === 'admin' || role === 'coordinator') {
           console.log('👔 Admin/Coord détecté - Pas de vérification d\'abonnement');
           setStatus({
@@ -79,15 +82,15 @@ export const useSubscriptionGuard = () => {
             totalOrders: 999,
             startDate: null,
             endDate: null,
+            role: role,
           });
           return;
         }
 
-        // ✅ CAS 3 : FAMILLE - Vérifier l'abonnement
+        // ✅ CAS 3 : FAMILLE
         if (role === 'family') {
           console.log('👨‍👩‍👦 Famille détectée - Vérification de l\'abonnement');
 
-          // ✅ Récupérer l'abonnement le plus récent
           const { data: subscriptions, error } = await supabase
             .from('abonnements')
             .select(`
@@ -100,13 +103,12 @@ export const useSubscriptionGuard = () => {
 
           if (error) {
             console.error('❌ Erreur récupération abonnement:', error);
-            setStatus(prev => ({ ...prev, isLoading: false }));
+            setStatus(prev => ({ ...prev, isLoading: false, role: role }));
             return;
           }
 
           const subscription = subscriptions?.[0] || null;
 
-          // ✅ Pas d'abonnement du tout
           if (!subscription) {
             setStatus({
               hasActiveSubscription: false,
@@ -120,17 +122,16 @@ export const useSubscriptionGuard = () => {
               totalOrders: 0,
               startDate: null,
               endDate: null,
+              role: role,
             });
             return;
           }
 
-          // ✅ Vérifier si l'abonnement est actif
           const isActive = subscription.status === 'actif';
           const endDate = new Date(subscription.end_date);
           const today = new Date();
           const isExpired = subscription.status === 'expire' || endDate < today;
 
-          // ✅ Si abonnement expiré, le mettre à jour
           if (isExpired && subscription.status !== 'expire') {
             await supabase
               .from('abonnements')
@@ -150,11 +151,12 @@ export const useSubscriptionGuard = () => {
             totalOrders: subscription.total_orders || 0,
             startDate: subscription.start_date,
             endDate: subscription.end_date,
+            role: role,
           });
           return;
         }
 
-        // ✅ CAS 4 : AUTRE RÔLE - Comportement par défaut
+        // ✅ CAS 4 : AUTRE RÔLE
         console.log('⚠️ Rôle non reconnu:', role, '- Vérification standard');
         const { data: subscriptions, error } = await supabase
           .from('abonnements')
@@ -168,7 +170,7 @@ export const useSubscriptionGuard = () => {
 
         if (error) {
           console.error('❌ Erreur:', error);
-          setStatus(prev => ({ ...prev, isLoading: false }));
+          setStatus(prev => ({ ...prev, isLoading: false, role: role }));
           return;
         }
 
@@ -187,6 +189,7 @@ export const useSubscriptionGuard = () => {
             totalOrders: 0,
             startDate: null,
             endDate: null,
+            role: role,
           });
           return;
         }
@@ -208,11 +211,12 @@ export const useSubscriptionGuard = () => {
           totalOrders: subscription.total_orders || 0,
           startDate: subscription.start_date,
           endDate: subscription.end_date,
+          role: role,
         });
 
       } catch (error) {
         console.error('❌ Check subscription error:', error);
-        setStatus(prev => ({ ...prev, isLoading: false }));
+        setStatus(prev => ({ ...prev, isLoading: false, role: role }));
       }
     };
 
@@ -223,7 +227,6 @@ export const useSubscriptionGuard = () => {
   const can = (action: 'visit' | 'order'): boolean => {
     const { hasActiveSubscription, remainingVisits, remainingOrders, role } = status;
 
-    // ✅ Les aidants et admins peuvent toujours tout faire
     if (role === 'aidant' || role === 'admin' || role === 'coordinator') {
       return true;
     }
@@ -250,7 +253,6 @@ export const useSubscriptionGuard = () => {
   } => {
     const { isExpired, hasNeverSubscribed, remainingVisits, remainingOrders, role } = status;
 
-    // ✅ Les aidants n'ont jamais de blocage
     if (role === 'aidant' || role === 'admin' || role === 'coordinator') {
       return {
         title: '✅ Accès autorisé',
@@ -308,9 +310,8 @@ export const useSubscriptionGuard = () => {
     ...status,
     can,
     getBlockMessage,
-    // ✅ Helper pour savoir si l'utilisateur est un aidant
-    isAidant: role === 'aidant',
-    isAdminOrCoordinator: role === 'admin' || role === 'coordinator',
-    isFamily: role === 'family',
+    isAidant: status.role === 'aidant',
+    isAdminOrCoordinator: status.role === 'admin' || status.role === 'coordinator',
+    isFamily: status.role === 'family',
   };
 };
