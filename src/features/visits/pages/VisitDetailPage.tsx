@@ -398,9 +398,7 @@ const VisitDetailPage = () => {
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
-      {/* ============================================================
-      EN-TÊTE
-      ============================================================ */}
+      {/* EN-TÊTE */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button
@@ -440,7 +438,7 @@ const VisitDetailPage = () => {
           </div>
         </div>
 
-        {/* ✅ ACTIONS SELON LE STATUT ET LE RÔLE */}
+        {/* ACTIONS SELON LE STATUT ET LE RÔLE */}
         <div className="flex flex-wrap gap-2">
           {/* AIDANT : Approuver/Refuser */}
           {isPendingApproval && isAidant && (
@@ -543,9 +541,7 @@ const VisitDetailPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-      INFORMATIONS PRINCIPALES
-      ============================================================ */}
+      {/* INFORMATIONS PRINCIPALES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <InfoCard
           icon={<User size={18} />}
@@ -577,9 +573,7 @@ const VisitDetailPage = () => {
         />
       </div>
 
-      {/* ============================================================
-      ADRESSE
-      ============================================================ */}
+      {/* ADRESSE */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
         <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
           <MapPin size={20} />
@@ -594,9 +588,7 @@ const VisitDetailPage = () => {
         )}
       </div>
 
-      {/* ============================================================
-      ACTIONS RÉALISÉES
-      ============================================================ */}
+      {/* ACTIONS RÉALISÉES */}
       {visit.actions && visit.actions.length > 0 && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
           <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
@@ -617,9 +609,7 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      NOTES
-      ============================================================ */}
+      {/* NOTES */}
       {visit.notes && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
           <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
@@ -630,9 +620,7 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      PHOTOS
-      ============================================================ */}
+      {/* PHOTOS */}
       {visit.photos && visit.photos.length > 0 && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
           <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
@@ -663,9 +651,7 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      RAPPORT
-      ============================================================ */}
+      {/* RAPPORT */}
       {visit.report && (
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
           <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
@@ -676,7 +662,7 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ✅ MODAL COMPLETE VISIT - Maintenant en plein écran via le wrapper */}
+      {/* MODAL COMPLETE VISIT */}
       {showCompleteModal && (
         <CompleteVisitModal
           isOpen={true}
@@ -693,10 +679,7 @@ const VisitDetailPage = () => {
   );
 };
 
-// ============================================================
 // SOUS-COMPOSANTS
-// ============================================================
-
 interface InfoCardProps {
   icon: React.ReactNode;
   label: string;
