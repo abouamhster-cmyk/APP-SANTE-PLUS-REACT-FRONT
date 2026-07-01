@@ -46,48 +46,16 @@ export const KeepAliveIndicator = ({
     return 'text-yellow-500';
   };
 
+  // ✅ Suppression des icônes WiFi - Affichage simplifié
   const getStatusIcon = () => {
-    if (pingStatus === 'ok' && isBackendAwake) return <Wifi size={14} className="animate-pulse" />;
-    if (pingStatus === 'ok' && !isBackendAwake) return <RefreshCw size={14} className="animate-spin" />;
-    if (pingStatus === 'error') return <WifiOff size={14} />;
-    return <Zap size={14} className="animate-pulse" />;
+    if (pingStatus === 'ok' && isBackendAwake) return '🟢';
+    if (pingStatus === 'ok' && !isBackendAwake) return '🟡';
+    if (pingStatus === 'error') return '🔴';
+    return '🟡';
   };
 
-  return (
-    <div
-      className={cn(
-        'fixed z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-sm shadow-sm border border-black/5 text-xs font-medium transition-all duration-300',
-        positionClasses[position],
-        className,
-        isActive ? 'opacity-100' : 'opacity-50',
-        isHovered ? 'scale-105 shadow-md' : ''
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{ color: 'var(--color-text)' }}
-    >
-      <span className={getStatusColor()}>
-        {getStatusIcon()}
-      </span>
-      {showLabel && (
-        <span>
-          {pingStatus === 'ok' && isBackendAwake ? '🟢 Connecté' :
-           pingStatus === 'ok' && !isBackendAwake ? '🟡 Réveil en cours...' :
-           pingStatus === 'error' ? '🔴 Déconnecté' : '🟡 Connexion...'}
-        </span>
-      )}
-      {lastPing && showLabel && (
-        <span className="text-[9px] text-gray-400 border-l border-gray-200 pl-2">
-          {lastPing.toLocaleTimeString()}
-        </span>
-      )}
-      {!showLabel && (
-        <span className="text-[8px] text-gray-400 font-mono">
-          {isBackendAwake ? '●' : '○'}
-        </span>
-      )}
-    </div>
-  );
+  // ✅ NE RIEN AFFICHER DU TOUT  
+  return null;
 };
 
 export default KeepAliveIndicator;
