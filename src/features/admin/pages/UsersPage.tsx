@@ -21,16 +21,12 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
 import { Modal, ModalActions } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
-// ✅ IMPORTER le hook de rafraîchissement
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-// ✅ IMPORTER le bouton de rafraîchissement
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-
- 
 interface User {
   id: string;
   full_name: string;
@@ -45,7 +41,6 @@ interface User {
   patient_category: string | null;
 }
 
-// ✅ Fonctions
 const getRoleLabel = (role: string): string => {
   const roles: Record<string, string> = {
     family: '👨‍👩‍👦 Famille',
@@ -70,7 +65,6 @@ const getStatusLabel = (isActive: boolean): string => {
   return isActive ? '🟢 Actif' : '🔴 Inactif';
 };
 
-// ✅ Options de filtre
 const roleOptions = [
   { value: 'all', label: 'Tous' },
   { value: 'family', label: '👨‍👩‍👦 Famille' },
@@ -94,16 +88,7 @@ const UsersPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ UTILISER le hook de rafraîchissement
-  const { refreshAll, isRefreshing } = useRefreshableData({
-    onRefresh: fetchUsers,
-    onError: (error) => toast.error('Erreur lors du rafraîchissement des utilisateurs'),
-  });
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
+  // ✅ DÉCLARER fetchUsers D'ABORD
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
@@ -122,6 +107,16 @@ const UsersPage = () => {
       setIsLoading(false);
     }
   };
+
+  // ✅ UTILISER le hook APRÈS la déclaration
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchUsers,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des utilisateurs'),
+  });
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =
@@ -164,7 +159,6 @@ const UsersPage = () => {
       if (error) throw error;
 
       toast.success('Rôle mis à jour');
-      // ✅ Recharger après mise à jour
       await fetchUsers();
       setShowEditModal(false);
     } catch (error) {
@@ -198,7 +192,6 @@ const UsersPage = () => {
       if (error) throw error;
 
       toast.success(`Utilisateur ${!currentStatus ? 'activé' : 'désactivé'}`);
-      // ✅ Recharger après mise à jour
       await fetchUsers();
     } catch (error) {
       console.error('Toggle status error:', error);
@@ -206,28 +199,26 @@ const UsersPage = () => {
     }
   };
 
- 
-const handleDeleteUser = async (userId: string) => {
-  if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
 
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${sessionData.session?.access_token}`,
-      },
-    });
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${sessionData.session?.access_token}`,
+        },
+      });
 
-    if (!response.ok) throw new Error('Erreur lors de la suppression');
-    
-    toast.success('Utilisateur supprimé');
-    // ✅ Recharger après suppression
-    await fetchUsers();
-  } catch (error) {
-    toast.error('Erreur lors de la suppression');
-  }
-};
+      if (!response.ok) throw new Error('Erreur lors de la suppression');
+      
+      toast.success('Utilisateur supprimé');
+      await fetchUsers();
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -250,7 +241,6 @@ const handleDeleteUser = async (userId: string) => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -274,7 +264,6 @@ const handleDeleteUser = async (userId: string) => {
             </p>
           </div>
 
-          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT MODERNISÉ */}
           <RefreshButton 
             onRefresh={() => {
               toast.success('👥 Utilisateurs actualisés');
@@ -283,7 +272,6 @@ const handleDeleteUser = async (userId: string) => {
         </div>
       </section>
 
-      {/* STATS COMPACTES */}
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <CompactStat
           icon={<Users size={14} />}
@@ -311,7 +299,6 @@ const handleDeleteUser = async (userId: string) => {
         />
       </section>
 
-      {/* RECHERCHE + FILTRE */}
       <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -343,7 +330,6 @@ const handleDeleteUser = async (userId: string) => {
         </div>
       </section>
 
-      {/* LISTE */}
       {filteredUsers.length > 0 ? (
         <section className="space-y-2">
           {filteredUsers.map((user) => (
@@ -352,7 +338,6 @@ const handleDeleteUser = async (userId: string) => {
               className="bg-white rounded-xl p-3 shadow-sm border border-black/5 hover:shadow-md transition"
             >
               <div className="flex items-center gap-3">
-                {/* Avatar */}
                 <div
                   className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
                   style={{ background: colors.primary }}
@@ -440,7 +425,6 @@ const handleDeleteUser = async (userId: string) => {
         </section>
       )}
 
-      {/* MODAL DÉTAILS */}
       {showDetailsModal && selectedUser && (
         <Modal
           isOpen={true}
@@ -483,7 +467,6 @@ const handleDeleteUser = async (userId: string) => {
         </Modal>
       )}
 
-      {/* MODAL ÉDITION */}
       {showEditModal && selectedUser && (
         <Modal
           isOpen={true}
