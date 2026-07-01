@@ -1,5 +1,5 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
-
+ 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -29,7 +29,16 @@ import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime, formatDateTime } from '@/utils/helpers';
+import { 
+  formatDate, 
+  formatTime, 
+  formatDateTime,
+  getVisitDisplayName,
+  getVisitDisplayAddress,
+  getVisitDisplayCategory,
+  getVisitDisplayType,
+  getVisitDisplayAidant
+} from '@/utils/helpers';
 import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
 import { Illustration } from '@/components/ui/Illustration';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
@@ -357,7 +366,7 @@ const VisitDetailPage = () => {
       expire: 'Expirée',
       replanifiee: 'Replanifiée',
       no_show: 'Absent',
-      attente_paiement: 'En attente paiement',
+      attente_paiement: '💳 En attente paiement',
     };
     return labels[status] || status;
   };
@@ -373,6 +382,7 @@ const VisitDetailPage = () => {
       case 'annulee': return <XCircle size={20} />;
       case 'refusee': return <XCircle size={20} />;
       case 'expire': return <AlertCircle size={20} />;
+      case 'attente_paiement': return <Clock size={20} />;
       default: return <Clock size={20} />;
     }
   };
@@ -541,13 +551,13 @@ const VisitDetailPage = () => {
         </div>
       </div>
 
-      {/* INFORMATIONS PRINCIPALES */}
+      {/* INFORMATIONS PRINCIPALES - ✅ CORRIGÉ AVEC getVisitDisplayName */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <InfoCard
           icon={<User size={18} />}
-          label={isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire'}
-          value={`${visit.patient?.first_name} ${visit.patient?.last_name}`}
-          sub={getCategoryLabel(visit.patient?.category || 'senior')}
+          label={getVisitDisplayType(visit)}
+          value={getVisitDisplayName(visit)}
+          sub={getVisitDisplayCategory(visit)}
           color={colors.text}
         />
         <InfoCard
@@ -560,7 +570,7 @@ const VisitDetailPage = () => {
         <InfoCard
           icon={<User size={18} />}
           label="Aidant"
-          value={visit.aidant?.user?.full_name || 'Non assigné'}
+          value={getVisitDisplayAidant(visit)}
           sub={visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente'}
           color={visit.aidant ? colors.text : colors.text + '40'}
         />
@@ -573,13 +583,13 @@ const VisitDetailPage = () => {
         />
       </div>
 
-      {/* ADRESSE */}
+      {/* ADRESSE - ✅ CORRIGÉ AVEC getVisitDisplayAddress */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
         <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
           <MapPin size={20} />
           Adresse
         </h3>
-        <p style={{ color: colors.text + '80' }}>{visit.patient?.address || 'Adresse non renseignée'}</p>
+        <p style={{ color: colors.text + '80' }}>{getVisitDisplayAddress(visit)}</p>
         {visit.patient?.phone && (
           <p className="mt-2 text-sm flex items-center gap-2" style={{ color: colors.text + '60' }}>
             <Phone size={14} />
