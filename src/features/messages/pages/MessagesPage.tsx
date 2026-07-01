@@ -401,7 +401,7 @@ const MessagesPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, scrollToBottom]);
 
   // ============================================================
   // MARK ALL AS READ
@@ -1302,11 +1302,20 @@ const MessagesPage = () => {
               messages.map((message, index) => {
                 const isOwn = message.sender_id === currentUserId;
                 
-                // ✅ Correction de l'affichage de la date
+                // ✅ Fonction de formatage sécurisée
+                const formatDateSafe = (date: string | null | undefined): string => {
+                  if (!date) return '';
+                  try {
+                    return formatDate(date);
+                  } catch {
+                    return '';
+                  }
+                };
+                
                 const prevMessage = messages[index - 1];
-                const currentDate = message.created_at ? formatDate(message.created_at) : '';
-                const prevDate = prevMessage?.created_at ? formatDate(prevMessage.created_at) : '';
-                const showDate = currentDate !== prevDate;
+                const currentDate = formatDateSafe(message.created_at);
+                const prevDate = formatDateSafe(prevMessage?.created_at);
+                const showDate = currentDate !== prevDate && currentDate !== '';
 
                 const isPinned = !!message.is_pinned;
                 const isImportant = !!message.is_important;
