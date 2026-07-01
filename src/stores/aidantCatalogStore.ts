@@ -1,4 +1,4 @@
-// 📁 frontend/src/stores/aidantCatalogStore.ts
+// 📁 src/stores/aidantCatalogStore.ts
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -150,9 +150,9 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
   },
 
   // ============================================================
-  // ASSIGN AIDANT
+  // ASSIGN AIDANT - AVEC SUPPORT PERSONNEL
   // ============================================================
-  assignAidant: async (aidantId: string, patientId: string, assignmentType = 'permanente') => {
+  assignAidant: async (aidantId: string, patientId: string | null = null, assignmentType = 'permanente') => {
     try {
       set({ isLoading: true, error: null });
 
@@ -163,17 +163,26 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
         throw new Error('Token manquant');
       }
 
+      // ✅ patientId peut être null pour assignation personnelle
+      const payload: any = {
+        aidantId,
+        assignmentType,
+      };
+
+      // ✅ patientId est optionnel
+      if (patientId) {
+        payload.patientId = patientId;
+      }
+
+      console.log('📤 Assignation aidant avec payload:', payload);
+
       const response = await fetch(`${API_BASE_URL}/aidants/assign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          aidantId,
-          patientId,
-          assignmentType,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
