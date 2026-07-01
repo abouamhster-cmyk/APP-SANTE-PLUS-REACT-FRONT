@@ -1,5 +1,6 @@
-//📁 src/features/messages/pages/MessagesPage.tsx
- 
+// 📁 src/features/messages/pages/MessagesPage.tsx
+// ✅ VERSION COMPLÈTE CORRIGÉE
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Send,
@@ -141,6 +142,30 @@ const MessagesPage = () => {
   const isAdminRole = isAdminOrCoordinator;
   const isAidantRole = isAidant;
   const isFamilyRole = isFamily;
+
+  // ============================================================
+  // FONCTIONS UTILITAIRES (définies avant utilisation)
+  // ============================================================
+
+  // ✅ SCROLL TO BOTTOM - définie en premier
+  const scrollToBottom = useCallback((smooth = true) => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
+    }, 100);
+  }, []);
+
+  // ✅ Fonction de formatage sécurisée pour les dates
+  const formatDateSafe = (date: string | null | undefined): string => {
+    if (!date) return '';
+    try {
+      return formatDate(date);
+    } catch {
+      return '';
+    }
+  };
 
   // ============================================================
   // FETCH CONVERSATIONS
@@ -394,6 +419,7 @@ const MessagesPage = () => {
         await markAllAsRead(conversationId);
       }
 
+      // ✅ scrollToBottom est maintenant défini
       scrollToBottom(false);
     } catch (error: any) {
       console.error('❌ Fetch messages error:', error);
@@ -569,19 +595,6 @@ const MessagesPage = () => {
       return [];
     }
   }, [isFamilyRole, assignedAidants, targetUserId]);
-
-  // ============================================================
-  // SCROLL TO BOTTOM
-  // ============================================================
-
-  const scrollToBottom = useCallback((smooth = true) => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({
-        behavior: smooth ? 'smooth' : 'auto',
-        block: 'end',
-      });
-    }, 100);
-  }, []);
 
   // ============================================================
   // REMOVE ATTACHMENT
@@ -1301,16 +1314,6 @@ const MessagesPage = () => {
             ) : (
               messages.map((message, index) => {
                 const isOwn = message.sender_id === currentUserId;
-                
-                // ✅ Fonction de formatage sécurisée
-                const formatDateSafe = (date: string | null | undefined): string => {
-                  if (!date) return '';
-                  try {
-                    return formatDate(date);
-                  } catch {
-                    return '';
-                  }
-                };
                 
                 const prevMessage = messages[index - 1];
                 const currentDate = formatDateSafe(message.created_at);
