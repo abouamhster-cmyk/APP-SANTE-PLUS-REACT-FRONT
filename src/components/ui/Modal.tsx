@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { X, CheckCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/utils/helpers';
 
 interface ModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface ModalProps {
   showClose?: boolean;
   closeOnOverlayClick?: boolean;
   description?: string;
+  className?: string;
 }
 
 export const Modal = ({
@@ -28,18 +30,26 @@ export const Modal = ({
   showClose = true,
   closeOnOverlayClick = true,
   description,
+  className,
 }: ModalProps) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Empêcher le scroll du body quand le modal est ouvert
+  // ✅ Empêcher le scroll du body
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     }
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
   }, [isOpen]);
 
@@ -76,91 +86,73 @@ export const Modal = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          {/* Overlay */}
-          <motion.div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={closeOnOverlayClick ? onClose : undefined}
-          />
-
+        <div className="modal-overlay" onClick={closeOnOverlayClick ? onClose : undefined}>
           {/* Modal */}
           <motion.div
             ref={modalRef}
-            className={`bg-white rounded-3xl w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] flex flex-col shadow-2xl relative z-10`}
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            className={cn(
+              'modal-card',
+              maxWidthClasses[maxWidth],
+              className
+            )}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
+            onClick={(e) => e.stopPropagation()}
           >
             {/* ============================================ */}
             {/* HEADER - FIXE */}
             {/* ============================================ */}
-            <div 
-              className="sticky top-0 bg-white z-10 flex items-center justify-between p-5 border-b shrink-0 rounded-t-3xl" 
-              style={{ borderColor: colors.border }}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                {icon && (
-                  <div
-                    className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-                    style={{ background: colors.primary + '12', color: colors.primary }}
-                  >
-                    {icon}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <h2 className="text-xl font-bold truncate" style={{ color: colors.text }}>
-                    {title}
-                  </h2>
-                  {description && (
-                    <p className="text-sm truncate" style={{ color: colors.text + '50' }}>
-                      {description}
-                    </p>
+            <div className="modal-header" style={{ borderColor: colors.border }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {icon && (
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: colors.primary + '12', color: colors.primary }}
+                    >
+                      {icon}
+                    </div>
                   )}
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
+                      {title}
+                    </h2>
+                    {description && (
+                      <p className="text-xs truncate" style={{ color: colors.text + '50' }}>
+                        {description}
+                      </p>
+                    )}
+                  </div>
                 </div>
+                {showClose && (
+                  <button
+                    onClick={onClose}
+                    className="w-8 h-8 rounded-xl hover:bg-gray-100 transition shrink-0 flex items-center justify-center"
+                    aria-label="Fermer"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
               </div>
-              {showClose && (
-                <button
-                  onClick={onClose}
-                  className="p-2 hover:bg-gray-100 rounded-xl transition shrink-0"
-                >
-                  <X size={22} />
-                </button>
-              )}
             </div>
 
             {/* ============================================ */}
             {/* CONTENT - SCROLLABLE */}
             {/* ============================================ */}
-            <div 
-              className="flex-1 overflow-y-auto p-6 scroll-smooth" 
-              style={{ maxHeight: 'calc(90vh - 140px)' }}
-            >
+            <div ref={bodyRef} className="modal-body">
               {children}
             </div>
 
             {/* ============================================ */}
-            {/* FOOTER - FIXE avec actions */}
+            {/* FOOTER - FIXE */}
             {/* ============================================ */}
-            <div 
-              className="sticky bottom-0 bg-white border-t p-5 shrink-0 rounded-b-3xl" 
-              style={{ borderColor: colors.border }}
-            >
-              {actions ? (
-                actions
-              ) : (
-                <button
-                  onClick={onClose}
-                  className="w-full py-3 rounded-xl font-bold transition hover:opacity-80"
-                  style={{ background: colors.primary + '12', color: colors.primary }}
-                >
-                  Fermer
-                </button>
-              )}
-            </div>
+            {actions && (
+              <div className="modal-footer" style={{ borderColor: colors.border }}>
+                {actions}
+              </div>
+            )}
           </motion.div>
         </div>
       )}
@@ -169,7 +161,7 @@ export const Modal = ({
 };
 
 // =============================================
-// MODAL ACTIONS - COMPOSANT D'AIDE
+// MODAL ACTIONS
 // =============================================
 
 interface ModalActionsProps {
@@ -181,6 +173,7 @@ interface ModalActionsProps {
   confirmColor?: string;
   children?: ReactNode;
   confirmIcon?: ReactNode;
+  className?: string;
 }
 
 export const ModalActions = ({
@@ -192,6 +185,7 @@ export const ModalActions = ({
   confirmColor,
   children,
   confirmIcon,
+  className,
 }: ModalActionsProps) => {
   const colors = {
     primary: 'var(--color-primary, #1a4a3a)',
@@ -200,7 +194,7 @@ export const ModalActions = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3">
+    <div className={cn('flex flex-col sm:flex-row gap-2.5', className)}>
       {children ? (
         children
       ) : (
@@ -209,7 +203,7 @@ export const ModalActions = ({
             <button
               onClick={onCancel}
               disabled={isLoading}
-              className="flex-1 py-3 rounded-xl font-medium border transition hover:bg-gray-50 disabled:opacity-50"
+              className="flex-1 py-2.5 sm:py-3 rounded-xl font-medium border transition hover:bg-gray-50 disabled:opacity-50 text-sm"
               style={{ borderColor: colors.border, color: colors.text }}
             >
               {cancelLabel}
@@ -219,7 +213,7 @@ export const ModalActions = ({
             <button
               onClick={onConfirm}
               disabled={isLoading}
-              className="flex-1 py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-2.5 sm:py-3 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               style={{ background: confirmColor || colors.primary }}
             >
               {isLoading ? (
@@ -239,7 +233,7 @@ export const ModalActions = ({
 };
 
 // =============================================
-// MODAL WITH CONFIRM - PRÉ-CONFIGURÉ
+// MODAL WITH CONFIRM
 // =============================================
 
 interface ModalWithConfirmProps {
@@ -312,8 +306,8 @@ export const ModalWithConfirm = ({
         />
       }
     >
-      <div className="py-4">
-        <p className="text-center" style={{ color: colors.text }}>
+      <div className="py-3 sm:py-4">
+        <p className="text-center text-sm sm:text-base" style={{ color: colors.text }}>
           {message}
         </p>
       </div>
@@ -322,7 +316,7 @@ export const ModalWithConfirm = ({
 };
 
 // =============================================
-// MODAL WITH FORM - PRÉ-CONFIGURÉ POUR FORMULAIRES
+// MODAL WITH FORM
 // =============================================
 
 interface ModalWithFormProps {
