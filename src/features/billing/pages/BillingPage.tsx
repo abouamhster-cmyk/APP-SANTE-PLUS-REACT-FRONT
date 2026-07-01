@@ -1,6 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-// ✅ VERSION CORRIGÉE - FILTRAGE DES OFFRES PAR TYPE DE COMPTE
-
+ 
 import { useEffect, useState } from 'react';
 import {
   CreditCard,
@@ -8,6 +7,7 @@ import {
   Clock,
   ShieldCheck,
   Package,
+  User,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
