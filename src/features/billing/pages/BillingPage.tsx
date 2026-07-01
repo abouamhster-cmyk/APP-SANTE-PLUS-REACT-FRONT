@@ -51,6 +51,9 @@ const BillingPage = () => {
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
 
+  // ✅ AJOUTER CES ÉTATS MANQUANTS
+  const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
@@ -149,28 +152,27 @@ const BillingPage = () => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif');
   };
 
-    const openPayment = (offer: Offer) => {
-      // ✅ Si c'est une offre ponctuelle
-      if (offer.category === 'ponctuelle' || offer.type === 'ponctuelle') {
-        setSelectedOffer(offer);
-        // ✅ orderData = null pour les paiements directs sans commande
-        setPendingOrderData(null);
-        setIsPaymentOpen(true);
-        return;
-      }
-    
-      if (hasActiveSubscription) {
-        toast.error('Vous avez déjà un abonnement actif');
-        return;
-      }
-    
+  const openPayment = (offer: Offer) => {
+    // ✅ Si c'est une offre ponctuelle
+    if (offer.category === 'ponctuelle' || offer.type === 'ponctuelle') {
       setSelectedOffer(offer);
-      // ✅ orderData = null pour les abonnements
+      // ✅ orderData = null pour les paiements directs sans commande
       setPendingOrderData(null);
       setIsPaymentOpen(true);
-    };
+      return;
+    }
 
-  
+    if (hasActiveSubscription) {
+      toast.error('Vous avez déjà un abonnement actif');
+      return;
+    }
+
+    setSelectedOffer(offer);
+    // ✅ orderData = null pour les abonnements
+    setPendingOrderData(null);
+    setIsPaymentOpen(true);
+  };
+
   const handlePaymentSuccess = async () => {
     await fetchSubscriptions();
     await fetchPayments();
@@ -391,18 +393,18 @@ const BillingPage = () => {
       </section>
 
       {/* MODALS */}
-        <PaymentModal
-          isOpen={isPaymentOpen}
-          onClose={() => {
-            setIsPaymentOpen(false);
-            setSelectedOffer(null);
-            setPendingOrderData(null);
-          }}
-          offer={selectedOffer}
-          onSuccess={handlePaymentSuccess}
-          orderData={pendingOrderData}
-          forcePonctual={selectedOffer?.category === 'ponctuelle' || selectedOffer?.type === 'ponctuelle'}
-        />
+      <PaymentModal
+        isOpen={isPaymentOpen}
+        onClose={() => {
+          setIsPaymentOpen(false);
+          setSelectedOffer(null);
+          setPendingOrderData(null);
+        }}
+        offer={selectedOffer}
+        onSuccess={handlePaymentSuccess}
+        orderData={pendingOrderData}
+        forcePonctual={selectedOffer?.category === 'ponctuelle' || selectedOffer?.type === 'ponctuelle'}
+      />
 
       {showDayPicker && selectedSubscription && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
