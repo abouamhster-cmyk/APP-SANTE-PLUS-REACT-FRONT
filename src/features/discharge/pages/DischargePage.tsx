@@ -8,6 +8,7 @@ import { usePatientStore } from '@/stores/patientStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate } from '@/utils/helpers';
+// ✅ Importer les modals transformés en pages
 import { DischargeRequestModal } from '../components/DischargeRequestModal';
 import { DischargeDetailsModal } from '../components/DischargeDetailsModal';
 import { DischargeStatus } from '@/types';
@@ -259,7 +260,7 @@ const DischargePage = () => {
         </section>
       )}
 
-      {/* MODALS */}
+      {/* ✅ MODALS - Maintenant en plein écran via les wrappers */}
       {showRequestModal && (
         <DischargeRequestModal
           patients={patients}
