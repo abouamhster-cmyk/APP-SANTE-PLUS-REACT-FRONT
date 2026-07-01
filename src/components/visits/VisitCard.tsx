@@ -1,9 +1,10 @@
 // 📁 src/components/visits/VisitCard.tsx
+// ✅ VERSION CORRIGÉE
 
 import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, UserCircle } from 'lucide-react';
 import { Visit } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
-import { formatDate } from '@/utils/helpers';
+import { formatDate, getVisitDisplayName, getVisitDisplayAddress, getVisitDisplayType } from '@/utils/helpers';
 
 interface VisitCardProps {
   visit: Visit;
@@ -59,35 +60,15 @@ export const VisitCard = ({
       case 'no_show': return 'Absent';
       case 'refusee': return 'Refusée';
       case 'expire': return 'Expirée';
-      case 'attente_paiement': return 'En attente paiement';
+      case 'attente_paiement': return '💳 En attente paiement';
       default: return status;
     }
   };
 
-  // ✅ Déterminer l'affichage du destinataire - CORRIGÉ (plus de visit.user)
-  const getTargetDisplay = () => {
-    if (visit.target_type === 'personal') {
-      return {
-        icon: <UserCircle size={14} className="text-blue-500" />,
-        label: 'Personnel',
-        name: visit.target_name || 'Personnel'
-      };
-    }
-    if (visit.patient) {
-      return {
-        icon: <User size={14} />,
-        label: 'Patient',
-        name: `${visit.patient.first_name} ${visit.patient.last_name}`
-      };
-    }
-    return {
-      icon: <User size={14} />,
-      label: 'Destinataire',
-      name: 'Non spécifié'
-    };
-  };
-
-  const targetInfo = getTargetDisplay();
+  // ✅ Utiliser les fonctions helpers
+  const displayName = getVisitDisplayName(visit);
+  const displayAddress = getVisitDisplayAddress(visit);
+  const displayType = getVisitDisplayType(visit);
 
   // ✅ Version compacte
   if (compact) {
@@ -101,7 +82,7 @@ export const VisitCard = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
-                {visit.patient?.first_name || visit.target_name || 'Visite'}
+                {displayName}
               </p>
               <span 
                 className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5"
@@ -127,12 +108,10 @@ export const VisitCard = ({
                 <Clock size={11} />
                 {visit.scheduled_time}
               </span>
-              {/* ✅ Affichage du destinataire */}
               <span className="flex items-center gap-0.5">
-                {targetInfo.icon}
-                <span className="truncate max-w-[60px]">{targetInfo.name}</span>
+                <UserCircle size={11} className="text-blue-500" />
+                <span className="truncate max-w-[60px]">{displayType}</span>
               </span>
-              {/* ✅ CORRIGÉ : visit.aidant.user existe dans le type */}
               {visit.aidant && visit.aidant.user && (
                 <span className="flex items-center gap-0.5">
                   <User size={11} />
@@ -189,7 +168,7 @@ export const VisitCard = ({
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold truncate" style={{ color: colors.text }}>
-            {visit.patient?.first_name || visit.target_name || 'Visite'}
+            {displayName}
           </h3>
           <div className="flex flex-wrap items-center gap-2 mt-1">
             <span 
@@ -206,14 +185,10 @@ export const VisitCard = ({
                 ⚠️ Urgent
               </span>
             )}
-            {/* ✅ Affichage du destinataire avec target_type */}
             <span className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
-              {targetInfo.icon}
-              <span>
-                {targetInfo.label}: {targetInfo.name}
-              </span>
+              <UserCircle size={14} className="text-blue-500" />
+              <span>{displayType}</span>
             </span>
-            {/* ✅ CORRIGÉ : visit.aidant.user existe dans le type */}
             {visit.aidant && visit.aidant.user && (
               <span className="text-xs" style={{ color: colors.text + '60' }}>
                 🧑‍⚕️ {visit.aidant.user.full_name || 'Non assigné'}
@@ -222,7 +197,7 @@ export const VisitCard = ({
           </div>
         </div>
         
-        {/* ✅ Actions selon le rôle */}
+        {/* Actions selon le rôle */}
         {showActions && (
           <div className="flex flex-wrap gap-2">
             {visit.status === 'planifiee' && onStart && (
@@ -280,7 +255,7 @@ export const VisitCard = ({
         </div>
         <div className="flex items-center space-x-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
           <MapPin size={14} />
-          <span className="truncate">{visit.patient?.address || visit.target_name || 'Adresse non renseignée'}</span>
+          <span className="truncate">{displayAddress}</span>
         </div>
         <div className="flex items-center space-x-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
           <User size={14} />
