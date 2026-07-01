@@ -6,7 +6,6 @@ import {
   Calendar,
   Plus,
   Filter,
-  ChevronDown,
   Clock,
   CheckCircle,
   PlayCircle,
@@ -21,13 +20,14 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
+import { VisitPaymentModal } from '../components/VisitPaymentModal';
 import toast from 'react-hot-toast';
 
 const VisitsPage = () => {
   const navigate = useNavigate();
 
   const { profile, role } = useAuthStore();
-  const { visits, isLoading, fetchVisits, approveVisit, refuseVisit, startVisit, cancelVisit } = useVisitStore();
+  const { visits, isLoading, fetchVisits, approveVisit, refuseVisit, startVisit, cancelVisit, createVisit, confirmPayment } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
 
   const {
@@ -43,6 +43,10 @@ const VisitsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+  
+  // ✅ États pour le paiement
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingVisit, setPendingVisit] = useState<any>(null);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -71,6 +75,7 @@ const VisitsPage = () => {
         { value: 'annulee', label: '❌ Annulées' },
         { value: 'refusee', label: '🚫 Refusées' },
         { value: 'expire', label: '⏰ Expirées' },
+        { value: 'brouillon', label: '💳 En attente paiement' },
       ];
     }
 
@@ -97,6 +102,7 @@ const VisitsPage = () => {
         { value: 'terminee', label: '📝 Terminées' },
         { value: 'validee', label: '✔️ Validées' },
         { value: 'annulee', label: '❌ Annulées' },
+        { value: 'brouillon', label: '💳 En attente paiement' },
       ];
     }
 
@@ -117,6 +123,7 @@ const VisitsPage = () => {
     inProgress: visits.filter((v) => v.status === 'en_cours').length,
     completed: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
     expired: visits.filter((v) => v.status === 'expire').length,
+    drafts: visits.filter((v) => v.status === 'brouillon').length,
   };
 
   const sortedVisits = useMemo(() => {
@@ -147,10 +154,25 @@ const VisitsPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleModalSuccess = () => {
+  const handleModalSuccess = (newVisit?: any) => {
     fetchVisits();
     setIsModalOpen(false);
-    toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
+    
+    // ✅ Si la visite créée nécessite un paiement
+    if (newVisit && newVisit.metadata?.requires_payment) {
+      setPendingVisit(newVisit);
+      setShowPaymentModal(true);
+      toast.info('💳 Paiement requis pour planifier la visite');
+    } else {
+      toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
+    }
+  };
+
+  const handlePaymentSuccess = async () => {
+    setShowPaymentModal(false);
+    setPendingVisit(null);
+    await fetchVisits();
+    toast.success('✅ Visite planifiée après paiement !');
   };
 
   const handleApproveVisit = async (visitId: string) => {
@@ -202,8 +224,8 @@ const VisitsPage = () => {
     return (
       <div className="space-y-4">
         <div className="h-24 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((item) => (
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
             <div key={item} className="h-20 bg-white rounded-2xl animate-pulse" />
           ))}
         </div>
@@ -240,6 +262,9 @@ const VisitsPage = () => {
 
             <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
               {visits.length} visite{visits.length > 1 ? 's' : ''} au total
+              {stats.drafts > 0 && (
+                <span className="ml-2 text-purple-500">💳 {stats.drafts} en attente paiement</span>
+              )}
               {stats.expired > 0 && (
                 <span className="ml-2 text-red-500">⚠️ {stats.expired} expirée(s)</span>
               )}
@@ -259,8 +284,8 @@ const VisitsPage = () => {
         </div>
       </section>
 
-      {/* STATS COMPACTES - AVEC NOUVEAUX STATUTS */}
-      <section className="grid grid-cols-2 lg:grid-cols-6 gap-2">
+      {/* STATS COMPACTES */}
+      <section className="grid grid-cols-2 lg:grid-cols-7 gap-2">
         <CompactStatBox
           icon={<Calendar size={16} />}
           label="Total"
@@ -296,6 +321,12 @@ const VisitsPage = () => {
           label="Expirées"
           value={stats.expired}
           color="#F44336"
+        />
+        <CompactStatBox
+          icon={<CreditCard size={16} />}
+          label="En attente paiement"
+          value={stats.drafts}
+          color="#8b5cf6"
         />
       </section>
 
@@ -339,7 +370,7 @@ const VisitsPage = () => {
                     : undefined
                 }
                 onCancel={
-                  canCancelVisit && (visit.status === 'planifiee' || visit.status === 'en_attente')
+                  canCancelVisit && (visit.status === 'planifiee' || visit.status === 'en_attente' || visit.status === 'brouillon')
                     ? () => handleCancelVisit(visit.id)
                     : undefined
                 }
@@ -361,6 +392,8 @@ const VisitsPage = () => {
               <XCircle size={24} />
             ) : filterStatus === 'expire' ? (
               <AlertCircle size={24} />
+            ) : filterStatus === 'brouillon' ? (
+              <CreditCard size={24} />
             ) : (
               <Calendar size={24} />
             )}
@@ -407,7 +440,7 @@ const VisitsPage = () => {
         </button>
       )}
 
-      {/* MODAL */}
+      {/* MODAL DE CRÉATION */}
       <VisitModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -416,6 +449,19 @@ const VisitsPage = () => {
         patients={patients}
         onSuccess={handleModalSuccess}
       />
+
+      {/* MODAL DE PAIEMENT */}
+      {showPaymentModal && pendingVisit && (
+        <VisitPaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setPendingVisit(null);
+          }}
+          visit={pendingVisit}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </div>
   );
 };
