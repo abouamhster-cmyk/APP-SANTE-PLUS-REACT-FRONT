@@ -12,5 +12,6 @@ export { RoleBanner } from './RoleBanner';
 // ✅ Exports par défaut
 export { default as ModalDefault } from './Modal';
 export { default as InfoRowDefault } from './InfoRow';
+export { default as ModalFullScreenDefault } from './ModalFullScreen'; 
 export { default as LoadingSpinnerDefault } from './LoadingSpinner';
 export { default as LogoDefault } from './Logo';
