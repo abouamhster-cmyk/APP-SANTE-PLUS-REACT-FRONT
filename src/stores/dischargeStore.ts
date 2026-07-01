@@ -6,13 +6,51 @@ import { HospitalDischarge, DischargeStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast';
 
+// =============================================
+// HELPERS DE CACHE
+// =============================================
+
+const DISCHARGES_CACHE_KEY = 'sante_plus_discharges_cache';
+const CACHE_DURATION = 60000; // 1 minute
+
+const getCachedDischarges = (): { data: HospitalDischarge[]; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(DISCHARGES_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedDischarges = (discharges: HospitalDischarge[]) => {
+  try {
+    localStorage.setItem(DISCHARGES_CACHE_KEY, JSON.stringify({
+      data: discharges,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedDischarges = () => {
+  try {
+    localStorage.removeItem(DISCHARGES_CACHE_KEY);
+    console.log('🗑️ Cache sorties d\'hôpital invalidé');
+  } catch { /* ignore */ }
+};
+
+// =============================================
+// STORE
+// =============================================
+
 interface DischargeState {
   discharges: HospitalDischarge[];
   currentDischarge: HospitalDischarge | null;
   isLoading: boolean;
   error: string | null;
+  isInitialized: boolean;
+  lastFetch: number | null;
+  isCacheInvalidated: boolean;
   
-  fetchDischarges: (patientId?: string) => Promise<void>;
+  fetchDischarges: (force?: boolean, patientId?: string) => Promise<void>;
   fetchDischargeById: (id: string) => Promise<void>;
   createDischarge: (data: Partial<HospitalDischarge>) => Promise<HospitalDischarge>;
   updateDischarge: (id: string, data: Partial<HospitalDischarge>) => Promise<void>;
@@ -25,6 +63,11 @@ interface DischargeState {
     recommendations?: string[];
   }) => Promise<void>;
   cancelDischarge: (id: string, reason: string) => Promise<void>;
+  
+  // ✅ GESTION DU CACHE
+  invalidateCache: () => void;
+  refresh: () => Promise<void>;
+  
   clearError: () => void;
 }
 
@@ -33,17 +76,73 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   currentDischarge: null,
   isLoading: false,
   error: null,
+  isInitialized: false,
+  lastFetch: null,
+  isCacheInvalidated: false,
+
+  // ✅ Invalider le cache
+  invalidateCache: () => {
+    clearCachedDischarges();
+    set({ 
+      isCacheInvalidated: true,
+      isInitialized: false,
+      lastFetch: null,
+    });
+    console.log('🔄 Cache sorties d\'hôpital invalidé');
+  },
+
+  // ✅ Rafraîchir forcé
+  refresh: async () => {
+    get().invalidateCache();
+    await get().fetchDischarges(true);
+  },
 
   // =============================================
-  // FETCH DISCHARGES
+  // FETCH DISCHARGES - AVEC CACHE
   // =============================================
-  fetchDischarges: async (patientId?: string) => {
+  fetchDischarges: async (force = false, patientId?: string) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    // Si un patientId est fourni, on force le rafraîchissement
+    if (patientId) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire sorties');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedDischarges();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage sorties');
+        set({ 
+          discharges: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
       
       const { user, profile } = useAuthStore.getState();
       if (!user) {
-        set({ discharges: [], isLoading: false });
+        set({ discharges: [], isLoading: false, isInitialized: true });
         return;
       }
 
@@ -68,7 +167,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         if (patientIds.length > 0) {
           query = query.in('patient_id', patientIds);
         } else {
-          set({ discharges: [], isLoading: false });
+          set({ discharges: [], isLoading: false, isInitialized: true });
           return;
         }
       }
@@ -82,20 +181,54 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       if (error) throw error;
 
-      set({ discharges: data || [], isLoading: false });
+      const discharges = data || [];
+
+      // ✅ Mettre en cache
+      setCachedDischarges(discharges);
+      
+      set({ 
+        discharges, 
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
     } catch (error: any) {
       console.error('❌ Fetch discharges error:', error);
-      set({ error: error.message, isLoading: false });
+      
+      // En cas d'erreur, utiliser le cache
+      const cached = getCachedDischarges();
+      if (cached && cached.data.length > 0) {
+        set({
+          discharges: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false, isInitialized: true });
+      }
     }
   },
 
   // =============================================
-  // FETCH DISCHARGE BY ID
+  // FETCH DISCHARGE BY ID - AVEC CACHE
   // =============================================
   fetchDischargeById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
+      // ✅ Vérifier dans le cache d'abord
+      const state = get();
+      const cachedDischarge = state.discharges.find(d => d.id === id);
+      if (cachedDischarge) {
+        console.log('📦 Sortie trouvée dans le cache');
+        set({ currentDischarge: cachedDischarge, isLoading: false });
+        return;
+      }
+
       const { data, error } = await supabase
         .from('hospital_discharges')
         .select(`
@@ -118,7 +251,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE DISCHARGE
+  // CREATE DISCHARGE - AVEC INVALIDATION DE CACHE
   // =============================================
   createDischarge: async (data: Partial<HospitalDischarge>) => {
     try {
@@ -142,6 +275,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         .single();
 
       if (error) throw error;
+
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchDischarges(true);
 
       // ✅ Notification aux coordinateurs
       const { data: coordinators } = await supabase
@@ -176,7 +313,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE DISCHARGE
+  // UPDATE DISCHARGE - AVEC INVALIDATION DE CACHE
   // =============================================
   updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
     try {
@@ -200,6 +337,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
 
       if (error) throw error;
 
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchDischarges(true);
+
       set((state) => ({
         discharges: state.discharges.map(d => d.id === id ? discharge : d),
         currentDischarge: discharge,
@@ -213,7 +354,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE STATUS
+  // UPDATE STATUS - AVEC INVALIDATION DE CACHE
   // =============================================
   updateStatus: async (id: string, status: DischargeStatus) => {
     try {
@@ -236,6 +377,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         .single();
 
       if (error) throw error;
+
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchDischarges(true);
 
       set((state) => ({
         discharges: state.discharges.map(d => d.id === id ? discharge : d),
@@ -261,7 +406,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // ASSIGN AIDANT
+  // ASSIGN AIDANT - AVEC INVALIDATION DE CACHE
   // =============================================
   assignAidant: async (id: string, aidantId: string) => {
     try {
@@ -285,6 +430,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         .single();
 
       if (error) throw error;
+
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchDischarges(true);
 
       // ✅ Notification à l'aidant
       if (discharge.aidant?.user_id) {
@@ -321,7 +470,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // COMPLETE DISCHARGE
+  // COMPLETE DISCHARGE - AVEC INVALIDATION DE CACHE
   // =============================================
   completeDischarge: async (id: string, data: { 
     installation_notes?: string; 
@@ -351,6 +500,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         .single();
 
       if (error) throw error;
+
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchDischarges(true);
 
       set((state) => ({
         discharges: state.discharges.map(d => d.id === id ? discharge : d),
@@ -396,7 +549,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // CANCEL DISCHARGE
+  // CANCEL DISCHARGE - AVEC INVALIDATION DE CACHE
   // =============================================
   cancelDischarge: async (id: string, reason: string) => {
     try {
@@ -418,6 +571,10 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         .single();
 
       if (error) throw error;
+
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchDischarges(true);
 
       set((state) => ({
         discharges: state.discharges.map(d => d.id === id ? discharge : d),
