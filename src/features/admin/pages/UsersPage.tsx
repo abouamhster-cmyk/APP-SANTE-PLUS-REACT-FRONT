@@ -21,6 +21,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
 import { Modal, ModalActions } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
+// ✅ IMPORTER le hook de rafraîchissement
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+// ✅ IMPORTER le bouton de rafraîchissement
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -90,6 +94,12 @@ const UsersPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ UTILISER le hook de rafraîchissement
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchUsers,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des utilisateurs'),
+  });
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -154,7 +164,8 @@ const UsersPage = () => {
       if (error) throw error;
 
       toast.success('Rôle mis à jour');
-      fetchUsers();
+      // ✅ Recharger après mise à jour
+      await fetchUsers();
       setShowEditModal(false);
     } catch (error) {
       console.error('Update role error:', error);
@@ -187,7 +198,8 @@ const UsersPage = () => {
       if (error) throw error;
 
       toast.success(`Utilisateur ${!currentStatus ? 'activé' : 'désactivé'}`);
-      fetchUsers();
+      // ✅ Recharger après mise à jour
+      await fetchUsers();
     } catch (error) {
       console.error('Toggle status error:', error);
       toast.error('Erreur lors de la mise à jour');
@@ -210,7 +222,8 @@ const handleDeleteUser = async (userId: string) => {
     if (!response.ok) throw new Error('Erreur lors de la suppression');
     
     toast.success('Utilisateur supprimé');
-    fetchUsers();
+    // ✅ Recharger après suppression
+    await fetchUsers();
   } catch (error) {
     toast.error('Erreur lors de la suppression');
   }
@@ -237,7 +250,7 @@ const handleDeleteUser = async (userId: string) => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
+      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -261,15 +274,12 @@ const handleDeleteUser = async (userId: string) => {
             </p>
           </div>
 
-          <button
-            onClick={fetchUsers}
-            disabled={isLoading}
-            className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
-            style={{ background: colors.primary + '12', color: colors.primary }}
-          >
-            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Actualiser</span>
-          </button>
+          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT MODERNISÉ */}
+          <RefreshButton 
+            onRefresh={() => {
+              toast.success('👥 Utilisateurs actualisés');
+            }}
+          />
         </div>
       </section>
 
