@@ -33,24 +33,39 @@ export const Modal = ({
   className,
 }: ModalProps) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const scrollYRef = useRef(0);
 
-  // 🔒 Lock scroll body
+  // 🔒 Lock scroll body - version améliorée pour mobile
   useEffect(() => {
     if (isOpen) {
+      scrollYRef.current = window.scrollY;
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.top = `-${scrollYRef.current}px`;
     } else {
       document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+      window.scrollTo(0, scrollYRef.current);
     }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.top = '';
+    };
   }, [isOpen]);
 
   // ⌨️ ESC close
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && isOpen) onClose();
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+  }, [isOpen, onClose]);
 
   const maxWidthClasses = {
     sm: 'max-w-sm',
@@ -69,32 +84,66 @@ export const Modal = ({
       <div
         className="modal-overlay"
         onClick={closeOnOverlayClick ? onClose : undefined}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '12px',
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          overflow: 'hidden',
+          pointerEvents: 'auto',
+        }}
       >
         <motion.div
           ref={modalRef}
-          className={cn('modal-card', maxWidthClasses[maxWidth], className)}
+          className={cn(
+            'modal-card',
+            maxWidthClasses[maxWidth],
+            className
+          )}
           initial={{ opacity: 0, y: 40, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.96 }}
           transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: maxWidth === 'full' ? '96%' : '560px',
+            maxHeight: '92vh',
+            background: 'white',
+            borderRadius: '24px',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            animation: 'modalSlideUp 0.3s ease-out',
+            pointerEvents: 'auto',
+          }}
         >
           {/* HEADER */}
-          <div className="modal-header">
+          <div 
+            className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100/50 bg-white sticky top-0 z-10"
+            style={{ borderBottom: '1px solid #e5e7eb' }}
+          >
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 {icon && (
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-black/5">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-black/5 shrink-0">
                     {icon}
                   </div>
                 )}
-
                 <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-semibold truncate">
+                  <h2 className="text-base sm:text-lg font-semibold truncate text-gray-900">
                     {title}
                   </h2>
                   {description && (
-                    <p className="text-xs text-black/50 truncate">
+                    <p className="text-xs text-gray-500 truncate">
                       {description}
                     </p>
                   )}
@@ -104,22 +153,35 @@ export const Modal = ({
               {showClose && (
                 <button
                   onClick={onClose}
-                  className="w-9 h-9 rounded-full hover:bg-black/5 transition flex items-center justify-center"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full hover:bg-gray-100 transition flex items-center justify-center shrink-0"
+                  aria-label="Fermer"
                 >
-                  <X size={20} />
+                  <X size={20} className="text-gray-500" />
                 </button>
               )}
             </div>
           </div>
 
           {/* BODY */}
-          <div className="modal-body">
+          <div 
+            className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 overscroll-contain"
+            style={{
+              maxHeight: 'calc(92vh - 140px)',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
             {children}
           </div>
 
           {/* FOOTER */}
           {actions && (
-            <div className="modal-footer">
+            <div 
+              className="flex-shrink-0 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100/50 bg-white sticky bottom-0 z-10"
+              style={{ 
+                borderTop: '1px solid #e5e7eb',
+                paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+              }}
+            >
               {actions}
             </div>
           )}
@@ -128,8 +190,6 @@ export const Modal = ({
     </AnimatePresence>
   );
 };
-
-
 
 // =============================================
 // ACTIONS
@@ -163,7 +223,8 @@ export const ModalActions = ({
           {onCancel && (
             <button
               onClick={onCancel}
-              className="flex-1 py-3 rounded-xl border text-sm hover:bg-black/5 transition"
+              className="flex-1 py-2.5 sm:py-3 rounded-xl border text-sm font-medium hover:bg-gray-50 transition text-gray-700"
+              style={{ borderColor: '#e5e7eb' }}
             >
               {cancelLabel}
             </button>
@@ -172,8 +233,9 @@ export const ModalActions = ({
           {onConfirm && (
             <button
               onClick={onConfirm}
-              className="flex-1 py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition hover:opacity-90"
+              className="flex-1 py-2.5 sm:py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition hover:opacity-90 text-sm disabled:opacity-60"
               style={{ background: confirmColor || '#1a4a3a' }}
+              disabled={isLoading}
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -190,8 +252,6 @@ export const ModalActions = ({
     </div>
   );
 };
-
-
 
 // =============================================
 // CONFIRM MODAL
@@ -243,17 +303,12 @@ export const ModalWithConfirm = ({
         />
       }
     >
-      <div className="py-4 text-center text-sm sm:text-base">
+      <div className="py-4 text-center text-sm sm:text-base text-gray-700">
         {message}
       </div>
     </Modal>
   );
 };
-
-
-
-
-// 📁 src/components/ui/Modal.tsx - AJOUTER À LA FIN DU FICHIER
 
 // =============================================
 // MODAL WITH FORM
@@ -298,20 +353,20 @@ export const ModalWithForm = ({
         maxWidth={maxWidth}
         className={className}
         actions={
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2.5">
             <button
               type="button"
               onClick={onClose}
               disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl font-medium border hover:bg-gray-50 transition disabled:opacity-50"
-              style={{ borderColor: 'var(--color-border, #e5e7eb)', color: 'var(--color-text, #2d2d2d)' }}
+              className="flex-1 py-2.5 sm:py-3 rounded-xl font-medium border transition hover:bg-gray-50 text-sm disabled:opacity-50"
+              style={{ borderColor: '#e5e7eb', color: '#2d2d2d' }}
             >
               {cancelLabel}
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 sm:py-3 rounded-xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
               style={{ background: 'var(--color-primary, #1a4a3a)' }}
             >
               {isLoading ? (
@@ -329,4 +384,5 @@ export const ModalWithForm = ({
   );
 };
 
- export default Modal;
+// ✅ EXPORT PAR DÉFAUT
+export default Modal;
