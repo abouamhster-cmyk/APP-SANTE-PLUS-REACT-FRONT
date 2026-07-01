@@ -1,9 +1,10 @@
 // 📁 src/components/auth/ProtectedRoute.tsx
- 
+
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useContractStore } from '@/stores/contractStore';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+// ✅ Importer ContractModal transformé en page
 import { ContractModal } from '@/components/contract/ContractModal';
 import { useEffect, useState } from 'react';
 import { Scale, ShieldAlert } from 'lucide-react';
@@ -146,6 +147,7 @@ export const ProtectedRoute = ({
   if (isBlocked && contract) {
     return (
       <>
+        {/* ✅ ContractModal en plein écran via le wrapper */}
         <ContractModal
           isOpen={true}
           contract={{
@@ -166,8 +168,9 @@ export const ProtectedRoute = ({
           }}
         />
 
+        {/* Overlay de fond pour l'effet de blocage */}
         <div 
-          className="fixed inset-0 z-[150] flex items-center justify-center pointer-events-none"
+          className="fixed inset-0 z-[99998] flex items-center justify-center pointer-events-none"
           style={{ background: 'var(--color-background, #f5f0e8)' }}
         >
           <div className="text-center pointer-events-auto">
