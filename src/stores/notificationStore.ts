@@ -5,16 +5,54 @@ import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types';
 import { useAuthStore } from './authStore';
 
+// =============================================
+// HELPERS DE CACHE
+// =============================================
+
+const NOTIFICATIONS_CACHE_KEY = 'sante_plus_notifications_cache';
+const CACHE_DURATION = 30000; // 30 secondes pour les notifications (plus court)
+
+const getCachedNotifications = (): { data: Notification[]; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(NOTIFICATIONS_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedNotifications = (notifications: Notification[]) => {
+  try {
+    localStorage.setItem(NOTIFICATIONS_CACHE_KEY, JSON.stringify({
+      data: notifications,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedNotifications = () => {
+  try {
+    localStorage.removeItem(NOTIFICATIONS_CACHE_KEY);
+    console.log('🗑️ Cache notifications invalidé');
+  } catch { /* ignore */ }
+};
+
+// =============================================
+// STORE
+// =============================================
+
 interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
   isLoading: boolean;
   subscription: any | null;
   notificationsEnabled: boolean;
+  isInitialized: boolean;
+  lastFetch: number | null;
+  isCacheInvalidated: boolean;
 
   subscribe: () => void;
   unsubscribe: () => void;
-  fetchNotifications: () => Promise<void>;
+  fetchNotifications: (force?: boolean) => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   addNotification: (notification: Notification) => void;
@@ -22,6 +60,10 @@ interface NotificationState {
   toggleNotifications: () => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   getUnreadCount: () => number;
+  
+  // ✅ GESTION DU CACHE
+  invalidateCache: () => void;
+  refresh: () => Promise<void>;
 }
 
 const initializeNotifications = () => {
@@ -46,6 +88,26 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   isLoading: false,
   subscription: null,
   notificationsEnabled: initializeNotifications(),
+  isInitialized: false,
+  lastFetch: null,
+  isCacheInvalidated: false,
+
+  // ✅ Invalider le cache
+  invalidateCache: () => {
+    clearCachedNotifications();
+    set({ 
+      isCacheInvalidated: true,
+      isInitialized: false,
+      lastFetch: null,
+    });
+    console.log('🔄 Cache notifications invalidé');
+  },
+
+  // ✅ Rafraîchir forcé
+  refresh: async () => {
+    get().invalidateCache();
+    await get().fetchNotifications(true);
+  },
 
   subscribe: () => {
     const { user, profile } = useAuthStore.getState();
@@ -94,14 +156,50 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  fetchNotifications: async () => {
+  // =============================================
+  // FETCH NOTIFICATIONS - AVEC CACHE
+  // =============================================
+  fetchNotifications: async (force = false) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire notifications');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedNotifications();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage notifications');
+        const unread = cached.data.filter((n) => !n.is_read).length || 0;
+        set({ 
+          notifications: cached.data,
+          unreadCount: unread,
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
-      set({ isLoading: true });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
 
       const { user } = useAuthStore.getState();
 
       if (!user) {
-        set({ isLoading: false });
+        set({ notifications: [], unreadCount: 0, isLoading: false, isInitialized: true });
         return;
       }
 
@@ -114,19 +212,47 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
       if (error) throw error;
 
-      const unread = data?.filter((n) => !n.is_read).length || 0;
+      const notifications = data || [];
+      const unread = notifications.filter((n) => !n.is_read).length || 0;
 
+      // ✅ Mettre en cache
+      setCachedNotifications(notifications);
+      
       set({
-        notifications: data || [],
+        notifications,
         unreadCount: unread,
         isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
       });
     } catch (error) {
       console.error('Fetch notifications error:', error);
-      set({ isLoading: false });
+      
+      // En cas d'erreur, utiliser le cache
+      const cached = getCachedNotifications();
+      if (cached && cached.data.length > 0) {
+        const unread = cached.data.filter((n) => !n.is_read).length || 0;
+        set({
+          notifications: cached.data,
+          unreadCount: unread,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ 
+          isLoading: false,
+          isInitialized: true,
+        });
+      }
     }
   },
 
+  // =============================================
+  // MARK AS READ - AVEC INVALIDATION DE CACHE
+  // =============================================
   markAsRead: async (id: string) => {
     try {
       const { error } = await supabase
@@ -139,6 +265,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
       if (error) throw error;
 
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchNotifications(true);
+
+      // Mise à jour locale immédiate
       set((state) => {
         const target = state.notifications.find((n) => n.id === id);
         const wasUnread = target ? !target.is_read : false;
@@ -163,6 +294,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // MARK ALL READ - AVEC INVALIDATION DE CACHE
+  // =============================================
   markAllRead: async () => {
     try {
       const { user } = useAuthStore.getState();
@@ -180,6 +314,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
       if (error) throw error;
 
+      // ✅ INVALIDER LE CACHE
+      get().invalidateCache();
+      await get().fetchNotifications(true);
+
+      // Mise à jour locale immédiate
       set((state) => ({
         notifications: state.notifications.map((n) => ({
           ...n,
@@ -235,6 +374,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   clearNotifications: () => {
+    // ✅ INVALIDER LE CACHE
+    get().invalidateCache();
+    
     set({
       notifications: [],
       unreadCount: 0,
