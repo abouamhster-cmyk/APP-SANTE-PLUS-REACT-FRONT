@@ -152,38 +152,40 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
   // ============================================================
   // ASSIGN AIDANT - AVEC SUPPORT PERSONNEL
   // ============================================================
-  assignAidant: async (aidantId: string, patientId: string | null = null, assignmentType = 'permanente') => {
-    try {
-      set({ isLoading: true, error: null });
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      if (!token) {
-        throw new Error('Token manquant');
-      }
-
-      // ✅ patientId peut être null pour assignation personnelle
-      const payload: any = {
-        aidantId,
-        assignmentType,
-      };
-
-      // ✅ patientId est optionnel
-      if (patientId) {
-        payload.patientId = patientId;
-      }
-
-      console.log('📤 Assignation aidant avec payload:', payload);
-
-      const response = await fetch(`${API_BASE_URL}/aidants/assign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+// ✅ Modifier la signature de assignAidant
+    assignAidant: async (aidantId: string, patientId: string | null = null, assignmentType = 'permanente') => {
+      try {
+        set({ isLoading: true, error: null });
+    
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+    
+        if (!token) {
+          throw new Error('Token manquant');
+        }
+    
+        // ✅ payload avec patientId optionnel
+        const payload: any = {
+          aidantId,
+          assignmentType,
+        };
+    
+        // ✅ patientId n'est ajouté que s'il est défini
+        if (patientId) {
+          payload.patientId = patientId;
+        }
+    
+        console.log('📤 Assignation aidant avec payload:', payload);
+    
+        const response = await fetch(`${API_BASE_URL}/aidants/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
       if (!response.ok) {
         const error = await response.json();
