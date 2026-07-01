@@ -23,6 +23,7 @@ import {
   Calendar,
   Clock,
   AlertCircle,
+  Users,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -67,6 +68,10 @@ const CreateOrderPage = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+
+  // ✅ NOUVEAU : choix du destinataire
+  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
+  const [targetPatientId, setTargetPatientId] = useState<string>('');
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -128,6 +133,8 @@ const CreateOrderPage = () => {
           formData,
           prescriptionPreview,
           orderType,
+          targetType,
+          targetPatientId,
           timestamp: Date.now(),
         }));
       } catch (e) {
@@ -147,6 +154,8 @@ const CreateOrderPage = () => {
             setFormData(parsed.formData);
             setPrescriptionPreview(parsed.prescriptionPreview || null);
             setOrderType(parsed.orderType || 'subscription');
+            setTargetType(parsed.targetType || 'personal');
+            setTargetPatientId(parsed.targetPatientId || '');
             console.log('📦 Formulaire restauré depuis sessionStorage');
           } else {
             sessionStorage.removeItem('create_order_form');
@@ -165,7 +174,7 @@ const CreateOrderPage = () => {
     };
   }, []);
 
-  const selectedPatient = patients.find((p) => p.id === formData.patient_id);
+  const selectedPatient = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
 
   const itemsTotal = formData.items.reduce(
     (sum, item) => sum + item.quantity * item.price,
@@ -315,8 +324,14 @@ const CreateOrderPage = () => {
         total: item.quantity * item.price,
       }));
 
+    // ✅ Déterminer target_type et target_name
+    const finalTargetType = targetType;
+    const finalTargetName = targetType === 'personal' 
+      ? profile?.full_name || 'Personnel'
+      : selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Patient';
+
     return {
-      patient_id: formData.patient_id || null,
+      patient_id: targetType === 'patient' ? targetPatientId : null,
       type: formData.type as any,
       description: formData.description.trim(),
       address: formData.address.trim(),
@@ -326,6 +341,9 @@ const CreateOrderPage = () => {
       order_type: 'ponctual',
       is_paid: false,
       category: 'ponctuelle',
+      target_type: finalTargetType,
+      target_name: finalTargetName,
+      hasPatients: patients.length > 0,
     };
   };
 
@@ -400,8 +418,14 @@ const CreateOrderPage = () => {
           total: item.quantity * item.price,
         }));
 
+      // ✅ Ajouter target_type et target_name à la commande
+      const finalTargetType = targetType;
+      const finalTargetName = targetType === 'personal' 
+        ? profile?.full_name || 'Personnel'
+        : selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Patient';
+
       await createOrder({
-        patient_id: formData.patient_id || null,
+        patient_id: targetType === 'patient' ? targetPatientId : null,
         type: formData.type as any,
         description: formData.description.trim(),
         address: formData.address.trim(),
@@ -410,6 +434,8 @@ const CreateOrderPage = () => {
         prescription_url: prescriptionUrl,
         order_type: 'subscription',
         is_paid: true,
+        target_type: finalTargetType,
+        target_name: finalTargetName,
       });
 
       toast.success('Commande créée avec succès (décomptée de votre abonnement)');
@@ -429,6 +455,9 @@ const CreateOrderPage = () => {
   };
 
   const isLoading_ = isLoading || isUploading;
+
+  // ✅ Options de destinataire
+  const hasPatients = patients.length > 0;
 
   return (
     <div className="space-y-6 pb-10">
@@ -477,8 +506,8 @@ const CreateOrderPage = () => {
 
           <div className="grid grid-cols-3 gap-2 md:min-w-[300px]">
             <CompactHeaderStat
-              label={beneficiaryLabel}
-              value={selectedPatient ? 'Choisi' : 'Optionnel'}
+              label="Destinataire"
+              value={targetType === 'personal' ? 'Personnel' : (selectedPatient ? `${selectedPatient.first_name}` : 'Patient')}
               color={colors.primary}
             />
             <CompactHeaderStat
@@ -498,6 +527,134 @@ const CreateOrderPage = () => {
       <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
         {/* COLONNE PRINCIPALE */}
         <div className="space-y-6">
+          {/* CHOIX DU DESTINATAIRE */}
+          {hasPatients && (
+            <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+              <div className="flex items-start gap-3 mb-5">
+                <div
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: colors.primary + '14',
+                    color: colors.primary,
+                  }}
+                >
+                  <Users size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">
+                    Pour qui ?
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                    Choisissez le destinataire de cette commande.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetType('personal');
+                    setTargetPatientId('');
+                  }}
+                  className={`p-5 rounded-2xl border-2 text-left transition-all ${
+                    targetType === 'personal'
+                      ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md scale-[1.01]'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                      style={{
+                        background: targetType === 'personal' ? colors.primary + '15' : '#f3f4f6',
+                        color: targetType === 'personal' ? colors.primary : '#9ca3af',
+                      }}
+                    >
+                      <User size={20} />
+                    </div>
+                    <div>
+                      <p className="font-bold" style={{ color: colors.text }}>
+                        👤 Personnel
+                      </p>
+                      <p className="text-xs" style={{ color: colors.text + '50' }}>
+                        Pour vous-même
+                      </p>
+                    </div>
+                  </div>
+                  {targetType === 'personal' && (
+                    <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle size={14} />
+                      {profile?.full_name}
+                    </div>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetType('patient');
+                    if (patients.length > 0) {
+                      setTargetPatientId(patients[0].id);
+                    }
+                  }}
+                  className={`p-5 rounded-2xl border-2 text-left transition-all ${
+                    targetType === 'patient'
+                      ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md scale-[1.01]'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                      style={{
+                        background: targetType === 'patient' ? colors.primary + '15' : '#f3f4f6',
+                        color: targetType === 'patient' ? colors.primary : '#9ca3af',
+                      }}
+                    >
+                      <Users size={20} />
+                    </div>
+                    <div>
+                      <p className="font-bold" style={{ color: colors.text }}>
+                        👨‍👩‍👦 Patient
+                      </p>
+                      <p className="text-xs" style={{ color: colors.text + '50' }}>
+                        Pour un proche
+                      </p>
+                    </div>
+                  </div>
+                  {targetType === 'patient' && selectedPatient && (
+                    <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle size={14} />
+                      {selectedPatient.first_name} {selectedPatient.last_name}
+                    </div>
+                  )}
+                </button>
+              </div>
+
+              {/* Sélection du patient si targetType === 'patient' */}
+              {targetType === 'patient' && patients.length > 1 && (
+                <div className="mt-4">
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
+                    Sélectionner un proche
+                  </label>
+                  <select
+                    value={targetPatientId}
+                    onChange={(e) => setTargetPatientId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-sm"
+                    style={{ borderColor: colors.border, color: colors.text }}
+                  >
+                    {patients.map((patient) => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.first_name} {patient.last_name} — {getCategoryLabel(patient.category)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* TYPE DE COMMANDE */}
           <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
             <div className="flex items-start gap-3 mb-5">
@@ -614,31 +771,22 @@ const CreateOrderPage = () => {
             color={colors.primary}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label={beneficiaryLabel} optional color={colors.text}>
+              <Field label={targetType === 'personal' ? 'Destinataire' : beneficiaryLabel} optional color={colors.text}>
                 <div className="relative">
                   <User
                     className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5"
                     style={{ color: colors.text + '60' }}
                   />
-                  <select
-                    value={formData.patient_id}
-                    onChange={(e) =>
-                      setFormData({ ...formData, patient_id: e.target.value })
-                    }
-                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl border outline-none transition focus:ring-2 text-sm bg-gray-50"
+                  <input
+                    type="text"
+                    value={targetType === 'personal' ? (profile?.full_name || 'Personnel') : (selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Non sélectionné')}
+                    disabled
+                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl border outline-none text-sm bg-gray-100 cursor-not-allowed"
                     style={{
                       borderColor: colors.border || '#e5e0d8',
                       color: colors.text,
                     }}
-                  >
-                    <option value="">Sans {beneficiaryLabel.toLowerCase()}</option>
-                    {patients.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.first_name} {patient.last_name} —{' '}
-                        {getCategoryLabel(patient.category)}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </Field>
 
@@ -893,17 +1041,13 @@ const CreateOrderPage = () => {
             </div>
 
             <SummaryLine
-              label="Type de commande"
-              value={orderType === 'subscription' ? 'Avec abonnement' : 'Ponctuelle'}
+              label="Destinataire"
+              value={targetType === 'personal' ? '👤 Personnel' : `👨‍👩‍👦 ${selectedPatient?.first_name || 'Patient'}`}
             />
 
             <SummaryLine
-              label={beneficiaryLabel}
-              value={
-                selectedPatient
-                  ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
-                  : `Sans ${beneficiaryLabel.toLowerCase()}`
-              }
+              label="Type de commande"
+              value={orderType === 'subscription' ? 'Avec abonnement' : 'Ponctuelle'}
             />
 
             <SummaryLine
@@ -1035,7 +1179,7 @@ const CreateOrderPage = () => {
 };
 
 // =============================================
-// SOUS-COMPOSANTS
+// SOUS-COMPOSANTS (inchangés)
 // =============================================
 
 interface ModernPanelProps {
