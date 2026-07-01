@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { Visit } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -146,4 +147,92 @@ export const getStatusLabel = (status: string): string => {
     en_cours_de_renouvellement: 'En cours de renouvellement',
   };
   return labels[status] || status;
+};
+
+
+
+
+
+
+// =============================================
+// VISITE DISPLAY HELPERS
+// =============================================
+
+/**
+ * Retourne le nom à afficher pour une visite
+ * - Si patient existe → nom du patient
+ * - Si visite personnelle → target_name
+ * - Sinon → 'Personnel'
+ */
+export const getVisitDisplayName = (visit: Visit | null | undefined): string => {
+  if (!visit) return 'Visite';
+  if (visit.patient) {
+    return `${visit.patient.first_name} ${visit.patient.last_name}`;
+  }
+  if (visit.target_name) {
+    return visit.target_name;
+  }
+  if (visit.target_type === 'personal') {
+    return 'Personnel';
+  }
+  return 'Visite';
+};
+
+/**
+ * Retourne l'adresse à afficher pour une visite
+ * - Si patient a une adresse → adresse du patient
+ * - Si visite personnelle → 'Adresse personnelle'
+ * - Sinon → 'Adresse non renseignée'
+ */
+export const getVisitDisplayAddress = (visit: Visit | null | undefined): string => {
+  if (!visit) return 'Adresse non renseignée';
+  if (visit.patient?.address) {
+    return visit.patient.address;
+  }
+  if (visit.target_type === 'personal') {
+    return 'Adresse personnelle';
+  }
+  return 'Adresse non renseignée';
+};
+
+/**
+ * Retourne la catégorie à afficher pour une visite
+ */
+export const getVisitDisplayCategory = (visit: Visit | null | undefined): string => {
+  if (!visit) return 'Non spécifié';
+  if (visit.patient?.category === 'maman_bebe') {
+    return '👶 Maman & Bébé';
+  }
+  if (visit.patient?.category === 'senior') {
+    return '👴 Senior';
+  }
+  if (visit.target_type === 'personal') {
+    return '👤 Personnel';
+  }
+  return 'Non spécifié';
+};
+
+/**
+ * Retourne le type de destinataire
+ */
+export const getVisitDisplayType = (visit: Visit | null | undefined): string => {
+  if (!visit) return 'Visite';
+  if (visit.patient) {
+    return 'Proche';
+  }
+  if (visit.target_type === 'personal') {
+    return '👤 Personnel';
+  }
+  return 'Visite';
+};
+
+/**
+ * Retourne le nom de l'aidant ou 'Non assigné'
+ */
+export const getVisitDisplayAidant = (visit: Visit | null | undefined): string => {
+  if (!visit) return 'Non assigné';
+  if (visit.aidant?.user?.full_name) {
+    return visit.aidant.user.full_name;
+  }
+  return 'Non assigné';
 };
