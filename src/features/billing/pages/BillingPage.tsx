@@ -1,5 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import {
   CreditCard,
@@ -95,7 +95,7 @@ const BillingPage = () => {
 
     // ✅ COMPTE PERSONNEL → Uniquement Pack Confort
     if (isPersonalAccount) {
-      filtered = offers.filter(o => 
+      filtered = offers.filter((o: Offer) => 
         o.category === 'pack_confort' || 
         o.type === 'ponctuelle' ||
         o.id?.startsWith('ponctual-')
@@ -106,7 +106,7 @@ const BillingPage = () => {
 
     // ✅ COMPTE SENIOR → Senior + Pack Confort
     if (patientCategory === 'senior') {
-      filtered = offers.filter(o => 
+      filtered = offers.filter((o: Offer) => 
         o.category === 'senior' || 
         o.category === 'pack_confort' ||
         o.type === 'ponctuelle' ||
@@ -118,7 +118,7 @@ const BillingPage = () => {
 
     // ✅ COMPTE MAMAN & BÉBÉ → Maman & Bébé + Pack Confort
     if (patientCategory === 'maman_bebe') {
-      filtered = offers.filter(o => 
+      filtered = offers.filter((o: Offer) => 
         o.category === 'maman_bebe' || 
         o.category === 'pack_confort' ||
         o.type === 'ponctuelle' ||
@@ -134,7 +134,7 @@ const BillingPage = () => {
   }, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
 
   // ✅ Filtrer les onglets visibles
-  const getVisibleTabs = () => {
+  const getVisibleTabs = (): ('all' | 'senior' | 'maman_bebe' | 'ponctuelle')[] => {
     if (isAidantRole) return [];
     if (isPersonalAccount) return ['all', 'ponctuelle'];
     if (patientCategory === 'senior') return ['all', 'senior', 'ponctuelle'];
@@ -173,11 +173,12 @@ const BillingPage = () => {
     toast.success('Paiement effectué avec succès !');
   };
 
+  // ✅ Statistiques avec types explicites
   const stats = {
     total: offers.length,
-    senior: offers.filter((o) => o.category === 'senior').length,
-    maman: offers.filter((o) => o.category === 'maman_bebe').length,
-    ponctuelle: offers.filter((o) => o.category === 'ponctuelle' || o.type === 'ponctuelle').length,
+    senior: offers.filter((o: Offer) => o.category === 'senior').length,
+    maman: offers.filter((o: Offer) => o.category === 'maman_bebe').length,
+    ponctuelle: offers.filter((o: Offer) => o.category === 'ponctuelle' || o.type === 'ponctuelle').length,
   };
 
   const isLoading = storeLoading || offersLoading;
@@ -296,11 +297,19 @@ const BillingPage = () => {
         <section className="bg-white rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
             {visibleTabs.map((tabId) => {
+              // ✅ Calcul des comptes avec types explicites
+              const counts = {
+                'all': filteredOffers.length,
+                'senior': offers.filter((o: Offer) => o.category === 'senior' || o.category === 'pack_confort').length,
+                'maman_bebe': offers.filter((o: Offer) => o.category === 'maman_bebe' || o.category === 'pack_confort').length,
+                'ponctuelle': offers.filter((o: Offer) => o.category === 'ponctuelle' || o.type === 'ponctuelle').length,
+              };
+
               const label = {
-                'all': `Toutes (${filteredOffers.length})`,
-                'senior': `👴 Senior (${offers.filter(o => o.category === 'senior' || o.category === 'pack_confort').length})`,
-                'maman_bebe': `👶 Maman (${offers.filter(o => o.category === 'maman_bebe' || o.category === 'pack_confort').length})`,
-                'ponctuelle': `⚡ Ponctuelle (${offers.filter(o => o.category === 'ponctuelle' || o.type === 'ponctuelle').length})`,
+                'all': `Toutes (${counts.all})`,
+                'senior': `👴 Senior (${counts.senior})`,
+                'maman_bebe': `👶 Maman (${counts.maman_bebe})`,
+                'ponctuelle': `⚡ Ponctuelle (${counts.ponctuelle})`,
               }[tabId] || tabId;
 
               return (
@@ -324,7 +333,7 @@ const BillingPage = () => {
       {/* GRILLE DES OFFRES DISPONIBLES */}
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredOffers.length > 0 ? (
-          filteredOffers.map((offer) => (
+          filteredOffers.map((offer: Offer) => (
             <OfferCardCompact
               key={offer.id}
               offer={offer}
@@ -363,7 +372,7 @@ const BillingPage = () => {
 
         {payments.length > 0 ? (
           <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-            {payments.slice(0, 5).map((payment) => (
+            {payments.slice(0, 5).map((payment: any) => (
               <PaymentItem key={payment.id} payment={payment} colors={colors} />
             ))}
           </div>
@@ -494,7 +503,7 @@ const OfferCardCompact = ({
 
         {offer.features && offer.features.length > 0 && (
           <div className="mt-4 pt-3 border-t border-gray-50 space-y-1.5">
-            {offer.features.slice(0, 2).map((feature, index) => (
+            {offer.features.slice(0, 2).map((feature: string, index: number) => (
               <div key={index} className="flex items-start gap-2 text-xs text-gray-500">
                 <CheckCircle size={12} style={{ color: badgeColor }} className="shrink-0 mt-0.5" />
                 <span className="truncate leading-tight">{feature}</span>
