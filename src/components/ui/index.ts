@@ -9,7 +9,10 @@ export { Logo } from './Logo';
 export { Illustration } from './Illustration';
 export { RoleBanner } from './RoleBanner';
 
- export { default as ModalDefault } from './Modal';
+export { default as ModalDefault } from './Modal';
 export { default as InfoRowDefault } from './InfoRow';
 export { default as LoadingSpinnerDefault } from './LoadingSpinner';
 export { default as LogoDefault } from './Logo';
+
+export { default as ModalDefault } from './Modal';
+
