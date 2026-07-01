@@ -16,13 +16,10 @@ import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
-// ✅ IMPORTER le hook de rafraîchissement
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-// ✅ IMPORTER le bouton de rafraîchissement
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import toast from 'react-hot-toast';
 
-// ✅ URL UNIQUE (pour les appels API si besoin)
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 interface Registration {
@@ -79,20 +76,10 @@ const RegistrationsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ UTILISER le hook de rafraîchissement
-  const { refreshAll, isRefreshing } = useRefreshableData({
-    onRefresh: fetchRegistrations,
-    onError: (error) => toast.error('Erreur lors du rafraîchissement des inscriptions'),
-  });
-
-  useEffect(() => {
-    fetchRegistrations();
-  }, []);
-
+  // ✅ DÉCLARER fetchRegistrations D'ABORD
   const fetchRegistrations = async () => {
     try {
       setIsLoading(true);
-      // ✅ Utilisation directe de Supabase (pas de localStorage)
       const { data: inscriptions, error: inscriptionsError } = await supabase
         .from('inscriptions')
         .select('*')
@@ -131,6 +118,16 @@ const RegistrationsPage = () => {
     }
   };
 
+  // ✅ UTILISER le hook APRÈS la déclaration
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchRegistrations,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des inscriptions'),
+  });
+
+  useEffect(() => {
+    fetchRegistrations();
+  }, []);
+
   const filteredRegistrations = registrations.filter(reg => {
     const matchesSearch =
       reg.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -141,7 +138,6 @@ const RegistrationsPage = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // ✅ Statistiques des inscriptions
   const stats = {
     total: registrations.length,
     pending: registrations.filter(r => r.status === 'en_attente').length,
@@ -159,7 +155,6 @@ const RegistrationsPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      {/* Header avec bouton de rafraîchissement */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
@@ -174,7 +169,6 @@ const RegistrationsPage = () => {
             </p>
           </div>
           
-          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT MODERNISÉ */}
           <RefreshButton 
             onRefresh={() => {
               toast.success('📋 Inscriptions actualisées');
@@ -182,7 +176,6 @@ const RegistrationsPage = () => {
           />
         </div>
 
-        {/* ✅ STATS COMPACTES DES INSCRIPTIONS */}
         <div className="relative z-10 mt-4 flex flex-wrap gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
             <Users size={14} />
@@ -209,7 +202,6 @@ const RegistrationsPage = () => {
         </div>
       </section>
 
-      {/* Recherche et Filtres */}
       <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
         <input
           value={searchTerm}
@@ -231,7 +223,6 @@ const RegistrationsPage = () => {
         </select>
       </section>
 
-      {/* Liste épurée */}
       <section className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.015)] overflow-hidden divide-y" style={{ borderColor: colors.border }}>
         {filteredRegistrations.length === 0 ? (
           <div className="p-12 text-center text-gray-400">
