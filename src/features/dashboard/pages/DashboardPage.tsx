@@ -43,10 +43,9 @@ import { getGreeting } from '@/utils/helpers';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 
-// ✅ IMPORTER le hook de rafraîchissement
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-// ✅ IMPORTER le bouton de rafraîchissement
 import { RefreshButton } from '@/components/ui/RefreshButton';
+import toast from 'react-hot-toast';
 
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
@@ -67,7 +66,6 @@ interface Tile {
 const getTilesForRole = (role: string | null, colors: any, stats: any, patientsCount: number): Tile[] => {
   const tiles: Tile[] = [];
 
-  // 👨‍👩‍👦 FAMILLE
   if (role === 'family') {
     tiles.push(
       { icon: <Users size={20} />, label: 'Proches', color: colors.primary, path: '/app/patients', badge: patientsCount },
@@ -83,7 +81,6 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  // 🦸 AIDANT
   if (role === 'aidant') {
     tiles.push(
       { icon: <Users size={20} />, label: 'Personnes accompagnées', color: colors.primary, path: '/app/patients', badge: patientsCount },
@@ -97,7 +94,6 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  // 👔 ADMIN / COORDINATEUR
   if (role === 'admin' || role === 'coordinator') {
     tiles.push(
       { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: '#8b5cf6', path: '/app/admin' },
@@ -227,23 +223,18 @@ const DashboardPage = () => {
 
   // ✅ DÉTERMINER LE TITRE DE LA BANNIÈRE PAR RÔLE
   const heroTitle = () => {
-    // Admin / Coordinator
     if (isAdminOrCoordinator) {
       return '👔 Supervision de la plateforme';
     }
-    // Aidant
     if (isAidant) {
       return '🦸 Vos missions en un coup d\'œil';
     }
-    // Famille avec Maman & Bébé
     if (isMaman) {
       return '🌸 Bienvenue dans votre espace maman & bébé';
     }
-    // Famille avec patient(s)
     if (isFamily && patients.length > 0) {
       return '👨‍👩‍👦 Un suivi clair pour votre proche';
     }
-    // Famille sans patient
     if (isFamily && patients.length === 0) {
       return '🌱 Bienvenue sur Santé Plus Services';
     }
@@ -252,23 +243,18 @@ const DashboardPage = () => {
 
   // ✅ DESCRIPTION DE LA BANNIÈRE PAR RÔLE
   const heroDescription = () => {
-    // Admin / Coordinator
     if (isAdminOrCoordinator) {
       return 'Supervisez l\'ensemble des activités et gérez les utilisateurs.';
     }
-    // Aidant
     if (isAidant) {
       return 'Retrouvez vos missions, planning et communications au même endroit.';
     }
-    // Famille avec Maman & Bébé
     if (isMaman) {
       return 'Visites, messages et commandes réunis dans un espace simple pour vous et bébé.';
     }
-    // Famille avec patient(s)
     if (isFamily && patients.length > 0) {
       return 'Gardez une vue rapide sur les visites et commandes de votre proche.';
     }
-    // Famille sans patient
     if (isFamily && patients.length === 0) {
       return 'Gérez vos services d\'accompagnement en toute simplicité.';
     }
@@ -282,7 +268,6 @@ const DashboardPage = () => {
     return 'Personnes suivies';
   };
 
-  // ✅ VÉRIFIER SI L'UTILISATEUR A DES PROCHES
   const hasProches = patients.length > 0;
 
   if (isLoading) {
@@ -300,9 +285,6 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
-      {/* ========================================== */}
-      {/* HERO - Bannière adaptée au rôle avec bouton de rafraîchissement */}
-      {/* ========================================== */}
       <section
         className="relative overflow-hidden rounded-3xl min-h-[190px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
         style={{
@@ -334,7 +316,6 @@ const DashboardPage = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start md:self-end mt-2 md:mt-0">
-              {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
               <RefreshButton 
                 size="sm" 
                 showText={false}
@@ -363,9 +344,6 @@ const DashboardPage = () => {
         </div>
       </section>
 
-      {/* ========================================== */}
-      {/* MESSAGE D'ACCUEIL - UNIQUEMENT POUR LES FAMILLES SANS PATIENT */}
-      {/* ========================================== */}
       {isFamily && !hasProches && (
         <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-6 sm:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="flex flex-col md:flex-row items-center gap-6">
@@ -409,11 +387,7 @@ const DashboardPage = () => {
         </section>
       )}
 
-      {/* ========================================== */}
-      {/* STATS - Adaptées au rôle */}
-      {/* ========================================== */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Famille */}
         {isFamily && (
           <>
             <StatCard
@@ -447,7 +421,6 @@ const DashboardPage = () => {
           </>
         )}
 
-        {/* Aidant */}
         {isAidant && (
           <>
             <StatCard
@@ -481,7 +454,6 @@ const DashboardPage = () => {
           </>
         )}
 
-        {/* Admin / Coordinator */}
         {isAdminOrCoordinator && (
           <>
             <StatCard
@@ -493,21 +465,21 @@ const DashboardPage = () => {
             />
             <StatCard
               label="Inscriptions"
-              value={0} // À remplacer par le vrai compteur
+              value={0}
               icon={<ClipboardList size={16} />}
               color="#f59e0b"
               onClick={() => navigate('/app/registrations')}
             />
             <StatCard
               label="Aidants"
-              value={0} // À remplacer par le vrai compteur
+              value={0}
               icon={<UserCheck size={16} />}
               color="#3b82f6"
               onClick={() => navigate('/app/aidants')}
             />
             <StatCard
               label="Revenus"
-              value="0 FCFA" // À remplacer par le vrai montant
+              value="0 FCFA"
               icon={<TrendingUp size={16} />}
               color="#10b981"
               onClick={() => navigate('/app/admin-payments')}
@@ -516,9 +488,6 @@ const DashboardPage = () => {
         )}
       </section>
 
-      {/* ========================================== */}
-      {/* SUGGESTIONS - UNIQUEMENT POUR LES FAMILLES SANS PATIENT */}
-      {/* ========================================== */}
       {isFamily && !hasProches && (
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SuggestionCard
@@ -548,9 +517,6 @@ const DashboardPage = () => {
         </section>
       )}
 
-      {/* ========================================== */}
-      {/* GRILLE D'ACTIONS RAPIDES - Adaptée au rôle */}
-      {/* ========================================== */}
       <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
         <div className="flex items-center justify-between mb-4 px-1">
           <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
@@ -588,9 +554,6 @@ const DashboardPage = () => {
         </div>
       </section>
 
-      {/* ========================================== */}
-      {/* PROCHES - UNIQUEMENT POUR FAMILLES ET AIDANTS AVEC PATIENTS */}
-      {/* ========================================== */}
       {(isFamily || isAidant) && hasProches && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
           <div className="flex items-center justify-between mb-3 px-1">
@@ -629,12 +592,8 @@ const DashboardPage = () => {
         </section>
       )}
 
-      {/* ========================================== */}
-      {/* CONTENU DOUBLE COLONNE - FAMILLES SEULEMENT */}
-      {/* ========================================== */}
       {isFamily && (stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* VISITES */}
           {stats.upcomingVisits > 0 && (
             <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
               <div className="flex items-center justify-between mb-3 px-1">
@@ -660,7 +619,6 @@ const DashboardPage = () => {
             </section>
           )}
 
-          {/* COMMANDES */}
           {stats.pendingOrders > 0 && (
             <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
               <div className="flex items-center justify-between mb-3 px-1">
@@ -688,9 +646,6 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* CONTENU POUR AIDANT - MISSIONS RÉCENTES */}
-      {/* ========================================== */}
       {isAidant && visits.filter(v => v.status === 'planifiee' || v.status === 'acceptee').length > 0 && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
           <div className="flex items-center justify-between mb-3 px-1">
@@ -716,9 +671,6 @@ const DashboardPage = () => {
         </section>
       )}
 
-      {/* ========================================== */}
-      {/* MESSAGE SI AUCUNE ACTIVITÉ MAIS AVEC PROCHES (FAMILLE) */}
-      {/* ========================================== */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
         <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm transition-transform hover:scale-105 duration-300" style={{ background: colors.primary + '08' }}>
@@ -751,9 +703,6 @@ const DashboardPage = () => {
         </section>
       )}
 
-      {/* ========================================== */}
-      {/* FOOTER DISCRET */}
-      {/* ========================================== */}
       <footer className="text-center py-6">
          <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
           <Heart size={10} className="text-red-400 fill-red-400" />
