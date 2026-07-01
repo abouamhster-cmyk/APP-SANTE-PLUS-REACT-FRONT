@@ -1,4 +1,4 @@
-// 📁 src/stores/visitStore.ts 
+// 📁 src/stores/visitStore.ts
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -24,7 +24,7 @@ interface VisitState {
   createVisit: (data: Partial<Visit> & { target_type?: 'personal' | 'patient'; target_name?: string }) => Promise<Visit>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
-  confirmPayment: (id: string, transactionId: string) => Promise<void>;
+  confirmPayment: (id: string, transactionId: string) => Promise<Visit>;
   approveVisit: (id: string) => Promise<void>;
   refuseVisit: (id: string, reason: string) => Promise<void>;
   reassignVisit: (id: string, newAidantId: string, assignmentType: string) => Promise<void>;
@@ -152,7 +152,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let query = supabase.from('visites').select('*');
 
       if (profile?.role === 'family') {
-        // ✅ Récupérer les patients liés ET les visites personnelles
         const { data: links } = await supabase
           .from('patient_family_links')
           .select('patient_id')
@@ -160,7 +159,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
         const patientIds = links?.map(l => l.patient_id).filter(Boolean) || [];
         
-        // ✅ OR condition : patient_id dans la liste OU user_id = user.id (visites personnelles)
         if (patientIds.length > 0) {
           query = query.or(`patient_id.in.(${patientIds.join(',')}), user_id.eq.${user.id}`);
         } else {
@@ -347,7 +345,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // CREATE VISIT - AVEC TARGET_TYPE
+  // CREATE VISIT - AVEC GESTION DU PAIEMENT
   // ============================================================
   createVisit: async (data: Partial<Visit> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
     try {
@@ -366,27 +364,28 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       const isPonctual = data.visit_type === 'ponctuelle' || false;
       let status: VisitStatus = 'planifiee';
+      let requiresPayment = false;
 
       if (isPonctual) {
-        status = 'attente_paiement';
-      }
-
-      // ✅ Vérifier le quota sur le COMPTE (pas sur le patient)
-      if (!isPonctual) {
+        requiresPayment = true;
+        status = 'brouillon';
+      } else {
+        // ✅ Vérifier le quota sur le COMPTE
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_visits, status')
-          .eq('user_id', user.id)   // ✅ LIÉ AU COMPTE
+          .eq('user_id', user.id)
           .eq('status', 'actif')
           .maybeSingle();
 
         if (!subscription || subscription.remaining_visits <= 0) {
-          status = 'attente_paiement';
+          requiresPayment = true;
+          status = 'brouillon';
         }
       }
 
       const visitData = {
-        user_id: user.id,              // ✅ COMPTE QUI PLANIFIE
+        user_id: user.id,
         patient_id: data.patient_id || null,
         target_type: targetType,
         target_name: targetName,
@@ -405,15 +404,22 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         metadata: {
           created_by: user.id,
           created_at: new Date().toISOString(),
-          is_ponctual: isPonctual,
-          requires_payment: status === 'attente_paiement',
+          is_ponctual: isPonctual || requiresPayment,
+          requires_payment: requiresPayment,
+          is_draft: requiresPayment,
+          payment_amount: requiresPayment ? getPonctualPrice(data.duration_minutes || 60) : null,
+          scheduled_from_draft: false,
         }
       };
 
       const { data: newVisit, error } = await supabase
         .from('visites')
         .insert(visitData)
-        .select()
+        .select(`
+          *,
+          patient:patients(*),
+          aidant:aidants(*, user:profiles(*))
+        `)
         .single();
 
       if (error) throw error;
@@ -436,10 +442,32 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       get().invalidateCache();
       await get().fetchVisits(true);
 
-      // ✅ Notifications avec target_name
       const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
 
-      if (data.aidant_id && status !== 'attente_paiement') {
+      // ✅ Si paiement requis → notification + retour
+      if (requiresPayment) {
+        const paymentAmount = getPonctualPrice(newVisit.duration_minutes || 60);
+        
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: '💳 Paiement requis pour planifier la visite',
+          body: `Un paiement de ${paymentAmount} FCFA est requis pour planifier la visite de ${targetDisplay}.`,
+          type: 'visite',
+          data: { 
+            visit_id: newVisit.id, 
+            status: 'brouillon', 
+            action: 'pay',
+            amount: paymentAmount,
+            requires_payment: true,
+          },
+        });
+
+        set({ isLoading: false });
+        return fullVisit;
+      }
+
+      // ✅ Pas de paiement requis → notification normale
+      if (data.aidant_id) {
         await supabase.from('notifications').insert({
           user_id: data.aidant_id,
           title: '📅 Nouvelle visite à valider',
@@ -449,23 +477,66 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         });
       }
 
-      // ✅ Notification à la famille/personnel
-      if (status === 'attente_paiement') {
-        await supabase.from('notifications').insert({
-          user_id: user.id,
-          title: '💳 Visite en attente de paiement',
-          body: `Visite pour ${targetDisplay} - Paiement requis.`,
-          type: 'visite',
-          data: { visit_id: newVisit.id, status: 'attente_paiement' },
-        });
-      }
+      await supabase.from('notifications').insert({
+        user_id: user.id,
+        title: '📅 Nouvelle visite planifiée',
+        body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
+        type: 'visite',
+        data: { visit_id: newVisit.id, status: 'planifiee' },
+      });
 
       set({ isLoading: false });
-
       return fullVisit;
     } catch (error: any) {
       console.error('❌ Create visit error:', error);
       set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // ============================================================
+  // CONFIRMER PAIEMENT - BROUILLON → PLANIFIEE
+  // ============================================================
+  confirmPayment: async (id: string, transactionId: string): Promise<Visit> => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ transaction_id: transactionId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la confirmation du paiement');
+      }
+
+      const result = await response.json();
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ 
+        currentVisit: result.visit,
+        isLoading: false,
+      });
+
+      toast.success('✅ Visite planifiée après paiement !');
+      return result.visit;
+    } catch (error: any) {
+      console.error('❌ Confirm payment error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
       throw error;
     }
   },
@@ -533,57 +604,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       toast.success('Visite supprimée');
     } catch (error: any) {
       console.error('❌ Delete visit error:', error);
-      set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-    }
-  },
-
-  // ============================================================
-  // CONFIRMER PAIEMENT
-  // ============================================================
-  confirmPayment: async (id: string, transactionId: string) => {
-    try {
-      set({ isLoading: true, error: null });
-
-      const { data: visit, error: visitError } = await supabase
-        .from('visites')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (visitError) throw visitError;
-
-      if (visit.status !== 'attente_paiement') {
-        throw new Error('Cette visite n\'est pas en attente de paiement');
-      }
-
-      const { data, error } = await supabase
-        .from('visites')
-        .update({
-          status: 'planifiee',
-          metadata: {
-            ...(visit.metadata || {}),
-            payment_confirmed_at: new Date().toISOString(),
-            transaction_id: transactionId,
-          }
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      set({ 
-        currentVisit: data,
-        isLoading: false,
-      });
-
-      toast.success('✅ Paiement confirmé, visite validée');
-    } catch (error: any) {
-      console.error('❌ Confirm payment error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
@@ -840,7 +860,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // VALIDATE VISIT - AVEC DÉCOMPTE SUR LE COMPTE
+  // VALIDATE VISIT - AVEC DÉCOMPTE (ou sans si ponctuelle payée)
   // ============================================================
   validateVisit: async (id: string) => {
     try {
@@ -853,7 +873,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       const { data: visit, error: fetchError } = await supabase
         .from('visites')
-        .select('status, user_id')
+        .select('status, user_id, metadata')
         .eq('id', id)
         .single();
 
@@ -868,6 +888,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .update({
           status: 'validee',
           metadata: {
+            ...(visit.metadata || {}),
             validated_by: profile.id,
             validated_at: new Date().toISOString(),
           }
@@ -878,23 +899,29 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ DÉCOMPTE SUR LE COMPTE (user_id)
-      const { data: subscription, error: subError } = await supabase
-        .from('abonnements')
-        .select('id, remaining_visits, used_visits, total_visits, user_id')
-        .eq('user_id', visit.user_id)   // ✅ LIÉ AU COMPTE
-        .eq('status', 'actif')
-        .maybeSingle();
+      // ✅ VÉRIFIER SI VISITE PONCTUELLE PAYÉE
+      const isPonctual = visit.metadata?.is_ponctual === true || visit.metadata?.is_draft === true;
+      const wasPaid = visit.metadata?.payment_completed === true;
 
-      if (subscription && !subError && subscription.remaining_visits > 0) {
-        await supabase
+      // ✅ Si visite ponctuelle payée, NE PAS DÉCOMPTER
+      if (!isPonctual || !wasPaid) {
+        const { data: subscription, error: subError } = await supabase
           .from('abonnements')
-          .update({
-            used_visits: subscription.used_visits + 1,
-            remaining_visits: subscription.remaining_visits - 1,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', subscription.id);
+          .select('id, remaining_visits, used_visits, total_visits, user_id')
+          .eq('user_id', visit.user_id)
+          .eq('status', 'actif')
+          .maybeSingle();
+
+        if (subscription && !subError && subscription.remaining_visits > 0) {
+          await supabase
+            .from('abonnements')
+            .update({
+              used_visits: subscription.used_visits + 1,
+              remaining_visits: subscription.remaining_visits - 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', subscription.id);
+        }
       }
 
       get().invalidateCache();
@@ -931,7 +958,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         canCancel = true;
       } else if (profile?.role === 'family') {
-        // ✅ La famille peut annuler ses visites (personnelles ET patients)
         if (visit.user_id === user.id) {
           canCancel = true;
         } else if (visit.patient_id) {
@@ -1086,5 +1112,24 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// ============================================================
+// HELPER - PRIX DES VISITES PONCTUELLES
+// ============================================================
+const VISIT_PONCTUAL_PRICES: Record<string, number> = {
+  '30': 5000,
+  '45': 6000,
+  '60': 7500,
+  '90': 10000,
+  '120': 12500,
+};
+
+const DEFAULT_VISIT_PRICE = 7500;
+
+export const getPonctualPrice = (durationMinutes: number = 60): number => {
+  const price = VISIT_PONCTUAL_PRICES[durationMinutes.toString()];
+  if (price) return price;
+  return Math.round((durationMinutes / 60) * DEFAULT_VISIT_PRICE);
+};
 
 export default useVisitStore;
