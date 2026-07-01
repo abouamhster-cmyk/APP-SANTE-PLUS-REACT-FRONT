@@ -179,32 +179,6 @@ const SENIOR_OFFERS: Offer[] = [
     total_visits: 30,
     total_orders: 10,
   },
-  {
-    id: 'e96fbc17-663e-4474-a0db-a9b141a9d768',
-    name: 'Suivi Régulier',
-    price: 60000,
-    period: 'mois',
-    visitsPerWeek: 3,
-    durationDays: 30,
-    features: ['Visites régulières', 'Suivi personnalisé', 'Coordination familiale', 'Rapports détaillés', 'Communication continue'],
-    badge: '🌟 Populaire',
-    category: 'senior',
-    total_visits: 4,
-    total_orders: 4,
-  },
-  {
-    id: '70730419-579c-4447-a0d6-b9d336373bd0',
-    name: 'Accompagnement Complet',
-    price: 150000,
-    period: 'mois',
-    visitsPerWeek: 5,
-    durationDays: 30,
-    features: ['Organisation complète', 'Suivi rapproché', 'Coordination avancée', 'Communication continue', 'Présence renforcée', 'Gestion des urgences'],
-    badge: '🌟 Complet',
-    category: 'senior',
-    total_visits: 8,
-    total_orders: 4,
-  },
 ];
 
 // =============================================
@@ -265,91 +239,6 @@ const MAMAN_OFFERS: Offer[] = [
     total_visits: 20,
     total_orders: 5,
   },
-  {
-    id: 'cb775e9c-892d-493f-bdfd-70f92427bde9',
-    name: 'Pack Essentiel',
-    price: 50000,
-    period: 'mois',
-    visitsPerWeek: 2,
-    durationDays: 30,
-    features: ['2 visites/semaine', 'Accompagnement simple', 'Soutien de base', 'Suivi régulier'],
-    badge: null,
-    category: 'maman_bebe',
-    total_visits: 4,
-    total_orders: 4,
-  },
-  {
-    id: '9d36f439-8b38-45d2-97df-761c8efe95a6',
-    name: 'Pack Confort',
-    price: 85000,
-    period: 'mois',
-    visitsPerWeek: 4,
-    durationDays: 30,
-    features: ['3-4 visites/semaine', 'Suivi renforcé', 'Aide à l\'organisation', 'Soutien personnalisé', 'Coordination familiale'],
-    badge: '⭐ Populaire',
-    category: 'maman_bebe',
-    total_visits: 4,
-    total_orders: 4,
-  },
-  {
-    id: '99482191-5833-49dc-be80-2e53d8d11afe',
-    name: 'Pack Sérénité',
-    price: 150000,
-    period: 'mois',
-    visitsPerWeek: 6,
-    durationDays: 30,
-    features: ['Présence quasi quotidienne', 'Organisation complète', 'Soutien intensif', 'Coordination continue', 'Gestion des urgences'],
-    badge: '🌟 Complet',
-    category: 'maman_bebe',
-    total_visits: 12,
-    total_orders: 4,
-  },
-];
-
-// =============================================
-// ⭐ PACKS CONFORT
-// =============================================
-
-const PACK_CONFORT_OFFERS: Offer[] = [
-  {
-    id: 'cfc4dd4c-5bf9-49e5-a28e-998cf92cff0b',
-    name: 'Pack Confort Mensuel',
-    price: 50000,
-    period: 'mois',
-    visitsPerWeek: null,
-    durationDays: 30,
-    features: ['Commandes illimitées', 'Support prioritaire', 'Suivi personnalisé', 'Messages illimités'],
-    badge: '⭐ Populaire',
-    category: 'pack_confort',
-    total_visits: 0,
-    total_orders: 999,
-  },
-  {
-    id: 'ee102cda-2639-4c85-bc7c-9f57b83bf81a',
-    name: 'Pack Confort Trimestriel',
-    price: 135000,
-    period: 'trimestre',
-    visitsPerWeek: null,
-    durationDays: 90,
-    features: ['Commandes illimitées', 'Support prioritaire', 'Suivi personnalisé', 'Économie 10%', 'Messages illimités'],
-    badge: '💰 Économie',
-    category: 'pack_confort',
-    total_visits: 0,
-    total_orders: 999,
-  },
-  {
-    id: '85818a8f-2674-4ea3-8d9a-211cf3c452f3',
-    name: 'Pack Confort Annuel',
-    price: 480000,
-    period: 'an',
-    visitsPerWeek: null,
-    durationDays: 365,
-    features: ['Commandes illimitées', 'Support prioritaire', 'Suivi personnalisé', 'Économie 20%', 'Messages illimités', 'Accès prioritaire'],
-    badge: '💰 Meilleur rapport',
-    category: 'pack_confort',
-    total_visits: 0,
-    total_orders: 999,
-  },
 ];
 
 // =============================================
@@ -366,20 +255,7 @@ const PONCTUAL_OFFERS: Offer[] = [
     durationDays: 1,
     features: ['Présence à domicile', 'Coordination simple', 'Assistance ponctuelle', 'Durée : 2-3 heures'],
     badge: '⚡ Rapide',
-    category: 'ponctuelle',
-    total_visits: 4,
-    total_orders: 4,
-  },
-  {
-    id: '6e4ba26d-98c5-4e29-a129-f33a828f0b44',
-    name: 'Intervention Ponctuelle',
-    price: 7500,
-    period: 'intervention',
-    visitsPerWeek: null,
-    durationDays: 1,
-    features: ['Présence à domicile', 'Coordination simple', 'Assistance ponctuelle', 'Durée : 2-3 heures'],
-    badge: '⚡ Rapide',
-    category: 'ponctuelle',
+    category: 'senior',
     total_visits: 4,
     total_orders: 4,
   },
@@ -392,20 +268,7 @@ const PONCTUAL_OFFERS: Offer[] = [
     durationDays: 1,
     features: ['Accompagnement retour à domicile', 'Installation et mise en place', 'Coordination avec la famille', 'Durée : 3-4 heures'],
     badge: '👶 Nouveau',
-    category: 'ponctuelle',
-    total_visits: 12,
-    total_orders: 4,
-  },
-  {
-    id: '45ea11be-5ad8-40f9-bb09-0e274b777d30',
-    name: 'Pack Sortie Maternité Sérénité',
-    price: 70000,
-    period: 'intervention',
-    visitsPerWeek: null,
-    durationDays: 1,
-    features: ['Présence à domicile', 'Aide à l\'organisation', 'Soutien moral', 'Suivi personnalisé', 'Coordination familiale'],
-    badge: '👶 Recommandé',
-    category: 'ponctuelle',
+    category: 'maman_bebe',
     total_visits: 12,
     total_orders: 4,
   },
@@ -418,7 +281,6 @@ const PONCTUAL_OFFERS: Offer[] = [
 export const PLANS = {
   senior: SENIOR_OFFERS,
   maman: MAMAN_OFFERS,
-  pack_confort: PACK_CONFORT_OFFERS,
   ponctuelle: PONCTUAL_OFFERS,
 };
 
@@ -429,7 +291,6 @@ export const PLANS = {
 export const OFFERS = {
   senior: SENIOR_OFFERS,
   maman_bebe: MAMAN_OFFERS,
-  pack_confort: PACK_CONFORT_OFFERS,
   ponctuelle: PONCTUAL_OFFERS,
 };
 
@@ -442,7 +303,7 @@ export const getOffersByCategory = (category: OfferCategory): Offer[] => {
 };
 
 export const getAllOffers = (): Offer[] => {
-  return [...SENIOR_OFFERS, ...MAMAN_OFFERS, ...PACK_CONFORT_OFFERS, ...PONCTUAL_OFFERS];
+  return [...SENIOR_OFFERS, ...MAMAN_OFFERS, ...PONCTUAL_OFFERS];
 };
 
 export const getOfferById = (id: string): Offer | undefined => {
