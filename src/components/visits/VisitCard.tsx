@@ -1,6 +1,6 @@
 // 📁 src/components/visits/VisitCard.tsx
 
-import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, UserCircle, Users } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, UserCircle } from 'lucide-react';
 import { Visit } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { formatDate } from '@/utils/helpers';
@@ -32,6 +32,7 @@ export const VisitCard = ({
     switch (status) {
       case 'planifiee': return '#4CAF50';
       case 'en_attente': return '#FF9800';
+      case 'acceptee': return '#2196F3';
       case 'en_cours': return '#2196F3';
       case 'terminee': return '#9C27B0';
       case 'validee': return '#4CAF50';
@@ -40,6 +41,7 @@ export const VisitCard = ({
       case 'no_show': return '#795548';
       case 'refusee': return '#F44336';
       case 'expire': return '#795548';
+      case 'attente_paiement': return '#8b5cf6';
       default: return '#9E9E9E';
     }
   };
@@ -48,6 +50,7 @@ export const VisitCard = ({
     switch (status) {
       case 'planifiee': return 'Planifiée';
       case 'en_attente': return 'En attente';
+      case 'acceptee': return 'Acceptée';
       case 'en_cours': return 'En cours';
       case 'terminee': return 'Terminée';
       case 'validee': return 'Validée';
@@ -56,17 +59,18 @@ export const VisitCard = ({
       case 'no_show': return 'Absent';
       case 'refusee': return 'Refusée';
       case 'expire': return 'Expirée';
+      case 'attente_paiement': return 'En attente paiement';
       default: return status;
     }
   };
 
-  // ✅ Déterminer l'affichage du destinataire
+  // ✅ Déterminer l'affichage du destinataire - CORRIGÉ (plus de visit.user)
   const getTargetDisplay = () => {
     if (visit.target_type === 'personal') {
       return {
         icon: <UserCircle size={14} className="text-blue-500" />,
         label: 'Personnel',
-        name: visit.target_name || visit.user?.full_name || 'Personnel'
+        name: visit.target_name || 'Personnel'
       };
     }
     if (visit.patient) {
@@ -128,10 +132,11 @@ export const VisitCard = ({
                 {targetInfo.icon}
                 <span className="truncate max-w-[60px]">{targetInfo.name}</span>
               </span>
-              {visit.aidant && (
+              {/* ✅ CORRIGÉ : visit.aidant.user existe dans le type */}
+              {visit.aidant && visit.aidant.user && (
                 <span className="flex items-center gap-0.5">
                   <User size={11} />
-                  {visit.aidant.user?.full_name?.slice(0, 8) || 'Aidant'}
+                  {visit.aidant.user.full_name?.slice(0, 8) || 'Aidant'}
                 </span>
               )}
             </div>
@@ -208,9 +213,10 @@ export const VisitCard = ({
                 {targetInfo.label}: {targetInfo.name}
               </span>
             </span>
-            {visit.aidant && (
+            {/* ✅ CORRIGÉ : visit.aidant.user existe dans le type */}
+            {visit.aidant && visit.aidant.user && (
               <span className="text-xs" style={{ color: colors.text + '60' }}>
-                🧑‍⚕️ {visit.aidant.user?.full_name || 'Non assigné'}
+                🧑‍⚕️ {visit.aidant.user.full_name || 'Non assigné'}
               </span>
             )}
           </div>
