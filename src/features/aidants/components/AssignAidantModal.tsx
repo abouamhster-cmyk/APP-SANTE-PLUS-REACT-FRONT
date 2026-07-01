@@ -49,17 +49,22 @@ export const AssignAidantModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const { assignAidant } = useAidantCatalogStore();
 
+  // ✅ NOUVEAU : option "Pour moi"
+  const [targetType, setTargetType] = useState<'personal' | 'patient'>('patient');
+
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
-    if (!selectedPatientId) {
+    if (targetType === 'patient' && !selectedPatientId) {
       toast.error('Veuillez sélectionner un proche');
       return;
     }
 
     setIsLoading(true);
     try {
-      await assignAidant(aidant.id, selectedPatientId, assignmentType);
+      // ✅ patientId = null si targetType === 'personal'
+      const patientId = targetType === 'patient' ? selectedPatientId : null;
+      await assignAidant(aidant.id, patientId, assignmentType);
       onSuccess();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de l\'assignation');
@@ -74,6 +79,8 @@ export const AssignAidantModal = ({
   };
 
   const remainingSlots = Math.max(0, (aidant.max_assignments || 4) - (aidant.active_assignments || 0));
+
+  const hasPatients = patients.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -142,46 +149,88 @@ export const AssignAidantModal = ({
             </div>
           </div>
 
-          {/* Sélection du patient */}
+          {/* ✅ NOUVEAU : Choix du destinataire */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
-              <Users size={14} className="inline mr-1" />
-              Sélectionner un proche
+              <User size={14} className="inline mr-1" />
+              Pour qui ?
             </label>
-            {patients.length > 0 ? (
-              <select
-                value={selectedPatientId}
-                onChange={(e) => setSelectedPatientId(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border outline-none text-sm"
-                style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setTargetType('personal')}
+                className={`p-2.5 rounded-xl text-xs font-bold transition text-center ${
+                  targetType === 'personal'
+                    ? 'text-white shadow-sm'
+                    : 'border bg-gray-50 text-gray-600'
+                }`}
+                style={{
+                  background: targetType === 'personal' ? colors.primary : 'transparent',
+                  borderColor: targetType === 'personal' ? colors.primary : colors.border,
+                }}
               >
-                <option value="">Choisir un proche...</option>
-                {patients.map((patient) => (
-                  <option key={patient.id} value={patient.id}>
-                    {patient.first_name} {patient.last_name} ({patient.category})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="p-3 rounded-xl text-center" style={{ background: '#FEF2F2' }}>
-                <p className="text-sm text-red-600">
-                  ⚠️ Vous n'avez pas encore de proche enregistré.
-                </p>
-                <button
-                  onClick={() => {
-                    onClose();
-                    window.location.href = '/app/patients';
-                  }}
-                  className="mt-2 text-sm font-medium hover:underline"
-                  style={{ color: colors.primary }}
-                >
-                  Ajouter un proche
-                </button>
-              </div>
-            )}
+                👤 Personnel
+              </button>
+              <button
+                type="button"
+                onClick={() => setTargetType('patient')}
+                className={`p-2.5 rounded-xl text-xs font-bold transition text-center ${
+                  targetType === 'patient'
+                    ? 'text-white shadow-sm'
+                    : 'border bg-gray-50 text-gray-600'
+                }`}
+                style={{
+                  background: targetType === 'patient' ? colors.primary : 'transparent',
+                  borderColor: targetType === 'patient' ? colors.primary : colors.border,
+                }}
+              >
+                👨‍👩‍👦 Patient
+              </button>
+            </div>
           </div>
 
-          {/* Type d'assignation - Version améliorée avec 3 options */}
+          {/* Sélection du patient (si targetType === 'patient') */}
+          {targetType === 'patient' && (
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
+                <Users size={14} className="inline mr-1" />
+                Sélectionner un proche
+              </label>
+              {hasPatients ? (
+                <select
+                  value={selectedPatientId}
+                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border outline-none text-sm"
+                  style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+                >
+                  <option value="">Choisir un proche...</option>
+                  {patients.map((patient) => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.first_name} {patient.last_name} ({patient.category})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="p-3 rounded-xl text-center" style={{ background: '#FEF2F2' }}>
+                  <p className="text-sm text-red-600">
+                    ⚠️ Vous n'avez pas encore de proche enregistré.
+                  </p>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      window.location.href = '/app/patients';
+                    }}
+                    className="mt-2 text-sm font-medium hover:underline"
+                    style={{ color: colors.primary }}
+                  >
+                    Ajouter un proche
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Type d'assignation */}
           <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
               Type d'assignation
@@ -236,10 +285,10 @@ export const AssignAidantModal = ({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isLoading || !selectedPatientId || !aidant.is_available}
+            disabled={isLoading || (targetType === 'patient' && !selectedPatientId) || !aidant.is_available}
             className="flex-1 py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ 
-              background: (isLoading || !selectedPatientId || !aidant.is_available) ? '#9CA3AF' : colors.primary 
+              background: (isLoading || (targetType === 'patient' && !selectedPatientId) || !aidant.is_available) ? '#9CA3AF' : colors.primary 
             }}
           >
             {isLoading ? (
