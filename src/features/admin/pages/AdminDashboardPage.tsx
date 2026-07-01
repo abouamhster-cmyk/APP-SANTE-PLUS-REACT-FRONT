@@ -27,11 +27,8 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency } from '@/utils/helpers';
-// ✅ IMPORTER le hook de rafraîchissement
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-// ✅ IMPORTER le bouton de rafraîchissement
 import { RefreshButton } from '@/components/ui/RefreshButton';
-// ✅ IMPORTER le composant AdminStats
 import { AdminStats } from '@/components/admin/AdminStats';
 import toast from 'react-hot-toast';
 
@@ -65,16 +62,7 @@ const AdminDashboardPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ UTILISER le hook de rafraîchissement
-  const { refreshAll, isRefreshing } = useRefreshableData({
-    onRefresh: fetchDashboardData,
-    onError: (error) => toast.error('Erreur lors du rafraîchissement des données'),
-  });
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
+  // ✅ DÉCLARER fetchDashboardData D'ABORD
   const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
@@ -179,6 +167,16 @@ const AdminDashboardPage = () => {
     }
   };
 
+  // ✅ UTILISER le hook APRÈS la déclaration
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchDashboardData,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des données'),
+  });
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
   if (isLoading) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto pb-8">
@@ -245,7 +243,6 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-16 sm:pb-8">
-      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{
@@ -274,7 +271,6 @@ const AdminDashboardPage = () => {
             </p>
           </div>
 
-          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT MODERNISÉ */}
           <RefreshButton 
             onRefresh={() => {
               toast.success('📊 Tableau de bord actualisé');
@@ -282,7 +278,6 @@ const AdminDashboardPage = () => {
           />
         </div>
 
-        {/* BANDEAU D'ALERTES */}
         {hasAlerts && (
           <div className="relative z-10 mt-4 flex flex-wrap gap-2">
             {stats.visitsExpired > 0 && (
@@ -319,10 +314,8 @@ const AdminDashboardPage = () => {
         )}
       </section>
 
-      {/* ✅ STATS AVEC RAFRAÎCHISSEMENT AUTOMATIQUE */}
       <AdminStats colors={colors} />
 
-      {/* STATS COMPACTES */}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {statCards.map((card, index) => (
           <CompactStat
@@ -336,7 +329,6 @@ const AdminDashboardPage = () => {
         ))}
       </section>
 
-      {/* ALERTES DÉTAILLÉES */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <AlertCard
           label="Visites en attente"
@@ -372,9 +364,7 @@ const AdminDashboardPage = () => {
         />
       </section>
 
-      {/* CROISSANCE ET ACTIVITÉ RAPIDE */}
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* CROISSANCE DES REVENUS */}
         <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)] flex flex-col justify-between">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp size={16} style={{ color: colors.primary }} />
@@ -400,7 +390,6 @@ const AdminDashboardPage = () => {
           </div>
         </div>
 
-        {/* ACTIVITÉ RAPIDE */}
         <div className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)]">
           <div className="flex items-center gap-2 mb-4">
             <Activity size={16} style={{ color: colors.primary }} />
@@ -437,7 +426,6 @@ const AdminDashboardPage = () => {
         </div>
       </section>
 
-      {/* ACTIVITÉ RÉCENTE - VISITES ET COMMANDES */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <RecentActivityCard
           title="Visites récentes"
