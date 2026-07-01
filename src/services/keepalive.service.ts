@@ -30,7 +30,7 @@ class KeepAliveService {
       '/health',
       '/api/health',
       '/billing/health',
-      '/api/offers', // Endpoint supplémentaire
+      '/api/offers',
     ],
     enabled: true,
   };
@@ -84,7 +84,7 @@ class KeepAliveService {
       try {
         const url = `${API_URL}${endpoint}`;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout pour wake-up
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const response = await fetch(url, {
           method: 'GET',
@@ -115,7 +115,6 @@ class KeepAliveService {
     this.wakeUpAttempts++;
     console.log(`⚠️ [Wake-Up] Tentative ${this.wakeUpAttempts}/${this.maxWakeUpAttempts} échouée`);
 
-    // Si toujours pas réveillé, réessayer après 2 secondes
     if (this.wakeUpAttempts < this.maxWakeUpAttempts) {
       setTimeout(() => this.wakeUpBackend(), 2000);
     } else {
@@ -252,12 +251,9 @@ export const keepAliveService = new KeepAliveService();
 
 // ✅ Initialisation automatique - SANS AUTH
 export const initKeepAlive = () => {
-  // Démarrer en production OU en développement (pour tester)
-  // Démarrer TOUJOURS pour garder le backend éveillé
   console.log('🚀 Initialisation Keep-Alive (démarrage immédiat)');
   keepAliveService.start();
   
-  // Si le backend est lent, faire un ping immédiat
   setTimeout(() => {
     keepAliveService.pingNow();
   }, 1000);
