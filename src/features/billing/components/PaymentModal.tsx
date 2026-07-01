@@ -142,38 +142,39 @@ export const PaymentModal = ({
     return true;
   };
 
-  const handlePayment = async () => {
-    setIsLoading(true);
-
-    try {
-      // ✅ VALIDATION des données
-      if (isPonctual) {
-        if (!validateOrderData()) {
-          setIsLoading(false);
-          return;
-        }
-
-        sessionStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
-        localStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
-        console.log('📦 Données de commande sauvegardées:', orderData);
-      } else {
-        sessionStorage.removeItem('pending_ponctual_order');
-        localStorage.removeItem('pending_ponctual_order');
-      }
-
-      console.log('📤 Appel createPayment avec is_ponctual:', isPonctual);
-
-      // ✅ Préparer les données pour le backend
-      const orderDataForBackend = isPonctual && orderData ? {
-        patient_id: orderData.patient_id || null,
-        type: orderData.type || 'autre',
-        description: orderData.description || 'Commande ponctuelle',
-        address: orderData.address || 'Adresse non spécifiée',
-        items: orderData.items || [],
-        prescription_url: orderData.prescription_url || null,
-        target_type: selectedTargetType,
-        target_name: selectedTargetName || profile?.full_name || 'Client',
-      } : null;
+       
+      const handlePayment = async () => {
+        setIsLoading(true);
+      
+        try {
+          // ✅ Si c'est une commande ponctuelle AVEC orderData
+          if (isPonctual && orderData) {
+            sessionStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
+            localStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
+            console.log('📦 Données de commande sauvegardées:', orderData);
+          } else if (isPonctual) {
+            // ✅ C'est une offre ponctuelle sans commande (ex: paiement direct)
+            console.log('ℹ️ Offre ponctuelle sans commande associée');
+            sessionStorage.removeItem('pending_ponctual_order');
+            localStorage.removeItem('pending_ponctual_order');
+          } else {
+            sessionStorage.removeItem('pending_ponctual_order');
+            localStorage.removeItem('pending_ponctual_order');
+          }
+      
+          // ✅ Préparer les données pour le backend
+          const orderDataForBackend = (isPonctual && orderData) ? {
+            patient_id: orderData.patient_id || null,
+            type: orderData.type || 'autre',
+            description: orderData.description || 'Commande ponctuelle',
+            address: orderData.address || 'Adresse non spécifiée',
+            items: orderData.items || [],
+            prescription_url: orderData.prescription_url || null,
+            target_type: selectedTargetType,
+            target_name: selectedTargetName || profile?.full_name || 'Client',
+          } : null;
+      
+       
 
       // ✅ CRITIQUE : abonnement_id = UUID de l'offre (ou null pour ponctuel)
       const offerId = selectedOffer?.id || null;
