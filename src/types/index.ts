@@ -4,6 +4,7 @@
 // EXPORTER TOUS LES TYPES AIDANTS
 // ============================================================
 export * from './aidant';
+export * from './assignment';
 
 // ============================================================
 // TOUS LES AUTRES TYPES EXISTANTS
@@ -26,7 +27,7 @@ export type VisitStatus =
   | 'refusee'
   | 'expire'          
   | 'attente_paiement'
-  | 'brouillon';       // ✅ Plus de point-virgule avant
+  | 'brouillon';
 
 // ✅ ORDER STATUS
 export type OrderStatus = 
@@ -44,6 +45,20 @@ export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 
 export type NotificationType = 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
 export type OrderType = 'subscription' | 'ponctual';
 export type TargetType = 'personal' | 'patient';
+
+// ✅ Assignment Types (réexporté depuis assignment.ts mais ajout pour complétude)
+export type { 
+  TargetType as AssignmentTargetType,
+  AssignmentType,
+  AssignmentStatus,
+  AidantAssignment,
+  AssignmentFilters,
+  AssignAidantRequest,
+  AssignAidantResponse,
+  GetActiveAidantResponse,
+  GetAllAidantsResponse,
+  AssignmentState,
+} from './assignment';
 
 // =============================================
 // OFFER TYPE
@@ -240,6 +255,8 @@ export interface Visit {
   requires_payment?: boolean;
   payment_amount?: number;
   draft_expires_at?: string | null;
+  // ✅ NOUVEAU - auto assignation
+  auto_assigned_aidant?: boolean;
 }
 
 export type VisitWithPatient = Visit;
@@ -295,6 +312,7 @@ export interface Order {
   created_at: string;
   updated_at: string;
   is_ponctual?: boolean;
+   auto_assigned_aidant?: boolean;
 }
 
 export interface OrderItem {
