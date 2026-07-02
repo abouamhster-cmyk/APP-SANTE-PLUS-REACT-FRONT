@@ -6,7 +6,7 @@ import { usePaymentStore } from '@/stores/paymentStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { getThemeColors } from '@/lib/permissions';
 import { getPonctualPrice } from '@/stores/visitStore';
-import { Loader2, CreditCard, ExternalLink, Calendar, Clock, User, AlertCircle } from 'lucide-react';
+import { Loader2, CreditCard, ExternalLink, Calendar, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface VisitPaymentModalProps {
@@ -98,93 +98,118 @@ export const VisitPaymentModal = ({
       isOpen={isOpen}
       onClose={onClose}
       onBack={onClose}
-      title="💳 Paiement requis pour la visite"
+      title="💳 Validation et paiement"
     >
-      <div className="space-y-6">
-        {/* Résumé de la visite */}
+      <div className="w-full max-w-md mx-auto space-y-5 px-0.5 py-1">
+        
+        {/* ============================================================
+        RÉSUMÉ DU TICKET DE PAIEMENT
+        ============================================================ */}
         <div
-          className="rounded-2xl p-4 border"
+          className="rounded-2xl p-5 border shadow-sm space-y-4"
           style={{
-            background: colors.primary + '08',
-            borderColor: colors.primary + '18',
+            background: colors.primary + '05',
+            borderColor: colors.primary + '12',
           }}
         >
-          <div className="flex items-start gap-3">
+          {/* En-tête du ticket */}
+          <div className="flex items-center gap-3">
             <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
               style={{
-                background: colors.primary + '14',
+                background: colors.primary + '10',
                 color: colors.primary,
               }}
             >
-              <CreditCard size={22} />
+              <CreditCard size={18} />
             </div>
 
             <div className="min-w-0">
-              <p className="font-black" style={{ color: colors.text }}>
-                {getTargetTypeLabel()} - {getTargetName()}
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Bénéficiaire ({getTargetTypeLabel()})
+              </span>
+              <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
+                {getTargetName()}
               </p>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {visit.duration_minutes || 60} min • {visit.visit_type || 'ponctuelle'}
+            </div>
+          </div>
+
+          {/* Grille détails planification */}
+          <div 
+            className="grid grid-cols-2 gap-4 text-xs border-t pt-4 border-dashed" 
+            style={{ borderColor: colors.primary + '18' }}
+          >
+            <div className="space-y-0.5">
+              <p className="text-gray-400 font-semibold text-[10px] uppercase">Date de visite</p>
+              <p className="font-semibold text-gray-700 flex items-center gap-1.5">
+                <Calendar size={13} className="text-gray-400 shrink-0" />
+                {new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}
               </p>
-              <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                <span className="flex items-center gap-1">
-                  <Calendar size={12} />
-                  {new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock size={12} />
-                  {visit.scheduled_time}
-                </span>
-                {visit.is_urgent && (
-                  <span className="flex items-center gap-1 text-red-500">
-                    <AlertCircle size={12} />
-                    Urgent
-                  </span>
-                )}
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-gray-400 font-semibold text-[10px] uppercase">Horaire & Durée</p>
+              <p className="font-semibold text-gray-700 flex items-center gap-1.5">
+                <Clock size={13} className="text-gray-400 shrink-0" />
+                {visit.scheduled_time} ({visit.duration_minutes || 60} min)
+              </p>
+            </div>
+          </div>
+
+          {/* Section Montant final */}
+          <div 
+            className="border-t pt-4 border-dashed" 
+            style={{ borderColor: colors.primary + '18' }}
+          >
+            <div className="flex justify-between items-end">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  Total à régler
+                </p>
+                <p className="text-2xl font-black tracking-tight" style={{ color: colors.primary }}>
+                  {amount.toLocaleString()} FCFA
+                </p>
               </div>
-            </div>
-          </div>
-
-          {/* Montant */}
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Montant à payer
-            </p>
-            <div className="flex items-end gap-2 mt-1">
-              <p className="text-3xl font-black" style={{ color: colors.primary }}>
-                {amount.toLocaleString()} FCFA
-              </p>
-              <p className="text-xs text-gray-400 mb-1">
-                💳 Paiement unique sans engagement
-              </p>
+              
+              {visit.is_urgent && (
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 bg-red-50 text-red-500 border border-red-100 shrink-0">
+                  <AlertCircle size={12} />
+                  Urgent
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Info supplémentaire */}
+        {/* ============================================================
+        BLOC INFORMATIONS ET SÉCURITÉ
+        ============================================================ */}
         <div
-          className="flex items-start gap-3 p-4 rounded-2xl"
-          style={{ background: colors.primary + '10' }}
+          className="flex items-start gap-3 p-4 rounded-xl border"
+          style={{ 
+            background: colors.primary + '05', 
+            borderColor: colors.primary + '10' 
+          }}
         >
-          <AlertCircle size={19} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
-          <p className="text-xs leading-relaxed text-gray-600">
-            💡 Le paiement est requis pour planifier cette visite. 
-            Vous serez redirigé vers FedaPay pour finaliser le paiement en toute sécurité.
-            <br />
-            <span className="text-[10px] text-gray-400 mt-1 block">
-              ⏰ Une fois le paiement effectué, la visite sera automatiquement planifiée.
+          <AlertCircle size={15} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs leading-relaxed text-gray-600 font-medium">
+              Le paiement est requis pour confirmer la planification. Vous allez être redirigé vers l'interface de paiement sécurisée de FedaPay.
+            </p>
+            <span className="text-[10px] text-gray-400 block font-medium">
+              💡 Moyens acceptés : Mobile Money (MTN, Moov, Wave, etc.) ou Carte bancaire.
             </span>
-          </p>
+          </div>
         </div>
 
-        {/* Boutons */}
-        <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+        {/* ============================================================
+        BOUTONS D'ACTIONS (RESPONSIVE STACKABLE)
+        ============================================================ */}
+        <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-gray-100">
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 py-3 rounded-2xl font-bold border hover:bg-gray-50 transition disabled:opacity-50"
+            className="w-full sm:flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition disabled:opacity-50 text-center order-2 sm:order-1"
             style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             Annuler
@@ -194,18 +219,18 @@ export const VisitPaymentModal = ({
             type="button"
             onClick={handlePayment}
             disabled={isLoading}
-            className="flex-1 py-3 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full sm:flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-1.5 shadow-sm order-1 sm:order-2"
             style={{ background: colors.primary }}
           >
             {isLoading ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
-                Traitement...
+                <Loader2 size={13} className="animate-spin" />
+                Traitement en cours...
               </>
             ) : (
               <>
-                Payer {amount.toLocaleString()} FCFA
-                <ExternalLink size={18} />
+                Procéder au paiement
+                <ExternalLink size={13} />
               </>
             )}
           </button>
