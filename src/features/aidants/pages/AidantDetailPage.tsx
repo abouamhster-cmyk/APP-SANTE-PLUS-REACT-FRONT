@@ -1,4 +1,4 @@
-// 📁 AidantDetailPage.tsx 
+// 📁 AidantDetailPage.tsx
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -13,11 +13,14 @@ import {
   Mail,
   Award,
   UserPlus,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
+import { useAssignmentStore } from '@/stores/assignmentStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -28,8 +31,9 @@ const AidantDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
+  const { fetchActiveAidant, activeAidant, isLoading: assignmentLoading } = useAssignmentStore();
   const {
     selectedAidant: aidant,
     isLoading,
@@ -40,9 +44,62 @@ const AidantDetailPage = () => {
 
   const { isFamily } = useTerminology();
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [isAlreadyAssigned, setIsAlreadyAssigned] = useState(false);
+  const [isCheckingAssignment, setIsCheckingAssignment] = useState(true);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  // ✅ Vérifier si l'aidant est déjà assigné à l'utilisateur ou à ses patients
+  useEffect(() => {
+    const checkAssignment = async () => {
+      if (!id || !user || !isFamily) {
+        setIsCheckingAssignment(false);
+        return;
+      }
+
+      setIsCheckingAssignment(true);
+      try {
+        // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
+        const personalResponse = await fetchActiveAidant('personal_account', user.id);
+        if (personalResponse?.aidant_id === id) {
+          setIsAlreadyAssigned(true);
+          setIsCheckingAssignment(false);
+          return;
+        }
+
+        // ✅ 2. Vérifier si l'aidant est assigné à un des patients de l'utilisateur
+        const patientIds = patients.map(p => p.id);
+        for (const patientId of patientIds) {
+          const patientResponse = await fetchActiveAidant('patient', patientId, user.id);
+          if (patientResponse?.aidant_id === id) {
+            setIsAlreadyAssigned(true);
+            setIsCheckingAssignment(false);
+            return;
+          }
+        }
+
+        // ✅ 3. Vérifier via les assignations du store
+        const isAssignedInStore = assignments.some(
+          (a) => a.family_id === user.id && a.relationship !== 'cancelled'
+        );
+        if (isAssignedInStore) {
+          setIsAlreadyAssigned(true);
+          setIsCheckingAssignment(false);
+          return;
+        }
+
+        setIsAlreadyAssigned(false);
+      } catch (error) {
+        console.error('❌ Erreur vérification assignation:', error);
+        setIsAlreadyAssigned(false);
+      } finally {
+        setIsCheckingAssignment(false);
+      }
+    };
+
+    checkAssignment();
+  }, [id, user, patients, isFamily, assignments, fetchActiveAidant]);
 
   useEffect(() => {
     if (id) {
@@ -52,7 +109,7 @@ const AidantDetailPage = () => {
         fetchMyAssignments();
       }
     }
-  }, [id]);
+  }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
 
   const status = (() => {
     if (!aidant?.is_available) return { label: 'Indisponible', color: 'text-red-500', bg: 'bg-red-50' };
@@ -61,19 +118,17 @@ const AidantDetailPage = () => {
     return { label: 'Disponible', color: 'text-green-500', bg: 'bg-green-50' };
   })();
 
-  if (isLoading) {
+  if (isLoading || isCheckingAssignment) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
-        <LoadingSpinner size="lg" />
+        <LoadingSpinner size="lg" text={isCheckingAssignment ? 'Vérification...' : 'Chargement...'} />
       </div>
     );
   }
 
   if (!aidant) return null;
 
-  const isAlreadyAssigned = assignments.some(
-    (a) => a.family_id === aidant.user_id && a.relationship !== 'cancelled'
-  );
+  const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available && patients.length > 0;
 
   return (
     <div className="max-w-3xl mx-auto px-4 pb-24 space-y-6">
@@ -131,6 +186,14 @@ const AidantDetailPage = () => {
                     <Briefcase size={12} />
                     {aidant.total_missions || 0}
                   </span>
+
+                  {/* ✅ Afficher si déjà assigné */}
+                  {isAlreadyAssigned && (
+                    <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                      <UserCheck size={12} />
+                      Déjà assigné
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -174,6 +237,21 @@ const AidantDetailPage = () => {
           </div>
         )}
 
+        {/* ✅ MESSAGE SI PAS DE PATIENTS */}
+        {isFamily && patients.length === 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            <p className="text-sm text-amber-700">
+              ⚠️ Vous n'avez pas encore de proche enregistré.
+            </p>
+            <button
+              onClick={() => navigate('/app/patients')}
+              className="mt-1 text-xs font-medium text-amber-800 hover:underline"
+            >
+              Ajouter un proche
+            </button>
+          </div>
+        )}
+
         {/* ACTIONS */}
         <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t">
 
@@ -184,19 +262,35 @@ const AidantDetailPage = () => {
             Contacter
           </button>
 
-          {isFamily && !isAlreadyAssigned && aidant.is_available && (
+          {canAssign ? (
             <button
               onClick={() => setShowAssignModal(true)}
-              className="w-full py-2 rounded-lg text-white text-sm"
+              className="w-full py-2 rounded-lg text-white text-sm flex items-center justify-center gap-2"
               style={{ background: colors.primary }}
             >
-              Choisir
+              <UserPlus size={16} />
+              Choisir cet aidant
             </button>
-          )}
-
-          {isAlreadyAssigned && (
-            <button className="w-full py-2 rounded-lg bg-gray-200 text-gray-400 text-sm">
+          ) : isAlreadyAssigned ? (
+            <button
+              className="w-full py-2 rounded-lg bg-green-50 text-green-600 text-sm flex items-center justify-center gap-2 cursor-default"
+            >
+              <UserCheck size={16} />
               Déjà assigné
+            </button>
+          ) : !aidant.is_available ? (
+            <button
+              className="w-full py-2 rounded-lg bg-gray-100 text-gray-400 text-sm flex items-center justify-center gap-2 cursor-default"
+            >
+              <UserX size={16} />
+              Indisponible
+            </button>
+          ) : (
+            <button
+              className="w-full py-2 rounded-lg bg-gray-100 text-gray-400 text-sm flex items-center justify-center gap-2 cursor-default"
+            >
+              <AlertCircle size={16} />
+              Non disponible
             </button>
           )}
 
@@ -214,7 +308,8 @@ const AidantDetailPage = () => {
             setShowAssignModal(false);
             fetchAidantById(id!);
             fetchMyAssignments();
-            toast.success('Aidant assigné');
+            setIsAlreadyAssigned(true);
+            toast.success('✅ Aidant assigné avec succès !');
           }}
           colors={colors}
         />
