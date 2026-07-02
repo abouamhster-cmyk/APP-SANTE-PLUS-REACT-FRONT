@@ -18,23 +18,8 @@ import { AssignAidantModal } from '../components/AssignAidantModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Illustration } from '@/components/ui/Illustration';
 
+import { AidantFilters as AidantFiltersType } from '@/types/aidant';
 import toast from 'react-hot-toast';
-
-// ============================================================
-// TYPES
-// ============================================================
-
-interface AidantFiltersType {
-  zone?: string;
-  specialty?: 'senior' | 'maman_bebe' | 'accompagnement' | 'autre';   
-  minRating?: number;
-  onlyAvailable?: boolean;
-  minExperience?: number;
-  sortBy?: 'rating' | 'experience_years' | 'total_missions' | 'active_assignments';
-  sortOrder?: 'asc' | 'desc';
-  limit?: number;
-  offset?: number;
-}
 
 // ============================================================
 // COMPOSANT PRINCIPAL
@@ -116,12 +101,11 @@ const AidantCatalogPage = () => {
     toast.success('✅ Aidant assigné avec succès');
   };
 
-  // ✅ CORRECTION : Wrapper pour correspondre au type attendu par le bouton
   const handleRefresh = useCallback(() => {
     fetchAidants();
   }, [fetchAidants]);
 
-  // ✅ CORRECTION : Wrapper pour setFilters avec le bon type
+  // ✅ CORRECTION : Utiliser le type exact AidantFilters
   const handleFilterChange = useCallback((newFilters: Partial<AidantFiltersType>) => {
     setStoreFilters(newFilters);
   }, [setStoreFilters]);
