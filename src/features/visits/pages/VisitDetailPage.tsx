@@ -140,7 +140,6 @@ const VisitDetailPage = () => {
     }
   };
 
-  // ✅ CORRIGÉ : Adapter la signature pour correspondre à CompleteVisitModal
   const handleComplete = async (data: {
     actions: string[];
     notes: string;
@@ -291,7 +290,10 @@ const VisitDetailPage = () => {
   const isExpired = visit.status === 'expire';
   const isRefused = visit.status === 'refusee';
   const isDraft = visit.status === 'brouillon';
-  const requiresPayment = isDraft && visit.metadata?.requires_payment;
+  
+  // ✅ SEUL le propriétaire de la visite peut payer (pas l'admin)
+  const isOwner = visit.user_id === profile?.id;
+  const requiresPayment = isDraft && visit.metadata?.requires_payment && isOwner;
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -437,20 +439,32 @@ const VisitDetailPage = () => {
       </div>
 
       {/* ============================================================
-      BANDEAU DE PAIEMENT EXCLUSIF AU BROUILLON
+      BANDEAU DE PAIEMENT - UNIQUEMENT POUR LE PROPRIÉTAIRE
       ============================================================ */}
-      {isDraft && requiresPayment && (
-        <div className="bg-purple-50/70 rounded-2xl p-4 border border-purple-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {requiresPayment && (
+        <div 
+          className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          style={{ 
+            background: colors.primary + '08',
+            borderColor: colors.primary + '20',
+          }}
+        >
           <div className="flex items-start gap-3 min-w-0">
-            <div className="p-2 bg-purple-100 rounded-xl text-purple-600 shrink-0">
+            <div 
+              className="p-2 rounded-xl shrink-0"
+              style={{ 
+                background: colors.primary + '15',
+                color: colors.primary,
+              }}
+            >
               <CreditCard size={18} />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-purple-900">
-                Paiement requis pour valider la visite
+              <p className="text-sm font-bold" style={{ color: colors.text }}>
+                💳 Paiement requis pour valider la visite
               </p>
-              <p className="text-[11px] text-purple-600 font-medium mt-0.5 flex flex-wrap items-center gap-1">
-                <span>Montant : <strong className="text-purple-950">{visit.metadata?.payment_amount || 0} FCFA</strong></span>
+              <p className="text-[11px] font-medium mt-0.5 flex flex-wrap items-center gap-1" style={{ color: colors.text + '70' }}>
+                <span>Montant : <strong style={{ color: colors.primary }}>{visit.metadata?.payment_amount || 0} FCFA</strong></span>
                 <span>•</span>
                 <span>{getDraftExpiryText() ? `Expire dans : ${getDraftExpiryText()}` : 'Expire bientôt'}</span>
               </p>
@@ -458,8 +472,8 @@ const VisitDetailPage = () => {
           </div>
           <button
             onClick={handleOpenPayment}
-            className="w-full sm:w-auto px-5 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-95 shadow-sm text-center shrink-0"
-            style={{ background: '#8b5cf6' }}
+            className="w-full sm:w-auto px-5 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm text-center shrink-0"
+            style={{ background: colors.primary }}
           >
             Payer maintenant
           </button>
