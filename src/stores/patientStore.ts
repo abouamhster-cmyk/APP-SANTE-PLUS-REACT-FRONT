@@ -205,18 +205,22 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         console.log('👨‍👩‍👦 Famille - Récupération des patients liés');
         console.log('🔍 Family ID:', user.id);
         
-        // ✅ Récupérer les patients via les assignations
+        // ✅ Récupérer les patients via les assignations - CORRIGÉ
+        // La colonne family_id n'existe pas dans aidant_assignments
+        // On utilise target_id et target_type pour filtrer
         const { data: assignments, error: assignmentsError } = await supabase
           .from('aidant_assignments')
           .select('target_id')
           .eq('target_type', 'patient')
           .eq('status', 'active')
-          .or(`target_id.eq.${user.id}, family_id.eq.${user.id}`);
+          .eq('target_id', user.id);  // ✅ CORRIGÉ: target_id au lieu de family_id
 
         if (assignmentsError) {
           console.error('❌ Erreur récupération assignations:', assignmentsError);
+          // Ne pas bloquer, continuer avec le fallback
         }
 
+        // ✅ Récupérer les patient_ids depuis les assignations
         const patientIdsFromAssignments = assignments?.map(a => a.target_id).filter(Boolean) || [];
 
         // ✅ Fallback: récupérer via patient_family_links (pour compatibilité)
