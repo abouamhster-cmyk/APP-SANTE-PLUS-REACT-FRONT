@@ -26,12 +26,12 @@ import toast from 'react-hot-toast';
 
 interface AidantFiltersType {
   zone?: string;
-  specialty?: string;
+  specialty?: 'senior' | 'maman_bebe' | 'accompagnement' | 'autre';   
   minRating?: number;
   onlyAvailable?: boolean;
   minExperience?: number;
-  sortBy?: string;
-  sortOrder?: string;
+  sortBy?: 'rating' | 'experience_years' | 'total_missions' | 'active_assignments';
+  sortOrder?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }
