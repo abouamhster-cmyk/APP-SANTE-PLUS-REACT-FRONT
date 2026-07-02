@@ -1,16 +1,8 @@
-// 📁 frontend/src/types/assignment.ts
-
-// ============================================================
-// TYPES POUR LES ASSIGNATIONS D'AIDANTS
-// ============================================================
+// 📁 src/types/assignment.ts
 
 export type TargetType = 'patient' | 'personal_account' | 'family';
 export type AssignmentType = 'primary' | 'secondary' | 'temporary';
 export type AssignmentStatus = 'active' | 'inactive' | 'expired';
-
-// ============================================================
-// CONSTANTES
-// ============================================================
 
 export const TARGET_TYPES = {
   PATIENT: 'patient',
@@ -30,16 +22,6 @@ export const ASSIGNMENT_STATUS = {
   EXPIRED: 'expired',
 } as const;
 
-export const PRIORITY = {
-  PATIENT: 1,
-  PERSONAL_ACCOUNT: 2,
-  FAMILY: 3,
-} as const;
-
-// ============================================================
-// INTERFACES
-// ============================================================
-
 export interface AidantAssignment {
   id: string;
   aidant_user_id: string;
@@ -53,8 +35,6 @@ export interface AidantAssignment {
   updated_at: string;
   created_by: string | null;
   reason: string | null;
-  
-  // Relations
   aidant?: {
     id: string;
     full_name: string;
@@ -84,10 +64,6 @@ export interface AssignmentFilters {
   aidantUserId?: string;
 }
 
-// ============================================================
-// REQUÊTES ET RÉPONSES
-// ============================================================
-
 export interface AssignAidantRequest {
   aidantUserId: string;
   targetType: TargetType;
@@ -106,10 +82,6 @@ export interface AssignAidantResponse {
     target_type: TargetType;
     target_name: string;
   };
-}
-
-export interface RevokeAssignmentRequest {
-  reason?: string;
 }
 
 export interface GetActiveAidantResponse {
@@ -146,10 +118,6 @@ export interface GetAllAidantsResponse {
   count: number;
 }
 
-// ============================================================
-// ÉTAT DU STORE
-// ============================================================
-
 export interface AssignmentState {
   assignments: AidantAssignment[];
   activeAidant: {
@@ -178,8 +146,6 @@ export interface AssignmentState {
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
-
-  // Actions
   fetchAssignments: (filters?: AssignmentFilters) => Promise<void>;
   fetchActiveAidant: (targetType: TargetType, targetId: string, familyId?: string) => Promise<void>;
   fetchAllAidants: (targetType: TargetType, targetId: string, familyId?: string) => Promise<void>;
