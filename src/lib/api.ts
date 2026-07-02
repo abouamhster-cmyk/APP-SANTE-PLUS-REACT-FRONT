@@ -4,23 +4,35 @@ import axios from 'axios';
 import { supabase } from './supabase';
 
 // ✅ URL UNIQUE - sans /api en double
+// NOTE: VITE_API_URL se termine déjà par /api dans Vercel
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ✅ Fonction utilitaire pour normaliser les URLs - CORRIGÉE
 const normalizeApiUrl = (endpoint: string): string => {
+  // Nettoyer le base URL (enlever les slashs en fin)
   const cleanBase = API_URL.replace(/\/+$/, '');
-  const cleanEndpoint = endpoint.replace(/^\/+/, '');
   
-  // ✅ Si l'endpoint commence déjà par 'api/', on garde (supprime le doublon)
+  // Nettoyer l'endpoint (enlever les slashs en début)
+  let cleanEndpoint = endpoint.replace(/^\/+/, '');
+  
+  // ✅ Si le base se termine par /api, on le garde tel quel
+  // ✅ Si l'endpoint commence par api/, on le retire pour éviter le double
   if (cleanEndpoint.startsWith('api/')) {
-    // Si le base contient déjà 'api', on retire le 'api/' de l'endpoint
-    if (cleanBase.includes('/api')) {
-      return `${cleanBase}/${cleanEndpoint.replace(/^api\//, '')}`;
+    // Si le base contient déjà /api, on retire le api/ de l'endpoint
+    if (cleanBase.endsWith('/api') || cleanBase.includes('/api')) {
+      cleanEndpoint = cleanEndpoint.replace(/^api\//, '');
+      return `${cleanBase}/${cleanEndpoint}`;
     }
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  // ✅ Si le base contient déjà 'api', on ne l'ajoute pas
+  // ✅ Si le base se termine par /api et l'endpoint ne commence pas par api/
+  // on ne fait que concaténer
+  if (cleanBase.endsWith('/api')) {
+    return `${cleanBase}/${cleanEndpoint}`;
+  }
+  
+  // ✅ Si le base contient /api mais ne se termine pas par /api
   if (cleanBase.includes('/api')) {
     return `${cleanBase}/${cleanEndpoint}`;
   }
@@ -35,6 +47,7 @@ console.log('📡 Exemples d\'URLs générées:');
 console.log(`   /auth/login → ${normalizeApiUrl('/auth/login')}`);
 console.log(`   /visits → ${normalizeApiUrl('/visits')}`);
 console.log(`   /api/health → ${normalizeApiUrl('/api/health')}`);
+console.log(`   /billing/health → ${normalizeApiUrl('/billing/health')}`);
 
 const api = axios.create({
   baseURL: API_URL,
