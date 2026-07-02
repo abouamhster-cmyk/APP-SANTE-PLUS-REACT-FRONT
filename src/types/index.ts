@@ -26,6 +26,8 @@ export type VisitStatus =
   | 'refusee'
   | 'expire'          
   | 'attente_paiement';
+  | 'brouillon';       
+
 
 // ✅ ORDER STATUS
 export type OrderStatus = 
