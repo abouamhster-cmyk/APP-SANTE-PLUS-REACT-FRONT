@@ -6,9 +6,10 @@
  */
 
 // ✅ CONSTANTE UNIQUE - Sans /api en double
+// NOTE: VITE_API_URL se termine déjà par /api dans Vercel
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-// ✅ Fonction utilitaire pour normaliser les URLs 
+// ✅ Fonction utilitaire pour normaliser les URLs - CORRIGÉE
 const normalizeUrl = (base: string, endpoint: string): string => {
   // Nettoyer le base URL (enlever les slashs en fin)
   let cleanBase = base.replace(/\/+$/, '');
@@ -16,17 +17,24 @@ const normalizeUrl = (base: string, endpoint: string): string => {
   // Nettoyer l'endpoint (enlever les slashs en début)
   let cleanEndpoint = endpoint.replace(/^\/+/, '');
   
-  // ✅ Si l'endpoint commence déjà par "api/", on le garde mais on vérifie le base
+  // ✅ Si le base se termine par /api, on le garde tel quel
+  // ✅ Si l'endpoint commence par api/, on le retire pour éviter le double
   if (cleanEndpoint.startsWith('api/')) {
-    // Si le base contient déjà "api", on retire le "api/" de l'endpoint pour éviter le double
-    if (cleanBase.includes('/api')) {
+    // Si le base contient déjà /api, on retire le api/ de l'endpoint
+    if (cleanBase.endsWith('/api') || cleanBase.includes('/api')) {
       cleanEndpoint = cleanEndpoint.replace(/^api\//, '');
       return `${cleanBase}/${cleanEndpoint}`;
     }
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  // ✅ Si le base contient déjà "api", on ne l'ajoute pas
+  // ✅ Si le base se termine par /api et l'endpoint ne commence pas par api/
+  // on ne fait que concaténer
+  if (cleanBase.endsWith('/api')) {
+    return `${cleanBase}/${cleanEndpoint}`;
+  }
+  
+  // ✅ Si le base contient /api mais ne se termine pas par /api
   if (cleanBase.includes('/api')) {
     return `${cleanBase}/${cleanEndpoint}`;
   }
@@ -65,8 +73,7 @@ class KeepAliveService {
   private config: KeepAliveConfig = {
     interval: 5 * 60 * 1000, // 5 minutes (pour éviter le rate limiting)
     endpoints: [
-      '/health',            // ✅ Test simple (fallback) - prioritaire
-      '/api/health',        // ✅ Test avec /api
+      '/health',            // ✅ Test simple
       '/billing/health',    // ✅ Test billing
     ],
     enabled: true,
@@ -117,7 +124,7 @@ class KeepAliveService {
     console.log('🌙 [Wake-Up] Tentative de réveil du backend...');
     
     // ✅ Ordre des endpoints : les plus légers d'abord (éviter le rate limiting)
-    const wakeEndpoints = ['/health', '/api/health', '/billing/health'];
+    const wakeEndpoints = ['/health', '/billing/health'];
     
     for (const endpoint of wakeEndpoints) {
       try {
@@ -193,11 +200,10 @@ class KeepAliveService {
   }
 
   /**
-   * Pinger un endpoint spécifique - CORRIGÉ
+   * Pinger un endpoint spécifique
    */
   private async pingEndpoint(endpoint: string) {
     try {
-      // ✅ Utilisation de normalizeUrl pour éviter le double /api
       const url = normalizeUrl(API_URL, endpoint);
       
       console.log(`📡 Ping: ${url}`);
@@ -306,8 +312,7 @@ export const keepAliveService = new KeepAliveService({
   enabled: true,
   interval: 5 * 60 * 1000, // 5 minutes pour éviter le 429
   endpoints: [
-    '/health',            // ✅ Prioritaire - plus simple
-    '/api/health',        // ✅ Fallback
+    '/health',            // ✅ Prioritaire
     '/billing/health',    // ✅ Fallback billing
   ],
 });
