@@ -7,6 +7,7 @@ import { Search, Filter, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
+import { useAssignmentStore } from '@/stores/assignmentStore';
 
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 
@@ -29,6 +30,7 @@ const AidantCatalogPage = () => {
 
   const { profile, role } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
+  const { fetchActiveAidant, activeAidant, isLoading: assignmentLoading } = useAssignmentStore();
 
   const {
     aidants,
@@ -97,7 +99,8 @@ const AidantCatalogPage = () => {
 
   const handleRefresh = useCallback(() => {
     fetchAidants();
-  }, [fetchAidants]);
+    fetchMyAssignments();
+  }, [fetchAidants, fetchMyAssignments]);
 
   const handleFilterChange = useCallback((newFilters: Partial<AidantFiltersType>) => {
     setStoreFilters(newFilters);
@@ -119,6 +122,9 @@ const AidantCatalogPage = () => {
     return null;
   }
 
+  // ✅ Afficher un message si l'utilisateur n'a pas de patients
+  const hasPatients = patients.length > 0;
+
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 overflow-x-hidden">
 
@@ -135,6 +141,7 @@ const AidantCatalogPage = () => {
           </h1>
           <p className="text-xs text-gray-400">
             {aidants.length} aidant{aidants.length > 1 ? 's' : ''} disponible{aidants.length > 1 ? 's' : ''}
+            {hasPatients ? ` • ${patients.length} proche${patients.length > 1 ? 's' : ''}` : ' • Aucun proche enregistré'}
           </p>
         </div>
 
@@ -194,6 +201,23 @@ const AidantCatalogPage = () => {
       )}
 
       {/* ============================================================
+      MESSAGE SI AUCUN PROCHE
+      ============================================================ */}
+      {!hasPatients && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+          <p className="text-sm text-amber-700">
+            ⚠️ Vous n'avez pas encore de proche enregistré.
+          </p>
+          <button
+            onClick={() => navigate('/app/patients')}
+            className="mt-2 text-xs font-medium text-amber-800 hover:underline"
+          >
+            Ajouter un proche
+          </button>
+        </div>
+      )}
+
+      {/* ============================================================
       LISTE DES CARTES
       ============================================================ */}
       {filteredAidants.length > 0 ? (
@@ -205,6 +229,7 @@ const AidantCatalogPage = () => {
                 onClick={() => navigate(`/app/aidants/${aidant.id}`)}
                 onAssign={() => handleAssign(aidant)}
                 colors={colors}
+                showActions={hasPatients}
               />
             </div>
           ))}
@@ -213,10 +238,12 @@ const AidantCatalogPage = () => {
         <section className="text-center py-12 px-4 bg-white rounded-2xl border border-black/5 w-full min-w-0">
           <Illustration type="search" size="md" className="mx-auto opacity-30 mb-3" />
           <h3 className="font-semibold text-xs sm:text-sm" style={{ color: colors.text }}>
-            Aucun aidant trouvé
+            {searchTerm ? 'Aucun aidant ne correspond à votre recherche' : 'Aucun aidant disponible pour le moment'}
           </h3>
           <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">
-            Essayez de modifier votre recherche ou vos filtres
+            {searchTerm 
+              ? 'Essayez de modifier votre recherche ou vos filtres' 
+              : 'Revenez plus tard, de nouveaux aidants peuvent être disponibles'}
           </p>
         </section>
       )}
