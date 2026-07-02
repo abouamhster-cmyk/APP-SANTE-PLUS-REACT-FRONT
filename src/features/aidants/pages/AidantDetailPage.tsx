@@ -24,8 +24,9 @@ import { useAssignmentStore } from '@/stores/assignmentStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { AssignAidantModal } from '../components/AssignAidantModal';
-import toast from 'react-hot-toast';
+ import toast from 'react-hot-toast';
+import AssignAidantModal from '../components/AssignAidantModal';
+
 
 const AidantDetailPage = () => {
   const { id } = useParams<{ id: string }>();
