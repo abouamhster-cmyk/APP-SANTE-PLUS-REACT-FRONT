@@ -2,14 +2,13 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, RefreshCw, UserCircle } from 'lucide-react';
+import { Search, Filter, RefreshCw } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
 
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
-import { useTerminology } from '@/hooks/useTerminology';
 
 import { AidantCard } from '../components/AidantCard';
 import { AidantFilters } from '../components/AidantFilters';
@@ -37,11 +36,8 @@ const AidantCatalogPage = () => {
     fetchAidants,
     filters,
     setFilters: setStoreFilters,
-    assignments,
     fetchMyAssignments,
   } = useAidantCatalogStore();
-
-  const { isFamily } = useTerminology();
 
   const [showFilters, setShowFilters] = useState(false);
   const [selectedAidant, setSelectedAidant] = useState<any>(null);
@@ -50,8 +46,6 @@ const AidantCatalogPage = () => {
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
-
-  const hasPatients = patients.length > 0;
 
   // ============================================================
   // INITIALISATION
@@ -98,14 +92,13 @@ const AidantCatalogPage = () => {
     setSelectedAidant(null);
     fetchAidants();
     fetchMyAssignments();
-    toast.success('✅ Aidant assigné avec succès');
+    toast.success('Aidant assigné avec succès');
   };
 
   const handleRefresh = useCallback(() => {
     fetchAidants();
   }, [fetchAidants]);
 
-  // ✅ CORRECTION : Utiliser le type exact AidantFilters
   const handleFilterChange = useCallback((newFilters: Partial<AidantFiltersType>) => {
     setStoreFilters(newFilters);
   }, [setStoreFilters]);
@@ -116,7 +109,7 @@ const AidantCatalogPage = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[300px] w-full px-4">
         <LoadingSpinner size="lg" text="Chargement des aidants..." />
       </div>
     );
@@ -127,115 +120,103 @@ const AidantCatalogPage = () => {
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
+    <div className="w-full max-w-6xl mx-auto px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 overflow-x-hidden">
 
       {/* ============================================================
-      HEADER
+      HEADER & TOOLBAR
       ============================================================ */}
-      <section className="space-y-3">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-1">
+          <h1
+            className="text-lg sm:text-xl font-bold tracking-tight"
+            style={{ color: colors.text }}
+          >
+            🦸 Aidants disponibles
+          </h1>
+          <p className="text-xs text-gray-400">
+            {aidants.length} aidant{aidants.length > 1 ? 's' : ''} disponible{aidants.length > 1 ? 's' : ''}
+          </p>
+        </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-
-          <div>
-            <h1
-              className="text-xl sm:text-2xl font-bold"
-              style={{ color: colors.text }}
-            >
-              🦸 Aidants disponibles
-            </h1>
-
-            <p className="text-xs mt-1 text-gray-400">
-              {aidants.length} disponibles
-              {assignments.length > 0 && ` • ${assignments.length} assignation(s) active(s)`}
-            </p>
+        {/* RECHERCHE ET ACTIONS */}
+        <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center w-full min-w-0">
+          <div className="relative flex-1 min-w-0 w-full">
+            <Search
+              size={15}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Rechercher par nom, spécialité ou zone..."
+              className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none transition focus:ring-1 focus:ring-offset-0 min-w-0"
+              style={{ borderColor: colors.border, color: colors.text }}
+            />
           </div>
 
-          {/* ACTIONS */}
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="px-3 py-2 rounded-xl border text-xs flex items-center gap-1 hover:bg-gray-50 transition"
-              style={{ borderColor: colors.border }}
+              className="flex-1 sm:flex-none px-3 py-2 rounded-xl border text-xs flex items-center justify-center gap-1.5 hover:bg-gray-50 transition font-medium"
+              style={{ borderColor: colors.border, color: colors.text }}
             >
-              <Filter size={14} />
+              <Filter size={13} />
               Filtres
             </button>
 
             <button
               onClick={handleRefresh}
-              className="px-3 py-2 rounded-xl text-xs flex items-center gap-1 hover:opacity-80 transition"
+              className="px-3 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 hover:opacity-85 transition font-medium shrink-0"
               style={{
                 background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={13} />
               Actualiser
             </button>
           </div>
         </div>
-
-        {/* SEARCH */}
-        <div className="relative">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher par nom, spécialité ou zone..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 transition"
-            style={{ borderColor: colors.border }}
-          />
-        </div>
-
-        {/* INFO LIGHT */}
-        {!hasPatients && (
-          <div className="flex items-start gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-xl">
-            <UserCircle size={14} className="mt-0.5 shrink-0" />
-            <span>💡 Assignation possible sans proche enregistré (compte personnel)</span>
-          </div>
-        )}
       </section>
 
       {/* ============================================================
-      FILTRES
+      FILTRES CONDITIONNELS
       ============================================================ */}
       {showFilters && (
-        <AidantFilters
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onClose={() => setShowFilters(false)}
-          colors={colors}
-        />
+        <div className="w-full min-w-0">
+          <AidantFilters
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onClose={() => setShowFilters(false)}
+            colors={colors}
+          />
+        </div>
       )}
 
       {/* ============================================================
-      LISTE DES AIDANTS
+      LISTE DES CARTES
       ============================================================ */}
       {filteredAidants.length > 0 ? (
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full min-w-0">
           {filteredAidants.map((aidant) => (
-            <AidantCard
-              key={aidant.id}
-              aidant={aidant}
-              onClick={() => navigate(`/app/aidants/${aidant.id}`)}
-              onAssign={() => handleAssign(aidant)}
-              colors={colors}
-            />
+            <div key={aidant.id} className="min-w-0 w-full">
+              <AidantCard
+                aidant={aidant}
+                onClick={() => navigate(`/app/aidants/${aidant.id}`)}
+                onAssign={() => handleAssign(aidant)}
+                colors={colors}
+              />
+            </div>
           ))}
         </section>
       ) : (
-        <section className="text-center py-16 bg-white rounded-2xl border border-black/5">
-          <Illustration type="search" size="lg" className="mx-auto opacity-30 mb-4" />
-          <h3 className="font-semibold text-sm" style={{ color: colors.text }}>
-            {searchTerm ? 'Aucun aidant trouvé' : 'Aucun aidant disponible'}
+        <section className="text-center py-12 px-4 bg-white rounded-2xl border border-black/5 w-full min-w-0">
+          <Illustration type="search" size="md" className="mx-auto opacity-30 mb-3" />
+          <h3 className="font-semibold text-xs sm:text-sm" style={{ color: colors.text }}>
+            Aucun aidant trouvé
           </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            {searchTerm
-              ? 'Essayez un autre mot-clé'
-              : 'Revenez plus tard, de nouveaux aidants seront disponibles'}
+          <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">
+            Essayez de modifier votre recherche ou vos filtres
           </p>
         </section>
       )}
