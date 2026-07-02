@@ -1,10 +1,11 @@
 // 📁 src/features/visits/components/VisitPaymentModal.tsx
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useVisitStore } from '@/stores/visitStore';
-import { getThemeColors } from '@/lib/permissions';
+import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useAuthStore } from '@/stores/authStore';
 import { getPonctualPrice } from '@/stores/visitStore';
 import { Loader2, CreditCard, ExternalLink, Calendar, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -26,7 +27,10 @@ export const VisitPaymentModal = ({
   const { confirmPayment } = useVisitStore();
   const [isLoading, setIsLoading] = useState(false);
 
-  const colors = getThemeColors('senior');
+  // ✅ Récupérer le thème dynamique
+  const { profile, role } = useAuthStore();
+  const themeName = getThemeByRole(role, profile?.patient_category as any);
+  const colors = getThemeColors(themeName);
 
   // ✅ Calcul du montant
   const amount = visit.metadata?.payment_amount || getPonctualPrice(visit.duration_minutes || 60);
@@ -34,10 +38,8 @@ export const VisitPaymentModal = ({
   const handlePayment = async () => {
     setIsLoading(true);
     try {
-      // ✅ Récupérer l'ID de la visite
       const visitId = visit.id;
 
-      // ✅ Créer le paiement avec les bonnes données
       const result = await createPayment({
         amount,
         description: `Visite ponctuelle - ${visit.target_name || 'Personnel'}`,
@@ -64,7 +66,6 @@ export const VisitPaymentModal = ({
         throw new Error("Le lien de paiement n'a pas été généré");
       }
 
-      // ✅ Sauvegarder l'ID de la visite pour le webhook
       sessionStorage.setItem('pending_visit_payment', JSON.stringify({
         visit_id: visitId,
         transaction_id: result.transaction_id,
@@ -79,14 +80,12 @@ export const VisitPaymentModal = ({
     }
   };
 
-  // ✅ Récupérer le nom du destinataire
   const getTargetName = () => {
     if (visit.target_name) return visit.target_name;
     if (visit.patient) return `${visit.patient.first_name} ${visit.patient.last_name}`;
     return 'Personnel';
   };
 
-  // ✅ Récupérer le type de visite
   const getTargetTypeLabel = () => {
     if (visit.target_type === 'patient') return 'Proche';
     if (visit.target_type === 'personal') return 'Personnel';
@@ -108,8 +107,8 @@ export const VisitPaymentModal = ({
         <div
           className="rounded-2xl p-5 border shadow-sm space-y-4"
           style={{
-            background: colors.primary + '05',
-            borderColor: colors.primary + '12',
+            background: colors.primary + '06',
+            borderColor: colors.primary + '15',
           }}
         >
           {/* En-tête du ticket */}
@@ -117,7 +116,7 @@ export const VisitPaymentModal = ({
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
               style={{
-                background: colors.primary + '10',
+                background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
@@ -125,7 +124,7 @@ export const VisitPaymentModal = ({
             </div>
 
             <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '50' }}>
                 Bénéficiaire ({getTargetTypeLabel()})
               </span>
               <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
@@ -137,19 +136,23 @@ export const VisitPaymentModal = ({
           {/* Grille détails planification */}
           <div 
             className="grid grid-cols-2 gap-4 text-xs border-t pt-4 border-dashed" 
-            style={{ borderColor: colors.primary + '18' }}
+            style={{ borderColor: colors.primary + '20' }}
           >
             <div className="space-y-0.5">
-              <p className="text-gray-400 font-semibold text-[10px] uppercase">Date de visite</p>
-              <p className="font-semibold text-gray-700 flex items-center gap-1.5">
-                <Calendar size={13} className="text-gray-400 shrink-0" />
+              <p className="font-semibold text-[10px] uppercase" style={{ color: colors.text + '50' }}>
+                Date de visite
+              </p>
+              <p className="font-semibold flex items-center gap-1.5" style={{ color: colors.text }}>
+                <Calendar size={13} style={{ color: colors.text + '40' }} className="shrink-0" />
                 {new Date(visit.scheduled_date).toLocaleDateString('fr-FR')}
               </p>
             </div>
             <div className="space-y-0.5">
-              <p className="text-gray-400 font-semibold text-[10px] uppercase">Horaire & Durée</p>
-              <p className="font-semibold text-gray-700 flex items-center gap-1.5">
-                <Clock size={13} className="text-gray-400 shrink-0" />
+              <p className="font-semibold text-[10px] uppercase" style={{ color: colors.text + '50' }}>
+                Horaire & Durée
+              </p>
+              <p className="font-semibold flex items-center gap-1.5" style={{ color: colors.text }}>
+                <Clock size={13} style={{ color: colors.text + '40' }} className="shrink-0" />
                 {visit.scheduled_time} ({visit.duration_minutes || 60} min)
               </p>
             </div>
@@ -158,11 +161,11 @@ export const VisitPaymentModal = ({
           {/* Section Montant final */}
           <div 
             className="border-t pt-4 border-dashed" 
-            style={{ borderColor: colors.primary + '18' }}
+            style={{ borderColor: colors.primary + '20' }}
           >
             <div className="flex justify-between items-end">
               <div className="space-y-0.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '50' }}>
                   Total à régler
                 </p>
                 <p className="text-2xl font-black tracking-tight" style={{ color: colors.primary }}>
@@ -187,15 +190,15 @@ export const VisitPaymentModal = ({
           className="flex items-start gap-3 p-4 rounded-xl border"
           style={{ 
             background: colors.primary + '05', 
-            borderColor: colors.primary + '10' 
+            borderColor: colors.primary + '12'
           }}
         >
           <AlertCircle size={15} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="text-xs leading-relaxed text-gray-600 font-medium">
+            <p className="text-xs leading-relaxed font-medium" style={{ color: colors.text + '80' }}>
               Le paiement est requis pour confirmer la planification. Vous allez être redirigé vers l'interface de paiement sécurisée de FedaPay.
             </p>
-            <span className="text-[10px] text-gray-400 block font-medium">
+            <span className="text-[10px] block font-medium" style={{ color: colors.text + '50' }}>
               💡 Moyens acceptés : Mobile Money (MTN, Moov, Wave, etc.) ou Carte bancaire.
             </span>
           </div>
@@ -204,13 +207,13 @@ export const VisitPaymentModal = ({
         {/* ============================================================
         BOUTONS D'ACTIONS (RESPONSIVE STACKABLE)
         ============================================================ */}
-        <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-gray-100">
+        <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
           <button
             type="button"
             onClick={onClose}
             disabled={isLoading}
             className="w-full sm:flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition disabled:opacity-50 text-center order-2 sm:order-1"
-            style={{ borderColor: colors.primary + '20', color: colors.text }}
+            style={{ borderColor: colors.primary + '25', color: colors.text }}
           >
             Annuler
           </button>
@@ -224,7 +227,7 @@ export const VisitPaymentModal = ({
           >
             {isLoading ? (
               <>
-                <Loader2 size={13} className="animate-spin" />
+                <Loader2 size={13} className="animate-spin" style={{ color: 'white' }} />
                 Traitement en cours...
               </>
             ) : (
