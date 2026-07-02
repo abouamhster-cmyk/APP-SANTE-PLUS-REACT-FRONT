@@ -140,16 +140,16 @@ const VisitDetailPage = () => {
     }
   };
 
+  // ✅ CORRIGÉ : Adapter la signature pour correspondre à CompleteVisitModal
   const handleComplete = async (data: {
     actions: string[];
-    notes?: string;
-    photos?: File[];
-    audioBlob?: Blob | null;
+    notes: string;
+    audio_url?: string;
+    photos: string[];
   }) => {
     const actions = data?.actions || [];
     const notes = data?.notes || '';
-    const photos = data?.photos || [];
-    const audioBlob = data?.audioBlob || null;
+    const photoUrls = data?.photos || [];
 
     if (actions.length === 0) {
       toast.error('Veuillez sélectionner au moins une action');
@@ -159,50 +159,18 @@ const VisitDetailPage = () => {
     setIsUploading(true);
 
     try {
-      let audioUrlUploaded = null;
-      if (audioBlob) {
-        const fileExt = 'webm';
-        const fileName = `visits/${id}/audio_${Date.now()}.${fileExt}`;
-        const { data: uploadData, error } = await supabase.storage
-          .from('visits')
-          .upload(fileName, audioBlob);
-
-        if (!error && uploadData) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('visits')
-            .getPublicUrl(fileName);
-          audioUrlUploaded = publicUrl;
-        }
-      }
-
-      let photoUrls: string[] = [];
-      for (const photo of photos) {
-        const fileExt = photo.name.split('.').pop();
-        const fileName = `visits/${id}/${Date.now()}_${photo.name}`;
-        const { data: uploadData, error } = await supabase.storage
-          .from('visits')
-          .upload(fileName, photo);
-
-        if (!error && uploadData) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('visits')
-            .getPublicUrl(fileName);
-          photoUrls.push(publicUrl);
-        }
-      }
-
       await completeVisit(id!, {
         actions,
         notes,
         photos: photoUrls,
       });
 
-      if (audioUrlUploaded) {
+      if (data?.audio_url) {
         await supabase
           .from('visites')
           .update({
             metadata: {
-              audio_url: audioUrlUploaded,
+              audio_url: data.audio_url,
               photos: photoUrls,
               actions,
               notes,
@@ -532,7 +500,7 @@ const VisitDetailPage = () => {
           </div>
 
           {/* COMPTE-RENDU DE VISITE GROUPÉ */}
-          {(visit.actions?.length > 0 || visit.notes || visit.photos?.length > 0 || visit.report) ? (
+          {(visit.actions?.length > 0 || visit.notes || (visit.photos && visit.photos.length > 0) || visit.report) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-black/5 space-y-5">
               <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ color: colors.text }}>
                 📊 Compte-rendu de la visite
