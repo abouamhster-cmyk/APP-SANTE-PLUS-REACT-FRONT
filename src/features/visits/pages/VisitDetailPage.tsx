@@ -1,5 +1,5 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
- 
+
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -23,6 +23,7 @@ import {
   MicOff,
   Trash2,
   Loader2,
+  CreditCard,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -42,6 +43,7 @@ import {
 import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
 import { Illustration } from '@/components/ui/Illustration';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
+import { VisitPaymentModal } from '@/components/visits/VisitPaymentModal';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -57,7 +59,8 @@ const VisitDetailPage = () => {
     cancelVisit,
     approveVisit,
     refuseVisit,
-    isLoading
+    isLoading,
+    fetchVisits,
   } = useVisitStore();
 
   const {
@@ -70,6 +73,8 @@ const VisitDetailPage = () => {
     isFamily,
   } = useTerminology();
 
+  // ✅ États pour le paiement
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
@@ -124,6 +129,24 @@ const VisitDetailPage = () => {
       document.body.style.overflow = 'unset';
     };
   }, [showCompleteModal]);
+
+  // ✅ Fonction pour ouvrir le modal de paiement
+  const handleOpenPayment = () => {
+    if (!currentVisit) return;
+    if (currentVisit.status === 'brouillon' && currentVisit.metadata?.requires_payment) {
+      setShowPaymentModal(true);
+    }
+  };
+
+  // ✅ Callback après paiement réussi
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    toast.success('✅ Visite planifiée après paiement !');
+    if (id) {
+      fetchVisitById(id);
+      fetchVisits();
+    }
+  };
 
   const handleApprove = async () => {
     if (!id) return;
@@ -349,6 +372,7 @@ const VisitDetailPage = () => {
       replanifiee: '#FF5722',
       no_show: '#795548',
       attente_paiement: '#8b5cf6',
+      brouillon: '#8b5cf6',
     };
     return colors[status] || '#9E9E9E';
   };
@@ -367,6 +391,7 @@ const VisitDetailPage = () => {
       replanifiee: 'Replanifiée',
       no_show: 'Absent',
       attente_paiement: '💳 En attente paiement',
+      brouillon: '💳 Brouillon - Paiement requis',
     };
     return labels[status] || status;
   };
@@ -383,8 +408,22 @@ const VisitDetailPage = () => {
       case 'refusee': return <XCircle size={20} />;
       case 'expire': return <AlertCircle size={20} />;
       case 'attente_paiement': return <Clock size={20} />;
+      case 'brouillon': return <CreditCard size={20} />;
       default: return <Clock size={20} />;
     }
+  };
+
+  // ✅ Calcul du temps restant avant expiration du brouillon
+  const getDraftExpiryText = () => {
+    if (!currentVisit?.draft_expires_at) return null;
+    const expiry = new Date(currentVisit.draft_expires_at);
+    const now = new Date();
+    const diff = expiry.getTime() - now.getTime();
+    if (diff <= 0) return 'Expiré';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) return `${hours}h ${minutes}min restantes`;
+    return `${minutes}min restantes`;
   };
 
   if (isLoading || !currentVisit) {
@@ -405,6 +444,8 @@ const VisitDetailPage = () => {
   const isCompleted = visit.status === 'terminee';
   const isExpired = visit.status === 'expire';
   const isRefused = visit.status === 'refusee';
+  const isDraft = visit.status === 'brouillon';
+  const requiresPayment = isDraft && visit.metadata?.requires_payment;
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
@@ -450,7 +491,7 @@ const VisitDetailPage = () => {
 
         {/* ACTIONS SELON LE STATUT ET LE RÔLE */}
         <div className="flex flex-wrap gap-2">
-          {/* AIDANT : Approuver/Refuser */}
+          {/* ✅ AIDANT : Approuver/Refuser */}
           {isPendingApproval && isAidant && (
             <>
               <button
@@ -474,7 +515,7 @@ const VisitDetailPage = () => {
             </>
           )}
 
-          {/* AIDANT : Démarrer une visite acceptée */}
+          {/* ✅ AIDANT : Démarrer une visite acceptée */}
           {isAccepted && isAidant && (
             <button
               onClick={handleStart}
@@ -487,7 +528,7 @@ const VisitDetailPage = () => {
             </button>
           )}
 
-          {/* AIDANT : Terminer une visite en cours */}
+          {/* ✅ AIDANT : Terminer une visite en cours */}
           {isInProgress && isAidant && (
             <button
               onClick={() => setShowCompleteModal(true)}
@@ -500,7 +541,7 @@ const VisitDetailPage = () => {
             </button>
           )}
 
-          {/* ADMIN/FAMILLE : Annuler (si planifiée ou en attente) */}
+          {/* ✅ ADMIN/FAMILLE : Annuler (si planifiée ou en attente) */}
           {(isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
             <button
               onClick={handleCancel}
@@ -513,7 +554,7 @@ const VisitDetailPage = () => {
             </button>
           )}
 
-          {/* ADMIN : Valider une visite terminée */}
+          {/* ✅ ADMIN : Valider une visite terminée */}
           {isCompleted && isAdminOrCoordinator && (
             <button
               onClick={async () => {
@@ -521,6 +562,7 @@ const VisitDetailPage = () => {
                   await supabase.from('visites').update({ status: 'validee' }).eq('id', id);
                   toast.success('Visite validée');
                   fetchVisitById(id!);
+                  fetchVisits();
                 } catch (error: any) {
                   toast.error(error.message || 'Erreur lors de la validation');
                 }
@@ -533,7 +575,7 @@ const VisitDetailPage = () => {
             </button>
           )}
 
-          {/* ADMIN : Réassigner une visite expirée ou refusée */}
+          {/* ✅ ADMIN : Réassigner une visite expirée ou refusée */}
           {(isExpired || isRefused) && isAdminOrCoordinator && (
             <button
               onClick={() => {
@@ -548,10 +590,47 @@ const VisitDetailPage = () => {
               <span>Réassigner</span>
             </button>
           )}
+
+          {/* ✅ PAIEMENT : Bouton Payer pour les brouillons */}
+          {requiresPayment && (
+            <button
+              onClick={handleOpenPayment}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm transition hover:opacity-80 animate-pulse"
+              style={{ background: '#8b5cf6' }}
+            >
+              <CreditCard size={18} />
+              Payer {visit.metadata?.payment_amount || 0} FCFA
+            </button>
+          )}
         </div>
       </div>
 
-      {/* INFORMATIONS PRINCIPALES - ✅ CORRIGÉ AVEC getVisitDisplayName */}
+      {/* ✅ BANDEAU D'EXPIRATION POUR BROUILLON */}
+      {isDraft && requiresPayment && (
+        <div className="bg-purple-50 rounded-2xl p-4 border border-purple-200 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <CreditCard size={20} style={{ color: '#8b5cf6' }} />
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#6d28d9' }}>
+                💳 En attente de paiement
+              </p>
+              <p className="text-xs" style={{ color: '#7c3aed' }}>
+                {getDraftExpiryText() ? `⏰ ${getDraftExpiryText()}` : 'Expire dans 24h'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleOpenPayment}
+            className="px-4 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90 flex items-center gap-2"
+            style={{ background: '#8b5cf6' }}
+          >
+            <CreditCard size={16} />
+            Payer maintenant
+          </button>
+        </div>
+      )}
+
+      {/* INFORMATIONS PRINCIPALES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <InfoCard
           icon={<User size={18} />}
@@ -583,7 +662,7 @@ const VisitDetailPage = () => {
         />
       </div>
 
-      {/* ADRESSE - ✅ CORRIGÉ AVEC getVisitDisplayAddress */}
+      {/* ADRESSE */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
         <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
           <MapPin size={20} />
@@ -672,7 +751,17 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* MODAL COMPLETE VISIT */}
+      {/* ✅ MODAL DE PAIEMENT */}
+      {showPaymentModal && currentVisit && (
+        <VisitPaymentModal
+          isOpen={true}
+          onClose={() => setShowPaymentModal(false)}
+          visit={currentVisit}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* ✅ MODAL COMPLETE VISIT */}
       {showCompleteModal && (
         <CompleteVisitModal
           isOpen={true}
