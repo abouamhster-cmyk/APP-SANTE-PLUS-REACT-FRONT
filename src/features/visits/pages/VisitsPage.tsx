@@ -5,10 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Plus,
-  Filter,
-  Clock,
-  CheckCircle,
-  PlayCircle,
   XCircle,
   AlertCircle,
   CreditCard,   
@@ -28,13 +24,11 @@ const VisitsPage = () => {
   const navigate = useNavigate();
 
   const { profile, role } = useAuthStore();
-  const { visits, isLoading, fetchVisits, approveVisit, refuseVisit, startVisit, cancelVisit, createVisit, confirmPayment } = useVisitStore();
+  const { visits, isLoading, fetchVisits, startVisit, cancelVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
 
   const {
     singular,
-    plural,
-    getCountLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
@@ -55,77 +49,31 @@ const VisitsPage = () => {
   const canPlanify = isAdminOrCoordinator || isFamily;
   const canStartVisit = isAidant || isAdminOrCoordinator;
   const canCancelVisit = isAdminOrCoordinator || isFamily;
-  const canApprove = isAidant;
 
   useEffect(() => {
     fetchVisits();
     fetchPatients();
   }, []);
 
-  // ✅ FILTRES AVEC NOUVEAUX STATUTS
+  // ✅ FILTRES SIMPLIFIÉS ET PROPRES
   const statusFilterOptions = useMemo(() => {
-    if (isAdminOrCoordinator) {
-      return [
-        { value: 'all', label: 'Toutes les visites' },
-        { value: 'planifiee', label: '📋 Planifiées' },
-        { value: 'en_attente', label: '⏳ En attente' },
-        { value: 'acceptee', label: '✅ Acceptées' },
-        { value: 'en_cours', label: '🔄 En cours' },
-        { value: 'terminee', label: '📝 Terminées' },
-        { value: 'validee', label: '✔️ Validées' },
-        { value: 'annulee', label: '❌ Annulées' },
-        { value: 'refusee', label: '🚫 Refusées' },
-        { value: 'expire', label: '⏰ Expirées' },
-        { value: 'brouillon', label: '💳 En attente paiement' },
-      ];
-    }
-
     if (isAidant) {
       return [
-        { value: 'all', label: 'Toutes les missions' },
-        { value: 'planifiee', label: '📋 À valider' },
-        { value: 'en_attente', label: '⏳ En attente' },
-        { value: 'acceptee', label: '✅ Acceptées' },
-        { value: 'en_cours', label: '🔄 En cours' },
-        { value: 'terminee', label: '📝 Terminées' },
-        { value: 'annulee', label: '❌ Annulées' },
-        { value: 'refusee', label: '🚫 Refusées' },
+        { value: 'all', label: 'Tout' },
+        { value: 'planifiee', label: 'À valider' },
+        { value: 'acceptee', label: 'Confirmées' },
+        { value: 'en_cours', label: 'En cours' },
+        { value: 'terminee', label: 'Terminées' },
       ];
     }
-
-    if (isFamily) {
-      return [
-        { value: 'all', label: 'Toutes les visites' },
-        { value: 'planifiee', label: '📋 Planifiées' },
-        { value: 'en_attente', label: '⏳ En attente' },
-        { value: 'acceptee', label: '✅ Acceptées' },
-        { value: 'en_cours', label: '🔄 En cours' },
-        { value: 'terminee', label: '📝 Terminées' },
-        { value: 'validee', label: '✔️ Validées' },
-        { value: 'annulee', label: '❌ Annulées' },
-        { value: 'brouillon', label: '💳 En attente paiement' },
-      ];
-    }
-
     return [
       { value: 'all', label: 'Toutes les visites' },
-      { value: 'planifiee', label: 'Planifiées' },
+      { value: 'acceptee', label: 'Confirmées' },
       { value: 'en_cours', label: 'En cours' },
       { value: 'terminee', label: 'Terminées' },
-      { value: 'annulee', label: 'Annulées' },
+      { value: 'brouillon', label: 'En attente de paiement' },
     ];
-  }, [isAidant, isAdminOrCoordinator, isFamily]);
-
-  const stats = {
-    total: visits.length,
-    planned: visits.filter((v) => v.status === 'planifiee').length,
-    pending: visits.filter((v) => v.status === 'en_attente').length,
-    accepted: visits.filter((v) => v.status === 'acceptee').length,
-    inProgress: visits.filter((v) => v.status === 'en_cours').length,
-    completed: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
-    expired: visits.filter((v) => v.status === 'expire').length,
-    drafts: visits.filter((v) => v.status === 'brouillon').length,
-  };
+  }, [isAidant]);
 
   const sortedVisits = useMemo(() => {
     return visits
@@ -139,11 +87,6 @@ const VisitsPage = () => {
           new Date(b.scheduled_date).getTime()
       );
   }, [visits, filterStatus]);
-
-  const getStatusCount = (status: string) => {
-    if (status === 'all') return visits.length;
-    return visits.filter((v) => v.status === status).length;
-  };
 
   const handleAdd = () => {
     if (!canPlanify) {
@@ -159,11 +102,10 @@ const VisitsPage = () => {
     fetchVisits();
     setIsModalOpen(false);
     
-    // ✅ Si la visite créée nécessite un paiement
     if (newVisit && newVisit.metadata?.requires_payment) {
       setPendingVisit(newVisit);
       setShowPaymentModal(true);
-      toast('💳 Paiement requis pour planifier la visite', {   icon: '💳',   duration: 4000, });
+      toast('💳 Paiement requis pour planifier la visite', { icon: '💳', duration: 4000 });
     } else {
       toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
     }
@@ -174,29 +116,6 @@ const VisitsPage = () => {
     setPendingVisit(null);
     await fetchVisits();
     toast.success('✅ Visite planifiée après paiement !');
-  };
-
-  const handleApproveVisit = async (visitId: string) => {
-    try {
-      await approveVisit(visitId);
-      toast.success('Visite approuvée');
-      fetchVisits();
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur lors de l\'approbation');
-    }
-  };
-
-  const handleRefuseVisit = async (visitId: string) => {
-    const reason = prompt('Motif du refus :');
-    if (!reason) return;
-
-    try {
-      await refuseVisit(visitId, reason);
-      toast.error('Visite refusée');
-      fetchVisits();
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur lors du refus');
-    }
   };
 
   const handleStartVisit = async (visitId: string) => {
@@ -224,16 +143,11 @@ const VisitsPage = () => {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-24 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <div key={item} className="h-20 bg-white rounded-2xl animate-pulse" />
-          ))}
-        </div>
-        <div className="h-14 bg-white rounded-2xl animate-pulse" />
+        <div className="h-16 bg-white rounded-2xl animate-pulse" />
+        <div className="h-10 bg-white rounded-2xl animate-pulse w-2/3" />
         <div className="space-y-3">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-28 bg-white rounded-2xl animate-pulse" />
+            <div key={item} className="h-24 bg-white rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -241,124 +155,67 @@ const VisitsPage = () => {
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold mb-1.5"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <Calendar size={13} />
-              {isAidant ? 'Missions assignées' : 'Suivi des visites'}
-            </div>
-
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              {isAidant ? 'Mes missions' : 'Visites'}
-            </h1>
-
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
-              {visits.length} visite{visits.length > 1 ? 's' : ''} au total
-              {stats.drafts > 0 && (
-                <span className="ml-2 text-purple-500">💳 {stats.drafts} en attente paiement</span>
-              )}
-              {stats.expired > 0 && (
-                <span className="ml-2 text-red-500">⚠️ {stats.expired} expirée(s)</span>
-              )}
-            </p>
-          </div>
-
-          {canPlanify && (
-            <button
-              onClick={handleAdd}
-              className="hidden sm:inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90"
-              style={{ background: colors.primary }}
-            >
-              <Plus size={16} />
-              Planifier
-            </button>
-          )}
+    <div className="w-full max-w-full overflow-hidden space-y-5 pb-24 sm:pb-10">
+      
+      {/* ============================================================
+      EN-TÊTE CHALEUREUX
+      ============================================================ */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
+        <div>
+          <h1 className="text-xl font-black text-gray-800" style={{ color: colors.text }}>
+            {isAidant ? 'Mes missions' : 'Planning des visites'}
+          </h1>
+          <p className="text-xs text-gray-400 mt-1">
+            {isAidant 
+              ? 'Retrouvez vos accompagnements programmés et passés.' 
+              : 'Suivi et planification des visites d\'accompagnement à domicile.'}
+          </p>
         </div>
-      </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 lg:grid-cols-7 gap-2">
-        <CompactStatBox
-          icon={<Calendar size={16} />}
-          label="Total"
-          value={stats.total}
-          color={colors.primary}
-        />
-        <CompactStatBox
-          icon={<Clock size={16} />}
-          label="À valider"
-          value={stats.planned + stats.pending}
-          color="#FF9800"
-        />
-        <CompactStatBox
-          icon={<CheckCircle size={16} />}
-          label="Acceptées"
-          value={stats.accepted}
-          color="#2196F3"
-        />
-        <CompactStatBox
-          icon={<PlayCircle size={16} />}
-          label="En cours"
-          value={stats.inProgress}
-          color="#4CAF50"
-        />
-        <CompactStatBox
-          icon={<CheckCircle size={16} />}
-          label="Terminées"
-          value={stats.completed}
-          color="#9C27B0"
-        />
-        <CompactStatBox
-          icon={<AlertCircle size={16} />}
-          label="Expirées"
-          value={stats.expired}
-          color="#F44336"
-        />
-        <CompactStatBox
-          icon={<CreditCard size={16} />}
-          label="En attente paiement"
-          value={stats.drafts}
-          color="#8b5cf6"
-        />
-      </section>
-
-      {/* FILTRE EN SELECT */}
-      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-        <div className="flex items-center gap-3">
-          <Filter size={16} className="text-gray-400" />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="flex-1 px-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none focus:ring-2"
-            style={{
-              borderColor: colors.border || '#e5e0d8',
-              color: colors.text,
-            }}
+        {canPlanify && (
+          <button
+            onClick={handleAdd}
+            className="hidden sm:inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
+            style={{ background: colors.primary }}
           >
-            {statusFilterOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label} ({getStatusCount(option.value)})
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-gray-400 shrink-0">
-            {sortedVisits.length}
-          </span>
+            <Plus size={14} />
+            Planifier une visite
+          </button>
+        )}
+      </section>
+
+      {/* ============================================================
+      BARRE DE FILTRES HORIZONTALE (TABS)
+      ============================================================ */}
+      <section className="w-full overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex items-center gap-1.5 pb-1">
+          {statusFilterOptions.map((option) => {
+            const isActive = filterStatus === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => setFilterStatus(option.value)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                  isActive
+                    ? 'text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                style={{
+                  backgroundColor: isActive ? colors.primary : undefined,
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      {/* LISTE */}
+      {/* ============================================================
+      LISTE DE VISITES
+      ============================================================ */}
       {sortedVisits.length > 0 ? (
-        <section className="space-y-3 min-w-0">
+        <section className="space-y-3 min-w-0 max-w-full">
           {sortedVisits.map((visit) => (
             <div key={visit.id} className="min-w-0 max-w-full overflow-hidden">
               <VisitCard
@@ -381,67 +238,54 @@ const VisitsPage = () => {
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
+        /* ÉCRAN VIDE SIMPLIFIÉ */
+        <section className="bg-white rounded-2xl py-12 px-4 text-center border border-black/5">
           <div
-            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
+            className="w-11 h-11 rounded-2xl mx-auto flex items-center justify-center mb-3"
             style={{
-              background: colors.primary + '12',
+              background: colors.primary + '10',
               color: colors.primary,
             }}
           >
-            {filterStatus === 'annulee' ? (
-              <XCircle size={24} />
-            ) : filterStatus === 'expire' ? (
-              <AlertCircle size={24} />
-            ) : filterStatus === 'brouillon' ? (
-              <CreditCard size={24} />
-            ) : (
-              <Calendar size={24} />
-            )}
+            {filterStatus === 'brouillon' ? <CreditCard size={20} /> : <Calendar size={20} />}
           </div>
 
-          <h3 className="text-base font-bold" style={{ color: colors.text }}>
-            {filterStatus !== 'all'
-              ? 'Aucune visite avec ce statut'
-              : isAidant
-                ? 'Aucune mission assignée'
-                : 'Aucune visite'}
+          <h3 className="text-sm font-bold text-gray-700">
+            {filterStatus !== 'all' ? 'Aucune visite correspondante' : 'Aucune visite planifiée'}
           </h3>
 
-          <p className="text-xs mt-1 text-gray-500">
-            {filterStatus !== 'all'
-              ? 'Essayez un autre filtre.'
-              : isAidant
-                ? 'Vous n\'avez aucune mission pour le moment.'
-                : 'Planifiez votre première visite.'}
+          <p className="text-xs text-gray-400 mt-0.5">
+            {filterStatus !== 'all' ? 'Essayez de changer de filtre pour voir d\'autres statuts.' : 'Les visites programmées s\'afficheront ici.'}
           </p>
 
           {canPlanify && filterStatus === 'all' && (
             <button
               onClick={handleAdd}
-              className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90"
+              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90"
               style={{ background: colors.primary }}
             >
-              <Plus size={16} />
-              Planifier une visite
+              <Plus size={14} />
+              Créer une planification
             </button>
           )}
         </section>
       )}
 
-      {/* BOUTON MOBILE */}
+      {/* ============================================================
+      ACCÈS RAPIDE FLOUTÉ (MOBILE ONLY)
+      ============================================================ */}
       {canPlanify && (
         <button
           onClick={handleAdd}
-          className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
+          className="sm:hidden fixed bottom-20 right-4 z-40 w-11 h-11 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
           style={{ background: colors.primary }}
           aria-label="Planifier une visite"
         >
-          <Plus size={22} />
+          <Plus size={20} />
         </button>
       )}
 
-      {/* MODAL DE CRÉATION */}
+      {/* MODAL DE PLANIFICATION */}
       <VisitModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -463,40 +307,6 @@ const VisitsPage = () => {
           onSuccess={handlePaymentSuccess}
         />
       )}
-    </div>
-  );
-};
-
-// =============================================
-// COMPACT STAT BOX
-// =============================================
-
-interface CompactStatBoxProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}
-
-const CompactStatBox = ({ icon, label, value, color }: CompactStatBoxProps) => {
-  return (
-    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5 min-w-0">
-      <div className="flex items-center justify-between gap-1">
-        <div className="min-w-0">
-          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400 truncate">
-            {label}
-          </p>
-          <p className="text-lg font-bold leading-tight mt-0.5" style={{ color }}>
-            {value}
-          </p>
-        </div>
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: color + '14', color }}
-        >
-          {icon}
-        </div>
-      </div>
     </div>
   );
 };
