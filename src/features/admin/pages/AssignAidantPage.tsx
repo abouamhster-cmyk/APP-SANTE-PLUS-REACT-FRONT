@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
+import { useAssignmentStore } from '@/stores/assignmentStore';
 import { Loader2, CheckCircle, Users, RefreshCw, XCircle, Clock, AlertCircle, UserCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,7 +25,6 @@ interface Aidant {
   current_assignments: number;
 }
 
-// ✅ TYPE CORRIGÉ : patient_name = string | undefined
 interface PersonalAccount {
   id: string;
   full_name: string;
@@ -32,19 +32,21 @@ interface PersonalAccount {
   category: 'personal' | 'senior' | 'maman_bebe';
   hasPatient: boolean;
   patient_id?: string | null;
-  patient_name?: string;  // ✅ string | undefined
+  patient_name?: string;
 }
 
-// ✅ TYPES D'ASSIGNATION
+// ✅ TYPES D'ASSIGNATION (nouveau système)
 const ASSIGNMENT_TYPES = [
-  { value: 'permanente', label: '📌 Permanente', color: '#10B981' },
-  { value: 'temporaire', label: '⏳ Temporaire', color: '#F59E0B' },
-  { value: 'ponctuelle', label: '⚡ Ponctuelle', color: '#3B82F6' },
+  { value: 'primary', label: '📌 Permanente', color: '#10B981' },
+  { value: 'temporary', label: '⏳ Temporaire', color: '#F59E0B' },
+  { value: 'secondary', label: '⚡ Ponctuelle', color: '#3B82F6' },
 ];
 
 const AssignAidantPage = () => {
   const { profile, role, user } = useAuthStore();
   const { syncAidantPatients } = usePatientStore();
+  const { fetchAssignments, assignments: storeAssignments } = useAssignmentStore();
+  
   const [aidants, setAidants] = useState<Aidant[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
   const [personalAccounts, setPersonalAccounts] = useState<PersonalAccount[]>([]);
@@ -53,7 +55,7 @@ const AssignAidantPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedAidant, setSelectedAidant] = useState<string>('');
-  const [selectedType, setSelectedType] = useState<string>('permanente');
+  const [selectedType, setSelectedType] = useState<string>('primary');
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -124,7 +126,6 @@ const AssignAidantPage = () => {
 
       const familiesWithPatients = new Set(links?.map(l => l.family_id) || []);
 
-      // patient_name: undefined au lieu de null
       const personalAccountsData: PersonalAccount[] = (families || [])
         .filter((f: any) => !familiesWithPatients.has(f.id))
         .map((f: any) => ({
@@ -134,16 +135,16 @@ const AssignAidantPage = () => {
           category: f.patient_category === 'maman_bebe' ? 'maman_bebe' : 'personal',
           hasPatient: false,
           patient_id: null,
-          patient_name: undefined, 
+          patient_name: undefined,
         }));
 
       setPersonalAccounts(personalAccountsData);
 
-      // ✅ 4. Récupérer les assignations existantes
+      // ✅ 4. Récupérer les assignations existantes (NOUVEAU SYSTÈME)
       const { data: existingAssignments, error: assignError } = await supabase
-        .from('patient_family_links')
-        .select('patient_id, family_id, relationship')
-        .eq('is_primary', true);
+        .from('aidant_assignments')
+        .select('*')
+        .eq('status', 'active');
 
       if (assignError) {
         console.error('❌ Erreur récupération assignations:', assignError);
@@ -153,35 +154,16 @@ const AssignAidantPage = () => {
       
       if (existingAssignments) {
         for (const assign of existingAssignments) {
-          const aidant = aidantsWithUser.find((a: any) => a.user_id === assign.family_id);
-          if (aidant && assign.patient_id) {
-            newAssignments[`patient_${assign.patient_id}`] = {
-              aidantUserId: aidant.user_id,
-              type: assign.relationship || 'permanente',
-              targetType: 'patient',
-            };
-          }
-        }
-      }
-
-      const { data: personalAssignments, error: personalAssignError } = await supabase
-        .from('patient_family_links')
-        .select('family_id, relationship')
-        .is('patient_id', null)
-        .eq('is_primary', true);
-
-      if (!personalAssignError && personalAssignments) {
-        for (const assign of personalAssignments) {
-          const aidant = aidantsWithUser.find((a: any) => a.user_id === assign.family_id);
+          const aidant = aidantsWithUser.find((a: any) => a.user_id === assign.aidant_user_id);
           if (aidant) {
-            const account = personalAccountsData.find((p: any) => p.id === assign.family_id);
-            if (account) {
-              newAssignments[`personal_${account.id}`] = {
-                aidantUserId: aidant.user_id,
-                type: assign.relationship || 'permanente',
-                targetType: 'personal',
-              };
-            }
+            const isPatient = assign.target_type === 'patient';
+            const key = isPatient ? `patient_${assign.target_id}` : `personal_${assign.target_id}`;
+            
+            newAssignments[key] = {
+              aidantUserId: assign.aidant_user_id,
+              type: assign.assignment_type || 'primary',
+              targetType: isPatient ? 'patient' : 'personal',
+            };
           }
         }
       }
@@ -220,8 +202,8 @@ const AssignAidantPage = () => {
     }
   };
 
-  // ✅ Fonction d'assignation pour patient OU compte personnel
-  const handleAssign = async (item: any, aidantUserId: string, assignmentType: string = 'permanente') => {
+  // ✅ Fonction d'assignation - NOUVEAU SYSTÈME
+  const handleAssign = async (item: any, aidantUserId: string, assignmentType: string = 'primary') => {
     if (!aidantUserId) {
       toast('Veuillez sélectionner un aidant', { icon: 'ℹ️' });
       return;
@@ -239,6 +221,7 @@ const AssignAidantPage = () => {
       const isPersonal = item._type === 'personal';
       const targetId = isPersonal ? item.id : item.id;
       const targetName = isPersonal ? item.full_name : `${item.first_name} ${item.last_name}`;
+      const targetType = isPersonal ? 'personal_account' : 'patient';
       const assignmentKey = isPersonal ? `personal_${targetId}` : `patient_${targetId}`;
 
       // ✅ Vérifier si déjà assigné
@@ -249,11 +232,12 @@ const AssignAidantPage = () => {
         return;
       }
 
-      // ✅ Compter les assignations actuelles
+      // ✅ Vérifier le quota de l'aidant
       const { count: currentCount, error: countError } = await supabase
-        .from('patient_family_links')
+        .from('aidant_assignments')
         .select('id', { count: 'exact', head: true })
-        .eq('family_id', aidant.user_id);
+        .eq('aidant_user_id', aidantUserId)
+        .eq('status', 'active');
 
       if (countError) {
         console.error('❌ Erreur comptage:', countError);
@@ -268,26 +252,21 @@ const AssignAidantPage = () => {
         return;
       }
 
-      // ✅ Créer l'assignation
-      const insertData: any = {
-        family_id: aidant.user_id,
-        is_primary: true,
-        relationship: assignmentType,
-        can_manage_visits: true,
-        can_manage_orders: true,
-        can_receive_notifications: true,
-      };
-
-      // Pour un patient, ajouter patient_id
-      if (!isPersonal) {
-        insertData.patient_id = targetId;
-      }
-      // Pour un compte personnel, patient_id = null
-
+      // ✅ Créer l'assignation - NOUVEAU SYSTÈME
       const { data: newAssignment, error: insertError } = await supabase
-        .from('patient_family_links')
-        .insert(insertData)
-        .select();
+        .from('aidant_assignments')
+        .insert({
+          aidant_user_id: aidantUserId,
+          target_type: targetType,
+          target_id: targetId,
+          priority: isPersonal ? 2 : 1,
+          assignment_type: assignmentType,
+          status: 'active',
+          created_by: user?.id,
+          reason: `Assigné par admin à ${targetName}`,
+        })
+        .select()
+        .single();
 
       if (insertError) {
         console.error('❌ Erreur insertion:', insertError);
@@ -296,7 +275,7 @@ const AssignAidantPage = () => {
         return;
       }
 
-      // ✅ Mettre à jour current_assignments
+      // ✅ Mettre à jour current_assignments de l'aidant
       await supabase
         .from('aidants')
         .update({
@@ -321,8 +300,9 @@ const AssignAidantPage = () => {
           : `Vous accompagnez à présent ${targetName} (${assignmentType})`,
         type: 'system',
         data: { 
+          assignment_id: newAssignment.id,
           target_id: targetId,
-          target_type: isPersonal ? 'personal' : 'patient',
+          target_type: targetType,
           assignment_type: assignmentType 
         },
       });
@@ -333,16 +313,87 @@ const AssignAidantPage = () => {
         title: '✅ Aidant assigné',
         body: `Un aidant a été assigné à ${isPersonal ? 'votre compte personnel' : targetName}`,
         type: 'system',
-        data: { aidant_id: aidant.id },
+        data: { 
+          assignment_id: newAssignment.id,
+          aidant_id: aidant.id,
+        },
       });
 
-      toast.success(`✅ ${targetName} assigné avec succès à ${aidant.user?.full_name} (${assignmentType})`);
+      toast.success(`✅ ${targetName} assigné avec succès à ${aidant.user?.full_name} (${ASSIGNMENT_TYPES.find(t => t.value === assignmentType)?.label || assignmentType})`);
 
       // ✅ Rafraîchir
       await fetchData();
     } catch (error) {
       console.error('❌ Erreur assignation:', error);
       toast.error('Erreur lors de l\'assignation');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ✅ Fonction pour retirer une assignation
+  const handleRevoke = async (item: any, aidantUserId: string) => {
+    const name = item._displayName || item.full_name || 'bénéficiaire';
+    if (!window.confirm(`Retirer l'assignation de ${name} ?`)) return;
+
+    setIsSaving(true);
+    try {
+      const isPersonal = item._type === 'personal';
+      const targetType = isPersonal ? 'personal_account' : 'patient';
+      const targetId = item.id;
+
+      // ✅ Supprimer l'assignation dans le nouveau système
+      const { error } = await supabase
+        .from('aidant_assignments')
+        .update({
+          status: 'inactive',
+          reason: `Révoqué par admin (${user?.id})`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('aidant_user_id', aidantUserId)
+        .eq('target_type', targetType)
+        .eq('target_id', targetId)
+        .eq('status', 'active');
+
+      if (error) {
+        console.error('❌ Erreur révocation:', error);
+        toast.error(`Erreur: ${error.message}`);
+        setIsSaving(false);
+        return;
+      }
+
+      // ✅ Mettre à jour l'état local
+      const assignmentKey = isPersonal ? `personal_${targetId}` : `patient_${targetId}`;
+      setAssignments(prev => {
+        const newState = { ...prev };
+        delete newState[assignmentKey];
+        return newState;
+      });
+
+      // ✅ Mettre à jour current_assignments de l'aidant
+      const { count: currentCount } = await supabase
+        .from('aidant_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('aidant_user_id', aidantUserId)
+        .eq('status', 'active');
+
+      const aidant = aidants.find(a => a.user_id === aidantUserId);
+      if (aidant) {
+        await supabase
+          .from('aidants')
+          .update({
+            current_assignments: currentCount || 0,
+            available: (currentCount || 0) < (aidant.max_assignments || 4),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', aidant.id);
+      }
+
+      toast.success(`✅ Assignation de ${name} retirée`);
+      await fetchData();
+    } catch (error) {
+      console.error('❌ Erreur révocation:', error);
+      toast.error('Erreur lors de la révocation');
     } finally {
       setIsSaving(false);
     }
@@ -581,35 +632,9 @@ const AssignAidantPage = () => {
                           </select>
                           {isAssigned && (
                             <button
-                              onClick={async () => {
-                                const name = item._displayName || item.full_name || 'bénéficiaire';
-                                if (!window.confirm(`Retirer l'assignation de ${name} ?`)) return;
-                                
-                                // Supprimer l'assignation
-                                const query = assignment.targetType === 'personal'
-                                  ? supabase
-                                      .from('patient_family_links')
-                                      .delete()
-                                      .eq('family_id', aidant?.user_id)
-                                      .is('patient_id', null)
-                                  : supabase
-                                      .from('patient_family_links')
-                                      .delete()
-                                      .eq('patient_id', isPersonal ? null : item.id)
-                                      .eq('family_id', aidant?.user_id);
-
-                                await query;
-                                
-                                setAssignments(prev => {
-                                  const newState = { ...prev };
-                                  delete newState[item._id];
-                                  return newState;
-                                });
-                                
-                                await fetchData();
-                                toast.success('Assignation retirée');
-                              }}
+                              onClick={() => handleRevoke(item, assignment.aidantUserId)}
                               className="p-1.5 rounded-lg hover:bg-red-50 transition text-red-500"
+                              title="Retirer l'assignation"
                             >
                               <XCircle size={14} />
                             </button>
