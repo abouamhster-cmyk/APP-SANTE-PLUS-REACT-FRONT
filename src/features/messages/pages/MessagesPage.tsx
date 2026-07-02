@@ -943,7 +943,7 @@ const MessagesPage = () => {
       // Déterminer les destinataires
       let targetUserIds: string[] = [];
       let conversationType: 'direct' | 'group' = 'direct';
-      let conversationName: string | null = null;
+      let conversationName: string | undefined = undefined;
 
       if (targetType === 'specific' && targetUserId) {
         targetUserIds = [targetUserId];
