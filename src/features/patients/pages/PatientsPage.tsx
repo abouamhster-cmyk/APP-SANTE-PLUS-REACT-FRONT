@@ -3,17 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, 
   Plus, 
   Search, 
-  Users, 
-  Filter,
   UserPlus,
-  UserCircle,
-  Baby,
-  CheckCircle,
-  Users as UsersIcon,
-  UserSearch,
   ShieldAlert,
   RefreshCw,
 } from 'lucide-react';
@@ -25,10 +17,7 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { PatientModal } from '../components/PatientModal';
-// ✅ IMPORTER le hook de rafraîchissement
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-// ✅ IMPORTER le bouton de rafraîchissement
-import { RefreshButton } from '@/components/ui/RefreshButton';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -45,7 +34,6 @@ const PatientsPage = () => {
     getCountLabel,
     isFamily,
     isAidant,
-    isAdminOrCoordinator,
   } = useTerminology();
 
   const { 
@@ -55,9 +43,6 @@ const PatientsPage = () => {
     deletePatient, 
     canManagePatients, 
     syncAidantPatients,
-    // ✅ Ajouter ces méthodes si elles existent, sinon on utilise fetchPatients
-    refresh,
-    invalidateCache,
   } = usePatientStore();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,36 +53,29 @@ const PatientsPage = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
-
   const canManage = canManagePatients();
 
   // ✅ UTILISER le hook de rafraîchissement
-  const { refreshAll, isRefreshing } = useRefreshableData({
+  useRefreshableData({
     onRefresh: async () => {
       if (isAidant) {
         await syncAidantPatients();
       } else {
-        await fetchPatients(true); // Force refresh
+        await fetchPatients(true);
       }
     },
-    onError: (error) => toast.error('Erreur lors du rafraîchissement des patients'),
+    onError: () => toast.error('Erreur lors du rafraîchissement des patients'),
   });
 
   // ✅ CHARGEMENT INITIAL + SYNC POUR AIDANT
   useEffect(() => {
     const loadPatients = async () => {
-      console.log('🔍 PatientsPage - Chargement initial');
-      console.log('🔍 Rôle:', role);
-      console.log('🔍 User ID:', user?.id);
-      
       if (isAidant) {
-        console.log('🔄 Aidant détecté - Synchronisation automatique');
         await syncAidantPatients();
       } else {
         await fetchPatients();
       }
     };
-    
     loadPatients();
   }, [role, user?.id]);
 
@@ -136,7 +114,6 @@ const PatientsPage = () => {
     try {
       await deletePatient(id);
       toast.success(`${singular.charAt(0).toUpperCase() + singular.slice(1)} supprimé`);
-      // ✅ Recharger après suppression
       if (isAidant) {
         await syncAidantPatients();
       } else {
@@ -172,7 +149,7 @@ const PatientsPage = () => {
     if (isAidant) {
       syncAidantPatients();
     } else {
-      fetchPatients(true); // Force refresh
+      fetchPatients(true);
     }
     setIsModalOpen(false);
     toast.success(
@@ -185,52 +162,36 @@ const PatientsPage = () => {
   // ✅ SYNCHRONISATION MANUELLE
   const handleSync = async () => {
     setIsSyncing(true);
-    console.log('🔄 Synchronisation manuelle - Début');
-    
     try {
-      console.log('🔍 User ID:', user?.id);
-      console.log('🔍 Rôle:', role);
-      
-      const { data: aidant, error: aidantError } = await supabase
+      const { data: aidant } = await supabase
         .from('aidants')
         .select('id, user_id, is_verified, status')
         .eq('user_id', user?.id)
         .single();
       
-      console.log('🔍 Aidant:', aidant);
-      console.log('🔍 Aidant Error:', aidantError);
-      
       if (aidant) {
-        const { data: assignments, error: assignError } = await supabase
+        const { data: assignments } = await supabase
           .from('patient_aidant_assignments')
           .select('patient_id, is_active')
           .eq('aidant_id', aidant.id)
           .eq('is_active', true);
         
-        console.log('🔍 Assignations:', assignments);
-        console.log('🔍 Assign Error:', assignError);
-        
         if (assignments && assignments.length > 0) {
           const patientIds = assignments.map(a => a.patient_id);
-          console.log('🔍 Patient IDs:', patientIds);
-          
-          const { data: patients, error: patientsError } = await supabase
+          const { data: directPatients } = await supabase
             .from('patients')
             .select('*')
             .in('id', patientIds);
           
-          console.log('🔍 Patients trouvés:', patients);
-          console.log('🔍 Patients Error:', patientsError);
-          
-          if (patients && patients.length > 0) {
-            usePatientStore.setState({ patients: patients });
-            toast.success(`✅ ${patients.length} patient(s) synchronisé(s)`);
+          if (directPatients && directPatients.length > 0) {
+            usePatientStore.setState({ patients: directPatients });
+            toast.success(`✅ ${directPatients.length} patient(s) synchronisé(s)`);
           } else {
-            toast('Aucun patient trouvé pour ces assignations', { icon: 'ℹ️' });
+            toast('Aucun patient trouvé', { icon: 'ℹ️' });
             usePatientStore.setState({ patients: [] });
           }
         } else {
-          toast('Aucune assignation trouvée pour cet aidant', { icon: 'ℹ️' });
+          toast('Aucune assignation trouvée', { icon: 'ℹ️' });
           usePatientStore.setState({ patients: [] });
         }
       } else {
@@ -244,26 +205,14 @@ const PatientsPage = () => {
     }
   };
 
-  const stats = {
-    total: patients.length,
-    senior: patients.filter((p) => p.category === 'senior').length,
-    maman: patients.filter((p) => p.category === 'maman_bebe').length,
-    active: patients.filter((p) => p.status === 'active').length,
-  };
-
   if (isLoading) {
     return (
-      <div className="max-w-5xl mx-auto space-y-5 p-3 sm:p-4">
-        <div className="h-20 bg-white rounded-3xl animate-pulse shadow-sm" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 bg-white rounded-2xl animate-pulse shadow-sm" />
-          ))}
-        </div>
-        <div className="h-12 bg-white rounded-2xl animate-pulse shadow-sm" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-40 bg-white rounded-2xl animate-pulse shadow-sm" />
+      <div className="w-full max-w-5xl mx-auto space-y-4 p-3 sm:p-4">
+        <div className="h-16 bg-white rounded-2xl animate-pulse" />
+        <div className="h-10 bg-white rounded-2xl animate-pulse w-2/3" />
+        <div className="space-y-3">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-24 bg-white rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -271,270 +220,179 @@ const PatientsPage = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
+    <div className="w-full max-w-5xl mx-auto space-y-5 pb-20 px-4 sm:px-6">
       
-      {/* ========================================== */}
-      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
-      {/* ========================================== */}
-      <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
-        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
-      >
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <UsersIcon size={20} style={{ color: colors.primary }} />
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
-                {list}
-              </h1>
+      {/* ============================================================
+      EN-TÊTE COMPACT ET CHALEUREUX
+      ============================================================ */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
+        <div>
+          <h1 className="text-xl font-black text-gray-800" style={{ color: colors.text }}>
+            {list}
+          </h1>
+          <p className="text-xs text-gray-400 mt-1">
+            {getCountLabel(patients.length)}
+            {isAidant && <span className="text-amber-600 font-semibold"> • Patients assignés uniquement</span>}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+          {/* TOUCHE DE RAFRAÎCHISSEMENT RAPIDE */}
+          <button
+            onClick={() => {
+              if (isAidant) {
+                syncAidantPatients();
+              } else {
+                fetchPatients(true);
+              }
+              toast.success('Patients actualisés');
+            }}
+            disabled={isLoading || isSyncing}
+            className="p-2 rounded-xl border hover:bg-gray-50 transition text-gray-500 shrink-0"
+            style={{ borderColor: colors.border }}
+            title="Actualiser la liste"
+          >
+            <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+
+          {canManage && (
+            <button
+              onClick={handleAdd}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-white transition hover:opacity-90 shrink-0 flex items-center gap-1.5 shadow-sm"
+              style={{ background: colors.primary }}
+            >
+              <Plus size={13} />
+              {add}
+            </button>
+          )}
+
+          {isAidant && !canManage && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-100">
+              <ShieldAlert size={13} className="text-amber-500" />
+              <span className="text-[10px] font-bold text-amber-700">Lecture seule</span>
             </div>
-            <p className="text-xs" style={{ color: colors.textLight }}>
-              {getCountLabel(patients.length)}
-              {isAidant && <span className="ml-2 text-[10px] text-amber-600">(Patients assignés uniquement)</span>}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
-            <RefreshButton 
-              size="sm" 
-              showText={false}
-              onRefresh={() => {
-                if (isAidant) {
-                  syncAidantPatients();
-                } else {
-                  fetchPatients(true);
-                }
-                toast.success('🔄 Patients actualisés');
-              }}
-            />
-
-            {canManage && (
-              <button
-                onClick={handleAdd}
-                className="px-4 py-2.5 rounded-2xl text-xs font-bold text-white transition hover:opacity-90 shrink-0 flex items-center gap-1.5"
-                style={{ background: colors.primary }}
-              >
-                <UserPlus size={14} />
-                {add}
-              </button>
-            )}
-
-            {isAidant && !canManage && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-amber-50 border border-amber-200">
-                <ShieldAlert size={16} className="text-amber-500" />
-                <span className="text-xs text-amber-600">Lecture seule</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </section>
 
-      {/* ========================================== */}
-      {/* STATS */}
-      {/* ========================================== */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard 
-          label="Total" 
-          value={stats.total} 
-          color={colors.primary} 
-          icon={<UsersIcon size={16} />} 
-        />
-        <StatCard 
-          label="Senior" 
-          value={stats.senior} 
-          color="#4CAF50" 
-          icon={<UserCircle size={16} />} 
-        />
-        <StatCard 
-          label="Maman" 
-          value={stats.maman} 
-          color="#E8B4B8" 
-          icon={<Baby size={16} />} 
-        />
-        <StatCard 
-          label="Actifs" 
-          value={stats.active} 
-          color="#2196F3" 
-          icon={<CheckCircle size={16} />} 
-        />
-      </section>
-
-      {/* ========================================== */}
-      {/* RECHERCHE + FILTRE */}
-      {/* ========================================== */}
-      <section className="bg-white rounded-3xl p-3 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* ============================================================
+      RECHERCHE + FILTRE COMPACT
+      ============================================================ */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5 flex flex-col sm:flex-row gap-2.5 w-full min-w-0">
+        <div className="relative flex-1 min-w-0 w-full">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={`Rechercher un${singular.startsWith('béné') ? ' ' : 'e '}${singular}...`}
-            className="w-full pl-10 pr-3 py-2.5 text-xs rounded-2xl border outline-none"
-            style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+            placeholder="Rechercher par nom ou adresse..."
+            className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none transition focus:ring-1 focus:ring-offset-0 min-w-0"
+            style={{ borderColor: colors.border, color: colors.text }}
           />
         </div>
+        
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3.5 py-2.5 text-xs rounded-2xl border outline-none"
-          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+          className="px-3 py-2 text-xs rounded-xl border bg-gray-50 outline-none focus:ring-2 shrink-0 sm:w-44"
+          style={{ borderColor: colors.border, color: colors.text }}
         >
-          <option value="all">Tous</option>
-          <option value="senior">Senior</option>
+          <option value="all">Toutes catégories</option>
+          <option value="senior">Seniors</option>
           <option value="maman_bebe">Maman & Bébé</option>
         </select>
       </section>
 
-      {/* ========================================== */}
-      {/* BOUTON SYNC POUR AIDANTS */}
-      {/* ========================================== */}
+      {/* ============================================================
+      SYNCHRONISATION DIRECTE POUR LES AIDANTS
+      ============================================================ */}
       {isAidant && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-amber-900">Synchronisation des assignations</p>
+            <p className="text-[10px] text-amber-600 mt-0.5">
+              Si vous ne voyez pas vos patients, synchronisez vos autorisations d'accès.
+            </p>
+          </div>
+          
           <button
             onClick={handleSync}
             disabled={isSyncing}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition hover:opacity-90 disabled:opacity-50"
-            style={{ background: colors.primary + '12', color: colors.primary }}
+            className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm border bg-white"
+            style={{ borderColor: colors.primary + '20', color: colors.primary }}
           >
-            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
-            {isSyncing ? 'Synchronisation...' : '🔄 Synchroniser les patients'}
+            <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
+            {isSyncing ? 'Synchronisation...' : 'Synchroniser'}
           </button>
-          <button
-            onClick={async () => {
-              console.log('🔍 FORCE SYNC - Vérification directe');
-              try {
-                const { data: aidant } = await supabase
-                  .from('aidants')
-                  .select('id, user_id')
-                  .eq('user_id', user?.id)
-                  .single();
-                console.log('🔍 Aidant direct:', aidant);
-                
-                if (aidant) {
-                  const { data: assignments } = await supabase
-                    .from('patient_aidant_assignments')
-                    .select('patient_id')
-                    .eq('aidant_id', aidant.id)
-                    .eq('is_active', true);
-                  console.log('🔍 Assignations directes:', assignments);
-                  
-                  if (assignments && assignments.length > 0) {
-                    const patientIds = assignments.map(a => a.patient_id);
-                    const { data: patients } = await supabase
-                      .from('patients')
-                      .select('*')
-                      .in('id', patientIds);
-                    console.log('🔍 Patients trouvés:', patients);
-                    
-                    if (patients && patients.length > 0) {
-                      usePatientStore.setState({ patients: patients });
-                      toast.success(`✅ ${patients.length} patient(s) synchronisé(s)`);
-                    } else {
-                      toast('Aucun patient trouvé', { icon: 'ℹ️' });
-                    }
-                  } else {
-                    toast('Aucune assignation trouvée', { icon: 'ℹ️' });
-                  }
-                }
-              } catch (e) {
-                console.error('Force sync error:', e);
-                toast.error('Erreur lors du debug');
-              }
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition hover:opacity-90"
-            style={{ background: '#F59E0B15', color: '#F59E0B' }}
-          >
-            ⚡ Debug
-          </button>
-          <span className="text-[10px] text-gray-400">
-            Mise à jour manuelle des patients assignés
-          </span>
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* LISTE DES PATIENTS */}
-      {/* ========================================== */}
+      {/* ============================================================
+      LISTE DE PATIENTS
+      ============================================================ */}
       {filteredPatients.length > 0 ? (
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full min-w-0">
           {filteredPatients.map((patient: any) => (
-            <PatientCard
-              key={patient.id}
-              patient={patient}
-              onClick={() => navigate(`/app/patients/${patient.id}`)}
-              onEdit={canManage ? () => handleEdit(patient) : undefined}
-              onDelete={canManage ? () => handleDelete(patient.id) : undefined}
-              showActions={canManage}
-              compact
-            />
+            <div key={patient.id} className="min-w-0 max-w-full overflow-hidden">
+              <PatientCard
+                patient={patient}
+                onClick={() => navigate(`/app/patients/${patient.id}`)}
+                onEdit={canManage ? () => handleEdit(patient) : undefined}
+                onDelete={canManage ? () => handleDelete(patient.id) : undefined}
+                showActions={canManage}
+                compact
+              />
+            </div>
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-black/5">
+        /* ÉCRAN VIDE SIMPLIFIÉ */
+        <section className="bg-white rounded-2xl py-12 px-4 text-center border border-black/5">
           <Illustration 
             type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} 
-            size="lg" 
-            className="mx-auto mb-4 opacity-40"
+            size="md" 
+            className="mx-auto mb-3 opacity-30"
           />
 
-          <h3 className="text-base font-bold" style={{ color: colors.text }}>
+          <h3 className="text-sm font-bold text-gray-700">
             {searchTerm || categoryFilter !== 'all'
-              ? `Aucun${singular === 'personne accompagnée' ? 'e' : ''} ${singular} trouvé`
+              ? 'Aucun résultat trouvé'
               : empty}
           </h3>
 
-          <p className="text-xs mt-1 text-gray-400">
+          <p className="text-xs text-gray-400 mt-0.5">
             {searchTerm || categoryFilter !== 'all'
-              ? 'Essayez avec d\'autres critères.'
+              ? 'Essayez de modifier vos critères de recherche.'
               : emptyAction}
           </p>
 
           {!searchTerm && categoryFilter === 'all' && canManage && (
             <button
               onClick={handleAdd}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-white font-bold text-sm"
+              className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs"
               style={{ background: colors.primary }}
             >
-              <UserPlus size={14} />
+              <UserPlus size={13} />
               {add}
             </button>
-          )}
-
-          {isAidant && patients.length === 0 && !searchTerm && categoryFilter === 'all' && (
-            <div className="mt-4 space-y-2">
-              <p className="text-xs text-amber-600">
-                💡 Aucun patient ne vous est encore assigné. Contactez l'administrateur.
-              </p>
-              <button
-                onClick={handleSync}
-                className="text-xs font-bold px-4 py-2 rounded-xl"
-                style={{ background: colors.primary + '12', color: colors.primary }}
-              >
-                🔄 Vérifier les assignations
-              </button>
-            </div>
           )}
         </section>
       )}
 
-      {/* ========================================== */}
-      {/* BOUTON MOBILE - Caché pour les aidants */}
-      {/* ========================================== */}
+      {/* ============================================================
+      ACCÈS RAPIDE FLOUTÉ (MOBILE ONLY)
+      ============================================================ */}
       {canManage && (
         <button
           onClick={handleAdd}
-          className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
+          className="sm:hidden fixed bottom-20 right-4 z-40 w-11 h-11 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
           style={{ background: colors.primary }}
           aria-label={add}
         >
-          <Plus size={22} />
+          <Plus size={20} />
         </button>
       )}
 
-      {/* ========================================== */}
-      {/* MODAL */}
-      {/* ========================================== */}
+      {/* MODAL PATIENT */}
       <PatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -545,28 +403,5 @@ const PatientsPage = () => {
     </div>
   );
 };
-
-// =============================================
-// STAT CARD
-// =============================================
-
-interface StatCardProps {
-  label: string;
-  value: number;
-  color: string;
-  icon: React.ReactNode;
-}
-
-const StatCard = ({ label, value, color, icon }: StatCardProps) => (
-  <div className="bg-white rounded-2xl p-3 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
-    <div className="space-y-0.5">
-      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
-    </div>
-    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '0d', color }}>
-      {icon}
-    </div>
-  </div>
-);
 
 export default PatientsPage;
