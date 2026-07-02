@@ -33,7 +33,7 @@ const AidantDetailPage = () => {
 
   const { profile, role, user } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
-  const { fetchActiveAidant, activeAidant, isLoading: assignmentLoading } = useAssignmentStore();
+  const { fetchActiveAidant, isLoading: assignmentLoading } = useAssignmentStore();
   const {
     selectedAidant: aidant,
     isLoading,
@@ -62,8 +62,13 @@ const AidantDetailPage = () => {
       try {
         // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
         const personalResponse = await fetchActiveAidant('personal_account', user.id);
-        // ✅ CORRECTION : Utiliser aidant_user_id ou aidant_id selon le retour
-        if (personalResponse?.aidant?.id === id || personalResponse?.aidant_id === id) {
+        // ✅ CORRECTION : Vérifier les deux propriétés possibles
+        const isPersonalAssigned = 
+          personalResponse?.aidant?.id === id || 
+          personalResponse?.aidant_id === id ||
+          personalResponse?.aidant_user_id === id;
+          
+        if (isPersonalAssigned) {
           setIsAlreadyAssigned(true);
           setIsCheckingAssignment(false);
           return;
@@ -73,14 +78,19 @@ const AidantDetailPage = () => {
         const patientIds = patients.map(p => p.id);
         for (const patientId of patientIds) {
           const patientResponse = await fetchActiveAidant('patient', patientId, user.id);
-          if (patientResponse?.aidant?.id === id || patientResponse?.aidant_id === id) {
+          const isPatientAssigned = 
+            patientResponse?.aidant?.id === id || 
+            patientResponse?.aidant_id === id ||
+            patientResponse?.aidant_user_id === id;
+            
+          if (isPatientAssigned) {
             setIsAlreadyAssigned(true);
             setIsCheckingAssignment(false);
             return;
           }
         }
 
-        // ✅ 3. Vérifier via les assignations du store
+        // ✅ 3. Vérifier via les assignations du store (legacy)
         const isAssignedInStore = assignments.some(
           (a) => a.family_id === user.id && a.relationship !== 'cancelled'
         );
