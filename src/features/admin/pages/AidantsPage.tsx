@@ -153,26 +153,27 @@ const AidantsPage = () => {
       const newAssignmentsMap: Record<string, AssignmentInfo[]> = {};
 
       if (aidantUserIds.length > 0) {
-        const { data: assignments, error: assignmentsError } = await supabase
-          .from('aidant_assignments')
-          .select(`
-            id,
-            target_type,
-            target_id,
-            assignment_type,
-            status,
-            target_patient:patients!target_id(
+          const { data: assignments, error: assignmentsError } = await supabase
+            .from('aidant_assignments')
+            .select(`
               id,
-              first_name,
-              last_name
-            ),
-            target_profile:profiles!target_id(
-              id,
-              full_name
-            )
-          `)
-          .in('aidant_user_id', aidantUserIds)
-          .eq('status', 'active');
+              aidant_user_id,
+              target_type,
+              target_id,
+              assignment_type,
+              status,
+              target_patient:patients!target_id(
+                id,
+                first_name,
+                last_name
+              ),
+              target_profile:profiles!target_id(
+                id,
+                full_name
+              )
+            `)
+            .in('aidant_user_id', aidantUserIds)
+            .eq('status', 'active');
 
         if (assignmentsError) {
           console.error('❌ Erreur récupération assignations:', assignmentsError);
@@ -184,9 +185,17 @@ const AidantsPage = () => {
               newAssignmentsMap[aidantUserId] = [];
             }
 
-            const targetName = assignment.target_type === 'patient'
-              ? `${assignment.target_patient?.first_name || ''} ${assignment.target_patient?.last_name || ''}`.trim() || 'Patient'
-              : assignment.target_profile?.full_name || 'Compte personnel';
+          const targetPatient = Array.isArray(assignment.target_patient) 
+            ? assignment.target_patient[0] 
+            : assignment.target_patient;
+          
+          const targetProfile = Array.isArray(assignment.target_profile)
+            ? assignment.target_profile[0]
+            : assignment.target_profile;
+          
+          const targetName = assignment.target_type === 'patient'
+            ? `${targetPatient?.first_name || ''} ${targetPatient?.last_name || ''}`.trim() || 'Patient'
+            : targetProfile?.full_name || 'Compte personnel';
 
             newAssignmentsMap[aidantUserId].push({
               id: assignment.id,
