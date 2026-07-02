@@ -9,6 +9,7 @@ import {
   DEFAULT_FILTERS,
   AidantCatalogState
 } from '@/types';
+import { assignmentAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -113,7 +114,7 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
   },
 
   // ============================================================
-  // FETCH MY ASSIGNMENTS
+  // ✅ FETCH MY ASSIGNMENTS - VERSION AVEC NOUVEAU SYSTÈME
   // ============================================================
   fetchMyAssignments: async () => {
     try {
@@ -126,7 +127,8 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
         throw new Error('Token manquant');
       }
 
-      const response = await fetch(`${API_BASE_URL}/aidants/my-assignments`, {
+      // ✅ Utiliser la nouvelle API d'assignation
+      const response = await fetch(`${API_BASE_URL}/assignments`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -139,18 +141,37 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
 
       const result = await response.json();
 
+      // ✅ Transformer les assignations pour qu'elles soient compatibles avec l'ancien format
+      const formattedAssignments = (result.data || []).map((assignment: any) => ({
+        id: assignment.id,
+        patient_id: assignment.target_type === 'patient' ? assignment.target_id : null,
+        family_id: assignment.target_id,
+        is_primary: assignment.assignment_type === 'primary',
+        relationship: assignment.assignment_type,
+        created_at: assignment.created_at,
+        target_type: assignment.target_type,
+        patient: assignment.target_patient || null,
+        family: assignment.target_profile || null,
+        aidant: assignment.aidant || null,
+        is_personal: assignment.target_type === 'personal_account',
+        target_name: assignment.target_type === 'patient' 
+          ? `${assignment.target_patient?.first_name || ''} ${assignment.target_patient?.last_name || ''}`.trim()
+          : assignment.target_profile?.full_name || 'Compte personnel',
+      }));
+
       set({
-        assignments: result.data || [],
+        assignments: formattedAssignments,
         isLoading: false,
       });
     } catch (error: any) {
       console.error('❌ Fetch assignments error:', error);
       set({ error: error.message, isLoading: false });
+      toast.error(error.message || 'Erreur lors du chargement des assignations');
     }
   },
 
   // ============================================================
-  // ASSIGN AIDANT - AVEC SUPPORT PERSONNEL (string | null)
+  // ✅ ASSIGN AIDANT - NOUVELLE VERSION
   // ============================================================
   assignAidant: async (aidantId: string, patientId: string | null = null, assignmentType = 'permanente') => {
     try {
@@ -163,20 +184,30 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
         throw new Error('Token manquant');
       }
 
-      // ✅ payload avec patientId optionnel
-      const payload: any = {
-        aidantId,
-        assignmentType,
-      };
+      // ✅ Déterminer la cible
+      const targetType = patientId ? 'patient' : 'personal_account';
+      const targetId = patientId || (await supabase.auth.getUser()).data.user?.id;
 
-      // ✅ patientId n'est ajouté que s'il est défini
-      if (patientId) {
-        payload.patientId = patientId;
-      }
+      // ✅ Convertir le type d'assignation
+      const assignmentTypeMap: Record<string, string> = {
+        'permanente': 'primary',
+        'temporaire': 'temporary',
+        'ponctuelle': 'secondary',
+      };
+      const newAssignmentType = assignmentTypeMap[assignmentType] || 'primary';
+
+      const payload = {
+        aidantUserId: aidantId,
+        targetType,
+        targetId,
+        assignmentType: newAssignmentType,
+        reason: patientId ? `Assignation au patient ${patientId}` : 'Assignation personnelle',
+      };
 
       console.log('📤 Assignation aidant avec payload:', payload);
 
-      const response = await fetch(`${API_BASE_URL}/aidants/assign`, {
+      // ✅ Utiliser la nouvelle API
+      const response = await fetch(`${API_BASE_URL}/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -209,7 +240,7 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
   },
 
   // ============================================================
-  // REVOKE ASSIGNMENT
+  // ✅ REVOKE ASSIGNMENT - NOUVELLE VERSION
   // ============================================================
   revokeAssignment: async (assignmentId: string) => {
     try {
@@ -222,7 +253,8 @@ export const useAidantCatalogStore = create<AidantCatalogState>((set, get) => ({
         throw new Error('Token manquant');
       }
 
-      const response = await fetch(`${API_BASE_URL}/aidants/assignments/${assignmentId}`, {
+      // ✅ Utiliser la nouvelle API
+      const response = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
