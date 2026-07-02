@@ -1,6 +1,6 @@
 // 📁 src/features/aidants/pages/AidantCatalogPage.tsx
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, RefreshCw, UserCircle } from 'lucide-react';
 
@@ -20,6 +20,26 @@ import { Illustration } from '@/components/ui/Illustration';
 
 import toast from 'react-hot-toast';
 
+// ============================================================
+// TYPES
+// ============================================================
+
+interface AidantFiltersType {
+  zone?: string;
+  specialty?: string;
+  minRating?: number;
+  onlyAvailable?: boolean;
+  minExperience?: number;
+  sortBy?: string;
+  sortOrder?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+
 const AidantCatalogPage = () => {
   const navigate = useNavigate();
 
@@ -31,7 +51,7 @@ const AidantCatalogPage = () => {
     isLoading,
     fetchAidants,
     filters,
-    setFilters,
+    setFilters: setStoreFilters,
     assignments,
     fetchMyAssignments,
   } = useAidantCatalogStore();
@@ -39,7 +59,7 @@ const AidantCatalogPage = () => {
   const { isFamily } = useTerminology();
 
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedAidant, setSelectedAidant] = useState(null);
+  const [selectedAidant, setSelectedAidant] = useState<any>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -48,7 +68,10 @@ const AidantCatalogPage = () => {
 
   const hasPatients = patients.length > 0;
 
-  // 🔄 INIT
+  // ============================================================
+  // INITIALISATION
+  // ============================================================
+
   useEffect(() => {
     if (profile?.role !== 'family') {
       navigate('/app');
@@ -58,9 +81,12 @@ const AidantCatalogPage = () => {
     fetchAidants();
     fetchPatients();
     fetchMyAssignments();
-  }, [profile]);
+  }, [profile, fetchAidants, fetchPatients, fetchMyAssignments, navigate]);
 
-  // 🔍 FILTER OPTIMISÉ (memo)
+  // ============================================================
+  // FILTRAGE
+  // ============================================================
+
   const filteredAidants = useMemo(() => {
     if (!searchTerm) return aidants;
 
@@ -73,6 +99,10 @@ const AidantCatalogPage = () => {
     );
   }, [searchTerm, aidants]);
 
+  // ============================================================
+  // HANDLERS
+  // ============================================================
+
   const handleAssign = (aidant: any) => {
     setSelectedAidant(aidant);
     setShowAssignModal(true);
@@ -83,17 +113,41 @@ const AidantCatalogPage = () => {
     setSelectedAidant(null);
     fetchAidants();
     fetchMyAssignments();
-    toast.success('Aidant assigné avec succès');
+    toast.success('✅ Aidant assigné avec succès');
   };
 
-  if (isLoading) return <LoadingSpinner />;
+  // ✅ CORRECTION : Wrapper pour correspondre au type attendu par le bouton
+  const handleRefresh = useCallback(() => {
+    fetchAidants();
+  }, [fetchAidants]);
 
-  if (profile?.role !== 'family') return null;
+  // ✅ CORRECTION : Wrapper pour setFilters avec le bon type
+  const handleFilterChange = useCallback((newFilters: Partial<AidantFiltersType>) => {
+    setStoreFilters(newFilters);
+  }, [setStoreFilters]);
+
+  // ============================================================
+  // RENDU
+  // ============================================================
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner size="lg" text="Chargement des aidants..." />
+      </div>
+    );
+  }
+
+  if (profile?.role !== 'family') {
+    return null;
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
 
-      {/* HEADER CLEAN */}
+      {/* ============================================================
+      HEADER
+      ============================================================ */}
       <section className="space-y-3">
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -103,12 +157,12 @@ const AidantCatalogPage = () => {
               className="text-xl sm:text-2xl font-bold"
               style={{ color: colors.text }}
             >
-              Aidants disponibles
+              🦸 Aidants disponibles
             </h1>
 
             <p className="text-xs mt-1 text-gray-400">
               {aidants.length} disponibles
-              {assignments.length > 0 && ` • ${assignments.length} actifs`}
+              {assignments.length > 0 && ` • ${assignments.length} assignation(s) active(s)`}
             </p>
           </div>
 
@@ -116,21 +170,23 @@ const AidantCatalogPage = () => {
           <div className="flex gap-2">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="px-3 py-2 rounded-xl border text-xs flex items-center gap-1 hover:bg-gray-50"
+              className="px-3 py-2 rounded-xl border text-xs flex items-center gap-1 hover:bg-gray-50 transition"
               style={{ borderColor: colors.border }}
             >
               <Filter size={14} />
+              Filtres
             </button>
 
             <button
-              onClick={fetchAidants}
-              className="px-3 py-2 rounded-xl text-xs flex items-center gap-1"
+              onClick={handleRefresh}
+              className="px-3 py-2 rounded-xl text-xs flex items-center gap-1 hover:opacity-80 transition"
               style={{
                 background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
               <RefreshCw size={14} />
+              Actualiser
             </button>
           </div>
         </div>
@@ -144,32 +200,36 @@ const AidantCatalogPage = () => {
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+            placeholder="Rechercher par nom, spécialité ou zone..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 transition"
             style={{ borderColor: colors.border }}
           />
         </div>
 
         {/* INFO LIGHT */}
         {!hasPatients && (
-          <div className="flex items-start gap-2 text-xs text-gray-500">
-            <UserCircle size={14} className="mt-0.5" />
-            Assignation possible sans proche
+          <div className="flex items-start gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-xl">
+            <UserCircle size={14} className="mt-0.5 shrink-0" />
+            <span>💡 Assignation possible sans proche enregistré (compte personnel)</span>
           </div>
         )}
       </section>
 
-      {/* FILTRES */}
+      {/* ============================================================
+      FILTRES
+      ============================================================ */}
       {showFilters && (
         <AidantFilters
           filters={filters}
-          onFilterChange={setFilters}
+          onFilterChange={handleFilterChange}
           onClose={() => setShowFilters(false)}
           colors={colors}
         />
       )}
 
-      {/* LISTE */}
+      {/* ============================================================
+      LISTE DES AIDANTS
+      ============================================================ */}
       {filteredAidants.length > 0 ? (
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredAidants.map((aidant) => (
@@ -183,22 +243,29 @@ const AidantCatalogPage = () => {
           ))}
         </section>
       ) : (
-        <section className="text-center py-16">
+        <section className="text-center py-16 bg-white rounded-2xl border border-black/5">
           <Illustration type="search" size="lg" className="mx-auto opacity-30 mb-4" />
           <h3 className="font-semibold text-sm" style={{ color: colors.text }}>
-            Aucun résultat
+            {searchTerm ? 'Aucun aidant trouvé' : 'Aucun aidant disponible'}
           </h3>
           <p className="text-xs text-gray-400 mt-1">
-            Essayez un autre mot-clé
+            {searchTerm
+              ? 'Essayez un autre mot-clé'
+              : 'Revenez plus tard, de nouveaux aidants seront disponibles'}
           </p>
         </section>
       )}
 
-      {/* MODAL */}
+      {/* ============================================================
+      MODAL D'ASSIGNATION
+      ============================================================ */}
       {showAssignModal && selectedAidant && (
         <AssignAidantModal
           isOpen={showAssignModal}
-          onClose={() => setShowAssignModal(false)}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedAidant(null);
+          }}
           aidant={selectedAidant}
           patients={patients}
           onSuccess={handleAssignSuccess}
