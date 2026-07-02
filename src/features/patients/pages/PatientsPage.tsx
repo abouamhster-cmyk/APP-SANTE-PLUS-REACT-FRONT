@@ -12,6 +12,7 @@ import {
 
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useAssignmentStore } from '@/stores/assignmentStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
@@ -24,6 +25,7 @@ import toast from 'react-hot-toast';
 const PatientsPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
+  const { fetchAssignments, assignments } = useAssignmentStore();
 
   const {
     singular,
@@ -63,6 +65,7 @@ const PatientsPage = () => {
       } else {
         await fetchPatients(true);
       }
+      await fetchAssignments();
     },
     onError: () => toast.error('Erreur lors du rafraîchissement des patients'),
   });
@@ -75,6 +78,7 @@ const PatientsPage = () => {
       } else {
         await fetchPatients();
       }
+      await fetchAssignments();
     };
     loadPatients();
   }, [role, user?.id]);
@@ -83,6 +87,7 @@ const PatientsPage = () => {
   useEffect(() => {
     if (isAidant) {
       syncAidantPatients();
+      fetchAssignments();
     }
   }, [isAidant]);
 
@@ -119,6 +124,7 @@ const PatientsPage = () => {
       } else {
         await fetchPatients(true);
       }
+      await fetchAssignments();
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || `Erreur lors de la suppression`);
@@ -151,6 +157,7 @@ const PatientsPage = () => {
     } else {
       fetchPatients(true);
     }
+    fetchAssignments();
     setIsModalOpen(false);
     toast.success(
       modalMode === 'create'
@@ -159,44 +166,81 @@ const PatientsPage = () => {
     );
   };
 
-  // ✅ SYNCHRONISATION MANUELLE
+  // ✅ SYNCHRONISATION MANUELLE - NOUVEAU SYSTÈME
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const { data: aidant } = await supabase
+      // ✅ 1. Récupérer l'aidant
+      const { data: aidant, error: aidantError } = await supabase
         .from('aidants')
         .select('id, user_id, is_verified, status')
         .eq('user_id', user?.id)
         .single();
       
-      if (aidant) {
-        const { data: assignments } = await supabase
-          .from('patient_aidant_assignments')
-          .select('patient_id, is_active')
-          .eq('aidant_id', aidant.id)
-          .eq('is_active', true);
-        
-        if (assignments && assignments.length > 0) {
-          const patientIds = assignments.map(a => a.patient_id);
-          const { data: directPatients } = await supabase
-            .from('patients')
-            .select('*')
-            .in('id', patientIds);
-          
-          if (directPatients && directPatients.length > 0) {
-            usePatientStore.setState({ patients: directPatients });
-            toast.success(`✅ ${directPatients.length} patient(s) synchronisé(s)`);
-          } else {
-            toast('Aucun patient trouvé', { icon: 'ℹ️' });
-            usePatientStore.setState({ patients: [] });
-          }
-        } else {
-          toast('Aucune assignation trouvée', { icon: 'ℹ️' });
-          usePatientStore.setState({ patients: [] });
-        }
-      } else {
+      if (aidantError || !aidant) {
         toast.error('Aidant non trouvé');
+        setIsSyncing(false);
+        return;
       }
+
+      // ✅ 2. Récupérer les assignations actives via le nouveau système
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('aidant_assignments')
+        .select('target_id, target_type')
+        .eq('aidant_user_id', aidant.user_id)
+        .eq('status', 'active')
+        .eq('target_type', 'patient');
+
+      if (assignmentsError) {
+        console.error('❌ Erreur récupération assignations:', assignmentsError);
+      }
+
+      const patientIds = assignmentsData?.map(a => a.target_id).filter(Boolean) || [];
+
+      // ✅ 3. Fallback: récupérer via patient_family_links (compatibilité)
+      if (patientIds.length === 0) {
+        const { data: links, error: linksError } = await supabase
+          .from('patient_family_links')
+          .select('patient_id')
+          .eq('family_id', aidant.user_id);
+
+        if (!linksError && links) {
+          const ids = links.map(l => l.patient_id).filter(Boolean);
+          patientIds.push(...ids);
+        }
+      }
+
+      if (patientIds.length === 0) {
+        toast('Aucun patient assigné', { icon: 'ℹ️' });
+        usePatientStore.setState({ patients: [] });
+        setIsSyncing(false);
+        return;
+      }
+
+      // ✅ 4. Récupérer les patients
+      const { data: directPatients, error: patientsError } = await supabase
+        .from('patients')
+        .select('*')
+        .in('id', patientIds);
+      
+      if (patientsError) {
+        console.error('❌ Erreur récupération patients:', patientsError);
+        toast.error('Erreur lors de la récupération des patients');
+        setIsSyncing(false);
+        return;
+      }
+
+      if (directPatients && directPatients.length > 0) {
+        usePatientStore.setState({ patients: directPatients });
+        toast.success(`✅ ${directPatients.length} patient(s) synchronisé(s)`);
+      } else {
+        toast('Aucun patient trouvé', { icon: 'ℹ️' });
+        usePatientStore.setState({ patients: [] });
+      }
+
+      // ✅ 5. Rafraîchir les assignations
+      await fetchAssignments();
+
     } catch (error) {
       console.error('❌ Erreur synchronisation:', error);
       toast.error('Erreur lors de la synchronisation');
@@ -245,6 +289,7 @@ const PatientsPage = () => {
               } else {
                 fetchPatients(true);
               }
+              fetchAssignments();
               toast.success('Patients actualisés');
             }}
             disabled={isLoading || isSyncing}
