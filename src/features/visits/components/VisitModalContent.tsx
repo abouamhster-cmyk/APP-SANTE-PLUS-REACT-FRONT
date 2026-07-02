@@ -701,4 +701,51 @@ export const VisitModalContent = ({
           rows={3}
           placeholder="Détails importants pour l'intervenant..."
         />
-      </di
+      </div>
+
+      {/* 🔹 Urgence */}
+      <div className="flex items-center gap-2 pt-1">
+        <input
+          type="checkbox"
+          id="is_urgent"
+          checked={formData.is_urgent}
+          onChange={(e) => setFormData({ ...formData, is_urgent: e.target.checked })}
+          className="w-4 h-4 rounded"
+          style={{ accentColor: colors.primary }}
+        />
+        <label htmlFor="is_urgent" className="text-xs sm:text-sm font-bold text-gray-700 cursor-pointer select-none">
+          ⚠️ Signaler comme visite urgente
+        </label>
+      </div>
+
+      {/* 🔹 Disclaimer */}
+      {renderDisclaimer()}
+
+      {/* 🔹 Boutons actions */}
+      <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition hover:bg-gray-50"
+          style={{ borderColor: colors.border, color: colors.text }}
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          className="flex-1 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold transition hover:opacity-90 flex items-center justify-center disabled:opacity-55"
+          style={{ background: colors.primary }}
+          disabled={isLoading || (targetType === 'patient' && !formData.patient_id)}
+        >
+          {isLoading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            mode === 'create' ? 'Planifier' : 'Mettre à jour'
+          )}
+        </button>
+      </div>
+    </form>
+  );
+};
+
+export default VisitModalContent;
