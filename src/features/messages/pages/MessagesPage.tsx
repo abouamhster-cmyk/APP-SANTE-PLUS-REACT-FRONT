@@ -79,10 +79,9 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 type TimeoutId = ReturnType<typeof setTimeout>;
 
 // ============================================================
-// FONCTIONS UTILITAIRES EXTERNES (hors composant)
+// FONCTIONS UTILITAIRES EXTERNES
 // ============================================================
 
-// ✅ Formatage sécurisé des dates - version robuste
 const formatDateSafe = (date: string | null | undefined): string => {
   if (!date) return '';
   try {
@@ -92,7 +91,6 @@ const formatDateSafe = (date: string | null | undefined): string => {
   }
 };
 
-// ✅ Formatage sécurisé des heures - version robuste
 const formatTimeSafe = (time: string | null | undefined): string => {
   if (!time) return '';
   try {
@@ -156,7 +154,13 @@ const MessagesPage = () => {
   const isSubscribingRef = useRef(false);
 
   const currentUserId = profile?.id || user?.id || null;
-  const currentUserName = (profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email?.split('@')[0] ?? 'Utilisateur') ?? 'Utilisateur';
+
+  // ✅ CORRECTION : Utilisation de nullish coalescing pour éviter les types null/undefined
+  const currentUserName = (() => {
+    const name = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Utilisateur';
+    return typeof name === 'string' ? name : 'Utilisateur';
+  })();
+
   const currentUserRole = (profile?.role || role || 'family') as string;
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -287,9 +291,6 @@ const MessagesPage = () => {
     }
 
     try {
-      console.log('🔄 Récupération des aidants assignés pour la famille:', currentUserId);
-
-      // ✅ Via les visites
       const { data: visitsData, error: visitsError } = await supabase
         .from('visites')
         .select(`
@@ -318,11 +319,9 @@ const MessagesPage = () => {
         });
         const aidants = Array.from(aidantsMap.values());
         setAssignedAidants(aidants);
-        console.log(`✅ ${aidants.length} aidants récupérés via les visites`);
         return;
       }
 
-      // ✅ Fallback - Tous les aidants disponibles
       const { data: allAidants, error: allError } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, avatar_url')
@@ -331,12 +330,10 @@ const MessagesPage = () => {
 
       if (!allError && allAidants) {
         setAssignedAidants(allAidants);
-        console.log(`⚠️ Fallback: ${allAidants.length} aidants récupérés`);
         return;
       }
 
       setAssignedAidants([]);
-      console.log('ℹ️ Aucun aidant trouvé');
     } catch (error) {
       console.error('❌ Fetch assigned aidants error:', error);
       setAssignedAidants([]);
