@@ -12,7 +12,7 @@ export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
 export type ProcheCategory = 'senior' | 'maman_bebe';
 export type PatientCategory = 'senior' | 'maman_bebe';
 
-// ✅ VISITE STATUS
+// ✅ VISITE STATUS - CORRIGÉ (suppression du point-virgule en trop)
 export type VisitStatus = 
   | 'planifiee' 
   | 'en_attente' 
@@ -25,9 +25,8 @@ export type VisitStatus =
   | 'no_show'
   | 'refusee'
   | 'expire'          
-  | 'attente_paiement';
-  | 'brouillon';       
-
+  | 'attente_paiement'
+  | 'brouillon';      
 
 // ✅ ORDER STATUS
 export type OrderStatus = 
@@ -44,7 +43,7 @@ export type PaymentStatus = 'en_attente' | 'valide' | 'echoue' | 'rembourse' | '
 export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
 export type NotificationType = 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
 export type OrderType = 'subscription' | 'ponctual';
-export type TargetType = 'personal' | 'patient'; // ✅ NOUVEAU
+export type TargetType = 'personal' | 'patient';
 
 // =============================================
 // OFFER TYPE
@@ -139,14 +138,14 @@ export type Patient = Proche;
 export interface ProcheFamilyLink {
   id: string;
   proche_id: string;
-  patient_id: string | null;    // ✅ NULLABLE pour assignations personnelles
+  patient_id: string | null;
   family_id: string;
   relationship: string | null;
   is_primary: boolean;
   can_manage_visits: boolean;
   can_manage_orders: boolean;
   can_receive_notifications: boolean;
-  target_type: TargetType;      // ✅ NOUVEAU
+  target_type: TargetType;
   created_at: string;
 }
 
@@ -185,10 +184,10 @@ export interface Visit {
   id: string;
   reference: string;
   proche_id: string;
-  patient_id: string | null;    // ✅ NULLABLE
-  user_id: string;              // ✅ NOUVEAU - compte qui planifie
-  target_type: TargetType;      // ✅ NOUVEAU - 'personal' | 'patient'
-  target_name: string | null;   // ✅ NOUVEAU - nom affiché
+  patient_id: string | null;
+  user_id: string;
+  target_type: TargetType;
+  target_name: string | null;
   proche?: Proche;
   patient?: Proche;
   aidant_id: string | null;
@@ -262,10 +261,10 @@ export interface VisitPhoto {
 export interface Order {
   id: string;
   proche_id: string | null;
-  patient_id: string | null;    // ✅ NULLABLE
-  user_id: string;              // ✅ NOUVEAU - compte qui passe la commande
-  target_type: TargetType;      // ✅ NOUVEAU - 'personal' | 'patient'
-  target_name: string | null;   // ✅ NOUVEAU - nom affiché
+  patient_id: string | null;
+  user_id: string;
+  target_type: TargetType;
+  target_name: string | null;
   proche?: Proche;
   patient?: Proche;
   family_id: string;
@@ -364,10 +363,10 @@ export interface OfferDB {
 
 export interface Subscription {
   id: string;
-  user_id: string;              // ✅ TOUJOURS LE COMPTE
+  user_id: string;
   user?: Profile;
   proche_id: string | null;
-  patient_id: string | null;    // ✅ OPTIONNEL
+  patient_id: string | null;
   proche?: Proche;
   patient?: Proche;
   offre_id: string | null;
