@@ -11,6 +11,7 @@ import {
   PlayCircle,
   XCircle,
   AlertCircle,
+  CreditCard,   
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -162,7 +163,7 @@ const VisitsPage = () => {
     if (newVisit && newVisit.metadata?.requires_payment) {
       setPendingVisit(newVisit);
       setShowPaymentModal(true);
-      toast.info('💳 Paiement requis pour planifier la visite');
+      toast('💳 Paiement requis pour planifier la visite', {   icon: '💳',   duration: 4000, });
     } else {
       toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
     }
