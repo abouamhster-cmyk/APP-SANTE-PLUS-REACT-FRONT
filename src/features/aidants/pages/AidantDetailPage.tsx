@@ -24,9 +24,8 @@ import { useAssignmentStore } from '@/stores/assignmentStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
- import toast from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import AssignAidantModal from '../components/AssignAidantModal';
-
 
 const AidantDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -63,7 +62,8 @@ const AidantDetailPage = () => {
       try {
         // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
         const personalResponse = await fetchActiveAidant('personal_account', user.id);
-        if (personalResponse?.aidant_id === id) {
+        // ✅ CORRECTION : Utiliser aidant_user_id ou aidant_id selon le retour
+        if (personalResponse?.aidant?.id === id || personalResponse?.aidant_id === id) {
           setIsAlreadyAssigned(true);
           setIsCheckingAssignment(false);
           return;
@@ -73,7 +73,7 @@ const AidantDetailPage = () => {
         const patientIds = patients.map(p => p.id);
         for (const patientId of patientIds) {
           const patientResponse = await fetchActiveAidant('patient', patientId, user.id);
-          if (patientResponse?.aidant_id === id) {
+          if (patientResponse?.aidant?.id === id || patientResponse?.aidant_id === id) {
             setIsAlreadyAssigned(true);
             setIsCheckingAssignment(false);
             return;
