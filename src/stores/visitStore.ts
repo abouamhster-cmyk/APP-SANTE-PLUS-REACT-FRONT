@@ -343,161 +343,170 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       set({ error: error.message, isLoading: false });
     }
   },
+ 
 
-  // ============================================================
-  // CREATE VISIT - AVEC GESTION DU PAIEMENT ET CLÉS ÉTRANGÈRES
-  // ============================================================
-  createVisit: async (data: Partial<Visit> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
-    try {
-      set({ isLoading: true, error: null });
-      
-      const { user, profile } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
+// ============================================================
+// CREATE VISIT - AVEC GESTION DU PAIEMENT ET RELATIONS SÉPARÉES
+// ============================================================
+createVisit: async (data: Partial<Visit> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
+  try {
+    set({ isLoading: true, error: null });
+    
+    const { user, profile } = useAuthStore.getState();
+    if (!user) throw new Error('Utilisateur non connecté');
 
-      if (profile?.role === 'aidant') {
-        throw new Error('Les aidants ne peuvent pas créer de visites');
-      }
+    if (profile?.role === 'aidant') {
+      throw new Error('Les aidants ne peuvent pas créer de visites');
+    }
 
-      // ✅ Déterminer target_type et target_name
-      const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
-      const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
+    // ✅ Déterminer target_type et target_name
+    const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
+    const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
 
-      const isPonctual = data.visit_type === 'ponctuelle' || false;
-      let status: VisitStatus = 'planifiee';
-      let requiresPayment = false;
+    const isPonctual = data.visit_type === 'ponctuelle' || false;
+    let status: VisitStatus = 'planifiee';
+    let requiresPayment = false;
 
-      if (isPonctual) {
+    if (isPonctual) {
+      requiresPayment = true;
+      status = 'brouillon';
+    } else {
+      // ✅ Vérifier le quota sur le COMPTE
+      const { data: subscription } = await supabase
+        .from('abonnements')
+        .select('id, remaining_visits, status')
+        .eq('user_id', user.id)
+        .eq('status', 'actif')
+        .maybeSingle();
+
+      if (!subscription || subscription.remaining_visits <= 0) {
         requiresPayment = true;
         status = 'brouillon';
-      } else {
-        // ✅ Vérifier le quota sur le COMPTE
-        const { data: subscription } = await supabase
-          .from('abonnements')
-          .select('id, remaining_visits, status')
-          .eq('user_id', user.id)
-          .eq('status', 'actif')
-          .maybeSingle();
-
-        if (!subscription || subscription.remaining_visits <= 0) {
-          requiresPayment = true;
-          status = 'brouillon';
-        }
       }
+    }
 
-      const visitData = {
-        user_id: user.id,
-        patient_id: data.patient_id || null,
-        target_type: targetType,
-        target_name: targetName,
-        aidant_id: data.aidant_id || null,
-        coordinator_id: profile?.role === 'family' ? null : user.id,
-        scheduled_date: data.scheduled_date,
-        scheduled_time: data.scheduled_time,
-        duration_minutes: data.duration_minutes || 60,
-        status: status,
-        actions: data.actions || [],
-        notes: data.notes || null,
-        is_urgent: data.is_urgent || false,
-        visit_type: data.visit_type || 'ponctuelle',
-        assignment_type: data.assignment_type || 'ponctuelle',
-        requested_by: user.id,
-        metadata: {
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          is_ponctual: isPonctual || requiresPayment,
-          requires_payment: requiresPayment,
-          is_draft: requiresPayment,
-          payment_amount: requiresPayment ? getPonctualPrice(data.duration_minutes || 60) : null,
-          scheduled_from_draft: false,
-        }
-      };
+    const visitData = {
+      user_id: user.id,
+      patient_id: data.patient_id || null,
+      target_type: targetType,
+      target_name: targetName,
+      aidant_id: data.aidant_id || null,
+      coordinator_id: profile?.role === 'family' ? null : user.id,
+      scheduled_date: data.scheduled_date,
+      scheduled_time: data.scheduled_time,
+      duration_minutes: data.duration_minutes || 60,
+      status: status,
+      actions: data.actions || [],
+      notes: data.notes || null,
+      is_urgent: data.is_urgent || false,
+      visit_type: data.visit_type || 'ponctuelle',
+      assignment_type: data.assignment_type || 'ponctuelle',
+      requested_by: user.id,
+      metadata: {
+        created_by: user.id,
+        created_at: new Date().toISOString(),
+        is_ponctual: isPonctual || requiresPayment,
+        requires_payment: requiresPayment,
+        is_draft: requiresPayment,
+        payment_amount: requiresPayment ? getPonctualPrice(data.duration_minutes || 60) : null,
+        scheduled_from_draft: false,
+      }
+    };
 
-      // ✅ CORRECTION : Spécifier les clés étrangères explicitement pour éviter PGRST201
-      const { data: newVisit, error } = await supabase
-        .from('visites')
-        .insert(visitData)
-        .select(`
-          *,
-          patient:patients!visites_patient_id_fkey(*),
-          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
-        `)
+    // ✅ 1. INSÉRER LA VISITE SANS RELATIONS IMBRIQUÉES
+    const { data: newVisit, error } = await supabase
+      .from('visites')
+      .insert(visitData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Erreur création visite:', error);
+      throw error;
+    }
+
+    // ✅ 2. RÉCUPÉRER LES RELATIONS SÉPARÉMENT
+    let patient = null;
+    let aidant = null;
+
+    if (newVisit.patient_id) {
+      const { data: patientData } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('id', newVisit.patient_id)
         .single();
+      patient = patientData;
+    }
 
-      if (error) {
-        console.error('❌ Erreur création visite:', error);
-        throw error;
-      }
+    if (newVisit.aidant_id) {
+      const { data: aidantData } = await supabase
+        .from('aidants')
+        .select('*, user:profiles!user_id(*)')
+        .eq('id', newVisit.aidant_id)
+        .single();
+      aidant = aidantData;
+    }
 
-      let patient = null;
-      if (newVisit.patient_id) {
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', newVisit.patient_id)
-          .single();
-        patient = patientData;
-      }
+    const fullVisit = {
+      ...newVisit,
+      patient,
+      aidant,
+    };
 
-      const fullVisit = {
-        ...newVisit,
-        patient,
-      };
+    get().invalidateCache();
+    await get().fetchVisits(true);
 
-      get().invalidateCache();
-      await get().fetchVisits(true);
+    const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
 
-      const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
-
-      // ✅ Si paiement requis → notification + retour
-      if (requiresPayment) {
-        const paymentAmount = getPonctualPrice(newVisit.duration_minutes || 60);
-        
-        await supabase.from('notifications').insert({
-          user_id: user.id,
-          title: '💳 Paiement requis pour planifier la visite',
-          body: `Un paiement de ${paymentAmount} FCFA est requis pour planifier la visite de ${targetDisplay}.`,
-          type: 'visite',
-          data: { 
-            visit_id: newVisit.id, 
-            status: 'brouillon', 
-            action: 'pay',
-            amount: paymentAmount,
-            requires_payment: true,
-          },
-        });
-
-        set({ isLoading: false });
-        return fullVisit;
-      }
-
-      // ✅ Pas de paiement requis → notification normale
-      if (data.aidant_id) {
-        await supabase.from('notifications').insert({
-          user_id: data.aidant_id,
-          title: '📅 Nouvelle visite à valider',
-          body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
-          type: 'visite',
-          data: { visit_id: newVisit.id, action: 'approve' },
-        });
-      }
-
+    // ✅ 3. NOTIFICATIONS
+    if (requiresPayment) {
+      const paymentAmount = getPonctualPrice(newVisit.duration_minutes || 60);
+      
       await supabase.from('notifications').insert({
         user_id: user.id,
-        title: '📅 Nouvelle visite planifiée',
-        body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
+        title: '💳 Paiement requis pour planifier la visite',
+        body: `Un paiement de ${paymentAmount} FCFA est requis pour planifier la visite de ${targetDisplay}.`,
         type: 'visite',
-        data: { visit_id: newVisit.id, status: 'planifiee' },
+        data: { 
+          visit_id: newVisit.id, 
+          status: 'brouillon', 
+          action: 'pay',
+          amount: paymentAmount,
+          requires_payment: true,
+        },
       });
 
       set({ isLoading: false });
       return fullVisit;
-    } catch (error: any) {
-      console.error('❌ Create visit error:', error);
-      set({ error: error.message, isLoading: false });
-      throw error;
     }
-  },
 
+    // ✅ Pas de paiement requis
+    if (data.aidant_id) {
+      await supabase.from('notifications').insert({
+        user_id: data.aidant_id,
+        title: '📅 Nouvelle visite à valider',
+        body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
+        type: 'visite',
+        data: { visit_id: newVisit.id, action: 'approve' },
+      });
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      title: '📅 Nouvelle visite planifiée',
+      body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
+      type: 'visite',
+      data: { visit_id: newVisit.id, status: 'planifiee' },
+    });
+
+    set({ isLoading: false });
+    return fullVisit;
+  } catch (error: any) {
+    console.error('❌ Create visit error:', error);
+    set({ error: error.message, isLoading: false });
+    throw error;
+  }
+},
   // ============================================================
   // CONFIRMER PAIEMENT - BROUILLON → PLANIFIEE
   // ============================================================
