@@ -236,6 +236,10 @@ export interface Visit {
   reminder_count?: number;
   notified_at?: string | null;
   is_ponctual?: boolean;
+  is_draft?: boolean;
+  requires_payment?: boolean;
+  payment_amount?: number;
+  draft_expires_at?: string | null;
 }
 
 export type VisitWithPatient = Visit;
