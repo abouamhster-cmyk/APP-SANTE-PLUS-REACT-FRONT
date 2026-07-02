@@ -10,6 +10,7 @@ import {
   AssignmentType,
   AidantSpecialty 
 } from '@/types';
+import { ASSIGNMENT_TYPES } from '@/types/assignment';
 import toast from 'react-hot-toast';
 
 export const useAidantCatalog = () => {
@@ -72,13 +73,18 @@ export const useAidantCatalog = () => {
   // ACTIONS
   // ============================================================
 
-  const assignAidant = useCallback(async (aidantId: string, patientId: string, assignmentType: AssignmentType = 'permanente') => {
+  const assignAidant = useCallback(async (
+    aidantId: string, 
+    patientId: string | null = null, 
+    assignmentType: AssignmentType = ASSIGNMENT_TYPES.PRIMARY
+  ) => {
     if (!isFamily) {
       toast.error('Seules les familles peuvent assigner des aidants');
       return null;
     }
 
     try {
+      // ✅ Utiliser le nouveau système d'assignation
       const result = await assignAidantStore(aidantId, patientId, assignmentType);
       await loadMyAssignments();
       await loadAidants();
