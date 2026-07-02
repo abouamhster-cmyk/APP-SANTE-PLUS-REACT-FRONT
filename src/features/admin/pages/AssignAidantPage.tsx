@@ -26,13 +26,13 @@ interface Aidant {
 
 // ✅ NOUVEAU TYPE : Compte personnel (sans patient)
 interface PersonalAccount {
-  id: string;           // user_id du compte
+  id: string;
   full_name: string;
   email: string;
   category: 'personal' | 'senior' | 'maman_bebe';
   hasPatient: boolean;
   patient_id?: string | null;
-  patient_name?: string;
+  patient_name?: string;  // ✅ Changé de string | null à string | undefined
 }
 
 // ✅ TYPES D'ASSIGNATION
@@ -128,17 +128,19 @@ const AssignAidantPage = () => {
       const familiesWithPatients = new Set(links?.map(l => l.family_id) || []);
 
       // ✅ Identifier les comptes personnels (familles SANS patient)
-      const personalAccountsData: PersonalAccount[] = (families || [])
-        .filter((f: any) => !familiesWithPatients.has(f.id))
-        .map((f: any) => ({
-          id: f.id,
-          full_name: f.full_name || 'Compte personnel',
-          email: f.email || '',
-          category: f.patient_category === 'maman_bebe' ? 'maman_bebe' : 'personal',
-          hasPatient: false,
-          patient_id: null,
-          patient_name: null,
-        }));
+     const personalAccountsData: PersonalAccount[] = (families || [])
+       .filter((f: any) => !familiesWithPatients.has(f.id))
+       .map((f: any) => ({
+         id: f.id,
+         full_name: f.full_name || 'Compte personnel',
+         email: f.email || '',
+         category: f.patient_category === 'maman_bebe' ? 'maman_bebe' : 'personal',
+         hasPatient: false,
+         patient_id: null,
+         patient_name: undefined,
+       }));
+
+setPersonalAccounts(personalAccountsData);
 
       setPersonalAccounts(personalAccountsData);
 
