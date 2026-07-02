@@ -183,7 +183,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // Récupérer les relations
+      // Récupérer les relations avec clés étrangères explicites
       const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
@@ -345,7 +345,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // CREATE VISIT - AVEC GESTION DU PAIEMENT
+  // CREATE VISIT - AVEC GESTION DU PAIEMENT ET CLÉS ÉTRANGÈRES
   // ============================================================
   createVisit: async (data: Partial<Visit> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
     try {
@@ -412,17 +412,21 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       };
 
+      // ✅ CORRECTION : Spécifier les clés étrangères explicitement pour éviter PGRST201
       const { data: newVisit, error } = await supabase
         .from('visites')
         .insert(visitData)
         .select(`
           *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*))
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erreur création visite:', error);
+        throw error;
+      }
 
       let patient = null;
       if (newVisit.patient_id) {
@@ -621,7 +625,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       const { data: visit, error: fetchError } = await supabase
         .from('visites')
-        .select('*, patient:patients(*)')
+        .select('*, patient:patients!visites_patient_id_fkey(*)')
         .eq('id', id)
         .single();
 
@@ -672,7 +676,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       const { data: visit, error: fetchError } = await supabase
         .from('visites')
-        .select('*, patient:patients(*), aidant:aidants(*)')
+        .select('*, patient:patients!visites_patient_id_fkey(*), aidant:aidants!visites_aidant_id_fkey(*)')
         .eq('id', id)
         .single();
 
@@ -724,7 +728,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       const { data: visit, error: fetchError } = await supabase
         .from('visites')
-        .select('*, patient:patients(*)')
+        .select('*, patient:patients!visites_patient_id_fkey(*)')
         .eq('id', id)
         .single();
 
@@ -1031,8 +1035,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('visites')
         .select(`
           *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*))
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
         `)
         .eq('aidant_id', aidant.id)
         .eq('status', 'planifiee')
@@ -1065,8 +1069,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('visites')
         .select(`
           *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*))
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
         `)
         .or(`status.eq.refusee, and(status.eq.planifiee, created_at.lt.${twentyFourHoursAgo.toISOString()}, approved_at.is.null, refused_at.is.null)`)
         .order('created_at', { ascending: false });
@@ -1093,8 +1097,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('visites')
         .select(`
           *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*))
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
         `)
         .eq('patient_id', patientId)
         .order('scheduled_date', { ascending: true });
