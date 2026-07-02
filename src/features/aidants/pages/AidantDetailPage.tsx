@@ -62,11 +62,12 @@ const AidantDetailPage = () => {
       try {
         // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
         const personalResponse = await fetchActiveAidant('personal_account', user.id);
-        // ✅ CORRECTION : Vérifier les deux propriétés possibles
+        // ✅ Utiliser 'as any' pour contourner le problème de typage
+        const personalData = personalResponse as any;
         const isPersonalAssigned = 
-          personalResponse?.aidant?.id === id || 
-          personalResponse?.aidant_id === id ||
-          personalResponse?.aidant_user_id === id;
+          personalData?.aidant?.id === id || 
+          personalData?.aidant_id === id ||
+          personalData?.aidant_user_id === id;
           
         if (isPersonalAssigned) {
           setIsAlreadyAssigned(true);
@@ -78,10 +79,11 @@ const AidantDetailPage = () => {
         const patientIds = patients.map(p => p.id);
         for (const patientId of patientIds) {
           const patientResponse = await fetchActiveAidant('patient', patientId, user.id);
+          const patientData = patientResponse as any;
           const isPatientAssigned = 
-            patientResponse?.aidant?.id === id || 
-            patientResponse?.aidant_id === id ||
-            patientResponse?.aidant_user_id === id;
+            patientData?.aidant?.id === id || 
+            patientData?.aidant_id === id ||
+            patientData?.aidant_user_id === id;
             
           if (isPatientAssigned) {
             setIsAlreadyAssigned(true);
