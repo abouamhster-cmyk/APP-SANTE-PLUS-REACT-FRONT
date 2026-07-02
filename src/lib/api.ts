@@ -212,6 +212,92 @@ export const adminAPI = {
 };
 
 // =============================================
+// ✅ ASSIGNMENTS API (NOUVEAU)
+// =============================================
+export const assignmentAPI = {
+  // Récupérer toutes les assignations (admin)
+  getAll: (filters?: { targetType?: string; targetId?: string; status?: string; aidantUserId?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.targetType) params.append('targetType', filters.targetType);
+    if (filters?.targetId) params.append('targetId', filters.targetId);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.aidantUserId) params.append('aidantUserId', filters.aidantUserId);
+    
+    const url = `/assignments${params.toString() ? `?${params.toString()}` : ''}`;
+    return api.get(normalizeApiUrl(url));
+  },
+
+  // Récupérer l'aidant actif pour une cible
+  getActive: (targetType: string, targetId: string, familyId?: string) => {
+    const params = new URLSearchParams({ targetType, targetId });
+    if (familyId) params.append('familyId', familyId);
+    return api.get(normalizeApiUrl(`/assignments/active?${params.toString()}`));
+  },
+
+  // Récupérer tous les aidants pour une cible
+  getAllForTarget: (targetType: string, targetId: string, familyId?: string) => {
+    const params = new URLSearchParams({ targetType, targetId });
+    if (familyId) params.append('familyId', familyId);
+    return api.get(normalizeApiUrl(`/assignments/all?${params.toString()}`));
+  },
+
+  // Créer une assignation
+  create: (data: {
+    aidantUserId: string;
+    targetType: string;
+    targetId: string;
+    familyId?: string | null;
+    assignmentType?: string;
+    reason?: string | null;
+    expiresAt?: string | null;
+  }) => api.post(normalizeApiUrl('/assignments'), data),
+
+  // Révoquer une assignation
+  revoke: (assignmentId: string, reason?: string) => 
+    api.delete(normalizeApiUrl(`/assignments/${assignmentId}`), { data: { reason } }),
+
+  // Vérifier si un aidant est assigné à une cible
+  check: (aidantUserId: string, targetType: string, targetId: string) => {
+    const params = new URLSearchParams({ aidantUserId, targetType, targetId });
+    return api.get(normalizeApiUrl(`/assignments/check?${params.toString()}`));
+  },
+
+  // Récupérer les assignations d'un aidant
+  getByAidant: (aidantUserId: string, status?: string) => {
+    const url = `/assignments/aidant/${aidantUserId}${status ? `?status=${status}` : ''}`;
+    return api.get(normalizeApiUrl(url));
+  },
+
+  // Récupérer les assignations pour une cible
+  getByTarget: (targetType: string, targetId: string, status?: string) => {
+    const url = `/assignments/target/${targetType}/${targetId}${status ? `?status=${status}` : ''}`;
+    return api.get(normalizeApiUrl(url));
+  },
+
+  // Admin : Récupérer toutes les assignations
+  adminGetAll: () => api.get(normalizeApiUrl('/assignments/admin/all')),
+
+  // Admin : Mettre à jour le statut d'une assignation
+  adminUpdateStatus: (assignmentId: string, status: string, reason?: string) =>
+    api.put(normalizeApiUrl(`/assignments/admin/${assignmentId}/status`), { status, reason }),
+
+  // Admin : Statistiques des assignations
+  adminGetStats: () => api.get(normalizeApiUrl('/assignments/admin/stats')),
+
+  // Admin : Assignation forcée
+  adminForceAssign: (data: {
+    aidantUserId: string;
+    targetType: string;
+    targetId: string;
+    familyId?: string | null;
+    assignmentType?: string;
+    reason?: string | null;
+    expiresAt?: string | null;
+    force?: boolean;
+  }) => api.post(normalizeApiUrl('/assignments/admin/force'), data),
+};
+
+// =============================================
 // CONTRAT API
 // =============================================
 export const contractAPI = {
