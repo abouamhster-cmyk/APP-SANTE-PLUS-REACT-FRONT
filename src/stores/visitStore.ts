@@ -402,6 +402,7 @@ createVisit: async (data: Partial<Visit> & { target_type?: 'personal' | 'patient
       visit_type: data.visit_type || 'ponctuelle',
       assignment_type: data.assignment_type || 'ponctuelle',
       requested_by: user.id,
+      draft_expires_at: requiresPayment ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
       metadata: {
         created_by: user.id,
         created_at: new Date().toISOString(),
