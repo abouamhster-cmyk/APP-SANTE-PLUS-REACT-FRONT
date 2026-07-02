@@ -1,28 +1,19 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Calendar,
-  Clock,
   MapPin,
   User,
   CheckCircle,
   XCircle,
   Play,
-  Edit2,
   Phone,
-  Mail,
   Heart,
-  Baby,
   AlertCircle,
-  Camera,
   Image,
-  Mic,
-  MicOff,
-  Trash2,
-  Loader2,
   CreditCard,
 } from 'lucide-react';
 
@@ -32,16 +23,10 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { 
   formatDate, 
-  formatTime, 
-  formatDateTime,
   getVisitDisplayName,
   getVisitDisplayAddress,
-  getVisitDisplayCategory,
-  getVisitDisplayType,
   getVisitDisplayAidant
 } from '@/utils/helpers';
-import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
-import { Illustration } from '@/components/ui/Illustration';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal';
 import { supabase } from '@/lib/supabase';
@@ -64,60 +49,25 @@ const VisitDetailPage = () => {
   } = useVisitStore();
 
   const {
-    singular,
     getCategoryLabel,
     isAidant,
-    isCoordinator,
-    isAdmin,
     isAdminOrCoordinator,
     isFamily,
   } = useTerminology();
 
-  // ✅ États pour le paiement
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [selectedActions, setSelectedActions] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const modalContentRef = useRef<HTMLDivElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
-
-  const availableActions = currentVisit?.patient?.category === 'maman_bebe'
-    ? VISIT_ACTIONS_MAMAN
-    : VISIT_ACTIONS_SENIOR;
 
   useEffect(() => {
     if (id) {
       fetchVisitById(id);
     }
   }, [id]);
-
-  useEffect(() => {
-    if (!showCompleteModal) {
-      setSelectedActions([]);
-      setNotes('');
-      setAudioUrl(null);
-      setAudioBlob(null);
-      setPhotos([]);
-      setPhotoPreviews([]);
-      setIsRecording(false);
-    }
-  }, [showCompleteModal]);
 
   useEffect(() => {
     if (showCompleteModal) {
@@ -130,7 +80,6 @@ const VisitDetailPage = () => {
     };
   }, [showCompleteModal]);
 
-  // ✅ Fonction pour ouvrir le modal de paiement
   const handleOpenPayment = () => {
     if (!currentVisit) return;
     if (currentVisit.status === 'brouillon' && currentVisit.metadata?.requires_payment) {
@@ -138,10 +87,9 @@ const VisitDetailPage = () => {
     }
   };
 
-  // ✅ Callback après paiement réussi
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
-    toast.success('✅ Visite planifiée après paiement !');
+    toast.success('Visite planifiée après paiement !');
     if (id) {
       fetchVisitById(id);
       fetchVisits();
@@ -192,87 +140,18 @@ const VisitDetailPage = () => {
     }
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      setMediaRecorder(recorder);
-      setAudioChunks([]);
+  const handleComplete = async (data: {
+    actions: string[];
+    notes?: string;
+    photos?: File[];
+    audioBlob?: Blob | null;
+  }) => {
+    const actions = data?.actions || [];
+    const notes = data?.notes || '';
+    const photos = data?.photos || [];
+    const audioBlob = data?.audioBlob || null;
 
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          setAudioChunks(prev => [...prev, event.data]);
-        }
-      };
-
-      recorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        setAudioUrl(url);
-        setAudioBlob(blob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      recorder.start();
-      setIsRecording(true);
-      toast.success('🎙️ Enregistrement démarré');
-    } catch (error) {
-      console.error('Erreur accès microphone:', error);
-      toast.error('Impossible d\'accéder au microphone. Vérifiez les permissions.');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop();
-      setIsRecording(false);
-      toast.success('⏹️ Enregistrement arrêté');
-    }
-  };
-
-  const deleteRecording = () => {
-    setAudioUrl(null);
-    setAudioBlob(null);
-    setAudioChunks([]);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    toast.success('🗑️ Enregistrement supprimé');
-  };
-
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const validFiles = files.filter(f => f.type.startsWith('image/'));
-
-    if (validFiles.length === 0) {
-      toast.error('Veuillez sélectionner des images');
-      return;
-    }
-
-    if (photos.length + validFiles.length > 5) {
-      toast.error('Maximum 5 photos');
-      return;
-    }
-
-    setPhotos([...photos, ...validFiles]);
-
-    validFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPhotoPreviews(prev => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const removePhoto = (index: number) => {
-    setPhotos(photos.filter((_, i) => i !== index));
-    setPhotoPreviews(photoPreviews.filter((_, i) => i !== index));
-  };
-
-  const handleComplete = async () => {
-    if (selectedActions.length === 0) {
+    if (actions.length === 0) {
       toast.error('Veuillez sélectionner au moins une action');
       return;
     }
@@ -284,11 +163,11 @@ const VisitDetailPage = () => {
       if (audioBlob) {
         const fileExt = 'webm';
         const fileName = `visits/${id}/audio_${Date.now()}.${fileExt}`;
-        const { data, error } = await supabase.storage
+        const { data: uploadData, error } = await supabase.storage
           .from('visits')
           .upload(fileName, audioBlob);
 
-        if (!error && data) {
+        if (!error && uploadData) {
           const { data: { publicUrl } } = supabase.storage
             .from('visits')
             .getPublicUrl(fileName);
@@ -300,11 +179,11 @@ const VisitDetailPage = () => {
       for (const photo of photos) {
         const fileExt = photo.name.split('.').pop();
         const fileName = `visits/${id}/${Date.now()}_${photo.name}`;
-        const { data, error } = await supabase.storage
+        const { data: uploadData, error } = await supabase.storage
           .from('visits')
           .upload(fileName, photo);
 
-        if (!error && data) {
+        if (!error && uploadData) {
           const { data: { publicUrl } } = supabase.storage
             .from('visits')
             .getPublicUrl(fileName);
@@ -313,8 +192,8 @@ const VisitDetailPage = () => {
       }
 
       await completeVisit(id!, {
-        actions: selectedActions,
-        notes: notes,
+        actions,
+        notes,
         photos: photoUrls,
       });
 
@@ -325,14 +204,14 @@ const VisitDetailPage = () => {
             metadata: {
               audio_url: audioUrlUploaded,
               photos: photoUrls,
-              actions: selectedActions,
-              notes: notes,
+              actions,
+              notes,
             }
           })
           .eq('id', id);
       }
 
-      toast.success('Visite terminée avec succès ! En attente de validation.');
+      toast.success('Visite terminée avec succès !');
       setShowCompleteModal(false);
       fetchVisitById(id!);
     } catch (error) {
@@ -359,7 +238,7 @@ const VisitDetailPage = () => {
   };
 
   const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
+    const statusColors: Record<string, string> = {
       planifiee: '#4CAF50',
       en_attente: '#FF9800',
       acceptee: '#2196F3',
@@ -374,7 +253,7 @@ const VisitDetailPage = () => {
       attente_paiement: '#8b5cf6',
       brouillon: '#8b5cf6',
     };
-    return colors[status] || '#9E9E9E';
+    return statusColors[status] || '#9E9E9E';
   };
 
   const getStatusLabel = (status: string) => {
@@ -390,30 +269,29 @@ const VisitDetailPage = () => {
       expire: 'Expirée',
       replanifiee: 'Replanifiée',
       no_show: 'Absent',
-      attente_paiement: '💳 En attente paiement',
-      brouillon: '💳 Brouillon - Paiement requis',
+      attente_paiement: 'Paiement en attente',
+      brouillon: 'Brouillon - Paiement requis',
     };
     return labels[status] || status;
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'planifiee': return <Calendar size={20} />;
-      case 'en_attente': return <Clock size={20} />;
-      case 'acceptee': return <CheckCircle size={20} />;
-      case 'en_cours': return <Play size={20} />;
-      case 'terminee': return <CheckCircle size={20} />;
-      case 'validee': return <CheckCircle size={20} />;
-      case 'annulee': return <XCircle size={20} />;
-      case 'refusee': return <XCircle size={20} />;
-      case 'expire': return <AlertCircle size={20} />;
-      case 'attente_paiement': return <Clock size={20} />;
-      case 'brouillon': return <CreditCard size={20} />;
-      default: return <Clock size={20} />;
+      case 'planifiee': return <Calendar size={13} />;
+      case 'en_attente': return <AlertCircle size={13} />;
+      case 'acceptee': return <CheckCircle size={13} />;
+      case 'en_cours': return <Play size={13} />;
+      case 'terminee': return <CheckCircle size={13} />;
+      case 'validee': return <CheckCircle size={13} />;
+      case 'annulee': return <XCircle size={13} />;
+      case 'refusee': return <XCircle size={13} />;
+      case 'expire': return <AlertCircle size={13} />;
+      case 'attente_paiement': return <CreditCard size={13} />;
+      case 'brouillon': return <CreditCard size={13} />;
+      default: return <AlertCircle size={13} />;
     }
   };
 
-  // ✅ Calcul du temps restant avant expiration du brouillon
   const getDraftExpiryText = () => {
     if (!currentVisit?.draft_expires_at) return null;
     const expiry = new Date(currentVisit.draft_expires_at);
@@ -422,16 +300,16 @@ const VisitDetailPage = () => {
     if (diff <= 0) return 'Expiré';
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours > 0) return `${hours}h ${minutes}min restantes`;
-    return `${minutes}min restantes`;
+    if (hours > 0) return `${hours}h ${minutes}min`;
+    return `${minutes}min`;
   };
 
   if (isLoading || !currentVisit) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[300px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p style={{ color: colors.text }}>Chargement...</p>
+          <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs text-gray-500">Chargement des détails...</p>
         </div>
       </div>
     );
@@ -448,25 +326,28 @@ const VisitDetailPage = () => {
   const requiresPayment = isDraft && visit.metadata?.requires_payment;
 
   return (
-    <div className="space-y-6 pb-24 sm:pb-10">
-      {/* EN-TÊTE */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div className="flex items-center space-x-4">
+    <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
+      
+      {/* ============================================================
+      EN-TÊTE DE LA PAGE
+      ============================================================ */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: colors.border }}>
+        <div className="flex items-center space-x-3 min-w-0">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition flex-shrink-0"
+            className="p-1.5 hover:bg-gray-100 rounded-xl transition flex-shrink-0"
           >
-            <ArrowLeft size={24} style={{ color: colors.text }} />
+            <ArrowLeft size={20} style={{ color: colors.text }} />
           </button>
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold truncate" style={{ color: colors.text }}>
+            <h1 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
               Visite du {formatDate(visit.scheduled_date)}
             </h1>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
               <span
-                className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5"
+                className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shrink-0"
                 style={{
-                  background: getStatusColor(visit.status) + '20',
+                  background: getStatusColor(visit.status) + '15',
                   color: getStatusColor(visit.status),
                 }}
               >
@@ -475,86 +356,81 @@ const VisitDetailPage = () => {
               </span>
               {visit.is_urgent && (
                 <span
-                  className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5"
-                  style={{ background: '#F44336' + '20', color: '#F44336' }}
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shrink-0"
+                  style={{ background: '#F44336' + '15', color: '#F44336' }}
                 >
-                  <AlertCircle size={14} />
+                  <AlertCircle size={11} />
                   <span>Urgent</span>
                 </span>
               )}
-              <span className="text-xs" style={{ color: colors.text + '60' }}>
+              <span className="text-[10px] text-gray-400 font-mono">
                 #{visit.id.slice(0, 8)}
               </span>
             </div>
           </div>
         </div>
 
-        {/* ACTIONS SELON LE STATUT ET LE RÔLE */}
-        <div className="flex flex-wrap gap-2">
-          {/* ✅ AIDANT : Approuver/Refuser */}
+        {/* ACTIONS STATUTS */}
+        <div className="flex flex-wrap gap-1.5">
           {isPendingApproval && isAidant && (
             <>
               <button
                 onClick={handleApprove}
                 disabled={isUpdating}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
                 style={{ background: '#4CAF50' }}
               >
-                <CheckCircle size={18} />
+                <CheckCircle size={14} />
                 <span>Approuver</span>
               </button>
               <button
                 onClick={handleRefuse}
                 disabled={isUpdating}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
                 style={{ background: '#F44336' }}
               >
-                <XCircle size={18} />
+                <XCircle size={14} />
                 <span>Refuser</span>
               </button>
             </>
           )}
 
-          {/* ✅ AIDANT : Démarrer une visite acceptée */}
           {isAccepted && isAidant && (
             <button
               onClick={handleStart}
               disabled={isUpdating}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#4CAF50' }}
             >
-              <Play size={18} />
+              <Play size={14} />
               <span>Démarrer</span>
             </button>
           )}
 
-          {/* ✅ AIDANT : Terminer une visite en cours */}
           {isInProgress && isAidant && (
             <button
               onClick={() => setShowCompleteModal(true)}
               disabled={isUpdating}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#2196F3' }}
             >
-              <CheckCircle size={18} />
+              <CheckCircle size={14} />
               <span>Terminer</span>
             </button>
           )}
 
-          {/* ✅ ADMIN/FAMILLE : Annuler (si planifiée ou en attente) */}
           {(isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
             <button
               onClick={handleCancel}
               disabled={isUpdating}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#F44336' }}
             >
-              <XCircle size={18} />
+              <XCircle size={14} />
               <span>Annuler</span>
             </button>
           )}
 
-          {/* ✅ ADMIN : Valider une visite terminée */}
           {isCompleted && isAdminOrCoordinator && (
             <button
               onClick={async () => {
@@ -567,15 +443,14 @@ const VisitDetailPage = () => {
                   toast.error(error.message || 'Erreur lors de la validation');
                 }
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
               style={{ background: '#9C27B0' }}
             >
-              <CheckCircle size={18} />
+              <CheckCircle size={14} />
               <span>Valider</span>
             </button>
           )}
 
-          {/* ✅ ADMIN : Réassigner une visite expirée ou refusée */}
           {(isExpired || isRefused) && isAdminOrCoordinator && (
             <button
               onClick={() => {
@@ -583,175 +458,211 @@ const VisitDetailPage = () => {
                 if (!newAidantId) return;
                 toast('Réassignation à implémenter', { icon: 'ℹ️' });
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium transition hover:opacity-80"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
               style={{ background: '#FF5722' }}
             >
-              <AlertCircle size={18} />
+              <AlertCircle size={14} />
               <span>Réassigner</span>
-            </button>
-          )}
-
-          {/* ✅ PAIEMENT : Bouton Payer pour les brouillons */}
-          {requiresPayment && (
-            <button
-              onClick={handleOpenPayment}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-sm transition hover:opacity-80 animate-pulse"
-              style={{ background: '#8b5cf6' }}
-            >
-              <CreditCard size={18} />
-              Payer {visit.metadata?.payment_amount || 0} FCFA
             </button>
           )}
         </div>
       </div>
 
-      {/* ✅ BANDEAU D'EXPIRATION POUR BROUILLON */}
+      {/* ============================================================
+      BANDEAU DE PAIEMENT EXCLUSIF AU BROUILLON
+      ============================================================ */}
       {isDraft && requiresPayment && (
-        <div className="bg-purple-50 rounded-2xl p-4 border border-purple-200 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <CreditCard size={20} style={{ color: '#8b5cf6' }} />
-            <div>
-              <p className="text-sm font-bold" style={{ color: '#6d28d9' }}>
-                💳 En attente de paiement
+        <div className="bg-purple-50/70 rounded-2xl p-4 border border-purple-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="p-2 bg-purple-100 rounded-xl text-purple-600 shrink-0">
+              <CreditCard size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-purple-900">
+                Paiement requis pour valider la visite
               </p>
-              <p className="text-xs" style={{ color: '#7c3aed' }}>
-                {getDraftExpiryText() ? `⏰ ${getDraftExpiryText()}` : 'Expire dans 24h'}
+              <p className="text-[11px] text-purple-600 font-medium mt-0.5 flex flex-wrap items-center gap-1">
+                <span>Montant : <strong className="text-purple-950">{visit.metadata?.payment_amount || 0} FCFA</strong></span>
+                <span>•</span>
+                <span>{getDraftExpiryText() ? `Expire dans : ${getDraftExpiryText()}` : 'Expire bientôt'}</span>
               </p>
             </div>
           </div>
           <button
             onClick={handleOpenPayment}
-            className="px-4 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90 flex items-center gap-2"
+            className="w-full sm:w-auto px-5 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-95 shadow-sm text-center shrink-0"
             style={{ background: '#8b5cf6' }}
           >
-            <CreditCard size={16} />
             Payer maintenant
           </button>
         </div>
       )}
 
-      {/* INFORMATIONS PRINCIPALES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <InfoCard
-          icon={<User size={18} />}
-          label={getVisitDisplayType(visit)}
-          value={getVisitDisplayName(visit)}
-          sub={getVisitDisplayCategory(visit)}
-          color={colors.text}
-        />
-        <InfoCard
-          icon={<Calendar size={18} />}
-          label="Date & Heure"
-          value={formatDate(visit.scheduled_date)}
-          sub={`${visit.scheduled_time} (${visit.duration_minutes} min)`}
-          color={colors.text}
-        />
-        <InfoCard
-          icon={<User size={18} />}
-          label="Aidant"
-          value={getVisitDisplayAidant(visit)}
-          sub={visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente'}
-          color={visit.aidant ? colors.text : colors.text + '40'}
-        />
-        <InfoCard
-          icon={<Clock size={18} />}
-          label="Statut"
-          value={getStatusLabel(visit.status)}
-          sub={visit.start_time ? `Début: ${formatTime(visit.start_time)}` : 'Non démarrée'}
-          color={getStatusColor(visit.status)}
-        />
-      </div>
-
-      {/* ADRESSE */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
-          <MapPin size={20} />
-          Adresse
-        </h3>
-        <p style={{ color: colors.text + '80' }}>{getVisitDisplayAddress(visit)}</p>
-        {visit.patient?.phone && (
-          <p className="mt-2 text-sm flex items-center gap-2" style={{ color: colors.text + '60' }}>
-            <Phone size={14} />
-            {visit.patient.phone}
-          </p>
-        )}
-      </div>
-
-      {/* ACTIONS RÉALISÉES */}
-      {visit.actions && visit.actions.length > 0 && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
-            <CheckCircle size={20} style={{ color: '#4CAF50' }} />
-            Actions réalisées
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {visit.actions.map((action, index) => (
-              <span
-                key={index}
-                className="px-3 py-1 rounded-full text-sm"
-                style={{ background: colors.primary + '15', color: colors.primary }}
-              >
-                {action}
-              </span>
-            ))}
+      {/* ============================================================
+      GRID LAYOUT PRINCIPAL
+      ============================================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        
+        {/* COLONNE DE GAUCHE : Compte-rendu et Informations (2/3) */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* CARTES D'INFORMATIONS RAPIDES */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <InfoCard
+              icon={<User size={15} />}
+              label="Bénéficiaire"
+              value={getVisitDisplayName(visit)}
+              sub={getCategoryLabel(visit.patient?.category || 'senior')}
+              color={colors.text}
+            />
+            <InfoCard
+              icon={<Calendar size={15} />}
+              label="Planification"
+              value={formatDate(visit.scheduled_date)}
+              sub={`${visit.scheduled_time} (${visit.duration_minutes} min)`}
+              color={colors.text}
+            />
+            <InfoCard
+              icon={<Heart size={15} />}
+              label="Intervenant"
+              value={getVisitDisplayAidant(visit)}
+              sub={visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente'}
+              color={visit.aidant ? colors.text : colors.text + '50'}
+            />
           </div>
-        </div>
-      )}
 
-      {/* NOTES */}
-      {visit.notes && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
-            <Edit2 size={20} />
-            Notes
-          </h3>
-          <p style={{ color: colors.text + '80' }}>{visit.notes}</p>
-        </div>
-      )}
+          {/* COMPTE-RENDU DE VISITE GROUPÉ */}
+          {(visit.actions?.length > 0 || visit.notes || visit.photos?.length > 0 || visit.report) ? (
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-black/5 space-y-5">
+              <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ color: colors.text }}>
+                📊 Compte-rendu de la visite
+              </h3>
 
-      {/* PHOTOS */}
-      {visit.photos && visit.photos.length > 0 && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
-            <Image size={20} />
-            Photos
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {visit.photos.map((photo: any, index: number) => (
-              <div
-                key={index}
-                className="relative aspect-square rounded-lg overflow-hidden border cursor-pointer"
-                style={{ borderColor: colors.border }}
-                onClick={() => window.open(photo.photo_url || photo, '_blank')}
-              >
-                <img
-                  src={photo.photo_url || photo}
-                  alt={`Photo ${index + 1}`}
-                  className="w-full h-full object-cover"
-                />
-                {photo.caption && (
-                  <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50">
-                    <p className="text-white text-xs truncate">{photo.caption}</p>
+              {/* Actions complétées */}
+              {visit.actions && visit.actions.length > 0 && (
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <CheckCircle size={14} className="text-green-500" />
+                    Actions complétées
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {visit.actions.map((action, index) => (
+                      <span
+                        key={index}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium"
+                        style={{ background: colors.primary + '10', color: colors.primary }}
+                      >
+                        {action}
+                      </span>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
+
+              {/* Notes de préparation & Rapport */}
+              {(visit.notes || visit.report) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {visit.notes && (
+                    <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
+                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        Notes de préparation
+                      </h4>
+                      <p className="text-xs text-gray-700 leading-relaxed font-medium">
+                        {visit.notes}
+                      </p>
+                    </div>
+                  )}
+                  {visit.report && (
+                    <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
+                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                        Rapport d'intervention
+                      </h4>
+                      <p className="text-xs text-gray-700 leading-relaxed font-medium">
+                        {visit.report}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Photos jointes */}
+              {visit.photos && visit.photos.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Photos jointes
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {visit.photos.map((photo: any, index: number) => {
+                      const url = photo.photo_url || photo;
+                      return (
+                        <div
+                          key={index}
+                          className="relative aspect-square rounded-xl overflow-hidden border cursor-pointer hover:opacity-90 transition group"
+                          style={{ borderColor: colors.border }}
+                          onClick={() => window.open(url, '_blank')}
+                        >
+                          <img
+                            src={url}
+                            alt={`Photo ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          {photo.caption && (
+                            <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-black/60 text-center">
+                              <p className="text-white text-[9px] truncate">{photo.caption}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl p-6 text-center border border-black/5">
+              <p className="text-xs text-gray-400 font-medium">
+                Le compte-rendu, les photos et les rapports de visite apparaîtront ici une fois complétés par l'aidant.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* COLONNE DE DROITE : Localisation et Contact (1/3) */}
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5 space-y-4">
+            <h3 className="font-bold text-sm flex items-center gap-2 border-b pb-2" style={{ color: colors.text }}>
+              <MapPin size={16} />
+              Localisation
+            </h3>
+            
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Adresse de visite</p>
+              <p className="text-xs sm:text-sm text-gray-700 leading-relaxed font-medium">
+                {getVisitDisplayAddress(visit)}
+              </p>
+            </div>
+
+            {visit.patient?.phone && (
+              <div className="pt-2 border-t border-gray-50">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Contact bénéficiaire</p>
+                <a
+                  href={`tel:${visit.patient.phone}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold transition hover:opacity-80"
+                  style={{ color: colors.primary }}
+                >
+                  <Phone size={13} />
+                  {visit.patient.phone}
+                </a>
               </div>
-            ))}
+            )}
           </div>
         </div>
-      )}
 
-      {/* RAPPORT */}
-      {visit.report && (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-          <h3 className="font-semibold mb-3 flex items-center gap-2" style={{ color: colors.text }}>
-            <Edit2 size={20} />
-            Rapport
-          </h3>
-          <p style={{ color: colors.text + '80' }}>{visit.report}</p>
-        </div>
-      )}
+      </div>
 
-      {/* ✅ MODAL DE PAIEMENT */}
+      {/* ============================================================
+      MODALS
+      ============================================================ */}
       {showPaymentModal && currentVisit && (
         <VisitPaymentModal
           isOpen={true}
@@ -761,13 +672,10 @@ const VisitDetailPage = () => {
         />
       )}
 
-      {/* ✅ MODAL COMPLETE VISIT */}
       {showCompleteModal && (
         <CompleteVisitModal
           isOpen={true}
-          onClose={() => {
-            setShowCompleteModal(false);
-          }}
+          onClose={() => setShowCompleteModal(false)}
           visit={{ patient: visit.patient }}
           patientCategory={visit.patient?.category || 'senior'}
           onSubmit={handleComplete}
@@ -778,7 +686,9 @@ const VisitDetailPage = () => {
   );
 };
 
-// SOUS-COMPOSANTS
+// ============================================================
+// SOUS-COMPOSANT INTERNE
+// ============================================================
 interface InfoCardProps {
   icon: React.ReactNode;
   label: string;
@@ -788,16 +698,18 @@ interface InfoCardProps {
 }
 
 const InfoCard = ({ icon, label, value, sub, color }: InfoCardProps) => (
-  <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-    <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text, #6b7280)' + '60' }}>
-      {icon}
-      {label}
+  <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 flex flex-col justify-between">
+    <div>
+      <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+        {icon}
+        {label}
+      </div>
+      <p className="font-bold text-xs sm:text-sm mt-1.5 line-clamp-1" style={{ color: color || 'var(--color-text, #2d2d2d)' }}>
+        {value}
+      </p>
     </div>
-    <p className="font-semibold mt-1" style={{ color: color || 'var(--color-text, #2d2d2d)' }}>
-      {value}
-    </p>
     {sub && (
-      <p className="text-xs mt-0.5" style={{ color: 'var(--color-text, #6b7280)' + '50' }}>
+      <p className="text-[11px] text-gray-400 mt-1 truncate font-medium">
         {sub}
       </p>
     )}
