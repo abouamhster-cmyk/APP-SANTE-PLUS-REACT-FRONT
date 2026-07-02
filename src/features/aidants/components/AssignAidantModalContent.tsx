@@ -1,39 +1,14 @@
-// 📁 src/features/aidants/components/AssignAidantModalContent.tsx
-// 📌 Contenu de l'assignation d'aidant (sans wrapper modal)
+// 📁 AssignAidantModalContent.tsx
 
 import { useState } from 'react';
-import { CheckCircle, AlertCircle, User, Users, UserPlus, Info } from 'lucide-react';
+import { CheckCircle, AlertCircle, User, Users, Info } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
-interface AssignAidantModalContentProps {
-  aidant: any;
-  patients: any[];
-  onSuccess: () => void;
-  onCancel: () => void;
-  colors: any;
-}
-
-// ✅ TYPES D'ASSIGNATION AVEC DESCRIPTIONS
 const ASSIGNMENT_TYPES = [
-  { 
-    value: 'permanente', 
-    label: '📌 Permanente', 
-    description: "L'aidant suit le patient sur le long terme",
-    icon: '📌'
-  },
-  { 
-    value: 'temporaire', 
-    label: '⏳ Temporaire', 
-    description: 'Pour une période définie (ex: convalescence)',
-    icon: '⏳'
-  },
-  { 
-    value: 'ponctuelle', 
-    label: '⚡ Ponctuelle', 
-    description: 'Pour une intervention unique',
-    icon: '⚡'
-  },
+  { value: 'permanente', icon: '📌', label: 'Permanente' },
+  { value: 'temporaire', icon: '⏳', label: 'Temporaire' },
+  { value: 'ponctuelle', icon: '⚡', label: 'Ponctuelle' },
 ];
 
 export const AssignAidantModalContent = ({
@@ -42,223 +17,170 @@ export const AssignAidantModalContent = ({
   onSuccess,
   onCancel,
   colors,
-}: AssignAidantModalContentProps) => {
+}: any) => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [assignmentType, setAssignmentType] = useState('permanente');
-  const [isLoading, setIsLoading] = useState(false);
-  const { assignAidant } = useAidantCatalogStore();
-
-  // ✅ Option "Pour moi"
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('patient');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { assignAidant } = useAidantCatalogStore();
+  const hasPatients = patients.length > 0;
 
   const handleSubmit = async () => {
     if (targetType === 'patient' && !selectedPatientId) {
-      toast.error('Veuillez sélectionner un proche');
+      toast.error('Sélectionne un proche');
       return;
     }
 
     setIsLoading(true);
     try {
-      const patientId = targetType === 'patient' ? selectedPatientId : null;
-      await assignAidant(aidant.id, patientId, assignmentType);
+      await assignAidant(
+        aidant.id,
+        targetType === 'patient' ? selectedPatientId : null,
+        assignmentType
+      );
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur lors de l\'assignation');
+    } catch (e: any) {
+      toast.error(e.message || 'Erreur');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getSelectedTypeDescription = () => {
-    const type = ASSIGNMENT_TYPES.find(t => t.value === assignmentType);
-    return type?.description || '';
-  };
-
-  const remainingSlots = Math.max(0, (aidant.max_assignments || 4) - (aidant.active_assignments || 0));
-  const hasPatients = patients.length > 0;
-
   return (
-    <div className="space-y-5 pb-4">
-      {/* Infos aidant */}
-      <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
-            style={{ background: colors.primary }}
-          >
-            {aidant.user?.full_name?.charAt(0) || 'A'}
-          </div>
-          <div>
-            <p className="font-medium text-sm" style={{ color: colors.text }}>
-              {aidant.user?.full_name}
-            </p>
-            <p className="text-xs" style={{ color: colors.text + '50' }}>
-              {aidant.specialties?.join(', ') || 'Aucune spécialité'}
-            </p>
-          </div>
+    <div className="space-y-4">
+
+      {/* HEADER AIDANT (LIGHT VERSION) */}
+      <div className="flex items-center gap-3">
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+          style={{ background: colors.primary }}
+        >
+          {aidant.user?.full_name?.[0]}
         </div>
-        <div className="mt-2 flex items-center gap-3 text-xs" style={{ color: colors.text + '50' }}>
-          <span>⭐ {aidant.avg_rating || aidant.rating || 0}</span>
-          <span>•</span>
-          <span>📋 {aidant.total_missions || 0} missions</span>
-          <span>•</span>
-          <span>
-            {aidant.active_assignments || 0}/{aidant.max_assignments || 4} actives
-          </span>
-          {remainingSlots > 0 && (
-            <span className="text-green-600 font-bold">
-              ({remainingSlots} place{remainingSlots > 1 ? 's' : ''} disponible{remainingSlots > 1 ? 's' : ''})
-            </span>
-          )}
+
+        <div className="flex-1">
+          <p className="text-sm font-semibold" style={{ color: colors.text }}>
+            {aidant.user?.full_name}
+          </p>
+          <p className="text-xs text-gray-400 truncate">
+            {aidant.specialties?.join(', ') || '—'}
+          </p>
         </div>
+
+        <span className="text-[10px] text-gray-400">
+          {aidant.active_assignments || 0}/{aidant.max_assignments || 4}
+        </span>
       </div>
 
-      {/* Choix du destinataire */}
-      <div>
-        <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
-          <User size={14} className="inline mr-1" />
-          Pour qui ?
-        </label>
-        <div className="grid grid-cols-2 gap-2">
+      {/* TARGET */}
+      <div className="grid grid-cols-2 gap-2">
+        {['personal', 'patient'].map((type) => (
           <button
-            type="button"
-            onClick={() => setTargetType('personal')}
-            className={`p-2.5 rounded-xl text-xs font-bold transition text-center ${
-              targetType === 'personal'
-                ? 'text-white shadow-sm'
-                : 'border bg-gray-50 text-gray-600'
+            key={type}
+            onClick={() => setTargetType(type as any)}
+            className={`py-2 rounded-xl text-xs font-semibold transition ${
+              targetType === type
+                ? 'text-white'
+                : 'border text-gray-500'
             }`}
             style={{
-              background: targetType === 'personal' ? colors.primary : 'transparent',
-              borderColor: targetType === 'personal' ? colors.primary : colors.border,
+              background: targetType === type ? colors.primary : 'transparent',
+              borderColor: colors.border,
             }}
           >
-            👤 Personnel
+            {type === 'personal' ? '👤 Moi' : '👨‍👩‍👦 Patient'}
           </button>
-          <button
-            type="button"
-            onClick={() => setTargetType('patient')}
-            className={`p-2.5 rounded-xl text-xs font-bold transition text-center ${
-              targetType === 'patient'
-                ? 'text-white shadow-sm'
-                : 'border bg-gray-50 text-gray-600'
-            }`}
-            style={{
-              background: targetType === 'patient' ? colors.primary : 'transparent',
-              borderColor: targetType === 'patient' ? colors.primary : colors.border,
-            }}
-          >
-            👨‍👩‍👦 Patient
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Sélection du patient (si targetType === 'patient') */}
+      {/* SELECT PATIENT */}
       {targetType === 'patient' && (
         <div>
-          <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
-            <Users size={14} className="inline mr-1" />
-            Sélectionner un proche
-          </label>
           {hasPatients ? (
             <select
               value={selectedPatientId}
               onChange={(e) => setSelectedPatientId(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border outline-none text-sm"
-              style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+              className="w-full px-3 py-2 rounded-xl border text-sm"
+              style={{ borderColor: colors.border }}
             >
-              <option value="">Choisir un proche...</option>
-              {patients.map((patient) => (
-                <option key={patient.id} value={patient.id}>
-                  {patient.first_name} {patient.last_name} ({patient.category})
+              <option value="">Choisir...</option>
+              {patients.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.first_name} {p.last_name}
                 </option>
               ))}
             </select>
           ) : (
-            <div className="p-3 rounded-xl text-center" style={{ background: '#FEF2F2' }}>
-              <p className="text-sm text-red-600">
-                ⚠️ Vous n'avez pas encore de proche enregistré.
-              </p>
-              <button
-                onClick={() => {
-                  onCancel();
-                  window.location.href = '/app/patients';
-                }}
-                className="mt-2 text-sm font-medium hover:underline"
-                style={{ color: colors.primary }}
-              >
-                Ajouter un proche
-              </button>
-            </div>
+            <p className="text-xs text-red-500">
+              Aucun proche disponible
+            </p>
           )}
         </div>
       )}
 
-      {/* Type d'assignation */}
-      <div>
-        <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
-          Type d'assignation
-        </label>
-        <div className="grid grid-cols-3 gap-2">
-          {ASSIGNMENT_TYPES.map((type) => (
-            <button
-              key={type.value}
-              type="button"
-              onClick={() => setAssignmentType(type.value)}
-              className={`p-2.5 rounded-xl text-xs font-bold transition-all ${
-                assignmentType === type.value
-                  ? 'text-white shadow-sm scale-[1.02]'
-                  : 'border hover:bg-gray-50'
-              }`}
-              style={{
-                background: assignmentType === type.value ? colors.primary : 'transparent',
-                borderColor: assignmentType === type.value ? colors.primary : colors.border,
-                color: assignmentType === type.value ? 'white' : colors.text,
-              }}
-            >
-              <div className="text-base">{type.icon}</div>
-              {type.label}
-            </button>
-          ))}
-        </div>
-        <p className="text-[10px] mt-1.5 text-gray-400 flex items-center gap-1">
-          <Info size={12} />
-          {getSelectedTypeDescription()}
-        </p>
+      {/* TYPE */}
+      <div className="grid grid-cols-3 gap-2">
+        {ASSIGNMENT_TYPES.map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setAssignmentType(t.value)}
+            className={`py-2 rounded-xl text-xs font-medium transition ${
+              assignmentType === t.value
+                ? 'text-white'
+                : 'border text-gray-500'
+            }`}
+            style={{
+              background: assignmentType === t.value ? colors.primary : 'transparent',
+              borderColor: colors.border,
+            }}
+          >
+            <div>{t.icon}</div>
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Information */}
-      <div className="p-3 rounded-xl flex items-start gap-2" style={{ background: colors.primary + '08' }}>
-        <AlertCircle size={16} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
-        <p className="text-xs" style={{ color: colors.text + '70' }}>
-          {aidant.is_available
-            ? `L'aidant sera notifié de cette assignation. Vous pourrez suivre les missions dans votre espace.`
-            : "⚠️ Cet aidant n'est pas disponible actuellement."}
-        </p>
+      {/* INFO LIGHT */}
+      <div className="flex items-start gap-2 text-[11px] text-gray-500">
+        <Info size={12} />
+        {aidant.is_available
+          ? 'Notification envoyée à l’aidant'
+          : 'Aidant indisponible'}
       </div>
 
-      {/* Boutons */}
-      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+      {/* ACTIONS */}
+      <div className="flex gap-2 pt-2">
         <button
           onClick={onCancel}
-          className="flex-1 py-2.5 rounded-xl font-medium border transition hover:bg-gray-50"
-          style={{ borderColor: colors.border, color: colors.text }}
+          className="flex-1 py-2 rounded-xl border text-sm"
+          style={{ borderColor: colors.border }}
         >
           Annuler
         </button>
+
         <button
           onClick={handleSubmit}
-          disabled={isLoading || (targetType === 'patient' && !selectedPatientId) || !aidant.is_available}
-          className="flex-1 py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ 
-            background: (isLoading || (targetType === 'patient' && !selectedPatientId) || !aidant.is_available) ? '#9CA3AF' : colors.primary 
+          disabled={
+            isLoading ||
+            (targetType === 'patient' && !selectedPatientId) ||
+            !aidant.is_available
+          }
+          className="flex-1 py-2 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-1"
+          style={{
+            background: colors.primary,
+            opacity:
+              isLoading ||
+              (targetType === 'patient' && !selectedPatientId)
+                ? 0.5
+                : 1,
           }}
         >
           {isLoading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <CheckCircle size={16} />
+              <CheckCircle size={14} />
               Assigner
             </>
           )}
@@ -267,5 +189,3 @@ export const AssignAidantModalContent = ({
     </div>
   );
 };
-
-export default AssignAidantModalContent;
