@@ -1,5 +1,4 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
-// 📌 Contenu du formulaire de visite (sans wrapper modal)
 
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, User, AlertCircle, Users, UserCircle, Search } from 'lucide-react';
@@ -41,7 +40,7 @@ export const VisitModalContent = ({
   onCancel,
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const colors = getThemeColors('senior');
 
@@ -75,11 +74,19 @@ export const VisitModalContent = ({
 
   const isAdmin = isAdminOrCoordinator;
 
+  // ✅ Charger les comptes pour l'admin
   useEffect(() => {
     if (isAdmin) {
       fetchAccounts();
     }
   }, [isAdmin]);
+
+  // ✅ Pour les utilisateurs non-admin, sélectionner automatiquement leur compte
+  useEffect(() => {
+    if (!isAdmin && profile?.id) {
+      setSelectedAccountId(profile.id);
+    }
+  }, [isAdmin, profile]);
 
   const fetchAccounts = async () => {
     try {
@@ -133,15 +140,22 @@ export const VisitModalContent = ({
         notes: '',
         is_urgent: false,
       });
+      
+      // ✅ Pour l'admin, sélectionner le premier compte
       if (isAdmin && accounts.length > 0) {
         setSelectedAccountId(accounts[0].id);
+        setTargetType('account');
+      } 
+      // ✅ Pour les utilisateurs normaux, utiliser leur propre ID
+      else if (!isAdmin && profile?.id) {
+        setSelectedAccountId(profile.id);
         setTargetType('account');
       } else {
         setTargetType('account');
         setSelectedAccountId('');
       }
     }
-  }, [visit, mode, isAdmin, accounts]);
+  }, [visit, mode, isAdmin, accounts, profile]);
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
   const accountPatients = selectedAccount?.patients || [];
@@ -165,40 +179,49 @@ export const VisitModalContent = ({
         requested_by: profile?.id,
       };
 
+      // ✅ CAS 1: Visite pour un patient
       if (targetType === 'patient') {
         if (!formData.patient_id) {
           toast.error(`Veuillez sélectionner un${singular.startsWith('béné') ? ' ' : 'e '}${singular}`);
           setIsLoading(false);
           return;
         }
-        if (!selectedAccountId) {
-          toast.error('Veuillez sélectionner un compte');
+        // ✅ Pour les utilisateurs normaux, utiliser leur propre ID
+        const accountId = isAdmin ? selectedAccountId : profile?.id;
+        if (!accountId) {
+          toast.error('Compte utilisateur introuvable');
           setIsLoading(false);
           return;
         }
         data.patient_id = formData.patient_id;
-        data.target_user_id = selectedAccountId;
+        data.target_user_id = accountId;
         data.target_type = 'patient';
         data.target_name = null;
       }
 
+      // ✅ CAS 2: Visite pour le compte lui-même (personnel)
       else if (targetType === 'account') {
-        if (!selectedAccountId) {
-          toast.error('Veuillez sélectionner un compte');
+        // ✅ Pour les utilisateurs normaux, utiliser leur propre ID
+        const accountId = isAdmin ? selectedAccountId : profile?.id;
+        if (!accountId) {
+          toast.error('Compte utilisateur introuvable');
           setIsLoading(false);
           return;
         }
-        data.target_user_id = selectedAccountId;
+        data.target_user_id = accountId;
         data.target_type = 'personal';
-        data.target_name = selectedAccount?.full_name || 'Compte personnel';
+        data.target_name = isAdmin ? selectedAccount?.full_name : profile?.full_name || 'Personnel';
         data.patient_id = null;
       }
 
+      // ✅ CAS 3: Fallback
       else {
         data.target_type = 'personal';
         data.target_name = profile?.full_name || 'Personnel';
         data.patient_id = null;
       }
+
+      console.log('📤 Données envoyées:', data);
 
       if (mode === 'create') {
         await createVisit(data);
@@ -214,7 +237,7 @@ export const VisitModalContent = ({
     }
   };
 
-  // ✅ SÉLECTEUR DE COMPTE (ADMIN)
+  // ✅ SÉLECTEUR DE COMPTE (ADMIN UNIQUEMENT)
   const renderAccountSelector = () => {
     if (!isAdmin) return null;
 
@@ -233,8 +256,7 @@ export const VisitModalContent = ({
               borderColor: colors.border,
               background: 'var(--color-background, #f5f0e8)',
               color: colors.text,
-              '--tw-ring-color': colors.primary
-            } as any}
+            }}
           >
             <span className="truncate">
               {selectedAccount ? selectedAccount.display_name : 'Choisir un compte...'}
@@ -304,7 +326,7 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ SÉLECTEUR DE DESTINATAIRE (ADMIN)
+  // ✅ SÉLECTEUR DE DESTINATAIRE (ADMIN UNIQUEMENT)
   const renderTargetTypeSelector = () => {
     if (!isAdmin || !selectedAccount) return null;
 
@@ -385,7 +407,7 @@ export const VisitModalContent = ({
   const renderPatientSelector = () => {
     if (targetType !== 'patient') return null;
 
-    const patientList = selectedAccount && selectedAccount.has_patient 
+    const patientList = isAdmin && selectedAccount?.has_patient 
       ? accountPatients 
       : patients;
 
@@ -417,8 +439,7 @@ export const VisitModalContent = ({
               borderColor: colors.border,
               background: 'var(--color-background, #f5f0e8)',
               color: colors.text,
-              '--tw-ring-color': colors.primary
-            } as any}
+            }}
             required={targetType === 'patient'}
           >
             <option value="">Sélectionner un{singular.startsWith('béné') ? ' ' : 'e '}{singular}</option>
@@ -433,8 +454,26 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ RÉSUMÉ DESTINATAIRE (ADMIN)
+  // ✅ RÉSUMÉ DESTINATAIRE
   const renderTargetSummary = () => {
+    // Pour les utilisateurs normaux, afficher leur propre compte
+    if (!isAdmin && profile) {
+      return (
+        <div className="p-3 rounded-xl flex items-center gap-2.5 border" style={{ background: colors.primary + '03', borderColor: colors.border + '40' }}>
+          <UserCircle size={18} style={{ color: colors.primary }} className="shrink-0" />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-gray-800 truncate">
+              {targetType === 'account' ? profile.full_name : 'Proche'}
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              {targetType === 'account' ? '👤 Planification personnelle' : '👨‍👩‍👦 Planification pour un proche'}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Pour l'admin
     if (!selectedAccount) return null;
 
     if (targetType === 'account') {
@@ -473,13 +512,15 @@ export const VisitModalContent = ({
     return null;
   };
 
-  // ✅ BANDEAU INFORMATIF / DISCLAIMER
+  // ✅ BANDEAU INFORMATIF
   const renderDisclaimer = () => {
     let message = '';
     if (targetType === 'account' && selectedAccount) {
       message = `Planification pour le compte de ${selectedAccount.full_name}.`;
     } else if (targetType === 'patient' && selectedAccount) {
       message = `Planification pour un proche lié au compte de ${selectedAccount.full_name}.`;
+    } else if (targetType === 'account' && profile) {
+      message = `Planification pour votre compte personnel.`;
     } else {
       message = 'Planification pour votre compte personnel.';
     }
@@ -494,9 +535,11 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ FORMULAIRE STANDARD (FAMILLE / AIDANT HORS ADMIN)
+  // ✅ FORMULAIRE POUR LES UTILISATEURS NORMAUX (FAMILLE / AIDANT)
   const renderFamilyContent = () => {
     if (isAdmin) return null;
+
+    const hasPatients = patients.length > 0;
 
     return (
       <>
@@ -528,11 +571,11 @@ export const VisitModalContent = ({
             <button
               type="button"
               onClick={() => setTargetType('patient')}
-              disabled={patients.length === 0}
+              disabled={!hasPatients}
               className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
                 targetType === 'patient'
                   ? 'text-white shadow-sm'
-                  : patients.length > 0
+                  : hasPatients
                     ? 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                     : 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400'
               }`}
@@ -547,7 +590,7 @@ export const VisitModalContent = ({
               </span>
             </button>
           </div>
-          {patients.length === 0 && (
+          {!hasPatients && (
             <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
               <AlertCircle size={11} className="shrink-0" />
               Aucun proche enregistré. Option personnelle active.
@@ -555,7 +598,7 @@ export const VisitModalContent = ({
           )}
         </div>
 
-        {targetType === 'patient' && patients.length > 0 && (
+        {targetType === 'patient' && hasPatients && (
           <div className="space-y-1">
             <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
               {isFamily ? 'Proche' : isAidant ? 'Bénéficiaire' : 'Bénéficiaire'} *
@@ -570,8 +613,7 @@ export const VisitModalContent = ({
                   borderColor: colors.border,
                   background: 'var(--color-background, #f5f0e8)',
                   color: colors.text,
-                  '--tw-ring-color': colors.primary
-                } as any}
+                }}
                 required={targetType === 'patient'}
               >
                 <option value="">Sélectionner un{singular.startsWith('béné') ? ' ' : 'e '}{singular}</option>
@@ -614,8 +656,8 @@ export const VisitModalContent = ({
       {/* 🔹 FAMILLE : Configuration standard */}
       {!isAdmin && renderFamilyContent()}
 
-      {/* 🔹 Résumé destinataire (admin) */}
-      {isAdmin && renderTargetSummary()}
+      {/* 🔹 Résumé destinataire */}
+      {renderTargetSummary()}
 
       {/* 🔹 Sélection patient */}
       {renderPatientSelector()}
@@ -635,8 +677,7 @@ export const VisitModalContent = ({
                 borderColor: colors.border,
                 background: 'var(--color-background, #f5f0e8)',
                 color: colors.text,
-                '--tw-ring-color': colors.primary
-              } as any}
+              }}
               required
             />
           </div>
@@ -655,8 +696,7 @@ export const VisitModalContent = ({
                 borderColor: colors.border,
                 background: 'var(--color-background, #f5f0e8)',
                 color: colors.text,
-                '--tw-ring-color': colors.primary
-              } as any}
+              }}
               required
             />
           </div>
@@ -674,8 +714,7 @@ export const VisitModalContent = ({
             borderColor: colors.border,
             background: 'var(--color-background, #f5f0e8)',
             color: colors.text,
-            '--tw-ring-color': colors.primary
-          } as any}
+          }}
         >
           <option value="30">30 minutes</option>
           <option value="45">45 minutes</option>
@@ -696,8 +735,7 @@ export const VisitModalContent = ({
             borderColor: colors.border,
             background: 'var(--color-background, #f5f0e8)',
             color: colors.text,
-            '--tw-ring-color': colors.primary
-          } as any}
+          }}
           rows={3}
           placeholder="Détails importants pour l'intervenant..."
         />
