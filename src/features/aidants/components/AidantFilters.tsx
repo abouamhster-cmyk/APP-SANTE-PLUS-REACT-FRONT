@@ -1,17 +1,21 @@
 // 📁 frontend/src/features/aidants/components/AidantFilters.tsx
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { X, Filter, Star, MapPin, Briefcase } from 'lucide-react';
-import { AidantFilters as FiltersType, DEFAULT_FILTERS, AidantSpecialty } from '@/types';  
+import { AidantFilters as FiltersType, DEFAULT_FILTERS, AidantSpecialty } from '@/types';
 
-const SPECIALTIES = [
+// ============================================================
+// CONSTANTES
+// ============================================================
+
+const SPECIALTIES: { value: AidantSpecialty; label: string }[] = [
   { value: 'senior', label: '👴 Senior' },
   { value: 'maman_bebe', label: '👶 Maman & Bébé' },
   { value: 'accompagnement', label: '🤝 Accompagnement' },
   { value: 'autre', label: '📝 Autre' },
 ];
 
-const ZONES = [
+const ZONES: string[] = [
   'Cotonou',
   'Abomey-Calavi',
   'Porto-Novo',
@@ -21,12 +25,20 @@ const ZONES = [
   'Autre',
 ];
 
+// ============================================================
+// INTERFACE
+// ============================================================
+
 interface AidantFiltersProps {
   filters: FiltersType;
   onFilterChange: (filters: Partial<FiltersType>) => void;
   onClose: () => void;
   colors: any;
 }
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
 
 export const AidantFilters = ({
   filters,
@@ -36,34 +48,48 @@ export const AidantFilters = ({
 }: AidantFiltersProps) => {
   const [localFilters, setLocalFilters] = useState<FiltersType>(filters);
 
-  const handleChange = (key: keyof FiltersType, value: any) => {
-    setLocalFilters((prev) => ({ ...prev, [key]: value }));
-  };
+  // ============================================================
+  // HANDLERS
+  // ============================================================
 
-  const handleApply = () => {
+  const handleChange = useCallback((key: keyof FiltersType, value: any) => {
+    setLocalFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleApply = useCallback(() => {
     onFilterChange(localFilters);
     onClose();
-  };
+  }, [localFilters, onFilterChange, onClose]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     const defaultFilters = { ...DEFAULT_FILTERS };
     setLocalFilters(defaultFilters);
     onFilterChange(defaultFilters);
     onClose();
-  };
+  }, [onFilterChange, onClose]);
+
+  // ============================================================
+  // RENDU
+  // ============================================================
 
   return (
     <div className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold flex items-center gap-2" style={{ color: colors.text }}>
           <Filter size={18} style={{ color: colors.primary }} />
           Filtres
         </h3>
-        <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+        <button
+          onClick={onClose}
+          className="p-1 hover:bg-gray-100 rounded-lg transition"
+          aria-label="Fermer les filtres"
+        >
           <X size={18} />
         </button>
       </div>
 
+      {/* FILTRES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Spécialité */}
         <div>
@@ -74,8 +100,12 @@ export const AidantFilters = ({
           <select
             value={localFilters.specialty || ''}
             onChange={(e) => handleChange('specialty', e.target.value as AidantSpecialty || undefined)}
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
+            style={{
+              borderColor: colors.border,
+              background: 'var(--color-background)',
+              color: colors.text,
+            }}
           >
             <option value="">Toutes</option>
             {SPECIALTIES.map((spec) => (
@@ -95,8 +125,12 @@ export const AidantFilters = ({
           <select
             value={localFilters.zone || ''}
             onChange={(e) => handleChange('zone', e.target.value || undefined)}
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
+            style={{
+              borderColor: colors.border,
+              background: 'var(--color-background)',
+              color: colors.text,
+            }}
           >
             <option value="">Toutes</option>
             {ZONES.map((zone) => (
@@ -116,8 +150,12 @@ export const AidantFilters = ({
           <select
             value={localFilters.minRating || ''}
             onChange={(e) => handleChange('minRating', e.target.value ? parseFloat(e.target.value) : undefined)}
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
+            style={{
+              borderColor: colors.border,
+              background: 'var(--color-background)',
+              color: colors.text,
+            }}
           >
             <option value="">Toutes</option>
             <option value="4.5">⭐ 4.5+</option>
@@ -136,8 +174,12 @@ export const AidantFilters = ({
           <select
             value={localFilters.minExperience || ''}
             onChange={(e) => handleChange('minExperience', e.target.value ? parseInt(e.target.value) : undefined)}
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
+            style={{
+              borderColor: colors.border,
+              background: 'var(--color-background)',
+              color: colors.text,
+            }}
           >
             <option value="">Aucune</option>
             <option value="1">1+ an</option>
@@ -155,8 +197,12 @@ export const AidantFilters = ({
           <select
             value={localFilters.sortBy}
             onChange={(e) => handleChange('sortBy', e.target.value as 'rating' | 'experience_years' | 'total_missions' | 'active_assignments')}
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
+            style={{
+              borderColor: colors.border,
+              background: 'var(--color-background)',
+              color: colors.text,
+            }}
           >
             <option value="rating">⭐ Note</option>
             <option value="experience_years">📅 Expérience</option>
@@ -173,8 +219,12 @@ export const AidantFilters = ({
           <select
             value={localFilters.sortOrder}
             onChange={(e) => handleChange('sortOrder', e.target.value as 'asc' | 'desc')}
-            className="w-full px-3 py-2 rounded-xl border outline-none text-sm"
-            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+            className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
+            style={{
+              borderColor: colors.border,
+              background: 'var(--color-background)',
+              color: colors.text,
+            }}
           >
             <option value="desc">⬇️ Décroissant</option>
             <option value="asc">⬆️ Croissant</option>
@@ -188,7 +238,7 @@ export const AidantFilters = ({
               type="checkbox"
               checked={localFilters.onlyAvailable !== false}
               onChange={(e) => handleChange('onlyAvailable', e.target.checked)}
-              className="w-4 h-4 rounded"
+              className="w-4 h-4 rounded focus:ring-2 transition"
               style={{ accentColor: colors.primary }}
             />
             <span className="text-sm font-medium" style={{ color: colors.text }}>
@@ -198,7 +248,7 @@ export const AidantFilters = ({
         </div>
       </div>
 
-      {/* Actions */}
+      {/* ACTIONS */}
       <div className="flex gap-3 mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
         <button
           onClick={handleReset}
@@ -218,3 +268,5 @@ export const AidantFilters = ({
     </div>
   );
 };
+
+export default AidantFilters;
