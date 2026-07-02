@@ -1,7 +1,7 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, AlertCircle, Users, UserCircle, Search } from 'lucide-react';
+import { Calendar, Clock, User, UserCircle, Users, Search } from 'lucide-react';
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -40,7 +40,7 @@ export const VisitModalContent = ({
   onCancel,
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
-  const { profile, role, user } = useAuthStore();
+  const { profile, role } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const colors = getThemeColors('senior');
 
@@ -141,12 +141,11 @@ export const VisitModalContent = ({
         is_urgent: false,
       });
       
-      // ✅ Pour l'admin, sélectionner le premier compte
+      // ✅ Sélection par défaut du compte
       if (isAdmin && accounts.length > 0) {
         setSelectedAccountId(accounts[0].id);
         setTargetType('account');
       } 
-      // ✅ Pour les utilisateurs normaux, utiliser leur propre ID
       else if (!isAdmin && profile?.id) {
         setSelectedAccountId(profile.id);
         setTargetType('account');
@@ -186,7 +185,6 @@ export const VisitModalContent = ({
           setIsLoading(false);
           return;
         }
-        // ✅ Pour les utilisateurs normaux, utiliser leur propre ID
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
           toast.error('Compte utilisateur introuvable');
@@ -201,7 +199,6 @@ export const VisitModalContent = ({
 
       // ✅ CAS 2: Visite pour le compte lui-même (personnel)
       else if (targetType === 'account') {
-        // ✅ Pour les utilisateurs normaux, utiliser leur propre ID
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
           toast.error('Compte utilisateur introuvable');
@@ -331,19 +328,7 @@ export const VisitModalContent = ({
     if (!isAdmin || !selectedAccount) return null;
 
     if (!selectedAccount.has_patient) {
-      return (
-        <div className="p-3.5 rounded-xl flex items-center gap-2.5 border" style={{ background: colors.primary + '05', borderColor: colors.primary + '10' }}>
-          <UserCircle size={18} style={{ color: colors.primary }} className="shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-gray-800 truncate">
-              Planification personnelle ({selectedAccount.full_name})
-            </p>
-            <p className="text-[10px] text-gray-400 truncate">
-              Aucun proche associé à ce profil
-            </p>
-          </div>
-        </div>
-      );
+      return null; // Pas besoin de proposer le choix s'il n'y a pas de proches liés
     }
 
     return (
@@ -403,7 +388,7 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ SÉLECTEUR DE PATIENT
+  // ✅ SÉLECTEUR DE PATIENT (UNIFIÉ : ADMIN ET FAMILLE)
   const renderPatientSelector = () => {
     if (targetType !== 'patient') return null;
 
@@ -418,7 +403,7 @@ export const VisitModalContent = ({
             ⚠️ Aucun proche enregistré pour ce compte.
           </p>
           <p className="text-[10px] text-red-500 mt-0.5">
-            Sélectionnez l'option "Le compte" pour planifier pour l'utilisateur.
+            Sélectionnez l'option "Personnel" pour planifier pour l'utilisateur.
           </p>
         </div>
       );
@@ -454,213 +439,142 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ RÉSUMÉ DESTINATAIRE
+  // ✅ RÉSUMÉ COMPACT ET SÉCURISÉ DU DESTINATAIRE (UNIFIÉ)
   const renderTargetSummary = () => {
-    // Pour les utilisateurs normaux, afficher leur propre compte
+    const isAccount = targetType === 'account';
+
+    // Rendu pour l'Utilisateur Standard (Famille / Aidant)
     if (!isAdmin && profile) {
+      const targetName = isAccount ? profile.full_name : (() => {
+        const selectedPatient = patients.find(p => p.id === formData.patient_id);
+        return selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'un proche';
+      })();
+
       return (
-        <div className="p-3 rounded-xl flex items-center gap-2.5 border" style={{ background: colors.primary + '03', borderColor: colors.border + '40' }}>
-          <UserCircle size={18} style={{ color: colors.primary }} className="shrink-0" />
+        <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.border + '40' }}>
+          <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
+            {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
+          </div>
           <div className="min-w-0">
             <p className="text-xs font-bold text-gray-800 truncate">
-              {targetType === 'account' ? profile.full_name : 'Proche'}
+              {targetName}
             </p>
             <p className="text-[10px] text-gray-400 mt-0.5">
-              {targetType === 'account' ? '👤 Planification personnelle' : '👨‍👩‍👦 Planification pour un proche'}
+              {isAccount ? '👤 Planification pour votre propre compte.' : `👨‍👩‍👦 Planification d'une visite pour votre proche.`}
             </p>
           </div>
         </div>
       );
     }
 
-    // Pour l'admin
+    // Rendu pour l'Administrateur
     if (!selectedAccount) return null;
 
-    if (targetType === 'account') {
-      return (
-        <div className="p-3 rounded-xl flex items-center gap-2.5 border" style={{ background: colors.primary + '03', borderColor: colors.border + '40' }}>
-          <UserCircle size={18} style={{ color: colors.primary }} className="shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-gray-800 truncate">
-              {selectedAccount.full_name}
-            </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              👤 Planification pour le titulaire principal
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (targetType === 'patient') {
+    const targetName = isAccount ? selectedAccount.full_name : (() => {
       const selectedPatient = accountPatients.find(p => p.id === formData.patient_id);
-      return (
-        <div className="p-3 rounded-xl flex items-center gap-2.5 border" style={{ background: colors.primary + '03', borderColor: colors.border + '40' }}>
-          <Users size={18} style={{ color: colors.primary }} className="shrink-0" />
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-gray-800 truncate">
-              {selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Sélection du proche requise'}
-            </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              👨‍👩‍👦 Proche lié au compte de {selectedAccount.full_name}
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  // ✅ BANDEAU INFORMATIF
-  const renderDisclaimer = () => {
-    let message = '';
-    if (targetType === 'account' && selectedAccount) {
-      message = `Planification pour le compte de ${selectedAccount.full_name}.`;
-    } else if (targetType === 'patient' && selectedAccount) {
-      message = `Planification pour un proche lié au compte de ${selectedAccount.full_name}.`;
-    } else if (targetType === 'account' && profile) {
-      message = `Planification pour votre compte personnel.`;
-    } else {
-      message = 'Planification pour votre compte personnel.';
-    }
+      return selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'un proche';
+    })();
 
     return (
-      <div className="flex items-start gap-2.5 p-3 rounded-xl border" style={{ background: colors.primary + '05', borderColor: colors.primary + '10' }}>
-        <AlertCircle size={15} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
-        <p className="text-[11px] text-gray-500 leading-normal font-medium">
-          {message}
-        </p>
+      <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.border + '40' }}>
+        <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
+          {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-gray-800 truncate">
+            {targetName}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            {isAccount 
+              ? `👤 Planification pour le titulaire principal de ${selectedAccount.full_name}.` 
+              : `👨‍👩‍👦 Planification pour un membre du compte de ${selectedAccount.full_name}.`}
+          </p>
+        </div>
       </div>
     );
   };
 
-  // ✅ FORMULAIRE POUR LES UTILISATEURS NORMAUX (FAMILLE / AIDANT)
+  // ✅ CONFIGURATION COMMUNE POUR L'UTILISATEUR STANDARD (BOUTONS DE SÉLECTION)
   const renderFamilyContent = () => {
     if (isAdmin) return null;
 
     const hasPatients = patients.length > 0;
 
     return (
-      <>
-        <div className="space-y-1.5">
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
-            Pour qui ?
-          </label>
-          <div className="grid grid-cols-2 gap-2 w-full min-w-0">
-            <button
-              type="button"
-              onClick={() => {
-                setTargetType('account');
-                setFormData(prev => ({ ...prev, patient_id: '' }));
-              }}
-              className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
-                targetType === 'account'
-                  ? 'text-white shadow-sm'
-                  : 'bg-gray-50 text-gray-500'
-              }`}
-              style={{
-                background: targetType === 'account' ? colors.primary : 'transparent',
-                borderColor: targetType === 'account' ? colors.primary : colors.border,
-              }}
-            >
-              <UserCircle size={14} />
-              <span className="truncate">Personnel</span>
-            </button>
+      <div className="space-y-1.5">
+        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+          Pour qui ?
+        </label>
+        <div className="grid grid-cols-2 gap-2 w-full min-w-0">
+          <button
+            type="button"
+            onClick={() => {
+              setTargetType('account');
+              setFormData(prev => ({ ...prev, patient_id: '' }));
+            }}
+            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
+              targetType === 'account'
+                ? 'text-white shadow-sm'
+                : 'bg-gray-50 text-gray-500'
+            }`}
+            style={{
+              background: targetType === 'account' ? colors.primary : 'transparent',
+              borderColor: targetType === 'account' ? colors.primary : colors.border,
+            }}
+          >
+            <UserCircle size={14} />
+            <span className="truncate">Personnel</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setTargetType('patient')}
-              disabled={!hasPatients}
-              className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
-                targetType === 'patient'
-                  ? 'text-white shadow-sm'
-                  : hasPatients
-                    ? 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                    : 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400'
-              }`}
-              style={{
-                background: targetType === 'patient' ? colors.primary : 'transparent',
-                borderColor: targetType === 'patient' ? colors.primary : colors.border,
-              }}
-            >
-              <Users size={14} />
-              <span className="truncate">
-                {isFamily ? 'Proche' : isAidant ? 'Bénéficiaire' : 'Bénéficiaire'}
-              </span>
-            </button>
-          </div>
-          {!hasPatients && (
-            <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
-              <AlertCircle size={11} className="shrink-0" />
-              Aucun proche enregistré. Option personnelle active.
-            </p>
-          )}
+          <button
+            type="button"
+            onClick={() => setTargetType('patient')}
+            disabled={!hasPatients}
+            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
+              targetType === 'patient'
+                ? 'text-white shadow-sm'
+                : hasPatients
+                  ? 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  : 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400'
+            }`}
+            style={{
+              background: targetType === 'patient' ? colors.primary : 'transparent',
+              borderColor: targetType === 'patient' ? colors.primary : colors.border,
+            }}
+          >
+            <Users size={14} />
+            <span className="truncate">
+              {isFamily ? 'Proche' : isAidant ? 'Bénéficiaire' : 'Bénéficiaire'}
+            </span>
+          </button>
         </div>
-
-        {targetType === 'patient' && hasPatients && (
-          <div className="space-y-1">
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
-              {isFamily ? 'Proche' : isAidant ? 'Bénéficiaire' : 'Bénéficiaire'} *
-            </label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-              <select
-                value={formData.patient_id}
-                onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
-                className="w-full pl-10 pr-3 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1"
-                style={{
-                  borderColor: colors.border,
-                  background: 'var(--color-background, #f5f0e8)',
-                  color: colors.text,
-                }}
-                required={targetType === 'patient'}
-              >
-                <option value="">Sélectionner un{singular.startsWith('béné') ? ' ' : 'e '}{singular}</option>
-                {patients.map((patient) => (
-                  <option key={patient.id} value={patient.id}>
-                    {patient.first_name} {patient.last_name} - {getCategoryLabel(patient.category)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+        {!hasPatients && (
+          <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+            <UserCircle size={11} className="shrink-0" />
+            Aucun proche enregistré. Option personnelle active par défaut.
+          </p>
         )}
-
-        {targetType === 'account' && (
-          <div className="p-3 rounded-xl flex items-center gap-2.5 border" style={{ background: colors.primary + '03', borderColor: colors.border + '40' }}>
-            <UserCircle size={18} style={{ color: colors.primary }} className="shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-800 truncate">
-                {profile?.full_name || 'Personnel'}
-              </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">
-                Visite à caractère personnel
-              </p>
-            </div>
-          </div>
-        )}
-      </>
+      </div>
     );
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full overflow-hidden">
       
-      {/* 🔹 ADMIN : Sélection du compte */}
+      {/* 🔹 ADMIN : Sélection de compte */}
       {isAdmin && renderAccountSelector()}
 
-      {/* 🔹 ADMIN : Choix destinataire */}
+      {/* 🔹 ADMIN : Sélecteur de type d'allocation */}
       {isAdmin && renderTargetTypeSelector()}
 
-      {/* 🔹 FAMILLE : Configuration standard */}
+      {/* 🔹 FAMILLE/AIDANT : Sélection standard */}
       {!isAdmin && renderFamilyContent()}
 
-      {/* 🔹 Résumé destinataire */}
-      {renderTargetSummary()}
-
-      {/* 🔹 Sélection patient */}
+      {/* 🔹 Sélection patient (si "proche" sélectionné) */}
       {renderPatientSelector()}
+
+      {/* 🔹 Résumé destinataire de la visite (Unifié) */}
+      {renderTargetSummary()}
 
       {/* 🔹 Grille Date et Heure */}
       <div className="grid grid-cols-2 gap-3 w-full min-w-0">
@@ -755,9 +669,6 @@ export const VisitModalContent = ({
           ⚠️ Signaler comme visite urgente
         </label>
       </div>
-
-      {/* 🔹 Disclaimer */}
-      {renderDisclaimer()}
 
       {/* 🔹 Boutons actions */}
       <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
