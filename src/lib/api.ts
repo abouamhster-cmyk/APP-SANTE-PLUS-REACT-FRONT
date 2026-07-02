@@ -1,29 +1,40 @@
 // 📁 src/lib/api.ts
-// ✅ VERSION CORRIGÉE
-
+ 
 import axios from 'axios';
 import { supabase } from './supabase';
 
 // ✅ URL UNIQUE - sans /api en double
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-// ✅ Fonction utilitaire pour normaliser les URLs
+// ✅ Fonction utilitaire pour normaliser les URLs - CORRIGÉE
 const normalizeApiUrl = (endpoint: string): string => {
   const cleanBase = API_URL.replace(/\/+$/, '');
   const cleanEndpoint = endpoint.replace(/^\/+/, '');
   
-  // Si l'endpoint commence déjà par 'api/', on garde
+  // ✅ Si l'endpoint commence déjà par 'api/', on garde (supprime le doublon)
   if (cleanEndpoint.startsWith('api/')) {
+    // Si le base contient déjà 'api', on retire le 'api/' de l'endpoint
+    if (cleanBase.includes('/api')) {
+      return `${cleanBase}/${cleanEndpoint.replace(/^api\//, '')}`;
+    }
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  // Si le base contient déjà 'api', on ne l'ajoute pas
+  // ✅ Si le base contient déjà 'api', on ne l'ajoute pas
   if (cleanBase.includes('/api')) {
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  return `${cleanBase}/${cleanEndpoint}`;
+  // ✅ Cas général : ajouter "api" si nécessaire
+  return `${cleanBase}/api/${cleanEndpoint}`;
 };
+
+// ✅ Vérification au chargement
+console.log('📡 API_URL:', API_URL);
+console.log('📡 Exemples d\'URLs générées:');
+console.log(`   /auth/login → ${normalizeApiUrl('/auth/login')}`);
+console.log(`   /visits → ${normalizeApiUrl('/visits')}`);
+console.log(`   /api/health → ${normalizeApiUrl('/api/health')}`);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -49,35 +60,35 @@ api.interceptors.request.use(
 export const authAPI = {
   register: (data: any) => {
     console.log('📤 Sending register data:', data);
-    return api.post('/auth/register', data);
+    return api.post(normalizeApiUrl('/auth/register'), data);
   },
   login: (email: string, password: string) => {
     console.log('📤 Sending login data:', { email });
-    return api.post('/auth/login', { email, password });
+    return api.post(normalizeApiUrl('/auth/login'), { email, password });
   },
-  forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
-  resetPassword: (token: string, password: string) => api.post('/auth/reset-password', { token, password }),
-  getMe: () => api.get('/auth/me'),
-  switchRole: (role: string) => api.post('/auth/switch-role', { role }),
-  addProche: (data: any) => api.post('/auth/add-patient', data),
-  addPatient: (data: any) => api.post('/auth/add-patient', data),
-  deleteAccount: (userId: string) => api.post('/auth/delete-account', { userId }),
+  forgotPassword: (email: string) => api.post(normalizeApiUrl('/auth/forgot-password'), { email }),
+  resetPassword: (token: string, password: string) => api.post(normalizeApiUrl('/auth/reset-password'), { token, password }),
+  getMe: () => api.get(normalizeApiUrl('/auth/me')),
+  switchRole: (role: string) => api.post(normalizeApiUrl('/auth/switch-role'), { role }),
+  addProche: (data: any) => api.post(normalizeApiUrl('/auth/add-patient'), data),
+  addPatient: (data: any) => api.post(normalizeApiUrl('/auth/add-patient'), data),
+  deleteAccount: (userId: string) => api.post(normalizeApiUrl('/auth/delete-account'), { userId }),
 };
 
 // =============================================
 // PROCHES API (ex-PATIENTS)
 // =============================================
 export const procheAPI = {
-  getAll: () => api.get('/patients'),
-  getById: (id: string) => api.get(`/patients/${id}`),
-  create: (data: any) => api.post('/patients', data),
-  update: (id: string, data: any) => api.put(`/patients/${id}`, data),
-  delete: (id: string) => api.delete(`/patients/${id}`),
-  getVisits: (id: string) => api.get(`/patients/${id}/visits`),
-  getOrders: (id: string) => api.get(`/patients/${id}/orders`),
+  getAll: () => api.get(normalizeApiUrl('/patients')),
+  getById: (id: string) => api.get(normalizeApiUrl(`/patients/${id}`)),
+  create: (data: any) => api.post(normalizeApiUrl('/patients'), data),
+  update: (id: string, data: any) => api.put(normalizeApiUrl(`/patients/${id}`), data),
+  delete: (id: string) => api.delete(normalizeApiUrl(`/patients/${id}`)),
+  getVisits: (id: string) => api.get(normalizeApiUrl(`/patients/${id}/visits`)),
+  getOrders: (id: string) => api.get(normalizeApiUrl(`/patients/${id}/orders`)),
   assignAidant: (patientId: string, aidantId: string, assignmentType: string = 'permanente') => 
-    api.post(`/patients/${patientId}/assign-aidant`, { aidantId, assignmentType }),
-  getAidants: (patientId: string) => api.get(`/patients/${patientId}/aidants`),
+    api.post(normalizeApiUrl(`/patients/${patientId}/assign-aidant`), { aidantId, assignmentType }),
+  getAidants: (patientId: string) => api.get(normalizeApiUrl(`/patients/${patientId}/aidants`)),
 };
 
 export const patientAPI = procheAPI;
@@ -86,134 +97,139 @@ export const patientAPI = procheAPI;
 // VISITS API
 // =============================================
 export const visitAPI = {
-  getAll: () => api.get('/visits'),
-  getById: (id: string) => api.get(`/visits/${id}`),
-  create: (data: any) => api.post('/visits', data),
-  update: (id: string, data: any) => api.put(`/visits/${id}`, data),
-  delete: (id: string) => api.delete(`/visits/${id}`),
-  approve: (id: string) => api.post(`/visits/${id}/approve`),
-  refuse: (id: string, reason: string) => api.post(`/visits/${id}/refuse`, { reason }),
+  getAll: () => api.get(normalizeApiUrl('/visits')),
+  getById: (id: string) => api.get(normalizeApiUrl(`/visits/${id}`)),
+  create: (data: any) => api.post(normalizeApiUrl('/visits'), data),
+  update: (id: string, data: any) => api.put(normalizeApiUrl(`/visits/${id}`), data),
+  delete: (id: string) => api.delete(normalizeApiUrl(`/visits/${id}`)),
+  approve: (id: string) => api.post(normalizeApiUrl(`/visits/${id}/approve`)),
+  refuse: (id: string, reason: string) => api.post(normalizeApiUrl(`/visits/${id}/refuse`), { reason }),
   reassign: (id: string, aidantId: string, assignmentType: string = 'ponctuelle') => 
-    api.post(`/visits/${id}/reassign`, { aidant_id: aidantId, assignment_type: assignmentType }),
+    api.post(normalizeApiUrl(`/visits/${id}/reassign`), { aidant_id: aidantId, assignment_type: assignmentType }),
   confirmPayment: (id: string, transactionId: string) => 
-    api.post(`/visits/${id}/confirm-payment`, { transaction_id: transactionId }),
-  start: (id: string) => api.post(`/visits/${id}/start`),
-  complete: (id: string, data: any) => api.post(`/visits/${id}/complete`, data),
-  validate: (id: string) => api.post(`/visits/${id}/validate`),
-  cancel: (id: string) => api.post(`/visits/${id}/cancel`),
-  addPhoto: (id: string, photo: FormData) => api.post(`/visits/${id}/photos`, photo),
-  getPending: () => api.get('/visits/pending'),
-  getNeedingReassign: () => api.get('/visits/needing-reassign'),
+    api.post(normalizeApiUrl(`/visits/${id}/confirm-payment`), { transaction_id: transactionId }),
+  start: (id: string) => api.post(normalizeApiUrl(`/visits/${id}/start`)),
+  complete: (id: string, data: any) => api.post(normalizeApiUrl(`/visits/${id}/complete`), data),
+  validate: (id: string) => api.post(normalizeApiUrl(`/visits/${id}/validate`)),
+  cancel: (id: string) => api.post(normalizeApiUrl(`/visits/${id}/cancel`)),
+  addPhoto: (id: string, photo: FormData) => api.post(normalizeApiUrl(`/visits/${id}/photos`), photo),
+  getPending: () => api.get(normalizeApiUrl('/visits/pending')),
+  getNeedingReassign: () => api.get(normalizeApiUrl('/visits/needing-reassign')),
+  cancelDraft: (id: string, reason?: string) => 
+    api.post(normalizeApiUrl(`/visits/${id}/cancel-draft`), { reason }),
+  getPrice: (id: string) => api.get(normalizeApiUrl(`/visits/${id}/price`)),
+  getDrafts: () => api.get(normalizeApiUrl('/visits/drafts/my')),
 };
 
 // =============================================
 // ORDERS API
 // =============================================
 export const orderAPI = {
-  getAll: () => api.get('/orders'),
-  getById: (id: string) => api.get(`/orders/${id}`),
-  create: (data: any) => api.post('/orders', data),
-  update: (id: string, data: any) => api.put(`/orders/${id}`, data),
-  delete: (id: string) => api.delete(`/orders/${id}`),
-  take: (id: string) => api.post(`/orders/${id}/take`),
-  accept: (id: string) => api.post(`/orders/${id}/accept`),
-  prepare: (id: string) => api.post(`/orders/${id}/prepare`),
-  deliver: (id: string, data?: any) => api.post(`/orders/${id}/deliver`, data),
-  cancel: (id: string) => api.post(`/orders/${id}/cancel`),
-  validate: (id: string) => api.post(`/orders/${id}/validate`),
+  getAll: () => api.get(normalizeApiUrl('/orders')),
+  getById: (id: string) => api.get(normalizeApiUrl(`/orders/${id}`)),
+  create: (data: any) => api.post(normalizeApiUrl('/orders'), data),
+  update: (id: string, data: any) => api.put(normalizeApiUrl(`/orders/${id}`), data),
+  delete: (id: string) => api.delete(normalizeApiUrl(`/orders/${id}`)),
+  take: (id: string) => api.post(normalizeApiUrl(`/orders/${id}/take`)),
+  accept: (id: string) => api.post(normalizeApiUrl(`/orders/${id}/accept`)),
+  prepare: (id: string) => api.post(normalizeApiUrl(`/orders/${id}/prepare`)),
+  deliver: (id: string, data?: any) => api.post(normalizeApiUrl(`/orders/${id}/deliver`), data),
+  cancel: (id: string) => api.post(normalizeApiUrl(`/orders/${id}/cancel`)),
+  validate: (id: string) => api.post(normalizeApiUrl(`/orders/${id}/validate`)),
   confirmPayment: (id: string, transactionId: string) => 
-    api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId }),
-  updateStatus: (id: string, status: string) => api.post(`/orders/${id}/status`, { status }),
+    api.post(normalizeApiUrl(`/orders/${id}/confirm-payment`), { transaction_id: transactionId }),
+  updateStatus: (id: string, status: string) => api.post(normalizeApiUrl(`/orders/${id}/status`), { status }),
 };
 
 // =============================================
 // MESSAGES API
 // =============================================
 export const messageAPI = {
-  getConversations: () => api.get('/messages/conversations'),
-  getMessages: (conversationId: string) => api.get(`/messages/${conversationId}`),
-  send: (data: any) => api.post('/messages', data),
-  markAsRead: (messageId: string) => api.put(`/messages/${messageId}/read`),
-  markAllRead: (conversationId: string) => api.put(`/messages/${conversationId}/read-all`),
-  createConversation: (participantIds: string[]) => api.post('/messages/conversations', { participantIds }),
+  getConversations: () => api.get(normalizeApiUrl('/messages/conversations')),
+  getMessages: (conversationId: string) => api.get(normalizeApiUrl(`/messages/${conversationId}`)),
+  send: (data: any) => api.post(normalizeApiUrl('/messages'), data),
+  markAsRead: (messageId: string) => api.put(normalizeApiUrl(`/messages/${messageId}/read`)),
+  markAllRead: (conversationId: string) => api.put(normalizeApiUrl(`/messages/${conversationId}/read-all`)),
+  createConversation: (participantIds: string[]) => 
+    api.post(normalizeApiUrl('/messages/conversations'), { participantIds }),
 };
 
 // =============================================
 // PAYMENTS API
 // =============================================
 export const paymentAPI = {
-  create: (data: any) => api.post('/payments', data),
-  getStatus: (reference: string) => api.get(`/payments/${reference}`),
-  getHistory: () => api.get('/payments/history'),
-  getSubscriptions: () => api.get('/payments/subscriptions'),
-  subscribe: (data: any) => api.post('/payments/subscribe', data),
-  cancelSubscription: (id: string) => api.post(`/payments/subscriptions/${id}/cancel`),
+  create: (data: any) => api.post(normalizeApiUrl('/payments'), data),
+  getStatus: (reference: string) => api.get(normalizeApiUrl(`/payments/${reference}`)),
+  getHistory: () => api.get(normalizeApiUrl('/payments/history')),
+  getSubscriptions: () => api.get(normalizeApiUrl('/payments/subscriptions')),
+  subscribe: (data: any) => api.post(normalizeApiUrl('/payments/subscribe'), data),
+  cancelSubscription: (id: string) => api.post(normalizeApiUrl(`/payments/subscriptions/${id}/cancel`)),
 };
 
 // =============================================
 // NOTIFICATIONS API
 // =============================================
 export const notificationAPI = {
-  getAll: () => api.get('/notifications'),
-  getUnreadCount: () => api.get('/notifications/unread-count'),
-  markAsRead: (id: string) => api.put(`/notifications/${id}/read`),
-  markAllRead: () => api.put('/notifications/read-all'),
+  getAll: () => api.get(normalizeApiUrl('/notifications')),
+  getUnreadCount: () => api.get(normalizeApiUrl('/notifications/unread-count')),
+  markAsRead: (id: string) => api.put(normalizeApiUrl(`/notifications/${id}/read`)),
+  markAllRead: () => api.put(normalizeApiUrl('/notifications/read-all')),
   registerToken: (token: string, deviceInfo?: string) => 
-    api.post('/notifications/register-token', { token, device_info: deviceInfo }),
-  removeToken: (token: string) => api.post('/notifications/remove-token', { token }),
+    api.post(normalizeApiUrl('/notifications/register-token'), { token, device_info: deviceInfo }),
+  removeToken: (token: string) => api.post(normalizeApiUrl('/notifications/remove-token'), { token }),
 };
 
 // =============================================
 // ADMIN API
 // =============================================
 export const adminAPI = {
-  getStats: () => api.get('/admin/stats'),
-  getRegistrations: () => api.get('/admin/registrations'),
-  processRegistration: (id: string, data: any) => api.put(`/admin/registrations/${id}`, data),
-  getUsers: () => api.get('/admin/users'),
-  updateUserRole: (userId: string, role: string) => api.put(`/admin/users/${userId}/role`, { role }),
-  createAidant: (data: any) => api.post('/admin/aidants', data),
-  getOffers: () => api.get('/admin/offers'),
-  createOffer: (data: any) => api.post('/admin/offers', data),
-  updateOffer: (id: string, data: any) => api.put(`/admin/offers/${id}`, data),
-  getAvailableAidants: () => api.get('/admin/aidants/available'),
+  getStats: () => api.get(normalizeApiUrl('/admin/stats')),
+  getRegistrations: () => api.get(normalizeApiUrl('/admin/registrations')),
+  processRegistration: (id: string, data: any) => api.put(normalizeApiUrl(`/admin/registrations/${id}`), data),
+  getUsers: () => api.get(normalizeApiUrl('/admin/users')),
+  updateUserRole: (userId: string, role: string) => api.put(normalizeApiUrl(`/admin/users/${userId}/role`), { role }),
+  createAidant: (data: any) => api.post(normalizeApiUrl('/admin/aidants'), data),
+  getOffers: () => api.get(normalizeApiUrl('/admin/offers')),
+  createOffer: (data: any) => api.post(normalizeApiUrl('/admin/offers'), data),
+  updateOffer: (id: string, data: any) => api.put(normalizeApiUrl(`/admin/offers/${id}`), data),
+  getAvailableAidants: () => api.get(normalizeApiUrl('/admin/aidants/available')),
   assignAidant: (data: { familyId: string; aidantId: string; assignmentType: string }) => 
-    api.post('/admin/assign-aidant', data),
-  deleteUser: (userId: string) => api.delete(`/admin/users/${userId}`),
+    api.post(normalizeApiUrl('/admin/assign-aidant'), data),
+  deleteUser: (userId: string) => api.delete(normalizeApiUrl(`/admin/users/${userId}`)),
 };
 
 // =============================================
 // CONTRAT API
 // =============================================
 export const contractAPI = {
-  getStatus: () => api.get('/contract/status'),
-  getActive: () => api.get('/contract/active'),
-  accept: (contractId: string) => api.post('/contract/accept', { contract_id: contractId }),
-  getHistory: () => api.get('/contract/history'),
+  getStatus: () => api.get(normalizeApiUrl('/contract/status')),
+  getActive: () => api.get(normalizeApiUrl('/contract/active')),
+  accept: (contractId: string) => api.post(normalizeApiUrl('/contract/accept'), { contract_id: contractId }),
+  getHistory: () => api.get(normalizeApiUrl('/contract/history')),
 };
 
 // =============================================
 // SETTINGS API
 // =============================================
 export const settingsAPI = {
-  getAll: () => api.get('/settings'),
-  getPublic: () => api.get('/settings/public'),
-  getByCategory: (category: string) => api.get(`/settings/category/${category}`),
-  getByKey: (key: string) => api.get(`/settings/${key}`),
-  update: (key: string, value: any) => api.put(`/settings/${key}`, { value }),
-  updateMultiple: (settings: Record<string, any>) => api.put('/settings', { settings }),
+  getAll: () => api.get(normalizeApiUrl('/settings')),
+  getPublic: () => api.get(normalizeApiUrl('/settings/public')),
+  getByCategory: (category: string) => api.get(normalizeApiUrl(`/settings/category/${category}`)),
+  getByKey: (key: string) => api.get(normalizeApiUrl(`/settings/${key}`)),
+  update: (key: string, value: any) => api.put(normalizeApiUrl(`/settings/${key}`), { value }),
+  updateMultiple: (settings: Record<string, any>) => api.put(normalizeApiUrl('/settings'), { settings }),
 };
 
 // =============================================
 // OFFERS API
 // =============================================
 export const offersAPI = {
-  getAll: () => api.get('/offers'),
-  getById: (id: string) => api.get(`/offers/${id}`),
-  create: (data: any) => api.post('/offers', data),
-  update: (id: string, data: any) => api.put(`/offers/${id}`, data),
-  delete: (id: string) => api.delete(`/offers/${id}`),
-  sync: () => api.post('/offers/sync'),
+  getAll: () => api.get(normalizeApiUrl('/offers')),
+  getById: (id: string) => api.get(normalizeApiUrl(`/offers/${id}`)),
+  create: (data: any) => api.post(normalizeApiUrl('/offers'), data),
+  update: (id: string, data: any) => api.put(normalizeApiUrl(`/offers/${id}`), data),
+  delete: (id: string) => api.delete(normalizeApiUrl(`/offers/${id}`)),
+  sync: () => api.post(normalizeApiUrl('/offers/sync')),
 };
 
 export default api;
