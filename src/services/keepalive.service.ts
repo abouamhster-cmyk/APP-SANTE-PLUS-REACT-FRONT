@@ -8,7 +8,7 @@
 // ✅ CONSTANTE UNIQUE - Sans /api en double
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-// ✅ Fonction utilitaire pour normaliser les URLs - CORRIGÉE
+// ✅ Fonction utilitaire pour normaliser les URLs 
 const normalizeUrl = (base: string, endpoint: string): string => {
   // Nettoyer le base URL (enlever les slashs en fin)
   let cleanBase = base.replace(/\/+$/, '');
@@ -16,8 +16,13 @@ const normalizeUrl = (base: string, endpoint: string): string => {
   // Nettoyer l'endpoint (enlever les slashs en début)
   let cleanEndpoint = endpoint.replace(/^\/+/, '');
   
-  // ✅ Si l'endpoint commence déjà par "api/", on le garde tel quel
+  // ✅ Si l'endpoint commence déjà par "api/", on le garde mais on vérifie le base
   if (cleanEndpoint.startsWith('api/')) {
+    // Si le base contient déjà "api", on retire le "api/" de l'endpoint pour éviter le double
+    if (cleanBase.includes('/api')) {
+      cleanEndpoint = cleanEndpoint.replace(/^api\//, '');
+      return `${cleanBase}/${cleanEndpoint}`;
+    }
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
@@ -58,12 +63,11 @@ class KeepAliveService {
   private pendingPings: Set<string> = new Set();
 
   private config: KeepAliveConfig = {
-    interval: 3 * 60 * 1000, // 3 minutes
+    interval: 5 * 60 * 1000, // 5 minutes (pour éviter le rate limiting)
     endpoints: [
+      '/health',            // ✅ Test simple (fallback) - prioritaire
       '/api/health',        // ✅ Test avec /api
-      '/api/offers',        // ✅ Test offers
       '/billing/health',    // ✅ Test billing
-      '/health',            // ✅ Test simple (fallback)
     ],
     enabled: true,
   };
@@ -112,8 +116,8 @@ class KeepAliveService {
   private async wakeUpBackend() {
     console.log('🌙 [Wake-Up] Tentative de réveil du backend...');
     
-    // ✅ Ordre des endpoints : les plus légers d'abord
-    const wakeEndpoints = ['/api/health', '/health', '/billing/health'];
+    // ✅ Ordre des endpoints : les plus légers d'abord (éviter le rate limiting)
+    const wakeEndpoints = ['/health', '/api/health', '/billing/health'];
     
     for (const endpoint of wakeEndpoints) {
       try {
@@ -297,15 +301,14 @@ class KeepAliveService {
   }
 }
 
-// ✅ Singleton avec configuration optimisée
+// ✅ Singleton avec configuration optimisée (évite le rate limiting)
 export const keepAliveService = new KeepAliveService({
   enabled: true,
-  interval: 3 * 60 * 1000, // 3 minutes
+  interval: 5 * 60 * 1000, // 5 minutes pour éviter le 429
   endpoints: [
-    '/api/health',
-    '/api/offers',
-    '/billing/health',
-    '/health',
+    '/health',            // ✅ Prioritaire - plus simple
+    '/api/health',        // ✅ Fallback
+    '/billing/health',    // ✅ Fallback billing
   ],
 });
 
@@ -318,10 +321,10 @@ export const initKeepAlive = () => {
   
   keepAliveService.start();
   
-  // Ping après 1 seconde pour réveiller immédiatement
+  // Ping après 2 secondes pour éviter le rate limiting immédiat
   setTimeout(() => {
     keepAliveService.pingNow();
-  }, 1000);
+  }, 2000);
 };
 
 // ✅ Préchargement du backend (à appeler sur la page de login)
