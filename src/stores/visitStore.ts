@@ -10,6 +10,15 @@ import toast from 'react-hot-toast';
 // TYPES
 // ============================================================
 
+const generateVisitReference = (): string => {
+  const date = new Date();
+  const year = date.getFullYear().toString().slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `VIS-${year}${month}${day}-${random}`;
+};
+
 interface VisitState {
   visits: Visit[];
   currentVisit: Visit | null;
@@ -399,6 +408,7 @@ createVisit: async (data: Partial<Visit> & {
 
     const visitData = {
       // ✅ Colonnes obligatoires
+      reference: generateVisitReference(),
       user_id: targetUserId || user.id,
       patient_id: data.patient_id || null,
       target_type: targetType,
