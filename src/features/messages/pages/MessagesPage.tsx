@@ -1,5 +1,4 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ VERSION COMPLÈTE CORRIGÉE
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -157,7 +156,7 @@ const MessagesPage = () => {
   const isSubscribingRef = useRef(false);
 
   const currentUserId = profile?.id || user?.id || null;
-  const currentUserName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Utilisateur';
+  const currentUserName = (profile?.full_name ?? user?.user_metadata?.full_name ?? user?.email?.split('@')[0] ?? 'Utilisateur') ?? 'Utilisateur';
   const currentUserRole = (profile?.role || role || 'family') as string;
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
