@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, RefreshCw } from 'lucide-react';
+import AssignAidantModal from '../components/AssignAidantModal';
+
 
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
@@ -13,8 +15,7 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 
 import { AidantCard } from '../components/AidantCard';
 import { AidantFilters } from '../components/AidantFilters';
-import { AssignAidantModal } from '../components/AssignAidantModal';
-
+ 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Illustration } from '@/components/ui/Illustration';
 
