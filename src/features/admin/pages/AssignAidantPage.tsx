@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -24,7 +24,7 @@ interface Aidant {
   current_assignments: number;
 }
 
-// ✅ NOUVEAU TYPE : Compte personnel (sans patient)
+// ✅ TYPE CORRIGÉ : patient_name = string | undefined
 interface PersonalAccount {
   id: string;
   full_name: string;
@@ -32,7 +32,7 @@ interface PersonalAccount {
   category: 'personal' | 'senior' | 'maman_bebe';
   hasPatient: boolean;
   patient_id?: string | null;
-  patient_name?: string;  // ✅ Changé de string | null à string | undefined
+  patient_name?: string;  // ✅ string | undefined
 }
 
 // ✅ TYPES D'ASSIGNATION
@@ -109,7 +109,6 @@ const AssignAidantPage = () => {
       setPatients(patientsData || []);
 
       // ✅ 3. Récupérer les comptes personnels (familles sans patient)
-      // Récupérer toutes les familles
       const { data: families, error: familiesError } = await supabase
         .from('profiles')
         .select('id, full_name, email, patient_category')
@@ -117,30 +116,26 @@ const AssignAidantPage = () => {
 
       if (familiesError) throw familiesError;
 
-      // Récupérer les liens patient-famille pour savoir qui a des patients
       const { data: links, error: linksError } = await supabase
         .from('patient_family_links')
         .select('family_id, patient_id');
 
       if (linksError) throw linksError;
 
-      // Créer un Set des family_id qui ont des patients
       const familiesWithPatients = new Set(links?.map(l => l.family_id) || []);
 
-      // ✅ Identifier les comptes personnels (familles SANS patient)
-     const personalAccountsData: PersonalAccount[] = (families || [])
-       .filter((f: any) => !familiesWithPatients.has(f.id))
-       .map((f: any) => ({
-         id: f.id,
-         full_name: f.full_name || 'Compte personnel',
-         email: f.email || '',
-         category: f.patient_category === 'maman_bebe' ? 'maman_bebe' : 'personal',
-         hasPatient: false,
-         patient_id: null,
-         patient_name: undefined,
-       }));
-
-setPersonalAccounts(personalAccountsData);
+      // patient_name: undefined au lieu de null
+      const personalAccountsData: PersonalAccount[] = (families || [])
+        .filter((f: any) => !familiesWithPatients.has(f.id))
+        .map((f: any) => ({
+          id: f.id,
+          full_name: f.full_name || 'Compte personnel',
+          email: f.email || '',
+          category: f.patient_category === 'maman_bebe' ? 'maman_bebe' : 'personal',
+          hasPatient: false,
+          patient_id: null,
+          patient_name: undefined, 
+        }));
 
       setPersonalAccounts(personalAccountsData);
 
@@ -156,7 +151,6 @@ setPersonalAccounts(personalAccountsData);
 
       const newAssignments: Record<string, { aidantUserId: string; type: string; targetType: 'patient' | 'personal' }> = {};
       
-      // Assignations pour les patients
       if (existingAssignments) {
         for (const assign of existingAssignments) {
           const aidant = aidantsWithUser.find((a: any) => a.user_id === assign.family_id);
@@ -170,7 +164,6 @@ setPersonalAccounts(personalAccountsData);
         }
       }
 
-      // ✅ Assignations pour les comptes personnels (via patient_family_links avec patient_id = null)
       const { data: personalAssignments, error: personalAssignError } = await supabase
         .from('patient_family_links')
         .select('family_id, relationship')
@@ -181,7 +174,6 @@ setPersonalAccounts(personalAccountsData);
         for (const assign of personalAssignments) {
           const aidant = aidantsWithUser.find((a: any) => a.user_id === assign.family_id);
           if (aidant) {
-            // Trouver le compte personnel correspondant
             const account = personalAccountsData.find((p: any) => p.id === assign.family_id);
             if (account) {
               newAssignments[`personal_${account.id}`] = {
@@ -196,7 +188,7 @@ setPersonalAccounts(personalAccountsData);
 
       setAssignments(newAssignments);
 
-      // ✅ 5. Construire la liste complète (patients + comptes personnels)
+      // ✅ 5. Construire la liste complète
       const allItemsList = [
         ...(patientsData || []).map((p: any) => ({
           ...p,
