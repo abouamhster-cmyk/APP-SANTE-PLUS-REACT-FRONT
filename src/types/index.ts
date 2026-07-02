@@ -1,5 +1,5 @@
 // 📁 src/types/index.ts
- 
+
 // ============================================================
 // EXPORTER TOUS LES TYPES AIDANTS
 // ============================================================
@@ -12,7 +12,7 @@ export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
 export type ProcheCategory = 'senior' | 'maman_bebe';
 export type PatientCategory = 'senior' | 'maman_bebe';
 
-// ✅ VISITE STATUS - CORRIGÉ (suppression du point-virgule en trop)
+// ✅ VISITE STATUS 
 export type VisitStatus = 
   | 'planifiee' 
   | 'en_attente' 
@@ -26,7 +26,7 @@ export type VisitStatus =
   | 'refusee'
   | 'expire'          
   | 'attente_paiement'
-  | 'brouillon';      
+  | 'brouillon';       // ✅ Plus de point-virgule avant
 
 // ✅ ORDER STATUS
 export type OrderStatus = 
