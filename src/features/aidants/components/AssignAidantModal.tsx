@@ -6,6 +6,7 @@ import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { useAssignmentStore } from '@/stores/assignmentStore';
 import { ASSIGNMENT_TYPES } from '@/types/assignment';
 import toast from 'react-hot-toast';
+import AssignAidantModalContent from './AssignAidantModalContent';
 
 // ============================================================
 // CONSTANTES
