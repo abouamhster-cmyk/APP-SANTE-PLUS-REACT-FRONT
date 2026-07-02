@@ -53,7 +53,7 @@ interface VisitState {
   getVisitsByPatient: (patientId: string) => Promise<Visit[]>;
   canManageVisits: () => boolean;
   clearError: () => void;
-  getActiveAidantForVisit: (patientId: string, familyId?: string) => Promise<string | null>;
+  getActiveAidantForVisit: (patientId?: string, familyId?: string) => Promise<string | null>;
 }
 
 // ============================================================
@@ -120,12 +120,13 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     await get().fetchVisits(true);
   },
 
-  // ✅ Récupérer l'aidant actif pour une visite
-  getActiveAidantForVisit: async (patientId: string, familyId?: string): Promise<string | null> => {
+  // ✅ Récupérer l'aidant actif pour une visite - CORRIGÉ
+  getActiveAidantForVisit: async (patientId?: string, familyId?: string): Promise<string | null> => {
     try {
       const { user } = useAuthStore.getState();
       if (!user) return null;
 
+      // ✅ Si patientId est undefined ou null, utiliser personal_account
       const targetType = patientId ? 'patient' : 'personal_account';
       const targetId = patientId || user.id;
       const finalFamilyId = familyId || user.id;
@@ -446,10 +447,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let autoAssigned = false;
 
       if (!finalAidantId && status !== 'brouillon') {
-        const patientId = data.patient_id || null;
+        const patientId = data.patient_id || undefined;
         const familyId = targetUserId || user.id;
         
-        finalAidantId = await get().getActiveAidantForVisit(patientId, familyId);
+        // ✅ CORRIGÉ : Utiliser ?? undefined pour convertir null en undefined
+        finalAidantId = await get().getActiveAidantForVisit(
+          patientId ?? undefined, 
+          familyId ?? undefined
+        );
         autoAssigned = !!finalAidantId;
         
         if (finalAidantId) {
