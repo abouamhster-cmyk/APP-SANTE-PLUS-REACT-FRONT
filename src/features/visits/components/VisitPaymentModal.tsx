@@ -6,7 +6,7 @@ import { usePaymentStore } from '@/stores/paymentStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { getThemeColors } from '@/lib/permissions';
 import { getPonctualPrice } from '@/stores/visitStore';
-import { Loader2, CreditCard, ExternalLink, Calendar, Clock, User } from 'lucide-react';
+import { Loader2, CreditCard, ExternalLink, Calendar, Clock, User, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface VisitPaymentModalProps {
@@ -28,11 +28,16 @@ export const VisitPaymentModal = ({
 
   const colors = getThemeColors('senior');
 
-  const amount = getPonctualPrice(visit.duration_minutes || 60);
+  // ✅ Calcul du montant
+  const amount = visit.metadata?.payment_amount || getPonctualPrice(visit.duration_minutes || 60);
 
   const handlePayment = async () => {
     setIsLoading(true);
     try {
+      // ✅ Récupérer l'ID de la visite
+      const visitId = visit.id;
+
+      // ✅ Créer le paiement avec les bonnes données
       const result = await createPayment({
         amount,
         description: `Visite ponctuelle - ${visit.target_name || 'Personnel'}`,
@@ -41,7 +46,7 @@ export const VisitPaymentModal = ({
         target_type: visit.target_type || 'personal',
         target_name: visit.target_name || 'Personnel',
         order_data: {
-          visit_id: visit.id,
+          visit_id: visitId,
           description: `Visite pour ${visit.target_name || 'le patient'}`,
           address: visit.patient?.address || 'Adresse non spécifiée',
           type: 'visite',
@@ -59,6 +64,12 @@ export const VisitPaymentModal = ({
         throw new Error("Le lien de paiement n'a pas été généré");
       }
 
+      // ✅ Sauvegarder l'ID de la visite pour le webhook
+      sessionStorage.setItem('pending_visit_payment', JSON.stringify({
+        visit_id: visitId,
+        transaction_id: result.transaction_id,
+      }));
+
       toast.success('Redirection vers FedaPay...');
       window.location.href = paymentUrl;
     } catch (error: any) {
@@ -66,6 +77,20 @@ export const VisitPaymentModal = ({
       toast.error(error?.message || 'Erreur lors du paiement');
       setIsLoading(false);
     }
+  };
+
+  // ✅ Récupérer le nom du destinataire
+  const getTargetName = () => {
+    if (visit.target_name) return visit.target_name;
+    if (visit.patient) return `${visit.patient.first_name} ${visit.patient.last_name}`;
+    return 'Personnel';
+  };
+
+  // ✅ Récupérer le type de visite
+  const getTargetTypeLabel = () => {
+    if (visit.target_type === 'patient') return 'Proche';
+    if (visit.target_type === 'personal') return 'Personnel';
+    return 'Visite';
   };
 
   return (
@@ -76,6 +101,7 @@ export const VisitPaymentModal = ({
       title="💳 Paiement requis pour la visite"
     >
       <div className="space-y-6">
+        {/* Résumé de la visite */}
         <div
           className="rounded-2xl p-4 border"
           style={{
@@ -96,10 +122,10 @@ export const VisitPaymentModal = ({
 
             <div className="min-w-0">
               <p className="font-black" style={{ color: colors.text }}>
-                Visite ponctuelle
+                {getTargetTypeLabel()} - {getTargetName()}
               </p>
               <p className="text-sm text-gray-500 mt-0.5">
-                {visit.target_name || 'Personnel'} • {visit.duration_minutes || 60} min
+                {visit.duration_minutes || 60} min • {visit.visit_type || 'ponctuelle'}
               </p>
               <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
                 <span className="flex items-center gap-1">
@@ -110,39 +136,49 @@ export const VisitPaymentModal = ({
                   <Clock size={12} />
                   {visit.scheduled_time}
                 </span>
-                {visit.target_type === 'patient' && visit.patient && (
-                  <span className="flex items-center gap-1">
-                    <User size={12} />
-                    {visit.patient.first_name}
+                {visit.is_urgent && (
+                  <span className="flex items-center gap-1 text-red-500">
+                    <AlertCircle size={12} />
+                    Urgent
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="mt-4">
+          {/* Montant */}
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
               Montant à payer
             </p>
-            <p className="text-2xl font-black mt-1" style={{ color: colors.primary }}>
-              {amount.toLocaleString()} FCFA
-            </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              💳 Paiement unique sans engagement
-            </p>
+            <div className="flex items-end gap-2 mt-1">
+              <p className="text-3xl font-black" style={{ color: colors.primary }}>
+                {amount.toLocaleString()} FCFA
+              </p>
+              <p className="text-xs text-gray-400 mb-1">
+                💳 Paiement unique sans engagement
+              </p>
+            </div>
           </div>
         </div>
 
+        {/* Info supplémentaire */}
         <div
           className="flex items-start gap-3 p-4 rounded-2xl"
           style={{ background: colors.primary + '10' }}
         >
+          <AlertCircle size={19} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
           <p className="text-xs leading-relaxed text-gray-600">
             💡 Le paiement est requis pour planifier cette visite. 
             Vous serez redirigé vers FedaPay pour finaliser le paiement en toute sécurité.
+            <br />
+            <span className="text-[10px] text-gray-400 mt-1 block">
+              ⏰ Une fois le paiement effectué, la visite sera automatiquement planifiée.
+            </span>
           </p>
         </div>
 
+        {/* Boutons */}
         <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
           <button
             type="button"
@@ -162,7 +198,10 @@ export const VisitPaymentModal = ({
             style={{ background: colors.primary }}
           >
             {isLoading ? (
-              <Loader2 size={18} className="animate-spin" />
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Traitement...
+              </>
             ) : (
               <>
                 Payer {amount.toLocaleString()} FCFA
@@ -175,3 +214,5 @@ export const VisitPaymentModal = ({
     </ModalFullScreen>
   );
 };
+
+export default VisitPaymentModal;
