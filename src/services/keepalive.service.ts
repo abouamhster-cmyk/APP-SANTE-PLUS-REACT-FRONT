@@ -1,5 +1,5 @@
 // 📁 src/services/keepalive.service.ts
- 
+
 /**
  * Service Keep-Alive pour empêcher le backend Render de s'endormir
  * Version améliorée avec gestion d'URL robuste
@@ -8,7 +8,7 @@
 // ✅ CONSTANTE UNIQUE - Sans /api en double
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-// ✅ Fonction utilitaire pour normaliser les URLs
+// ✅ Fonction utilitaire pour normaliser les URLs - CORRIGÉE
 const normalizeUrl = (base: string, endpoint: string): string => {
   // Nettoyer le base URL (enlever les slashs en fin)
   let cleanBase = base.replace(/\/+$/, '');
@@ -26,17 +26,18 @@ const normalizeUrl = (base: string, endpoint: string): string => {
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  // ✅ Si l'endpoint est "health" ou "billing/health", on ajoute "api"
-  if (cleanEndpoint === 'health' || cleanEndpoint === 'billing/health') {
-    // Pour billing/health, on garde le chemin complet
-    if (cleanEndpoint === 'billing/health') {
-      return `${cleanBase}/${cleanEndpoint}`;
-    }
-    return `${cleanBase}/api/${cleanEndpoint}`;
-  }
-  
-  // ✅ Cas général
-  return `${cleanBase}/${cleanEndpoint}`;
+  // ✅ Cas général : ajouter "api" si nécessaire
+  return `${cleanBase}/api/${cleanEndpoint}`;
+};
+
+// ✅ Fonction de log pour le debug
+const logUrls = () => {
+  console.log('📡 API_URL:', API_URL);
+  console.log('📡 Exemples d\'URLs générées:');
+  console.log(`   - /health → ${normalizeUrl(API_URL, '/health')}`);
+  console.log(`   - /api/health → ${normalizeUrl(API_URL, '/api/health')}`);
+  console.log(`   - /billing/health → ${normalizeUrl(API_URL, '/billing/health')}`);
+  console.log(`   - /api/offers → ${normalizeUrl(API_URL, '/api/offers')}`);
 };
 
 interface KeepAliveConfig {
@@ -59,10 +60,10 @@ class KeepAliveService {
   private config: KeepAliveConfig = {
     interval: 3 * 60 * 1000, // 3 minutes
     endpoints: [
-      '/health',           // ✅ Test simple
-      '/api/health',       // ✅ Test avec /api
-      '/billing/health',   // ✅ Test billing
-      '/api/offers',       // ✅ Test offers
+      '/api/health',        // ✅ Test avec /api
+      '/api/offers',        // ✅ Test offers
+      '/billing/health',    // ✅ Test billing
+      '/health',            // ✅ Test simple (fallback)
     ],
     enabled: true,
   };
@@ -72,8 +73,7 @@ class KeepAliveService {
       this.config = { ...this.config, ...config };
     }
     console.log('📡 Keep-Alive Service initialisé');
-    console.log(`📡 API_URL: ${API_URL}`);
-    console.log(`📡 Endpoints configurés: ${this.config.endpoints.join(', ')}`);
+    logUrls();
   }
 
   /**
@@ -113,7 +113,7 @@ class KeepAliveService {
     console.log('🌙 [Wake-Up] Tentative de réveil du backend...');
     
     // ✅ Ordre des endpoints : les plus légers d'abord
-    const wakeEndpoints = ['/health', '/api/health', '/billing/health'];
+    const wakeEndpoints = ['/api/health', '/health', '/billing/health'];
     
     for (const endpoint of wakeEndpoints) {
       try {
@@ -297,15 +297,15 @@ class KeepAliveService {
   }
 }
 
-// ✅ Singleton avec configuration
+// ✅ Singleton avec configuration optimisée
 export const keepAliveService = new KeepAliveService({
   enabled: true,
   interval: 3 * 60 * 1000, // 3 minutes
   endpoints: [
-    '/health',
-    '/api/health', 
-    '/billing/health',
+    '/api/health',
     '/api/offers',
+    '/billing/health',
+    '/health',
   ],
 });
 
@@ -314,12 +314,7 @@ export const initKeepAlive = () => {
   console.log('🚀 Initialisation Keep-Alive');
   
   // ✅ Afficher les URLs qui seront utilisées
-  console.log(`📡 API_URL: ${API_URL}`);
-  console.log(`📡 Exemples d'URLs générées:`);
-  console.log(`   - /health → ${normalizeUrl(API_URL, '/health')}`);
-  console.log(`   - /api/health → ${normalizeUrl(API_URL, '/api/health')}`);
-  console.log(`   - /billing/health → ${normalizeUrl(API_URL, '/billing/health')}`);
-  console.log(`   - /api/offers → ${normalizeUrl(API_URL, '/api/offers')}`);
+  logUrls();
   
   keepAliveService.start();
   
