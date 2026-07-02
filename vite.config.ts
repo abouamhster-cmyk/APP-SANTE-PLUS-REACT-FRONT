@@ -1,5 +1,5 @@
 // 📁 vite.config.ts
- 
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -117,15 +117,17 @@ export default defineConfig({
         target: 'https://app-react-back.onrender.com',
         changeOrigin: true,
         secure: false,
+        // ✅ IMPORTANT : Ne pas réécrire l'URL pour éviter le double /api
+        // La requête /api/health sera envoyée vers https://.../api/health
         configure: (proxy) => {
           proxy.on('error', (err) => {
-            console.log('proxy error', err);
+            console.log('⚠️ Proxy error:', err);
           });
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('Sending Request to the Target:', req.method, req.url);
+            console.log('📤 Proxy Request:', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, res) => {
-            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+            console.log('📥 Proxy Response:', proxyRes.statusCode, req.url);
           });
         },
       },
