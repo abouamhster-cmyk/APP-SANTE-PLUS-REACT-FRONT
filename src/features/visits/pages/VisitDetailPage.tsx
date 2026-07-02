@@ -1,4 +1,4 @@
-// 📁 src/features/visits/pages/VisitDetailPage.tsxgood
+// 📁 src/features/visits/pages/VisitDetailPage.tsx
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,10 +15,14 @@ import {
   AlertCircle,
   Image,
   CreditCard,
+  Users,
+  UserPlus,
+  X,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { 
@@ -46,6 +50,7 @@ const VisitDetailPage = () => {
     refuseVisit,
     isLoading,
     fetchVisits,
+    reassignVisit,
   } = useVisitStore();
 
   const {
@@ -55,10 +60,17 @@ const VisitDetailPage = () => {
     isFamily,
   } = useTerminology();
 
+  const { aidants, fetchAidants, isLoading: aidantsLoading } = useAidantCatalogStore();
+
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // ✅ États pour l'assignation d'aidant
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedAidantId, setSelectedAidantId] = useState<string>('');
+  const [assignmentType, setAssignmentType] = useState<'permanente' | 'temporaire' | 'ponctuelle'>('ponctuelle');
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -79,6 +91,13 @@ const VisitDetailPage = () => {
       document.body.style.overflow = 'unset';
     };
   }, [showCompleteModal]);
+
+  // ✅ Charger les aidants disponibles quand l'admin ouvre le modal
+  useEffect(() => {
+    if (showAssignModal) {
+      fetchAidants({ onlyAvailable: true });
+    }
+  }, [showAssignModal, fetchAidants]);
 
   const handleOpenPayment = () => {
     if (!currentVisit) return;
@@ -204,6 +223,28 @@ const VisitDetailPage = () => {
     }
   };
 
+  // ✅ Fonction d'assignation d'aidant
+  const handleAssignAidant = async () => {
+    if (!selectedAidantId) {
+      toast.error('Veuillez sélectionner un aidant');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await reassignVisit(id!, selectedAidantId, assignmentType);
+      toast.success(`✅ Aidant assigné avec succès (${assignmentType})`);
+      setShowAssignModal(false);
+      setSelectedAidantId('');
+      fetchVisitById(id!);
+      fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors de l\'assignation');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
       planifiee: '#4CAF50',
@@ -290,10 +331,14 @@ const VisitDetailPage = () => {
   const isExpired = visit.status === 'expire';
   const isRefused = visit.status === 'refusee';
   const isDraft = visit.status === 'brouillon';
+  const hasNoAidant = !visit.aidant_id;
   
   // ✅ SEUL le propriétaire de la visite peut payer (pas l'admin)
   const isOwner = visit.user_id === profile?.id;
   const requiresPayment = isDraft && visit.metadata?.requires_payment && isOwner;
+
+  // ✅ L'admin peut assigner un aidant si la visite n'en a pas ou si elle est expirée/refusée
+  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused);
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -421,6 +466,18 @@ const VisitDetailPage = () => {
             </button>
           )}
 
+          {/* ✅ BOUTON ASSIGNER UN AIDANT (ADMIN) */}
+          {canAssignAidant && (
+            <button
+              onClick={() => setShowAssignModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
+              style={{ background: '#FF5722' }}
+            >
+              <UserPlus size={14} />
+              <span>Assigner un aidant</span>
+            </button>
+          )}
+
           {(isExpired || isRefused) && isAdminOrCoordinator && (
             <button
               onClick={() => {
@@ -437,6 +494,133 @@ const VisitDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* ============================================================
+      MODAL D'ASSIGNATION D'AIDANT
+      ============================================================ */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div 
+            className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-xl"
+            style={{ borderColor: colors.border }}
+          >
+            {/* En-tête */}
+            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: colors.border }}>
+              <div className="flex items-center gap-2">
+                <Users size={18} style={{ color: colors.primary }} />
+                <h2 className="font-bold text-sm" style={{ color: colors.text }}>
+                  Assigner un aidant
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X size={18} style={{ color: colors.text }} />
+              </button>
+            </div>
+
+            {/* Corps */}
+            <div className="p-5 space-y-4">
+              {/* Sélection de l'aidant */}
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: colors.text }}>
+                  Choisir un aidant
+                </label>
+                <select
+                  value={selectedAidantId}
+                  onChange={(e) => setSelectedAidantId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-sm focus:ring-2 transition"
+                  style={{
+                    borderColor: colors.border,
+                    background: 'var(--color-background, #f5f0e8)',
+                    color: colors.text,
+                  }}
+                  disabled={aidantsLoading}
+                >
+                  <option value="">Sélectionner un aidant...</option>
+                  {aidants.map((aidant) => (
+                    <option key={aidant.id} value={aidant.id}>
+                      {aidant.user?.full_name || 'Aidant'} 
+                      {aidant.specialties?.length > 0 ? ` (${aidant.specialties.slice(0, 2).join(', ')})` : ''}
+                      {aidant.available ? ' 🟢' : ' 🔴'}
+                    </option>
+                  ))}
+                </select>
+                {aidantsLoading && (
+                  <p className="text-xs text-gray-400 mt-1">Chargement des aidants...</p>
+                )}
+              </div>
+
+              {/* Type d'assignation */}
+              <div>
+                <label className="block text-xs font-bold mb-1.5" style={{ color: colors.text }}>
+                  Type d'assignation
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['permanente', 'temporaire', 'ponctuelle'] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setAssignmentType(type)}
+                      className={`py-2 rounded-xl text-xs font-semibold transition ${
+                        assignmentType === type
+                          ? 'text-white shadow-sm'
+                          : 'border text-gray-600 hover:bg-gray-50'
+                      }`}
+                      style={{
+                        background: assignmentType === type ? colors.primary : 'transparent',
+                        borderColor: assignmentType === type ? colors.primary : colors.border,
+                      }}
+                    >
+                      {type === 'permanente' && '📌 Permanente'}
+                      {type === 'temporaire' && '⏳ Temporaire'}
+                      {type === 'ponctuelle' && '⚡ Ponctuelle'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Info */}
+              <div 
+                className="p-3 rounded-xl flex items-start gap-2"
+                style={{ background: colors.primary + '05', borderColor: colors.primary + '10' }}
+              >
+                <AlertCircle size={16} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
+                <p className="text-xs" style={{ color: colors.text + '70' }}>
+                  L'aidant sera notifié de cette assignation. Il devra approuver la visite pour la prendre en charge.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex gap-3 p-5 border-t" style={{ borderColor: colors.border }}>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition"
+                style={{ borderColor: colors.border, color: colors.text }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleAssignAidant}
+                disabled={!selectedAidantId || isUpdating}
+                className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
+                style={{ background: colors.primary }}
+              >
+                {isUpdating ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <UserPlus size={14} />
+                    Assigner
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================
       BANDEAU DE PAIEMENT - UNIQUEMENT POUR LE PROPRIÉTAIRE
@@ -508,8 +692,8 @@ const VisitDetailPage = () => {
               icon={<Heart size={15} />}
               label="Intervenant"
               value={getVisitDisplayAidant(visit)}
-              sub={visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente'}
-              color={visit.aidant ? colors.text : colors.text + '50'}
+              sub={visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente d\'assignation'}
+              color={visit.aidant ? colors.text : '#FF5722'}
             />
           </div>
 
