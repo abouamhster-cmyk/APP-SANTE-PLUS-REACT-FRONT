@@ -43,7 +43,7 @@ import {
 import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
 import { Illustration } from '@/components/ui/Illustration';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
-import { VisitPaymentModal } from '@/components/visits/VisitPaymentModal';
+import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
