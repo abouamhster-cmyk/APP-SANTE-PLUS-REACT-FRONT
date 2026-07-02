@@ -3,27 +3,30 @@
 import { useState } from 'react';
 import { CheckCircle, AlertCircle, User, Users, Info, X } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
+import { useAssignmentStore } from '@/stores/assignmentStore';
+import { ASSIGNMENT_TYPES } from '@/types/assignment';
 import toast from 'react-hot-toast';
+import AssignAidantModalContent from './AssignAidantModalContent';
 
 // ============================================================
 // CONSTANTES
 // ============================================================
 
-const ASSIGNMENT_TYPES = [
+const ASSIGNMENT_TYPES_UI = [
   { 
-    value: 'permanente', 
+    value: 'primary', 
     icon: '📌', 
     label: 'Permanente',
     description: 'Suivi sur le long terme'
   },
   { 
-    value: 'temporaire', 
+    value: 'temporary', 
     icon: '⏳', 
     label: 'Temporaire',
     description: 'Période définie'
   },
   { 
-    value: 'ponctuelle', 
+    value: 'secondary', 
     icon: '⚡', 
     label: 'Ponctuelle',
     description: 'Intervention unique'
@@ -50,11 +53,13 @@ export const AssignAidantModalContent = ({
   colors,
 }: AssignAidantModalContentProps) => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [assignmentType, setAssignmentType] = useState('permanente');
+  const [assignmentType, setAssignmentType] = useState('primary');
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('patient');
   const [isLoading, setIsLoading] = useState(false);
 
   const { assignAidant } = useAidantCatalogStore();
+  const { assignAidant: assignViaNewSystem } = useAssignmentStore();
+  
   const hasPatients = patients.length > 0;
 
   // ============================================================
@@ -68,37 +73,40 @@ export const AssignAidantModalContent = ({
       return;
     }
 
-    // ✅ Vérification : si personnel, pas besoin de patient
-    if (targetType === 'personal') {
-      // ✅ Assignation personnelle - pas de patient
-      setIsLoading(true);
-      try {
-        await assignAidant(
-          aidant.id,
-          null,  // ✅ patientId = null pour assignation personnelle
-          assignmentType
-        );
-        toast.success('✅ Aidant assigné à votre compte personnel !');
-        onSuccess();
-      } catch (error: any) {
-        console.error('❌ Assignation error:', error);
-        toast.error(error.message || 'Erreur lors de l\'assignation');
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    // ✅ Assignation à un patient
     setIsLoading(true);
+
     try {
+      // ✅ Déterminer la cible
+      const finalTargetType = targetType === 'patient' ? 'patient' : 'personal_account';
+      const finalTargetId = targetType === 'patient' ? selectedPatientId : (await import('@/stores/authStore').then(m => m.useAuthStore.getState().user?.id));
+
+      if (!finalTargetId) {
+        throw new Error('ID de cible non trouvé');
+      }
+
+      // ✅ Utiliser le nouveau système d'assignation
+      const result = await assignViaNewSystem({
+        aidantUserId: aidant.id,
+        targetType: finalTargetType,
+        targetId: finalTargetId,
+        assignmentType: assignmentType as any,
+        reason: targetType === 'patient' 
+          ? `Assignation au patient ${selectedPatientId}` 
+          : 'Assignation personnelle',
+      });
+
+      // ✅ Rafraîchir les données du store
       await assignAidant(
         aidant.id,
-        selectedPatientId,
-        assignmentType
+        targetType === 'patient' ? selectedPatientId : null,
+        assignmentType === 'primary' ? 'permanente' : assignmentType === 'temporary' ? 'temporaire' : 'ponctuelle'
       );
-      const patient = patients.find(p => p.id === selectedPatientId);
-      toast.success(`✅ Aidant assigné à ${patient?.first_name || 'le patient'} !`);
+
+      const targetName = targetType === 'patient' 
+        ? patients.find(p => p.id === selectedPatientId)?.first_name || 'le patient'
+        : 'votre compte personnel';
+
+      toast.success(`✅ Aidant assigné à ${targetName} !`);
       onSuccess();
     } catch (error: any) {
       console.error('❌ Assignation error:', error);
@@ -268,7 +276,7 @@ export const AssignAidantModalContent = ({
           Type d'assignation
         </label>
         <div className="grid grid-cols-3 gap-2">
-          {ASSIGNMENT_TYPES.map((type) => (
+          {ASSIGNMENT_TYPES_UI.map((type) => (
             <button
               key={type.value}
               type="button"
