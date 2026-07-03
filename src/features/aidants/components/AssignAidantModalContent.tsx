@@ -1,5 +1,6 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
- 
+// ✅ Version corrigée - Utilisation de l'API famille
+
 import { useState } from 'react';
 import { CheckCircle, AlertCircle, User, Users, Info, X } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
@@ -73,9 +74,6 @@ export const AssignAidantModalContent = ({
     setIsLoading(true);
 
     try {
-      // ✅ Déterminer la cible
-      const finalTargetType = targetType === 'patient' ? 'patient' : 'personal_account';
-      
       // ✅ Récupérer l'ID de l'utilisateur connecté
       const { useAuthStore } = await import('@/stores/authStore');
       const user = useAuthStore.getState().user;
@@ -84,9 +82,11 @@ export const AssignAidantModalContent = ({
         throw new Error('Utilisateur non connecté');
       }
 
+      // ✅ Déterminer la cible
+      const finalTargetType = targetType === 'patient' ? 'patient' : 'personal_account';
       const finalTargetId = targetType === 'patient' ? selectedPatientId : user.id;
 
-      // ✅ Utiliser l'API famille (Nouvelle route)
+      // ✅ Utiliser l'API famille
       const result = await assignmentAPI.familyAssign({
         aidantUserId: aidant.id,  // L'ID de l'aidant (table aidants)
         targetType: finalTargetType,
