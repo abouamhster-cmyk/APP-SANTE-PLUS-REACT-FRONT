@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { usePatientStore } from '@/stores/patientStore';
-import { useAssignmentStore } from '@/stores/assignmentStore';
-import { Loader2, CheckCircle, Users, RefreshCw, XCircle, Clock, AlertCircle, UserCircle } from 'lucide-react';
+import { Loader2, CheckCircle, Users, RefreshCw, XCircle, Clock, AlertCircle, UserCircle, User, UserPlus, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface Aidant {
@@ -25,33 +23,66 @@ interface Aidant {
   current_assignments: number;
 }
 
-interface PersonalAccount {
+interface FamilyAccount {
   id: string;
   full_name: string;
   email: string;
-  category: 'personal' | 'senior' | 'maman_bebe';
-  hasPatient: boolean;
-  patient_id?: string | null;
-  patient_name?: string;
+  patient_category: string | null;
 }
 
-// ✅ TYPES D'ASSIGNATION (nouveau système)
+interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  category: string;
+  family_id: string;
+}
+
+interface Assignment {
+  id: string;
+  aidant_user_id: string;
+  target_type: 'patient' | 'personal_account' | 'family';
+  target_id: string;
+  assignment_type: string;
+  status: string;
+  priority: number;
+}
+
 const ASSIGNMENT_TYPES = [
   { value: 'primary', label: '📌 Permanente', color: '#10B981' },
   { value: 'temporary', label: '⏳ Temporaire', color: '#F59E0B' },
   { value: 'secondary', label: '⚡ Ponctuelle', color: '#3B82F6' },
 ];
 
+// ✅ Interface pour afficher les items avec leur hiérarchie
+interface AssignmentItem {
+  id: string;
+  type: 'account' | 'patient';
+  familyId: string;
+  familyName: string;
+  targetId: string;
+  targetName: string;
+  targetType: 'personal_account' | 'patient' | 'family';
+  category: string;
+  isPersonal: boolean;
+  priority: number; // 1 = direct, 2 = compte, 3 = famille
+  
+  // Assignation actuelle
+  assignedAidantUserId?: string;
+  assignedAidantName?: string;
+  assignmentType?: string;
+  assignmentId?: string;
+  // Source de l'assignation (pour affichage)
+  assignmentSource?: 'direct' | 'account' | 'family' | 'none';
+}
+
 const AssignAidantPage = () => {
   const { profile, role, user } = useAuthStore();
-  const { syncAidantPatients } = usePatientStore();
-  const { fetchAssignments, assignments: storeAssignments } = useAssignmentStore();
   
   const [aidants, setAidants] = useState<Aidant[]>([]);
-  const [patients, setPatients] = useState<any[]>([]);
-  const [personalAccounts, setPersonalAccounts] = useState<PersonalAccount[]>([]);
-  const [allItems, setAllItems] = useState<(any | PersonalAccount)[]>([]);
-  const [assignments, setAssignments] = useState<Record<string, { aidantUserId: string; type: string; targetType: 'patient' | 'personal' }>>({});
+  const [familyAccounts, setFamilyAccounts] = useState<FamilyAccount[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [assignments, setAssignments] = useState<Record<string, Assignment>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedAidant, setSelectedAidant] = useState<string>('');
@@ -69,130 +100,71 @@ const AssignAidantPage = () => {
       setIsLoading(true);
 
       // ✅ 1. Récupérer les aidants
-      const { data: aidantsData, error: aidantsError } = await supabase
+      const { data: aidantsData } = await supabase
         .from('aidants')
         .select('*')
         .eq('status', 'approved')
         .eq('is_verified', true);
 
-      if (aidantsError) throw aidantsError;
-
-      const userIds = (aidantsData || []).map((a: any) => a.user_id).filter(Boolean);
+      const userIds = (aidantsData || []).map(a => a.user_id).filter(Boolean);
       let profilesMap: Record<string, any> = {};
-
+      
       if (userIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
+        const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name, email')
           .in('id', userIds);
-
-        if (!profilesError && profiles) {
-          profilesMap = profiles.reduce((acc: Record<string, any>, p: any) => {
-            acc[p.id] = p;
-            return acc;
-          }, {});
+        if (profiles) {
+          profilesMap = profiles.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
         }
       }
 
-      const aidantsWithUser = (aidantsData || []).map((aidant: any) => ({
+      const aidantsWithUser = (aidantsData || []).map(aidant => ({
         ...aidant,
         user: aidant.user_id ? profilesMap[aidant.user_id] || null : null,
       }));
-
       setAidants(aidantsWithUser);
 
-      // ✅ 2. Récupérer les patients (proches)
-      const { data: patientsData, error: patientsError } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('status', 'active');
-
-      if (patientsError) throw patientsError;
-      setPatients(patientsData || []);
-
-      // ✅ 3. Récupérer les comptes personnels (familles sans patient)
-      const { data: families, error: familiesError } = await supabase
+      // ✅ 2. Récupérer les comptes famille
+      const { data: families } = await supabase
         .from('profiles')
         .select('id, full_name, email, patient_category')
         .eq('role', 'family');
+      setFamilyAccounts(families || []);
 
-      if (familiesError) throw familiesError;
+      // ✅ 3. Récupérer les patients avec leur famille
+      const { data: patientsData } = await supabase
+        .from('patients')
+        .select(`
+          id, 
+          first_name, 
+          last_name, 
+          category,
+          patient_family_links!inner(family_id)
+        `)
+        .eq('status', 'active');
+      
+      const formattedPatients = (patientsData || []).map(p => ({
+        id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        category: p.category,
+        family_id: p.patient_family_links?.[0]?.family_id || null,
+      }));
+      setPatients(formattedPatients);
 
-      const { data: links, error: linksError } = await supabase
-        .from('patient_family_links')
-        .select('family_id, patient_id');
-
-      if (linksError) throw linksError;
-
-      const familiesWithPatients = new Set(links?.map(l => l.family_id) || []);
-
-      const personalAccountsData: PersonalAccount[] = (families || [])
-        .filter((f: any) => !familiesWithPatients.has(f.id))
-        .map((f: any) => ({
-          id: f.id,
-          full_name: f.full_name || 'Compte personnel',
-          email: f.email || '',
-          category: f.patient_category === 'maman_bebe' ? 'maman_bebe' : 'personal',
-          hasPatient: false,
-          patient_id: null,
-          patient_name: undefined,
-        }));
-
-      setPersonalAccounts(personalAccountsData);
-
-      // ✅ 4. Récupérer les assignations existantes (NOUVEAU SYSTÈME)
-      const { data: existingAssignments, error: assignError } = await supabase
+      // ✅ 4. Récupérer les assignations existantes
+      const { data: assignmentsData } = await supabase
         .from('aidant_assignments')
         .select('*')
         .eq('status', 'active');
 
-      if (assignError) {
-        console.error('❌ Erreur récupération assignations:', assignError);
-      }
-
-      const newAssignments: Record<string, { aidantUserId: string; type: string; targetType: 'patient' | 'personal' }> = {};
-      
-      if (existingAssignments) {
-        for (const assign of existingAssignments) {
-          const aidant = aidantsWithUser.find((a: any) => a.user_id === assign.aidant_user_id);
-          if (aidant) {
-            const isPatient = assign.target_type === 'patient';
-            const key = isPatient ? `patient_${assign.target_id}` : `personal_${assign.target_id}`;
-            
-            newAssignments[key] = {
-              aidantUserId: assign.aidant_user_id,
-              type: assign.assignment_type || 'primary',
-              targetType: isPatient ? 'patient' : 'personal',
-            };
-          }
-        }
-      }
-
-      setAssignments(newAssignments);
-
-      // ✅ 5. Construire la liste complète
-      const allItemsList = [
-        ...(patientsData || []).map((p: any) => ({
-          ...p,
-          _type: 'patient',
-          _id: `patient_${p.id}`,
-          _displayName: `${p.first_name} ${p.last_name}`,
-          _category: p.category || 'senior',
-          _hasPatient: true,
-        })),
-        ...personalAccountsData.map((p: any) => ({
-          ...p,
-          _type: 'personal',
-          _id: `personal_${p.id}`,
-          _displayName: `${p.full_name} (👤 Personnel)`,
-          _category: p.category || 'personal',
-          _hasPatient: false,
-          first_name: p.full_name,
-          last_name: '',
-        })),
-      ];
-
-      setAllItems(allItemsList);
+      const assignmentsMap: Record<string, Assignment> = {};
+      (assignmentsData || []).forEach((a) => {
+        const key = `${a.target_type}_${a.target_id}`;
+        assignmentsMap[key] = a;
+      });
+      setAssignments(assignmentsMap);
 
     } catch (error) {
       console.error('Erreur chargement:', error);
@@ -202,8 +174,153 @@ const AssignAidantPage = () => {
     }
   };
 
-  // ✅ Fonction d'assignation - NOUVEAU SYSTÈME
-  const handleAssign = async (item: any, aidantUserId: string, assignmentType: string = 'primary') => {
+  // ✅ Construire la liste hiérarchique des items à afficher
+  const buildAssignmentItems = (): AssignmentItem[] => {
+    const items: AssignmentItem[] = [];
+
+    // Pour chaque compte famille
+    familyAccounts.forEach((family) => {
+      // 1. Ajouter le compte lui-même (compte personnel) - PRIORITÉ 2
+      const accountKey = `personal_account_${family.id}`;
+      const accountAssignment = assignments[accountKey];
+      
+      items.push({
+        id: `account_${family.id}`,
+        type: 'account',
+        familyId: family.id,
+        familyName: family.full_name,
+        targetId: family.id,
+        targetName: `${family.full_name} (👤 Personnel)`,
+        targetType: 'personal_account',
+        category: 'personal',
+        isPersonal: true,
+        priority: 2,
+        assignedAidantUserId: accountAssignment?.aidant_user_id,
+        assignedAidantName: accountAssignment?.aidant_user_id 
+          ? aidants.find(a => a.user_id === accountAssignment.aidant_user_id)?.user?.full_name 
+          : undefined,
+        assignmentType: accountAssignment?.assignment_type,
+        assignmentId: accountAssignment?.id,
+        assignmentSource: accountAssignment ? 'direct' : 'none',
+      });
+
+      // 2. Ajouter les patients de ce compte - PRIORITÉ 1 (direct)
+      const familyPatients = patients.filter(p => p.family_id === family.id);
+      familyPatients.forEach((patient) => {
+        const patientKey = `patient_${patient.id}`;
+        const patientAssignment = assignments[patientKey];
+        
+        // Déterminer la source de l'assignation
+        let source: 'direct' | 'account' | 'family' | 'none' = 'none';
+        if (patientAssignment) {
+          source = 'direct';
+        } else if (accountAssignment) {
+          source = 'account'; // Hérité du compte
+        } else {
+          // Vérifier si la famille a un aidant (PRIORITÉ 3)
+          const familyKey = `family_${family.id}`;
+          const familyAssignment = assignments[familyKey];
+          if (familyAssignment) {
+            source = 'family';
+          }
+        }
+
+        items.push({
+          id: `patient_${patient.id}`,
+          type: 'patient',
+          familyId: family.id,
+          familyName: family.full_name,
+          targetId: patient.id,
+          targetName: `${patient.first_name} ${patient.last_name}`,
+          targetType: 'patient',
+          category: patient.category,
+          isPersonal: false,
+          priority: 1,
+          assignedAidantUserId: patientAssignment?.aidant_user_id,
+          assignedAidantName: patientAssignment?.aidant_user_id
+            ? aidants.find(a => a.user_id === patientAssignment.aidant_user_id)?.user?.full_name
+            : undefined,
+          assignmentType: patientAssignment?.assignment_type,
+          assignmentId: patientAssignment?.id,
+          assignmentSource: source,
+        });
+      });
+    });
+
+    return items;
+  };
+
+  const assignmentItems = buildAssignmentItems();
+
+  const getCategoryLabel = (category: string) => {
+    if (category === 'maman_bebe') return '👶 Maman & Bébé';
+    if (category === 'senior') return '👴 Senior';
+    if (category === 'personal') return '👤 Personnel';
+    return 'Non spécifié';
+  };
+
+  const getAssignmentTypeLabel = (type: string) => {
+    const found = ASSIGNMENT_TYPES.find(t => t.value === type);
+    return found?.label || type;
+  };
+
+  const getAssignmentTypeColor = (type: string) => {
+    const found = ASSIGNMENT_TYPES.find(t => t.value === type);
+    return found?.color || '#9CA3AF';
+  };
+
+  // ✅ Obtenir l'aidant affiché (direct ou hérité)
+  const getDisplayedAidant = (item: AssignmentItem) => {
+    // Si l'item a une assignation directe
+    if (item.assignedAidantUserId) {
+      return {
+        userId: item.assignedAidantUserId,
+        name: item.assignedAidantName || 'Inconnu',
+        type: item.assignmentType || 'primary',
+        source: 'direct',
+        sourceLabel: 'Assigné directement',
+        sourceColor: '#10B981',
+      };
+    }
+
+    // Si c'est un patient, vérifier l'héritage du compte
+    if (item.type === 'patient') {
+      const accountKey = `personal_account_${item.familyId}`;
+      const accountAssignment = assignments[accountKey];
+      
+      if (accountAssignment) {
+        const aidant = aidants.find(a => a.user_id === accountAssignment.aidant_user_id);
+        return {
+          userId: accountAssignment.aidant_user_id,
+          name: aidant?.user?.full_name || 'Inconnu',
+          type: accountAssignment.assignment_type || 'primary',
+          source: 'account',
+          sourceLabel: `Hérité du compte (${item.familyName})`,
+          sourceColor: '#3B82F6',
+        };
+      }
+
+      // Vérifier l'héritage de la famille (PRIORITÉ 3)
+      const familyKey = `family_${item.familyId}`;
+      const familyAssignment = assignments[familyKey];
+      
+      if (familyAssignment) {
+        const aidant = aidants.find(a => a.user_id === familyAssignment.aidant_user_id);
+        return {
+          userId: familyAssignment.aidant_user_id,
+          name: aidant?.user?.full_name || 'Inconnu',
+          type: familyAssignment.assignment_type || 'primary',
+          source: 'family',
+          sourceLabel: `Hérité de la famille`,
+          sourceColor: '#8B5CF6',
+        };
+      }
+    }
+
+    return null;
+  };
+
+  const handleAssign = async (item: AssignmentItem, aidantUserId: string, assignmentType: string) => {
     if (!aidantUserId) {
       toast('Veuillez sélectionner un aidant', { icon: 'ℹ️' });
       return;
@@ -218,52 +335,37 @@ const AssignAidantPage = () => {
         return;
       }
 
-      const isPersonal = item._type === 'personal';
-      const targetId = isPersonal ? item.id : item.id;
-      const targetName = isPersonal ? item.full_name : `${item.first_name} ${item.last_name}`;
-      const targetType = isPersonal ? 'personal_account' : 'patient';
-      const assignmentKey = isPersonal ? `personal_${targetId}` : `patient_${targetId}`;
-
-      // ✅ Vérifier si déjà assigné
-      const existing = assignments[assignmentKey];
-      if (existing) {
-        toast(`✅ ${targetName} est déjà assigné à ${aidant.user?.full_name}`, { icon: 'ℹ️' });
-        setIsSaving(false);
-        return;
-      }
-
-      // ✅ Vérifier le quota de l'aidant
-      const { count: currentCount, error: countError } = await supabase
+      // Vérifier le quota
+      const { count: currentCount } = await supabase
         .from('aidant_assignments')
         .select('id', { count: 'exact', head: true })
         .eq('aidant_user_id', aidantUserId)
         .eq('status', 'active');
 
-      if (countError) {
-        console.error('❌ Erreur comptage:', countError);
-      }
-
-      const currentAssignments = currentCount || 0;
       const maxAssignments = aidant.max_assignments || 4;
-
-      if (currentAssignments >= maxAssignments) {
-        toast.error(`Cet aidant a déjà ${currentAssignments} assignations (maximum ${maxAssignments})`);
+      if ((currentCount || 0) >= maxAssignments) {
+        toast.error(`Cet aidant a déjà ${currentCount} assignations (maximum ${maxAssignments})`);
         setIsSaving(false);
         return;
       }
 
-      // ✅ Créer l'assignation - NOUVEAU SYSTÈME
+      // Déterminer la priorité selon le type
+      let priority = 2; // compte par défaut
+      if (item.type === 'patient') priority = 1;
+      if (item.type === 'account') priority = 2;
+
+      // Créer l'assignation
       const { data: newAssignment, error: insertError } = await supabase
         .from('aidant_assignments')
         .insert({
           aidant_user_id: aidantUserId,
-          target_type: targetType,
-          target_id: targetId,
-          priority: isPersonal ? 2 : 1,
+          target_type: item.targetType,
+          target_id: item.targetId,
+          priority: priority,
           assignment_type: assignmentType,
           status: 'active',
           created_by: user?.id,
-          reason: `Assigné par admin à ${targetName}`,
+          reason: `Assigné à ${item.targetName}`,
         })
         .select()
         .single();
@@ -275,54 +377,50 @@ const AssignAidantPage = () => {
         return;
       }
 
-      // ✅ Mettre à jour current_assignments de l'aidant
-      await supabase
-        .from('aidants')
-        .update({
-          current_assignments: currentAssignments + 1,
-          available: (currentAssignments + 1) < maxAssignments,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', aidant.id);
-
-      // ✅ Mettre à jour l'état local
+      // Mettre à jour l'état local
+      const key = `${item.targetType}_${item.targetId}`;
       setAssignments(prev => ({
         ...prev,
-        [assignmentKey]: { aidantUserId, type: assignmentType, targetType: isPersonal ? 'personal' : 'patient' }
+        [key]: {
+          id: newAssignment.id,
+          aidant_user_id: aidantUserId,
+          target_type: item.targetType,
+          target_id: item.targetId,
+          assignment_type: assignmentType,
+          status: 'active',
+          priority: priority,
+        } as Assignment,
       }));
 
-      // ✅ Notification à l'aidant
+      // Notification à l'aidant
       await supabase.from('notifications').insert({
         user_id: aidantUserId,
-        title: isPersonal ? '📋 Compte personnel assigné' : '📋 Patient assigné',
-        body: isPersonal
-          ? `Vous accompagnez à présent ${targetName} (compte personnel, ${assignmentType})`
-          : `Vous accompagnez à présent ${targetName} (${assignmentType})`,
+        title: item.isPersonal ? '📋 Compte personnel assigné' : '📋 Patient assigné',
+        body: item.isPersonal
+          ? `Vous accompagnez à présent ${item.familyName} (compte personnel)`
+          : `Vous accompagnez à présent ${item.targetName} (${item.category})`,
         type: 'system',
-        data: { 
+        data: {
           assignment_id: newAssignment.id,
-          target_id: targetId,
-          target_type: targetType,
-          assignment_type: assignmentType 
+          target_id: item.targetId,
+          target_type: item.targetType,
         },
       });
 
-      // ✅ Notification au propriétaire du compte
+      // Notification au propriétaire du compte
       await supabase.from('notifications').insert({
-        user_id: isPersonal ? targetId : item.created_by || targetId,
+        user_id: item.familyId,
         title: '✅ Aidant assigné',
-        body: `Un aidant a été assigné à ${isPersonal ? 'votre compte personnel' : targetName}`,
+        body: `Un aidant a été assigné à ${item.targetName}`,
         type: 'system',
-        data: { 
+        data: {
           assignment_id: newAssignment.id,
           aidant_id: aidant.id,
         },
       });
 
-      toast.success(`✅ ${targetName} assigné avec succès à ${aidant.user?.full_name} (${ASSIGNMENT_TYPES.find(t => t.value === assignmentType)?.label || assignmentType})`);
+      toast.success(`✅ ${item.targetName} assigné à ${aidant.user?.full_name}`);
 
-      // ✅ Rafraîchir
-      await fetchData();
     } catch (error) {
       console.error('❌ Erreur assignation:', error);
       toast.error('Erreur lors de l\'assignation');
@@ -331,18 +429,14 @@ const AssignAidantPage = () => {
     }
   };
 
-  // ✅ Fonction pour retirer une assignation
-  const handleRevoke = async (item: any, aidantUserId: string) => {
-    const name = item._displayName || item.full_name || 'bénéficiaire';
-    if (!window.confirm(`Retirer l'assignation de ${name} ?`)) return;
+  const handleRevoke = async (item: AssignmentItem) => {
+    const assignment = assignments[`${item.targetType}_${item.targetId}`];
+    if (!assignment) return;
+
+    if (!window.confirm(`Retirer l'assignation de ${item.targetName} ?`)) return;
 
     setIsSaving(true);
     try {
-      const isPersonal = item._type === 'personal';
-      const targetType = isPersonal ? 'personal_account' : 'patient';
-      const targetId = item.id;
-
-      // ✅ Supprimer l'assignation dans le nouveau système
       const { error } = await supabase
         .from('aidant_assignments')
         .update({
@@ -350,10 +444,7 @@ const AssignAidantPage = () => {
           reason: `Révoqué par admin (${user?.id})`,
           updated_at: new Date().toISOString(),
         })
-        .eq('aidant_user_id', aidantUserId)
-        .eq('target_type', targetType)
-        .eq('target_id', targetId)
-        .eq('status', 'active');
+        .eq('id', assignment.id);
 
       if (error) {
         console.error('❌ Erreur révocation:', error);
@@ -362,63 +453,20 @@ const AssignAidantPage = () => {
         return;
       }
 
-      // ✅ Mettre à jour l'état local
-      const assignmentKey = isPersonal ? `personal_${targetId}` : `patient_${targetId}`;
+      const key = `${item.targetType}_${item.targetId}`;
       setAssignments(prev => {
         const newState = { ...prev };
-        delete newState[assignmentKey];
+        delete newState[key];
         return newState;
       });
 
-      // ✅ Mettre à jour current_assignments de l'aidant
-      const { count: currentCount } = await supabase
-        .from('aidant_assignments')
-        .select('id', { count: 'exact', head: true })
-        .eq('aidant_user_id', aidantUserId)
-        .eq('status', 'active');
-
-      const aidant = aidants.find(a => a.user_id === aidantUserId);
-      if (aidant) {
-        await supabase
-          .from('aidants')
-          .update({
-            current_assignments: currentCount || 0,
-            available: (currentCount || 0) < (aidant.max_assignments || 4),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', aidant.id);
-      }
-
-      toast.success(`✅ Assignation de ${name} retirée`);
-      await fetchData();
+      toast.success(`✅ Assignation de ${item.targetName} retirée`);
     } catch (error) {
       console.error('❌ Erreur révocation:', error);
       toast.error('Erreur lors de la révocation');
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const getAidantName = (userId: string) => {
-    const aidant = aidants.find(a => a.user_id === userId);
-    return aidant?.user?.full_name || 'Non assigné';
-  };
-
-  const getAssignmentTypeLabel = (type: string) => {
-    const found = ASSIGNMENT_TYPES.find(t => t.value === type);
-    return found?.label || type;
-  };
-
-  const getAssignmentTypeColor = (type: string) => {
-    const found = ASSIGNMENT_TYPES.find(t => t.value === type);
-    return found?.color || '#9CA3AF';
-  };
-
-  const getCategoryLabel = (category: string) => {
-    if (category === 'maman_bebe') return '👶 Maman & Bébé';
-    if (category === 'senior') return '👴 Senior';
-    if (category === 'personal') return '👤 Personnel';
-    return 'Non spécifié';
   };
 
   if (isLoading) {
@@ -429,11 +477,24 @@ const AssignAidantPage = () => {
     );
   }
 
-  const assignedCount = Object.keys(assignments).length;
-  const unassignedCount = allItems.length - assignedCount;
+  // ✅ Grouper les items par famille
+  const groupedItems = assignmentItems.reduce((acc, item) => {
+    if (!acc[item.familyId]) {
+      acc[item.familyId] = {
+        familyName: item.familyName,
+        items: [],
+      };
+    }
+    acc[item.familyId].items.push(item);
+    return acc;
+  }, {} as Record<string, { familyName: string; items: AssignmentItem[] }>);
+
+  const assignedCount = assignmentItems.filter(item => item.assignedAidantUserId).length;
+  const unassignedCount = assignmentItems.length - assignedCount;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-6xl mx-auto pb-12 px-4 sm:px-6">
+      
       {/* HEADER */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
@@ -444,11 +505,11 @@ const AssignAidantPage = () => {
             👥 Affectations
           </h1>
           <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
-            Assignez des aidants professionnels aux patients ou aux comptes personnels
+            Assignez des aidants professionnels aux comptes et à chaque patient individuellement
           </p>
           <div className="flex flex-wrap gap-3 mt-3">
             <span className="text-xs px-3 py-1 rounded-full" style={{ background: colors.primary + '12', color: colors.primary }}>
-              {allItems.length} bénéficiaires au total
+              {assignmentItems.length} bénéficiaires au total
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-green-100 text-green-700">
               {assignedCount} assignés
@@ -459,8 +520,31 @@ const AssignAidantPage = () => {
               </span>
             )}
             <span className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-700">
-              {personalAccounts.length} comptes personnels
+              {familyAccounts.length} comptes personnels
             </span>
+          </div>
+        </div>
+      </section>
+
+      {/* LÉGENDE DE PRIORITÉ */}
+      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-black/5">
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          <span className="font-bold text-gray-500">Priorité d'assignation :</span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-green-500"></span>
+            <span className="text-gray-600">Patient direct (Priorité 1)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+            <span className="text-gray-600">Compte personnel (Priorité 2)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+            <span className="text-gray-600">Famille (Priorité 3)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-gray-300"></span>
+            <span className="text-gray-600">Non assigné</span>
           </div>
         </div>
       </section>
@@ -507,7 +591,7 @@ const AssignAidantPage = () => {
                   toast.error('Veuillez sélectionner un aidant');
                   return;
                 }
-                const unassignedItems = allItems.filter(item => !assignments[item._id]);
+                const unassignedItems = assignmentItems.filter(item => !item.assignedAidantUserId);
                 if (unassignedItems.length === 0) {
                   toast('Tous les bénéficiaires sont déjà assignés', { icon: 'ℹ️' });
                   return;
@@ -529,126 +613,198 @@ const AssignAidantPage = () => {
         </section>
       )}
 
-      {/* TABLEAU DES ASSIGNATIONS */}
-      {aidants.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center text-gray-400">
-          Aucun aidant approuvé et disponible
-        </div>
-      ) : allItems.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center text-gray-400">
-          Aucun patient ou compte personnel
-        </div>
-      ) : (
-        <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-black/5">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-gray-50/75">
-                <tr>
-                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Bénéficiaire</th>
-                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Aidant Assigné</th>
-                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Type</th>
-                  <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y" style={{ borderColor: colors.border }}>
-                {allItems.map((item) => {
-                  const assignment = assignments[item._id];
-                  const isAssigned = !!assignment;
-                  const aidant = aidants.find(a => a.user_id === assignment?.aidantUserId);
-                  const isPersonal = item._type === 'personal';
+      {/* TABLEAU DES ASSIGNATIONS - HIÉRARCHIQUE AVEC PRIORITÉ */}
+      <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-black/5">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-gray-50/75">
+              <tr>
+                <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Compte / Bénéficiaire</th>
+                <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Aidant Assigné</th>
+                <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Priorité</th>
+                <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Type d'assignation</th>
+                <th className="px-4 py-3 font-semibold text-gray-400 uppercase tracking-wider">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y" style={{ borderColor: colors.border }}>
+              {Object.entries(groupedItems).map(([familyId, group]) => {
+                // Vérifier si la famille a un aidant (PRIORITÉ 3)
+                const familyKey = `family_${familyId}`;
+                const familyAssignment = assignments[familyKey];
+                const hasFamilyAidant = !!familyAssignment;
 
-                  return (
-                    <tr key={item._id} className="hover:bg-gray-50/50 transition">
-                      <td className="px-4 py-3">
+                return (
+                  <React.Fragment key={familyId}>
+                    {/* Ligne d'en-tête de la famille */}
+                    <tr className="bg-gray-50/30">
+                      <td colSpan={6} className="px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-gray-800">
-                            {item._displayName || item.full_name || `${item.first_name} ${item.last_name}`}
+                          <span className="font-bold text-sm" style={{ color: colors.primary }}>
+                            👨‍👩‍👦 {group.familyName}
                           </span>
-                          {isPersonal && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">
-                              Personnel
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-xs" style={{ 
-                          background: item._category === 'maman_bebe' ? '#fce4ec' : 
-                                     item._category === 'personal' ? '#e3f2fd' : '#e8f5e9',
-                          color: item._category === 'maman_bebe' ? '#c62850' : 
-                                 item._category === 'personal' ? '#1565c0' : '#2e7d32'
-                        }}>
-                          {getCategoryLabel(item._category)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {isAssigned ? (
-                          <div className="flex items-center gap-2">
-                            <CheckCircle size={12} className="text-green-500" />
-                            <span className="font-semibold text-xs" style={{ color: colors.primary }}>
-                              {aidant?.user?.full_name || getAidantName(assignment.aidantUserId)}
-                            </span>
-                            {aidant?.available && (
-                              <span className="text-[8px] text-green-600">🟢 Dispo</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-xs">Non assigné</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {isAssigned ? (
-                          <span 
-                            className="px-2 py-0.5 rounded-full text-[9px] font-medium"
-                            style={{
-                              background: getAssignmentTypeColor(assignment.type) + '20',
-                              color: getAssignmentTypeColor(assignment.type),
-                            }}
-                          >
-                            {getAssignmentTypeLabel(assignment.type)}
+                          <span className="text-[10px] text-gray-400">
+                            ({group.items.filter(i => i.type === 'patient').length} patient{group.items.filter(i => i.type === 'patient').length > 1 ? 's' : ''})
                           </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-1">
-                          <select
-                            value={assignment?.aidantUserId || ''}
-                            onChange={(e) => handleAssign(item, e.target.value, selectedType)}
-                            disabled={isSaving}
-                            className="px-2 py-1.5 rounded-lg border outline-none text-xs transition min-w-[100px]"
-                            style={{ borderColor: colors.border, color: colors.text }}
-                          >
-                            <option value="">Sélectionner</option>
-                            {aidants.map((aidant) => (
-                              <option key={aidant.id} value={aidant.user_id}>
-                                {aidant.user?.full_name} 
-                                {aidant.available ? ' 🟢' : ' 🔴'}
-                                {` (${aidant.current_assignments || 0}/${aidant.max_assignments || 4})`}
-                              </option>
-                            ))}
-                          </select>
-                          {isAssigned && (
-                            <button
-                              onClick={() => handleRevoke(item, assignment.aidantUserId)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 transition text-red-500"
-                              title="Retirer l'assignation"
-                            >
-                              <XCircle size={14} />
-                            </button>
+                          {hasFamilyAidant && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-600 font-medium">
+                              🏠 Aidant famille
+                            </span>
                           )}
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+
+                    {/* Lignes des items du compte */}
+                    {group.items.map((item) => {
+                      const displayedAidant = getDisplayedAidant(item);
+                      const isAssigned = !!displayedAidant;
+                      const isDirect = item.assignedAidantUserId !== undefined;
+                      const isInherited = isAssigned && !isDirect;
+
+                      // Couleur de la priorité
+                      const priorityColor = item.priority === 1 ? '#10B981' : 
+                                           item.priority === 2 ? '#3B82F6' : 
+                                           item.priority === 3 ? '#8B5CF6' : '#9CA3AF';
+
+                      return (
+                        <tr key={item.id} className="hover:bg-gray-50/50 transition">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-bold text-gray-800 ${item.isPersonal ? 'text-blue-600' : ''}`}>
+                                {item.isPersonal ? '👤 ' : ''}{item.targetName}
+                              </span>
+                              {item.isPersonal && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">
+                                  Personnel
+                                </span>
+                              )}
+                              {isInherited && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-600 font-medium flex items-center gap-0.5">
+                                  <Info size={10} />
+                                  Hérité
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-full text-xs" style={{ 
+                              background: item.category === 'maman_bebe' ? '#fce4ec' : 
+                                         item.category === 'personal' ? '#e3f2fd' : '#e8f5e9',
+                              color: item.category === 'maman_bebe' ? '#c62850' : 
+                                     item.category === 'personal' ? '#1565c0' : '#2e7d32'
+                            }}>
+                              {getCategoryLabel(item.category)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {isAssigned ? (
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2">
+                                  <CheckCircle size={12} className="text-green-500" />
+                                  <span className="font-semibold text-xs" style={{ color: colors.primary }}>
+                                    {displayedAidant.name}
+                                  </span>
+                                  {aidants.find(a => a.user_id === displayedAidant.userId)?.available && (
+                                    <span className="text-[8px] text-green-600">🟢 Dispo</span>
+                                  )}
+                                </div>
+                                {isInherited && (
+                                  <span className="text-[9px]" style={{ color: displayedAidant.sourceColor }}>
+                                    {displayedAidant.sourceLabel}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-xs">Non assigné</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full" style={{ background: priorityColor }}></span>
+                              <span className="text-xs" style={{ color: priorityColor }}>
+                                {item.priority === 1 ? 'Patient direct' :
+                                 item.priority === 2 ? 'Compte personnel' :
+                                 item.priority === 3 ? 'Famille' : '—'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {isAssigned ? (
+                              <span 
+                                className="px-2 py-0.5 rounded-full text-[9px] font-medium"
+                                style={{
+                                  background: getAssignmentTypeColor(displayedAidant.type) + '20',
+                                  color: getAssignmentTypeColor(displayedAidant.type),
+                                }}
+                              >
+                                {getAssignmentTypeLabel(displayedAidant.type)}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <select
+                                value={item.assignedAidantUserId || ''}
+                                onChange={(e) => handleAssign(item, e.target.value, selectedType)}
+                                disabled={isSaving}
+                                className="px-2 py-1.5 rounded-lg border outline-none text-xs transition min-w-[100px]"
+                                style={{ borderColor: colors.border, color: colors.text }}
+                              >
+                                <option value="">Sélectionner</option>
+                                {aidants.map((aidant) => (
+                                  <option key={aidant.id} value={aidant.user_id}>
+                                    {aidant.user?.full_name} 
+                                    {aidant.available ? ' 🟢' : ' 🔴'}
+                                    {` (${aidant.current_assignments || 0}/${aidant.max_assignments || 4})`}
+                                  </option>
+                                ))}
+                              </select>
+                              {isDirect && item.assignedAidantUserId && (
+                                <button
+                                  onClick={() => handleRevoke(item)}
+                                  className="p-1.5 rounded-lg hover:bg-red-50 transition text-red-500"
+                                  title="Retirer l'assignation"
+                                >
+                                  <XCircle size={14} />
+                                </button>
+                              )}
+                              {isInherited && (
+                                <button
+                                  onClick={() => {
+                                    // Créer une assignation directe pour remplacer l'héritage
+                                    if (displayedAidant) {
+                                      // Proposer de créer une assignation directe
+                                      const confirmReplace = window.confirm(
+                                        `Ce patient hérite actuellement de l'aidant du compte.\n\n` +
+                                        `Voulez-vous créer une assignation directe avec ${displayedAidant.name} ?\n` +
+                                        `(Cela remplacera l'héritage)`
+                                      );
+                                      if (confirmReplace) {
+                                        handleAssign(item, displayedAidant.userId, displayedAidant.type);
+                                      }
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg hover:bg-blue-50 transition text-blue-500"
+                                  title="Remplacer l'héritage par une assignation directe"
+                                >
+                                  <UserPlus size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
     </div>
   );
 };
