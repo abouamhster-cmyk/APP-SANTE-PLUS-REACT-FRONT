@@ -115,7 +115,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   // ✅ Récupérer l'aidant actif pour un patient
   getActiveAidantForPatient: async (patientId: string): Promise<string | null> => {
     try {
-      const { user, profile } = useAuthStore.getState();
+      const { user } = useAuthStore.getState();
       if (!user) return null;
 
       const familyId = user.id;
@@ -205,22 +205,19 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         console.log('👨‍👩‍👦 Famille - Récupération des patients liés');
         console.log('🔍 Family ID:', user.id);
         
-        // ✅ Récupérer les patients via les assignations - CORRIGÉ
-        // La colonne family_id n'existe pas dans aidant_assignments
-        // On utilise target_id et target_type pour filtrer
+        // ✅ Récupérer les patients via les assignations
+        // Récupérer les assignations où la famille est la cible (target_id = user.id)
         const { data: assignments, error: assignmentsError } = await supabase
           .from('aidant_assignments')
-          .select('target_id')
+          .select('target_id, target_type')
           .eq('target_type', 'patient')
           .eq('status', 'active')
-          .eq('target_id', user.id);  // ✅ CORRIGÉ: target_id au lieu de family_id
+          .eq('target_id', user.id);
 
         if (assignmentsError) {
           console.error('❌ Erreur récupération assignations:', assignmentsError);
-          // Ne pas bloquer, continuer avec le fallback
         }
 
-        // ✅ Récupérer les patient_ids depuis les assignations
         const patientIdsFromAssignments = assignments?.map(a => a.target_id).filter(Boolean) || [];
 
         // ✅ Fallback: récupérer via patient_family_links (pour compatibilité)
@@ -273,7 +270,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           console.error('❌ Erreur récupération assignations aidant:', assignmentsError);
         }
 
-        const patientIds = assignments?.map(a => a.target_id).filter(Boolean) || [];
+        let patientIds = assignments?.map(a => a.target_id).filter(Boolean) || [];
 
         // Fallback: via patient_family_links
         if (patientIds.length === 0) {
