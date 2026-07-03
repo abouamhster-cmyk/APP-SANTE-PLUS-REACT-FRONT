@@ -301,7 +301,7 @@ const DashboardPage = () => {
       >
         <div className="absolute inset-0 bg-black/5" />
         
-        <div className="relative z-10 min-h-[1900px] md:min-h-[210px] p-4 sm:p-8 flex flex-col justify-between">
+        <div className="relative z-10 min-h-[190px] md:min-h-[210px] p-4 sm:p-8 flex flex-col justify-between">
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
             <div className="space-y-1 sm:space-y-2 max-w-xl">
