@@ -45,6 +45,19 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
       ]);
 
       // ✅ Récupérer les comptes personnels (familles sans patient)
+      // ❌ CORRECTION : Remplacer NOT.IN par une approche en deux étapes
+      
+      // Étape 1: Récupérer toutes les familles
+      const { data: allFamilies, error: familiesError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'family');
+
+      if (familiesError) {
+        console.error('❌ Erreur récupération familles:', familiesError);
+      }
+
+      // Étape 2: Récupérer les liens famille-patient
       const { data: familyLinks, error: linksError } = await supabase
         .from('patient_family_links')
         .select('family_id');
@@ -53,19 +66,15 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
         console.error('❌ Erreur récupération liens famille:', linksError);
       }
 
+      // Étape 3: Créer un Set des familles qui ont des patients
       const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
 
-      const { data: personalAccountsData, error: personalError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'family')
-        .not('id', 'in', Array.from(familyIdsWithPatients).map(id => `'${id}'`).join(','));
-
-      if (personalError) {
-        console.error('❌ Erreur récupération comptes personnels:', personalError);
-      }
-
-      const personalAccountsCount = personalAccountsData?.length || 0;
+      // Étape 4: Filtrer manuellement les familles sans patient
+      const personalAccounts = (allFamilies || []).filter(
+        (f: any) => !familyIdsWithPatients.has(f.id)
+      );
+      
+      const personalAccountsCount = personalAccounts.length;
       const totalBeneficiaires = (patients || 0) + personalAccountsCount;
 
       const { data: payments } = await supabase
