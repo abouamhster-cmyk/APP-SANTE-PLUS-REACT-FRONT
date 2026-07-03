@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
-// ✅ Version corrigée - Affichage correct des assignations
+// ✅ VERSION FINALE CORRIGÉE - Affichage des assignations
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
@@ -130,13 +130,12 @@ const AssignAidantPage = () => {
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
-  const [refreshKey, setRefreshKey] = useState(0);
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
   // ============================================================
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     setProcessingItems(new Set());
 
@@ -189,21 +188,21 @@ const AssignAidantPage = () => {
         }))
       );
 
-      // 4. Assignations - ✅ RÉCUPÉRATION AVEC LA BONNE STRUCTURE
+      // 4. Assignations - ✅ RÉCUPÉRATION ET MISE À JOUR
       try {
         const response = await assignmentAPI.adminGetAll();
-        const assignmentsData = response.data?.data || [];
+        console.log('📡 Response adminGetAll:', response);
         
-        console.log('📋 Données assignations brutes:', assignmentsData);
+        const assignmentsData = response.data?.data || [];
+        console.log('📋 Assignations reçues:', assignmentsData);
         
         const mapAssign: any = {};
         assignmentsData?.forEach((a: any) => {
-          // ✅ S'assurer que la clé est correcte
           const key = `${a.target_type}_${a.target_id}`;
           mapAssign[key] = a;
         });
         
-        console.log('📋 Map assignations:', mapAssign);
+        console.log('📋 Map assignations construite:', mapAssign);
         setAssignments(mapAssign);
         
       } catch (apiError) {
@@ -216,11 +215,11 @@ const AssignAidantPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, [refreshKey]);
+  }, [fetchData]);
 
   // ============================================================
   // CONSTRUCTION DE LA LISTE HIÉRARCHIQUE
@@ -230,7 +229,6 @@ const AssignAidantPage = () => {
     const accountKey = `personal_account_${family.id}`;
     const accountAssignment = assignments[accountKey];
 
-    // Récupérer le nom de l'aidant assigné au compte
     let accountAidantName = '';
     if (accountAssignment?.aidant_user_id) {
       const aidant = aidants.find(a => a.user_id === accountAssignment.aidant_user_id);
@@ -348,7 +346,6 @@ const AssignAidantPage = () => {
       
       // ✅ Forcer le rechargement complet
       await fetchData();
-      setRefreshKey(prev => prev + 1);
 
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
@@ -381,7 +378,6 @@ const AssignAidantPage = () => {
       
       // ✅ Forcer le rechargement complet
       await fetchData();
-      setRefreshKey(prev => prev + 1);
 
     } catch (error: any) {
       console.error('❌ Erreur révocation:', error);
@@ -430,7 +426,6 @@ const AssignAidantPage = () => {
       
       // ✅ Forcer le rechargement complet
       await fetchData();
-      setRefreshKey(prev => prev + 1);
 
     } catch (error: any) {
       console.error('❌ Erreur assignation en masse:', error);
