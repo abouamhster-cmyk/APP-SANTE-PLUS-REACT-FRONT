@@ -1,6 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
-// ✅ Version corrigée - Gestion d'état des boutons
-
+ 
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Users, 
