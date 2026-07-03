@@ -2,7 +2,7 @@
 
 import { InfoRow } from '@/components/ui/InfoRow';
 import { formatDate } from '@/utils/helpers';
-import { MapPin, Calendar, Briefcase, Phone, Mail, User, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { MapPin, Calendar, Briefcase, Phone, Mail, User, CheckCircle, XCircle, Clock, X, Check } from 'lucide-react';
 
 interface CandidateDetailsModalProps {
   candidate: any;
@@ -24,13 +24,13 @@ export const CandidateDetailsModal = ({
       {/* En-tête */}
       <div className="flex items-center gap-4 pb-4 border-b" style={{ borderColor: colors.border }}>
         <div
-          className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
+          className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0"
           style={{ background: colors.primary }}
         >
           {candidate.user?.full_name?.charAt(0) || 'A'}
         </div>
-        <div>
-          <h3 className="text-lg font-bold" style={{ color: colors.text }}>
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold truncate" style={{ color: colors.text }}>
             {candidate.user?.full_name || 'Candidat'}
           </h3>
           <p className="text-sm" style={{ color: colors.text + '60' }}>
@@ -59,12 +59,12 @@ export const CandidateDetailsModal = ({
         />
         <InfoRow 
           label="💼 Expérience" 
-          value={`${candidate.experience_years || 0} ans`} 
+          value={`${candidate.experience_years || 0} an${candidate.experience_years > 1 ? 's' : ''}`} 
         />
         <InfoRow 
           label="🟢 Disponibilité" 
-          value={candidate.availability ? 'Disponible' : 'Indisponible'} 
-          color={candidate.availability ? '#4CAF50' : '#F44336'}
+          value={candidate.available ? '🟢 Disponible' : '🔴 Indisponible'} 
+          color={candidate.available ? '#4CAF50' : '#F44336'}
         />
       </div>
 
@@ -83,6 +83,7 @@ export const CandidateDetailsModal = ({
               {spec === 'maman_bebe' ? '👶 Maman & Bébé' :
                spec === 'senior' ? '👴 Senior' :
                spec === 'accompagnement' ? '🤝 Accompagnement' :
+               spec === 'autre' ? '📝 Autre' :
                spec}
             </span>
           ))}
@@ -118,7 +119,7 @@ export const CandidateDetailsModal = ({
           <h4 className="text-sm font-bold mb-1" style={{ color: colors.text }}>
             📝 Présentation
           </h4>
-          <p className="text-sm italic" style={{ color: colors.text + '70' }}>
+          <p className="text-sm italic leading-relaxed" style={{ color: colors.text + '70' }}>
             "{candidate.bio}"
           </p>
         </div>
@@ -142,7 +143,7 @@ export const CandidateDetailsModal = ({
           {candidate.status === 'approved' && <CheckCircle size={12} />}
           {candidate.status === 'rejected' && <XCircle size={12} />}
           {candidate.status === 'pending' ? 'En attente' :
-           candidate.status === 'approved' ? 'Approuvé' : 'Refusé'}
+           candidate.status === 'approved' ? '✅ Approuvé' : '❌ Refusé'}
         </span>
       </div>
 
@@ -152,7 +153,7 @@ export const CandidateDetailsModal = ({
           <button
             onClick={onReject}
             disabled={isProcessing}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold border border-red-200 text-red-500 hover:bg-red-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <X size={16} />
             Refuser
@@ -160,7 +161,7 @@ export const CandidateDetailsModal = ({
           <button
             onClick={onApprove}
             disabled={isProcessing}
-            className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: colors.primary }}
           >
             <Check size={16} />
