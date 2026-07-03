@@ -1,4 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
+// ✅ Version corrigée - Utilisation de l'API backend
 
 import React, { useEffect, useState } from 'react';
 import { 
@@ -22,6 +23,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { assignmentAPI } from '@/lib/api';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
@@ -135,67 +137,76 @@ const AssignAidantPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
 
-    // 1. Aidants
-    const { data: aidantsData } = await supabase
-      .from('aidants')
-      .select('*')
-      .eq('status', 'approved')
-      .eq('is_verified', true);
+    try {
+      // 1. Aidants - Direct Supabase (public)
+      const { data: aidantsData } = await supabase
+        .from('aidants')
+        .select('*')
+        .eq('status', 'approved')
+        .eq('is_verified', true);
 
-    const userIds = (aidantsData || []).map(a => a.user_id);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('id', userIds);
+      const userIds = (aidantsData || []).map(a => a.user_id);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
 
-    const profileMap: any = {};
-    profiles?.forEach(p => (profileMap[p.id] = p));
+      const profileMap: any = {};
+      profiles?.forEach(p => (profileMap[p.id] = p));
 
-    setAidants(
-      (aidantsData || []).map(a => ({
-        ...a,
-        user: profileMap[a.user_id] || null,
-      }))
-    );
+      setAidants(
+        (aidantsData || []).map(a => ({
+          ...a,
+          user: profileMap[a.user_id] || null,
+        }))
+      );
 
-    // 2. Familles
-    const { data: families } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'family');
-    setFamilyAccounts(families || []);
+      // 2. Familles - Direct Supabase (public)
+      const { data: families } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'family');
+      setFamilyAccounts(families || []);
 
-    // 3. Patients
-    const { data: patientsData } = await supabase
-      .from('patients')
-      .select(`
-        id, first_name, last_name, category,
-        patient_family_links!inner(family_id)
-      `);
+      // 3. Patients - Direct Supabase (public)
+      const { data: patientsData } = await supabase
+        .from('patients')
+        .select(`
+          id, first_name, last_name, category,
+          patient_family_links!inner(family_id)
+        `);
 
-    setPatients(
-      (patientsData || []).map(p => ({
-        id: p.id,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        category: p.category,
-        family_id: p.patient_family_links?.[0]?.family_id,
-      }))
-    );
+      setPatients(
+        (patientsData || []).map(p => ({
+          id: p.id,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          category: p.category,
+          family_id: p.patient_family_links?.[0]?.family_id,
+        }))
+      );
 
-    // 4. Assignations
-    const { data: assignmentsData } = await supabase
-      .from('aidant_assignments')
-      .select('*')
-      .eq('status', 'active');
-
-    const mapAssign: any = {};
-    assignmentsData?.forEach(a => {
-      mapAssign[`${a.target_type}_${a.target_id}`] = a;
-    });
-
-    setAssignments(mapAssign);
-    setIsLoading(false);
+      // 4. Assignations - ✅ Utiliser l'API backend
+      try {
+        const response = await assignmentAPI.adminGetAll();
+        const assignmentsData = response.data?.data || [];
+        
+        const mapAssign: any = {};
+        assignmentsData?.forEach((a: any) => {
+          mapAssign[`${a.target_type}_${a.target_id}`] = a;
+        });
+        setAssignments(mapAssign);
+      } catch (apiError) {
+        console.error('❌ Erreur récupération assignations via API:', apiError);
+        // Fallback: tableau vide
+        setAssignments({});
+      }
+    } catch (error) {
+      console.error('❌ Erreur fetchData:', error);
+      toast.error('Erreur lors du chargement des données');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -302,7 +313,7 @@ const AssignAidantPage = () => {
   };
 
   // ============================================================
-  // HANDLERS
+  // HANDLERS - ✅ UTILISATION DE L'API
   // ============================================================
 
   const handleAssign = async (item: AssignmentItem) => {
@@ -313,21 +324,20 @@ const AssignAidantPage = () => {
 
     setIsProcessing(true);
     try {
-      const { error } = await supabase.from('aidant_assignments').insert({
-        aidant_user_id: selectedAidant,
-        target_type: item.targetType,
-        target_id: item.targetId,
-        assignment_type: selectedType,
-        status: 'active',
-        priority: item.priority,
-        created_by: user?.id,
+      // ✅ Utiliser l'API d'assignation
+      await assignmentAPI.create({
+        aidantUserId: selectedAidant,
+        targetType: item.targetType,
+        targetId: item.targetId,
+        assignmentType: selectedType,
+        reason: `Assigné par admin ${user?.email || 'admin'}`,
+        expiresAt: null,
       });
-
-      if (error) throw error;
 
       toast.success(`✅ ${item.targetName} assigné avec succès`);
       await fetchData();
     } catch (error: any) {
+      console.error('❌ Erreur assignation:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsProcessing(false);
@@ -344,20 +354,13 @@ const AssignAidantPage = () => {
 
     setIsProcessing(true);
     try {
-      const { error } = await supabase
-        .from('aidant_assignments')
-        .update({ 
-          status: 'inactive',
-          reason: `Révoqué par ${user?.email || 'admin'}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', item.assignmentId);
-
-      if (error) throw error;
+      // ✅ Utiliser l'API de révocation
+      await assignmentAPI.revoke(item.assignmentId, `Révoqué par ${user?.email || 'admin'}`);
 
       toast.success(`✅ Assignation de ${item.targetName} retirée`);
       await fetchData();
     } catch (error: any) {
+      console.error('❌ Erreur révocation:', error);
       toast.error(error.message || 'Erreur lors de la révocation');
     } finally {
       setIsProcessing(false);
@@ -381,20 +384,20 @@ const AssignAidantPage = () => {
     setIsProcessing(true);
     try {
       for (const item of unassigned) {
-        await supabase.from('aidant_assignments').insert({
-          aidant_user_id: selectedAidant,
-          target_type: item.targetType,
-          target_id: item.targetId,
-          assignment_type: selectedType,
-          status: 'active',
-          priority: item.priority,
-          created_by: user?.id,
+        await assignmentAPI.create({
+          aidantUserId: selectedAidant,
+          targetType: item.targetType,
+          targetId: item.targetId,
+          assignmentType: selectedType,
+          reason: `Assignation en masse par ${user?.email || 'admin'}`,
+          expiresAt: null,
         });
       }
 
       toast.success(`✅ ${unassigned.length} bénéficiaire(s) assignés`);
       await fetchData();
     } catch (error: any) {
+      console.error('❌ Erreur assignation en masse:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsProcessing(false);
