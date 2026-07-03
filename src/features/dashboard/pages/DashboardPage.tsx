@@ -1,6 +1,6 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -28,20 +28,24 @@ import {
   UserPlus,
   TrendingUp,
   Lightbulb,
-  Compass,     
+  Compass,
   Rocket,
+  DollarSign,
+  Clock,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
+import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { getGreeting } from '@/utils/helpers';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 import { VisitCard } from '@/components/visits/VisitCard';
@@ -82,6 +86,7 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     tiles.push(
       { icon: <Users size={20} />, label: 'Personnes accompagnées', color: colors.primary, path: '/app/patients', badge: patientsCount },
       { icon: <Calendar size={20} />, label: 'Planning', color: '#10b981', path: '/app/planning' },
+      { icon: <Clock size={20} />, label: 'Missions', color: '#8b5cf6', path: '/app/missions', badge: stats.pendingVisits },
       { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
       { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
       { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
@@ -94,16 +99,16 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
   if (role === 'admin' || role === 'coordinator') {
     tiles.push(
       { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: '#8b5cf6', path: '/app/admin' },
-      { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations' },
-      { icon: <UserCheck size={20} />, label: 'Candidatures', color: '#f59e0b', path: '/app/aidant-candidates' },
-      { icon: <Users size={20} />, label: 'Aidants', color: '#3b82f6', path: '/app/aidants' },
+      { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations },
+      { icon: <UserCheck size={20} />, label: 'Candidatures', color: '#f59e0b', path: '/app/aidant-candidates', badge: stats.pendingAidants },
+      { icon: <Users size={20} />, label: 'Aidants', color: '#3b82f6', path: '/app/aidants', badge: stats.totalAidants },
       { icon: <Handshake size={20} />, label: 'Assigner aidant', color: '#06b6d4', path: '/app/assign-aidants' },
-      { icon: <Users size={20} />, label: 'Utilisateurs', color: '#10b981', path: '/app/users' },
-      { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits' },
-      { icon: <FileCheck size={20} />, label: 'Valider visites', color: '#84cc16', path: '/app/admin/visits/validation' },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders' },
-      { icon: <CreditCard size={20} />, label: 'Paiements', color: '#8b5cf6', path: '/app/admin-payments' },
-      { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions' },
+      { icon: <Users size={20} />, label: 'Utilisateurs', color: '#10b981', path: '/app/users', badge: stats.totalUsers },
+      { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits', badge: stats.todayVisits },
+      { icon: <FileCheck size={20} />, label: 'Valider visites', color: '#84cc16', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <DollarSign size={20} />, label: 'Paiements', color: '#8b5cf6', path: '/app/admin-payments', badge: stats.totalPayments },
+      { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
       { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
       { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
       { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
@@ -126,7 +131,7 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
 
   const {
     isFamily,
@@ -134,6 +139,7 @@ const DashboardPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
+  // ✅ STORES
   const {
     patients,
     fetchPatients,
@@ -152,32 +158,125 @@ const DashboardPage = () => {
     isLoading: ordersLoading,
   } = useOrderStore();
 
+  const {
+    aidants,
+    fetchAidants,
+    isLoading: aidantsLoading,
+  } = useAidantCatalogStore();
+
+  const {
+    subscriptions,
+    payments,
+    fetchSubscriptions,
+    fetchPayments,
+    isLoading: paymentsLoading,
+  } = usePaymentStore();
+
   const [greeting, setGreeting] = useState('');
   const [isMaman, setIsMaman] = useState(false);
+  
+  // ✅ STATS ADMIN
+  const [adminStats, setAdminStats] = useState({
+    totalUsers: 0,
+    pendingRegistrations: 0,
+    pendingAidants: 0,
+    totalAidants: 0,
+    totalPayments: 0,
+    totalSubscriptions: 0,
+    todayVisits: 0,
+    pendingValidations: 0,
+    revenue: 0,
+  });
+  const [isLoadingAdminStats, setIsLoadingAdminStats] = useState(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ UTILISER le hook de rafraîchissement
+  // ✅ CHARGER LES STATS ADMIN
+  const fetchAdminStats = async () => {
+    if (!isAdminOrCoordinator) return;
+    
+    setIsLoadingAdminStats(true);
+    try {
+      // Récupérer les compteurs
+      const [
+        { count: totalUsers },
+        { count: pendingRegistrations },
+        { count: pendingAidants },
+        { count: totalAidants },
+        { count: todayVisits },
+        { count: pendingValidations },
+        { count: totalPayments },
+        { count: totalSubscriptions },
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('status', 'en_attente'),
+        supabase.from('aidants').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('aidants').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+        supabase.from('visites').select('*', { count: 'exact', head: true }).eq('scheduled_date', new Date().toISOString().split('T')[0]),
+        supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'terminee'),
+        supabase.from('paiements').select('*', { count: 'exact', head: true }),
+        supabase.from('abonnements').select('*', { count: 'exact', head: true }).eq('status', 'actif'),
+      ]);
+
+      // Récupérer les revenus
+      const { data: paymentsData } = await supabase
+        .from('paiements')
+        .select('amount')
+        .eq('status', 'valide');
+
+      const revenue = paymentsData?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
+
+      setAdminStats({
+        totalUsers: totalUsers || 0,
+        pendingRegistrations: pendingRegistrations || 0,
+        pendingAidants: pendingAidants || 0,
+        totalAidants: totalAidants || 0,
+        totalPayments: totalPayments || 0,
+        totalSubscriptions: totalSubscriptions || 0,
+        todayVisits: todayVisits || 0,
+        pendingValidations: pendingValidations || 0,
+        revenue,
+      });
+    } catch (error) {
+      console.error('❌ Erreur chargement stats admin:', error);
+    } finally {
+      setIsLoadingAdminStats(false);
+    }
+  };
+
+  // ✅ REFRESH
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       await Promise.all([
         fetchPatients(true),
         fetchVisits(),
         fetchOrders(),
+        fetchAidants(),
+        fetchSubscriptions(),
+        fetchPayments(),
       ]);
+      if (isAdminOrCoordinator) {
+        await fetchAdminStats();
+      }
     },
-    onError: (error) => toast.error('Erreur lors du rafraîchissement du tableau de bord'),
+    onError: (error) => toast.error('Erreur lors du rafraîchissement'),
   });
 
-  // ✅ Charger les données au montage
+  // ✅ CHARGEMENT INITIAL
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
         fetchPatients(),
         fetchVisits(),
         fetchOrders(),
+        fetchAidants(),
+        fetchSubscriptions(),
+        fetchPayments(),
       ]);
+      if (isAdminOrCoordinator) {
+        await fetchAdminStats();
+      }
     };
     loadData();
     setGreeting(getGreeting());
@@ -189,16 +288,37 @@ const DashboardPage = () => {
     setIsMaman(hasMamanPatient);
   }, [patients]);
 
-  // 📌 STATISTIQUES
-  const stats = {
-    proches: patients.length,
-    upcomingVisits: visits.filter((v) => v.status === 'planifiee' || v.status === 'acceptee').length,
-    pendingOrders: orders.filter((o) => o.status === 'creee' || o.status === 'en_attente' || o.status === 'disponible').length,
-    completedVisits: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
-  };
+  // ✅ STATISTIQUES
+  const stats = useMemo(() => {
+    const pendingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'en_attente').length;
+    const upcomingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'acceptee').length;
+    const pendingOrders = orders.filter((o) => o.status === 'creee' || o.status === 'en_attente' || o.status === 'disponible').length;
+    const completedVisits = visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length;
+    const totalAidants = aidants.length;
+    const totalSubscriptions = subscriptions.filter(s => s.status === 'actif').length;
+    const totalPayments = payments.length;
+
+    return {
+      proches: patients.length,
+      pendingVisits,
+      upcomingVisits,
+      pendingOrders,
+      completedVisits,
+      totalAidants,
+      totalSubscriptions,
+      totalPayments,
+      // Admin
+      totalUsers: adminStats.totalUsers,
+      pendingRegistrations: adminStats.pendingRegistrations,
+      pendingAidants: adminStats.pendingAidants,
+      todayVisits: adminStats.todayVisits,
+      pendingValidations: adminStats.pendingValidations,
+      revenue: adminStats.revenue,
+    };
+  }, [patients, visits, orders, aidants, subscriptions, payments, adminStats]);
 
   const tiles = getTilesForRole(role, colors, stats, patients.length);
-  const isLoading = patientsLoading || visitsLoading || ordersLoading;
+  const isLoading = patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats;
 
   // ✅ DÉTERMINER L'IMAGE DE LA BANNIÈRE
   const heroImage = isMaman
@@ -271,7 +391,7 @@ const DashboardPage = () => {
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       
       {/* ============================================================
-      HERO BANNER - DESIGN OPTIMISÉ POUR LA LISIBILITÉ DU TEXTE
+      HERO BANNER
       ============================================================ */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
@@ -304,7 +424,6 @@ const DashboardPage = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center mt-2 sm:mt-0">
-            {/* BOUTON REFRESH INTÉGRÉ AU FLUX RÉEL */}
             <RefreshButton 
               size="sm" 
               showText={false}
@@ -314,7 +433,7 @@ const DashboardPage = () => {
             {isFamily && (
               <button
                 onClick={() => navigate('/app/visits')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm shadow-purple-100"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm"
                 style={{ background: colors.primary }}
               >
                 Gérer les visites
@@ -325,7 +444,7 @@ const DashboardPage = () => {
             {isAidant && (
               <button
                 onClick={() => navigate('/app/planning')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm shadow-purple-100"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm"
                 style={{ background: colors.primary }}
               >
                 Mon planning
@@ -336,7 +455,7 @@ const DashboardPage = () => {
             {isAdminOrCoordinator && (
               <button
                 onClick={() => navigate('/app/admin')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm shadow-purple-100"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm"
                 style={{ background: colors.primary }}
               >
                 Espace Admin
@@ -393,7 +512,7 @@ const DashboardPage = () => {
             />
             <StatCard
               label="Missions"
-              value={visits.filter(v => v.status === 'planifiee' || v.status === 'acceptee').length}
+              value={stats.pendingVisits}
               icon={<Calendar size={15} />}
               color="#10b981"
               onClick={() => navigate('/app/planning')}
@@ -407,7 +526,7 @@ const DashboardPage = () => {
             />
             <StatCard
               label="Interventions"
-              value={visits.filter(v => v.status === 'terminee' || v.status === 'validee').length}
+              value={stats.completedVisits}
               icon={<History size={15} />}
               color="#78350f"
               onClick={() => navigate('/app/history')}
@@ -426,21 +545,21 @@ const DashboardPage = () => {
             />
             <StatCard
               label="Inscriptions"
-              value={0}
+              value={stats.pendingRegistrations}
               icon={<ClipboardList size={15} />}
               color="#f59e0b"
               onClick={() => navigate('/app/registrations')}
             />
             <StatCard
               label="Aidants"
-              value={0}
+              value={stats.totalAidants}
               icon={<UserCheck size={15} />}
               color="#3b82f6"
               onClick={() => navigate('/app/aidants')}
             />
             <StatCard
               label="Revenus"
-              value="0 FCFA"
+              value={`${stats.revenue.toLocaleString()} FCFA`}
               icon={<TrendingUp size={15} />}
               color="#10b981"
               onClick={() => navigate('/app/admin-payments')}
@@ -604,7 +723,7 @@ const DashboardPage = () => {
       )}
 
       {/* PLANIFICATION POUR LES AIDANTS */}
-      {isAidant && visits.filter(v => v.status === 'planifiee' || v.status === 'acceptee').length > 0 && (
+      {isAidant && stats.pendingVisits > 0 && (
         <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
@@ -644,7 +763,7 @@ const DashboardPage = () => {
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <button
               onClick={() => navigate('/app/visits')}
-              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm shadow-purple-50"
+              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm"
               style={{ background: colors.primary }}
             >
               <Calendar size={13} />
