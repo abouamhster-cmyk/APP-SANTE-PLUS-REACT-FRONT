@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/RegisterPage.tsx
-// 📌 Inscription  : soumission manuelle uniquement
+// 📌 Inscription - SOUMISSION UNIQUEMENT SUR CLIC MANUEL
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
@@ -656,8 +656,8 @@ const RegisterPage = () => {
                 </div>
               </div>
 
-              {/* Contenu dynamique */}
-              <form onSubmit={handleSubmit} className="flex-1 flex flex-col justify-between min-h-0">
+              {/* Contenu dynamique - ATTENTION : PAS DE <form> ICI ! */}
+              <div className="flex-1 flex flex-col justify-between min-h-0">
                 <div 
                   className="flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2 space-y-4"
                   style={{
@@ -834,9 +834,10 @@ const RegisterPage = () => {
                       Continuer <ArrowRight size={14} />
                     </button>
                   ) : (
-                    // ✅ BOUTON CRÉER MON COMPTE (étape finale) - type="submit" pour soumettre
+                    // ✅ BOUTON CRÉER MON COMPTE (étape finale) - type="button" + onClick manuel
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={handleSubmit}
                       disabled={!canSubmit() || isLoading}
                       className="flex-1 py-2.5 rounded-2xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ background: canSubmit() ? branding.primary : '#9CA3AF' }}
@@ -855,7 +856,7 @@ const RegisterPage = () => {
                     </button>
                   )}
                 </div>
-              </form>
+              </div>
 
               {/* Redirection Connexion */}
               <div className="mt-4 text-center text-xs">
