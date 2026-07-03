@@ -1,5 +1,6 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
- 
+// ✅ Version corrigée - Affichage correct des assignations
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Users, 
@@ -128,9 +129,8 @@ const AssignAidantPage = () => {
   const [selectedType, setSelectedType] = useState('primary');
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [searchTerm, setSearchTerm] = useState('');
-
-  // ✅ ÉTAT POUR SUIVRE LES ASSIGNATIONS EN COURS (UI)
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
@@ -189,16 +189,23 @@ const AssignAidantPage = () => {
         }))
       );
 
-      // 4. Assignations
+      // 4. Assignations - ✅ RÉCUPÉRATION AVEC LA BONNE STRUCTURE
       try {
         const response = await assignmentAPI.adminGetAll();
         const assignmentsData = response.data?.data || [];
         
+        console.log('📋 Données assignations brutes:', assignmentsData);
+        
         const mapAssign: any = {};
         assignmentsData?.forEach((a: any) => {
-          mapAssign[`${a.target_type}_${a.target_id}`] = a;
+          // ✅ S'assurer que la clé est correcte
+          const key = `${a.target_type}_${a.target_id}`;
+          mapAssign[key] = a;
         });
+        
+        console.log('📋 Map assignations:', mapAssign);
         setAssignments(mapAssign);
+        
       } catch (apiError) {
         console.error('❌ Erreur récupération assignations via API:', apiError);
         setAssignments({});
@@ -213,7 +220,7 @@ const AssignAidantPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [refreshKey]);
 
   // ============================================================
   // CONSTRUCTION DE LA LISTE HIÉRARCHIQUE
@@ -223,10 +230,11 @@ const AssignAidantPage = () => {
     const accountKey = `personal_account_${family.id}`;
     const accountAssignment = assignments[accountKey];
 
+    // Récupérer le nom de l'aidant assigné au compte
     let accountAidantName = '';
     if (accountAssignment?.aidant_user_id) {
       const aidant = aidants.find(a => a.user_id === accountAssignment.aidant_user_id);
-      accountAidantName = aidant?.user?.full_name || '';
+      accountAidantName = aidant?.user?.full_name || 'Aidant';
     }
 
     const accountItem: AssignmentItem = {
@@ -240,7 +248,7 @@ const AssignAidantPage = () => {
       category: 'personal',
       isPersonal: true,
       priority: 2,
-      assignedAidantUserId: accountAssignment?.aidant_user_id,
+      assignedAidantUserId: accountAssignment?.aidant_user_id || undefined,
       assignedAidantName: accountAidantName,
       assignmentType: accountAssignment?.assignment_type,
       assignmentId: accountAssignment?.id,
@@ -254,7 +262,7 @@ const AssignAidantPage = () => {
       let aidantName = '';
       if (a?.aidant_user_id) {
         const aidant = aidants.find(ad => ad.user_id === a.aidant_user_id);
-        aidantName = aidant?.user?.full_name || '';
+        aidantName = aidant?.user?.full_name || 'Aidant';
       }
 
       return {
@@ -268,7 +276,7 @@ const AssignAidantPage = () => {
         category: p.category,
         isPersonal: false,
         priority: 1,
-        assignedAidantUserId: a?.aidant_user_id,
+        assignedAidantUserId: a?.aidant_user_id || undefined,
         assignedAidantName: aidantName,
         assignmentType: a?.assignment_type,
         assignmentId: a?.id,
@@ -314,7 +322,7 @@ const AssignAidantPage = () => {
   };
 
   // ============================================================
-  // HANDLERS - AVEC MISE À JOUR DE L'ÉTAT LOCAL
+  // HANDLERS
   // ============================================================
 
   const handleAssign = async (item: AssignmentItem) => {
@@ -323,7 +331,6 @@ const AssignAidantPage = () => {
       return;
     }
 
-    // ✅ Marquer l'item comme en cours de traitement
     setProcessingItems(prev => new Set(prev).add(item.id));
     setIsProcessing(true);
 
@@ -338,26 +345,10 @@ const AssignAidantPage = () => {
       });
 
       toast.success(`✅ ${item.targetName} assigné avec succès`);
-
-      // ✅ Rafraîchir les données
-      await fetchData();
       
-      // ✅ Mettre à jour l'état local des assignations
-      setAssignments(prev => {
-        const newAssignments = { ...prev };
-        const key = `${item.targetType}_${item.targetId}`;
-        newAssignments[key] = {
-          id: `temp_${Date.now()}`,
-          aidant_user_id: selectedAidant,
-          target_type: item.targetType,
-          target_id: item.targetId,
-          assignment_type: selectedType,
-          status: 'active',
-          priority: item.priority,
-          created_at: new Date().toISOString(),
-        };
-        return newAssignments;
-      });
+      // ✅ Forcer le rechargement complet
+      await fetchData();
+      setRefreshKey(prev => prev + 1);
 
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
@@ -387,15 +378,10 @@ const AssignAidantPage = () => {
       await assignmentAPI.revoke(item.assignmentId, `Révoqué par ${user?.email || 'admin'}`);
 
       toast.success(`✅ Assignation de ${item.targetName} retirée`);
-
-      await fetchData();
       
-      setAssignments(prev => {
-        const newAssignments = { ...prev };
-        const key = `${item.targetType}_${item.targetId}`;
-        delete newAssignments[key];
-        return newAssignments;
-      });
+      // ✅ Forcer le rechargement complet
+      await fetchData();
+      setRefreshKey(prev => prev + 1);
 
     } catch (error: any) {
       console.error('❌ Erreur révocation:', error);
@@ -441,7 +427,10 @@ const AssignAidantPage = () => {
       }
 
       toast.success(`✅ ${unassigned.length} bénéficiaire(s) assignés`);
+      
+      // ✅ Forcer le rechargement complet
       await fetchData();
+      setRefreshKey(prev => prev + 1);
 
     } catch (error: any) {
       console.error('❌ Erreur assignation en masse:', error);
@@ -460,49 +449,6 @@ const AssignAidantPage = () => {
   const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
   const unassignedCount = totalItems - assignedCount;
   const totalFamilies = familyAccounts.length;
-
-  // ============================================================
-  // RENDU DU BOUTON D'ACTION POUR UN ITEM
-  // ============================================================
-
-  const renderActionButton = (item: AssignmentItem) => {
-    const isAssigned = !!item.assignedAidantUserId;
-    const isProcessingItem = processingItems.has(item.id);
-    const isDisabled = isProcessingItem || isProcessing;
-
-    if (isAssigned) {
-      return (
-        <button
-          onClick={() => handleRevoke(item)}
-          disabled={isDisabled}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isProcessingItem ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <XCircle size={14} />
-          )}
-          {isProcessingItem ? 'Traitement...' : 'Désassigner'}
-        </button>
-      );
-    }
-
-    return (
-      <button
-        onClick={() => handleAssign(item)}
-        disabled={!selectedAidant || isDisabled}
-        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ background: isDisabled ? '#9CA3AF' : colors.primary }}
-      >
-        {isProcessingItem ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : (
-          <UserPlus size={14} />
-        )}
-        {isProcessingItem ? 'Traitement...' : 'Assigner'}
-      </button>
-    );
-  };
 
   // ============================================================
   // RENDU
@@ -532,7 +478,7 @@ const AssignAidantPage = () => {
               👥 Affectations
             </h1>
             <p className="text-xs mt-0.5 text-gray-400">
-              Gérez les aidants assignés aux comptes et aux patients
+              {assignedCount} bénéficiaire{assignedCount > 1 ? 's' : ''} assigné{assignedCount > 1 ? 's' : ''}
             </p>
           </div>
           <button
@@ -731,7 +677,7 @@ const AssignAidantPage = () => {
                                 {isAssigned && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 font-medium shrink-0 flex items-center gap-0.5">
                                     <CheckCircle size={10} />
-                                    Assigné
+                                    Assigné à {item.assignedAidantName}
                                   </span>
                                 )}
                               </div>
@@ -747,7 +693,7 @@ const AssignAidantPage = () => {
                             </div>
                           </div>
 
-                          {/* ✅ ACTIONS DROITE AVEC GESTION D'ÉTAT */}
+                          {/* ACTIONS DROITE */}
                           <div className="flex items-center gap-2 shrink-0">
                             {isAssigned ? (
                               <button
