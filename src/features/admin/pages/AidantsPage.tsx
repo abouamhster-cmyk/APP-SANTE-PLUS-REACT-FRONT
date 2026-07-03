@@ -1,6 +1,5 @@
 // 📁 src/features/admin/pages/AidantsPage.tsx
-// ✅ Version corrigée - Utilisation de l'API backend
-
+ 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { assignmentAPI } from '@/lib/api';
