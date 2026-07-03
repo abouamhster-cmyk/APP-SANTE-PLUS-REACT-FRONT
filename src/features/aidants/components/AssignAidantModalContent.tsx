@@ -1,10 +1,9 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
-
+ 
 import { useState } from 'react';
 import { CheckCircle, AlertCircle, User, Users, Info, X } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
-import { useAssignmentStore } from '@/stores/assignmentStore';
-import { ASSIGNMENT_TYPES } from '@/types/assignment';
+import { assignmentAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
  
 // ============================================================
@@ -56,8 +55,7 @@ export const AssignAidantModalContent = ({
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('patient');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { assignAidant } = useAidantCatalogStore();
-  const { assignAidant: assignViaNewSystem } = useAssignmentStore();
+  const { fetchMyAssignments, fetchAidants } = useAidantCatalogStore();
   
   const hasPatients = patients.length > 0;
 
@@ -77,29 +75,36 @@ export const AssignAidantModalContent = ({
     try {
       // ✅ Déterminer la cible
       const finalTargetType = targetType === 'patient' ? 'patient' : 'personal_account';
-      const finalTargetId = targetType === 'patient' ? selectedPatientId : (await import('@/stores/authStore').then(m => m.useAuthStore.getState().user?.id));
-
-      if (!finalTargetId) {
-        throw new Error('ID de cible non trouvé');
+      
+      // ✅ Récupérer l'ID de l'utilisateur connecté
+      const { useAuthStore } = await import('@/stores/authStore');
+      const user = useAuthStore.getState().user;
+      
+      if (!user) {
+        throw new Error('Utilisateur non connecté');
       }
 
-      // ✅ Utiliser le nouveau système d'assignation
-      const result = await assignViaNewSystem({
-        aidantUserId: aidant.id,
+      const finalTargetId = targetType === 'patient' ? selectedPatientId : user.id;
+
+      // ✅ Utiliser l'API famille (Nouvelle route)
+      const result = await assignmentAPI.familyAssign({
+        aidantUserId: aidant.id,  // L'ID de l'aidant (table aidants)
         targetType: finalTargetType,
         targetId: finalTargetId,
-        assignmentType: assignmentType as any,
-        reason: targetType === 'patient' 
-          ? `Assignation au patient ${selectedPatientId}` 
-          : 'Assignation personnelle',
+        patientId: targetType === 'patient' ? selectedPatientId : undefined,
+        assignmentType: assignmentType === 'primary' ? 'primary' : 
+                        assignmentType === 'temporary' ? 'temporary' : 'secondary',
       });
 
+      if (!result.data?.success) {
+        throw new Error(result.data?.error || 'Erreur lors de l\'assignation');
+      }
+
       // ✅ Rafraîchir les données du store
-      await assignAidant(
-        aidant.id,
-        targetType === 'patient' ? selectedPatientId : null,
-        assignmentType === 'primary' ? 'permanente' : assignmentType === 'temporary' ? 'temporaire' : 'ponctuelle'
-      );
+      await Promise.all([
+        fetchMyAssignments(),
+        fetchAidants()
+      ]);
 
       const targetName = targetType === 'patient' 
         ? patients.find(p => p.id === selectedPatientId)?.first_name || 'le patient'
