@@ -13,6 +13,7 @@ import {
   DollarSign,
   Award,
   AlertCircle,
+  UserCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -33,6 +34,8 @@ const AdminDashboardPage = () => {
     totalUsers: 0,
     activeUsers: 0,
     totalPatients: 0,
+    personalAccounts: 0,
+    totalBeneficiaires: 0,
     totalAidants: 0,
     visitsToday: 0,
     visitsInProgress: 0,
@@ -71,6 +74,30 @@ const AdminDashboardPage = () => {
         supabase.from('aidants').select('*', { count: 'exact', head: true }),
         supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('status', 'en_attente'),
       ]);
+
+      // ✅ Récupérer les comptes personnels (familles sans patient)
+      const { data: familyLinks, error: linksError } = await supabase
+        .from('patient_family_links')
+        .select('family_id');
+
+      if (linksError) {
+        console.error('❌ Erreur récupération liens famille:', linksError);
+      }
+
+      const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
+
+      const { data: personalAccountsData, error: personalError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'family')
+        .not('id', 'in', Array.from(familyIdsWithPatients).map(id => `'${id}'`).join(','));
+
+      if (personalError) {
+        console.error('❌ Erreur récupération comptes personnels:', personalError);
+      }
+
+      const personalAccountsCount = personalAccountsData?.length || 0;
+      const totalBeneficiaires = (totalPatients || 0) + personalAccountsCount;
 
       const today = new Date().toISOString().split('T')[0];
       const [
@@ -134,6 +161,8 @@ const AdminDashboardPage = () => {
         totalUsers: totalUsers || 0,
         activeUsers: activeUsers || 0,
         totalPatients: totalPatients || 0,
+        personalAccounts: personalAccountsCount,
+        totalBeneficiaires: totalBeneficiaires,
         totalAidants: totalAidants || 0,
         visitsToday: visitsToday || 0,
         visitsInProgress: visitsInProgress || 0,
@@ -194,8 +223,8 @@ const AdminDashboardPage = () => {
     },
     {
       label: 'Bénéficiaires',
-      value: stats.totalPatients,
-      sub: `${stats.totalAidants} aidants`,
+      value: stats.totalBeneficiaires,
+      sub: `${stats.totalPatients} patients • ${stats.personalAccounts} comptes personnels`,
       icon: <UserCheck size={15} />,
       color: '#10b981',
     },
