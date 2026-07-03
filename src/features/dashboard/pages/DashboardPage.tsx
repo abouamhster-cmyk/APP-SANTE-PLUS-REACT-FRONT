@@ -189,8 +189,52 @@ const DashboardPage = () => {
   });
   const [isLoadingAdminStats, setIsLoadingAdminStats] = useState(false);
 
+  // ✅ STATS BENEFICIAIRES (patients + comptes personnels)
+  const [beneficiairesStats, setBeneficiairesStats] = useState({
+    patientsCount: 0,
+    personalAccountsCount: 0,
+    totalBeneficiaires: 0,
+  });
+  const [isLoadingBeneficiaires, setIsLoadingBeneficiaires] = useState(false);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  // ✅ CHARGER LES STATS BENEFICIAIRES
+  const fetchBeneficiairesStats = async () => {
+    setIsLoadingBeneficiaires(true);
+    try {
+      // ✅ Compter les patients
+      const { count: patientsCount } = await supabase
+        .from('patients')
+        .select('*', { count: 'exact', head: true });
+
+      // ✅ Compter les comptes personnels (familles sans patient)
+      const { data: familyLinks } = await supabase
+        .from('patient_family_links')
+        .select('family_id');
+
+      const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
+
+      const { count: personalAccountsCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'family')
+        .not('id', 'in', Array.from(familyIdsWithPatients).map(id => `'${id}'`).join(','));
+
+      const total = (patientsCount || 0) + (personalAccountsCount || 0);
+
+      setBeneficiairesStats({
+        patientsCount: patientsCount || 0,
+        personalAccountsCount: personalAccountsCount || 0,
+        totalBeneficiaires: total,
+      });
+    } catch (error) {
+      console.error('❌ Erreur récupération stats bénéficiaires:', error);
+    } finally {
+      setIsLoadingBeneficiaires(false);
+    }
+  };
 
   // ✅ CHARGER LES STATS ADMIN
   const fetchAdminStats = async () => {
@@ -198,7 +242,6 @@ const DashboardPage = () => {
     
     setIsLoadingAdminStats(true);
     try {
-      // Récupérer les compteurs
       const [
         { count: totalUsers },
         { count: pendingRegistrations },
@@ -219,7 +262,6 @@ const DashboardPage = () => {
         supabase.from('abonnements').select('*', { count: 'exact', head: true }).eq('status', 'actif'),
       ]);
 
-      // Récupérer les revenus
       const { data: paymentsData } = await supabase
         .from('paiements')
         .select('amount')
@@ -255,6 +297,7 @@ const DashboardPage = () => {
         fetchAidants(),
         fetchSubscriptions(),
         fetchPayments(),
+        fetchBeneficiairesStats(),
       ]);
       if (isAdminOrCoordinator) {
         await fetchAdminStats();
@@ -273,6 +316,7 @@ const DashboardPage = () => {
         fetchAidants(),
         fetchSubscriptions(),
         fetchPayments(),
+        fetchBeneficiairesStats(),
       ]);
       if (isAdminOrCoordinator) {
         await fetchAdminStats();
@@ -299,7 +343,10 @@ const DashboardPage = () => {
     const totalPayments = payments.length;
 
     return {
-      proches: patients.length,
+      // ✅ Utiliser totalBeneficiaires au lieu de patients.length
+      proches: beneficiairesStats.totalBeneficiaires || patients.length,
+      patientsCount: beneficiairesStats.patientsCount || patients.length,
+      personalAccountsCount: beneficiairesStats.personalAccountsCount || 0,
       pendingVisits,
       upcomingVisits,
       pendingOrders,
@@ -315,40 +362,30 @@ const DashboardPage = () => {
       pendingValidations: adminStats.pendingValidations,
       revenue: adminStats.revenue,
     };
-  }, [patients, visits, orders, aidants, subscriptions, payments, adminStats]);
+  }, [patients, visits, orders, aidants, subscriptions, payments, adminStats, beneficiairesStats]);
 
-  const tiles = getTilesForRole(role, colors, stats, patients.length);
-  const isLoading = patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats;
+  const tiles = getTilesForRole(role, colors, stats, stats.proches);
+  const isLoading = patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires;
 
   // ✅ DÉTERMINER L'IMAGE DE LA BANNIÈRE SELON LE RÔLE ET LA CATÉGORIE
   const getHeroImage = () => {
-    // 👔 Admin / Coordinateur
     if (isAdminOrCoordinator) {
       return '/assets/images/banners/coord-banner.png';
     }
-    
-    // 🦸 Aidant
     if (isAidant) {
       return '/assets/images/banners/aidant-banner.png';
     }
-    
-    // 👨‍👩‍👦 Famille
     if (isFamily) {
-      // Maman & Bébé
       if (isMaman) {
         return '/assets/images/banners/maman-banner.png';
       }
-      // Senior
       return '/assets/images/banners/senior-banner.png';
     }
-    
-    // Fallback
     return '/assets/images/banners/senior-banner.png';
   };
 
   const heroImage = getHeroImage();
 
-  // ✅ DÉTERMINER LE TITRE DE LA BANNIÈRE PAR RÔLE
   const heroTitle = () => {
     if (isAdminOrCoordinator) {
       return '👔 Supervision de la plateforme';
@@ -359,16 +396,15 @@ const DashboardPage = () => {
     if (isMaman) {
       return '🌸 Votre espace Maman & Bébé';
     }
-    if (isFamily && patients.length > 0) {
+    if (isFamily && stats.proches > 0) {
       return '👨‍👩‍👦 Un suivi clair pour votre proche';
     }
-    if (isFamily && patients.length === 0) {
+    if (isFamily && stats.proches === 0) {
       return '🌱 Bienvenue sur Santé Plus Services';
     }
     return 'Bienvenue sur Santé Plus.';
   };
 
-  // ✅ DESCRIPTION DE LA BANNIÈRE PAR RÔLE
   const heroDescription = () => {
     if (isAdminOrCoordinator) {
       return 'Supervisez l\'ensemble des activités et gérez les utilisateurs.';
@@ -379,10 +415,10 @@ const DashboardPage = () => {
     if (isMaman) {
       return 'Visites, messages et commandes réunis dans un espace simple pour vous et votre bébé.';
     }
-    if (isFamily && patients.length > 0) {
+    if (isFamily && stats.proches > 0) {
       return 'Gardez une vue rapide sur les visites et commandes de votre proche.';
     }
-    if (isFamily && patients.length === 0) {
+    if (isFamily && stats.proches === 0) {
       return 'Gérez vos services d\'accompagnement en toute simplicité.';
     }
     return 'Gérez vos accompagnements en toute simplicité.';
@@ -395,7 +431,7 @@ const DashboardPage = () => {
     return 'Personnes suivies';
   };
 
-  const hasProches = patients.length > 0;
+  const hasProches = stats.proches > 0;
 
   if (isLoading) {
     return (
@@ -414,7 +450,7 @@ const DashboardPage = () => {
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       
       {/* ============================================================
-      HERO BANNER - AVEC IMAGE DE FOND DYNAMIQUE
+      HERO BANNER
       ============================================================ */}
       <section 
         className="relative overflow-hidden rounded-3xl min-h-[180px] sm:min-h-[200px] transition-all shadow-sm hover:shadow-md"
@@ -776,7 +812,7 @@ const DashboardPage = () => {
         </section>
       )}
 
-      {/* EMPTY STATE PROACTIF (FAMILLE SANS ACTIVITE) */}
+      {/* EMPTY STATE PROACTIF */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
         <section className="bg-white rounded-3xl p-6 text-center border border-gray-100/50">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
