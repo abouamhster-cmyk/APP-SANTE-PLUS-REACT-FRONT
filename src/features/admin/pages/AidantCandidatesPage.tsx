@@ -1,11 +1,13 @@
 // 📁 src/features/admin/pages/AidantCandidatesPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
-import { UserCheck, Check, X, Loader2 } from 'lucide-react';
+import { UserCheck, Check, X, Loader2, Eye } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { CandidateDetailsModal } from '../components/CandidateDetailsModal';
 import toast from 'react-hot-toast';
 
 // ✅ URL UNIQUE
@@ -38,6 +40,8 @@ const AidantCandidatesPage = () => {
   const [candidates, setCandidates] = useState<AidantCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<AidantCandidate | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -113,6 +117,7 @@ const AidantCandidatesPage = () => {
       if (!response.ok) throw new Error(data.error || 'Erreur lors de l\'approbation');
 
       toast.success(data.message || '✅ Aidant approuvé avec succès');
+      setShowDetailsModal(false);
       fetchCandidates();
     } catch (error: any) {
       console.error('❌ Erreur:', error);
@@ -150,6 +155,7 @@ const AidantCandidatesPage = () => {
       if (!response.ok) throw new Error(data.error || 'Erreur lors du refus');
 
       toast.success(data.message || '❌ Aidant refusé avec succès');
+      setShowDetailsModal(false);
       fetchCandidates();
     } catch (error: any) {
       console.error('❌ Erreur:', error);
@@ -193,9 +199,13 @@ const AidantCandidatesPage = () => {
           {candidates.map((candidate) => (
             <div 
               key={candidate.id} 
-              className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col md:flex-row md:items-center justify-between gap-6"
+              className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer hover:shadow-md transition-all duration-200 hover:border-[var(--color-primary)]/30 border-2 border-transparent"
+              onClick={() => {
+                setSelectedCandidate(candidate);
+                setShowDetailsModal(true);
+              }}
             >
-              <div className="space-y-2.5">
+              <div className="space-y-2.5 flex-1 min-w-0">
                 <div>
                   <h3 className="font-bold text-sm text-gray-800">{candidate.user?.full_name || 'Candidat Anonyme'}</h3>
                   <p className="text-[11px] text-gray-400">{candidate.user?.email} · {candidate.user?.phone || 'Pas de numéro'}</p>
@@ -204,16 +214,27 @@ const AidantCandidatesPage = () => {
                 <div className="flex flex-wrap gap-1.5">
                   {candidate.specialties?.map(s => (
                     <span key={s} className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: `${colors.primary}08`, color: colors.primary }}>
-                      {s}
+                      {s === 'maman_bebe' ? '👶 Maman' :
+                       s === 'senior' ? '👴 Senior' :
+                       s === 'accompagnement' ? '🤝 Accompagnement' :
+                       s}
                     </span>
                   ))}
+                  {candidate.zones && candidate.zones.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-600">
+                      📍 {candidate.zones[0]}{candidate.zones.length > 1 ? ` +${candidate.zones.length - 1}` : ''}
+                    </span>
+                  )}
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-500">
                     Expérience : {candidate.experience_years ? `${candidate.experience_years} ans` : 'Non renseignée'}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${candidate.available ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                    {candidate.available ? '🟢 Disponible' : '🔴 Indisponible'}
                   </span>
                 </div>
 
                 {candidate.bio && (
-                  <p className="text-xs text-gray-500 leading-relaxed italic border-l-2 pl-2" style={{ borderColor: colors.primary }}>
+                  <p className="text-xs text-gray-500 leading-relaxed italic border-l-2 pl-2 truncate max-w-md" style={{ borderColor: colors.primary }}>
                     "{candidate.bio}"
                   </p>
                 )}
@@ -223,24 +244,61 @@ const AidantCandidatesPage = () => {
 
               <div className="flex gap-2 shrink-0">
                 <button
-                  onClick={() => handleReject(candidate)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReject(candidate);
+                  }}
                   disabled={isProcessing}
                   className="px-4 py-2 rounded-xl text-xs font-bold bg-gray-50 text-red-500 hover:bg-red-50 transition-colors flex items-center gap-1"
                 >
                   <X size={12} /> Refuser
                 </button>
                 <button
-                  onClick={() => handleApprove(candidate)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleApprove(candidate);
+                  }}
                   disabled={isProcessing}
                   className="px-4 py-2 rounded-xl text-white text-xs font-bold transition-opacity hover:opacity-90 flex items-center gap-1"
                   style={{ background: colors.primary }}
                 >
                   <Check size={12} /> Approuver
                 </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedCandidate(candidate);
+                    setShowDetailsModal(true);
+                  }}
+                  className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-400 hover:text-gray-600"
+                >
+                  <Eye size={16} />
+                </button>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* Modal Détails */}
+      {showDetailsModal && selectedCandidate && (
+        <Modal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedCandidate(null);
+          }}
+          title="🦸 Détails de la candidature"
+          maxWidth="2xl"
+        >
+          <CandidateDetailsModal
+            candidate={selectedCandidate}
+            onApprove={() => handleApprove(selectedCandidate)}
+            onReject={() => handleReject(selectedCandidate)}
+            colors={colors}
+            isProcessing={isProcessing}
+          />
+        </Modal>
       )}
     </div>
   );
