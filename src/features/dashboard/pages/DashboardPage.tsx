@@ -320,10 +320,33 @@ const DashboardPage = () => {
   const tiles = getTilesForRole(role, colors, stats, patients.length);
   const isLoading = patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats;
 
-  // ✅ DÉTERMINER L'IMAGE DE LA BANNIÈRE
-  const heroImage = isMaman
-    ? '/assets/images/banners/maman-banner.png'
-    : '/assets/images/banners/senior-banner.png';
+  // ✅ DÉTERMINER L'IMAGE DE LA BANNIÈRE SELON LE RÔLE ET LA CATÉGORIE
+  const getHeroImage = () => {
+    // 👔 Admin / Coordinateur
+    if (isAdminOrCoordinator) {
+      return '/assets/images/banners/coord-banner.png';
+    }
+    
+    // 🦸 Aidant
+    if (isAidant) {
+      return '/assets/images/banners/aidant-banner.png';
+    }
+    
+    // 👨‍👩‍👦 Famille
+    if (isFamily) {
+      // Maman & Bébé
+      if (isMaman) {
+        return '/assets/images/banners/maman-banner.png';
+      }
+      // Senior
+      return '/assets/images/banners/senior-banner.png';
+    }
+    
+    // Fallback
+    return '/assets/images/banners/senior-banner.png';
+  };
+
+  const heroImage = getHeroImage();
 
   // ✅ DÉTERMINER LE TITRE DE LA BANNIÈRE PAR RÔLE
   const heroTitle = () => {
@@ -391,34 +414,39 @@ const DashboardPage = () => {
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       
       {/* ============================================================
-      HERO BANNER
+      HERO BANNER - AVEC IMAGE DE FOND DYNAMIQUE
       ============================================================ */}
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        className="relative overflow-hidden rounded-3xl min-h-[180px] sm:min-h-[200px] transition-all shadow-sm hover:shadow-md"
         style={{
-          background: `linear-gradient(135deg, ${colors.primary}12 0%, ${colors.primary}20 100%)`,
+          backgroundImage: `
+            linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%),
+            url('${heroImage}')
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
         }}
       >
         <div className="absolute inset-0 bg-black/5 pointer-events-none" />
         
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 min-h-[180px] sm:min-h-[200px]">
           <div className="space-y-1.5 min-w-0">
             <div
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-white border shrink-0"
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-white/90 backdrop-blur-sm border shrink-0"
               style={{
                 borderColor: colors.primary + '18',
                 color: colors.primary,
               }}
             >
               <ActivityIcon role={role} />
-              <span>{isAidant ? 'Espace Intervenant' : 'Espace Accompagnement'}</span>
+              <span className="text-gray-700">{isAidant ? 'Espace Intervenant' : 'Espace Accompagnement'}</span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight drop-shadow-md">
               {heroTitle()}
             </h1>
 
-            <p className="text-gray-500 text-xs sm:text-sm font-semibold leading-relaxed max-w-md">
+            <p className="text-white/85 text-xs sm:text-sm font-semibold leading-relaxed max-w-md drop-shadow">
               {heroDescription()}
             </p>
           </div>
@@ -433,7 +461,7 @@ const DashboardPage = () => {
             {isFamily && (
               <button
                 onClick={() => navigate('/app/visits')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg shadow-black/20"
                 style={{ background: colors.primary }}
               >
                 Gérer les visites
@@ -444,7 +472,7 @@ const DashboardPage = () => {
             {isAidant && (
               <button
                 onClick={() => navigate('/app/planning')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg shadow-black/20"
                 style={{ background: colors.primary }}
               >
                 Mon planning
@@ -455,7 +483,7 @@ const DashboardPage = () => {
             {isAdminOrCoordinator && (
               <button
                 onClick={() => navigate('/app/admin')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg shadow-black/20"
                 style={{ background: colors.primary }}
               >
                 Espace Admin
@@ -763,7 +791,7 @@ const DashboardPage = () => {
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <button
               onClick={() => navigate('/app/visits')}
-              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm"
+              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm shadow-purple-50"
               style={{ background: colors.primary }}
             >
               <Calendar size={13} />
