@@ -1,8 +1,9 @@
 // 📁 src/features/admin/pages/AidantsPage.tsx
-// ✅ Version avec affichage des assignations
+// ✅ Version corrigée - Utilisation de l'API backend
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { assignmentAPI } from '@/lib/api';
 import {
   Users,
   UserCheck,
@@ -116,7 +117,7 @@ const AidantsPage = () => {
     try {
       setIsLoading(true);
       
-      // ✅ 1. Récupérer les aidants
+      // ✅ 1. Récupérer les aidants - Direct Supabase (public)
       const { data: aidantsData, error: aidantsError } = await supabase
         .from('aidants')
         .select('*')
@@ -148,54 +149,30 @@ const AidantsPage = () => {
         max_assignments: aidant.max_assignments || 4,
       }));
 
-      // ✅ 2. Récupérer les assignations pour chaque aidant
+      // ✅ 2. Récupérer les assignations pour chaque aidant - Utiliser l'API
       const aidantUserIds = aidantsWithUser.map(a => a.user_id).filter(Boolean);
       const newAssignmentsMap: Record<string, AssignmentInfo[]> = {};
 
       if (aidantUserIds.length > 0) {
-          const { data: assignments, error: assignmentsError } = await supabase
-            .from('aidant_assignments')
-            .select(`
-              id,
-              aidant_user_id,
-              target_type,
-              target_id,
-              assignment_type,
-              status,
-              target_patient:patients!target_id(
-                id,
-                first_name,
-                last_name
-              ),
-              target_profile:profiles!target_id(
-                id,
-                full_name
-              )
-            `)
-            .in('aidant_user_id', aidantUserIds)
-            .eq('status', 'active');
-
-        if (assignmentsError) {
-          console.error('❌ Erreur récupération assignations:', assignmentsError);
-        } else if (assignments) {
-          // Grouper les assignations par aidant
-          for (const assignment of assignments) {
+        try {
+          // Récupérer toutes les assignations actives
+          const response = await assignmentAPI.adminGetAll();
+          const allAssignments = response.data?.data || [];
+          
+          // Filtrer par aidant
+          for (const assignment of allAssignments) {
             const aidantUserId = assignment.aidant_user_id;
+            if (!aidantUserIds.includes(aidantUserId)) continue;
+            
             if (!newAssignmentsMap[aidantUserId]) {
               newAssignmentsMap[aidantUserId] = [];
             }
 
-          const targetPatient = Array.isArray(assignment.target_patient) 
-            ? assignment.target_patient[0] 
-            : assignment.target_patient;
-          
-          const targetProfile = Array.isArray(assignment.target_profile)
-            ? assignment.target_profile[0]
-            : assignment.target_profile;
-          
-          const targetName = assignment.target_type === 'patient'
-            ? `${targetPatient?.first_name || ''} ${targetPatient?.last_name || ''}`.trim() || 'Patient'
-            : targetProfile?.full_name || 'Compte personnel';
+            const targetName = assignment.target_type === 'patient'
+              ? assignment.target_patient 
+                ? `${assignment.target_patient.first_name || ''} ${assignment.target_patient.last_name || ''}`.trim() || 'Patient'
+                : 'Patient'
+              : assignment.target_profile?.full_name || 'Compte personnel';
 
             newAssignmentsMap[aidantUserId].push({
               id: assignment.id,
@@ -205,12 +182,37 @@ const AidantsPage = () => {
               target_name: targetName,
             });
           }
-
-          // Mettre à jour current_assignments pour chaque aidant
-          for (const aidant of aidantsWithUser) {
-            const count = newAssignmentsMap[aidant.user_id]?.length || 0;
-            aidant.current_assignments = count;
+        } catch (apiError) {
+          console.error('❌ Erreur récupération assignations via API:', apiError);
+          // Fallback: nouvelle tentative avec getByAidant individuel
+          for (const aidantUserId of aidantUserIds) {
+            try {
+              const response = await assignmentAPI.getByAidant(aidantUserId, 'active');
+              const assignments = response.data?.data || [];
+              
+              if (assignments.length > 0) {
+                newAssignmentsMap[aidantUserId] = assignments.map((a: any) => ({
+                  id: a.id,
+                  target_type: a.target_type,
+                  target_id: a.target_id,
+                  assignment_type: a.assignment_type,
+                  target_name: a.target_type === 'patient'
+                    ? a.target_patient 
+                      ? `${a.target_patient.first_name || ''} ${a.target_patient.last_name || ''}`.trim() || 'Patient'
+                      : 'Patient'
+                    : a.target_profile?.full_name || 'Compte personnel',
+                }));
+              }
+            } catch (err) {
+              console.error(`❌ Erreur pour l'aidant ${aidantUserId}:`, err);
+            }
           }
+        }
+
+        // Mettre à jour current_assignments pour chaque aidant
+        for (const aidant of aidantsWithUser) {
+          const count = newAssignmentsMap[aidant.user_id]?.length || 0;
+          aidant.current_assignments = count;
         }
       }
 
