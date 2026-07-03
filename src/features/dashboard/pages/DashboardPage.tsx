@@ -210,24 +210,34 @@ const DashboardPage = () => {
         .select('*', { count: 'exact', head: true });
 
       // ✅ Compter les comptes personnels (familles sans patient)
+      // ❌ CORRECTION : Utiliser une requête plus simple sans NOT.IN complexe
       const { data: familyLinks } = await supabase
         .from('patient_family_links')
         .select('family_id');
 
       const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
 
-      const { count: personalAccountsCount } = await supabase
+      // ✅ Récupérer toutes les familles
+      const { data: allFamilies, error: familiesError } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', 'family')
-        .not('id', 'in', Array.from(familyIdsWithPatients).map(id => `'${id}'`).join(','));
+        .select('id')
+        .eq('role', 'family');
 
-      const total = (patientsCount || 0) + (personalAccountsCount || 0);
+      if (familiesError) {
+        console.error('❌ Erreur récupération familles:', familiesError);
+      }
+
+      // ✅ Filtrer manuellement les familles sans patient
+      const personalAccounts = (allFamilies || []).filter(
+        (f: any) => !familyIdsWithPatients.has(f.id)
+      );
+      const personalAccountsCount = personalAccounts.length;
+      const totalBeneficiaires = (patientsCount || 0) + personalAccountsCount;
 
       setBeneficiairesStats({
         patientsCount: patientsCount || 0,
         personalAccountsCount: personalAccountsCount || 0,
-        totalBeneficiaires: total,
+        totalBeneficiaires: totalBeneficiaires,
       });
     } catch (error) {
       console.error('❌ Erreur récupération stats bénéficiaires:', error);
