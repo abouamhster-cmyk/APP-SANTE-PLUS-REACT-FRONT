@@ -200,108 +200,150 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         console.log(`✅ ${patientsData.length} patients récupérés pour admin`);
       }
 
-      // 👨‍👩‍👦 FAMILLE → Ses patients via les assignations
+      // 👨‍👩‍👦 FAMILLE → Ses patients via l'API d'assignation
       else if (profile?.role === 'family') {
         console.log('👨‍👩‍👦 Famille - Récupération des patients liés');
         console.log('🔍 Family ID:', user.id);
         
-        // ✅ Récupérer les patients via les assignations
-        // Récupérer les assignations où la famille est la cible (target_id = user.id)
-        const { data: assignments, error: assignmentsError } = await supabase
-          .from('aidant_assignments')
-          .select('target_id, target_type')
-          .eq('target_type', 'patient')
-          .eq('status', 'active')
-          .eq('target_id', user.id);
+        // ✅ Utiliser l'API d'assignation pour récupérer les patients
+        try {
+          const response = await assignmentAPI.getAll({ 
+            targetType: 'patient',
+            targetId: user.id,
+            status: 'active'
+          });
+          
+          const assignments = response.data?.data || [];
+          const patientIdsFromAssignments = assignments
+            .filter((a: any) => a.target_type === 'patient')
+            .map((a: any) => a.target_id)
+            .filter(Boolean);
 
-        if (assignmentsError) {
-          console.error('❌ Erreur récupération assignations:', assignmentsError);
+          // Fallback: patient_family_links
+          const { data: links, error: linksError } = await supabase
+            .from('patient_family_links')
+            .select('patient_id')
+            .eq('family_id', user.id);
+
+          if (linksError) {
+            console.error('❌ Erreur récupération liens famille:', linksError);
+          }
+
+          const patientIdsFromLinks = links?.map(l => l.patient_id).filter(Boolean) || [];
+          const allPatientIds = [...new Set([...patientIdsFromAssignments, ...patientIdsFromLinks])];
+
+          if (allPatientIds.length === 0) {
+            console.log('ℹ️ Aucun patient lié à cette famille');
+            set({ patients: [], isLoading: false, isInitialized: true });
+            return;
+          }
+
+          const { data, error } = await supabase
+            .from('patients')
+            .select('*')
+            .in('id', allPatientIds)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          patientsData = data || [];
+          console.log(`✅ ${patientsData.length} patients récupérés pour la famille`);
+          
+        } catch (apiError) {
+          console.error('❌ Erreur API assignments:', apiError);
+          // Fallback: patient_family_links uniquement
+          const { data: links, error: linksError } = await supabase
+            .from('patient_family_links')
+            .select('patient_id')
+            .eq('family_id', user.id);
+
+          if (linksError) {
+            console.error('❌ Erreur récupération liens famille:', linksError);
+            set({ patients: [], isLoading: false, isInitialized: true });
+            return;
+          }
+
+          const patientIds = links?.map(l => l.patient_id).filter(Boolean) || [];
+          if (patientIds.length === 0) {
+            console.log('ℹ️ Aucun patient lié à cette famille');
+            set({ patients: [], isLoading: false, isInitialized: true });
+            return;
+          }
+
+          const { data, error } = await supabase
+            .from('patients')
+            .select('*')
+            .in('id', patientIds)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          patientsData = data || [];
         }
-
-        const patientIdsFromAssignments = assignments?.map(a => a.target_id).filter(Boolean) || [];
-
-        // ✅ Fallback: récupérer via patient_family_links (pour compatibilité)
-        const { data: links, error: linksError } = await supabase
-          .from('patient_family_links')
-          .select('patient_id')
-          .eq('family_id', user.id);
-
-        if (linksError) {
-          console.error('❌ Erreur récupération liens famille:', linksError);
-        }
-
-        const patientIdsFromLinks = links?.map(l => l.patient_id).filter(Boolean) || [];
-
-        // Fusionner les deux sources
-        const allPatientIds = [...new Set([...patientIdsFromAssignments, ...patientIdsFromLinks])];
-        console.log('📋 Patient IDs trouvés:', allPatientIds);
-
-        if (allPatientIds.length === 0) {
-          console.log('ℹ️ Aucun patient lié à cette famille');
-          set({ patients: [], isLoading: false, isInitialized: true });
-          return;
-        }
-
-        // Récupérer les patients
-        const { data, error } = await supabase
-          .from('patients')
-          .select('*')
-          .in('id', allPatientIds)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        patientsData = data || [];
-        console.log(`✅ ${patientsData.length} patients récupérés pour la famille`);
       }
 
-      // 🦸 AIDANT → Patients assignés via les assignations
+      // 🦸 AIDANT → Patients assignés via l'API d'assignation
       else if (profile?.role === 'aidant') {
         console.log('🦸 Aidant - Récupération des patients assignés');
         
-        // ✅ Récupérer les patients via les assignations
-        const { data: assignments, error: assignmentsError } = await supabase
-          .from('aidant_assignments')
-          .select('target_id')
-          .eq('aidant_user_id', user.id)
-          .eq('target_type', 'patient')
-          .eq('status', 'active');
+        try {
+          const response = await assignmentAPI.getByAidant(user.id, 'active');
+          const assignments = response.data?.data || [];
+          
+          let patientIds = assignments
+            .filter((a: any) => a.target_type === 'patient')
+            .map((a: any) => a.target_id)
+            .filter(Boolean);
 
-        if (assignmentsError) {
-          console.error('❌ Erreur récupération assignations aidant:', assignmentsError);
-        }
+          // Fallback: patient_family_links
+          if (patientIds.length === 0) {
+            const { data: links, error: linksError } = await supabase
+              .from('patient_family_links')
+              .select('patient_id')
+              .eq('family_id', user.id);
 
-        let patientIds = assignments?.map(a => a.target_id).filter(Boolean) || [];
+            if (!linksError && links) {
+              patientIds = links.map(l => l.patient_id).filter(Boolean);
+            }
+          }
 
-        // Fallback: via patient_family_links
-        if (patientIds.length === 0) {
+          if (patientIds.length === 0) {
+            console.log('ℹ️ Aucun patient assigné à cet aidant');
+            set({ patients: [], isLoading: false, isInitialized: true });
+            return;
+          }
+
+          const { data, error } = await supabase
+            .from('patients')
+            .select('*')
+            .in('id', patientIds)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          patientsData = data || [];
+          console.log(`✅ ${patientsData.length} patients récupérés pour l'aidant`);
+          
+        } catch (apiError) {
+          console.error('❌ Erreur API assignments:', apiError);
+          // Fallback: patient_family_links
           const { data: links, error: linksError } = await supabase
             .from('patient_family_links')
             .select('patient_id')
             .eq('family_id', user.id);
 
           if (!linksError && links) {
-            const ids = links.map(l => l.patient_id).filter(Boolean);
-            patientIds.push(...ids);
+            const patientIds = links.map(l => l.patient_id).filter(Boolean);
+            if (patientIds.length > 0) {
+              const { data, error } = await supabase
+                .from('patients')
+                .select('*')
+                .in('id', patientIds)
+                .order('created_at', { ascending: false });
+
+              if (!error) {
+                patientsData = data || [];
+              }
+            }
           }
         }
-
-        console.log('📋 Patient IDs trouvés pour aidant:', patientIds);
-
-        if (patientIds.length === 0) {
-          console.log('ℹ️ Aucun patient assigné à cet aidant');
-          set({ patients: [], isLoading: false, isInitialized: true });
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('patients')
-          .select('*')
-          .in('id', patientIds)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        patientsData = data || [];
-        console.log(`✅ ${patientsData.length} patients récupérés pour l'aidant`);
       }
 
       // Fallback
@@ -358,7 +400,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // SYNC AIDANT PATIENTS - AVEC NOUVEAU SYSTÈME
+  // SYNC AIDANT PATIENTS - AVEC API
   // ============================================================
   syncAidantPatients: async () => {
     try {
@@ -371,21 +413,16 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       console.log('🔄 Synchronisation des patients pour aidant:', user.id);
 
-      // ✅ Récupérer les patients via les assignations
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('aidant_assignments')
-        .select('target_id')
-        .eq('aidant_user_id', user.id)
-        .eq('target_type', 'patient')
-        .eq('status', 'active');
+      // ✅ Utiliser l'API d'assignation
+      const response = await assignmentAPI.getByAidant(user.id, 'active');
+      const assignments = response.data?.data || [];
+      
+      let patientIds = assignments
+        .filter((a: any) => a.target_type === 'patient')
+        .map((a: any) => a.target_id)
+        .filter(Boolean);
 
-      if (assignmentsError) {
-        console.error('❌ Erreur récupération assignations:', assignmentsError);
-      }
-
-      let patientIds = assignments?.map(a => a.target_id).filter(Boolean) || [];
-
-      // Fallback: via patient_family_links
+      // Fallback: patient_family_links
       if (patientIds.length === 0) {
         const { data: links, error: linksError } = await supabase
           .from('patient_family_links')
@@ -471,25 +508,33 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         throw error;
       }
 
-      // ✅ Vérifier les permissions
+      // ✅ Vérifier les permissions via l'API d'assignation
       let hasAccess = false;
 
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         hasAccess = true;
       } else if (profile?.role === 'family') {
-        // Vérifier via les assignations
-        const { data: assignment } = await supabase
-          .from('aidant_assignments')
-          .select('id')
-          .eq('target_type', 'patient')
-          .eq('target_id', id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (assignment) {
-          hasAccess = true;
-        } else {
-          // Fallback: via patient_family_links
+        try {
+          const response = await assignmentAPI.getAll({ 
+            targetType: 'patient', 
+            targetId: id,
+            status: 'active'
+          });
+          const assignments = response.data?.data || [];
+          hasAccess = assignments.some((a: any) => a.target_id === id);
+          
+          if (!hasAccess) {
+            // Fallback: patient_family_links
+            const { data: link } = await supabase
+              .from('patient_family_links')
+              .select('id')
+              .eq('family_id', user.id)
+              .eq('patient_id', id)
+              .maybeSingle();
+            hasAccess = !!link;
+          }
+        } catch (apiError) {
+          // Fallback: patient_family_links
           const { data: link } = await supabase
             .from('patient_family_links')
             .select('id')
@@ -499,20 +544,22 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           hasAccess = !!link;
         }
       } else if (profile?.role === 'aidant') {
-        // Vérifier via les assignations
-        const { data: assignment } = await supabase
-          .from('aidant_assignments')
-          .select('id')
-          .eq('aidant_user_id', user.id)
-          .eq('target_type', 'patient')
-          .eq('target_id', id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (assignment) {
-          hasAccess = true;
-        } else {
-          // Fallback: via patient_family_links
+        try {
+          const response = await assignmentAPI.getByAidant(user.id, 'active');
+          const assignments = response.data?.data || [];
+          hasAccess = assignments.some((a: any) => a.target_id === id && a.target_type === 'patient');
+          
+          if (!hasAccess) {
+            // Fallback: patient_family_links
+            const { data: link } = await supabase
+              .from('patient_family_links')
+              .select('id')
+              .eq('family_id', user.id)
+              .eq('patient_id', id)
+              .maybeSingle();
+            hasAccess = !!link;
+          }
+        } catch (apiError) {
           const { data: link } = await supabase
             .from('patient_family_links')
             .select('id')
@@ -615,19 +662,25 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         canEdit = true;
       } else if (profile?.role === 'family') {
-        // Vérifier via les assignations
-        const { data: assignment } = await supabase
-          .from('aidant_assignments')
-          .select('id')
-          .eq('target_type', 'patient')
-          .eq('target_id', id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (assignment) {
-          canEdit = true;
-        } else {
-          // Fallback: via patient_family_links
+        try {
+          const response = await assignmentAPI.getAll({ 
+            targetType: 'patient', 
+            targetId: id,
+            status: 'active'
+          });
+          const assignments = response.data?.data || [];
+          canEdit = assignments.some((a: any) => a.target_id === id);
+          
+          if (!canEdit) {
+            const { data: link } = await supabase
+              .from('patient_family_links')
+              .select('id')
+              .eq('family_id', user.id)
+              .eq('patient_id', id)
+              .maybeSingle();
+            canEdit = !!link;
+          }
+        } catch (apiError) {
           const { data: link } = await supabase
             .from('patient_family_links')
             .select('id')
@@ -681,12 +734,22 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         throw new Error('Non autorisé à supprimer des patients');
       }
 
-      // ✅ Supprimer les assignations liées
-      await supabase
-        .from('aidant_assignments')
-        .delete()
-        .eq('target_type', 'patient')
-        .eq('target_id', id);
+      // ✅ Supprimer les assignations liées via l'API
+      try {
+        // Récupérer d'abord les assignations pour ce patient
+        const response = await assignmentAPI.getAll({ 
+          targetType: 'patient', 
+          targetId: id,
+          status: 'active'
+        });
+        const assignments = response.data?.data || [];
+        
+        for (const assignment of assignments) {
+          await assignmentAPI.revoke(assignment.id, 'Patient supprimé');
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Erreur suppression assignations via API:', apiError);
+      }
 
       // ✅ Supprimer les liens
       await supabase
