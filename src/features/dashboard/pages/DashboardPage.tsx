@@ -28,6 +28,8 @@ import {
   UserPlus,
   TrendingUp,
   Lightbulb,
+  Compass,     
+  Rocket,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
