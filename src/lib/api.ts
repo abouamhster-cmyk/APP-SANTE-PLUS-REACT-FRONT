@@ -1,5 +1,5 @@
 // 📁 src/lib/api.ts
- 
+
 import axios from 'axios';
 import { supabase } from './supabase';
 
@@ -241,7 +241,18 @@ export const assignmentAPI = {
     return api.get(normalizeApiUrl(`/assignments/all?${params.toString()}`));
   },
 
-  // Créer une assignation
+  // ✅ Assignation pour les familles (NOUVELLE MÉTHODE)
+  familyAssign: (data: {
+    aidantUserId: string;
+    targetType: 'personal_account' | 'patient';
+    targetId?: string;
+    patientId?: string;
+    assignmentType?: string;
+  }) => {
+    return api.post(normalizeApiUrl('/assignments/family/assign'), data);
+  },
+
+  // Créer une assignation (admin uniquement)
   create: (data: {
     aidantUserId: string;
     targetType: string;
