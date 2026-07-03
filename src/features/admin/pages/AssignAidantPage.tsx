@@ -1,6 +1,7 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
- 
-import React, { useEffect, useState } from 'react';
+// ✅ Version corrigée - Gestion d'état des boutons
+
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Users, 
   UserCheck, 
@@ -129,15 +130,19 @@ const AssignAidantPage = () => {
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [searchTerm, setSearchTerm] = useState('');
 
+  // ✅ ÉTAT POUR SUIVRE LES ASSIGNATIONS EN COURS (UI)
+  const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
+
   // ============================================================
   // CHARGEMENT DES DONNÉES
   // ============================================================
 
   const fetchData = async () => {
     setIsLoading(true);
+    setProcessingItems(new Set());
 
     try {
-      // 1. Aidants - Direct Supabase (public)
+      // 1. Aidants
       const { data: aidantsData } = await supabase
         .from('aidants')
         .select('*')
@@ -160,14 +165,14 @@ const AssignAidantPage = () => {
         }))
       );
 
-      // 2. Familles - Direct Supabase (public)
+      // 2. Familles
       const { data: families } = await supabase
         .from('profiles')
         .select('*')
         .eq('role', 'family');
       setFamilyAccounts(families || []);
 
-      // 3. Patients - Direct Supabase (public)
+      // 3. Patients
       const { data: patientsData } = await supabase
         .from('patients')
         .select(`
@@ -185,7 +190,7 @@ const AssignAidantPage = () => {
         }))
       );
 
-      // 4. Assignations - ✅ Utiliser l'API backend
+      // 4. Assignations
       try {
         const response = await assignmentAPI.adminGetAll();
         const assignmentsData = response.data?.data || [];
@@ -197,7 +202,6 @@ const AssignAidantPage = () => {
         setAssignments(mapAssign);
       } catch (apiError) {
         console.error('❌ Erreur récupération assignations via API:', apiError);
-        // Fallback: tableau vide
         setAssignments({});
       }
     } catch (error) {
@@ -220,7 +224,6 @@ const AssignAidantPage = () => {
     const accountKey = `personal_account_${family.id}`;
     const accountAssignment = assignments[accountKey];
 
-    // Récupérer le nom de l'aidant assigné au compte
     let accountAidantName = '';
     if (accountAssignment?.aidant_user_id) {
       const aidant = aidants.find(a => a.user_id === accountAssignment.aidant_user_id);
@@ -312,7 +315,7 @@ const AssignAidantPage = () => {
   };
 
   // ============================================================
-  // HANDLERS - ✅ UTILISATION DE L'API
+  // HANDLERS - AVEC MISE À JOUR DE L'ÉTAT LOCAL
   // ============================================================
 
   const handleAssign = async (item: AssignmentItem) => {
@@ -321,9 +324,11 @@ const AssignAidantPage = () => {
       return;
     }
 
+    // ✅ Marquer l'item comme en cours de traitement
+    setProcessingItems(prev => new Set(prev).add(item.id));
     setIsProcessing(true);
+
     try {
-      // ✅ Utiliser l'API d'assignation
       await assignmentAPI.create({
         aidantUserId: selectedAidant,
         targetType: item.targetType,
@@ -334,12 +339,37 @@ const AssignAidantPage = () => {
       });
 
       toast.success(`✅ ${item.targetName} assigné avec succès`);
+
+      // ✅ Rafraîchir les données
       await fetchData();
+      
+      // ✅ Mettre à jour l'état local des assignations
+      setAssignments(prev => {
+        const newAssignments = { ...prev };
+        const key = `${item.targetType}_${item.targetId}`;
+        newAssignments[key] = {
+          id: `temp_${Date.now()}`,
+          aidant_user_id: selectedAidant,
+          target_type: item.targetType,
+          target_id: item.targetId,
+          assignment_type: selectedType,
+          status: 'active',
+          priority: item.priority,
+          created_at: new Date().toISOString(),
+        };
+        return newAssignments;
+      });
+
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsProcessing(false);
+      setProcessingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(item.id);
+        return newSet;
+      });
     }
   };
 
@@ -351,18 +381,33 @@ const AssignAidantPage = () => {
 
     if (!window.confirm(`Retirer l'assignation de ${item.targetName} ?`)) return;
 
+    setProcessingItems(prev => new Set(prev).add(item.id));
     setIsProcessing(true);
+
     try {
-      // ✅ Utiliser l'API de révocation
       await assignmentAPI.revoke(item.assignmentId, `Révoqué par ${user?.email || 'admin'}`);
 
       toast.success(`✅ Assignation de ${item.targetName} retirée`);
+
       await fetchData();
+      
+      setAssignments(prev => {
+        const newAssignments = { ...prev };
+        const key = `${item.targetType}_${item.targetId}`;
+        delete newAssignments[key];
+        return newAssignments;
+      });
+
     } catch (error: any) {
       console.error('❌ Erreur révocation:', error);
       toast.error(error.message || 'Erreur lors de la révocation');
     } finally {
       setIsProcessing(false);
+      setProcessingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(item.id);
+        return newSet;
+      });
     }
   };
 
@@ -380,7 +425,10 @@ const AssignAidantPage = () => {
 
     if (!window.confirm(`Assigner ${unassigned.length} bénéficiaire(s) à cet aidant ?`)) return;
 
+    const itemIds = unassigned.map(item => item.id);
+    setProcessingItems(prev => new Set([...prev, ...itemIds]));
     setIsProcessing(true);
+
     try {
       for (const item of unassigned) {
         await assignmentAPI.create({
@@ -395,11 +443,13 @@ const AssignAidantPage = () => {
 
       toast.success(`✅ ${unassigned.length} bénéficiaire(s) assignés`);
       await fetchData();
+
     } catch (error: any) {
       console.error('❌ Erreur assignation en masse:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsProcessing(false);
+      setProcessingItems(new Set());
     }
   };
 
@@ -411,6 +461,49 @@ const AssignAidantPage = () => {
   const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
   const unassignedCount = totalItems - assignedCount;
   const totalFamilies = familyAccounts.length;
+
+  // ============================================================
+  // RENDU DU BOUTON D'ACTION POUR UN ITEM
+  // ============================================================
+
+  const renderActionButton = (item: AssignmentItem) => {
+    const isAssigned = !!item.assignedAidantUserId;
+    const isProcessingItem = processingItems.has(item.id);
+    const isDisabled = isProcessingItem || isProcessing;
+
+    if (isAssigned) {
+      return (
+        <button
+          onClick={() => handleRevoke(item)}
+          disabled={isDisabled}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isProcessingItem ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <XCircle size={14} />
+          )}
+          {isProcessingItem ? 'Traitement...' : 'Désassigner'}
+        </button>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => handleAssign(item)}
+        disabled={!selectedAidant || isDisabled}
+        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ background: isDisabled ? '#9CA3AF' : colors.primary }}
+      >
+        {isProcessingItem ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : (
+          <UserPlus size={14} />
+        )}
+        {isProcessingItem ? 'Traitement...' : 'Assigner'}
+      </button>
+    );
+  };
 
   // ============================================================
   // RENDU
@@ -601,32 +694,25 @@ const AssignAidantPage = () => {
                       const isAccount = item.type === 'account';
                       const categoryColor = getCategoryColor(item.category);
                       const categoryLabel = getCategoryLabel(item.category);
+                      const isProcessingItem = processingItems.has(item.id);
 
                       return (
                         <div key={item.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-gray-50/50 transition">
                           
                           {/* INFO GAUCHE */}
                           <div className="flex items-center gap-3 min-w-0">
-                            {/* Indicateur de priorité */}
                             <div className="flex items-center gap-1 shrink-0">
                               {item.priority === 1 && (
-                                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
-                                  P1
-                                </span>
+                                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">P1</span>
                               )}
                               {item.priority === 2 && (
-                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
-                                  P2
-                                </span>
+                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">P2</span>
                               )}
                               {item.priority === 3 && (
-                                <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">
-                                  P3
-                                </span>
+                                <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">P3</span>
                               )}
                             </div>
 
-                            {/* Nom et type */}
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium text-sm truncate" style={{ color: colors.text }}>
@@ -634,10 +720,7 @@ const AssignAidantPage = () => {
                                 </span>
                                 <span 
                                   className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                                  style={{ 
-                                    background: categoryColor + '20', 
-                                    color: categoryColor 
-                                  }}
+                                  style={{ background: categoryColor + '20', color: categoryColor }}
                                 >
                                   {categoryLabel}
                                 </span>
@@ -665,26 +748,38 @@ const AssignAidantPage = () => {
                             </div>
                           </div>
 
-                          {/* ACTIONS DROITE */}
+                          {/* ✅ ACTIONS DROITE AVEC GESTION D'ÉTAT */}
                           <div className="flex items-center gap-2 shrink-0">
                             {isAssigned ? (
                               <button
                                 onClick={() => handleRevoke(item)}
-                                disabled={isProcessing}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                                disabled={isProcessingItem || isProcessing}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <XCircle size={14} />
-                                Désassigner
+                                {isProcessingItem ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <XCircle size={14} />
+                                )}
+                                {isProcessingItem ? 'Traitement...' : 'Désassigner'}
                               </button>
                             ) : (
                               <button
                                 onClick={() => handleAssign(item)}
-                                disabled={!selectedAidant || isProcessing}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-80 disabled:opacity-50"
-                                style={{ background: colors.primary }}
+                                disabled={!selectedAidant || isProcessingItem || isProcessing}
+                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ 
+                                  background: (!selectedAidant || isProcessingItem || isProcessing) 
+                                    ? '#9CA3AF' 
+                                    : colors.primary 
+                                }}
                               >
-                                <UserPlus size={14} />
-                                Assigner
+                                {isProcessingItem ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <UserPlus size={14} />
+                                )}
+                                {isProcessingItem ? 'Traitement...' : 'Assigner'}
                               </button>
                             )}
                           </div>
@@ -708,6 +803,10 @@ const AssignAidantPage = () => {
           <span className="flex items-center gap-1 text-green-600"><Circle size={8} fill="#10b981" /> P1 - Patient (priorité max)</span>
           <span className="flex items-center gap-1 text-blue-600"><Circle size={8} fill="#3b82f6" /> P2 - Compte personnel (fallback)</span>
           <span className="flex items-center gap-1 text-purple-600"><Circle size={8} fill="#8b5cf6" /> P3 - Famille (dernier fallback)</span>
+          <span className="flex items-center gap-2 text-gray-400 ml-auto">
+            {isProcessing && <Loader2 size={12} className="animate-spin" />}
+            {isProcessing ? 'Traitement en cours...' : 'Prêt'}
+          </span>
         </div>
       </div>
 
