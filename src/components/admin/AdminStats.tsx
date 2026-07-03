@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { supabase } from '@/lib/supabase';
-import { Users, UserCheck, Calendar, ShoppingBag, CreditCard, TrendingUp } from 'lucide-react';
+import { Users, UserCheck, Calendar, ShoppingBag, CreditCard, TrendingUp, UserCircle } from 'lucide-react';
 import { getThemeColors } from '@/lib/permissions';
 import toast from 'react-hot-toast';
 
@@ -15,6 +15,8 @@ interface AdminStatsProps {
 export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
   const [stats, setStats] = useState({
     patients: 0,
+    personalAccounts: 0,
+    totalBeneficiaires: 0,
     aidants: 0,
     visitsToday: 0,
     orders: 0,
@@ -42,6 +44,30 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
         supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('status', 'en_attente'),
       ]);
 
+      // ✅ Récupérer les comptes personnels (familles sans patient)
+      const { data: familyLinks, error: linksError } = await supabase
+        .from('patient_family_links')
+        .select('family_id');
+
+      if (linksError) {
+        console.error('❌ Erreur récupération liens famille:', linksError);
+      }
+
+      const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
+
+      const { data: personalAccountsData, error: personalError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'family')
+        .not('id', 'in', Array.from(familyIdsWithPatients).map(id => `'${id}'`).join(','));
+
+      if (personalError) {
+        console.error('❌ Erreur récupération comptes personnels:', personalError);
+      }
+
+      const personalAccountsCount = personalAccountsData?.length || 0;
+      const totalBeneficiaires = (patients || 0) + personalAccountsCount;
+
       const { data: payments } = await supabase
         .from('paiements')
         .select('amount')
@@ -51,6 +77,8 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
 
       setStats({
         patients: patients || 0,
+        personalAccounts: personalAccountsCount,
+        totalBeneficiaires: totalBeneficiaires,
         aidants: aidants || 0,
         visitsToday: visitsToday || 0,
         orders: orders || 0,
@@ -58,7 +86,7 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
         registrations: registrations || 0,
       });
     } catch (error) {
-      console.error('Erreur fetch stats:', error);
+      console.error('❌ Erreur fetch stats:', error);
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +115,13 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
   }
 
   const statItems = [
-    { label: 'Patients', value: stats.patients, icon: <Users size={18} />, color: colors.primary },
+    { 
+      label: 'Bénéficiaires', 
+      value: stats.totalBeneficiaires, 
+      icon: <Users size={18} />, 
+      color: colors.primary,
+      sub: `${stats.patients} patients • ${stats.personalAccounts} comptes personnels`
+    },
     { label: 'Aidants', value: stats.aidants, icon: <UserCheck size={18} />, color: '#10b981' },
     { label: 'Visites aujourd\'hui', value: stats.visitsToday, icon: <Calendar size={18} />, color: '#3b82f6' },
     { label: 'Commandes', value: stats.orders, icon: <ShoppingBag size={18} />, color: '#f59e0b' },
@@ -114,6 +148,9 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
                 <p className="text-lg font-extrabold mt-0.5" style={{ color: item.color }}>
                   {item.value}
                 </p>
+                {item.sub && (
+                  <p className="text-[8px] text-gray-400 mt-0.5">{item.sub}</p>
+                )}
               </div>
               <div
                 className="w-8 h-8 rounded-xl flex items-center justify-center"
