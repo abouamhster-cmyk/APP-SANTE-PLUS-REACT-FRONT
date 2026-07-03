@@ -18,6 +18,10 @@ import {
 import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
 
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+
 type SetupStep = 'pin' | 'email' | 'otp' | 'create';
 type TimerType = ReturnType<typeof setInterval> | null;
 
@@ -49,7 +53,7 @@ const AdminSetupPage = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin-setup/verify-pin', {
+      const response = await fetch(`${API_BASE_URL}/admin-setup/verify-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin }),
@@ -79,7 +83,7 @@ const AdminSetupPage = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin-setup/send-otp', {
+        const response = await fetch(`${API_BASE_URL}/admin-setup/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -111,7 +115,7 @@ const AdminSetupPage = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin-setup/verify-otp', {
+      const response = await fetch(`${API_BASE_URL}/admin-setup/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -150,7 +154,7 @@ const AdminSetupPage = () => {
     setIsLoading(true);
     try {
       const otpCode = typeof otp === 'string' ? otp.trim() : String(otp).trim();
-      const response = await fetch('/api/admin-setup/create', {
+      const response = await fetch(`${API_BASE_URL}/admin-setup/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
