@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/RegisterPage.tsx
-// 📌 Inscription 
+// 📌 Inscription  : soumission manuelle uniquement
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
@@ -323,19 +323,27 @@ const RegisterPage = () => {
     return formData.full_name.trim() && formData.email.trim() && formData.phone.trim() && formData.password.length >= 6 && acceptCGU;
   };
 
-  const goNext = () => { if (!canGoNext()) return; setStep((prev) => Math.min(prev + 1, totalSteps)); };
-  const goBack = () => { setStep((prev) => Math.max(prev - 1, 1)); };
+  // ✅ HANDLER POUR LE BOUTON "CONTINUER" (pas de soumission)
+  const handleContinue = () => {
+    if (!canGoNext()) return;
+    setStep((prev) => Math.min(prev + 1, totalSteps));
+  };
 
+  // ✅ HANDLER POUR LE BOUTON "RETOUR"
+  const handleBack = () => {
+    setStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  // ✅ HANDLER POUR LE BOUTON "CRÉER MON COMPTE" (SOUMISSION UNIQUEMENT)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    // ✅ Si on n'est pas à la dernière étape, on avance
+    // ✅ On est à la dernière étape → soumettre
     if (step !== totalSteps) {
-      goNext();
       return;
     }
 
-    // ✅ Si on est à la dernière étape, on vérifie les CGU avant de soumettre
+    // ✅ Vérifier les CGU
     if (!acceptCGU) {
       toast.error('Veuillez accepter les Conditions Générales d\'Utilisation');
       return;
@@ -768,7 +776,7 @@ const RegisterPage = () => {
                     </div>
                   )}
 
-                  {/* ✅ ÉTAPE FINALE : VALIDATION (MODIFIÉE) */}
+                  {/* ✅ ÉTAPE FINALE : VALIDATION */}
                   {step === totalSteps && renderValidationStep()}
                 </div>
 
@@ -800,13 +808,13 @@ const RegisterPage = () => {
                 </div>
 
                 {/* ============================================
-                    BOUTONS DE NAVIGATION (MODIFIÉS)
+                    BOUTONS DE NAVIGATION (CORRIGÉS)
                     ============================================ */}
                 <div className="flex gap-3 mt-4">
                   {step > 1 && (
                     <button
                       type="button"
-                      onClick={goBack}
+                      onClick={handleBack}
                       className="flex-1 max-w-[150px] py-2.5 rounded-2xl text-xs font-bold border transition-colors hover:bg-gray-50 flex items-center justify-center gap-1.5"
                       style={{ borderColor: branding.border, color: branding.text }}
                     >
@@ -816,17 +824,17 @@ const RegisterPage = () => {
 
                   {/* ✅ Bouton "Continuer" ou "Créer mon compte" selon l'étape */}
                   {step !== totalSteps ? (
-                    // ✅ BOUTON CONTINUER (étapes 1 à 4)
+                    // ✅ BOUTON CONTINUER (étapes 1 à 4) - type="button" pour ne pas soumettre
                     <button
                       type="button"
-                      onClick={goNext}
+                      onClick={handleContinue}
                       className="flex-1 py-2.5 rounded-2xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
                       style={{ background: branding.primary }}
                     >
                       Continuer <ArrowRight size={14} />
                     </button>
                   ) : (
-                    // ✅ BOUTON CRÉER MON COMPTE (étape finale)
+                    // ✅ BOUTON CRÉER MON COMPTE (étape finale) - type="submit" pour soumettre
                     <button
                       type="submit"
                       disabled={!canSubmit() || isLoading}
