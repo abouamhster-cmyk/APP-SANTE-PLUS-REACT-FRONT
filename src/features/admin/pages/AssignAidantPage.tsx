@@ -1,6 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
-// ✅ Version corrigée - Utilisation de l'API backend
-
+ 
 import React, { useEffect, useState } from 'react';
 import { 
   Users, 
