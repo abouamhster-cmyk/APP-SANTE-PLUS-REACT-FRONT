@@ -9,15 +9,12 @@ import {
   MessageCircle,
   CheckCircle,
   Heart,
-  Home,
   User,
   ArrowRight,
-  Sparkles,
   CreditCard,
   MapPin,
   BookOpen,
   Hospital,
-  Briefcase,
   History,
   Settings,
   ClipboardList,
@@ -31,8 +28,6 @@ import {
   UserPlus,
   TrendingUp,
   Lightbulb,
-  Rocket,
-  Compass,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -175,21 +170,13 @@ const DashboardPage = () => {
 
   // ✅ Charger les données au montage
   useEffect(() => {
-    console.log('🔍 Dashboard - Rôle:', role);
-    console.log('🔍 Dashboard - Patients (avant fetch):', patients.length);
-    console.log('🔍 Dashboard - Visites (avant fetch):', visits.length);
-    console.log('🔍 Dashboard - Commandes (avant fetch):', orders.length);
-    
     const loadData = async () => {
       await Promise.all([
         fetchPatients(),
         fetchVisits(),
         fetchOrders(),
       ]);
-      console.log('✅ Dashboard - Données chargées');
-      console.log('🔍 Dashboard - Patients (après fetch):', patients.length);
     };
-    
     loadData();
     setGreeting(getGreeting());
   }, []);
@@ -198,8 +185,6 @@ const DashboardPage = () => {
   useEffect(() => {
     const hasMamanPatient = patients.some((p) => p.category === 'maman_bebe');
     setIsMaman(hasMamanPatient);
-    console.log('🔍 Dashboard - hasMamanPatient:', hasMamanPatient);
-    console.log('🔍 Dashboard - patients.length:', patients.length);
   }, [patients]);
 
   // 📌 STATISTIQUES
@@ -210,10 +195,7 @@ const DashboardPage = () => {
     completedVisits: visits.filter((v) => v.status === 'terminee' || v.status === 'validee').length,
   };
 
-  console.log('📊 Stats Dashboard:', stats);
-
   const tiles = getTilesForRole(role, colors, stats, patients.length);
-
   const isLoading = patientsLoading || visitsLoading || ordersLoading;
 
   // ✅ DÉTERMINER L'IMAGE DE LA BANNIÈRE
@@ -230,7 +212,7 @@ const DashboardPage = () => {
       return '🦸 Vos missions en un coup d\'œil';
     }
     if (isMaman) {
-      return '🌸 Bienvenue dans votre espace maman & bébé';
+      return '🌸 Votre espace Maman & Bébé';
     }
     if (isFamily && patients.length > 0) {
       return '👨‍👩‍👦 Un suivi clair pour votre proche';
@@ -250,7 +232,7 @@ const DashboardPage = () => {
       return 'Retrouvez vos missions, planning et communications au même endroit.';
     }
     if (isMaman) {
-      return 'Visites, messages et commandes réunis dans un espace simple pour vous et bébé.';
+      return 'Visites, messages et commandes réunis dans un espace simple pour vous et votre bébé.';
     }
     if (isFamily && patients.length > 0) {
       return 'Gardez une vue rapide sur les visites et commandes de votre proche.';
@@ -285,96 +267,113 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
-      {/* ========================================== */}
-      {/* HERO BANNER - Optimisée pour Mobile (Moins haute, plus large) */}
-      {/* ========================================== */}
-      <section
-        className="relative overflow-hidden rounded-3xl min-h-[190px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
+      
+      {/* ============================================================
+      HERO BANNER - DESIGN OPTIMISÉ POUR LA LISIBILITÉ DU TEXTE
+      ============================================================ */}
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{
-          backgroundImage: `
-            linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%),
-            url('${heroImage}')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: `linear-gradient(135deg, ${colors.primary}12 0%, ${colors.primary}20 100%)`,
         }}
       >
-        <div className="absolute inset-0 bg-black/5" />
+        <div className="absolute inset-0 bg-black/5 pointer-events-none" />
         
-        <div className="relative z-10 min-h-[190px] md:min-h-[210px] p-4 sm:p-8 flex flex-col justify-between">
-
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
-            <div className="space-y-1 sm:space-y-2 max-w-xl">
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 sm:py-1 rounded-full bg-white/10 backdrop-blur-md text-white text-[10px] sm:text-xs font-semibold drop-shadow-sm">
-                {greeting}, {profile?.full_name?.split(' ')[0] || 'Bienvenue'} 👋
-              </span>
-
-              <h1 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
-                {heroTitle()}
-              </h1>
-
-              <p className="hidden xs:block text-white/85 text-[11px] sm:text-sm leading-relaxed drop-shadow max-w-md">
-                {heroDescription()}
-              </p>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5 min-w-0">
+            <div
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-white border shrink-0"
+              style={{
+                borderColor: colors.primary + '18',
+                color: colors.primary,
+              }}
+            >
+              <ActivityIcon role={role} />
+              <span>{isAidant ? 'Espace Intervenant' : 'Espace Accompagnement'}</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 shrink-0 self-start md:self-end mt-1 md:mt-0">
-              <RefreshButton 
-                size="sm" 
-                showText={false}
-                onRefresh={() => {
-                  toast.success('🔄 Tableau de bord actualisé');
-                }}
-              />
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight">
+              {heroTitle()}
+            </h1>
 
+            <p className="text-gray-500 text-xs sm:text-sm font-semibold leading-relaxed max-w-md">
+              {heroDescription()}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center mt-2 sm:mt-0">
+            {/* BOUTON REFRESH INTÉGRÉ AU FLUX RÉEL */}
+            <RefreshButton 
+              size="sm" 
+              showText={false}
+              onRefresh={refreshAll}
+            />
+
+            {isFamily && (
               <button
                 onClick={() => navigate('/app/visits')}
-                className="group inline-flex items-center gap-1 text-white text-[11px] sm:text-xs font-bold px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg"
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm shadow-purple-100"
                 style={{ background: colors.primary }}
               >
-                Voir les visites
-                <ArrowRight size={12} className="transition-transform group-hover:translate-x-1" />
+                Gérer les visites
+                <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
               </button>
-
+            )}
+            
+            {isAidant && (
               <button
-                onClick={() => navigate('/app/messages')}
-                className="inline-flex items-center gap-1 bg-white/20 backdrop-blur-md text-white text-[11px] sm:text-xs font-bold px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-white/20 transition-colors hover:bg-white/30 active:scale-[0.97]"
+                onClick={() => navigate('/app/planning')}
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm shadow-purple-100"
+                style={{ background: colors.primary }}
               >
-                Messages
+                Mon planning
+                <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
               </button>
-            </div>
+            )}
+
+            {isAdminOrCoordinator && (
+              <button
+                onClick={() => navigate('/app/admin')}
+                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-sm shadow-purple-100"
+                style={{ background: colors.primary }}
+              >
+                Espace Admin
+                <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+            )}
           </div>
         </div>
       </section>
 
+      {/* METRIQUES DE SYNTHÈSE */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {isFamily && (
           <>
             <StatCard
               label={hasProches ? 'Proches suivis' : 'Compte'}
               value={hasProches ? stats.proches : '✓'}
-              icon={hasProches ? <Users size={16} /> : <CheckCircle size={16} />}
+              icon={hasProches ? <Users size={15} /> : <CheckCircle size={15} />}
               color={hasProches ? colors.primary : '#10b981'}
               onClick={() => navigate(hasProches ? '/app/patients' : '/app/profile')}
             />
             <StatCard
-              label="Visites"
+              label="Visites à venir"
               value={stats.upcomingVisits}
-              icon={<Calendar size={16} />}
+              icon={<Calendar size={15} />}
               color="#10b981"
               onClick={() => navigate('/app/visits')}
             />
             <StatCard
-              label="Commandes"
+              label="Commandes en cours"
               value={stats.pendingOrders}
-              icon={<ShoppingBag size={16} />}
+              icon={<ShoppingBag size={15} />}
               color="#f59e0b"
               onClick={() => navigate('/app/orders')}
             />
             <StatCard
-              label="Terminées"
+              label="Visites terminées"
               value={stats.completedVisits}
-              icon={<CheckCircle size={16} />}
+              icon={<CheckCircle size={15} />}
               color="#3b82f6"
               onClick={() => navigate('/app/visits')}
             />
@@ -384,30 +383,30 @@ const DashboardPage = () => {
         {isAidant && (
           <>
             <StatCard
-              label="Personnes accompagnées"
+              label="Bénéficiaires"
               value={stats.proches}
-              icon={<Users size={16} />}
+              icon={<Users size={15} />}
               color={colors.primary}
               onClick={() => navigate('/app/patients')}
             />
             <StatCard
               label="Missions"
               value={visits.filter(v => v.status === 'planifiee' || v.status === 'acceptee').length}
-              icon={<Calendar size={16} />}
+              icon={<Calendar size={15} />}
               color="#10b981"
-              onClick={() => navigate('/app/missions')}
+              onClick={() => navigate('/app/planning')}
             />
             <StatCard
               label="Commandes"
               value={stats.pendingOrders}
-              icon={<ShoppingBag size={16} />}
+              icon={<ShoppingBag size={15} />}
               color="#f59e0b"
               onClick={() => navigate('/app/orders')}
             />
             <StatCard
-              label="Historique"
+              label="Interventions"
               value={visits.filter(v => v.status === 'terminee' || v.status === 'validee').length}
-              icon={<History size={16} />}
+              icon={<History size={15} />}
               color="#78350f"
               onClick={() => navigate('/app/history')}
             />
@@ -419,28 +418,28 @@ const DashboardPage = () => {
             <StatCard
               label="Bénéficiaires"
               value={stats.proches}
-              icon={<Users size={16} />}
+              icon={<Users size={15} />}
               color={colors.primary}
               onClick={() => navigate('/app/patients')}
             />
             <StatCard
               label="Inscriptions"
               value={0}
-              icon={<ClipboardList size={16} />}
+              icon={<ClipboardList size={15} />}
               color="#f59e0b"
               onClick={() => navigate('/app/registrations')}
             />
             <StatCard
               label="Aidants"
               value={0}
-              icon={<UserCheck size={16} />}
+              icon={<UserCheck size={15} />}
               color="#3b82f6"
               onClick={() => navigate('/app/aidants')}
             />
             <StatCard
               label="Revenus"
               value="0 FCFA"
-              icon={<TrendingUp size={16} />}
+              icon={<TrendingUp size={15} />}
               color="#10b981"
               onClick={() => navigate('/app/admin-payments')}
             />
@@ -448,36 +447,35 @@ const DashboardPage = () => {
         )}
       </section>
 
-      {/* ========================================== */}
-      {/* SUGGESTIONS ÉPURÉES (Max 2 suggestions d'onboarding) */}
-      {/* ========================================== */}
+      {/* SUGGESTIONS D'ONBOARDING */}
       {isFamily && !hasProches && (
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SuggestionCard
-            icon={<CreditCard size={24} />}
+            icon={<CreditCard size={20} />}
             title="Découvrir les offres"
-            description="Choisissez la formule d'abonnement adaptée à vos besoins d'accompagnement."
+            description="Choisissez la formule d'abonnement la plus adaptée à vos besoins d'accompagnement."
             color={colors.primary}
             onClick={() => navigate('/app/billing')}
             buttonText="Voir les offres"
           />
           <SuggestionCard
-            icon={<UserPlus size={24} />}
-            title="Ajouter un proche"
-            description="Renseignez le profil de la personne pour lancer son accompagnement."
+            icon={<UserPlus size={20} />}
+            title="Enregistrer un proche"
+            description="Renseignez le profil de la personne pour initier son premier accompagnement à domicile."
             color={colors.primary}
             onClick={() => navigate('/app/patients')}
-            buttonText="Ajouter (optionnel)"
+            buttonText="Enregistrer"
           />
         </section>
       )}
 
-      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+      {/* MENU DE NAVIGATION GRILLE */}
+      <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
         <div className="flex items-center justify-between mb-4 px-1">
           <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
             Menu rapide
           </h2>
-          <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full font-semibold">{tiles.length} outils disponibles</span>
+          <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full font-semibold">{tiles.length} outils</span>
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -488,7 +486,7 @@ const DashboardPage = () => {
               className="flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-300 hover:bg-gray-50/70 hover:shadow-sm active:scale-95 group relative overflow-hidden"
             >
               <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3 shadow-inner"
+                className="w-11 h-11 rounded-2xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-105 shadow-inner"
                 style={{ background: tile.color + '0a', color: tile.color }}
               >
                 {tile.icon}
@@ -498,7 +496,7 @@ const DashboardPage = () => {
               </span>
               {tile.badge !== undefined && tile.badge > 0 && (
                 <span
-                  className="mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all group-hover:scale-105"
+                  className="mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all"
                   style={{ background: tile.color + '12', color: tile.color }}
                 >
                   {tile.badge}
@@ -509,8 +507,9 @@ const DashboardPage = () => {
         </div>
       </section>
 
+      {/* PROCHES / BENEFICIAIRES RECENTES */}
       {(isFamily || isAidant) && hasProches && (
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+        <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
               {getProchesTitle()}
@@ -547,10 +546,11 @@ const DashboardPage = () => {
         </section>
       )}
 
+      {/* PROCHAINES ACTIONS */}
       {isFamily && (stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stats.upcomingVisits > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+            <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
                   Prochaines visites
@@ -575,7 +575,7 @@ const DashboardPage = () => {
           )}
 
           {stats.pendingOrders > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+            <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
                   Commandes récentes
@@ -601,14 +601,15 @@ const DashboardPage = () => {
         </div>
       )}
 
+      {/* PLANIFICATION POUR LES AIDANTS */}
       {isAidant && visits.filter(v => v.status === 'planifiee' || v.status === 'acceptee').length > 0 && (
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] border border-gray-100/50">
+        <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
               📋 Missions à venir
             </h2>
             <button
-              onClick={() => navigate('/app/missions')}
+              onClick={() => navigate('/app/planning')}
               className="text-xs font-bold hover:underline"
               style={{ color: colors.primary }}
             >
@@ -626,46 +627,60 @@ const DashboardPage = () => {
         </section>
       )}
 
+      {/* EMPTY STATE PROACTIF (FAMILLE SANS ACTIVITE) */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
-        <section className="bg-gradient-to-br from-white to-gray-50/50 rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-          <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm transition-transform hover:scale-105 duration-300" style={{ background: colors.primary + '08' }}>
-            <Lightbulb size={28} style={{ color: colors.primary }} />
+        <section className="bg-white rounded-3xl p-6 text-center border border-gray-100/50">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
+            <Lightbulb size={22} style={{ color: colors.primary }} />
           </div>
-          <h3 className="font-extrabold text-base" style={{ color: colors.text }}>
-            💡 Commencez à utiliser Santé Plus
+          <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
+            Commencez à utiliser Santé Plus
           </h3>
           <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto leading-relaxed">
-            Planifiez votre première visite ou passez votre première commande pour découvrir nos services.
+            Planifiez votre première visite ou passez une commande de fournitures de santé pour découvrir nos services.
           </p>
-          <div className="flex flex-wrap justify-center gap-3 mt-5">
+          <div className="flex flex-wrap justify-center gap-3 mt-4">
             <button
               onClick={() => navigate('/app/visits')}
-              className="px-5 py-2.5 rounded-xl text-white font-bold text-sm transition-all hover:opacity-90 active:scale-[0.97] shadow-sm flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm shadow-purple-50"
               style={{ background: colors.primary }}
             >
-              <Calendar size={14} />
+              <Calendar size={13} />
               Planifier une visite
             </button>
             <button
               onClick={() => navigate('/app/orders/create')}
-              className="px-5 py-2.5 rounded-xl font-bold text-sm border transition-all hover:bg-gray-50 active:scale-[0.97] flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl font-bold text-xs border transition-all hover:bg-gray-50 flex items-center gap-1.5"
               style={{ borderColor: colors.border, color: colors.text }}
             >
-              <ShoppingBag size={14} />
-              Passer une commande
+              <ShoppingBag size={13} />
+              Nouvelle commande
             </button>
           </div>
         </section>
       )}
 
-      <footer className="text-center py-6">
-         <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
+      <footer className="text-center py-4">
+         <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1 font-medium">
           <Heart size={10} className="text-red-400 fill-red-400" />
           Santé Plus Services — Votre accompagnement de confiance
          </p>
       </footer>
     </div>
   );
+};
+
+// =============================================
+// COMPOSANT COMPLEMENTAIRE INTERNE
+// =============================================
+interface ActivityIconProps {
+  role: string | null;
+}
+
+const ActivityIcon = ({ role }: ActivityIconProps) => {
+  if (role === 'family') return <Compass size={11} />;
+  if (role === 'aidant') return <Rocket size={11} />;
+  return <LayoutDashboard size={11} />;
 };
 
 // =============================================
@@ -684,18 +699,18 @@ const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.01)] border border-gray-100/50 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:-translate-y-0.5 transition-all duration-300 text-left w-full flex items-center justify-between group"
+      className="bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.01)] border border-gray-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300 text-left w-full flex items-center justify-between group"
     >
-      <div className="space-y-1">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+      <div className="space-y-0.5 min-w-0 pr-1">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">
           {label}
         </p>
-        <p className="text-2xl font-black transition-all" style={{ color }}>
+        <p className="text-lg sm:text-xl font-extrabold truncate" style={{ color }}>
           {value}
         </p>
       </div>
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 group-hover:scale-110 group-hover:rotate-6"
+        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105"
         style={{ background: color + '0d', color }}
       >
         {icon}
@@ -721,19 +736,17 @@ const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.015)] border border-gray-100 text-left hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all duration-300 group"
+      className="bg-white rounded-2xl p-4.5 border border-gray-100 text-left hover:shadow-sm transition-all duration-300 group flex items-start gap-3 w-full"
     >
-      <div className="flex flex-col sm:flex-row items-start gap-4">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 duration-300 shadow-inner" style={{ background: color + '10', color }}>
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-extrabold text-sm" style={{ color }}>{title}</h4>
-          <p className="text-xs mt-1 text-gray-500 leading-relaxed">{description}</p>
-          <span className="inline-block mt-2 text-xs font-bold group-hover:underline" style={{ color }}>
-            {buttonText} <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" />
-          </span>
-        </div>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 duration-300 shadow-inner" style={{ background: color + '10', color }}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0 space-y-0.5">
+        <h4 className="font-extrabold text-xs" style={{ color }}>{title}</h4>
+        <p className="text-[11px] text-gray-400 leading-normal">{description}</p>
+        <span className="inline-flex items-center gap-0.5 mt-1.5 text-[11px] font-bold group-hover:underline" style={{ color }}>
+          {buttonText} <ArrowRight size={11} className="transition-transform group-hover:translate-x-0.5" />
+        </span>
       </div>
     </button>
   );
