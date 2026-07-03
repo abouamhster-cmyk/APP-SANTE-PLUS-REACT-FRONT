@@ -289,7 +289,7 @@ const DashboardPage = () => {
       {/* HERO BANNER - Optimisée pour Mobile (Moins haute, plus large) */}
       {/* ========================================== */}
       <section
-        className="relative overflow-hidden rounded-3xl min-h-[170px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
+        className="relative overflow-hidden rounded-3xl min-h-[190px] md:min-h-[210px] shadow-sm transition-all duration-300 hover:shadow-md"
         style={{
           backgroundImage: `
             linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%),
@@ -301,7 +301,7 @@ const DashboardPage = () => {
       >
         <div className="absolute inset-0 bg-black/5" />
         
-        <div className="relative z-10 min-h-[170px] md:min-h-[210px] p-4 sm:p-8 flex flex-col justify-between">
+        <div className="relative z-10 min-h-[1900px] md:min-h-[210px] p-4 sm:p-8 flex flex-col justify-between">
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
             <div className="space-y-1 sm:space-y-2 max-w-xl">
