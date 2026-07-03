@@ -1,6 +1,6 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';   
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
