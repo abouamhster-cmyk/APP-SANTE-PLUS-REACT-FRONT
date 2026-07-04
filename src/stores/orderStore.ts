@@ -4,11 +4,14 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
 import { useAuthStore } from './authStore';
+import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 // =============================================
-// STATUS LABELS
+// CONSTANTES
 // =============================================
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   creee: 'Créée',
@@ -61,6 +64,14 @@ const clearCachedOrders = () => {
     localStorage.removeItem(CACHE_KEY);
     console.log('🗑️ Cache commandes invalidé');
   } catch { /* ignore */ }
+};
+
+// =============================================
+// FONCTIONS UTILITAIRES
+// =============================================
+
+const getStatusLabel = (status: string): string => {
+  return STATUS_LABELS[status as OrderStatus] || status;
 };
 
 // =============================================
@@ -128,9 +139,130 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH ORDERS - AVEC CACHE
+  // FETCH ORDERS - AVEC CACHE ET RÉCUPÉRATION DES AIDANTS
   // =============================================
- 
+  fetchOrders: async (force = false) => {
+    const state = get();
+    
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire commandes');
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedOrders();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage commandes');
+        set({ 
+          orders: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
+    try {
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
+      
+      const { user, profile } = useAuthStore.getState();
+      if (!user) {
+        set({ orders: [], isLoading: false });
+        return;
+      }
+
+      // ✅ Appel API
+      const response = await api.get('/orders');
+      const ordersData = response.data || [];
+
+      // ✅ POUR LES FAMILLES : Forcer le rechargement des aidants
+      let ordersWithFullRelations = ordersData;
+
+      if (profile?.role === 'family' && ordersWithFullRelations.length > 0) {
+        // Récupérer tous les aidant_id uniques
+        const aidantIds = [...new Set(
+          ordersWithFullRelations
+            .filter((o: any) => o.aidant_id)
+            .map((o: any) => o.aidant_id)
+        )];
+
+        if (aidantIds.length > 0) {
+          // Récupérer les aidants avec leurs profils
+          const { data: aidantsData } = await supabase
+            .from('aidants')
+            .select(`
+              id,
+              user_id,
+              specialties,
+              available,
+              rating,
+              total_missions,
+              completed_missions,
+              cancelled_missions,
+              user:profiles!aidants_user_id_fkey (
+                id,
+                full_name,
+                email,
+                phone,
+                avatar_url
+              )
+            `)
+            .in('id', aidantIds);
+
+          if (aidantsData) {
+            // Créer un mapping aidant_id → aidant
+            const aidantMap = aidantsData.reduce((acc: any, a: any) => {
+              acc[a.id] = a;
+              return acc;
+            }, {});
+
+            // Remplacer les aidants dans les commandes
+            ordersWithFullRelations = ordersWithFullRelations.map((order: any) => ({
+              ...order,
+              aidant: order.aidant_id ? aidantMap[order.aidant_id] || null : null,
+            }));
+          }
+        }
+      }
+
+      setCachedOrders(ordersWithFullRelations);
+      
+      set({ 
+        orders: ordersWithFullRelations || [], 
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
+    } catch (error: any) {
+      console.error('❌ Fetch orders error:', error);
+      
+      const cached = getCachedOrders();
+      if (cached && cached.data.length > 0) {
+        set({
+          orders: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false });
+      }
+    }
+  },
 
   // =============================================
   // FETCH ORDER BY ID
@@ -147,58 +279,44 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         return;
       }
 
-      const { data: order, error } = await supabase
-        .from('commandes')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const response = await api.get(`/orders/${id}`);
+      const order = response.data;
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          set({ error: 'Commande non trouvée', isLoading: false });
-          return;
-        }
-        throw error;
+      if (!order) {
+        set({ error: 'Commande non trouvée', isLoading: false });
+        return;
       }
 
-      let patient = null;
-      if (order.patient_id) {
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', order.patient_id)
-          .single();
-        patient = patientData;
-      }
-
-      let family = null;
-      if (order.family_id) {
-        const { data: familyData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', order.family_id)
-          .single();
-        family = familyData;
-      }
-
-      let aidant = null;
-      if (order.aidant_id) {
+      // ✅ S'assurer que l'aidant a son profil
+      if (order.aidant_id && !order.aidant?.user) {
         const { data: aidantData } = await supabase
           .from('aidants')
-          .select('*, user:profiles(*)')
+          .select(`
+            id,
+            user_id,
+            specialties,
+            available,
+            rating,
+            total_missions,
+            completed_missions,
+            cancelled_missions,
+            user:profiles!aidants_user_id_fkey (
+              id,
+              full_name,
+              email,
+              phone,
+              avatar_url
+            )
+          `)
           .eq('id', order.aidant_id)
           .single();
-        aidant = aidantData;
+
+        if (aidantData) {
+          order.aidant = aidantData;
+        }
       }
 
-      const fullOrder = {
-        ...order,
-        patient,
-        family,
-        aidant,
-      };
-
-      set({ currentOrder: fullOrder, isLoading: false });
+      set({ currentOrder: order, isLoading: false });
     } catch (error: any) {
       console.error('❌ Fetch order error:', error);
       set({ error: error.message, isLoading: false });
@@ -236,7 +354,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_orders, status')
-          .eq('user_id', user.id)   // ✅ LIÉ AU COMPTE
+          .eq('user_id', user.id)
           .eq('status', 'actif')
           .maybeSingle();
 
@@ -246,7 +364,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       }
 
       const orderData = {
-        user_id: user.id,              // ✅ COMPTE QUI PASSE LA COMMANDE
+        user_id: user.id,
         patient_id: data.patient_id || null,
         target_type: targetType,
         target_name: targetName,
@@ -275,14 +393,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         }
       };
 
-      const { data: newOrder, error } = await supabase
-        .from('commandes')
-        .insert(orderData)
-        .select()
-        .single();
+      const response = await api.post('/orders', orderData);
+      const newOrder = response.data;
 
-      if (error) throw error;
+      if (!newOrder) {
+        throw new Error('Erreur lors de la création de la commande');
+      }
 
+      // ✅ Récupérer les relations
       let patient = null;
       if (newOrder.patient_id) {
         const { data: patientData } = await supabase
@@ -293,49 +411,21 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         patient = patientData;
       }
 
-      const { data: family } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', newOrder.family_id)
-        .single();
+      let family = null;
+      if (newOrder.family_id) {
+        const { data: familyData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', newOrder.family_id)
+          .single();
+        family = familyData;
+      }
 
       const fullOrder = {
         ...newOrder,
         patient,
         family,
       };
-
-      // ✅ Notifications avec target_name
-      const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
-
-      if (status === 'attente_paiement') {
-        await supabase.from('notifications').insert({
-          user_id: user.id,
-          title: 'Commande en attente de paiement',
-          body: `Votre commande "${data.description}" pour ${targetDisplay} est en attente de paiement.`,
-          type: 'commande',
-          data: { order_id: newOrder.id, status: 'attente_paiement' },
-        });
-      } else {
-        // ✅ Notifier les aidants disponibles
-        const { data: aidants } = await supabase
-          .from('aidants')
-          .select('user_id')
-          .eq('available', true)
-          .eq('is_verified', true);
-
-        if (aidants && aidants.length > 0) {
-          for (const aidant of aidants) {
-            await supabase.from('notifications').insert({
-              user_id: aidant.user_id,
-              title: 'Nouvelle commande disponible',
-              body: `Commande de ${targetDisplay} - ${data.description}`,
-              type: 'commande',
-              data: { order_id: newOrder.id, action: 'take' },
-            });
-          }
-        }
-      }
 
       get().invalidateCache();
       await get().fetchOrders(true);
@@ -353,8 +443,61 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   // =============================================
   // CONFIRMER PAIEMENT
   // =============================================
- 
-  
+  confirmPayment: async (id: string, transactionId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const response = await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
+      const order = response.data;
+
+      if (!order) {
+        throw new Error('Erreur lors de la confirmation du paiement');
+      }
+
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ 
+        currentOrder: order,
+        isLoading: false,
+      });
+
+      toast.success('✅ Paiement confirmé, commande disponible');
+    } catch (error: any) {
+      console.error('❌ Confirm payment error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // =============================================
+  // PRENDRE UNE COMMANDE
+  // =============================================
+  takeOrder: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      const response = await api.post(`/orders/${id}/take`);
+      const order = response.data;
+
+      if (!order) {
+        throw new Error('Erreur lors de la prise de commande');
+      }
+
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
+      toast.success('✅ Commande prise en charge');
+    } catch (error: any) {
+      console.error('❌ Take order error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
+    }
+  },
 
   // =============================================
   // ACCEPT ORDER (alias)
@@ -373,28 +516,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
+      const response = await api.post(`/orders/${id}/prepare`);
+      const order = response.data;
 
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
+      if (!order) {
+        throw new Error('Erreur lors de la préparation');
       }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({ 
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
 
       get().invalidateCache();
       await get().fetchOrders(true);
@@ -418,28 +545,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
+      const response = await api.post(`/orders/${id}/ready`);
+      const order = response.data;
 
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
+      if (!order) {
+        throw new Error('Erreur lors du marquage prêt');
       }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update({ 
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
 
       get().invalidateCache();
       await get().fetchOrders(true);
@@ -463,34 +574,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id')
-        .eq('id', id)
-        .single();
+      const response = await api.post(`/orders/${id}/deliver`, { location });
+      const order = response.data;
 
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
+      if (!order) {
+        throw new Error('Erreur lors du démarrage de la livraison');
       }
-
-      const updateData: any = { 
-        updated_at: new Date().toISOString(),
-      };
-
-      if (location) {
-        updateData.delivery_location = location;
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
 
       get().invalidateCache();
       await get().fetchOrders(true);
@@ -514,35 +603,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: order, error: fetchError } = await supabase
-        .from('commandes')
-        .select('aidant_id, family_id')
-        .eq('id', id)
-        .single();
+      const response = await api.post(`/orders/${id}/complete`, { proof_url });
+      const order = response.data;
 
-      if (fetchError) throw fetchError;
-
-      if (order.aidant_id !== user.id) {
-        throw new Error('Vous n\'êtes pas assigné à cette commande');
+      if (!order) {
+        throw new Error('Erreur lors de la finalisation de la livraison');
       }
-
-      const updateData: any = { 
-        status: 'livree' as OrderStatus,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (proof_url) {
-        updateData.proof_url = proof_url;
-      }
-
-      const { data, error } = await supabase
-        .from('commandes')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
 
       get().invalidateCache();
       await get().fetchOrders(true);
@@ -556,252 +622,36 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // =============================================
+  // UPDATE ORDER STATUS
+  // =============================================
+  updateOrderStatus: async (id: string, status: OrderStatus) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const response = await api.post(`/orders/${id}/status`, { status });
+      const order = response.data;
 
-
-// ============================================================
-// FETCH ORDERS -  AVEC RECHARGE DES RELATIONS
-// ============================================================
- 
-fetchOrders: async (force = false) => {
-  const state = get();
-  
-  if (state.isLoading) {
-    console.log('ℹ️ Déjà en cours de chargement, skip...');
-    return;
-  }
-
-  if (state.isCacheInvalidated) {
-    force = true;
-  }
-
-  if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
-    console.log('📦 Utilisation du cache mémoire commandes');
-    return;
-  }
-
-  if (!force) {
-    const cached = getCachedOrders();
-    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-      console.log('📦 Utilisation du cache localStorage commandes');
-      set({ 
-        orders: cached.data, 
-        isLoading: false, 
-        isInitialized: true,
-        lastFetch: cached.timestamp,
-        isCacheInvalidated: false,
-      });
-      return;
-    }
-  }
-
-  try {
-    set({ isLoading: true, error: null, isCacheInvalidated: false });
-    
-    const { user, profile } = useAuthStore.getState();
-    if (!user) {
-      set({ orders: [], isLoading: false });
-      return;
-    }
-
-    // ✅ Appel API
-    const response = await api.get('/orders');
-    const ordersData = response.data || [];
-
-    // ✅ POUR LES FAMILLES : Forcer le rechargement des aidants
-    let ordersWithFullRelations = ordersData;
-
-    if (profile?.role === 'family' && ordersWithFullRelations.length > 0) {
-      // Récupérer tous les aidant_id uniques
-      const aidantIds = [...new Set(
-        ordersWithFullRelations
-          .filter((o: any) => o.aidant_id)
-          .map((o: any) => o.aidant_id)
-      )];
-
-      if (aidantIds.length > 0) {
-        // Récupérer les aidants avec leurs profils
-        const { data: aidantsData } = await supabase
-          .from('aidants')
-          .select(`
-            id,
-            user_id,
-            specialties,
-            available,
-            rating,
-            total_missions,
-            completed_missions,
-            cancelled_missions,
-            user:profiles!aidants_user_id_fkey (
-              id,
-              full_name,
-              email,
-              phone,
-              avatar_url
-            )
-          `)
-          .in('id', aidantIds);
-
-        if (aidantsData) {
-          // Créer un mapping aidant_id → aidant
-          const aidantMap = aidantsData.reduce((acc: any, a: any) => {
-            acc[a.id] = a;
-            return acc;
-          }, {});
-
-          // Remplacer les aidants dans les commandes
-          ordersWithFullRelations = ordersWithFullRelations.map((order: any) => ({
-            ...order,
-            aidant: order.aidant_id ? aidantMap[order.aidant_id] || null : null,
-          }));
-        }
+      if (!order) {
+        throw new Error('Erreur lors de la mise à jour du statut');
       }
-    }
 
-    setCachedOrders(ordersWithFullRelations);
-    
-    set({ 
-      orders: ordersWithFullRelations || [], 
-      isLoading: false,
-      isInitialized: true,
-      lastFetch: Date.now(),
-      isCacheInvalidated: false,
-    });
-  } catch (error: any) {
-    console.error('❌ Fetch orders error:', error);
-    
-    const cached = getCachedOrders();
-    if (cached && cached.data.length > 0) {
-      set({
-        orders: cached.data,
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ 
+        currentOrder: order,
         isLoading: false,
-        isInitialized: true,
-        lastFetch: cached.timestamp,
-        error: error.message || 'Erreur de chargement (cache utilisé)',
-        isCacheInvalidated: false,
       });
-    } else {
+
+      toast.success(`Commande ${getStatusLabel(status)}`);
+    } catch (error: any) {
+      console.error('❌ Update order status error:', error);
       set({ error: error.message, isLoading: false });
+      throw error;
     }
-  }
-},
+  },
 
-// ============================================================
-// CONFIRMER PAIEMENT COMMANDE - AVEC RECHARGE FORCÉE
-// ============================================================
-confirmPayment: async (id: string, transactionId: string) => {
-  try {
-    set({ isLoading: true, error: null });
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    const response = await fetch(`${API_URL}/orders/${id}/confirm-payment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ transaction_id: transactionId }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erreur lors de la confirmation du paiement');
-    }
-
-    const result = await response.json();
-
-    // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
-    get().invalidateCache();
-    await get().fetchOrders(true);
-
-    set({ isLoading: false });
-    toast.success('✅ Paiement confirmé, commande disponible');
-    return result.order;
-  } catch (error: any) {
-    console.error('❌ confirmPayment error:', error);
-    set({ error: error.message, isLoading: false });
-    toast.error(error.message);
-    throw error;
-  }
-},
-
-// ============================================================
-// PRENDRE UNE COMMANDE - AVEC RECHARGE FORCÉE
-// ============================================================
-takeOrder: async (id: string) => {
-  try {
-    set({ isLoading: true, error: null });
-    
-    const { user } = useAuthStore.getState();
-    if (!user) throw new Error('Utilisateur non connecté');
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    const response = await fetch(`${API_URL}/orders/${id}/take`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erreur lors de la prise de commande');
-    }
-
-    // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
-    get().invalidateCache();
-    await get().fetchOrders(true);
-
-    set({ isLoading: false });
-    toast.success('✅ Commande prise en charge');
-  } catch (error: any) {
-    console.error('❌ takeOrder error:', error);
-    set({ error: error.message, isLoading: false });
-    toast.error(error.message);
-  }
-},
-
-// ============================================================
-// METTRE À JOUR LE STATUT - AVEC RECHARGE FORCÉE
-// ============================================================
-updateOrderStatus: async (id: string, status: OrderStatus) => {
-  try {
-    set({ isLoading: true, error: null });
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    const response = await fetch(`${API_URL}/orders/${id}/status`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erreur lors de la mise à jour');
-    }
-
-    // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
-    get().invalidateCache();
-    await get().fetchOrders(true);
-
-    set({ isLoading: false });
-    toast.success(`Commande ${getStatusLabel(status)}`);
-  } catch (error: any) {
-    console.error('❌ updateOrderStatus error:', error);
-    set({ error: error.message, isLoading: false });
-    toast.error(error.message);
-  }
-},
-  
   // =============================================
   // UPDATE ORDER
   // =============================================
@@ -814,14 +664,12 @@ updateOrderStatus: async (id: string, status: OrderStatus) => {
         throw new Error('Non autorisé');
       }
 
-      const { data: order, error } = await supabase
-        .from('commandes')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
+      const response = await api.put(`/orders/${id}`, data);
+      const order = response.data;
 
-      if (error) throw error;
+      if (!order) {
+        throw new Error('Erreur lors de la mise à jour');
+      }
 
       get().invalidateCache();
       await get().fetchOrders(true);
@@ -847,12 +695,7 @@ updateOrderStatus: async (id: string, status: OrderStatus) => {
         throw new Error('Non autorisé');
       }
 
-      const { error } = await supabase
-        .from('commandes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
+      await api.delete(`/orders/${id}`);
 
       get().invalidateCache();
       await get().fetchOrders(true);
