@@ -150,7 +150,7 @@ const AdminPaymentsPage = () => {
 
   const handleViewDetails = (payment: PaymentWithUser) => {
     toast.success(
-      `💰 Référence: ${payment.reference || payment.id}\n` +
+      `Référence: ${payment.reference || payment.id}\n` +
       `Montant: ${formatCurrency(payment.amount)}\n` +
       `Statut: ${getStatusLabel(payment.status)}`,
       { duration: 4000 }
