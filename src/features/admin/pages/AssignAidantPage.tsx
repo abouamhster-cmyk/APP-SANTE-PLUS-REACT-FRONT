@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
-// ✅ VERSION FINALE CORRIGÉE - Affichage des assignations
+// Affichage des assignations
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
@@ -342,7 +342,7 @@ const AssignAidantPage = () => {
         expiresAt: null,
       });
 
-      toast.success(`✅ ${item.targetName} assigné avec succès`);
+      toast.success(`${item.targetName} assigné avec succès`);
       
       // ✅ Forcer le rechargement complet
       await fetchData();
@@ -374,7 +374,7 @@ const AssignAidantPage = () => {
     try {
       await assignmentAPI.revoke(item.assignmentId, `Révoqué par ${user?.email || 'admin'}`);
 
-      toast.success(`✅ Assignation de ${item.targetName} retirée`);
+      toast.success(`Assignation de ${item.targetName} retirée`);
       
       // ✅ Forcer le rechargement complet
       await fetchData();
@@ -422,7 +422,7 @@ const AssignAidantPage = () => {
         });
       }
 
-      toast.success(`✅ ${unassigned.length} bénéficiaire(s) assignés`);
+      toast.success(`${unassigned.length} bénéficiaire(s) assignés`);
       
       // ✅ Forcer le rechargement complet
       await fetchData();
