@@ -44,17 +44,13 @@ export const OrderCard = ({
 
   // ✅ FONCTION ROBUSTE POUR OBTENIR LE NOM DE L'AIDANT
   const getAidantName = () => {
-    // ✅ Chemin 1 : order.aidant.user.full_name
+    // ✅ Chemin 1 : order.aidant?.user?.full_name
     if (order.aidant?.user?.full_name) {
       return order.aidant.user.full_name;
     }
-    // ✅ Chemin 2 : order.aidant.full_name
-    if (order.aidant?.full_name) {
-      return order.aidant.full_name;
-    }
-    // ✅ Chemin 3 : order.aidant_name
-    if (order.aidant_name) {
-      return order.aidant_name;
+    // ✅ Chemin 2 : order.aidant?.user?.full_name (via le profil)
+    if (order.aidant?.user?.full_name) {
+      return order.aidant.user.full_name;
     }
     // ✅ Fallback
     return 'Non assigné';
