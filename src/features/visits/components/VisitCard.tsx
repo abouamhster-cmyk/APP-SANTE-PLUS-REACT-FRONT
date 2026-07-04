@@ -8,6 +8,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { formatDate } from '@/utils/helpers';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
+// ✅ INTERFACE AVEC TOUTES LES PROPS
 interface VisitCardProps {
   visit: Visit;
   onStart?: () => void;
@@ -17,8 +18,8 @@ interface VisitCardProps {
   onClick?: () => void;
   onApprove?: () => void;
   onRefuse?: () => void;
-  onConvertToSubscription?: () => void;
-  onPonctualPayment?: () => void;
+  onConvertToSubscription?: () => void;  // ✅ NOUVEAU
+  onPonctualPayment?: () => void;        // ✅ NOUVEAU
   showActions?: boolean;
   compact?: boolean;
 }
@@ -32,8 +33,8 @@ export const VisitCard = ({
   onClick,
   onApprove,
   onRefuse,
-  onConvertToSubscription,
-  onPonctualPayment,
+  onConvertToSubscription,  // ✅ NOUVEAU
+  onPonctualPayment,        // ✅ NOUVEAU
   showActions = false,
   compact = false 
 }: VisitCardProps) => {
@@ -167,10 +168,10 @@ export const VisitCard = ({
 
           <div className="flex items-center gap-1 shrink-0">
             {/* ✅ BOUTON BROUILLON : Valider avec abonnement OU Payer */}
-            {showActions && isDraft && (
+            {showActions && isDraft && onConvertToSubscription && onPonctualPayment && (
               canConvertToSubscription ? (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onConvertToSubscription?.(); }}
+                  onClick={(e) => { e.stopPropagation(); onConvertToSubscription(); }}
                   className="px-2 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
                   style={{ background: '#10B981' }}
                   title={`Valider avec l'abonnement (${remainingVisits} restantes)`}
@@ -180,7 +181,7 @@ export const VisitCard = ({
                 </button>
               ) : (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onPonctualPayment?.(); }}
+                  onClick={(e) => { e.stopPropagation(); onPonctualPayment(); }}
                   className="px-2 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80 animate-pulse"
                   style={{ background: '#F59E0B' }}
                   title={`Payer ${visit.metadata?.payment_amount || 7500} FCFA`}
@@ -333,10 +334,10 @@ export const VisitCard = ({
         {/* Actions */}
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           {/* ✅ BOUTON BROUILLON : Valider avec abonnement OU Payer */}
-          {showActions && isDraft && (
+          {showActions && isDraft && onConvertToSubscription && onPonctualPayment && (
             canConvertToSubscription ? (
               <button
-                onClick={(e) => { e.stopPropagation(); onConvertToSubscription?.(); }}
+                onClick={(e) => { e.stopPropagation(); onConvertToSubscription(); }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-90"
                 style={{ background: '#10B981' }}
               >
@@ -348,7 +349,7 @@ export const VisitCard = ({
               </button>
             ) : (
               <button
-                onClick={(e) => { e.stopPropagation(); onPonctualPayment?.(); }}
+                onClick={(e) => { e.stopPropagation(); onPonctualPayment(); }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-90 animate-pulse"
                 style={{ background: '#F59E0B' }}
               >
