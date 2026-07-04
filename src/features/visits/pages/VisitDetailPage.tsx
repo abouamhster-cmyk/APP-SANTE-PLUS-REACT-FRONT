@@ -18,6 +18,11 @@ import {
   Users,
   UserPlus,
   X,
+  Award,
+  Clock,
+  Bell,
+  UserCheck,
+  Briefcase,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -108,8 +113,10 @@ const VisitDetailPage = () => {
 
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
-    toast.success('Visite planifiée après paiement !');
+    toast.success('✅ Visite planifiée après paiement !');
     if (id) {
+      // ✅ Forcer le rechargement avec cache invalidé
+      useVisitStore.getState().invalidateCache();
       fetchVisitById(id);
       fetchVisits();
     }
@@ -120,8 +127,11 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await approveVisit(id);
-      toast.success('Visite approuvée');
-      fetchVisitById(id);
+      toast.success('✅ Visite approuvée');
+      // ✅ Recharger sans quitter la page
+      useVisitStore.getState().invalidateCache();
+      await fetchVisitById(id);
+      await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de l\'approbation');
     } finally {
@@ -137,8 +147,10 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await refuseVisit(id, reason);
-      toast.error('Visite refusée');
-      fetchVisitById(id);
+      toast.error('❌ Visite refusée');
+      useVisitStore.getState().invalidateCache();
+      await fetchVisitById(id);
+      await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors du refus');
     } finally {
@@ -150,8 +162,10 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await startVisit(id!);
-      toast.success('Visite démarrée');
-      fetchVisitById(id!);
+      toast.success('🚀 Visite démarrée');
+      useVisitStore.getState().invalidateCache();
+      await fetchVisitById(id!);
+      await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors du démarrage');
     } finally {
@@ -197,9 +211,11 @@ const VisitDetailPage = () => {
           .eq('id', id);
       }
 
-      toast.success('Visite terminée avec succès !');
+      toast.success('✅ Visite terminée avec succès !');
       setShowCompleteModal(false);
-      fetchVisitById(id!);
+      useVisitStore.getState().invalidateCache();
+      await fetchVisitById(id!);
+      await fetchVisits();
     } catch (error) {
       console.error('Erreur:', error);
       toast.error('Erreur lors de la finalisation');
@@ -214,7 +230,9 @@ const VisitDetailPage = () => {
       try {
         await cancelVisit(id!);
         toast.success('Visite annulée');
-        fetchVisitById(id!);
+        useVisitStore.getState().invalidateCache();
+        await fetchVisitById(id!);
+        await fetchVisits();
       } catch (error: any) {
         toast.error(error.message || 'Erreur lors de l\'annulation');
       } finally {
@@ -236,8 +254,9 @@ const VisitDetailPage = () => {
       toast.success(`✅ Aidant assigné avec succès (${assignmentType})`);
       setShowAssignModal(false);
       setSelectedAidantId('');
-      fetchVisitById(id!);
-      fetchVisits();
+      useVisitStore.getState().invalidateCache();
+      await fetchVisitById(id!);
+      await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
@@ -451,9 +470,10 @@ const VisitDetailPage = () => {
               onClick={async () => {
                 try {
                   await supabase.from('visites').update({ status: 'validee' }).eq('id', id);
-                  toast.success('Visite validée');
-                  fetchVisitById(id!);
-                  fetchVisits();
+                  toast.success('✅ Visite validée');
+                  useVisitStore.getState().invalidateCache();
+                  await fetchVisitById(id!);
+                  await fetchVisits();
                 } catch (error: any) {
                   toast.error(error.message || 'Erreur lors de la validation');
                 }
@@ -494,6 +514,31 @@ const VisitDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* ============================================================
+      BANDEAU D'INFORMATION AIDANT
+      ============================================================ */}
+      {isAidant && visit.aidant_id && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-full">
+              <UserCheck size={20} className="text-blue-600" />
+            </div>
+            <div>
+              <p className="font-bold text-blue-800">✅ Vous êtes assigné à cette visite</p>
+              <p className="text-sm text-blue-600">
+                {visit.status === 'planifiee' 
+                  ? '👆 Approuvez cette visite pour confirmer votre présence.' 
+                  : visit.status === 'acceptee' 
+                    ? '✅ La visite est confirmée. Préparez-vous à intervenir.' 
+                    : visit.status === 'en_cours'
+                      ? '🔄 Vous êtes actuellement en visite.'
+                      : '📋 Visite en cours de traitement.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================
       MODAL D'ASSIGNATION D'AIDANT
@@ -672,7 +717,7 @@ const VisitDetailPage = () => {
         {/* COLONNE DE GAUCHE : Compte-rendu et Informations (2/3) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* CARTES D'INFORMATIONS RAPIDES */}
+          {/* CARTES D'INFORMATIONS RAPIDES - ADAPTÉES SELON LE RÔLE */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <InfoCard
               icon={<User size={15} />}
@@ -689,16 +734,50 @@ const VisitDetailPage = () => {
               color={colors.text}
             />
             <InfoCard
-              icon={<Heart size={15} />}
-              label="Intervenant"
-              value={isAidant ? 'Moi' : getVisitDisplayAidant(visit)}   
+              icon={isAidant ? <UserCheck size={15} /> : <Heart size={15} />}
+              label={isAidant ? 'Intervenant' : 'Intervenant'}
+              value={isAidant ? 'Moi' : getVisitDisplayAidant(visit)}
               sub={isAidant 
-                ? `${profile?.full_name || 'Vous'} • ${visit.aidant?.rating || 0} ⭐ • ${visit.aidant?.total_missions || 0} missions` 
+                ? `${profile?.full_name || 'Vous'} • ${visit.aidant?.rating || 0} ⭐ • ${visit.aidant?.total_missions || 0} missions`
                 : visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente d\'assignation'
               }
-              color={visit.aidant ? colors.text : '#FF5722'}
+              color={visit.aidant ? colors.primary : '#FF5722'}
             />
           </div>
+
+          {/* STATS AIDANT - UNIQUEMENT POUR L'AIDANT */}
+          {isAidant && visit.aidant && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard 
+                icon={<Award size={14} />} 
+                label="Ma note" 
+                value={visit.aidant.rating || 0} 
+                sub={`${visit.aidant.total_missions || 0} missions`}
+                color={colors.primary}
+              />
+              <StatCard 
+                icon={<Clock size={14} />} 
+                label="Durée estimée" 
+                value={`${visit.duration_minutes || 60} min`} 
+                sub="Intervention"
+                color={colors.primary}
+              />
+              <StatCard 
+                icon={<Calendar size={14} />} 
+                label="Date" 
+                value={formatDate(visit.scheduled_date)} 
+                sub={visit.scheduled_time}
+                color={colors.primary}
+              />
+              <StatCard 
+                icon={<MapPin size={14} />} 
+                label="Adresse" 
+                value={getVisitDisplayAddress(visit)} 
+                sub="Lieu d'intervention"
+                color={colors.primary}
+              />
+            </div>
+          )}
 
           {/* COMPTE-RENDU DE VISITE GROUPÉ */}
           {(visit.actions?.length > 0 || visit.notes || (visit.photos && visit.photos.length > 0) || visit.report) ? (
@@ -790,7 +869,9 @@ const VisitDetailPage = () => {
           ) : (
             <div className="bg-white rounded-2xl p-6 text-center border border-black/5">
               <p className="text-xs text-gray-400 font-medium">
-                Le compte-rendu, les photos et les rapports de visite apparaîtront ici une fois complétés par l'aidant.
+                {isAidant 
+                  ? '📝 Une fois la visite terminée, vous pourrez ajouter un compte-rendu, des photos et un rapport.'
+                  : 'Le compte-rendu, les photos et les rapports de visite apparaîtront ici une fois complétés par l\'aidant.'}
               </p>
             </div>
           )}
@@ -822,6 +903,25 @@ const VisitDetailPage = () => {
                   <Phone size={13} />
                   {visit.patient.phone}
                 </a>
+              </div>
+            )}
+
+            {/* ✅ Informations complémentaires pour l'aidant */}
+            {isAidant && visit.aidant_id && (
+              <div className="pt-2 border-t border-gray-50">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Informations</p>
+                <div className="space-y-1 text-xs text-gray-600">
+                  <p className="flex items-center gap-1.5">
+                    <Clock size={12} className="text-gray-400" />
+                    Visite de {visit.duration_minutes || 60} minutes
+                  </p>
+                  {visit.is_urgent && (
+                    <p className="flex items-center gap-1.5 text-red-500">
+                      <AlertCircle size={12} />
+                      Visite urgente
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -856,8 +956,9 @@ const VisitDetailPage = () => {
 };
 
 // ============================================================
-// SOUS-COMPOSANT INTERNE
+// SOUS-COMPOSANTS
 // ============================================================
+
 interface InfoCardProps {
   icon: React.ReactNode;
   label: string;
@@ -882,6 +983,29 @@ const InfoCard = ({ icon, label, value, sub, color }: InfoCardProps) => (
         {sub}
       </p>
     )}
+  </div>
+);
+
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  sub?: string;
+  color: string;
+}
+
+const StatCard = ({ icon, label, value, sub, color }: StatCardProps) => (
+  <div className="bg-white rounded-xl p-3 shadow-sm border border-black/5">
+    <div className="flex items-center gap-2">
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '12', color }}>
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-bold" style={{ color }}>{value}</p>
+        <p className="text-[9px] text-gray-400 truncate">{label}</p>
+        {sub && <p className="text-[8px] text-gray-400 truncate">{sub}</p>}
+      </div>
+    </div>
   </div>
 );
 
