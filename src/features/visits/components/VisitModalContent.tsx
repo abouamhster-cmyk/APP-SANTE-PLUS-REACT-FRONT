@@ -1,7 +1,7 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, UserCircle, Users, Search } from 'lucide-react';
+import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle } from 'lucide-react';
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -46,6 +46,7 @@ export const VisitModalContent = ({
 
   const {
     singular,
+    plural,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -168,6 +169,14 @@ export const VisitModalContent = ({
     setIsLoading(true);
 
     try {
+      // ✅ Vérifier les dates
+      const today = new Date().toISOString().split('T')[0];
+      if (formData.scheduled_date < today) {
+        toast.error('La date de visite ne peut pas être dans le passé');
+        setIsLoading(false);
+        return;
+      }
+
       let data: any = {
         scheduled_date: formData.scheduled_date,
         scheduled_time: formData.scheduled_time,
@@ -191,6 +200,17 @@ export const VisitModalContent = ({
           setIsLoading(false);
           return;
         }
+        
+        // ✅ Vérifier que le patient appartient bien au compte
+        if (isAdmin && selectedAccount) {
+          const patientBelongsToAccount = selectedAccount.patients.some(p => p.id === formData.patient_id);
+          if (!patientBelongsToAccount) {
+            toast.error('Ce patient n\'appartient pas au compte sélectionné');
+            setIsLoading(false);
+            return;
+          }
+        }
+
         data.patient_id = formData.patient_id;
         data.target_user_id = accountId;
         data.target_type = 'patient';
@@ -222,8 +242,10 @@ export const VisitModalContent = ({
 
       if (mode === 'create') {
         await createVisit(data);
+        toast.success(`✅ Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
       } else if (visit) {
         await updateVisit(visit.id, data);
+        toast.success('✅ Visite mise à jour');
       }
       onSuccess();
     } catch (error: any) {
@@ -328,7 +350,7 @@ export const VisitModalContent = ({
     if (!isAdmin || !selectedAccount) return null;
 
     if (!selectedAccount.has_patient) {
-      return null; // Pas besoin de proposer le choix s'il n'y a pas de proches liés
+      return null;
     }
 
     return (
@@ -380,7 +402,7 @@ export const VisitModalContent = ({
               <span>Un proche</span>
             </div>
             <span className="text-[9px] opacity-75 truncate">
-              Membres associés
+              {selectedAccount.patients.length} proche{selectedAccount.patients.length > 1 ? 's' : ''} associé{selectedAccount.patients.length > 1 ? 's' : ''}
             </span>
           </button>
         </div>
@@ -398,12 +420,13 @@ export const VisitModalContent = ({
 
     if (patientList.length === 0) {
       return (
-        <div className="p-3 rounded-xl border border-red-100 text-center" style={{ background: '#FEF2F2' }}>
-          <p className="text-xs font-bold text-red-600">
-            ⚠️ Aucun proche enregistré pour ce compte.
-          </p>
-          <p className="text-[10px] text-red-500 mt-0.5">
-            Sélectionnez l'option "Personnel" pour planifier pour l'utilisateur.
+        <div className="p-3 rounded-xl border border-amber-200 text-center" style={{ background: '#FFFBEB' }}>
+          <div className="flex items-center justify-center gap-2 text-amber-700">
+            <AlertCircle size={16} />
+            <p className="text-xs font-bold">Aucun proche enregistré pour ce compte.</p>
+          </div>
+          <p className="text-[10px] text-amber-600 mt-1">
+            Sélectionnez l'option <strong>"Personnel"</strong> pour planifier pour l'utilisateur.
           </p>
         </div>
       );
@@ -431,10 +454,14 @@ export const VisitModalContent = ({
             {patientList.map((patient) => (
               <option key={patient.id} value={patient.id}>
                 {patient.first_name} {patient.last_name} - {getCategoryLabel(patient.category)}
+                {patient.status === 'active' ? '' : ' (inactif)'}
               </option>
             ))}
           </select>
         </div>
+        <p className="text-[9px] text-gray-400 mt-0.5">
+          {patientList.length} {singular}{patientList.length > 1 ? 's' : ''} disponible{patientList.length > 1 ? 's' : ''}
+        </p>
       </div>
     );
   };
@@ -489,6 +516,11 @@ export const VisitModalContent = ({
               ? `👤 Planification pour le titulaire principal de ${selectedAccount.full_name}.` 
               : `👨‍👩‍👦 Planification pour un membre du compte de ${selectedAccount.full_name}.`}
           </p>
+          {!isAccount && accountPatients.length > 0 && (
+            <p className="text-[8px] text-gray-400 mt-0.5">
+              {accountPatients.length} proche{accountPatients.length > 1 ? 's' : ''} disponible{accountPatients.length > 1 ? 's' : ''}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -554,6 +586,11 @@ export const VisitModalContent = ({
             Aucun proche enregistré. Option personnelle active par défaut.
           </p>
         )}
+        {hasPatients && (
+          <p className="text-[9px] text-gray-400 mt-1">
+            {patients.length} {singular}{patients.length > 1 ? 's' : ''} disponible{patients.length > 1 ? 's' : ''}
+          </p>
+        )}
       </div>
     );
   };
@@ -593,6 +630,7 @@ export const VisitModalContent = ({
                 color: colors.text,
               }}
               required
+              min={new Date().toISOString().split('T')[0]}
             />
           </div>
         </div>
@@ -669,6 +707,17 @@ export const VisitModalContent = ({
           ⚠️ Signaler comme visite urgente
         </label>
       </div>
+
+      {/* 🔹 Info supplémentaire pour l'aidant */}
+      {isAidant && (
+        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
+          <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-medium text-blue-700">En tant qu'aidant, vous serez notifié de cette visite</p>
+            <p className="text-[10px] text-blue-600">Une fois la visite approuvée, elle apparaîtra dans votre planning.</p>
+          </div>
+        </div>
+      )}
 
       {/* 🔹 Boutons actions */}
       <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
