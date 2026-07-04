@@ -232,7 +232,7 @@ const PatientsPage = () => {
 
       if (directPatients && directPatients.length > 0) {
         usePatientStore.setState({ patients: directPatients });
-        toast.success(`✅ ${directPatients.length} patient(s) synchronisé(s)`);
+        toast.success(`${directPatients.length} patient(s) synchronisé(s)`);
       } else {
         toast('Aucun patient trouvé', { icon: 'ℹ️' });
         usePatientStore.setState({ patients: [] });
