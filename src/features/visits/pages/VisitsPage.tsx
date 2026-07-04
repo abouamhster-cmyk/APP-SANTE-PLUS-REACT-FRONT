@@ -1,4 +1,4 @@
-// 📁 src/features/visits/pages/VisitsPage.tsx GOOD
+// 📁 src/features/visits/pages/VisitsPage.tsx
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -7,18 +7,24 @@ import {
   Plus,
   XCircle,
   AlertCircle,
-  CreditCard,   
+  CreditCard,
+  CheckCircle,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
 import { VisitPaymentModal } from '../components/VisitPaymentModal';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const VisitsPage = () => {
   const navigate = useNavigate();
@@ -26,6 +32,7 @@ const VisitsPage = () => {
   const { profile, role } = useAuthStore();
   const { visits, isLoading, fetchVisits, startVisit, cancelVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
+  const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const {
     singular,
@@ -42,6 +49,9 @@ const VisitsPage = () => {
   // ✅ États pour le paiement
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingVisit, setPendingVisit] = useState<any>(null);
+  
+  // ✅ États pour la conversion
+  const [isConverting, setIsConverting] = useState(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -72,6 +82,7 @@ const VisitsPage = () => {
       { value: 'en_cours', label: 'En cours' },
       { value: 'terminee', label: 'Terminées' },
       { value: 'brouillon', label: 'En attente de paiement' },
+      { value: 'planifiee', label: 'Planifiées' },
     ];
   }, [isAidant]);
 
@@ -87,6 +98,50 @@ const VisitsPage = () => {
           new Date(b.scheduled_date).getTime()
       );
   }, [visits, filterStatus]);
+
+  // ✅ CONVERTIR UN BROUILLON EN VISITE PLANIFIÉE
+  const handleConvertToSubscription = async (visitId: string) => {
+    if (isConverting) return;
+    
+    setIsConverting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        toast.error('Session expirée, veuillez vous reconnecter');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/visits/${visitId}/convert-to-subscription`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur lors de la conversion');
+      }
+
+      toast.success(`✅ Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
+      await fetchVisits(); // Recharger la liste
+    } catch (error: any) {
+      console.error('❌ Erreur conversion:', error);
+      toast.error(error.message || 'Erreur lors de la conversion');
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  // ✅ PAIEMENT PONCTUEL
+  const handlePonctualPayment = (visit: any) => {
+    setPendingVisit(visit);
+    setShowPaymentModal(true);
+  };
 
   const handleAdd = () => {
     if (!canPlanify) {
@@ -140,6 +195,10 @@ const VisitsPage = () => {
     }
   };
 
+  // ✅ Compter les brouillons
+  const draftCount = visits.filter(v => v.status === 'brouillon').length;
+  const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -172,17 +231,60 @@ const VisitsPage = () => {
           </p>
         </div>
 
-        {canPlanify && (
-          <button
-            onClick={handleAdd}
-            className="hidden sm:inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
-            style={{ background: colors.primary }}
-          >
-            <Plus size={14} />
-            Planifier une visite
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {canPlanify && (
+            <button
+              onClick={handleAdd}
+              className="hidden sm:inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
+              style={{ background: colors.primary }}
+            >
+              <Plus size={14} />
+              Planifier une visite
+            </button>
+          )}
+        </div>
       </section>
+
+      {/* ✅ BANNIÈRE D'ALERTE BROUILLONS */}
+      {isFamily && canConvertDrafts && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm border border-yellow-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-yellow-500 mt-0.5" size={24} />
+              <div>
+                <p className="font-bold text-yellow-800">
+                  📋 {draftCount} visite{draftCount > 1 ? 's' : ''} en attente de validation
+                </p>
+                <p className="text-sm text-yellow-700">
+                  Vous avez {remainingVisits} visite(s) restante(s) sur votre abonnement.
+                  Validez vos visites en brouillon maintenant !
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  setFilterStatus('brouillon');
+                  // Scroll vers la liste
+                  document.querySelector('.visits-list')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
+              >
+                ✅ Valider maintenant
+              </button>
+              <button
+                onClick={() => {
+                  // Marquer comme vu en fermant la bannière (on peut stocker en localStorage)
+                  toast.info('Les visites en brouillon sont disponibles dans l\'onglet "En attente de paiement"');
+                }}
+                className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============================================================
       BARRE DE FILTRES HORIZONTALE (TABS)
@@ -191,6 +293,9 @@ const VisitsPage = () => {
         <div className="flex items-center gap-1.5 pb-1">
           {statusFilterOptions.map((option) => {
             const isActive = filterStatus === option.value;
+            // ✅ Badge pour les brouillons
+            const hasBadge = option.value === 'brouillon' && draftCount > 0;
+            
             return (
               <button
                 key={option.value}
@@ -199,12 +304,17 @@ const VisitsPage = () => {
                   isActive
                     ? 'text-white shadow-sm'
                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
+                } ${hasBadge ? 'relative' : ''}`}
                 style={{
                   backgroundColor: isActive ? colors.primary : undefined,
                 }}
               >
                 {option.label}
+                {hasBadge && (
+                  <span className="ml-1.5 bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full text-[8px] font-bold">
+                    {draftCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -215,7 +325,7 @@ const VisitsPage = () => {
       LISTE DE VISITES
       ============================================================ */}
       {sortedVisits.length > 0 ? (
-        <section className="space-y-3 min-w-0 max-w-full">
+        <section className="space-y-3 min-w-0 max-w-full visits-list">
           {sortedVisits.map((visit) => (
             <div key={visit.id} className="min-w-0 max-w-full overflow-hidden">
               <VisitCard
@@ -232,7 +342,18 @@ const VisitsPage = () => {
                     ? () => handleCancelVisit(visit.id)
                     : undefined
                 }
+                onConvertToSubscription={
+                  visit.status === 'brouillon' && hasActiveSubscription && remainingVisits > 0
+                    ? () => handleConvertToSubscription(visit.id)
+                    : undefined
+                }
+                onPonctualPayment={
+                  visit.status === 'brouillon'
+                    ? () => handlePonctualPayment(visit)
+                    : undefined
+                }
                 onView={() => navigate(`/app/visits/${visit.id}`)}
+                compact
               />
             </div>
           ))}
