@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
-import { usePaymentStore } from '@/stores/paymentStore';
+import { usePaymentStore } '@/stores/paymentStore';
 import { useOfferStore } from '@/stores/offerStore';
+import { usePatientStore } from '@/stores/patientStore';  
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { PaymentModal } from '../components/PaymentModal';
@@ -22,6 +23,7 @@ import toast from 'react-hot-toast';
 
 const BillingPage = () => {
   const { profile, role } = useAuthStore();
+  const { patients, fetchPatients } = usePatientStore(); 
 
   const {
     isFamily,
@@ -50,21 +52,20 @@ const BillingPage = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'senior' | 'maman_bebe' | 'ponctuelle'>('all');
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
-
-  // ✅ AJOUTER CES ÉTATS MANQUANTS
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null); 
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Récupérer la catégorie du patient
   const patientCategory = profile?.patient_category;
-
-  // ✅ Déterminer si c'est un compte personnel
   const isPersonalAccount = role === 'family' && !patientCategory;
-
-  // ✅ Déterminer si c'est un aidant
   const isAidantRole = role === 'aidant';
+
+  // ✅ Charger les patients
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
 
   useEffect(() => {
     if (!offersInitialized) {
@@ -83,20 +84,17 @@ const BillingPage = () => {
 
     let filtered: Offer[] = [];
 
-    // 🚫 AIDANT → Aucune offre
     if (isAidantRole) {
       setFilteredOffers([]);
       return;
     }
 
-    // ✅ ADMIN/COORD → Toutes les offres
     if (role === 'admin' || role === 'coordinator') {
       filtered = offers;
       setFilteredOffers(filtered);
       return;
     }
 
-    // ✅ COMPTE PERSONNEL → Uniquement Pack Confort
     if (isPersonalAccount) {
       filtered = offers.filter((o: Offer) => 
         o.category === 'pack_confort' || 
@@ -107,7 +105,6 @@ const BillingPage = () => {
       return;
     }
 
-    // ✅ COMPTE SENIOR → Senior + Pack Confort
     if (patientCategory === 'senior') {
       filtered = offers.filter((o: Offer) => 
         o.category === 'senior' || 
@@ -119,7 +116,6 @@ const BillingPage = () => {
       return;
     }
 
-    // ✅ COMPTE MAMAN & BÉBÉ → Maman & Bébé + Pack Confort
     if (patientCategory === 'maman_bebe') {
       filtered = offers.filter((o: Offer) => 
         o.category === 'maman_bebe' || 
@@ -131,12 +127,10 @@ const BillingPage = () => {
       return;
     }
 
-    // Fallback → Toutes les offres
     filtered = offers;
     setFilteredOffers(filtered);
   }, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
 
-  // ✅ Filtrer les onglets visibles
   const getVisibleTabs = (): ('all' | 'senior' | 'maman_bebe' | 'ponctuelle')[] => {
     if (isAidantRole) return [];
     if (isPersonalAccount) return ['all', 'ponctuelle'];
@@ -152,12 +146,16 @@ const BillingPage = () => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif');
   };
 
+  // ✅ openPayment corrigé avec patientId
   const openPayment = (offer: Offer) => {
-    // ✅ Si c'est une offre ponctuelle
+    // ✅ Récupérer le premier patient de la famille (ou null)
+    const activePatient = patients.length > 0 ? patients[0] : null;
+    const patientId = activePatient?.id || null;
+
     if (offer.category === 'ponctuelle' || offer.type === 'ponctuelle') {
       setSelectedOffer(offer);
-      // ✅ orderData = null pour les paiements directs sans commande
       setPendingOrderData(null);
+      setSelectedPatientId(patientId);  
       setIsPaymentOpen(true);
       return;
     }
@@ -168,8 +166,8 @@ const BillingPage = () => {
     }
 
     setSelectedOffer(offer);
-    // ✅ orderData = null pour les abonnements
     setPendingOrderData(null);
+    setSelectedPatientId(patientId); 
     setIsPaymentOpen(true);
   };
 
@@ -181,7 +179,6 @@ const BillingPage = () => {
     toast.success('Paiement effectué avec succès !');
   };
 
-  // ✅ Statistiques avec types explicites
   const stats = {
     total: offers.length,
     senior: offers.filter((o: Offer) => o.category === 'senior').length,
@@ -205,7 +202,6 @@ const BillingPage = () => {
     );
   }
 
-  // ✅ Si l'utilisateur est un aidant, afficher un message
   if (isAidantRole) {
     return (
       <div className="max-w-5xl mx-auto pb-8">
@@ -305,7 +301,6 @@ const BillingPage = () => {
         <section className="bg-white rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
             {visibleTabs.map((tabId) => {
-              // ✅ Calcul des comptes avec types explicites
               const counts = {
                 'all': filteredOffers.length,
                 'senior': offers.filter((o: Offer) => o.category === 'senior' || o.category === 'pack_confort').length,
@@ -399,11 +394,13 @@ const BillingPage = () => {
           setIsPaymentOpen(false);
           setSelectedOffer(null);
           setPendingOrderData(null);
+          setSelectedPatientId(null); // ✅ RESET
         }}
         offer={selectedOffer}
         onSuccess={handlePaymentSuccess}
         orderData={pendingOrderData}
         forcePonctual={selectedOffer?.category === 'ponctuelle' || selectedOffer?.type === 'ponctuelle'}
+        patientId={selectedPatientId} // ✅ PASSER patientId
       />
 
       {showDayPicker && selectedSubscription && (
