@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
-import { usePaymentStore } '@/stores/paymentStore';
+import { usePaymentStore } from '@/stores/paymentStore';   
 import { useOfferStore } from '@/stores/offerStore';
 import { usePatientStore } from '@/stores/patientStore';  
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -394,13 +394,13 @@ const BillingPage = () => {
           setIsPaymentOpen(false);
           setSelectedOffer(null);
           setPendingOrderData(null);
-          setSelectedPatientId(null); // ✅ RESET
+          setSelectedPatientId(null);
         }}
         offer={selectedOffer}
         onSuccess={handlePaymentSuccess}
         orderData={pendingOrderData}
         forcePonctual={selectedOffer?.category === 'ponctuelle' || selectedOffer?.type === 'ponctuelle'}
-        patientId={selectedPatientId} // ✅ PASSER patientId
+        patientId={selectedPatientId}
       />
 
       {showDayPicker && selectedSubscription && (
