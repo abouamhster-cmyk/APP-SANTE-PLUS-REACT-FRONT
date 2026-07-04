@@ -56,59 +56,78 @@ const AidantDetailPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Vérifier si l'aidant est déjà assigné
-  useEffect(() => {
-    const checkAssignment = async () => {
-      if (!id || !user || !isFamily) {
-        setIsCheckingAssignment(false);
-        return;
-      }
+ 
 
-      setIsCheckingAssignment(true);
-      try {
-        // ✅ Récupérer les assignations de la famille
-        await fetchAssignments();
-        
-        // ✅ Vérifier si l'aidant est assigné au compte personnel
-        const isPersonalAssigned = assignments.some(
-          (a) => a.target_type === 'personal' && 
-                a.target_id === user.id && 
-                a.aidant_user_id === id &&
-                a.status === 'active'
-        );
-
-        if (isPersonalAssigned) {
-          setIsAlreadyAssigned(true);
+    useEffect(() => {
+      const checkAssignment = async () => {
+        if (!id || !user || !isFamily) {
           setIsCheckingAssignment(false);
           return;
         }
-
-        // ✅ Vérifier si l'aidant est assigné à un patient
-        const patientIds = patients.map(p => p.id);
-        const isPatientAssigned = assignments.some(
-          (a) => a.target_type === 'patient' && 
-                patientIds.includes(a.target_id) && 
-                a.aidant_user_id === id &&
-                a.status === 'active'
-        );
-
-        if (isPatientAssigned) {
-          setIsAlreadyAssigned(true);
+    
+        setIsCheckingAssignment(true);
+        try {
+          // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
+          // ✅ Utiliser 'personal_account' au lieu de 'personal'
+          const personalResponse = await fetchActiveAidant('personal_account', user.id);
+          const personalData = personalResponse as any;
+          
+          // ✅ Vérifier si l'aidant est assigné (plusieurs formats possibles)
+          const isPersonalAssigned = 
+            personalData?.aidant?.id === id || 
+            personalData?.aidant_id === id ||
+            personalData?.aidant_user_id === id ||
+            (personalData?.target_type === 'personal_account' && personalData?.target_id === user.id && personalData?.aidant_user_id === id);
+              
+          if (isPersonalAssigned) {
+            setIsAlreadyAssigned(true);
+            setIsCheckingAssignment(false);
+            return;
+          }
+    
+          // ✅ 2. Vérifier si l'aidant est assigné à un des patients de l'utilisateur
+          const patientIds = patients.map(p => p.id);
+          for (const patientId of patientIds) {
+            // ✅ Utiliser 'patient' correctement
+            const patientResponse = await fetchActiveAidant('patient', patientId, user.id);
+            const patientData = patientResponse as any;
+            
+            const isPatientAssigned = 
+              patientData?.aidant?.id === id || 
+              patientData?.aidant_id === id ||
+              patientData?.aidant_user_id === id ||
+              (patientData?.target_type === 'patient' && patientData?.target_id === patientId && patientData?.aidant_user_id === id);
+              
+            if (isPatientAssigned) {
+              setIsAlreadyAssigned(true);
+              setIsCheckingAssignment(false);
+              return;
+            }
+          }
+    
+          // ✅ 3. Vérifier via les assignations du store (legacy)
+          const isAssignedInStore = assignments.some(
+            (a) => a.family_id === user.id && a.relationship !== 'cancelled'
+          );
+          if (isAssignedInStore) {
+            setIsAlreadyAssigned(true);
+            setIsCheckingAssignment(false);
+            return;
+          }
+    
+          setIsAlreadyAssigned(false);
+        } catch (error) {
+          console.error('❌ Erreur vérification assignation:', error);
+          setIsAlreadyAssigned(false);
+        } finally {
           setIsCheckingAssignment(false);
-          return;
         }
+      };
+    
+      checkAssignment();
+    }, [id, user, patients, isFamily, assignments, fetchActiveAidant]);
 
-        setIsAlreadyAssigned(false);
-      } catch (error) {
-        console.error('❌ Erreur vérification assignation:', error);
-        setIsAlreadyAssigned(false);
-      } finally {
-        setIsCheckingAssignment(false);
-      }
-    };
-
-    checkAssignment();
-  }, [id, user, patients, isFamily, assignments, fetchAssignments]);
+  
 
   useEffect(() => {
     if (id) {
