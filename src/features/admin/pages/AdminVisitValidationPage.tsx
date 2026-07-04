@@ -216,7 +216,7 @@ const AdminVisitValidationPage = () => {
       });
       if (!response.ok) throw new Error('Erreur de validation');
       
-      toast.success('✅ Visite validée - Décompte effectué');
+      toast.success('Visite validée - Décompte effectué');
       setShowDetailModal(false);
       fetchVisitsToValidate();
     } catch (error: any) {
@@ -241,7 +241,7 @@ const AdminVisitValidationPage = () => {
       });
       if (!response.ok) throw new Error('Erreur de refus');
       
-      toast.success('❌ Visite refusée');
+      toast.success('Visite refusée');
       setShowDetailModal(false);
       fetchVisitsToValidate();
     } catch (error: any) {
@@ -271,7 +271,7 @@ const AdminVisitValidationPage = () => {
       });
       if (!response.ok) throw new Error('Erreur de réassignation');
       
-      toast.success('✅ Visite réassignée');
+      toast.success('Visite réassignée');
       setShowDetailModal(false);
       fetchVisitsToValidate();
     } catch (error: any) {
