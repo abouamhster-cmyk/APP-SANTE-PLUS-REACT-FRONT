@@ -619,7 +619,7 @@ const PatientDetailPage = () => {
                 {patientVisits
                   .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
                   .map((visit) => (
-                    <VisitCard
+                    <VisitCardCompact
                       key={visit.id}
                       visit={visit}
                       colors={colors}
@@ -733,7 +733,7 @@ const StatCard = ({ label, value, color }: StatCardProps) => (
   </div>
 );
 
-interface VisitCardProps {
+interface VisitCardCompactProps {
   visit: any;
   colors: any;
   onCancel?: () => void;
@@ -746,7 +746,7 @@ interface VisitCardProps {
   isFamily?: boolean;
 }
 
-const VisitCard = ({
+const VisitCardCompact = ({
   visit,
   colors,
   onCancel,
@@ -757,7 +757,7 @@ const VisitCard = ({
   isAidant,
   isAdmin,
   isFamily,
-}: VisitCardProps) => {
+}: VisitCardCompactProps) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'planifiee': return '#4CAF50';
