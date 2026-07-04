@@ -8,6 +8,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { formatDate } from '@/utils/helpers';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
+// ✅ INTERFACE AVEC TOUTES LES PROPS
 interface VisitCardProps {
   visit: Visit;
   onStart?: () => void;
