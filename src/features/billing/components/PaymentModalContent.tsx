@@ -24,7 +24,7 @@ interface PaymentModalContentProps {
   redirectPath?: string;
   orderData?: any;
   forcePonctual?: boolean;
-  patientId?: string | null; // ✅ AJOUT
+  patientId?: string | null;
 }
 
 export const PaymentModalContent = ({
@@ -35,7 +35,7 @@ export const PaymentModalContent = ({
   redirectPath = '/app/orders',
   orderData,
   forcePonctual = false,
-  patientId: propPatientId = null, // ✅ AJOUT
+  patientId: propPatientId = null,
 }: PaymentModalContentProps) => {
   const { createPayment } = usePaymentStore();
   const { profile, role } = useAuthStore();
@@ -103,8 +103,11 @@ export const PaymentModalContent = ({
         localStorage.removeItem('pending_ponctual_order');
       }
 
+      // ✅ Détecter si c'est une visite
+      const isVisit = isPonctual && !!orderData?.visit_id;
+
       const orderDataForBackend = (isPonctual && orderData) ? {
-        patient_id: orderData.patient_id || propPatientId || null, // ✅ PRIORISER propPatientId
+        patient_id: orderData.patient_id || propPatientId || null,
         type: orderData.type || 'autre',
         description: orderData.description || 'Commande ponctuelle',
         address: orderData.address || 'Adresse non spécifiée',
@@ -112,6 +115,13 @@ export const PaymentModalContent = ({
         prescription_url: orderData.prescription_url || null,
         target_type: selectedTargetType,
         target_name: selectedTargetName || profile?.full_name || 'Client',
+        // ✅ Si c'est une visite, ajouter les champs spécifiques
+        ...(isVisit ? {
+          visit_id: orderData.visit_id,
+          duration_minutes: orderData.duration_minutes,
+          scheduled_date: orderData.scheduled_date,
+          scheduled_time: orderData.scheduled_time,
+        } : {}),
       } : null;
 
       const offerId = selectedOffer?.id || null;
@@ -121,6 +131,8 @@ export const PaymentModalContent = ({
       const finalPatientId = propPatientId || orderData?.patient_id || null;
 
       console.log('📤 Envoi paiement avec patient_id:', finalPatientId);
+      console.log('📤 Envoi paiement avec is_visit:', isVisit);
+      console.log('📤 Envoi paiement avec visit_id:', orderData?.visit_id || null);
 
       const result = await createPayment({
         plan_id: offerId,
@@ -129,8 +141,10 @@ export const PaymentModalContent = ({
         description: planName,
         email: profile?.email,
         is_ponctual: isPonctual,
+        is_visit: isVisit,                           
+        visit_id: orderData?.visit_id || null,            
         order_data: orderDataForBackend,
-        patient_id: finalPatientId, // ✅ patient_id CORRECT
+        patient_id: finalPatientId,
         target_type: selectedTargetType,
         target_name: selectedTargetName || profile?.full_name || 'Client',
       });
