@@ -99,27 +99,29 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-  if (role === 'admin' || role === 'coordinator') {
-    tiles.push(
-      { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: '#8b5cf6', path: '/app/admin' },
-      { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations },
-      { icon: <UserCheck size={20} />, label: 'Candidatures', color: '#f59e0b', path: '/app/aidant-candidates', badge: stats.pendingAidants },
-      { icon: <Users size={20} />, label: 'Aidants', color: '#3b82f6', path: '/app/aidants', badge: stats.totalAidants },
-      { icon: <Handshake size={20} />, label: 'Assigner aidant', color: '#06b6d4', path: '/app/assign-aidants' },
-      { icon: <Users size={20} />, label: 'Utilisateurs', color: '#10b981', path: '/app/users', badge: stats.totalUsers },
-      { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits', badge: stats.todayVisits },
-      { icon: <FileCheck size={20} />, label: 'Valider visites', color: '#84cc16', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <DollarSign size={20} />, label: 'Paiements', color: '#8b5cf6', path: '/app/admin-payments', badge: stats.totalPayments },
-      { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
-      { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
-      { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
-      { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
-      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
-      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
-    );
-    return tiles;
-  }
+// 📁 src/features/dashboard/pages/DashboardPage.tsx - PARTIE MODIFIÉE
+
+// Dans la fonction getTilesForRole, pour le rôle admin/coordinator :
+
+if (role === 'admin' || role === 'coordinator') {
+  tiles.push(
+    { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: '#8b5cf6', path: '/app/admin' },
+    { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations },
+    { icon: <UserCheck size={20} />, label: 'Candidatures', color: '#f59e0b', path: '/app/aidant-candidates', badge: stats.pendingAidants },
+     { icon: <Users size={20} />, label: 'Bénéficiaires', color: '#3b82f6', path: '/app/patients', badge: stats.totalBeneficiaires },
+    { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits', badge: stats.todayVisits },
+    { icon: <FileCheck size={20} />, label: 'Valider visites', color: '#84cc16', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
+    { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
+    { icon: <DollarSign size={20} />, label: 'Paiements', color: '#8b5cf6', path: '/app/admin-payments', badge: stats.totalPayments },
+    { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
+    { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
+    { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
+    { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
+    { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
+    { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
+  );
+  return tiles;
+}
 
   tiles.push(
     { icon: <LayoutDashboard size={20} />, label: 'Accueil', color: colors.primary, path: '/app' },
