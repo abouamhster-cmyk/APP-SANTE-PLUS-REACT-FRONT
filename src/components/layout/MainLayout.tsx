@@ -29,10 +29,13 @@ import {
   Home,
   Shield,
   UserCog,
+  AlertCircle,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useVisitStore } from '@/stores/visitStore';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
@@ -51,6 +54,8 @@ const MainLayout = () => {
   const { profile, role, logout } = useAuthStore();
   const { unreadCount, fetchNotifications, subscribe, unsubscribe } =
     useNotificationStore();
+  const { visits } = useVisitStore();
+  const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const { isFamily, isAdminOrCoordinator } = useTerminology();
 
@@ -60,6 +65,10 @@ const MainLayout = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
   const logoConfig = getLogoByRole(role, profile?.patient_category);
+
+  // ✅ Compter les brouillons
+  const draftCount = visits.filter(v => v.status === 'brouillon').length;
+  const showDraftBadge = isFamily && draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
   // =============================================
   // DÉTECTION MOBILE
@@ -299,6 +308,17 @@ const MainLayout = () => {
               </h2>
 
               <div className="flex items-center gap-2">
+                {/* ✅ BADGE BROUILLONS */}
+                {showDraftBadge && (
+                  <Link
+                    to="/app/visits?filter=brouillon"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition"
+                  >
+                    <AlertCircle size={12} />
+                    {draftCount}
+                  </Link>
+                )}
+
                 {/* Badge rôle */}
                 <span
                   className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
