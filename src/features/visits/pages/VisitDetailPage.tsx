@@ -329,8 +329,11 @@ const VisitDetailPage = () => {
     return `${minutes}min`;
   };
 
-  // ✅ Déterminer le statut d'affichage de l'aidant
+  // ✅ Déterminer le statut d'affichage de l'aidant - CORRIGÉ
   const getAidantDisplayStatus = () => {
+    // ✅ Récupérer le nom de l'aidant via le bon chemin
+    const aidantName = currentVisit?.aidant?.user?.full_name || 'Non assigné';
+    
     if (isAidant) {
       return {
         label: 'Moi',
@@ -342,7 +345,7 @@ const VisitDetailPage = () => {
     
     if (currentVisit?.aidant) {
       return {
-        label: `${currentVisit.aidant.user?.full_name || 'Aidant'}`,
+        label: aidantName,
         sub: `${currentVisit.aidant.rating || 0} ⭐ • ${currentVisit.aidant.total_missions || 0} missions`,
         color: colors.primary,
         icon: <Heart size={15} />
@@ -352,7 +355,7 @@ const VisitDetailPage = () => {
     if (currentVisit?.aidant_id) {
       return {
         label: 'En attente de validation',
-        sub: '⏳ L\'aidant doit approuver la visite',
+        sub: `⏳ ${aidantName} doit approuver la visite`,
         color: '#FF9800',
         icon: <Clock size={15} />
       };
