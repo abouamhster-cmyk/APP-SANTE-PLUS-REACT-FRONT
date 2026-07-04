@@ -1,5 +1,4 @@
 // 📁 src/features/billing/components/PaymentModalContent.tsx
-// 📌 Contenu du paiement (sans wrapper modal)
 
 import { useState } from 'react';
 import {
@@ -25,6 +24,7 @@ interface PaymentModalContentProps {
   redirectPath?: string;
   orderData?: any;
   forcePonctual?: boolean;
+  patientId?: string | null; // ✅ AJOUT
 }
 
 export const PaymentModalContent = ({
@@ -35,6 +35,7 @@ export const PaymentModalContent = ({
   redirectPath = '/app/orders',
   orderData,
   forcePonctual = false,
+  patientId: propPatientId = null, // ✅ AJOUT
 }: PaymentModalContentProps) => {
   const { createPayment } = usePaymentStore();
   const { profile, role } = useAuthStore();
@@ -47,7 +48,7 @@ export const PaymentModalContent = ({
   } = useTerminology();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(propPatientId);
   const [selectedTargetType, setSelectedTargetType] = useState<'personal' | 'patient'>('personal');
   const [selectedTargetName, setSelectedTargetName] = useState<string>('');
 
@@ -103,7 +104,7 @@ export const PaymentModalContent = ({
       }
 
       const orderDataForBackend = (isPonctual && orderData) ? {
-        patient_id: orderData.patient_id || null,
+        patient_id: orderData.patient_id || propPatientId || null, // ✅ PRIORISER propPatientId
         type: orderData.type || 'autre',
         description: orderData.description || 'Commande ponctuelle',
         address: orderData.address || 'Adresse non spécifiée',
@@ -116,6 +117,11 @@ export const PaymentModalContent = ({
       const offerId = selectedOffer?.id || null;
       const subscriptionId = isPonctual ? null : offerId;
 
+      // ✅ patient_id final
+      const finalPatientId = propPatientId || orderData?.patient_id || null;
+
+      console.log('📤 Envoi paiement avec patient_id:', finalPatientId);
+
       const result = await createPayment({
         plan_id: offerId,
         abonnement_id: subscriptionId,
@@ -124,7 +130,7 @@ export const PaymentModalContent = ({
         email: profile?.email,
         is_ponctual: isPonctual,
         order_data: orderDataForBackend,
-        patient_id: orderData?.patient_id || null,
+        patient_id: finalPatientId, // ✅ patient_id CORRECT
         target_type: selectedTargetType,
         target_name: selectedTargetName || profile?.full_name || 'Client',
       });
