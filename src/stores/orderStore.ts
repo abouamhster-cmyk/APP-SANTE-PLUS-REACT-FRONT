@@ -443,7 +443,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       if (status === 'attente_paiement') {
         await supabase.from('notifications').insert({
           user_id: user.id,
-          title: '💳 Commande en attente de paiement',
+          title: 'Commande en attente de paiement',
           body: `Votre commande "${data.description}" pour ${targetDisplay} est en attente de paiement.`,
           type: 'commande',
           data: { order_id: newOrder.id, status: 'attente_paiement' },
@@ -460,7 +460,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           for (const aidant of aidants) {
             await supabase.from('notifications').insert({
               user_id: aidant.user_id,
-              title: '🛒 Nouvelle commande disponible',
+              title: 'Nouvelle commande disponible',
               body: `Commande de ${targetDisplay} - ${data.description}`,
               type: 'commande',
               data: { order_id: newOrder.id, action: 'take' },
@@ -589,7 +589,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       if (order.family_id) {
         await supabase.from('notifications').insert({
           user_id: order.family_id,
-          title: '✅ Commande prise en charge',
+          title: 'Commande prise en charge',
           body: `Un aidant a pris votre commande "${order.description}" pour ${targetDisplay}.`,
           type: 'commande',
           data: { order_id: id, status: 'en_cours' },
