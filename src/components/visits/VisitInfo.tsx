@@ -1,6 +1,8 @@
 // 📁 src/components/visits/VisitInfo.tsx
- 
+// ✅ COMPOSANT RÉUTILISABLE POUR AFFICHER LES INFOS D'UNE VISITE
+
 import { Visit } from '@/types';
+import { formatDate, formatTime } from '@/utils/helpers';
 
 interface VisitInfoProps {
   visit: Visit;
@@ -82,9 +84,6 @@ export const getVisitDisplayAidant = (visit: Visit): string => {
   if (!visit) return 'Non assigné';
   if (visit.aidant?.user?.full_name) {
     return visit.aidant.user.full_name;
-  }
-  if (visit.aidant?.full_name) {
-    return visit.aidant.full_name;
   }
   return 'Non assigné';
 };
