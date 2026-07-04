@@ -108,6 +108,25 @@ const JournalPage = () => {
     aidants: 'Aidants',
   };
 
+  // ✅ Fonction pour obtenir le nom de l'aidant
+  const getAidantName = (entry: any) => {
+    if (entry.aidant?.user?.full_name) {
+      return entry.aidant.user.full_name;
+    }
+    if (entry.aidant?.full_name) {
+      return entry.aidant.full_name;
+    }
+    return 'Non assigné';
+  };
+
+  // ✅ Fonction pour obtenir le nom du patient
+  const getPatientName = (entry: any) => {
+    if (entry.patient) {
+      return `${entry.patient.first_name} ${entry.patient.last_name}`;
+    }
+    return 'Patient';
+  };
+
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
       {/* HEADER */}
@@ -243,7 +262,7 @@ const JournalPage = () => {
                           }}
                         />
                         <p className="text-xs font-medium truncate" style={{ color: colors.text }}>
-                          {entry.patient?.first_name} {entry.patient?.last_name}
+                          {getPatientName(entry)}
                         </p>
                         <p className="text-[9px] text-gray-400 shrink-0">
                           {formatDate(entry.date)} {entry.time}
@@ -288,6 +307,8 @@ const JournalPage = () => {
                 key={entry.id}
                 entry={entry}
                 colors={colors}
+                getAidantName={getAidantName}
+                getPatientName={getPatientName}
                 onRate={() => {
                   setSelectedVisit(entry);
                   setShowRatingModal(true);
@@ -357,11 +378,20 @@ const StatCard = ({ icon, label, value, color }: StatCardProps) => {
 interface JournalEntryCompactProps {
   entry: any;
   colors: any;
+  getAidantName: (entry: any) => string;
+  getPatientName: (entry: any) => string;
   onRate: () => void;
   onViewDetails: () => void;
 }
 
-const JournalEntryCompact = ({ entry, colors, onRate, onViewDetails }: JournalEntryCompactProps) => {
+const JournalEntryCompact = ({ 
+  entry, 
+  colors, 
+  getAidantName,
+  getPatientName,
+  onRate, 
+  onViewDetails 
+}: JournalEntryCompactProps) => {
   const hasPhotos = entry.photos && entry.photos.length > 0;
   const hasAudio = entry.audio_url;
   const isRated = entry.rating !== null;
@@ -379,13 +409,23 @@ const JournalEntryCompact = ({ entry, colors, onRate, onViewDetails }: JournalEn
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold truncate" style={{ color: colors.text }}>
-                {entry.patient?.first_name} {entry.patient?.last_name}
+                {getPatientName(entry)}
               </p>
               <p className="text-[9px] text-gray-400 flex items-center gap-1">
                 <Calendar size={10} /> {formatDate(entry.date)} {entry.time}
               </p>
             </div>
           </div>
+
+          {/* ✅ Affichage de l'aidant */}
+          {entry.aidant && (
+            <div className="mt-0.5 flex items-center gap-1">
+              <User size={10} style={{ color: colors.text + '50' }} />
+              <span className="text-[9px] text-gray-500">
+                Aidant: <span className="font-medium">{getAidantName(entry)}</span>
+              </span>
+            </div>
+          )}
 
           {entry.actions && entry.actions.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-0.5">
