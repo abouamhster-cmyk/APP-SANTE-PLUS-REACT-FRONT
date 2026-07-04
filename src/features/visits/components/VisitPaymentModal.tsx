@@ -1,6 +1,6 @@
 // 📁 src/features/visits/components/VisitPaymentModal.tsx
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useVisitStore } from '@/stores/visitStore';
@@ -44,6 +44,8 @@ export const VisitPaymentModal = ({
         amount,
         description: `Visite ponctuelle - ${visit.target_name || 'Personnel'}`,
         is_ponctual: true,
+        is_visit: true,                           // ✅ AJOUTÉ
+        visit_id: visitId,                        // ✅ AJOUTÉ
         patient_id: visit.patient_id || null,
         target_type: visit.target_type || 'personal',
         target_name: visit.target_name || 'Personnel',
