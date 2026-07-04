@@ -691,8 +691,11 @@ const VisitDetailPage = () => {
             <InfoCard
               icon={<Heart size={15} />}
               label="Intervenant"
-              value={getVisitDisplayAidant(visit)}
-              sub={visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente d\'assignation'}
+              value={isAidant ? 'Moi' : getVisitDisplayAidant(visit)}   
+              sub={isAidant 
+                ? `${profile?.full_name || 'Vous'} • ${visit.aidant?.rating || 0} ⭐ • ${visit.aidant?.total_missions || 0} missions` 
+                : visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente d\'assignation'
+              }
               color={visit.aidant ? colors.text : '#FF5722'}
             />
           </div>
