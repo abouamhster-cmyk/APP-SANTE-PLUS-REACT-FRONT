@@ -41,7 +41,13 @@ export const AppRouter = () => {
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         <Route path="/app" element={<DashboardPage />} />
         <Route path="/app/dashboard" element={<DashboardPage />} />
+        
+        {/* ✅ UNIFICATION : Bénéficiaires (comptes + patients) */}
         <Route path="/app/patients" element={<PatientsPage />} />
+        
+        {/* ✅ Redirection de l'ancienne route d'assignation vers /app/patients */}
+        <Route path="/app/assign-aidants" element={<Navigate to="/app/patients" replace />} />
+        
         <Route path="/app/visits" element={<VisitsPage />} />
         <Route path="/app/orders" element={<OrdersPage />} />
         <Route path="/app/messages" element={<MessagesPage />} />
