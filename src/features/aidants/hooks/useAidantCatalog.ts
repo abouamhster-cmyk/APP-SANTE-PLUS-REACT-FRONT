@@ -1,7 +1,8 @@
 // 📁 frontend/src/features/aidants/hooks/useAidantCatalog.ts
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
+import { useAssignmentStore } from '@/stores/assignmentStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { 
@@ -16,26 +17,37 @@ import toast from 'react-hot-toast';
 export const useAidantCatalog = () => {
   const { user, profile } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
+  
+  // ✅ Utiliser les deux stores
   const {
     aidants,
     selectedAidant,
-    assignments,
-    isLoading,
+    isLoading: catalogLoading,
     error,
     filters,
     fetchAidants,
     fetchAidantById,
-    fetchMyAssignments,
-    assignAidant: assignAidantStore,
-    revokeAssignment: revokeAssignmentStore,
     setFilters,
     clearError,
-    reset,
+    reset: resetCatalog,
   } = useAidantCatalogStore();
+
+  // ✅ Nouveau store d'assignation
+  const {
+    assignments,
+    isLoading: assignmentLoading,
+    fetchAssignments,
+    assignAidant: assignAidantStore,
+    revokeAssignment: revokeAssignmentStore,
+    isInitialized,
+    reset: resetAssignment,
+  } = useAssignmentStore();
 
   const isFamily = useMemo(() => profile?.role === 'family', [profile]);
   const isAidant = useMemo(() => profile?.role === 'aidant', [profile]);
   const isAdmin = useMemo(() => profile?.role === 'admin' || profile?.role === 'coordinator', [profile]);
+
+  const isLoading = catalogLoading || assignmentLoading;
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
@@ -59,15 +71,16 @@ export const useAidantCatalog = () => {
     }
   }, [fetchAidantById]);
 
+  // ✅ Utiliser le nouveau système d'assignation
   const loadMyAssignments = useCallback(async () => {
-    if (!isFamily) return;
+    if (!isFamily && !isAidant) return;
     try {
-      await fetchMyAssignments();
+      await fetchAssignments();
     } catch (error) {
       console.error('❌ Erreur chargement assignations:', error);
       toast.error('Impossible de charger vos assignations');
     }
-  }, [isFamily, fetchMyAssignments]);
+  }, [isFamily, isAidant, fetchAssignments]);
 
   // ============================================================
   // ACTIONS
@@ -85,16 +98,25 @@ export const useAidantCatalog = () => {
 
     try {
       // ✅ Utiliser le nouveau système d'assignation
-      const result = await assignAidantStore(aidantId, patientId, assignmentType);
+      const result = await assignAidantStore({
+        aidantUserId: aidantId,  // L'ID de l'aidant (table aidants)
+        targetType: patientId ? 'patient' : 'personal_account',
+        targetId: patientId || user?.id || '',
+        assignmentType: assignmentType,
+        familyId: user?.id || null,
+      });
+      
+      // ✅ Rafraîchir les données
       await loadMyAssignments();
       await loadAidants();
+      
       return result;
     } catch (error) {
       console.error('❌ Erreur assignation:', error);
       toast.error('Impossible d\'assigner cet aidant');
       return null;
     }
-  }, [isFamily, assignAidantStore, loadMyAssignments, loadAidants]);
+  }, [isFamily, assignAidantStore, loadMyAssignments, loadAidants, user]);
 
   const revokeAssignment = useCallback(async (assignmentId: string) => {
     if (!isFamily) {
@@ -135,9 +157,20 @@ export const useAidantCatalog = () => {
   }, [aidants]);
 
   const getActiveAssignments = useCallback(() => {
-    return assignments.filter(a => a.relationship !== 'cancelled');
+    return assignments.filter(a => a.status === 'active');
   }, [assignments]);
 
+  const isAidantAssigned = useCallback((aidantUserId: string): boolean => {
+    return assignments.some(
+      a => a.aidant_user_id === aidantUserId && a.status === 'active'
+    );
+  }, [assignments]);
+
+  const getAssignmentsForPatient = useCallback((patientId: string) => {
+    return assignments.filter(
+      a => a.target_type === 'patient' && a.target_id === patientId && a.status === 'active'
+    );
+  }, [assignments]);
 
   // ============================================================
   // RETOUR
@@ -155,6 +188,7 @@ export const useAidantCatalog = () => {
     isFamily,
     isAidant,
     isAdmin,
+    isInitialized,
 
     // Actions principales
     loadAidants,
@@ -173,10 +207,15 @@ export const useAidantCatalog = () => {
     getAidantsBySpecialty,
     getAidantsByZone,
     getActiveAssignments,
+    isAidantAssigned,
+    getAssignmentsForPatient,
 
     // Nettoyage
     clearError,
-    reset,
+    reset: () => {
+      resetCatalog();
+      resetAssignment();
+    },
   };
 };
 
