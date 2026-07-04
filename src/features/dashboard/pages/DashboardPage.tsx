@@ -32,6 +32,7 @@ import {
   Rocket,
   DollarSign,
   Clock,
+  AlertCircle,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -40,6 +41,7 @@ import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePaymentStore } from '@/stores/paymentStore';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getGreeting } from '@/utils/helpers';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
@@ -172,6 +174,9 @@ const DashboardPage = () => {
     isLoading: paymentsLoading,
   } = usePaymentStore();
 
+  // ✅ ABONNEMENT GUARD
+  const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
+
   const [greeting, setGreeting] = useState('');
   const [isMaman, setIsMaman] = useState(false);
   
@@ -200,24 +205,25 @@ const DashboardPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ Compter les brouillons
+  const drafts = visits.filter(v => v.status === 'brouillon');
+  const hasDrafts = drafts.length > 0;
+  const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
+
   // ✅ CHARGER LES STATS BENEFICIAIRES
   const fetchBeneficiairesStats = async () => {
     setIsLoadingBeneficiaires(true);
     try {
-      // ✅ Compter les patients
       const { count: patientsCount } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true });
 
-      // ✅ Compter les comptes personnels (familles sans patient)
-      // ❌ CORRECTION : Utiliser une requête plus simple sans NOT.IN complexe
       const { data: familyLinks } = await supabase
         .from('patient_family_links')
         .select('family_id');
 
       const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
 
-      // ✅ Récupérer toutes les familles
       const { data: allFamilies, error: familiesError } = await supabase
         .from('profiles')
         .select('id')
@@ -227,7 +233,6 @@ const DashboardPage = () => {
         console.error('❌ Erreur récupération familles:', familiesError);
       }
 
-      // ✅ Filtrer manuellement les familles sans patient
       const personalAccounts = (allFamilies || []).filter(
         (f: any) => !familyIdsWithPatients.has(f.id)
       );
@@ -353,7 +358,6 @@ const DashboardPage = () => {
     const totalPayments = payments.length;
 
     return {
-      // ✅ Utiliser totalBeneficiaires au lieu de patients.length
       proches: beneficiairesStats.totalBeneficiaires || patients.length,
       patientsCount: beneficiairesStats.patientsCount || patients.length,
       personalAccountsCount: beneficiairesStats.personalAccountsCount || 0,
@@ -364,15 +368,15 @@ const DashboardPage = () => {
       totalAidants,
       totalSubscriptions,
       totalPayments,
-      // Admin
       totalUsers: adminStats.totalUsers,
       pendingRegistrations: adminStats.pendingRegistrations,
       pendingAidants: adminStats.pendingAidants,
       todayVisits: adminStats.todayVisits,
       pendingValidations: adminStats.pendingValidations,
       revenue: adminStats.revenue,
+      draftCount: drafts.length,
     };
-  }, [patients, visits, orders, aidants, subscriptions, payments, adminStats, beneficiairesStats]);
+  }, [patients, visits, orders, aidants, subscriptions, payments, adminStats, beneficiairesStats, drafts.length]);
 
   const tiles = getTilesForRole(role, colors, stats, stats.proches);
   const isLoading = patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires;
@@ -459,6 +463,43 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       
+      {/* ✅ BANNIÈRE D'ALERTE POUR BROUILLONS */}
+      {isFamily && canConvertDrafts && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm border border-yellow-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-yellow-500 mt-0.5" size={24} />
+              <div>
+                <p className="font-bold text-yellow-800">
+                  📋 {stats.draftCount} visite{stats.draftCount > 1 ? 's' : ''} en attente de validation
+                </p>
+                <p className="text-sm text-yellow-700">
+                  Vous avez {remainingVisits} visite(s) restante(s) sur votre abonnement.
+                  Validez vos visites en brouillon maintenant !
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <Link
+                to="/app/visits"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
+              >
+                ✅ Valider maintenant
+              </Link>
+              <button
+                onClick={() => {
+                  // Optionnel : marquer comme vu
+                  toast.info('Les visites en brouillon sont disponibles dans l\'onglet Visites');
+                }}
+                className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ============================================================
       HERO BANNER
       ============================================================ */}
@@ -894,7 +935,7 @@ const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.01)] border border-gray-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300 text-left w-full flex items-center justify-between group"
+      className="bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300 text-left w-full flex items-center justify-between group"
     >
       <div className="space-y-0.5 min-w-0 pr-1">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">
