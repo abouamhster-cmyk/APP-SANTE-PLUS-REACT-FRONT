@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AdminSubscriptionsPage.tsx
-// ✅ Version corrigée - StatCardProps définie
+//  - StatCardProps définie
 
 import { useEffect, useState } from 'react';
 import {
