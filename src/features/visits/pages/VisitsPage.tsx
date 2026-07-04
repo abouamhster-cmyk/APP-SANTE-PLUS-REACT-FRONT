@@ -275,7 +275,7 @@ const VisitsPage = () => {
               <button
                 onClick={() => {
                   // Marquer comme vu en fermant la bannière (on peut stocker en localStorage)
-                  toast.info('Les visites en brouillon sont disponibles dans l\'onglet "En attente de paiement"');
+                  toast.success('✅ Les visites en brouillon sont disponibles dans l\'onglet "En attente de paiement"');
                 }}
                 className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
               >
