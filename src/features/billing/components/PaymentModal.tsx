@@ -1,5 +1,4 @@
 // 📁 src/features/billing/components/PaymentModal.tsx
-// 📌 Wrapper pour compatibilité - Redirige vers ModalFullScreen
 
 import { Offer } from '@/types';
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
@@ -14,6 +13,7 @@ interface PaymentModalProps {
   redirectPath?: string;
   orderData?: any;
   forcePonctual?: boolean;
+  patientId?: string | null; 
 }
 
 export const PaymentModal = ({
@@ -25,6 +25,7 @@ export const PaymentModal = ({
   redirectPath = '/app/orders',
   orderData,
   forcePonctual = false,
+  patientId = null, 
 }: PaymentModalProps) => {
   return (
     <ModalFullScreen
@@ -44,6 +45,7 @@ export const PaymentModal = ({
         redirectPath={redirectPath}
         orderData={orderData}
         forcePonctual={forcePonctual}
+        patientId={patientId} 
       />
     </ModalFullScreen>
   );
