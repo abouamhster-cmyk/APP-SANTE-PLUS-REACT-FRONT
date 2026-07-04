@@ -225,7 +225,7 @@ const MissionsPage = () => {
   const handleStart = async (id: string) => {
     try {
       await startVisit(id);
-      toast.success('Mission démarrée 🚀');
+      toast.success('Mission démarrée');
       fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors du démarrage');
@@ -235,7 +235,7 @@ const MissionsPage = () => {
   const handleTakeOrder = async (id: string) => {
     try {
       await takeOrder(id);
-      toast.success('Commande prise en charge ✅');
+      toast.success('Commande prise en charge');
       fetchOrders();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la prise de commande');
@@ -245,7 +245,7 @@ const MissionsPage = () => {
   const handleDeliverOrder = async (id: string) => {
     try {
       await completeDelivery(id);
-      toast.success('Livraison terminée ✅');
+      toast.success('Livraison terminée');
       fetchOrders();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la livraison');
