@@ -33,13 +33,19 @@ const AidantDetailPage = () => {
 
   const { profile, role, user } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
-  const { fetchActiveAidant, isLoading: assignmentLoading } = useAssignmentStore();
+  
+  // ✅ Utiliser le nouveau store d'assignation
+  const { 
+    fetchActiveAidant, 
+    isLoading: assignmentLoading,
+    assignments,
+    fetchAssignments,
+  } = useAssignmentStore();
+  
   const {
     selectedAidant: aidant,
     isLoading,
     fetchAidantById,
-    assignments,
-    fetchMyAssignments,
   } = useAidantCatalogStore();
 
   const { isFamily } = useTerminology();
@@ -50,7 +56,7 @@ const AidantDetailPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Vérifier si l'aidant est déjà assigné à l'utilisateur ou à ses patients
+  // ✅ Vérifier si l'aidant est déjà assigné
   useEffect(() => {
     const checkAssignment = async () => {
       if (!id || !user || !isFamily) {
@@ -60,43 +66,33 @@ const AidantDetailPage = () => {
 
       setIsCheckingAssignment(true);
       try {
-        // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
-        const personalResponse = await fetchActiveAidant('personal_account', user.id);
-        // ✅ Utiliser 'as any' pour contourner le problème de typage
-        const personalData = personalResponse as any;
-        const isPersonalAssigned = 
-          personalData?.aidant?.id === id || 
-          personalData?.aidant_id === id ||
-          personalData?.aidant_user_id === id;
-          
+        // ✅ Récupérer les assignations de la famille
+        await fetchAssignments();
+        
+        // ✅ Vérifier si l'aidant est assigné au compte personnel
+        const isPersonalAssigned = assignments.some(
+          (a) => a.target_type === 'personal' && 
+                a.target_id === user.id && 
+                a.aidant_user_id === id &&
+                a.status === 'active'
+        );
+
         if (isPersonalAssigned) {
           setIsAlreadyAssigned(true);
           setIsCheckingAssignment(false);
           return;
         }
 
-        // ✅ 2. Vérifier si l'aidant est assigné à un des patients de l'utilisateur
+        // ✅ Vérifier si l'aidant est assigné à un patient
         const patientIds = patients.map(p => p.id);
-        for (const patientId of patientIds) {
-          const patientResponse = await fetchActiveAidant('patient', patientId, user.id);
-          const patientData = patientResponse as any;
-          const isPatientAssigned = 
-            patientData?.aidant?.id === id || 
-            patientData?.aidant_id === id ||
-            patientData?.aidant_user_id === id;
-            
-          if (isPatientAssigned) {
-            setIsAlreadyAssigned(true);
-            setIsCheckingAssignment(false);
-            return;
-          }
-        }
-
-        // ✅ 3. Vérifier via les assignations du store (legacy)
-        const isAssignedInStore = assignments.some(
-          (a) => a.family_id === user.id && a.relationship !== 'cancelled'
+        const isPatientAssigned = assignments.some(
+          (a) => a.target_type === 'patient' && 
+                patientIds.includes(a.target_id) && 
+                a.aidant_user_id === id &&
+                a.status === 'active'
         );
-        if (isAssignedInStore) {
+
+        if (isPatientAssigned) {
           setIsAlreadyAssigned(true);
           setIsCheckingAssignment(false);
           return;
@@ -112,17 +108,17 @@ const AidantDetailPage = () => {
     };
 
     checkAssignment();
-  }, [id, user, patients, isFamily, assignments, fetchActiveAidant]);
+  }, [id, user, patients, isFamily, assignments, fetchAssignments]);
 
   useEffect(() => {
     if (id) {
       fetchAidantById(id);
       if (isFamily) {
         fetchPatients();
-        fetchMyAssignments();
+        fetchAssignments();
       }
     }
-  }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
+  }, [id, isFamily, fetchAidantById, fetchPatients, fetchAssignments]);
 
   const status = (() => {
     if (!aidant?.is_available) return { label: 'Indisponible', color: 'text-red-500', bg: 'bg-red-50' };
@@ -236,7 +232,7 @@ const AidantDetailPage = () => {
 
               <div className="flex items-center gap-1">
                 <CheckCircle size={12} />
-                {aidant.active_assignments}/{aidant.max_assignments}
+                {aidant.active_assignments}/{aidant.max_assignments || 4}
               </div>
 
             </div>
@@ -320,7 +316,7 @@ const AidantDetailPage = () => {
           onSuccess={() => {
             setShowAssignModal(false);
             fetchAidantById(id!);
-            fetchMyAssignments();
+            fetchAssignments();  // ✅ Rafraîchir les assignations
             setIsAlreadyAssigned(true);
             toast.success('✅ Aidant assigné avec succès !');
           }}
