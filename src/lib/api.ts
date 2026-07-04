@@ -212,7 +212,7 @@ export const adminAPI = {
 };
 
 // =============================================
-// ✅ ASSIGNMENTS API (NOUVEAU)
+// ✅ ASSIGNMENTS API 
 // =============================================
 export const assignmentAPI = {
   // Récupérer toutes les assignations (admin)
@@ -224,6 +224,16 @@ export const assignmentAPI = {
     if (filters?.aidantUserId) params.append('aidantUserId', filters.aidantUserId);
     
     const url = `/assignments${params.toString() ? `?${params.toString()}` : ''}`;
+    return api.get(normalizeApiUrl(url));
+  },
+
+  //  Récupérer les assignations de la famille connectée
+  getMyAssignments: (filters?: { status?: string; targetType?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.targetType) params.append('targetType', filters.targetType);
+    
+    const url = `/assignments/my${params.toString() ? `?${params.toString()}` : ''}`;
     return api.get(normalizeApiUrl(url));
   },
 
@@ -241,7 +251,7 @@ export const assignmentAPI = {
     return api.get(normalizeApiUrl(`/assignments/all?${params.toString()}`));
   },
 
-  // ✅ Assignation pour les familles (NOUVELLE MÉTHODE)
+  // ✅ Assignation pour les familles
   familyAssign: (data: {
     aidantUserId: string;
     targetType: 'personal_account' | 'patient';
