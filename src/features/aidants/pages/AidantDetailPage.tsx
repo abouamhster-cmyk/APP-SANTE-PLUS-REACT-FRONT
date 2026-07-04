@@ -342,7 +342,7 @@ const AidantDetailPage = () => {
             fetchAidantById(id!);
             fetchMyAssignments();
             setIsAlreadyAssigned(true);
-            toast.success('✅ Aidant assigné avec succès !');
+            toast.success('Aidant assigné avec succès !');
           }}
           colors={colors}
         />
