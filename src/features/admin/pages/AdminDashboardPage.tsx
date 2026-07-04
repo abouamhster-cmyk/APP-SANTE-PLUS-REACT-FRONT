@@ -328,6 +328,14 @@ const AdminDashboardPage = () => {
             badge="En attente"
           />
           <AlertCard
+            label="Bénéficiaires non assignés"
+            value={stats.totalBeneficiaires - (stats.assignedCount || 0)}
+            icon={<UserX size={15} />}
+            color="#F59E0B"
+            onClick={() => navigate('/app/patients')}
+            badge="À assigner"
+          />
+          <AlertCard
             label="Visites expirées"
             value={stats.visitsExpired}
             icon={<AlertCircle size={15} />}
