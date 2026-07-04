@@ -49,6 +49,14 @@ const MissionsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ Fonction pour obtenir le nom de l'aidant
+  const getAidantName = (visit: any) => {
+    if (visit.aidant?.user?.full_name) {
+      return visit.aidant.user.full_name;
+    }
+    return 'Non assigné';
+  };
+
   useEffect(() => {
     const checkAidantStatus = async () => {
       if (!user) {
@@ -578,6 +586,14 @@ const MissionItemCompact = ({
   const isAccepted = item.status === 'acceptee';
   const isInProgress = item.status === 'en_cours';
 
+  // ✅ Fonction pour obtenir le nom de l'aidant
+  const getAidantName = () => {
+    if (item.aidant?.user?.full_name) {
+      return item.aidant.user.full_name;
+    }
+    return 'Non assigné';
+  };
+
   if (isMission) {
     return (
       <div
@@ -613,6 +629,12 @@ const MissionItemCompact = ({
                 </span>
               )}
             </div>
+            {item.aidant && (
+              <div className="text-[10px] text-gray-500 flex items-center gap-0.5">
+                <User size={10} />
+                Aidant: <span className="font-medium">{getAidantName()}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
@@ -665,6 +687,17 @@ const MissionItemCompact = ({
   const isAcceptedOrder = item.status === 'en_cours';
   const isDelivered = item.status === 'livree' || item.status === 'validee';
 
+  // ✅ Fonction pour obtenir le nom du client
+  const getPatientName = () => {
+    if (item.patient) {
+      return `${item.patient.first_name} ${item.patient.last_name}`;
+    }
+    if (item.family?.full_name) {
+      return item.family.full_name;
+    }
+    return 'Client';
+  };
+
   return (
     <div
       className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
@@ -678,7 +711,7 @@ const MissionItemCompact = ({
           </p>
           <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: colors.text + '60' }}>
             <span className="flex items-center gap-0.5">
-              <User size={11} /> {item.patient?.first_name || 'Client'}
+              <User size={11} /> {getPatientName()}
             </span>
             <span>•</span>
             <span className="flex items-center gap-0.5">
