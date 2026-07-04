@@ -127,7 +127,7 @@ const VisitsPage = () => {
         throw new Error(result.error || 'Erreur lors de la conversion');
       }
 
-      toast.success(`✅ Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
+      toast.success(`Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
       await fetchVisits(); // Recharger la liste
     } catch (error: any) {
       console.error('❌ Erreur conversion:', error);
@@ -160,7 +160,7 @@ const VisitsPage = () => {
     if (newVisit && newVisit.metadata?.requires_payment) {
       setPendingVisit(newVisit);
       setShowPaymentModal(true);
-      toast('💳 Paiement requis pour planifier la visite', { icon: '💳', duration: 4000 });
+      toast('Paiement requis pour planifier la visite', { icon: '💳', duration: 4000 });
     } else {
       toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
     }
@@ -170,7 +170,7 @@ const VisitsPage = () => {
     setShowPaymentModal(false);
     setPendingVisit(null);
     await fetchVisits();
-    toast.success('✅ Visite planifiée après paiement !');
+    toast.success('Visite planifiée après paiement !');
   };
 
   const handleStartVisit = async (visitId: string) => {
@@ -275,7 +275,7 @@ const VisitsPage = () => {
               <button
                 onClick={() => {
                   // Marquer comme vu en fermant la bannière (on peut stocker en localStorage)
-                  toast.success('✅ Les visites en brouillon sont disponibles dans l\'onglet "En attente de paiement"');
+                  toast.success('Les visites en brouillon sont disponibles dans l\'onglet "En attente de paiement"');
                 }}
                 className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
               >
