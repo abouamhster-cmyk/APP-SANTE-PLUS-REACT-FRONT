@@ -394,6 +394,30 @@ const PatientsPage = () => {
   }, [isAdmin, assignmentItems, familyAccounts, allPatients, patients]);
 
   // ============================================================
+  // FILTRAGE DES PATIENTS POUR LES FAMILLES/AIDANTS
+  // ============================================================
+
+  const filteredPatients = useMemo(() => {
+    if (isAdmin) return [];
+    
+    const search = searchTerm.trim().toLowerCase();
+    const category = categoryFilter;
+
+    return patients.filter((patient: any) => {
+      const matchSearch =
+        !search ||
+        patient.first_name?.toLowerCase().includes(search) ||
+        patient.last_name?.toLowerCase().includes(search) ||
+        patient.address?.toLowerCase().includes(search);
+
+      const matchCategory =
+        category === 'all' || patient.category === category;
+
+      return matchSearch && matchCategory;
+    });
+  }, [isAdmin, patients, searchTerm, categoryFilter]);
+
+  // ============================================================
   // TOGGLE EXPAND
   // ============================================================
 
