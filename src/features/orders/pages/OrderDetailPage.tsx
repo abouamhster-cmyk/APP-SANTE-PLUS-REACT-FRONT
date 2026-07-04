@@ -274,7 +274,7 @@ const OrderDetailPage = () => {
     setIsUpdating(true);
     try {
       await takeOrder(id);
-      toast.success('✅ Commande prise en charge');
+      toast.success('Commande prise en charge');
       fetchOrderById(id);
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la prise de commande');
