@@ -171,7 +171,7 @@ const RegistrationsPage = () => {
           
           <RefreshButton 
             onRefresh={() => {
-              toast.success('📋 Inscriptions actualisées');
+              toast.success('Inscriptions actualisées');
             }}
           />
         </div>
