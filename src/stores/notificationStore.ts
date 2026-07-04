@@ -92,7 +92,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   isInitialized: false,
   lastFetch: null,
   isCacheInvalidated: false,
-  error: null, // ✅ AJOUTÉ
+  error: null,  
 
   invalidateCache: () => {
     clearCachedNotifications();
