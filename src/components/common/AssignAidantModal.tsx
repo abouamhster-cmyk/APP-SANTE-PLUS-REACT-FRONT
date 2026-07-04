@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { supabase } from '@/lib/supabase';
 import { assignmentAPI } from '@/lib/api';
 import { getThemeColors } from '@/lib/permissions';
-import { UserPlus, Loader2, CheckCircle, XCircle, User, Users } from 'lucide-react';
+import { UserPlus, Loader2, CheckCircle, XCircle, User, Users, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AssignAidantModalProps {
@@ -32,6 +32,8 @@ interface Aidant {
   rating: number;
   specialties: string[];
   total_missions: number;
+  max_assignments: number;
+  current_assignments: number;
 }
 
 const ASSIGNMENT_TYPES = [
@@ -164,6 +166,25 @@ export const AssignAidantModal = ({
         },
       });
 
+      // ✅ Notification à la famille
+      if (targetType === 'visit') {
+        const { data: visit } = await supabase
+          .from('visites')
+          .select('user_id')
+          .eq('id', targetId)
+          .single();
+
+        if (visit?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: visit.user_id,
+            title: '✅ Aidant assigné à la visite',
+            body: `Un aidant a été assigné à votre visite pour ${targetName}.`,
+            type: 'visite',
+            data: { visit_id: targetId, action: 'info' },
+          });
+        }
+      }
+
       toast.success(`Aidant assigné avec succès à ${targetName}`);
       onSuccess();
       onClose();
@@ -272,6 +293,8 @@ export const AssignAidantModal = ({
                             <span>⭐ {aidant.rating || 0}</span>
                             <span>•</span>
                             <span>📋 {aidant.total_missions || 0} missions</span>
+                            <span>•</span>
+                            <span>{aidant.current_assignments || 0}/{aidant.max_assignments || 4}</span>
                             {aidant.specialties?.length > 0 && (
                               <>
                                 <span>•</span>
