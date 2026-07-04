@@ -23,7 +23,6 @@ import {
   History as HistoryIcon,
   Hospital,
   BookOpen,
-  Handshake,
   FileCheck,
   Package,
   Home,
@@ -103,7 +102,7 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE - CORRIGÉE
+  // NAVIGATION PAR RÔLE - UNIFIÉE
   // =============================================
   const navItems = useMemo(() => {
     const base = [
@@ -141,15 +140,15 @@ const MainLayout = () => {
       ];
     }
 
-    // 👔 ADMIN / COORDINATEUR
+    // 👔 ADMIN / COORDINATEUR - UNIFIÉ
     if (role === 'admin' || role === 'coordinator') {
       return [
         ...base,
         { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', path: '/app/admin' },
         { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
         { icon: <UserCheck size={20} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
-         { icon: <Handshake size={20} />, label: 'Assigner aidant', path: '/app/assign-aidants' },
-        { icon: <Users size={20} />, label: 'Utilisateurs', path: '/app/users' },
+        // ✅ UNIFICATION : Remplacer "Aidants", "Assigner aidant" et "Utilisateurs" par "Bénéficiaires"
+        { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients' },
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <FileCheck size={20} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
@@ -176,7 +175,7 @@ const MainLayout = () => {
       '/app': 'Tableau de bord',
       '/app/dashboard': 'Tableau de bord',
       '/app/orders': 'Commandes',
-      '/app/patients': 'Proches',
+      '/app/patients': 'Bénéficiaires',
       '/app/visits': 'Visites',
       '/app/messages': 'Messages',
       '/app/billing': 'Abonnement',
@@ -308,7 +307,6 @@ const MainLayout = () => {
               </h2>
 
               <div className="flex items-center gap-2">
-                {/* ✅ BADGE BROUILLONS */}
                 {showDraftBadge && (
                   <Link
                     to="/app/visits?filter=brouillon"
@@ -319,7 +317,6 @@ const MainLayout = () => {
                   </Link>
                 )}
 
-                {/* Badge rôle */}
                 <span
                   className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
                   style={{
