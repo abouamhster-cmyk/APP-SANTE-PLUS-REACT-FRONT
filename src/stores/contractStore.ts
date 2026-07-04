@@ -193,7 +193,7 @@ export const useContractStore = create<ContractState>((set, get) => ({
       // ✅ Notification dans la base
       await supabase.from('notifications').insert({
         user_id: user.id,
-        title: '📜 Contrat accepté',
+        title: 'Contrat accepté',
         body: `Vous avez accepté les Conditions Générales (version ${data.acceptance?.contract?.version || '1.0.0'})`,
         type: 'system',
         data: { contract_id: contractId },
