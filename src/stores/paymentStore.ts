@@ -12,10 +12,12 @@ interface CreatePaymentData {
   abonnement_id?: string;
   email?: string | null;
   is_ponctual?: boolean;
+  is_visit?: boolean;          
+  visit_id?: string | null;      
   order_data?: any;
-  patient_id?: string | null;      // ✅ NOUVEAU - optionnel
-  target_type?: 'personal' | 'patient'; // ✅ NOUVEAU
-  target_name?: string;            // ✅ NOUVEAU
+  patient_id?: string | null;
+  target_type?: 'personal' | 'patient';
+  target_name?: string;
 }
 
 // =============================================
@@ -322,7 +324,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE PAYMENT - AVEC NOUVEAUX CHAMPS
+  // CREATE PAYMENT - AVEC is_visit ET visit_id
   // =============================================
   createPayment: async (data: CreatePaymentData) => {
     try {
@@ -348,6 +350,8 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       }
 
       const isPonctual = data.is_ponctual || false;
+      const isVisit = data.is_visit || false;
+      const visitId = data.visit_id || null;
 
       // ✅ NOUVEAUX CHAMPS
       const patientId = data.patient_id || null;
@@ -355,6 +359,8 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       const targetName = data.target_name || profile?.full_name || user.email || 'Client';
 
       console.log('📤 Envoi paiement avec is_ponctual:', isPonctual);
+      console.log('📤 Envoi paiement avec is_visit:', isVisit);
+      console.log('📤 Envoi paiement avec visit_id:', visitId);
       console.log('📤 Envoi paiement avec abonnement_id:', data.abonnement_id);
       console.log('📤 Envoi paiement avec patient_id:', patientId);
       console.log('📤 Envoi paiement avec target_type:', targetType);
@@ -377,10 +383,12 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           customer_name: profile?.full_name || user.email,
           user_id: user.id,
           is_ponctual: isPonctual,
+          is_visit: isVisit,                       // ✅ AJOUTÉ
+          visit_id: visitId,                       // ✅ AJOUTÉ
           order_data: data.order_data || null,
-          patient_id: patientId,       // ✅ NOUVEAU
-          target_type: targetType,     // ✅ NOUVEAU
-          target_name: targetName,     // ✅ NOUVEAU
+          patient_id: patientId,
+          target_type: targetType,
+          target_name: targetName,
         }),
       });
 
@@ -412,6 +420,8 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
             transaction_id: String(result.transaction_id),
             payment_url: paymentUrl,
             is_ponctual: isPonctual,
+            is_visit: isVisit,
+            visit_id: visitId,
             order_data: data.order_data || null,
             patient_id: patientId,
             target_type: targetType,
