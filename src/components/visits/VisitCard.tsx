@@ -8,7 +8,6 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { formatDate } from '@/utils/helpers';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 
-// ✅ INTERFACE AVEC TOUTES LES PROPS
 interface VisitCardProps {
   visit: Visit;
   onStart?: () => void;
@@ -41,6 +40,14 @@ export const VisitCard = ({
   const colors = getThemeColors('senior');
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
+
+  // ✅ FONCTION POUR OBTENIR LE NOM DE L'AIDANT
+  const getAidantName = () => {
+    if (visit.aidant?.user?.full_name) {
+      return visit.aidant.user.full_name;
+    }
+    return 'Non assigné';
+  };
 
   const isDraft = visit.status === 'brouillon';
   const canConvertToSubscription = isDraft && hasActiveSubscription && remainingVisits > 0;
@@ -160,7 +167,7 @@ export const VisitCard = ({
               {visit.aidant && (
                 <span className="flex items-center gap-0.5">
                   <UserCheck size={11} />
-                  {visit.aidant.user?.full_name || 'Non assigné'}
+                  {getAidantName()}
                 </span>
               )}
             </div>
@@ -320,7 +327,7 @@ export const VisitCard = ({
           {visit.aidant && (
             <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: colors.text + '50' }}>
               <UserCheck size={13} />
-              <span>{visit.aidant.user?.full_name || 'Non assigné'}</span>
+              <span>{getAidantName()}</span>
             </div>
           )}
           {isDraft && (
@@ -459,7 +466,7 @@ export const VisitCard = ({
         </div>
         <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
           <User size={15} className="opacity-60" />
-          <span className="truncate">{visit.aidant?.user?.full_name || 'Non assigné'}</span>
+          <span className="truncate">{getAidantName()}</span>
         </div>
       </div>
 
