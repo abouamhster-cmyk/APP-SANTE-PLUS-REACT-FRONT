@@ -138,7 +138,7 @@ const OrdersPage = () => {
 
     try {
       await takeOrder(id);
-      toast.success('✅ Commande prise en charge');
+      toast.success('Commande prise en charge');
       // ✅ Recharger après prise de commande
       await fetchOrders();
     } catch (error: any) {
@@ -218,7 +218,7 @@ const OrdersPage = () => {
               showText={false}
               onRefresh={() => {
                 fetchOrders();
-                toast.success('🔄 Commandes actualisées');
+                toast.success('Commandes actualisées');
               }}
             />
 
