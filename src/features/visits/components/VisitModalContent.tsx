@@ -242,10 +242,10 @@ export const VisitModalContent = ({
 
       if (mode === 'create') {
         await createVisit(data);
-        toast.success(`✅ Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
+       // toast.success(`✅ Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
       } else if (visit) {
         await updateVisit(visit.id, data);
-        toast.success('✅ Visite mise à jour');
+       // toast.success('✅ Visite mise à jour');
       }
       onSuccess();
     } catch (error: any) {
