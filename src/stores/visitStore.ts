@@ -5,14 +5,46 @@ import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import { assignmentAPI } from '@/lib/api';
+import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// HELPERS DE CACHE
+// CONSTANTES
+// ============================================================
+
+const generateVisitReference = (): string => {
+  const date = new Date();
+  const year = date.getFullYear().toString().slice(-2);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const random = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `VIS-${year}${month}${day}-${random}`;
+};
+
+// ✅ PRIX DES VISITES PONCTUELLES
+const VISIT_PONCTUAL_PRICES: Record<string, number> = {
+  '30': 5000,
+  '45': 6000,
+  '60': 7500,
+  '90': 10000,
+  '120': 12500,
+};
+
+const DEFAULT_VISIT_PRICE = 7500;
+
+// ✅ EXPORTER LA FONCTION getPonctualPrice
+export const getPonctualPrice = (durationMinutes: number = 60): number => {
+  const price = VISIT_PONCTUAL_PRICES[durationMinutes.toString()];
+  if (price) return price;
+  return Math.round((durationMinutes / 60) * DEFAULT_VISIT_PRICE);
+};
+
+// ============================================================
+// CACHE HELPERS
 // ============================================================
 
 const CACHE_KEY = 'sante_plus_visits_cache';
-const CACHE_DURATION = 30000; // 30 secondes (plus court pour les visites)
+const CACHE_DURATION = 60000;
 
 const getCachedVisits = (): { data: Visit[]; timestamp: number } | null => {
   try {
@@ -78,40 +110,10 @@ interface VisitState {
   getActiveAidantForVisit: (patientId?: string, familyId?: string) => Promise<string | null>;
 }
 
-// ✅ FONCTION POUR RÉCUPÉRER L'AIDANT AVEC SON PROFIL
-const fetchAidantWithProfile = async (aidantId: string) => {
-  if (!aidantId) return null;
-  
-  const { data, error } = await supabase
-    .from('aidants')
-    .select(`
-      id,
-      user_id,
-      specialties,
-      available,
-      rating,
-      total_missions,
-      completed_missions,
-      cancelled_missions,
-      user:profiles!aidants_user_id_fkey (
-        id,
-        full_name,
-        email,
-        phone,
-        avatar_url
-      )
-    `)
-    .eq('id', aidantId)
-    .single();
-
-  if (error) {
-    console.error('❌ Erreur récupération aidant:', error);
-    return null;
-  }
-  return data;
-};
-
 export const useVisitStore = create<VisitState>((set, get) => ({
+  // ============================================================
+  // ÉTAT INITIAL
+  // ============================================================
   visits: [],
   currentVisit: null,
   isLoading: false,
@@ -120,6 +122,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   lastFetch: null,
   isCacheInvalidated: false,
 
+  // ============================================================
+  // UTILITAIRES
+  // ============================================================
   canManageVisits: () => {
     const { profile } = useAuthStore.getState();
     return profile?.role === 'admin' || profile?.role === 'coordinator';
@@ -162,155 +167,149 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // FETCH VISITS  
+  // FETCH VISITS - AVEC RÉCUPÉRATION DES AIDANTS POUR LES FAMILLES
   // ============================================================
-
-fetchVisits: async (force = false) => {
-  const state = get();
-  
-  if (state.isLoading) {
-    console.log('ℹ️ Déjà en cours de chargement, skip...');
-    return;
-  }
-
-  if (state.isCacheInvalidated) {
-    force = true;
-  }
-
-  if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
-    console.log('📦 Utilisation du cache mémoire visites');
-    return;
-  }
-
-  if (!force) {
-    const cached = getCachedVisits();
-    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-      console.log('📦 Utilisation du cache localStorage visites');
-      set({ 
-        visits: cached.data, 
-        isLoading: false, 
-        isInitialized: true,
-        lastFetch: cached.timestamp,
-        isCacheInvalidated: false,
-      });
-      return;
-    }
-  }
-
-  try {
-    set({ isLoading: true, error: null, isCacheInvalidated: false });
+  fetchVisits: async (force = false) => {
+    const state = get();
     
-    const { user, profile } = useAuthStore.getState();
-    if (!user) {
-      set({ visits: [], isLoading: false });
+    if (state.isLoading) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
       return;
     }
 
-    // ✅ Appel API
-    const response = await api.get('/visits');
-    const visitsData = response.data || [];
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
 
-    // ✅ POUR LES FAMILLES : Forcer le rechargement des aidants
-    let visitsWithFullRelations = visitsData;
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache mémoire visites');
+      return;
+    }
 
-    if (profile?.role === 'family' && visitsWithFullRelations.length > 0) {
-      // Récupérer tous les aidant_id uniques
-      const aidantIds = [...new Set(
-        visitsWithFullRelations
-          .filter((v: any) => v.aidant_id)
-          .map((v: any) => v.aidant_id)
-      )];
-
-      if (aidantIds.length > 0) {
-        // Récupérer les aidants avec leurs profils
-        const { data: aidantsData } = await supabase
-          .from('aidants')
-          .select(`
-            id,
-            user_id,
-            specialties,
-            available,
-            rating,
-            total_missions,
-            completed_missions,
-            cancelled_missions,
-            user:profiles!aidants_user_id_fkey (
-              id,
-              full_name,
-              email,
-              phone,
-              avatar_url
-            )
-          `)
-          .in('id', aidantIds);
-
-        if (aidantsData) {
-          // Créer un mapping aidant_id → aidant
-          const aidantMap = aidantsData.reduce((acc: any, a: any) => {
-            acc[a.id] = a;
-            return acc;
-          }, {});
-
-          // Remplacer les aidants dans les visites
-          visitsWithFullRelations = visitsWithFullRelations.map((visit: any) => ({
-            ...visit,
-            aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
-          }));
-        }
+    if (!force) {
+      const cached = getCachedVisits();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📦 Utilisation du cache localStorage visites');
+        set({ 
+          visits: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
       }
     }
 
-    setCachedVisits(visitsWithFullRelations);
-    
-    set({ 
-      visits: visitsWithFullRelations, 
-      isLoading: false,
-      isInitialized: true,
-      lastFetch: Date.now(),
-      isCacheInvalidated: false,
-    });
-  } catch (error: any) {
-    console.error('❌ Fetch visits error:', error);
-    
-    const cached = getCachedVisits();
-    if (cached && cached.data.length > 0) {
-      set({
-        visits: cached.data,
+    try {
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
+      
+      const { user, profile } = useAuthStore.getState();
+      if (!user) {
+        set({ visits: [], isLoading: false });
+        return;
+      }
+
+      // ✅ Appel API
+      const response = await api.get('/visits');
+      const visitsData = response.data || [];
+
+      // ✅ POUR LES FAMILLES : Forcer le rechargement des aidants
+      let visitsWithFullRelations = visitsData;
+
+      if (profile?.role === 'family' && visitsWithFullRelations.length > 0) {
+        // Récupérer tous les aidant_id uniques
+        const aidantIds = [...new Set(
+          visitsWithFullRelations
+            .filter((v: any) => v.aidant_id)
+            .map((v: any) => v.aidant_id)
+        )];
+
+        if (aidantIds.length > 0) {
+          // Récupérer les aidants avec leurs profils
+          const { data: aidantsData } = await supabase
+            .from('aidants')
+            .select(`
+              id,
+              user_id,
+              specialties,
+              available,
+              rating,
+              total_missions,
+              completed_missions,
+              cancelled_missions,
+              user:profiles!aidants_user_id_fkey (
+                id,
+                full_name,
+                email,
+                phone,
+                avatar_url
+              )
+            `)
+            .in('id', aidantIds);
+
+          if (aidantsData) {
+            // Créer un mapping aidant_id → aidant
+            const aidantMap = aidantsData.reduce((acc: any, a: any) => {
+              acc[a.id] = a;
+              return acc;
+            }, {});
+
+            // Remplacer les aidants dans les visites
+            visitsWithFullRelations = visitsWithFullRelations.map((visit: any) => ({
+              ...visit,
+              aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
+            }));
+          }
+        }
+      }
+
+      setCachedVisits(visitsWithFullRelations);
+      
+      set({ 
+        visits: visitsWithFullRelations, 
         isLoading: false,
         isInitialized: true,
-        lastFetch: cached.timestamp,
-        error: error.message || 'Erreur de chargement (cache utilisé)',
+        lastFetch: Date.now(),
         isCacheInvalidated: false,
       });
-    } else {
-      set({ error: error.message, isLoading: false, isInitialized: true });
+    } catch (error: any) {
+      console.error('❌ Fetch visits error:', error);
+      
+      const cached = getCachedVisits();
+      if (cached && cached.data.length > 0) {
+        set({
+          visits: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false, isInitialized: true });
+      }
     }
-  }
-},
+  },
 
   // ============================================================
-  // FETCH VISIT BY ID - CORRIGÉ AVEC RECHARGE
+  // FETCH VISIT BY ID
   // ============================================================
   fetchVisitById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
-      // ✅ Vérifier dans le cache d'abord
       const state = get();
       const cachedVisit = state.visits.find(v => v.id === id);
-      if (cachedVisit && cachedVisit.aidant?.user) {
-        console.log('📦 Visite trouvée dans le cache avec aidant');
+      if (cachedVisit) {
+        console.log('📦 Visite trouvée dans le cache');
         set({ currentVisit: cachedVisit, isLoading: false });
         return;
       }
 
-      // ✅ Récupérer la visite avec les relations
       const { data: visit, error } = await supabase
         .from('visites')
-        .select(`
-          *,
-          patient:patients(*)
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -322,62 +321,59 @@ fetchVisits: async (force = false) => {
         throw error;
       }
 
-      // ✅ Récupérer l'aidant si présent
+      let patient = null;
+      if (visit.patient_id) {
+        const { data: patientData } = await supabase
+          .from('patients')
+          .select('*')
+          .eq('id', visit.patient_id)
+          .single();
+        patient = patientData;
+      }
+
       let aidant = null;
       if (visit.aidant_id) {
         const { data: aidantData } = await supabase
           .from('aidants')
-          .select(`
-            id,
-            user_id,
-            specialties,
-            available,
-            rating,
-            total_missions,
-            completed_missions,
-            cancelled_missions,
-            user:profiles!aidants_user_id_fkey (
-              id,
-              full_name,
-              email,
-              phone,
-              avatar_url
-            )
-          `)
+          .select('*')
           .eq('id', visit.aidant_id)
           .single();
-
+        
         if (aidantData) {
-          aidant = aidantData;
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', aidantData.user_id)
+            .single();
+          
+          aidant = {
+            ...aidantData,
+            user: userData || null,
+          };
         }
       }
 
       const fullVisit = {
         ...visit,
+        patient,
         aidant,
       };
 
-      // ✅ Mettre à jour le cache mémoire
-      set((state) => ({
-        visits: state.visits.map(v => v.id === id ? fullVisit : v),
-        currentVisit: fullVisit,
-        isLoading: false,
-      }));
-
+      set({ currentVisit: fullVisit, isLoading: false });
     } catch (error: any) {
-      console.error('❌ fetchVisitById error:', error);
+      console.error('❌ Fetch visit error:', error);
       set({ error: error.message, isLoading: false });
     }
   },
 
   // ============================================================
-  // CREATE VISIT
+  // CREATE VISIT - CORRIGÉ
   // ============================================================
   createVisit: async (data: Partial<Visit> & { 
     target_type?: 'personal' | 'patient'; 
     target_name?: string;
     target_user_id?: string;
-  }) => {
+  }): Promise<Visit> => {
     try {
       set({ isLoading: true, error: null });
       
@@ -388,24 +384,184 @@ fetchVisits: async (force = false) => {
         throw new Error('Les aidants ne peuvent pas créer de visites');
       }
 
-      // ... (reste du code de création inchangé)
+      // ✅ Déterminer target_type et target_name
+      const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
+      const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
+      const targetUserId = data.target_user_id || (data.patient_id ? null : user.id);
 
-      // ✅ Après création, invalider le cache et recharger
+      const isPonctual = data.visit_type === 'ponctuelle' || false;
+      let status: VisitStatus = 'planifiee';
+      let requiresPayment = false;
+      let paymentAmount = 0;
+
+      if (isPonctual) {
+        requiresPayment = true;
+        status = 'brouillon';
+        paymentAmount = getPonctualPrice(data.duration_minutes || 60);
+      } else {
+        const { data: subscription } = await supabase
+          .from('abonnements')
+          .select('id, remaining_visits, status')
+          .eq('user_id', targetUserId || user.id)
+          .eq('status', 'actif')
+          .maybeSingle();
+
+        if (!subscription || subscription.remaining_visits <= 0) {
+          requiresPayment = true;
+          status = 'brouillon';
+          paymentAmount = getPonctualPrice(data.duration_minutes || 60);
+        }
+      }
+
+      // ✅ Récupérer l'aidant actif
+      let finalAidantId = data.aidant_id || null;
+      let autoAssigned = false;
+
+      if (!finalAidantId && status !== 'brouillon') {
+        const patientId = data.patient_id || undefined;
+        const familyId = targetUserId || user.id;
+        
+        finalAidantId = await get().getActiveAidantForVisit(
+          patientId ?? undefined, 
+          familyId ?? undefined
+        );
+        autoAssigned = !!finalAidantId;
+        
+        if (finalAidantId) {
+          console.log(`✅ Aidant automatique trouvé pour la visite: ${finalAidantId}`);
+        }
+      }
+
+      const visitData = {
+        reference: generateVisitReference(),
+        user_id: targetUserId || user.id,
+        patient_id: data.patient_id || null,
+        target_type: targetType,
+        target_name: targetName,
+        aidant_id: finalAidantId,
+        coordinator_id: profile?.role === 'family' ? null : user.id,
+        scheduled_date: data.scheduled_date,
+        scheduled_time: data.scheduled_time,
+        duration_minutes: data.duration_minutes || 60,
+        status: status,
+        is_draft: requiresPayment,
+        requires_payment: requiresPayment,           
+        is_urgent: data.is_urgent || false,
+        requested_by: user.id,
+        actions: data.actions || [],
+        notes: data.notes || null,
+        visit_type: data.visit_type || 'ponctuelle',
+        assignment_type: data.assignment_type || 'ponctuelle',
+        draft_expires_at: requiresPayment ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
+        metadata: {
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          is_ponctual: isPonctual || requiresPayment,
+          requires_payment: requiresPayment,
+          is_draft: requiresPayment,
+          payment_amount: requiresPayment ? paymentAmount : null,
+          scheduled_from_draft: false,
+          target_user_id: targetUserId || user.id,
+          auto_assigned_aidant: autoAssigned,
+        }
+      };
+
+      console.log('📤 Données visite envoyées:', JSON.stringify(visitData, null, 2));
+
+      const { data: newVisit, error } = await supabase
+        .from('visites')
+        .insert(visitData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Erreur création visite:', error);
+        throw error;
+      }
+
+      // ✅ Récupérer les relations
+      let patient = null;
+      let aidant = null;
+
+      if (newVisit.patient_id) {
+        const { data: patientData } = await supabase
+          .from('patients')
+          .select('*')
+          .eq('id', newVisit.patient_id)
+          .single();
+        patient = patientData;
+      }
+
+      if (newVisit.aidant_id) {
+        const { data: aidantData } = await supabase
+          .from('aidants')
+          .select('*, user:profiles!user_id(*)')
+          .eq('id', newVisit.aidant_id)
+          .single();
+        aidant = aidantData;
+      }
+
+      const fullVisit = {
+        ...newVisit,
+        patient,
+        aidant,
+      };
+
       get().invalidateCache();
       await get().fetchVisits(true);
 
-      set({ isLoading: false });
-      // ... (reste du code)
+      const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
 
+      // ✅ NOTIFICATIONS
+      if (requiresPayment) {
+        await supabase.from('notifications').insert({
+          user_id: targetUserId || user.id,
+          title: '💳 Paiement requis pour planifier la visite',
+          body: `Un paiement de ${paymentAmount} FCFA est requis pour planifier la visite de ${targetDisplay}.`,
+          type: 'visite',
+          data: { 
+            visit_id: newVisit.id, 
+            status: 'brouillon', 
+            action: 'pay',
+            amount: paymentAmount,
+            requires_payment: true,
+          },
+        });
+
+        set({ isLoading: false });
+        return fullVisit;
+      }
+
+      // ✅ Pas de paiement requis
+      if (finalAidantId) {
+        await supabase.from('notifications').insert({
+          user_id: finalAidantId,
+          title: '📅 Nouvelle visite à valider',
+          body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
+          type: 'visite',
+          data: { visit_id: newVisit.id, action: 'approve' },
+        });
+      }
+
+      await supabase.from('notifications').insert({
+        user_id: targetUserId || user.id,
+        title: '📅 Nouvelle visite planifiée',
+        body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
+        type: 'visite',
+        data: { visit_id: newVisit.id, status: 'planifiee' },
+      });
+
+      set({ isLoading: false });
+      return fullVisit;
     } catch (error: any) {
-      console.error('❌ createVisit error:', error);
+      console.error('❌ Create visit error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
   },
 
   // ============================================================
-  // CONFIRMER PAIEMENT - AVEC RECHARGE FORCÉE
+  // CONFIRMER PAIEMENT - BROUILLON → PLANIFIEE
   // ============================================================
   confirmPayment: async (id: string, transactionId: string): Promise<Visit> => {
     try {
@@ -417,7 +573,7 @@ fetchVisits: async (force = false) => {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/confirm-payment`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api'}/visits/${id}/confirm-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -433,21 +589,18 @@ fetchVisits: async (force = false) => {
 
       const result = await response.json();
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
       get().invalidateCache();
       await get().fetchVisits(true);
 
-      // ✅ Récupérer la visite à jour avec toutes les relations
-      await get().fetchVisitById(id);
-
       set({ 
+        currentVisit: result.visit,
         isLoading: false,
       });
 
       toast.success('✅ Visite planifiée après paiement !');
       return result.visit;
     } catch (error: any) {
-      console.error('❌ confirmPayment error:', error);
+      console.error('❌ Confirm payment error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
       throw error;
@@ -455,7 +608,75 @@ fetchVisits: async (force = false) => {
   },
 
   // ============================================================
-  // APPROUVER UNE VISITE - AVEC RECHARGE FORCÉE
+  // UPDATE VISIT
+  // ============================================================
+  updateVisit: async (id: string, data: Partial<Visit>) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { profile } = useAuthStore.getState();
+      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
+        throw new Error('Non autorisé');
+      }
+
+      const { data: visit, error } = await supabase
+        .from('visites')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ 
+        currentVisit: { ...get().currentVisit, ...visit },
+        isLoading: false,
+      });
+
+      toast.success('Visite mise à jour');
+    } catch (error: any) {
+      console.error('❌ Update visit error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
+    }
+  },
+
+  // ============================================================
+  // DELETE VISIT
+  // ============================================================
+  deleteVisit: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { profile } = useAuthStore.getState();
+      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
+        throw new Error('Non autorisé');
+      }
+
+      const { error } = await supabase
+        .from('visites')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ isLoading: false });
+      toast.success('Visite supprimée');
+    } catch (error: any) {
+      console.error('❌ Delete visit error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
+    }
+  },
+
+  // ============================================================
+  // APPROUVER UNE VISITE
   // ============================================================
   approveVisit: async (id: string) => {
     try {
@@ -464,38 +685,49 @@ fetchVisits: async (force = false) => {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select('*, patient:patients!visites_patient_id_fkey(*)')
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      if (fetchError) throw fetchError;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de l\'approbation');
+      if (visit.aidant_id !== user.id) {
+        throw new Error('Vous n\'êtes pas assigné à cette visite');
       }
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
+      if (visit.status !== 'planifiee') {
+        throw new Error('Cette visite ne peut pas être approuvée');
+      }
+
+      const { data, error } = await supabase
+        .from('visites')
+        .update({
+          status: 'acceptee',
+          approved_by: user.id,
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      await get().fetchVisitById(id);
 
       set({ isLoading: false });
       toast.success('✅ Visite approuvée');
     } catch (error: any) {
-      console.error('❌ approveVisit error:', error);
+      console.error('❌ Approve visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
   },
 
   // ============================================================
-  // REFUSER UNE VISITE - AVEC RECHARGE FORCÉE
+  // REFUSER UNE VISITE
   // ============================================================
   refuseVisit: async (id: string, reason: string) => {
     try {
@@ -504,39 +736,46 @@ fetchVisits: async (force = false) => {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select('*, patient:patients!visites_patient_id_fkey(*), aidant:aidants!visites_aidant_id_fkey(*)')
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/refuse`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reason }),
-      });
+      if (fetchError) throw fetchError;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors du refus');
+      if (visit.aidant_id !== user.id) {
+        throw new Error('Vous n\'êtes pas assigné à cette visite');
       }
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
+      const { data, error } = await supabase
+        .from('visites')
+        .update({
+          status: 'refusee',
+          refused_by: user.id,
+          refused_at: new Date().toISOString(),
+          refusal_reason: reason || 'Non spécifié',
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      await get().fetchVisitById(id);
 
       set({ isLoading: false });
       toast.error('❌ Visite refusée');
     } catch (error: any) {
-      console.error('❌ refuseVisit error:', error);
+      console.error('❌ Refuse visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
   },
 
   // ============================================================
-  // RÉASSIGNER UNE VISITE - AVEC RECHARGE FORCÉE
+  // RÉASSIGNER UNE VISITE
   // ============================================================
   reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
     try {
@@ -549,42 +788,46 @@ fetchVisits: async (force = false) => {
         throw new Error('Non autorisé');
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select('*, patient:patients!visites_patient_id_fkey(*)')
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/reassign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ 
-          aidant_id: newAidantId, 
-          assignment_type: assignmentType 
-        }),
-      });
+      if (fetchError) throw fetchError;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la réassignation');
-      }
+      const { data, error } = await supabase
+        .from('visites')
+        .update({
+          aidant_id: newAidantId,
+          status: 'planifiee',
+          assignment_type: assignmentType || 'ponctuelle',
+          approved_at: null,
+          refused_at: null,
+          refusal_reason: null,
+          assigned_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
+      if (error) throw error;
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      await get().fetchVisitById(id);
 
       set({ isLoading: false });
       toast.success('✅ Visite réassignée');
     } catch (error: any) {
-      console.error('❌ reassignVisit error:', error);
+      console.error('❌ Reassign visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
   },
 
   // ============================================================
-  // DÉMARRER UNE VISITE - AVEC RECHARGE FORCÉE
+  // START VISIT
   // ============================================================
   startVisit: async (id: string) => {
     try {
@@ -593,38 +836,45 @@ fetchVisits: async (force = false) => {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select('aidant_id')
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      if (fetchError) throw fetchError;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors du démarrage');
+      if (visit.aidant_id !== user.id) {
+        throw new Error('Vous n\'êtes pas assigné à cette visite');
       }
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('visites')
+        .update({
+          status: 'en_cours',
+          start_time: now,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      await get().fetchVisitById(id);
 
       set({ isLoading: false });
       toast.success('🚀 Visite démarrée');
     } catch (error: any) {
-      console.error('❌ startVisit error:', error);
+      console.error('❌ Start visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
   },
 
   // ============================================================
-  // TERMINER UNE VISITE - AVEC RECHARGE FORCÉE
+  // COMPLETE VISIT
   // ============================================================
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
     try {
@@ -633,39 +883,50 @@ fetchVisits: async (force = false) => {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select('aidant_id')
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
+      if (fetchError) throw fetchError;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la finalisation');
+      if (visit.aidant_id !== user.id) {
+        throw new Error('Vous n\'êtes pas assigné à cette visite');
       }
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
+      const now = new Date().toISOString();
+      const updateData = {
+        status: 'terminee',
+        end_time: now,
+        actions: data.actions || [],
+        notes: data.notes || null,
+        report: data.notes || null,
+      };
+
+      const { data: updatedVisit, error } = await supabase
+        .from('visites')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      await get().fetchVisitById(id);
 
       set({ isLoading: false });
-      toast.success('✅ Visite terminée');
+      toast.success('✅ Visite terminée, en attente de validation');
     } catch (error: any) {
-      console.error('❌ completeVisit error:', error);
+      console.error('❌ Complete visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
   },
 
   // ============================================================
-  // VALIDER UNE VISITE - AVEC RECHARGE FORCÉE
+  // VALIDATE VISIT
   // ============================================================
   validateVisit: async (id: string) => {
     try {
@@ -676,38 +937,73 @@ fetchVisits: async (force = false) => {
         throw new Error('Non autorisé');
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select('status, user_id, metadata')
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/validate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      if (fetchError) throw fetchError;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la validation');
+      if (visit.status !== 'terminee') {
+        throw new Error('Seules les visites terminées peuvent être validées');
       }
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
+      const { data, error } = await supabase
+        .from('visites')
+        .update({
+          status: 'validee',
+          metadata: {
+            ...(visit.metadata || {}),
+            validated_by: profile.id,
+            validated_at: new Date().toISOString(),
+          }
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // ✅ VÉRIFIER SI VISITE PONCTUELLE PAYÉE
+      const isPonctual = visit.metadata?.is_ponctual === true || visit.metadata?.is_draft === true;
+      const wasPaid = visit.metadata?.payment_completed === true;
+
+      // ✅ Si visite ponctuelle payée, NE PAS DÉCOMPTER
+      if (!isPonctual || !wasPaid) {
+        const { data: subscription, error: subError } = await supabase
+          .from('abonnements')
+          .select('id, remaining_visits, used_visits, total_visits, user_id')
+          .eq('user_id', visit.user_id)
+          .eq('status', 'actif')
+          .maybeSingle();
+
+        if (subscription && !subError && subscription.remaining_visits > 0) {
+          await supabase
+            .from('abonnements')
+            .update({
+              used_visits: subscription.used_visits + 1,
+              remaining_visits: subscription.remaining_visits - 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', subscription.id);
+        }
+      }
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      await get().fetchVisitById(id);
 
       set({ isLoading: false });
       toast.success('✅ Visite validée');
     } catch (error: any) {
-      console.error('❌ validateVisit error:', error);
+      console.error('❌ Validate visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
   },
 
   // ============================================================
-  // ANNULER UNE VISITE - AVEC RECHARGE FORCÉE
+  // CANCEL VISIT
   // ============================================================
   cancelVisit: async (id: string) => {
     try {
@@ -716,53 +1012,186 @@ fetchVisits: async (force = false) => {
       const { user, profile } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
+      const { data: visit, error: fetchError } = await supabase
+        .from('visites')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/visits/${id}/cancel`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      if (fetchError) throw fetchError;
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de l\'annulation');
+      let canCancel = false;
+      if (profile?.role === 'admin' || profile?.role === 'coordinator') {
+        canCancel = true;
+      } else if (profile?.role === 'family') {
+        if (visit.user_id === user.id) {
+          canCancel = true;
+        } else if (visit.patient_id) {
+          const { data: assignment } = await supabase
+            .from('aidant_assignments')
+            .select('id')
+            .eq('target_type', 'patient')
+            .eq('target_id', visit.patient_id)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (assignment) {
+            canCancel = true;
+          } else {
+            const { data: link } = await supabase
+              .from('patient_family_links')
+              .select('id')
+              .eq('family_id', user.id)
+              .eq('patient_id', visit.patient_id)
+              .maybeSingle();
+            canCancel = !!link;
+          }
+        }
       }
 
-      // ✅ INVALIDER LE CACHE ET RECHARGER FORCÉMENT
+      if (!canCancel) {
+        throw new Error('Non autorisé à annuler cette visite');
+      }
+
+      const { data, error } = await supabase
+        .from('visites')
+        .update({
+          status: 'annulee',
+          metadata: {
+            ...(visit.metadata || {}),
+            cancelled_by: user.id,
+            cancelled_at: new Date().toISOString(),
+          }
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      await get().fetchVisitById(id);
 
       set({ isLoading: false });
       toast.success('Visite annulée');
     } catch (error: any) {
-      console.error('❌ cancelVisit error:', error);
+      console.error('❌ Cancel visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
     }
   },
 
   // ============================================================
-  // AUTRES MÉTHODES
+  // GET PENDING VISITS
   // ============================================================
   getPendingVisits: async () => {
-    // ... (inchangé)
-    return [];
+    try {
+      set({ isLoading: true, error: null });
+
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        set({ isLoading: false });
+        return [];
+      }
+
+      const { data: aidant } = await supabase
+        .from('aidants')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!aidant) {
+        set({ isLoading: false });
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
+        `)
+        .eq('aidant_id', aidant.id)
+        .eq('status', 'planifiee')
+        .is('approved_at', null)
+        .is('refused_at', null)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get pending visits error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
   },
 
+  // ============================================================
+  // GET VISITS NEEDING REASSIGN
+  // ============================================================
   getVisitsNeedingReassign: async () => {
-    // ... (inchangé)
-    return [];
+    try {
+      set({ isLoading: true, error: null });
+
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
+        `)
+        .or(`status.eq.refusee, and(status.eq.planifiee, created_at.lt.${twentyFourHoursAgo.toISOString()}, approved_at.is.null, refused_at.is.null)`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get visits needing reassign error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
   },
 
+  // ============================================================
+  // GET VISITS BY PATIENT
+  // ============================================================
   getVisitsByPatient: async (patientId: string) => {
-    // ... (inchangé)
-    return [];
+    try {
+      set({ isLoading: true, error: null });
+
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients!visites_patient_id_fkey(*),
+          aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
+        `)
+        .eq('patient_id', patientId)
+        .order('scheduled_date', { ascending: true });
+
+      if (error) throw error;
+
+      set({ isLoading: false });
+      return data || [];
+    } catch (error: any) {
+      console.error('❌ Get visits by patient error:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
   },
 
+  // ============================================================
+  // CLEAR ERROR
+  // ============================================================
   clearError: () => set({ error: null }),
 }));
+
+export default useVisitStore;
