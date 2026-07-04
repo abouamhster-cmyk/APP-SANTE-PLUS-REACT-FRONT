@@ -561,6 +561,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 // ============================================================
 // FETCH ORDERS -  AVEC RECHARGE DES RELATIONS
 // ============================================================
+ 
 fetchOrders: async (force = false) => {
   const state = get();
   
@@ -569,7 +570,9 @@ fetchOrders: async (force = false) => {
     return;
   }
 
-  if (state.isCacheInvalidated) force = true;
+  if (state.isCacheInvalidated) {
+    force = true;
+  }
 
   if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
     console.log('📦 Utilisation du cache mémoire commandes');
@@ -600,125 +603,71 @@ fetchOrders: async (force = false) => {
       return;
     }
 
-    console.log('🔍 fetchOrders - Début pour rôle:', profile?.role);
+    // ✅ Appel API
+    const response = await api.get('/orders');
+    const ordersData = response.data || [];
 
-    // ✅ 1. Récupérer les IDs des patients de la famille
-    let patientIds: string[] = [];
-    if (profile?.role === 'family') {
-      const { data: links } = await supabase
-        .from('patient_family_links')
-        .select('patient_id')
-        .eq('family_id', user.id);
-      patientIds = links?.map(l => l.patient_id).filter(Boolean) || [];
-      console.log('📋 Patient IDs de la famille:', patientIds);
-    }
+    // ✅ POUR LES FAMILLES : Forcer le rechargement des aidants
+    let ordersWithFullRelations = ordersData;
 
-    // ✅ 2. Construire la requête
-    let query = supabase
-      .from('commandes')
-      .select(`
-        *,
-        patient:patients(*)
-      `);
+    if (profile?.role === 'family' && ordersWithFullRelations.length > 0) {
+      // Récupérer tous les aidant_id uniques
+      const aidantIds = [...new Set(
+        ordersWithFullRelations
+          .filter((o: any) => o.aidant_id)
+          .map((o: any) => o.aidant_id)
+      )];
 
-    // ✅ 3. Appliquer les filtres selon le rôle
-    if (profile?.role === 'admin' || profile?.role === 'coordinator') {
-      // Toutes les commandes
-      console.log('👔 Admin/Coord - Toutes les commandes');
-    } else if (profile?.role === 'family') {
-      if (patientIds.length > 0) {
-        query = query.or(`patient_id.in.(${patientIds.join(',')}), user_id.eq.${user.id}`);
-      } else {
-        query = query.eq('user_id', user.id);
-      }
-      console.log('👨‍👩‍👦 Famille - Commandes filtrées');
-    } else if (profile?.role === 'aidant') {
-      const { data: aidant } = await supabase
-        .from('aidants')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (aidant) {
-        query = query.eq('aidant_id', aidant.id);
-        console.log('🦸 Aidant - Commandes assignées');
-      } else {
-        set({ orders: [], isLoading: false, isInitialized: true });
-        return;
-      }
-    }
-
-    const { data: ordersData, error } = await query.order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    console.log(`📋 ${ordersData?.length || 0} commandes récupérées (brutes)`);
-
-    // ✅ 4. RÉCUPÉRER LES AIDANTS AVEC LEURS PROFILS
-    const aidantIds = [...new Set(
-      (ordersData || [])
-        .filter(o => o.aidant_id)
-        .map(o => o.aidant_id)
-    )];
-
-    let aidantMap: Record<string, any> = {};
-
-    if (aidantIds.length > 0) {
-      console.log(`📋 Récupération de ${aidantIds.length} aidants...`);
-      const { data: aidantsData, error: aidantsError } = await supabase
-        .from('aidants')
-        .select(`
-          id,
-          user_id,
-          specialties,
-          available,
-          rating,
-          total_missions,
-          completed_missions,
-          cancelled_missions,
-          user:profiles!aidants_user_id_fkey (
+      if (aidantIds.length > 0) {
+        // Récupérer les aidants avec leurs profils
+        const { data: aidantsData } = await supabase
+          .from('aidants')
+          .select(`
             id,
-            full_name,
-            email,
-            phone,
-            avatar_url
-          )
-        `)
-        .in('id', aidantIds);
+            user_id,
+            specialties,
+            available,
+            rating,
+            total_missions,
+            completed_missions,
+            cancelled_missions,
+            user:profiles!aidants_user_id_fkey (
+              id,
+              full_name,
+              email,
+              phone,
+              avatar_url
+            )
+          `)
+          .in('id', aidantIds);
 
-      if (aidantsError) {
-        console.error('❌ Erreur récupération aidants:', aidantsError);
-      } else if (aidantsData) {
-        aidantMap = aidantsData.reduce((acc, a) => {
-          acc[a.id] = a;
-          return acc;
-        }, {});
-        console.log(`✅ ${Object.keys(aidantMap).length} aidants récupérés`);
+        if (aidantsData) {
+          // Créer un mapping aidant_id → aidant
+          const aidantMap = aidantsData.reduce((acc: any, a: any) => {
+            acc[a.id] = a;
+            return acc;
+          }, {});
+
+          // Remplacer les aidants dans les commandes
+          ordersWithFullRelations = ordersWithFullRelations.map((order: any) => ({
+            ...order,
+            aidant: order.aidant_id ? aidantMap[order.aidant_id] || null : null,
+          }));
+        }
       }
     }
 
-    // ✅ 5. Fusionner les données
-    const ordersWithAidants = (ordersData || []).map(order => ({
-      ...order,
-      aidant: order.aidant_id ? aidantMap[order.aidant_id] || null : null,
-    }));
-
-    // ✅ 6. Mettre en cache
-    setCachedOrders(ordersWithAidants);
+    setCachedOrders(ordersWithFullRelations);
     
-    set({
-      orders: ordersWithAidants,
+    set({ 
+      orders: ordersWithFullRelations || [], 
       isLoading: false,
       isInitialized: true,
       lastFetch: Date.now(),
       isCacheInvalidated: false,
-      error: null,
     });
-
-    console.log(`✅ ${ordersWithAidants.length} commandes chargées avec aidants`);
-
   } catch (error: any) {
-    console.error('❌ fetchOrders error:', error);
+    console.error('❌ Fetch orders error:', error);
     
     const cached = getCachedOrders();
     if (cached && cached.data.length > 0) {
@@ -731,7 +680,7 @@ fetchOrders: async (force = false) => {
         isCacheInvalidated: false,
       });
     } else {
-      set({ error: error.message, isLoading: false, isInitialized: true });
+      set({ error: error.message, isLoading: false });
     }
   }
 },
