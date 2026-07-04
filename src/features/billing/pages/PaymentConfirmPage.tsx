@@ -181,9 +181,12 @@ const PaymentConfirmPage = () => {
             setVisitId(vId);
             setIsVisit(true);
             
-            // ✅ Vérifier le statut de la visite
-            const { data: visit } = await useVisitStore.getState().fetchVisitById(vId);
-            if (visit && visit.status !== 'brouillon') {
+            // ✅ Récupérer le currentVisit du store après fetch
+            await useVisitStore.getState().fetchVisitById(vId);
+            const currentVisit = useVisitStore.getState().currentVisit;
+            
+            // ✅ Vérifier si la visite n'est plus en brouillon
+            if (currentVisit && currentVisit.status !== 'brouillon') {
               setStatus('success');
               setMessage('✅ Votre visite a été planifiée avec succès !');
               sessionStorage.removeItem('pending_visit_payment');
