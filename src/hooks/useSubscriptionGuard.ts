@@ -1,5 +1,5 @@
 // 📁 src/hooks/useSubscriptionGuard.ts
- 
+
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
@@ -16,7 +16,6 @@ interface SubscriptionStatus {
   totalOrders: number;
   startDate: string | null;
   endDate: string | null;
-  // ✅ AJOUTER role
   role: string | null;
 }
 
@@ -34,7 +33,7 @@ export const useSubscriptionGuard = () => {
     totalOrders: 0,
     startDate: null,
     endDate: null,
-    role: role, // ✅ AJOUTER role
+    role: role,
   });
 
   useEffect(() => {
