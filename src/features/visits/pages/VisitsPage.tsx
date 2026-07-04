@@ -155,10 +155,12 @@ const VisitsPage = () => {
     setShowAssignModal(true);
   };
 
-  const handleAssignAidantSuccess = async () => {
-    await fetchVisits();
-    toast.success('Aidant assigné avec succès');
-  };
+const handleAssignAidantSuccess = async () => {
+  // ✅ Forcer l'invalidation du cache et le rechargement
+  useVisitStore.getState().invalidateCache();
+  await fetchVisits(true);
+  toast.success('Aidant assigné avec succès');
+};
 
   const handleAdd = () => {
     if (!canPlanify) {
