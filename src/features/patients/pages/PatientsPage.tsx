@@ -366,48 +366,45 @@ const PatientsPage = () => {
   }, [isAdmin, filteredItems]);
 
   // ============================================================
-  // STATISTIQUES (admin)
+  // STATISTIQUES (admin) - CORRIGÉES
   // ============================================================
 
- 
+  const stats = useMemo(() => {
+    if (!isAdmin) {
+      return {
+        totalBeneficiaires: patients.length,
+        assignedCount: 0,
+        unassignedCount: patients.length,
+        totalFamilies: 0,
+        patientsCount: patients.length,
+      };
+    }
 
-const stats = useMemo(() => {
-  if (!isAdmin) {
+    // ✅ CORRECTION : Total bénéficiaires = TOUS les comptes + TOUS les patients
+    const totalFamilies = familyAccounts.length;
+    const totalPatients = allPatients.length;
+    const totalBeneficiaires = totalFamilies + totalPatients;
+    
+    // ✅ Compter les assignations actives
+    const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
+    const unassignedCount = totalBeneficiaires - assignedCount;
+
+    console.log('📊 PatientsPage - Stats:', {
+      totalFamilies,
+      totalPatients,
+      totalBeneficiaires,
+      assignedCount,
+      unassignedCount,
+    });
+
     return {
-      totalBeneficiaires: patients.length,
-      assignedCount: 0,
-      unassignedCount: 0,
-      totalFamilies: 0,
-      patientsCount: patients.length,
+      totalBeneficiaires,
+      assignedCount,
+      unassignedCount,
+      totalFamilies,
+      patientsCount: totalPatients,
     };
-  }
-
-  //  Compter TOUTES les familles
-  const totalFamilies = familyAccounts.length;
-  const totalPatients = allPatients.length;
-  
-  //  Total bénéficiaires = TOUS les comptes + TOUS les patients
-  const totalBeneficiaires = totalFamilies + totalPatients;
-  
-  const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
-  const unassignedCount = totalBeneficiaires - assignedCount;
-
-  console.log('📊 PatientsPage - Stats:', {
-    totalFamilies,
-    totalPatients,
-    totalBeneficiaires,
-    assignedCount,
-    unassignedCount,
-  });
-
-  return {
-    totalBeneficiaires,
-    assignedCount,
-    unassignedCount,
-    totalFamilies,
-    patientsCount: totalPatients,
-  };
-}, [isAdmin, assignmentItems, familyAccounts, allPatients, patients]);
+  }, [isAdmin, assignmentItems, familyAccounts, allPatients, patients]);
 
   // ============================================================
   // FILTRAGE DES PATIENTS POUR LES FAMILLES/AIDANTS
