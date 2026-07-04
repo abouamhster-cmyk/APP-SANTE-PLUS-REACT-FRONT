@@ -538,7 +538,7 @@ function App() {
                 lineHeight: 1.35,
               },
               success: {
-                icon: '✅',
+                icon: '',
                 style: {
                   border: '1px solid rgba(16,185,129,.38)',
                   background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
@@ -546,7 +546,7 @@ function App() {
                 },
               },
               error: {
-                icon: '❌',
+                icon: '',
                 duration: 4800,
                 style: {
                   border: '1px solid rgba(239,68,68,.42)',
@@ -555,7 +555,7 @@ function App() {
                 },
               },
               loading: {
-                icon: '⏳',
+                icon: '',
                 style: {
                   border: '1px solid rgba(245,158,11,.38)',
                   background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
