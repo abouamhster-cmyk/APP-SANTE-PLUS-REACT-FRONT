@@ -1,11 +1,11 @@
 // 📁 src/components/orders/OrderCard.tsx
- 
+
 import { useState } from 'react';
 import { Order } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatCurrency } from '@/utils/helpers';
-import { Eye, Package, Truck, CheckCircle, XCircle, Clock, Image, Play, AlertCircle, ShoppingBag, User } from 'lucide-react';
+import { Eye, Package, Truck, CheckCircle, XCircle, Clock, Image, Play, AlertCircle, ShoppingBag, User, UserPlus } from 'lucide-react';
 
 interface OrderCardProps {
   order: Order;
@@ -13,6 +13,7 @@ interface OrderCardProps {
   onTakeOrder?: () => void;
   onView?: () => void;
   onClick?: () => void;
+  onShowAssignAidantModal?: (order: Order) => void;
   showActions?: boolean;
   compact?: boolean;
 }
@@ -23,6 +24,7 @@ export const OrderCard = ({
   onTakeOrder,
   onView,
   onClick,
+  onShowAssignAidantModal,
   showActions = false,
   compact = false 
 }: OrderCardProps) => {
@@ -91,6 +93,8 @@ export const OrderCard = ({
   const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
   const canDeliver = isInProgress && (isAidant || isAdminOrCoordinator);
   const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
+  const canAssignAidant = (isAdminOrCoordinator || isAidant) && 
+    ['creee', 'en_attente', 'disponible'].includes(order.status);
 
   const handleStatusChange = (status: string) => {
     if (isProcessing || !onStatusChange) return;
@@ -199,6 +203,18 @@ export const OrderCard = ({
                 title="Livrer"
               >
                 <Truck size={14} />
+              </button>
+            )}
+
+            {/* ✅ ADMIN : Assigner un aidant */}
+            {showActions && canAssignAidant && onShowAssignAidantModal && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(order); }}
+                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                style={{ background: '#8B5CF6' }}
+                title="Assigner un aidant"
+              >
+                <UserPlus size={14} />
               </button>
             )}
 
@@ -312,6 +328,18 @@ export const OrderCard = ({
             >
               <Truck size={14} />
               Livrer
+            </button>
+          )}
+
+          {/* ✅ ADMIN : Assigner un aidant */}
+          {showActions && canAssignAidant && onShowAssignAidantModal && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(order); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              style={{ background: '#8B5CF6' }}
+            >
+              <UserPlus size={14} />
+              Assigner
             </button>
           )}
 
