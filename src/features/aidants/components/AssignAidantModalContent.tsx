@@ -109,7 +109,7 @@ export const AssignAidantModalContent = ({
         ? patients.find(p => p.id === selectedPatientId)?.first_name || 'le patient'
         : 'votre compte personnel';
 
-      toast.success(`✅ Aidant assigné à ${targetName} !`);
+      toast.success(`Aidant assigné à ${targetName} !`);
       onSuccess();
     } catch (error: any) {
       console.error('❌ Assignation error:', error);
