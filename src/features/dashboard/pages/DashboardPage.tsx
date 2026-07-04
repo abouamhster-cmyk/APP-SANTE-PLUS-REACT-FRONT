@@ -213,46 +213,59 @@ const DashboardPage = () => {
   const hasDrafts = drafts.length > 0;
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
-  // ✅ CHARGER LES STATS BENEFICIAIRES
-  const fetchBeneficiairesStats = async () => {
-    setIsLoadingBeneficiaires(true);
-    try {
-      const { count: patientsCount } = await supabase
-        .from('patients')
-        .select('*', { count: 'exact', head: true });
+// ✅ CHARGER LES STATS BENEFICIAIRES - CORRIGÉ
+const fetchBeneficiairesStats = async () => {
+  setIsLoadingBeneficiaires(true);
+  try {
+    // 1. Compter les patients
+    const { count: patientsCount } = await supabase
+      .from('patients')
+      .select('*', { count: 'exact', head: true });
 
-      const { data: familyLinks } = await supabase
-        .from('patient_family_links')
-        .select('family_id');
+    // 2. Récupérer les familles (comptes)
+    const { data: familyLinks } = await supabase
+      .from('patient_family_links')
+      .select('family_id');
 
-      const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
+    const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
 
-      const { data: allFamilies, error: familiesError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'family');
+    const { data: allFamilies, error: familiesError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'family');
 
-      if (familiesError) {
-        console.error('❌ Erreur récupération familles:', familiesError);
-      }
-
-      const personalAccounts = (allFamilies || []).filter(
-        (f: any) => !familyIdsWithPatients.has(f.id)
-      );
-      const personalAccountsCount = personalAccounts.length;
-      const totalBeneficiaires = (patientsCount || 0) + personalAccountsCount;
-
-      setBeneficiairesStats({
-        patientsCount: patientsCount || 0,
-        personalAccountsCount: personalAccountsCount || 0,
-        totalBeneficiaires: totalBeneficiaires,
-      });
-    } catch (error) {
-      console.error('❌ Erreur récupération stats bénéficiaires:', error);
-    } finally {
-      setIsLoadingBeneficiaires(false);
+    if (familiesError) {
+      console.error('❌ Erreur récupération familles:', familiesError);
     }
-  };
+
+    //  Compter TOUTES les familles, pas seulement celles sans patient
+    const totalFamilies = allFamilies?.length || 0;
+    const personalAccountsCount = (allFamilies || []).filter(
+      (f: any) => !familyIdsWithPatients.has(f.id)
+    ).length;
+
+    //  Total bénéficiaires = TOUS les comptes + TOUS les patients
+    const totalBeneficiaires = totalFamilies + (patientsCount || 0);
+
+    console.log('📊 Stats bénéficiaires:', {
+      totalFamilies,
+      patientsCount: patientsCount || 0,
+      personalAccountsCount,
+      totalBeneficiaires,
+      familyIdsWithPatients: familyIdsWithPatients.size,
+    });
+
+    setBeneficiairesStats({
+      patientsCount: patientsCount || 0,
+      personalAccountsCount: personalAccountsCount,
+      totalBeneficiaires: totalBeneficiaires,
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération stats bénéficiaires:', error);
+  } finally {
+    setIsLoadingBeneficiaires(false);
+  }
+};
 
   // ✅ CHARGER LES STATS ADMIN
   const fetchAdminStats = async () => {
