@@ -1,6 +1,5 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
-// ✅ Version corrigée - Utilisation de l'API famille
-
+ 
 import { useState } from 'react';
 import { CheckCircle, AlertCircle, User, Users, Info, X } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
