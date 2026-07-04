@@ -18,10 +18,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       eventsPerSecond: 10,
     },
   },
+  global: {
+    headers: {
+      'Accept': 'application/json', 
+      'Content-Type': 'application/json',
+    },
+  },
 });
 
 // =============================================
-// HELPERS AUTH
+// HELPERS AUTH - CORRIGÉS AVEC maybeSingle()
 // =============================================
 export const getCurrentUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
@@ -29,6 +35,7 @@ export const getCurrentUser = async () => {
   return user;
 };
 
+// ✅ CORRIGÉ : Utiliser maybeSingle() au lieu de single()
 export const getCurrentProfile = async () => {
   const user = await getCurrentUser();
   if (!user) return null;
@@ -37,12 +44,35 @@ export const getCurrentProfile = async () => {
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();  // ✅ Utiliser maybeSingle
 
-  if (error) throw error;
+  if (error) {
+    console.error('❌ getCurrentProfile error:', error);
+    return null;
+  }
+  
   return data;
 };
 
+// ✅ CORRIGÉ : Utiliser maybeSingle() au lieu de single()
+export const getProfileById = async (userId: string) => {
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();   
+
+  if (error) {
+    console.error('❌ getProfileById error:', error);
+    return null;
+  }
+  
+  return data;
+};
+
+//  Utiliser maybeSingle() pour éviter les erreurs
 export const getProfileByRole = async (role: string) => {
   const { data, error } = await supabase
     .from('profiles')
@@ -50,8 +80,12 @@ export const getProfileByRole = async (role: string) => {
     .eq('role', role)
     .order('full_name');
 
-  if (error) throw error;
-  return data;
+  if (error) {
+    console.error('❌ getProfileByRole error:', error);
+    return [];
+  }
+  
+  return data || [];
 };
 
 // =============================================
