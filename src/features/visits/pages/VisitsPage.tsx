@@ -199,14 +199,6 @@ const VisitsPage = () => {
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
-  // ✅ Fonction pour obtenir le nom de l'aidant
-  const getAidantName = (visit: any) => {
-    if (visit.aidant?.user?.full_name) {
-      return visit.aidant.user.full_name;
-    }
-    return 'Non assigné';
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -273,7 +265,6 @@ const VisitsPage = () => {
               <button
                 onClick={() => {
                   setFilterStatus('brouillon');
-                  // Scroll vers la liste
                   document.querySelector('.visits-list')?.scrollIntoView({ behavior: 'smooth' });
                 }}
                 className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
@@ -300,7 +291,6 @@ const VisitsPage = () => {
         <div className="flex items-center gap-1.5 pb-1">
           {statusFilterOptions.map((option) => {
             const isActive = filterStatus === option.value;
-            // ✅ Badge pour les brouillons
             const hasBadge = option.value === 'brouillon' && draftCount > 0;
             
             return (
@@ -366,7 +356,6 @@ const VisitsPage = () => {
           ))}
         </section>
       ) : (
-        /* ÉCRAN VIDE SIMPLIFIÉ */
         <section className="bg-white rounded-2xl py-12 px-4 text-center border border-black/5">
           <div
             className="w-11 h-11 rounded-2xl mx-auto flex items-center justify-center mb-3"
