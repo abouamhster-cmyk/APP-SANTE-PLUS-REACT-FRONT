@@ -23,7 +23,6 @@ import {
   Hospital,
   Home,
   FileText,
-  Handshake,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -34,7 +33,7 @@ interface MobileTabBarProps {
 }
 
 // =============================================
-// ÉLÉMENTS PRINCIPAUX - STRICTEMENT 4 MAX (Pour laisser la 5e place au bouton "Plus")
+// ÉLÉMENTS PRINCIPAUX - STRICTEMENT 4 MAX
 // =============================================
 
 const getMainItems = (role: string | null) => {
@@ -62,12 +61,13 @@ const getMainItems = (role: string | null) => {
     ];
   }
 
-  // 👔 ADMIN / COORDINATEUR (4 items max)
+  // 👔 ADMIN / COORDINATEUR (4 items max) - UNIFIÉ
   if (role === 'admin' || role === 'coordinator') {
     return [
       ...base,
       { icon: <ClipboardList size={22} />, label: 'Inscriptions', path: '/app/registrations' },
-      { icon: <Users size={22} />, label: 'Utilisateurs', path: '/app/users' },
+      // ✅ UNIFICATION : Remplacer "Utilisateurs" par "Bénéficiaires"
+      { icon: <Users size={22} />, label: 'Bénéficiaires', path: '/app/patients' },
       { icon: <Settings size={22} />, label: 'Paramètres', path: '/app/settings' },
     ];
   }
@@ -83,7 +83,7 @@ const getMoreItems = (role: string | null) => {
   // 👨‍👩‍👦 FAMILLE
   if (role === 'family') {
     return [
-      { icon: <UserCheck size={18} />, label: 'Aidants', path: '/app/aidants' }, // Déplacé ici pour libérer de la place
+      { icon: <UserCheck size={18} />, label: 'Aidants', path: '/app/aidants' },
       { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
       { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
       { icon: <BookOpen size={18} />, label: 'Journal', path: '/app/journal' },
@@ -96,7 +96,7 @@ const getMoreItems = (role: string | null) => {
   // 🦸 AIDANT
   if (role === 'aidant') {
     return [
-      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' }, // Déplacé ici pour libérer de la place
+      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
       { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
       { icon: <History size={18} />, label: 'Historique', path: '/app/history' },
       { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
@@ -104,12 +104,12 @@ const getMoreItems = (role: string | null) => {
     ];
   }
 
-  // 👔 ADMIN / COORDINATEUR
+  // 👔 ADMIN / COORDINATEUR - UNIFIÉ
   if (role === 'admin' || role === 'coordinator') {
     return [
       { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/app/admin' },
       { icon: <UserCheck size={18} />, label: 'Candidatures', path: '/app/aidant-candidates' },
-      { icon: <Handshake size={18} />, label: 'Assigner', path: '/app/assign-aidants' },
+      // ✅ Supprimé "Assigner" car intégré dans "Bénéficiaires"
       { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits' },
       { icon: <FileText size={18} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
       { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
