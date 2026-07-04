@@ -1,6 +1,7 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
 
 import { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -489,7 +490,7 @@ const DashboardPage = () => {
               <button
                 onClick={() => {
                   // Optionnel : marquer comme vu
-                  toast.info('Les visites en brouillon sont disponibles dans l\'onglet Visites');
+                  toast.success('✅ Les visites en brouillon sont disponibles dans l\'onglet Visites');
                 }}
                 className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
               >
