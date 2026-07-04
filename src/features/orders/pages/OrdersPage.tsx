@@ -1,5 +1,5 @@
 // 📁 src/features/orders/pages/OrdersPage.tsx
- 
+
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -15,6 +15,7 @@ import {
   List,
   ClipboardList,
   AlertCircle,
+  UserPlus,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -23,9 +24,8 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
-// ✅ IMPORTER le hook de rafraîchissement
+import { AssignAidantModal } from '@/components/common/AssignAidantModal';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-// ✅ IMPORTER le bouton de rafraîchissement
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import toast from 'react-hot-toast';
 
@@ -58,6 +58,10 @@ const OrdersPage = () => {
   const [activeStatus, setActiveStatus] = useState('all');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // ✅ États pour l'assignation d'aidant
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedOrderForAssign, setSelectedOrderForAssign] = useState<any>(null);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
@@ -79,6 +83,17 @@ const OrdersPage = () => {
       localStorage.removeItem('pending_ponctual_order');
     }
   }, []);
+
+  // ✅ HANDLER D'ASSIGNATION
+  const handleShowAssignAidantModal = (order: any) => {
+    setSelectedOrderForAssign(order);
+    setShowAssignModal(true);
+  };
+
+  const handleAssignAidantSuccess = async () => {
+    await fetchOrders();
+    toast.success('Aidant assigné avec succès');
+  };
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -111,6 +126,14 @@ const OrdersPage = () => {
     setIsProcessing(true);
 
     try {
+      // ✅ Vérifier que le statut est valide
+      const validStatuses = ['creee', 'en_attente', 'en_cours', 'livree', 'validee', 'annulee', 'disponible'];
+      if (!validStatuses.includes(status)) {
+        toast.error(`Statut "${status}" invalide pour une commande`);
+        setIsProcessing(false);
+        return;
+      }
+
       await updateOrderStatus(id, status as any);
 
       const statusMessages: Record<string, string> = {
@@ -139,7 +162,6 @@ const OrdersPage = () => {
     try {
       await takeOrder(id);
       toast.success('Commande prise en charge');
-      // ✅ Recharger après prise de commande
       await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
@@ -212,7 +234,6 @@ const OrdersPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
             <RefreshButton 
               size="sm" 
               showText={false}
@@ -312,6 +333,9 @@ const OrdersPage = () => {
               onClick={() => navigate(`/app/orders/${order.id}`)}
               onStatusChange={(status) => handleStatusChange(order.id, status)}
               onTakeOrder={isAidant || isAdminOrCoordinator ? () => handleTakeOrder(order.id) : undefined}
+              onShowAssignAidantModal={
+                isAdminOrCoordinator ? () => handleShowAssignAidantModal(order) : undefined
+              }
               showActions={true}
               compact
             />
@@ -367,6 +391,22 @@ const OrdersPage = () => {
         >
           <Plus size={22} />
         </button>
+      )}
+
+      {/* MODAL D'ASSIGNATION D'AIDANT */}
+      {showAssignModal && selectedOrderForAssign && (
+        <AssignAidantModal
+          isOpen={showAssignModal}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedOrderForAssign(null);
+          }}
+          targetType="order"
+          targetId={selectedOrderForAssign.id}
+          targetName={selectedOrderForAssign.target_name || `Commande ${selectedOrderForAssign.id.slice(0, 8)}`}
+          onSuccess={handleAssignAidantSuccess}
+          currentAidantId={selectedOrderForAssign.aidant_id}
+        />
       )}
     </div>
   );
