@@ -489,7 +489,6 @@ const DashboardPage = () => {
               </Link>
               <button
                 onClick={() => {
-                  // Optionnel : marquer comme vu
                   toast.success('Les visites en brouillon sont disponibles dans l\'onglet Visites');
                 }}
                 className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
