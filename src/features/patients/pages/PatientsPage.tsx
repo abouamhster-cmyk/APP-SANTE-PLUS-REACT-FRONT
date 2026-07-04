@@ -369,29 +369,45 @@ const PatientsPage = () => {
   // STATISTIQUES (admin)
   // ============================================================
 
-  const stats = useMemo(() => {
-    if (!isAdmin) {
-      return {
-        totalBeneficiaires: patients.length,
-        assignedCount: 0,
-        unassignedCount: 0,
-        totalFamilies: 0,
-        patientsCount: patients.length,
-      };
-    }
+ 
 
-    const totalItems = assignmentItems.length;
-    const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
-    const unassignedCount = totalItems - assignedCount;
-
+const stats = useMemo(() => {
+  if (!isAdmin) {
     return {
-      totalBeneficiaires: totalItems,
-      assignedCount,
-      unassignedCount,
-      totalFamilies: familyAccounts.length,
-      patientsCount: allPatients.length,
+      totalBeneficiaires: patients.length,
+      assignedCount: 0,
+      unassignedCount: 0,
+      totalFamilies: 0,
+      patientsCount: patients.length,
     };
-  }, [isAdmin, assignmentItems, familyAccounts, allPatients, patients]);
+  }
+
+  //  Compter TOUTES les familles
+  const totalFamilies = familyAccounts.length;
+  const totalPatients = allPatients.length;
+  
+  //  Total bénéficiaires = TOUS les comptes + TOUS les patients
+  const totalBeneficiaires = totalFamilies + totalPatients;
+  
+  const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
+  const unassignedCount = totalBeneficiaires - assignedCount;
+
+  console.log('📊 PatientsPage - Stats:', {
+    totalFamilies,
+    totalPatients,
+    totalBeneficiaires,
+    assignedCount,
+    unassignedCount,
+  });
+
+  return {
+    totalBeneficiaires,
+    assignedCount,
+    unassignedCount,
+    totalFamilies,
+    patientsCount: totalPatients,
+  };
+}, [isAdmin, assignmentItems, familyAccounts, allPatients, patients]);
 
   // ============================================================
   // FILTRAGE DES PATIENTS POUR LES FAMILLES/AIDANTS
