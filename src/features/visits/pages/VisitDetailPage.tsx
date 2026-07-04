@@ -113,7 +113,7 @@ const VisitDetailPage = () => {
 
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
-    toast.success('✅ Visite planifiée après paiement !');
+    toast.success('Visite planifiée après paiement !');
     if (id) {
       // ✅ Forcer le rechargement avec cache invalidé
       useVisitStore.getState().invalidateCache();
@@ -127,7 +127,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await approveVisit(id);
-      toast.success('✅ Visite approuvée');
+      toast.success('Visite approuvée');
       // ✅ Recharger sans quitter la page
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id);
@@ -147,7 +147,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await refuseVisit(id, reason);
-      toast.error('❌ Visite refusée');
+      toast.error('Visite refusée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id);
       await fetchVisits();
@@ -162,7 +162,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await startVisit(id!);
-      toast.success('🚀 Visite démarrée');
+      toast.success('Visite démarrée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
       await fetchVisits();
@@ -211,7 +211,7 @@ const VisitDetailPage = () => {
           .eq('id', id);
       }
 
-      toast.success('✅ Visite terminée avec succès !');
+      toast.success('Visite terminée avec succès !');
       setShowCompleteModal(false);
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
@@ -251,7 +251,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await reassignVisit(id!, selectedAidantId, assignmentType);
-      toast.success(`✅ Aidant assigné avec succès (${assignmentType})`);
+      toast.success(`Aidant assigné avec succès (${assignmentType})`);
       setShowAssignModal(false);
       setSelectedAidantId('');
       useVisitStore.getState().invalidateCache();
@@ -470,7 +470,7 @@ const VisitDetailPage = () => {
               onClick={async () => {
                 try {
                   await supabase.from('visites').update({ status: 'validee' }).eq('id', id);
-                  toast.success('✅ Visite validée');
+                  toast.success('Visite validée');
                   useVisitStore.getState().invalidateCache();
                   await fetchVisitById(id!);
                   await fetchVisits();
