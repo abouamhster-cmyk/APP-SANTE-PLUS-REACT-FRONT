@@ -116,7 +116,7 @@ const AidantCandidatesPage = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erreur lors de l\'approbation');
 
-      toast.success(data.message || '✅ Aidant approuvé avec succès');
+      toast.success(data.message || 'Aidant approuvé avec succès');
       setShowDetailsModal(false);
       fetchCandidates();
     } catch (error: any) {
@@ -154,7 +154,7 @@ const AidantCandidatesPage = () => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erreur lors du refus');
 
-      toast.success(data.message || '❌ Aidant refusé avec succès');
+      toast.success(data.message || 'Aidant refusé avec succès');
       setShowDetailsModal(false);
       fetchCandidates();
     } catch (error: any) {
