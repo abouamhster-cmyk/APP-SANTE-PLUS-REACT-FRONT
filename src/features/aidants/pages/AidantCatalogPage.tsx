@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, RefreshCw } from 'lucide-react';
 import AssignAidantModal from '../components/AssignAidantModal';
 
-
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
@@ -31,7 +30,12 @@ const AidantCatalogPage = () => {
 
   const { profile, role } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
-  const { fetchActiveAidant, activeAidant, isLoading: assignmentLoading } = useAssignmentStore();
+  
+  // ✅ Utiliser le nouveau store d'assignation
+  const { 
+    fetchAssignments, 
+    isLoading: assignmentLoading 
+  } = useAssignmentStore();
 
   const {
     aidants,
@@ -60,10 +64,16 @@ const AidantCatalogPage = () => {
       return;
     }
 
-    fetchAidants();
-    fetchPatients();
-    fetchMyAssignments();
-  }, [profile, fetchAidants, fetchPatients, fetchMyAssignments, navigate]);
+    const loadData = async () => {
+      await Promise.all([
+        fetchAidants(),
+        fetchPatients(),
+        fetchAssignments(),  // ✅ Utiliser fetchAssignments au lieu de fetchMyAssignments
+      ]);
+    };
+    
+    loadData();
+  }, [profile, fetchAidants, fetchPatients, fetchAssignments, navigate]);
 
   // ============================================================
   // FILTRAGE
@@ -93,15 +103,22 @@ const AidantCatalogPage = () => {
   const handleAssignSuccess = () => {
     setShowAssignModal(false);
     setSelectedAidant(null);
-    fetchAidants();
-    fetchMyAssignments();
-    toast.success('Aidant assigné avec succès');
+    
+    // ✅ Rafraîchir les données après assignation
+    Promise.all([
+      fetchAidants(),
+      fetchAssignments(),  // ✅ Utiliser fetchAssignments
+    ]);
+    
+    toast.success('✅ Aidant assigné avec succès');
   };
 
   const handleRefresh = useCallback(() => {
-    fetchAidants();
-    fetchMyAssignments();
-  }, [fetchAidants, fetchMyAssignments]);
+    Promise.all([
+      fetchAidants(),
+      fetchAssignments(),  // ✅ Utiliser fetchAssignments
+    ]);
+  }, [fetchAidants, fetchAssignments]);
 
   const handleFilterChange = useCallback((newFilters: Partial<AidantFiltersType>) => {
     setStoreFilters(newFilters);
