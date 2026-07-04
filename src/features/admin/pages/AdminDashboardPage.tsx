@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users,
   UserCheck,
+  UserX,  
   Calendar,
   ShoppingBag,
   TrendingUp,
@@ -51,6 +52,7 @@ const AdminDashboardPage = () => {
     ordersAvailable: 0,
     visitsPendingPayment: 0,
     ordersPendingPayment: 0,
+    assignedCount: 0,
   });
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -76,9 +78,6 @@ const AdminDashboardPage = () => {
       ]);
 
       // ✅ Récupérer les comptes personnels (familles sans patient)
-      // ❌ CORRECTION : Utiliser une approche en deux étapes sans NOT.IN
-      
-      // Étape 1: Récupérer toutes les familles
       const { data: allFamilies, error: familiesError } = await supabase
         .from('profiles')
         .select('id')
@@ -88,7 +87,6 @@ const AdminDashboardPage = () => {
         console.error('❌ Erreur récupération familles:', familiesError);
       }
 
-      // Étape 2: Récupérer les liens famille-patient
       const { data: familyLinks, error: linksError } = await supabase
         .from('patient_family_links')
         .select('family_id');
@@ -97,16 +95,19 @@ const AdminDashboardPage = () => {
         console.error('❌ Erreur récupération liens famille:', linksError);
       }
 
-      // Étape 3: Créer un Set des familles qui ont des patients
       const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
-
-      // Étape 4: Filtrer manuellement les familles sans patient
       const personalAccounts = (allFamilies || []).filter(
         (f: any) => !familyIdsWithPatients.has(f.id)
       );
       
       const personalAccountsCount = personalAccounts.length;
       const totalBeneficiaires = (totalPatients || 0) + personalAccountsCount;
+
+      // ✅ Récupérer le nombre d'assignations actives
+      const { count: assignedCount } = await supabase
+        .from('aidant_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
 
       const today = new Date().toISOString().split('T')[0];
       const [
@@ -187,6 +188,7 @@ const AdminDashboardPage = () => {
         ordersAvailable: ordersAvailable || 0,
         visitsPendingPayment: visitsPendingPayment || 0,
         ordersPendingPayment: ordersPendingPayment || 0,
+        assignedCount: assignedCount || 0,   
       });
     } catch (error) {
       console.error('Fetch dashboard error:', error);
@@ -326,14 +328,6 @@ const AdminDashboardPage = () => {
             color="#FF9800"
             onClick={() => navigate('/app/visits')}
             badge="En attente"
-          />
-          <AlertCard
-            label="Bénéficiaires non assignés"
-            value={stats.totalBeneficiaires - (stats.assignedCount || 0)}
-            icon={<UserX size={15} />}
-            color="#F59E0B"
-            onClick={() => navigate('/app/patients')}
-            badge="À assigner"
           />
           <AlertCard
             label="Visites expirées"
