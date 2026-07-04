@@ -1,4 +1,4 @@
-// 📁 frontend/src/stores/assignmentStore.ts
+// 📁 src/stores/assignmentStore.ts
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,7 @@ import {
   TargetType,
   AssignmentStatus,
 } from '@/types/assignment';
+import { useAuthStore } from './authStore';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -26,56 +27,70 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
   isInitialized: false,
 
   // ============================================================
-  // FETCH ASSIGNMENTS
+  // FETCH ASSIGNMENTS - AVEC DÉTECTION DU RÔLE
   // ============================================================
-     
-     fetchAssignments: async (filters?: AssignmentFilters) => {
-      try {
-        set({ isLoading: true, error: null });
-    
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-    
-        if (!token) {
-          throw new Error('Token manquant');
-        }
-    
-        const { profile } = useAuthStore.getState();
-        
-        // ✅ Si famille, utiliser /my
-        const endpoint = profile?.role === 'family' ? '/assignments/my' : '/assignments';
-        
-        const params = new URLSearchParams();
-        if (filters?.targetType) params.append('targetType', filters.targetType);
-        if (filters?.targetId) params.append('targetId', filters.targetId);
-        if (filters?.status) params.append('status', filters.status);
-        if (filters?.aidantUserId) params.append('aidantUserId', filters.aidantUserId);
-    
-        const url = `${API_BASE_URL}${endpoint}${params.toString() ? `?${params.toString()}` : ''}`;
-    
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-    
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Erreur lors du chargement des assignations');
-        }
-    
-        const result = await response.json();
-    
-        set({
-          assignments: result.data || [],
-          isLoading: false,
-          isInitialized: true,
-        });
-      } catch (error: any) {
-        console.error('❌ Fetch assignments error:', error);
-        set({ error: error.message, isLoading: false });
+  fetchAssignments: async (filters?: AssignmentFilters) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Token manquant');
       }
-    },
+
+      const { profile } = useAuthStore.getState();
+      
+      // ✅ Déterminer l'endpoint selon le rôle
+      let endpoint = '/assignments';
+      
+      // ✅ Si famille, utiliser /my
+      if (profile?.role === 'family') {
+        endpoint = '/assignments/my';
+      } 
+      // ✅ Si admin/coordinator, utiliser /
+      else if (profile?.role === 'admin' || profile?.role === 'coordinator') {
+        endpoint = '/assignments';
+      }
+      // ✅ Si aidant, utiliser /aidant/:userId
+      else if (profile?.role === 'aidant') {
+        endpoint = `/assignments/aidant/${profile.id}`;
+      }
+
+      const params = new URLSearchParams();
+      if (filters?.targetType) params.append('targetType', filters.targetType);
+      if (filters?.targetId) params.append('targetId', filters.targetId);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.aidantUserId) params.append('aidantUserId', filters.aidantUserId);
+
+      const url = `${API_BASE_URL}${endpoint}${params.toString() ? `?${params.toString()}` : ''}`;
+
+      console.log(`📡 Fetch assignments: ${url}`);
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors du chargement des assignations');
+      }
+
+      const result = await response.json();
+
+      set({
+        assignments: result.data || [],
+        isLoading: false,
+        isInitialized: true,
+      });
+    } catch (error: any) {
+      console.error('❌ Fetch assignments error:', error);
+      set({ error: error.message, isLoading: false });
+    }
+  },
 
   // ============================================================
   // FETCH ACTIVE AIDANT
@@ -164,7 +179,7 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
   },
 
   // ============================================================
-  // ASSIGN AIDANT
+  // ASSIGN AIDANT - Version famille
   // ============================================================
   assignAidant: async (data: AssignAidantRequest): Promise<AssignAidantResponse> => {
     try {
@@ -177,7 +192,15 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
         throw new Error('Token manquant');
       }
 
-      const response = await fetch(`${API_BASE_URL}/assignments`, {
+      const { profile } = useAuthStore.getState();
+      
+      // ✅ Déterminer l'endpoint selon le rôle
+      let endpoint = '/assignments';
+      if (profile?.role === 'family') {
+        endpoint = '/assignments/family/assign';
+      }
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
