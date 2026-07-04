@@ -39,6 +39,51 @@ export const OrderCard = ({
     isAdminOrCoordinator,
   } = useTerminology();
 
+  // ✅ FONCTION ROBUSTE POUR OBTENIR LE NOM DE L'AIDANT
+  const getAidantName = (): string => {
+    // ✅ Chemin 1 : order.aidant.user.full_name (le plus courant)
+    if (order.aidant?.user?.full_name) {
+      return order.aidant.user.full_name;
+    }
+    
+    // ✅ Chemin 2 : order.aidant.full_name (si l'aidant a un full_name direct)
+    if (order.aidant?.full_name) {
+      return order.aidant.full_name;
+    }
+    
+    // ✅ Chemin 3 : order.aidant_name (si le backend a ajouté un champ direct)
+    if ((order as any).aidant_name) {
+      return (order as any).aidant_name;
+    }
+    
+    // ✅ Chemin 4 : via la famille (si l'aidant est lié à la famille)
+    if (order.family?.aidant?.user?.full_name) {
+      return order.family.aidant.user.full_name;
+    }
+    if (order.family?.aidant?.full_name) {
+      return order.family.aidant.full_name;
+    }
+    
+    // ✅ Fallback
+    return 'Non assigné';
+  };
+
+  // ✅ FONCTION POUR OBTENIR L'AVATAR DE L'AIDANT
+  const getAidantAvatar = (): string | null => {
+    if (order.aidant?.user?.avatar_url) {
+      return order.aidant.user.avatar_url;
+    }
+    if (order.aidant?.avatar_url) {
+      return order.aidant.avatar_url;
+    }
+    return null;
+  };
+
+  // ✅ FONCTION POUR VÉRIFIER SI UN AIDANT EST ASSIGNÉ
+  const hasAidant = (): boolean => {
+    return !!(order.aidant_id || order.aidant || (order as any).aidant_name);
+  };
+
   // ✅ NOUVEAUX STATUTS
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -110,6 +155,10 @@ export const OrderCard = ({
     setTimeout(() => setIsProcessing(false), 3000);
   };
 
+  // ✅ Nom de l'aidant (calculé une fois)
+  const aidantName = getAidantName();
+  const hasAidantAssigned = hasAidant();
+
   // ✅ Version compacte
   if (compact) {
     return (
@@ -159,6 +208,13 @@ export const OrderCard = ({
                 <span className="flex items-center gap-0.5">
                   <User size={11} />
                   {order.patient.first_name} {order.patient.last_name}
+                </span>
+              )}
+              {/* ✅ AFFICHAGE DE L'AIDANT */}
+              {hasAidantAssigned && (
+                <span className="flex items-center gap-0.5 text-green-600">
+                  <UserCheck size={11} />
+                  {aidantName}
                 </span>
               )}
             </div>
@@ -366,6 +422,30 @@ export const OrderCard = ({
           </button>
         </div>
       </div>
+
+      {/* ✅ AFFICHAGE DE L'AIDANT DANS LA VERSION COMPLÈTE */}
+      {hasAidantAssigned && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+          <UserCheck size={14} />
+          <span>🦸 Aidant assigné : <strong>{aidantName}</strong></span>
+        </div>
+      )}
+
+      {!hasAidantAssigned && (isAdminOrCoordinator || isAidant) && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">
+          <AlertCircle size={14} />
+          <span>Aucun aidant assigné</span>
+          {canAssignAidant && onShowAssignAidantModal && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(order); }}
+              className="ml-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg hover:opacity-80"
+              style={{ background: '#8B5CF6' }}
+            >
+              Assigner
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3">
         <div className="flex items-center gap-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
