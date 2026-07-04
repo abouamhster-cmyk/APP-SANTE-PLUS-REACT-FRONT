@@ -1,4 +1,4 @@
- // 📁 src/App.tsx
+// 📁 src/App.tsx
 
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -16,8 +16,6 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 
 // ✅ IMPORTER le service Keep-Alive
 import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
-// ✅ IMPORTER l'indicateur Keep-Alive
-import { KeepAliveIndicator } from '@/components/ui/KeepAliveIndicator';
 
 // ============================================================
 // AUTH PAGES
@@ -34,7 +32,7 @@ import AdminSetupPage from '@/features/admin/pages/AdminSetupPage';
 import DashboardPage from '@/features/dashboard/pages/DashboardPage';
 
 // ============================================================
-// PATIENTS (PROCHES)
+// PATIENTS (PROCHES) - UNIFIÉ
 // ============================================================
 import PatientsPage from '@/features/patients/pages/PatientsPage';
 import PatientDetailPage from '@/features/patients/pages/PatientDetailPage';
@@ -102,7 +100,8 @@ import RegistrationsPage from '@/features/admin/pages/RegistrationsPage';
 import RegistrationDetailsPage from '@/features/admin/pages/RegistrationDetailsPage';
 import AidantsPage from '@/features/admin/pages/AidantsPage';
 import AidantCandidatesPage from '@/features/admin/pages/AidantCandidatesPage';
-import AssignAidantPage from '@/features/admin/pages/AssignAidantPage';
+// ✅ AssignAidantPage supprimé - redirigé vers /app/patients
+// import AssignAidantPage from '@/features/admin/pages/AssignAidantPage';
 import UsersPage from '@/features/admin/pages/UsersPage';
 import OffersPage from '@/features/admin/pages/OffersPage';
 import SettingsPage from '@/features/admin/pages/SettingsPage';
@@ -227,15 +226,11 @@ function App() {
   // ✅ EFFET - INITIALISATION KEEP-ALIVE
   // ============================================================
   useEffect(() => {
-    // Démarrer Keep-Alive seulement si authentifié et en production
     if (isAuthenticated && isAuthInitialized && !keepAliveStarted.current) {
       console.log('🚀 [App] Initialisation Keep-Alive après authentification');
       keepAliveStarted.current = true;
-      
-      // Démarrer le service
       initKeepAlive();
       
-      // Vérifier que le service est actif
       if (keepAliveService.isActive()) {
         console.log('✅ Keep-Alive actif');
       } else {
@@ -243,7 +238,6 @@ function App() {
       }
     }
 
-    // Arrêter Keep-Alive à la déconnexion
     if (!isAuthenticated && isAuthInitialized && keepAliveStarted.current) {
       console.log('🚪 [App] Déconnexion - Arrêt Keep-Alive');
       keepAliveStarted.current = false;
@@ -335,7 +329,7 @@ function App() {
               <Route path="/app" element={<DashboardPage />} />
               <Route path="/app/dashboard" element={<DashboardPage />} />
 
-              {/* 👨‍👩‍👦 PATIENTS / PROCHES */}
+              {/* 👨‍👩‍👦 PATIENTS / PROCHES - UNIFIÉ */}
               <Route path="/app/patients" element={<PatientsPage />} />
               <Route path="/app/patients/:id" element={<PatientDetailPage />} />
 
@@ -456,11 +450,12 @@ function App() {
                   </RoleGuard>
                 } 
               />
+              {/* ✅ Route AssignAidant redirigée vers /app/patients */}
               <Route 
                 path="/app/assign-aidants" 
                 element={
                   <RoleGuard allowedRoles={['admin', 'coordinator']}>
-                    <AssignAidantPage />
+                    <Navigate to="/app/patients" replace />
                   </RoleGuard>
                 } 
               />
