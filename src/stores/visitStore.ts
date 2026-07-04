@@ -450,7 +450,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         const patientId = data.patient_id || undefined;
         const familyId = targetUserId || user.id;
         
-        // ✅ CORRIGÉ : Utiliser ?? undefined pour convertir null en undefined
+        //  Utiliser ?? undefined pour convertir null en undefined
         finalAidantId = await get().getActiveAidantForVisit(
           patientId ?? undefined, 
           familyId ?? undefined
@@ -546,7 +546,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       if (requiresPayment) {
         await supabase.from('notifications').insert({
           user_id: targetUserId || user.id,
-          title: '💳 Paiement requis pour planifier la visite',
+          title: 'Paiement requis pour planifier la visite',
           body: `Un paiement de ${paymentAmount} FCFA est requis pour planifier la visite de ${targetDisplay}.`,
           type: 'visite',
           data: { 
@@ -566,7 +566,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       if (finalAidantId) {
         await supabase.from('notifications').insert({
           user_id: finalAidantId,
-          title: '📅 Nouvelle visite à valider',
+          title: 'Nouvelle visite à valider',
           body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
           type: 'visite',
           data: { visit_id: newVisit.id, action: 'approve' },
