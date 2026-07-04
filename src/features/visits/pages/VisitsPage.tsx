@@ -199,6 +199,14 @@ const VisitsPage = () => {
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
+  // ✅ Fonction pour obtenir le nom de l'aidant
+  const getAidantName = (visit: any) => {
+    if (visit.aidant?.user?.full_name) {
+      return visit.aidant.user.full_name;
+    }
+    return 'Non assigné';
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -274,7 +282,6 @@ const VisitsPage = () => {
               </button>
               <button
                 onClick={() => {
-                  // Marquer comme vu en fermant la bannière (on peut stocker en localStorage)
                   toast.success('Les visites en brouillon sont disponibles dans l\'onglet "En attente de paiement"');
                 }}
                 className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
