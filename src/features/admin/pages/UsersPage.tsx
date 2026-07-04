@@ -266,7 +266,7 @@ const UsersPage = () => {
 
           <RefreshButton 
             onRefresh={() => {
-              toast.success('👥 Utilisateurs actualisés');
+              toast.success('Utilisateurs actualisés');
             }}
           />
         </div>
