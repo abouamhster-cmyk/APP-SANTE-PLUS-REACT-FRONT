@@ -244,7 +244,7 @@ const AdminNotificationsPage = () => {
         .insert(notificationsToInsert);
 
       if (error) throw error;
-      toast.success(`✅ Notification envoyée avec succès`);
+      toast.success(`Notification envoyée avec succès`);
 
       setFormData({
         title: '',
