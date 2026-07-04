@@ -1,5 +1,5 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -39,9 +39,7 @@ import { Illustration } from '@/components/ui/Illustration';
 import { PatientModal } from '../components/PatientModal';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitModal } from '@/features/visits/components/VisitModal';
-// ✅ IMPORTER le hook de rafraîchissement
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-// ✅ IMPORTER le bouton de rafraîchissement
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -189,7 +187,6 @@ const PatientDetailPage = () => {
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
       toast.success('Visite démarrée !');
-      // ✅ Recharger après démarrage
       await fetchVisits();
       await fetchPatientById(id!);
     } catch (error: any) {
@@ -204,7 +201,6 @@ const PatientDetailPage = () => {
     try {
       await approveVisit(visitId);
       toast.success('Visite approuvée');
-      // ✅ Recharger après approbation
       await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de l\'approbation');
@@ -217,7 +213,6 @@ const PatientDetailPage = () => {
     try {
       await refuseVisit(visitId, reason);
       toast.error('Visite refusée');
-      // ✅ Recharger après refus
       await fetchVisits();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors du refus');
@@ -232,7 +227,6 @@ const PatientDetailPage = () => {
       toast.success('Visite terminée');
       setShowCompleteModal(false);
       setActiveVisitId(null);
-      // ✅ Recharger après complétion
       await fetchVisits();
       await fetchPatientById(id!);
     } catch (error: any) {
@@ -248,7 +242,6 @@ const PatientDetailPage = () => {
     try {
       await cancelVisit(visitId);
       toast.success('Visite annulée');
-      // ✅ Recharger après annulation
       await fetchVisits();
       await fetchPatientById(id!);
     } catch (error: any) {
@@ -282,14 +275,12 @@ const PatientDetailPage = () => {
 
   const handleModalSuccess = () => {
     setIsModalOpen(false);
-    // ✅ Recharger après modification
     fetchPatientById(id!);
     toast.success(updated);
   };
 
   const handleVisitModalSuccess = () => {
     setShowVisitModal(false);
-    // ✅ Recharger après création de visite
     fetchVisits();
     fetchPatientById(id!);
     toast.success('Visite planifiée');
@@ -800,6 +791,14 @@ const VisitCard = ({
   const isPending = visit.status === 'planifiee' && !visit.approved_at && !visit.refused_at;
   const isAccepted = visit.status === 'acceptee';
 
+  // ✅ CORRECTION : Récupérer le nom de l'aidant via le bon chemin
+  const getAidantName = () => {
+    if (visit.aidant?.user?.full_name) {
+      return visit.aidant.user.full_name;
+    }
+    return 'Non assigné';
+  };
+
   return (
     <div
       className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl cursor-pointer hover:bg-gray-50 transition gap-3 border-l-4"
@@ -836,7 +835,7 @@ const VisitCard = ({
         {visit.aidant && (
           <p className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
             <User size={12} />
-            Aidant: {visit.aidant.user?.full_name || 'Non assigné'}
+            Aidant: <span className="font-medium">{getAidantName()}</span>
           </p>
         )}
       </div>
