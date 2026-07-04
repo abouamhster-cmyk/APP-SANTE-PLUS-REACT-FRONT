@@ -110,7 +110,7 @@ const AidantCatalogPage = () => {
       fetchAssignments(),  // ✅ Utiliser fetchAssignments
     ]);
     
-    toast.success('✅ Aidant assigné avec succès');
+    toast.success('Aidant assigné avec succès');
   };
 
   const handleRefresh = useCallback(() => {
