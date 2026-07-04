@@ -188,7 +188,7 @@ const PatientDetailPage = () => {
       await startVisit(visit.id);
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
-      toast.success('🚀 Visite démarrée !');
+      toast.success('Visite démarrée !');
       // ✅ Recharger après démarrage
       await fetchVisits();
       await fetchPatientById(id!);
@@ -422,7 +422,7 @@ const PatientDetailPage = () => {
                 fetchPatientById(id);
                 fetchVisits();
               }
-              toast.success('🔄 Données actualisées');
+              toast.success('Données actualisées');
             }}
           />
 
