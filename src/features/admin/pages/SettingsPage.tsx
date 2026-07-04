@@ -253,7 +253,7 @@ const SettingsPage = () => {
       const result = await response.json();
 
       if (result.success) {
-        toast.success('✅ Paramètres sauvegardés avec succès');
+        toast.success('Paramètres sauvegardés avec succès');
         setHasChanges(false);
         settings.forEach(s => {
           originalValues[s.key] = s.value;
