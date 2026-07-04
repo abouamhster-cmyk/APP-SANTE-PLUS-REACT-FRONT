@@ -9,6 +9,7 @@ import {
   AlertCircle,
   CreditCard,
   CheckCircle,
+  UserPlus,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -20,6 +21,7 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
 import { VisitPaymentModal } from '../components/VisitPaymentModal';
+import { AssignAidantModal } from '@/components/common/AssignAidantModal';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -52,6 +54,10 @@ const VisitsPage = () => {
   
   // ✅ États pour la conversion
   const [isConverting, setIsConverting] = useState(false);
+
+  // ✅ États pour l'assignation d'aidant
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedVisitForAssign, setSelectedVisitForAssign] = useState<any>(null);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -128,7 +134,7 @@ const VisitsPage = () => {
       }
 
       toast.success(`Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
-      await fetchVisits(); // Recharger la liste
+      await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur conversion:', error);
       toast.error(error.message || 'Erreur lors de la conversion');
@@ -141,6 +147,17 @@ const VisitsPage = () => {
   const handlePonctualPayment = (visit: any) => {
     setPendingVisit(visit);
     setShowPaymentModal(true);
+  };
+
+  // ✅ ASSIGNATION D'AIDANT
+  const handleShowAssignAidantModal = (visit: any) => {
+    setSelectedVisitForAssign(visit);
+    setShowAssignModal(true);
+  };
+
+  const handleAssignAidantSuccess = async () => {
+    await fetchVisits();
+    toast.success('Aidant assigné avec succès');
   };
 
   const handleAdd = () => {
@@ -217,7 +234,7 @@ const VisitsPage = () => {
     <div className="w-full max-w-full overflow-hidden space-y-5 pb-24 sm:pb-10">
       
       {/* ============================================================
-      EN-TÊTE CHALEUREUX
+      EN-TÊTE
       ============================================================ */}
       <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
         <div>
@@ -349,6 +366,9 @@ const VisitsPage = () => {
                     ? () => handlePonctualPayment(visit)
                     : undefined
                 }
+                onShowAssignAidantModal={
+                  isAdminOrCoordinator ? () => handleShowAssignAidantModal(visit) : undefined
+                }
                 onView={() => navigate(`/app/visits/${visit.id}`)}
                 compact
               />
@@ -422,6 +442,23 @@ const VisitsPage = () => {
           }}
           visit={pendingVisit}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* MODAL D'ASSIGNATION D'AIDANT */}
+      {showAssignModal && selectedVisitForAssign && (
+        <AssignAidantModal
+          isOpen={showAssignModal}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedVisitForAssign(null);
+          }}
+          targetType="visit"
+          targetId={selectedVisitForAssign.id}
+          targetName={selectedVisitForAssign.target_name || 
+            `${selectedVisitForAssign.patient?.first_name || ''} ${selectedVisitForAssign.patient?.last_name || ''}`.trim() || 'Visite'}
+          onSuccess={handleAssignAidantSuccess}
+          currentAidantId={selectedVisitForAssign.aidant_id}
         />
       )}
     </div>
