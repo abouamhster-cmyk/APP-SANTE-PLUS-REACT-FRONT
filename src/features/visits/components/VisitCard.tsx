@@ -18,8 +18,8 @@ interface VisitCardProps {
   onClick?: () => void;
   onApprove?: () => void;
   onRefuse?: () => void;
-  onConvertToSubscription?: () => void;  // ✅ NOUVEAU
-  onPonctualPayment?: () => void;        // ✅ NOUVEAU
+  onConvertToSubscription?: () => void;  
+  onPonctualPayment?: () => void;        
   showActions?: boolean;
   compact?: boolean;
 }
@@ -33,8 +33,8 @@ export const VisitCard = ({
   onClick,
   onApprove,
   onRefuse,
-  onConvertToSubscription,  // ✅ NOUVEAU
-  onPonctualPayment,        // ✅ NOUVEAU
+  onConvertToSubscription,  
+  onPonctualPayment,         
   showActions = false,
   compact = false 
 }: VisitCardProps) => {
