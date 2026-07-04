@@ -25,81 +25,84 @@ export const AdminStats = ({ colors: propColors }: AdminStatsProps) => {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ DÉCLARER fetchStats AVANT de l'utiliser dans useRefreshableData
-  const fetchStats = async () => {
-    try {
-      setIsLoading(true);
+const fetchStats = async () => {
+  try {
+    setIsLoading(true);
 
-      const [
-        { count: patients },
-        { count: aidants },
-        { count: visitsToday },
-        { count: orders },
-        { count: registrations },
-      ] = await Promise.all([
-        supabase.from('patients').select('*', { count: 'exact', head: true }),
-        supabase.from('aidants').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
-        supabase.from('visites').select('*', { count: 'exact', head: true }).eq('scheduled_date', new Date().toISOString().split('T')[0]),
-        supabase.from('commandes').select('*', { count: 'exact', head: true }),
-        supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('status', 'en_attente'),
-      ]);
+    const [
+      { count: patients },
+      { count: aidants },
+      { count: visitsToday },
+      { count: orders },
+      { count: registrations },
+    ] = await Promise.all([
+      supabase.from('patients').select('*', { count: 'exact', head: true }),
+      supabase.from('aidants').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+      supabase.from('visites').select('*', { count: 'exact', head: true }).eq('scheduled_date', new Date().toISOString().split('T')[0]),
+      supabase.from('commandes').select('*', { count: 'exact', head: true }),
+      supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('status', 'en_attente'),
+    ]);
 
-      // ✅ Récupérer les comptes personnels (familles sans patient)
-      // ❌ CORRECTION : Remplacer NOT.IN par une approche en deux étapes
-      
-      // Étape 1: Récupérer toutes les familles
-      const { data: allFamilies, error: familiesError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'family');
+    // ✅ Récupérer les familles (comptes)
+    const { data: allFamilies, error: familiesError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('role', 'family');
 
-      if (familiesError) {
-        console.error('❌ Erreur récupération familles:', familiesError);
-      }
-
-      // Étape 2: Récupérer les liens famille-patient
-      const { data: familyLinks, error: linksError } = await supabase
-        .from('patient_family_links')
-        .select('family_id');
-
-      if (linksError) {
-        console.error('❌ Erreur récupération liens famille:', linksError);
-      }
-
-      // Étape 3: Créer un Set des familles qui ont des patients
-      const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
-
-      // Étape 4: Filtrer manuellement les familles sans patient
-      const personalAccounts = (allFamilies || []).filter(
-        (f: any) => !familyIdsWithPatients.has(f.id)
-      );
-      
-      const personalAccountsCount = personalAccounts.length;
-      const totalBeneficiaires = (patients || 0) + personalAccountsCount;
-
-      const { data: payments } = await supabase
-        .from('paiements')
-        .select('amount')
-        .eq('status', 'valide');
-
-      const revenue = payments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
-
-      setStats({
-        patients: patients || 0,
-        personalAccounts: personalAccountsCount,
-        totalBeneficiaires: totalBeneficiaires,
-        aidants: aidants || 0,
-        visitsToday: visitsToday || 0,
-        orders: orders || 0,
-        revenue: revenue,
-        registrations: registrations || 0,
-      });
-    } catch (error) {
-      console.error('❌ Erreur fetch stats:', error);
-    } finally {
-      setIsLoading(false);
+    if (familiesError) {
+      console.error('❌ Erreur récupération familles:', familiesError);
     }
-  };
+
+    // ✅ Récupérer les liens famille-patient
+    const { data: familyLinks, error: linksError } = await supabase
+      .from('patient_family_links')
+      .select('family_id');
+
+    if (linksError) {
+      console.error('❌ Erreur récupération liens famille:', linksError);
+    }
+
+    const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
+
+    //   Compter TOUTES les familles
+    const totalFamilies = allFamilies?.length || 0;
+    const personalAccountsCount = (allFamilies || []).filter(
+      (f: any) => !familyIdsWithPatients.has(f.id)
+    ).length;
+
+    //  Total bénéficiaires = TOUS les comptes + TOUS les patients
+    const totalBeneficiaires = totalFamilies + (patients || 0);
+
+    console.log('📊 AdminStats - Bénéficiaires:', {
+      totalFamilies,
+      patients: patients || 0,
+      personalAccountsCount,
+      totalBeneficiaires,
+    });
+
+    const { data: payments } = await supabase
+      .from('paiements')
+      .select('amount')
+      .eq('status', 'valide');
+
+    const revenue = payments?.reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0;
+
+    setStats({
+      patients: patients || 0,
+      personalAccounts: personalAccountsCount,
+      totalBeneficiaires: totalBeneficiaires,
+      aidants: aidants || 0,
+      visitsToday: visitsToday || 0,
+      orders: orders || 0,
+      revenue: revenue,
+      registrations: registrations || 0,
+    });
+  } catch (error) {
+    console.error('❌ Erreur fetch stats:', error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // ✅ MAINTENANT on peut utiliser fetchStats dans le hook
   const { refreshAll, isRefreshing } = useRefreshableData({
