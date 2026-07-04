@@ -28,48 +28,54 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
   // ============================================================
   // FETCH ASSIGNMENTS
   // ============================================================
-  fetchAssignments: async (filters?: AssignmentFilters) => {
-    try {
-      set({ isLoading: true, error: null });
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      if (!token) {
-        throw new Error('Token manquant');
+     
+     fetchAssignments: async (filters?: AssignmentFilters) => {
+      try {
+        set({ isLoading: true, error: null });
+    
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+    
+        if (!token) {
+          throw new Error('Token manquant');
+        }
+    
+        const { profile } = useAuthStore.getState();
+        
+        // ✅ Si famille, utiliser /my
+        const endpoint = profile?.role === 'family' ? '/assignments/my' : '/assignments';
+        
+        const params = new URLSearchParams();
+        if (filters?.targetType) params.append('targetType', filters.targetType);
+        if (filters?.targetId) params.append('targetId', filters.targetId);
+        if (filters?.status) params.append('status', filters.status);
+        if (filters?.aidantUserId) params.append('aidantUserId', filters.aidantUserId);
+    
+        const url = `${API_BASE_URL}${endpoint}${params.toString() ? `?${params.toString()}` : ''}`;
+    
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+    
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Erreur lors du chargement des assignations');
+        }
+    
+        const result = await response.json();
+    
+        set({
+          assignments: result.data || [],
+          isLoading: false,
+          isInitialized: true,
+        });
+      } catch (error: any) {
+        console.error('❌ Fetch assignments error:', error);
+        set({ error: error.message, isLoading: false });
       }
-
-      const params = new URLSearchParams();
-      if (filters?.targetType) params.append('targetType', filters.targetType);
-      if (filters?.targetId) params.append('targetId', filters.targetId);
-      if (filters?.status) params.append('status', filters.status);
-      if (filters?.aidantUserId) params.append('aidantUserId', filters.aidantUserId);
-
-      const url = `${API_BASE_URL}/assignments${params.toString() ? `?${params.toString()}` : ''}`;
-
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors du chargement des assignations');
-      }
-
-      const result = await response.json();
-
-      set({
-        assignments: result.data || [],
-        isLoading: false,
-        isInitialized: true,
-      });
-    } catch (error: any) {
-      console.error('❌ Fetch assignments error:', error);
-      set({ error: error.message, isLoading: false });
-    }
-  },
+    },
 
   // ============================================================
   // FETCH ACTIVE AIDANT
