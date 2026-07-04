@@ -113,9 +113,8 @@ const VisitDetailPage = () => {
 
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
-    toast.success('Visite planifiée après paiement !');
+    toast.success('✅ Visite planifiée après paiement !');
     if (id) {
-      // ✅ Forcer le rechargement avec cache invalidé
       useVisitStore.getState().invalidateCache();
       fetchVisitById(id);
       fetchVisits();
@@ -127,8 +126,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await approveVisit(id);
-      toast.success('Visite approuvée');
-      // ✅ Recharger sans quitter la page
+      toast.success('✅ Visite approuvée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id);
       await fetchVisits();
@@ -147,7 +145,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await refuseVisit(id, reason);
-      toast.error('Visite refusée');
+      toast.error('❌ Visite refusée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id);
       await fetchVisits();
@@ -162,7 +160,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await startVisit(id!);
-      toast.success('Visite démarrée');
+      toast.success('🚀 Visite démarrée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
       await fetchVisits();
@@ -211,7 +209,7 @@ const VisitDetailPage = () => {
           .eq('id', id);
       }
 
-      toast.success('Visite terminée avec succès !');
+      toast.success('✅ Visite terminée avec succès !');
       setShowCompleteModal(false);
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
@@ -251,7 +249,7 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await reassignVisit(id!, selectedAidantId, assignmentType);
-      toast.success(`Aidant assigné avec succès (${assignmentType})`);
+      toast.success(`✅ Aidant assigné avec succès (${assignmentType})`);
       setShowAssignModal(false);
       setSelectedAidantId('');
       useVisitStore.getState().invalidateCache();
@@ -331,6 +329,43 @@ const VisitDetailPage = () => {
     return `${minutes}min`;
   };
 
+  // ✅ Déterminer le statut d'affichage de l'aidant
+  const getAidantDisplayStatus = () => {
+    if (isAidant) {
+      return {
+        label: 'Moi',
+        sub: `${profile?.full_name || 'Vous'} • ${currentVisit?.aidant?.rating || 0} ⭐ • ${currentVisit?.aidant?.total_missions || 0} missions`,
+        color: colors.primary,
+        icon: <UserCheck size={15} />
+      };
+    }
+    
+    if (currentVisit?.aidant) {
+      return {
+        label: `${currentVisit.aidant.user?.full_name || 'Aidant'}`,
+        sub: `${currentVisit.aidant.rating || 0} ⭐ • ${currentVisit.aidant.total_missions || 0} missions`,
+        color: colors.primary,
+        icon: <Heart size={15} />
+      };
+    }
+    
+    if (currentVisit?.aidant_id) {
+      return {
+        label: 'En attente de validation',
+        sub: '⏳ L\'aidant doit approuver la visite',
+        color: '#FF9800',
+        icon: <Clock size={15} />
+      };
+    }
+    
+    return {
+      label: 'Non assigné',
+      sub: 'En attente d\'assignation',
+      color: '#FF5722',
+      icon: <User size={15} />
+    };
+  };
+
   if (isLoading || !currentVisit) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -358,6 +393,8 @@ const VisitDetailPage = () => {
 
   // ✅ L'admin peut assigner un aidant si la visite n'en a pas ou si elle est expirée/refusée
   const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused);
+
+  const aidantStatus = getAidantDisplayStatus();
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -470,7 +507,7 @@ const VisitDetailPage = () => {
               onClick={async () => {
                 try {
                   await supabase.from('visites').update({ status: 'validee' }).eq('id', id);
-                  toast.success('Visite validée');
+                  toast.success('✅ Visite validée');
                   useVisitStore.getState().invalidateCache();
                   await fetchVisitById(id!);
                   await fetchVisits();
@@ -734,14 +771,11 @@ const VisitDetailPage = () => {
               color={colors.text}
             />
             <InfoCard
-              icon={isAidant ? <UserCheck size={15} /> : <Heart size={15} />}
-              label={isAidant ? 'Intervenant' : 'Intervenant'}
-              value={isAidant ? 'Moi' : getVisitDisplayAidant(visit)}
-              sub={isAidant 
-                ? `${profile?.full_name || 'Vous'} • ${visit.aidant?.rating || 0} ⭐ • ${visit.aidant?.total_missions || 0} missions`
-                : visit.aidant ? `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions` : 'En attente d\'assignation'
-              }
-              color={visit.aidant ? colors.primary : '#FF5722'}
+              icon={aidantStatus.icon}
+              label="Intervenant"
+              value={aidantStatus.label}
+              sub={aidantStatus.sub}
+              color={aidantStatus.color}
             />
           </div>
 
