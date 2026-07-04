@@ -1,10 +1,13 @@
 // 📁 src/features/billing/pages/PaymentConfirmPage.tsx
 
-
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader2, ShoppingBag } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Calendar, User, ShoppingBag, ArrowRight } from 'lucide-react';
 import { getThemeColors } from '@/lib/permissions';
+import { useVisitStore } from '@/stores/visitStore';
+import { usePatientStore } from '@/stores/patientStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+import toast from 'react-hot-toast';
 
 const PaymentConfirmPage = () => {
   const navigate = useNavigate();
@@ -13,8 +16,24 @@ const PaymentConfirmPage = () => {
   const [message, setMessage] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(5);
+  const [visitId, setVisitId] = useState<string | null>(null);
+  const [isVisit, setIsVisit] = useState(false);
 
   const colors = getThemeColors('senior');
+
+  // ✅ Forcer le rafraîchissement des données
+  const refreshData = async () => {
+    try {
+      await Promise.all([
+        useVisitStore.getState().fetchVisits(true),
+        usePatientStore.getState().fetchPatients(true),
+        useNotificationStore.getState().fetchNotifications(true),
+      ]);
+      console.log('✅ Données rafraîchies après paiement');
+    } catch (error) {
+      console.error('❌ Erreur rafraîchissement données:', error);
+    }
+  };
 
   useEffect(() => {
     const checkPaymentStatus = async () => {
@@ -22,31 +41,58 @@ const PaymentConfirmPage = () => {
       const paymentStatus = searchParams.get('status');
       const transactionId = searchParams.get('transaction_id');
       const reference = searchParams.get('reference');
+      const visitIdParam = searchParams.get('visit_id');
+      const type = searchParams.get('type');
 
       console.log('🔍 ===== PAYMENT CONFIRM =====');
       console.log('🔍 status:', paymentStatus);
       console.log('🔍 transactionId:', transactionId);
       console.log('🔍 reference:', reference);
+      console.log('🔍 visit_id:', visitIdParam);
+      console.log('🔍 type:', type);
       console.log('🔍 searchParams:', searchParams.toString());
       console.log('🔍 ===========================');
+
+      // ✅ Déterminer si c'est une visite
+      const isVisitPayment = type === 'visit' || !!visitIdParam;
+      if (visitIdParam) {
+        setVisitId(visitIdParam);
+        setIsVisit(true);
+      }
 
       // ✅ Si le paiement est approuvé
       if (paymentStatus === 'approved' || paymentStatus === 'success' || paymentStatus === 'paid') {
         console.log('✅ Paiement approuvé !');
         setStatus('success');
-        setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+        
+        // ✅ Message personnalisé selon le type
+        if (isVisitPayment) {
+          setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est en cours de planification.');
+        } else {
+          setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+        }
 
-        // ✅ Nettoyer les données en attente (le webhook fait le travail)
+        // ✅ Nettoyer les données en attente
         sessionStorage.removeItem('pending_ponctual_order');
-        localStorage.setItem('pending_ponctual_order', JSON.stringify({})); // Clean safe fallback
-        console.log('📦 Données de commande sauvegardées');
+        sessionStorage.removeItem('pending_visit_payment');
+        localStorage.removeItem('pending_ponctual_order');
+        
+        // ✅ Forcer le rafraîchissement des données
+        await refreshData();
 
+        // ✅ Démarrer le compte à rebours
         let countdown = 5;
         const interval = setInterval(() => {
           countdown -= 1;
+          setRedirectCountdown(countdown);
           if (countdown <= 0) {
             clearInterval(interval);
-            navigate('/app/orders');
+            // ✅ Rediriger vers la bonne page
+            if (isVisitPayment && visitIdParam) {
+              navigate(`/app/visits/${visitIdParam}`);
+            } else {
+              navigate('/app/orders');
+            }
           }
         }, 1000);
 
@@ -60,6 +106,7 @@ const PaymentConfirmPage = () => {
         setMessage('❌ Le paiement a été annulé ou a échoué. Veuillez réessayer.');
         
         sessionStorage.removeItem('pending_ponctual_order');
+        sessionStorage.removeItem('pending_visit_payment');
         localStorage.removeItem('pending_ponctual_order');
         return;
       }
@@ -82,13 +129,27 @@ const PaymentConfirmPage = () => {
               if (data.success) {
                 console.log('✅ Paiement vérifié avec succès !');
                 setStatus('success');
-                setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+                
+                if (isVisitPayment) {
+                  setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est en cours de planification.');
+                } else {
+                  setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+                }
+                
                 sessionStorage.removeItem('pending_ponctual_order');
+                sessionStorage.removeItem('pending_visit_payment');
                 localStorage.removeItem('pending_ponctual_order');
                 setIsChecking(false);
                 
+                // ✅ Forcer le rafraîchissement des données
+                await refreshData();
+                
                 setTimeout(() => {
-                  navigate('/app/orders');
+                  if (isVisitPayment && visitIdParam) {
+                    navigate(`/app/visits/${visitIdParam}`);
+                  } else {
+                    navigate('/app/orders');
+                  }
                 }, 3000);
               } else {
                 console.log('⏳ Paiement toujours en attente...');
@@ -108,7 +169,36 @@ const PaymentConfirmPage = () => {
       }
 
       // ⚠️ Aucun paramètre, mais on vérifie si des données sont en attente
+      const savedVisit = sessionStorage.getItem('pending_visit_payment');
       const savedOrder = sessionStorage.getItem('pending_ponctual_order') || localStorage.getItem('pending_ponctual_order');
+      
+      if (savedVisit) {
+        console.log('📦 Données de visite en attente trouvées...');
+        try {
+          const visitData = JSON.parse(savedVisit);
+          const vId = visitData.visit_id;
+          if (vId) {
+            setVisitId(vId);
+            setIsVisit(true);
+            
+            // ✅ Vérifier le statut de la visite
+            const { data: visit } = await useVisitStore.getState().fetchVisitById(vId);
+            if (visit && visit.status !== 'brouillon') {
+              setStatus('success');
+              setMessage('✅ Votre visite a été planifiée avec succès !');
+              sessionStorage.removeItem('pending_visit_payment');
+              await refreshData();
+              
+              setTimeout(() => {
+                navigate(`/app/visits/${vId}`);
+              }, 3000);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('❌ Erreur vérification visite en attente:', error);
+        }
+      }
       
       if (savedOrder) {
         console.log('📦 Données en attente trouvées, vérification du paiement...');
@@ -131,6 +221,7 @@ const PaymentConfirmPage = () => {
               sessionStorage.removeItem('pending_ponctual_order');
               localStorage.removeItem('pending_ponctual_order');
               setIsChecking(false);
+              await refreshData();
               
               setTimeout(() => {
                 navigate('/app/orders');
@@ -153,6 +244,7 @@ const PaymentConfirmPage = () => {
           setStatus('success');
           setMessage('✅ Votre commande a été créée avec succès !');
           setIsChecking(false);
+          refreshData();
           
           setTimeout(() => {
             navigate('/app/orders');
@@ -167,6 +259,7 @@ const PaymentConfirmPage = () => {
       setMessage('❌ Aucune information de paiement trouvée. Veuillez contacter le support.');
       
       sessionStorage.removeItem('pending_ponctual_order');
+      sessionStorage.removeItem('pending_visit_payment');
       localStorage.removeItem('pending_ponctual_order');
     };
 
@@ -212,21 +305,44 @@ const PaymentConfirmPage = () => {
 
           <div className="p-3.5 rounded-2xl text-left space-y-1" style={{ background: colors.primary + '04' }}>
             <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: colors.text }}>
-              <span>📦 Votre commande est validée</span>
+              {isVisit ? (
+                <span>📅 Votre visite est planifiée</span>
+              ) : (
+                <span>📦 Votre commande est validée</span>
+              )}
             </p>
             <p className="text-[10px] leading-relaxed text-gray-400 font-medium">
-              Notre équipe s'occupe de la mise en place de votre prestation. Vous recevrez une alerte dès qu'un aidant sera assigné.
+              {isVisit 
+                ? 'Vous recevrez une notification dès que l\'aidant aura approuvé la visite.'
+                : 'Notre équipe s\'occupe de la mise en place de votre prestation. Vous recevrez une alerte dès qu\'un aidant sera assigné.'}
             </p>
           </div>
 
           <div className="flex flex-col gap-2.5 pt-1">
             <button
-              onClick={() => navigate('/app/orders')}
+              onClick={() => {
+                if (isVisit && visitId) {
+                  navigate(`/app/visits/${visitId}`);
+                } else {
+                  navigate('/app/orders');
+                }
+              }}
               className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-95 shadow-sm flex items-center justify-center gap-1.5"
               style={{ background: colors.primary }}
             >
-              <ShoppingBag size={14} />
-              Voir mes commandes
+              {isVisit ? (
+                <>
+                  <Calendar size={14} />
+                  Voir ma visite
+                  <ArrowRight size={14} />
+                </>
+              ) : (
+                <>
+                  <ShoppingBag size={14} />
+                  Voir mes commandes
+                  <ArrowRight size={14} />
+                </>
+              )}
             </button>
             <button
               onClick={() => navigate('/app')}
@@ -263,11 +379,17 @@ const PaymentConfirmPage = () => {
 
         <div className="flex flex-col gap-2.5 pt-1">
           <button
-            onClick={() => navigate('/app/orders/create')}
+            onClick={() => {
+              if (isVisit && visitId) {
+                navigate(`/app/visits/${visitId}`);
+              } else {
+                navigate('/app/orders/create');
+              }
+            }}
             className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all hover:opacity-95 shadow-sm"
             style={{ background: colors.primary }}
           >
-            Réessayer la commande
+            {isVisit ? 'Réessayer le paiement' : 'Réessayer la commande'}
           </button>
           <button
             onClick={() => navigate('/app/billing')}
@@ -275,6 +397,13 @@ const PaymentConfirmPage = () => {
             style={{ color: colors.text }}
           >
             Consulter les formules d'abonnements
+          </button>
+          <button
+            onClick={() => navigate('/app')}
+            className="w-full py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition-colors"
+            style={{ borderColor: colors.border, color: colors.text }}
+          >
+            Retour à l'accueil
           </button>
         </div>
       </div>
