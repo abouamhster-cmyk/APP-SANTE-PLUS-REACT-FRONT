@@ -53,6 +53,7 @@ const AdminDashboardPage = () => {
     visitsPendingPayment: 0,
     ordersPendingPayment: 0,
     assignedCount: 0,
+    unassignedCount: 0,
   });
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -77,7 +78,7 @@ const AdminDashboardPage = () => {
         supabase.from('inscriptions').select('*', { count: 'exact', head: true }).eq('status', 'en_attente'),
       ]);
 
-      // ✅ Récupérer les comptes personnels (familles sans patient)
+      // ✅ Récupérer TOUTES les familles (comptes)
       const { data: allFamilies, error: familiesError } = await supabase
         .from('profiles')
         .select('id')
@@ -87,6 +88,7 @@ const AdminDashboardPage = () => {
         console.error('❌ Erreur récupération familles:', familiesError);
       }
 
+      // ✅ Récupérer les liens famille-patient
       const { data: familyLinks, error: linksError } = await supabase
         .from('patient_family_links')
         .select('family_id');
@@ -96,18 +98,31 @@ const AdminDashboardPage = () => {
       }
 
       const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
-      const personalAccounts = (allFamilies || []).filter(
-        (f: any) => !familyIdsWithPatients.has(f.id)
-      );
       
-      const personalAccountsCount = personalAccounts.length;
-      const totalBeneficiaires = (totalPatients || 0) + personalAccountsCount;
+      // ✅ CORRECTION : Compter TOUTES les familles
+      const totalFamilies = allFamilies?.length || 0;
+      const personalAccountsCount = (allFamilies || []).filter(
+        (f: any) => !familyIdsWithPatients.has(f.id)
+      ).length;
+
+      // ✅ CORRECTION : Total bénéficiaires = TOUS les comptes + TOUS les patients
+      const totalBeneficiaires = totalFamilies + (totalPatients || 0);
+
+      console.log('📊 AdminDashboard - Stats bénéficiaires:', {
+        totalFamilies,
+        totalPatients: totalPatients || 0,
+        personalAccountsCount,
+        totalBeneficiaires,
+        familyIdsWithPatients: familyIdsWithPatients.size,
+      });
 
       // ✅ Récupérer le nombre d'assignations actives
       const { count: assignedCount } = await supabase
         .from('aidant_assignments')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active');
+
+      const unassignedCount = totalBeneficiaires - (assignedCount || 0);
 
       const today = new Date().toISOString().split('T')[0];
       const [
@@ -188,7 +203,8 @@ const AdminDashboardPage = () => {
         ordersAvailable: ordersAvailable || 0,
         visitsPendingPayment: visitsPendingPayment || 0,
         ordersPendingPayment: ordersPendingPayment || 0,
-        assignedCount: assignedCount || 0,   
+        assignedCount: assignedCount || 0,
+        unassignedCount: unassignedCount,
       });
     } catch (error) {
       console.error('Fetch dashboard error:', error);
@@ -235,7 +251,7 @@ const AdminDashboardPage = () => {
     {
       label: 'Bénéficiaires',
       value: stats.totalBeneficiaires,
-      sub: `${stats.totalPatients} patients • ${stats.personalAccounts} comptes personnels`,
+      sub: `${stats.totalPatients} patients • ${stats.personalAccounts} comptes personnels • ${stats.unassignedCount} non assignés`,
       icon: <UserCheck size={15} />,
       color: '#10b981',
     },
@@ -322,6 +338,14 @@ const AdminDashboardPage = () => {
         
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <AlertCard
+            label="Bénéficiaires non assignés"
+            value={stats.unassignedCount}
+            icon={<UserX size={15} />}
+            color="#F59E0B"
+            onClick={() => navigate('/app/patients')}
+            badge="À assigner"
+          />
+          <AlertCard
             label="Visites à valider"
             value={stats.visitsWaitingApproval}
             icon={<Clock size={15} />}
@@ -344,14 +368,6 @@ const AdminDashboardPage = () => {
             color="#FF9800"
             onClick={() => navigate('/app/orders')}
             badge="Nouvelles"
-          />
-          <AlertCard
-            label="Commandes urgentes"
-            value={stats.ordersAvailable}
-            icon={<AlertCircle size={15} />}
-            color="#F44336"
-            onClick={() => navigate('/app/orders')}
-            badge="Disponibles"
           />
         </section>
       </div>
