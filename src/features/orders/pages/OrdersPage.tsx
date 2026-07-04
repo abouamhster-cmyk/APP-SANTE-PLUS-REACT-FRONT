@@ -90,10 +90,13 @@ const OrdersPage = () => {
     setShowAssignModal(true);
   };
 
-  const handleAssignAidantSuccess = async () => {
-    await fetchOrders();
-    toast.success('Aidant assigné avec succès');
-  };
+ 
+ const handleAssignAidantSuccess = async () => {
+  // ✅ Forcer l'invalidation du cache et le rechargement
+  useOrderStore.getState().invalidateCache();
+  await fetchOrders(true);
+  toast.success('Aidant assigné avec succès');
+};
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
