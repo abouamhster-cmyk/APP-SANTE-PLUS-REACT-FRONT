@@ -290,7 +290,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         for (const coordinator of coordinators) {
           await supabase.from('notifications').insert({
             user_id: coordinator.id,
-            title: '📋 Nouvelle demande de sortie',
+            title: ' Nouvelle demande de sortie',
             body: `Demande de sortie pour ${discharge.patient?.first_name} ${discharge.patient?.last_name}`,
             type: 'system',
             data: { discharge_id: discharge.id },
@@ -392,7 +392,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
-          title: '🔄 Mise à jour sortie d\'hôpital',
+          title: 'Mise à jour sortie d\'hôpital',
           body: `Le statut de la sortie est maintenant : ${status}`,
           type: 'system',
           data: { discharge_id: id, status },
@@ -439,7 +439,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       if (discharge.aidant?.user_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.aidant.user_id,
-          title: '📋 Nouvelle mission de sortie',
+          title: 'Nouvelle mission de sortie',
           body: `Vous avez été assigné à la sortie de ${discharge.patient?.first_name} ${discharge.patient?.last_name}`,
           type: 'system',
           data: { discharge_id: id },
@@ -450,7 +450,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
-          title: '🔄 Aidant assigné',
+          title: 'Aidant assigné',
           body: `Un aidant a été assigné pour la sortie de ${discharge.patient?.first_name} ${discharge.patient?.last_name}`,
           type: 'system',
           data: { discharge_id: id },
@@ -515,7 +515,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
-          title: '✅ Sortie d\'hôpital terminée',
+          title: 'Sortie d\'hôpital terminée',
           body: `La sortie de ${discharge.patient?.first_name} ${discharge.patient?.last_name} est terminée.`,
           type: 'system',
           data: { discharge_id: id },
@@ -532,7 +532,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         for (const coordinator of coordinators) {
           await supabase.from('notifications').insert({
             user_id: coordinator.id,
-            title: '✅ Sortie d\'hôpital terminée',
+            title: 'Sortie d\'hôpital terminée',
             body: `La sortie de ${discharge.patient?.first_name} ${discharge.patient?.last_name} est terminée.`,
             type: 'system',
             data: { discharge_id: id },
@@ -586,7 +586,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
-          title: '❌ Sortie d\'hôpital annulée',
+          title: 'Sortie d\'hôpital annulée',
           body: `La sortie a été annulée. Motif: ${reason}`,
           type: 'system',
           data: { discharge_id: id },
@@ -603,7 +603,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         for (const coordinator of coordinators) {
           await supabase.from('notifications').insert({
             user_id: coordinator.id,
-            title: '❌ Sortie d\'hôpital annulée',
+            title: 'Sortie d\'hôpital annulée',
             body: `La sortie de ${discharge.patient?.first_name} ${discharge.patient?.last_name} a été annulée.`,
             type: 'system',
             data: { discharge_id: id },
