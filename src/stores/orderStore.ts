@@ -556,14 +556,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // UPDATE ORDER STATUS
-  // =============================================
 
-// 📁 src/stores/orderStore.ts - FONCTIONS CLÉS CORRIGÉES
 
 // ============================================================
-// FETCH ORDERS - CORRIGÉ AVEC RECHARGE DES RELATIONS
+// FETCH ORDERS -  AVEC RECHARGE DES RELATIONS
 // ============================================================
 fetchOrders: async (force = false) => {
   const state = get();
