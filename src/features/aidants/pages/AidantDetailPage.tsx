@@ -1,4 +1,4 @@
-// 📁 AidantDetailPage.tsx
+// 📁 src/features/aidants/pages/AidantDetailPage.tsx
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -27,25 +27,22 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 import AssignAidantModal from '../components/AssignAidantModal';
 
+// ✅ Importer les types
+import { TargetType } from '@/types/assignment';
+
 const AidantDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const { profile, role, user } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
-  
-  // ✅ Utiliser le nouveau store d'assignation
-  const { 
-    fetchActiveAidant, 
-    isLoading: assignmentLoading,
-    assignments,
-    fetchAssignments,
-  } = useAssignmentStore();
-  
+  const { fetchActiveAidant, isLoading: assignmentLoading } = useAssignmentStore();
   const {
     selectedAidant: aidant,
     isLoading,
     fetchAidantById,
+    assignments,
+    fetchMyAssignments,
   } = useAidantCatalogStore();
 
   const { isFamily } = useTerminology();
@@ -56,88 +53,96 @@ const AidantDetailPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
- 
+  // ✅ Vérifier si l'aidant est déjà assigné à l'utilisateur ou à ses patients
+  useEffect(() => {
+    const checkAssignment = async () => {
+      if (!id || !user || !isFamily) {
+        setIsCheckingAssignment(false);
+        return;
+      }
 
-    useEffect(() => {
-      const checkAssignment = async () => {
-        if (!id || !user || !isFamily) {
+      setIsCheckingAssignment(true);
+      try {
+        // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
+        // ✅ Utiliser le type correct 'personal_account'
+        const personalResponse = await fetchActiveAidant(
+          'personal_account' as TargetType, 
+          user.id
+        );
+        const personalData = personalResponse as any;
+        
+        // ✅ Vérifier si l'aidant est assigné
+        const isPersonalAssigned = 
+          personalData?.aidant?.id === id || 
+          personalData?.aidant_id === id ||
+          personalData?.aidant_user_id === id ||
+          (personalData?.target_type === 'personal_account' && 
+           personalData?.target_id === user.id && 
+           personalData?.aidant_user_id === id);
+          
+        if (isPersonalAssigned) {
+          setIsAlreadyAssigned(true);
           setIsCheckingAssignment(false);
           return;
         }
-    
-        setIsCheckingAssignment(true);
-        try {
-          // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
-          // ✅ Utiliser 'personal_account' au lieu de 'personal'
-          const personalResponse = await fetchActiveAidant('personal_account', user.id);
-          const personalData = personalResponse as any;
-          
-          // ✅ Vérifier si l'aidant est assigné (plusieurs formats possibles)
-          const isPersonalAssigned = 
-            personalData?.aidant?.id === id || 
-            personalData?.aidant_id === id ||
-            personalData?.aidant_user_id === id ||
-            (personalData?.target_type === 'personal_account' && personalData?.target_id === user.id && personalData?.aidant_user_id === id);
-              
-          if (isPersonalAssigned) {
-            setIsAlreadyAssigned(true);
-            setIsCheckingAssignment(false);
-            return;
-          }
-    
-          // ✅ 2. Vérifier si l'aidant est assigné à un des patients de l'utilisateur
-          const patientIds = patients.map(p => p.id);
-          for (const patientId of patientIds) {
-            // ✅ Utiliser 'patient' correctement
-            const patientResponse = await fetchActiveAidant('patient', patientId, user.id);
-            const patientData = patientResponse as any;
-            
-            const isPatientAssigned = 
-              patientData?.aidant?.id === id || 
-              patientData?.aidant_id === id ||
-              patientData?.aidant_user_id === id ||
-              (patientData?.target_type === 'patient' && patientData?.target_id === patientId && patientData?.aidant_user_id === id);
-              
-            if (isPatientAssigned) {
-              setIsAlreadyAssigned(true);
-              setIsCheckingAssignment(false);
-              return;
-            }
-          }
-    
-          // ✅ 3. Vérifier via les assignations du store (legacy)
-          const isAssignedInStore = assignments.some(
-            (a) => a.family_id === user.id && a.relationship !== 'cancelled'
-          );
-          if (isAssignedInStore) {
-            setIsAlreadyAssigned(true);
-            setIsCheckingAssignment(false);
-            return;
-          }
-    
-          setIsAlreadyAssigned(false);
-        } catch (error) {
-          console.error('❌ Erreur vérification assignation:', error);
-          setIsAlreadyAssigned(false);
-        } finally {
-          setIsCheckingAssignment(false);
-        }
-      };
-    
-      checkAssignment();
-    }, [id, user, patients, isFamily, assignments, fetchActiveAidant]);
 
-  
+        // ✅ 2. Vérifier si l'aidant est assigné à un des patients de l'utilisateur
+        const patientIds = patients.map(p => p.id);
+        for (const patientId of patientIds) {
+          // ✅ Utiliser le type correct 'patient'
+          const patientResponse = await fetchActiveAidant(
+            'patient' as TargetType, 
+            patientId, 
+            user.id
+          );
+          const patientData = patientResponse as any;
+          
+          const isPatientAssigned = 
+            patientData?.aidant?.id === id || 
+            patientData?.aidant_id === id ||
+            patientData?.aidant_user_id === id ||
+            (patientData?.target_type === 'patient' && 
+             patientData?.target_id === patientId && 
+             patientData?.aidant_user_id === id);
+            
+          if (isPatientAssigned) {
+            setIsAlreadyAssigned(true);
+            setIsCheckingAssignment(false);
+            return;
+          }
+        }
+
+        // ✅ 3. Vérifier via les assignations du store (legacy)
+        const isAssignedInStore = assignments.some(
+          (a) => a.family_id === user.id && a.relationship !== 'cancelled'
+        );
+        if (isAssignedInStore) {
+          setIsAlreadyAssigned(true);
+          setIsCheckingAssignment(false);
+          return;
+        }
+
+        setIsAlreadyAssigned(false);
+      } catch (error) {
+        console.error('❌ Erreur vérification assignation:', error);
+        setIsAlreadyAssigned(false);
+      } finally {
+        setIsCheckingAssignment(false);
+      }
+    };
+
+    checkAssignment();
+  }, [id, user, patients, isFamily, assignments, fetchActiveAidant]);
 
   useEffect(() => {
     if (id) {
       fetchAidantById(id);
       if (isFamily) {
         fetchPatients();
-        fetchAssignments();
+        fetchMyAssignments();
       }
     }
-  }, [id, isFamily, fetchAidantById, fetchPatients, fetchAssignments]);
+  }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
 
   const status = (() => {
     if (!aidant?.is_available) return { label: 'Indisponible', color: 'text-red-500', bg: 'bg-red-50' };
@@ -251,7 +256,7 @@ const AidantDetailPage = () => {
 
               <div className="flex items-center gap-1">
                 <CheckCircle size={12} />
-                {aidant.active_assignments}/{aidant.max_assignments || 4}
+                {aidant.active_assignments}/{aidant.max_assignments}
               </div>
 
             </div>
@@ -335,7 +340,7 @@ const AidantDetailPage = () => {
           onSuccess={() => {
             setShowAssignModal(false);
             fetchAidantById(id!);
-            fetchAssignments();  // ✅ Rafraîchir les assignations
+            fetchMyAssignments();
             setIsAlreadyAssigned(true);
             toast.success('✅ Aidant assigné avec succès !');
           }}
