@@ -162,113 +162,68 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // FETCH VISITS - CORRIGÉ AVEC RECHARGE DES RELATIONS
+  // FETCH VISITS  
   // ============================================================
-  fetchVisits: async (force = false) => {
-    const state = get();
+
+fetchVisits: async (force = false) => {
+  const state = get();
+  
+  if (state.isLoading) {
+    console.log('ℹ️ Déjà en cours de chargement, skip...');
+    return;
+  }
+
+  if (state.isCacheInvalidated) {
+    force = true;
+  }
+
+  if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+    console.log('📦 Utilisation du cache mémoire visites');
+    return;
+  }
+
+  if (!force) {
+    const cached = getCachedVisits();
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+      console.log('📦 Utilisation du cache localStorage visites');
+      set({ 
+        visits: cached.data, 
+        isLoading: false, 
+        isInitialized: true,
+        lastFetch: cached.timestamp,
+        isCacheInvalidated: false,
+      });
+      return;
+    }
+  }
+
+  try {
+    set({ isLoading: true, error: null, isCacheInvalidated: false });
     
-    if (state.isLoading) {
-      console.log('ℹ️ Déjà en cours de chargement, skip...');
+    const { user, profile } = useAuthStore.getState();
+    if (!user) {
+      set({ visits: [], isLoading: false });
       return;
     }
 
-    if (state.isCacheInvalidated) force = true;
+    // ✅ Appel API
+    const response = await api.get('/visits');
+    const visitsData = response.data || [];
 
-    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
-      console.log('📦 Utilisation du cache mémoire visites');
-      return;
-    }
+    // ✅ POUR LES FAMILLES : Forcer le rechargement des aidants
+    let visitsWithFullRelations = visitsData;
 
-    if (!force) {
-      const cached = getCachedVisits();
-      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-        console.log('📦 Utilisation du cache localStorage visites');
-        set({ 
-          visits: cached.data, 
-          isLoading: false, 
-          isInitialized: true,
-          lastFetch: cached.timestamp,
-          isCacheInvalidated: false,
-        });
-        return;
-      }
-    }
-
-    try {
-      set({ isLoading: true, error: null, isCacheInvalidated: false });
-      
-      const { user, profile } = useAuthStore.getState();
-      if (!user) {
-        set({ visits: [], isLoading: false });
-        return;
-      }
-
-      console.log('🔍 fetchVisits - Début pour rôle:', profile?.role);
-
-      // ✅ 1. Récupérer les IDs des patients de la famille
-      let patientIds: string[] = [];
-      if (profile?.role === 'family') {
-        const { data: links } = await supabase
-          .from('patient_family_links')
-          .select('patient_id')
-          .eq('family_id', user.id);
-        patientIds = links?.map(l => l.patient_id).filter(Boolean) || [];
-        console.log('📋 Patient IDs de la famille:', patientIds);
-      }
-
-      // ✅ 2. Construire la requête
-      let query = supabase
-        .from('visites')
-        .select(`
-          *,
-          patient:patients(*)
-        `);
-
-      // ✅ 3. Appliquer les filtres selon le rôle
-      if (profile?.role === 'admin' || profile?.role === 'coordinator') {
-        // Toutes les visites
-        console.log('👔 Admin/Coord - Toutes les visites');
-      } else if (profile?.role === 'family') {
-        if (patientIds.length > 0) {
-          query = query.or(`patient_id.in.(${patientIds.join(',')}), user_id.eq.${user.id}`);
-        } else {
-          query = query.eq('user_id', user.id);
-        }
-        console.log('👨‍👩‍👦 Famille - Visites filtrées');
-      } else if (profile?.role === 'aidant') {
-        const { data: aidant } = await supabase
-          .from('aidants')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (aidant) {
-          query = query.eq('aidant_id', aidant.id);
-          console.log('🦸 Aidant - Visites assignées');
-        } else {
-          set({ visits: [], isLoading: false, isInitialized: true });
-          return;
-        }
-      }
-
-      const { data: visitsData, error } = await query.order('scheduled_date', { ascending: true });
-
-      if (error) throw error;
-
-      console.log(`📋 ${visitsData?.length || 0} visites récupérées (brutes)`);
-
-      // ✅ 4. RÉCUPÉRER LES AIDANTS AVEC LEURS PROFILS (pour TOUTES les visites)
+    if (profile?.role === 'family' && visitsWithFullRelations.length > 0) {
+      // Récupérer tous les aidant_id uniques
       const aidantIds = [...new Set(
-        (visitsData || [])
-          .filter(v => v.aidant_id)
-          .map(v => v.aidant_id)
+        visitsWithFullRelations
+          .filter((v: any) => v.aidant_id)
+          .map((v: any) => v.aidant_id)
       )];
 
-      let aidantMap: Record<string, any> = {};
-
       if (aidantIds.length > 0) {
-        console.log(`📋 Récupération de ${aidantIds.length} aidants...`);
-        const { data: aidantsData, error: aidantsError } = await supabase
+        // Récupérer les aidants avec leurs profils
+        const { data: aidantsData } = await supabase
           .from('aidants')
           .select(`
             id,
@@ -289,55 +244,49 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           `)
           .in('id', aidantIds);
 
-        if (aidantsError) {
-          console.error('❌ Erreur récupération aidants:', aidantsError);
-        } else if (aidantsData) {
-          aidantMap = aidantsData.reduce((acc, a) => {
+        if (aidantsData) {
+          // Créer un mapping aidant_id → aidant
+          const aidantMap = aidantsData.reduce((acc: any, a: any) => {
             acc[a.id] = a;
             return acc;
           }, {});
-          console.log(`✅ ${Object.keys(aidantMap).length} aidants récupérés`);
+
+          // Remplacer les aidants dans les visites
+          visitsWithFullRelations = visitsWithFullRelations.map((visit: any) => ({
+            ...visit,
+            aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
+          }));
         }
       }
+    }
 
-      // ✅ 5. Fusionner les données
-      const visitsWithAidants = (visitsData || []).map(visit => ({
-        ...visit,
-        aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
-      }));
-
-      // ✅ 6. Mettre en cache
-      setCachedVisits(visitsWithAidants);
-      
+    setCachedVisits(visitsWithFullRelations);
+    
+    set({ 
+      visits: visitsWithFullRelations, 
+      isLoading: false,
+      isInitialized: true,
+      lastFetch: Date.now(),
+      isCacheInvalidated: false,
+    });
+  } catch (error: any) {
+    console.error('❌ Fetch visits error:', error);
+    
+    const cached = getCachedVisits();
+    if (cached && cached.data.length > 0) {
       set({
-        visits: visitsWithAidants,
+        visits: cached.data,
         isLoading: false,
         isInitialized: true,
-        lastFetch: Date.now(),
+        lastFetch: cached.timestamp,
+        error: error.message || 'Erreur de chargement (cache utilisé)',
         isCacheInvalidated: false,
-        error: null,
       });
-
-      console.log(`✅ ${visitsWithAidants.length} visites chargées avec aidants`);
-
-    } catch (error: any) {
-      console.error('❌ fetchVisits error:', error);
-      
-      const cached = getCachedVisits();
-      if (cached && cached.data.length > 0) {
-        set({
-          visits: cached.data,
-          isLoading: false,
-          isInitialized: true,
-          lastFetch: cached.timestamp,
-          error: error.message || 'Erreur de chargement (cache utilisé)',
-          isCacheInvalidated: false,
-        });
-      } else {
-        set({ error: error.message, isLoading: false, isInitialized: true });
-      }
+    } else {
+      set({ error: error.message, isLoading: false, isInitialized: true });
     }
-  },
+  }
+},
 
   // ============================================================
   // FETCH VISIT BY ID - CORRIGÉ AVEC RECHARGE
