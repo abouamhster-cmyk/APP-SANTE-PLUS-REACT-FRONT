@@ -3,7 +3,7 @@
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
 
-// ✅ TES CLÉS FIREBASE (mêmes que dans le frontend)
+// ✅ TES CLÉS FIREBASE
 firebase.initializeApp({
   apiKey: "AIzaSyD9a_D_5nQCwUH9LJssDdyOFGCRHm8VvcU",
   authDomain: "sante-plus-services-react.firebaseapp.com",
@@ -13,6 +13,9 @@ firebase.initializeApp({
   appId: "1:418910358878:web:419cf684292515e17953cf",
   measurementId: "G-7WGYHF8R7M"
 });
+
+// ✅ TA CLÉ VAPID (pour le SW)
+const VAPID_KEY = "BOpnRL7xQjAbTUpp54ICOabzXZNWHmLqLYAEA0uKubtvDrJNHteoxE7UGnLlPbvgCWPYlwcwQdPGRfShNBBi0Bc";
 
 const messaging = firebase.messaging();
 
