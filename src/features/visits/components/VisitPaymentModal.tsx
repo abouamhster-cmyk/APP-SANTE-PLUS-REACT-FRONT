@@ -1,4 +1,5 @@
 // 📁 src/features/visits/components/VisitPaymentModal.tsx
+ 
 
 import { useState } from 'react';
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
@@ -6,9 +7,21 @@ import { usePaymentStore } from '@/stores/paymentStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { getPonctualPrice } from '@/stores/visitStore';
 import { Loader2, CreditCard, ExternalLink, Calendar, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  getPonctualPrice,
+  getVisitPaymentAmount,
+  getDraftExpiryTime,
+  isDraftExpired,
+} from '@/lib/constants';
+import {
+  isVisitDraft,
+  isVisitPonctual,
+  requiresVisitPayment,
+} from '@/utils/helpers';
 
 interface VisitPaymentModalProps {
   isOpen: boolean;
@@ -32,10 +45,19 @@ export const VisitPaymentModal = ({
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Calcul du montant
-  const amount = visit.metadata?.payment_amount || getPonctualPrice(visit.duration_minutes || 60);
+  // ✅ Calcul du montant avec les helpers
+  const amount = getVisitPaymentAmount(visit) || getPonctualPrice(visit.duration_minutes || 60);
+  const isDraft = isVisitDraft(visit);
+  const isExpired = isDraftExpired(visit);
+  const expiryTime = getDraftExpiryTime(visit);
 
   const handlePayment = async () => {
+    // ✅ Vérifier si le brouillon n'est pas expiré
+    if (isExpired) {
+      toast.error('Ce brouillon a expiré. Veuillez recréer la visite.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const visitId = visit.id;
@@ -44,8 +66,8 @@ export const VisitPaymentModal = ({
         amount,
         description: `Visite ponctuelle - ${visit.target_name || 'Personnel'}`,
         is_ponctual: true,
-        is_visit: true,                           // ✅ AJOUTÉ
-        visit_id: visitId,                        // ✅ AJOUTÉ
+        is_visit: true,
+        visit_id: visitId,
         patient_id: visit.patient_id || null,
         target_type: visit.target_type || 'personal',
         target_name: visit.target_name || 'Personnel',
@@ -107,19 +129,31 @@ export const VisitPaymentModal = ({
         RÉSUMÉ DU TICKET DE PAIEMENT
         ============================================================ */}
         <div
-          className="rounded-2xl p-5 border shadow-sm space-y-4"
+          className={`rounded-2xl p-5 border shadow-sm space-y-4 ${
+            isExpired ? 'border-red-300 bg-red-50' : ''
+          }`}
           style={{
-            background: colors.primary + '06',
-            borderColor: colors.primary + '15',
+            background: isExpired ? '#FEF2F2' : colors.primary + '06',
+            borderColor: isExpired ? '#FECACA' : colors.primary + '15',
           }}
         >
+          {/* ✅ BANDEAU D'EXPIRATION */}
+          {isExpired && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-red-100 border border-red-200">
+              <AlertCircle size={16} className="text-red-600" />
+              <span className="text-xs font-bold text-red-700">
+                ⚠️ Ce brouillon a expiré. Veuillez recréer la visite.
+              </span>
+            </div>
+          )}
+
           {/* En-tête du ticket */}
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
               style={{
-                background: colors.primary + '12',
-                color: colors.primary,
+                background: isExpired ? '#FECACA' : colors.primary + '12',
+                color: isExpired ? '#DC2626' : colors.primary,
               }}
             >
               <CreditCard size={18} />
@@ -160,7 +194,7 @@ export const VisitPaymentModal = ({
             </div>
           </div>
 
-          {/* Section Montant final */}
+          {/* ✅ Section Montant final avec expiration */}
           <div 
             className="border-t pt-4 border-dashed" 
             style={{ borderColor: colors.primary + '20' }}
@@ -170,9 +204,15 @@ export const VisitPaymentModal = ({
                 <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '50' }}>
                   Total à régler
                 </p>
-                <p className="text-2xl font-black tracking-tight" style={{ color: colors.primary }}>
+                <p className={`text-2xl font-black tracking-tight ${isExpired ? 'text-gray-400' : ''}`} 
+                   style={{ color: isExpired ? '#9CA3AF' : colors.primary }}>
                   {amount.toLocaleString()} FCFA
                 </p>
+                {expiryTime && !isExpired && (
+                  <p className="text-[10px] text-yellow-600 font-medium">
+                    ⏳ Expire dans {expiryTime}
+                  </p>
+                )}
               </div>
               
               {visit.is_urgent && (
@@ -189,20 +229,27 @@ export const VisitPaymentModal = ({
         BLOC INFORMATIONS ET SÉCURITÉ
         ============================================================ */}
         <div
-          className="flex items-start gap-3 p-4 rounded-xl border"
+          className={`flex items-start gap-3 p-4 rounded-xl border ${
+            isExpired ? 'bg-red-50 border-red-200' : ''
+          }`}
           style={{ 
-            background: colors.primary + '05', 
-            borderColor: colors.primary + '12'
+            background: isExpired ? '#FEF2F2' : colors.primary + '05', 
+            borderColor: isExpired ? '#FECACA' : colors.primary + '12'
           }}
         >
-          <AlertCircle size={15} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
+          <AlertCircle size={15} style={{ color: isExpired ? '#DC2626' : colors.primary }} className="shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="text-xs leading-relaxed font-medium" style={{ color: colors.text + '80' }}>
-              Le paiement est requis pour confirmer la planification. Vous allez être redirigé vers l'interface de paiement sécurisée de FedaPay.
+            <p className="text-xs leading-relaxed font-medium" style={{ color: isExpired ? '#DC2626' : colors.text + '80' }}>
+              {isExpired 
+                ? '⚠️ Ce brouillon a expiré. Vous ne pouvez plus effectuer de paiement.'
+                : 'Le paiement est requis pour confirmer la planification. Vous allez être redirigé vers l\'interface de paiement sécurisée de FedaPay.'
+              }
             </p>
-            <span className="text-[10px] block font-medium" style={{ color: colors.text + '50' }}>
-              💡 Moyens acceptés : Mobile Money (MTN, Moov, Wave, etc.) ou Carte bancaire.
-            </span>
+            {!isExpired && (
+              <span className="text-[10px] block font-medium" style={{ color: colors.text + '50' }}>
+                💡 Moyens acceptés : Mobile Money (MTN, Moov, Wave, etc.) ou Carte bancaire.
+              </span>
+            )}
           </div>
         </div>
 
@@ -223,14 +270,24 @@ export const VisitPaymentModal = ({
           <button
             type="button"
             onClick={handlePayment}
-            disabled={isLoading}
-            className="w-full sm:flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-1.5 shadow-sm order-1 sm:order-2"
-            style={{ background: colors.primary }}
+            disabled={isLoading || isExpired}
+            className={`w-full sm:flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition ${
+              isExpired ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90'
+            } flex items-center justify-center gap-1.5 shadow-sm order-1 sm:order-2`}
+            style={{ 
+              background: isExpired ? '#9CA3AF' : colors.primary,
+              cursor: isExpired ? 'not-allowed' : 'pointer',
+            }}
           >
             {isLoading ? (
               <>
                 <Loader2 size={13} className="animate-spin" style={{ color: 'white' }} />
                 Traitement en cours...
+              </>
+            ) : isExpired ? (
+              <>
+                <AlertCircle size={13} />
+                Brouillon expiré
               </>
             ) : (
               <>
