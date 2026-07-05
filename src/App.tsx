@@ -191,10 +191,14 @@ function App() {
   // ============================================================
   // EFFETS - GESTION DU RECHARGEMENT
   // ============================================================
+ 
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('👀 Page visible - pas de rechargement automatique');
+        console.log('👀 Page visible - Rafraîchissement automatique des notifications...');
+        
+        // ✅ Force la synchronisation en tâche de fond avec la base de données
+        useNotificationStore.getState().fetchNotifications(true);
       }
     };
 
@@ -212,7 +216,6 @@ function App() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
-
   // ============================================================
   // EFFETS - INITIALISATION DE L'AUTH
   // ============================================================
