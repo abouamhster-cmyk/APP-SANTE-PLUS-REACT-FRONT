@@ -63,11 +63,20 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // ✅ Enregistrer UN SEUL Service Worker (fusionné)
+          // ✅ Enregistrer UN SEUL Service Worker
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then((registration) => {
               console.log('✅ Service Worker enregistré:', registration);
+              // ✅ Stocker la référence pour l'utiliser dans getToken
               window.swRegistration = registration;
+              
+              // ✅ Notifier l'application
+              if (registration.active) {
+                registration.active.postMessage({
+                  type: 'SW_READY',
+                  timestamp: Date.now()
+                });
+              }
             })
             .catch((error) => {
               console.error('❌ Erreur Service Worker:', error);
@@ -83,6 +92,8 @@
     ============================================================ -->
     <audio id="notification-sound" preload="auto">
       <source src="/notification.mp3" type="audio/mpeg">
+      <source src="/notification-sound-1.mp3" type="audio/mpeg">
+      <source src="/notification-sound-2.mp3" type="audio/mpeg">
     </audio>
     
     <script type="module" src="/src/main.tsx"></script>
