@@ -1,103 +1,92 @@
-// 📁 src/hooks/useNotifications.ts
+// 📁 frontend/src/hooks/usePushNotifications.ts
 
-import { useEffect, useState, useCallback } from 'react';
-import { initializeFirebase, requestNotificationPermission } from '@/services/notificationService';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 
-interface UseNotificationsReturn {
-  isEnabled: boolean;
-  permission: NotificationPermission;
-  isSupported: boolean;
-  requestPermission: () => Promise<string | null>;
-  enable: () => Promise<void>;
-  disable: () => Promise<void>;
-}
-
-export const useNotifications = (): UseNotificationsReturn => {
+export const usePushNotifications = () => {
   const { isAuthenticated, user } = useAuthStore();
-  const { notificationsEnabled, toggleNotifications } = useNotificationStore();
-  
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [permission, setPermission] = useState<NotificationPermission>('default');
+  const { subscribe, unsubscribe, fetchNotifications } = useNotificationStore();
   const [isSupported, setIsSupported] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
-  // ✅ Vérifier le support des notifications
   useEffect(() => {
-    const supported = 'Notification' in window && 'serviceWorker' in navigator;
+    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
     setIsSupported(supported);
-    
-    if (supported) {
-      setPermission(Notification.permission);
-      setIsEnabled(Notification.permission === 'granted' && notificationsEnabled);
-    }
-  }, [notificationsEnabled]);
+  }, []);
 
-  // ✅ Initialiser Firebase et les notifications
   useEffect(() => {
     if (!isAuthenticated || !user || !isSupported) return;
 
-    // ✅ Initialiser Firebase
-    initializeFirebase();
+    // ✅ S'abonner aux notifications
+    const setupPush = async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+          // ✅ Demander l'abonnement
+          const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+          if (!VAPID_KEY) {
+            console.warn('⚠️ VAPID_KEY manquant');
+            return;
+          }
 
-    // ✅ Vérifier si le token est déjà enregistré
-    const storedToken = localStorage.getItem('fcm_token');
-    if (storedToken && Notification.permission === 'granted') {
-      setIsEnabled(true);
-    }
+          const newSubscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
+          });
+
+          // ✅ Envoyer l'abonnement au backend
+          await fetch('/api/notifications/register-token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+            },
+            body: JSON.stringify({
+              token: JSON.stringify(newSubscription),
+              device_info: navigator.userAgent,
+              user_id: user.id,
+            }),
+          });
+
+          setIsSubscribed(true);
+        } else {
+          setIsSubscribed(true);
+        }
+      } catch (error) {
+        console.error('❌ Erreur setup push:', error);
+      }
+    };
+
+    setupPush();
+
+    // ✅ S'abonner au canal Realtime
+    subscribe();
+    fetchNotifications();
+
+    return () => {
+      unsubscribe();
+    };
   }, [isAuthenticated, user, isSupported]);
 
-  // ✅ Demander la permission
-  const requestPermission = useCallback(async (): Promise<string | null> => {
-    if (!isAuthenticated || !user) {
-      console.warn('⚠️ Utilisateur non connecté');
-      return null;
-    }
-
-    if (!isSupported) {
-      console.warn('⚠️ Notifications non supportées');
-      return null;
-    }
-
-    try {
-      const token = await requestNotificationPermission(user.id);
-      if (token) {
-        setIsEnabled(true);
-        setPermission('granted');
-        // ✅ Activer les notifications dans le store
-        if (!notificationsEnabled) {
-          toggleNotifications();
-        }
-      }
-      return token;
-    } catch (error) {
-      console.error('❌ Erreur demande permission:', error);
-      return null;
-    }
-  }, [isAuthenticated, user, isSupported, notificationsEnabled, toggleNotifications]);
-
-  // ✅ Activer les notifications
-  const enable = useCallback(async () => {
-    if (!notificationsEnabled) {
-      toggleNotifications();
-    }
-    await requestPermission();
-  }, [notificationsEnabled, toggleNotifications, requestPermission]);
-
-  // ✅ Désactiver les notifications
-  const disable = useCallback(async () => {
-    if (notificationsEnabled) {
-      toggleNotifications();
-    }
-    setIsEnabled(false);
-  }, [notificationsEnabled, toggleNotifications]);
-
   return {
-    isEnabled,
-    permission,
     isSupported,
-    requestPermission,
-    enable,
-    disable,
+    isSubscribed,
+    subscribe: () => subscribe(),
+    unsubscribe: () => unsubscribe(),
   };
 };
+
+// ✅ Helper pour convertir la clé VAPID
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
