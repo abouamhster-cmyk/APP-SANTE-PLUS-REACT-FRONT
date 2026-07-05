@@ -45,7 +45,7 @@ function showSystemNotification(notification: Notification) {
     const body = notification.body || 'Nouvelle notification';
     const icon = '/icon-192.png';
 
-    // ✅ 1. SUPPRESSION DE 'renotify' (non standard)
+    // ✅ 1. SUPPRESSION DE 'actions' (non standard dans NotificationOptions)
     const options: NotificationOptions = {
       body: body,
       icon: icon,
@@ -57,10 +57,6 @@ function showSystemNotification(notification: Notification) {
         url: '/app/notifications',
         notificationId: notification.id,
       },
-      actions: [
-        { action: 'open', title: '👀 Voir' },
-        { action: 'dismiss', title: '❌ Fermer' },
-      ],
     };
 
     const notif = new Notification(title, options);
@@ -68,15 +64,14 @@ function showSystemNotification(notification: Notification) {
     // ✅ Gestion du clic principal
     notif.onclick = () => {
       window.focus();
-      const url = notif.data?.url || '/app/notifications';
+      const url = (notif as any).data?.url || '/app/notifications';
       window.location.href = url;
       notif.close();
     };
 
-    // ✅ 2. CORRECTION DU CAST ET AJOUT DE close()
+    // ✅ 2. CORRECTION : Utilisation de 'any' pour éviter les erreurs de type
     notif.addEventListener('click', (event) => {
-      // ✅ Cast correct via 'unknown' pour éviter l'erreur TS2352
-      const target = event.target as unknown as Notification;
+      const target = event.target as any;
       if (target && target.data) {
         window.focus();
         window.location.href = target.data?.url || '/app/notifications';
