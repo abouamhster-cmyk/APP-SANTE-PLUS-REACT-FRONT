@@ -7,11 +7,10 @@ import { getFCMToken, onFCMessage } from '@/lib/firebase';
 import { NotificationType } from '@/types';
 import toast from 'react-hot-toast';
 
-// ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ============================================================
-// ✅ CONFIGURATION DES SONS DE NOTIFICATION
+// ✅ CONFIGURATION DES SONS
 // ============================================================
 
 export const NOTIFICATION_SOUNDS = {
@@ -20,122 +19,16 @@ export const NOTIFICATION_SOUNDS = {
   SOUND_2: '/notification-sound-2.mp3',
 };
 
-// ✅ Son actif (par défaut SOUND_1)
 let activeSound = NOTIFICATION_SOUNDS.SOUND_1;
-let isInitialized = false;
 
-// ✅ INITIALISATION : Charger depuis localStorage ET depuis la base
-export const initializeNotificationSound = async () => {
-  if (isInitialized) return;
-  isInitialized = true;
-
-  try {
-    // 1. Essayer de charger depuis la base
-    const { user } = useAuthStore.getState();
-    if (user) {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('preferences')
-        .eq('id', user.id)
-        .single();
-
-      if (!error && data?.preferences?.notification_sound) {
-        const sound = data.preferences.notification_sound;
-        if (Object.values(NOTIFICATION_SOUNDS).includes(sound)) {
-          activeSound = sound;
-          localStorage.setItem('notification_sound', sound);
-          console.log('✅ Son chargé depuis la base:', sound);
-          return;
-        }
-      }
-    }
-
-    // 2. Fallback: charger depuis localStorage
-    const saved = localStorage.getItem('notification_sound');
-    if (saved && Object.values(NOTIFICATION_SOUNDS).includes(saved)) {
-      activeSound = saved;
-      console.log('✅ Son chargé depuis localStorage:', saved);
-      return;
-    }
-
-    // 3. Défaut
-    activeSound = NOTIFICATION_SOUNDS.SOUND_1;
-    console.log('ℹ️ Son par défaut utilisé');
-  } catch (error) {
-    console.warn('⚠️ Erreur chargement préférence son:', error);
-    // Fallback localStorage
-    const saved = localStorage.getItem('notification_sound');
-    if (saved && Object.values(NOTIFICATION_SOUNDS).includes(saved)) {
-      activeSound = saved;
-    } else {
-      activeSound = NOTIFICATION_SOUNDS.SOUND_1;
-    }
-  }
-};
-
-// ✅ SAUVEGARDER LE CHOIX DANS LA BASE
-export const saveNotificationSoundPreference = async (soundUrl: string) => {
-  try {
-    const { user } = useAuthStore.getState();
-    if (!user) {
-      console.warn('⚠️ Utilisateur non connecté, sauvegarde locale uniquement');
-      setNotificationSound(soundUrl);
-      return;
-    }
-
-    // Récupérer les préférences actuelles
-    const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('preferences')
-      .eq('id', user.id)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      throw fetchError;
-    }
-
-    const currentPrefs = profile?.preferences || {};
-    const updatedPrefs = {
-      ...currentPrefs,
-      notification_sound: soundUrl,
-    };
-
-    // Sauvegarder dans Supabase
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ preferences: updatedPrefs })
-      .eq('id', user.id);
-
-    if (updateError) throw updateError;
-
-    // Mettre à jour le localStorage
-    localStorage.setItem('notification_sound', soundUrl);
-    activeSound = soundUrl;
-
-    console.log('✅ Son sauvegardé dans la base:', soundUrl);
-  } catch (error) {
-    console.error('❌ Erreur sauvegarde préférence son:', error);
-    // Fallback: sauvegarde locale uniquement
-    localStorage.setItem('notification_sound', soundUrl);
-    activeSound = soundUrl;
-  }
-};
-
-// ✅ CHANGER LE SON
 export const setNotificationSound = (soundUrl: string) => {
   if (Object.values(NOTIFICATION_SOUNDS).includes(soundUrl)) {
     activeSound = soundUrl;
     localStorage.setItem('notification_sound', soundUrl);
-    console.log('🔔 Son changé (local):', soundUrl);
-    
-    // ✅ Sauvegarder dans la base si connecté
-    saveNotificationSoundPreference(soundUrl);
-  } else {
-    console.warn('⚠️ Son non disponible:', soundUrl);
+    console.log('🔔 Son de notification changé:', soundUrl);
   }
 };
 
-// ✅ Charger le son sauvegardé (fallback)
 const loadSavedSound = () => {
   const saved = localStorage.getItem('notification_sound');
   if (saved && Object.values(NOTIFICATION_SOUNDS).includes(saved)) {
@@ -175,15 +68,14 @@ function findSupabaseAuthKey(): string {
 }
 
 // ============================================================
-// ✅ JOUER LE SON DE NOTIFICATION
+// ✅ JOUER LE SON
 // ============================================================
 
 export const playNotificationSound = () => {
   try {
     const audio = new Audio(activeSound);
-    audio.volume = 0.5;
+    audio.volume = 0.7;
     audio.play().catch(() => {
-      // ✅ Fallback: API Web Audio
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = ctx.createOscillator();
@@ -205,7 +97,6 @@ export const playNotificationSound = () => {
   }
 };
 
-// ✅ Prévisualiser un son
 export const previewNotificationSound = (soundUrl: string) => {
   try {
     const audio = new Audio(soundUrl);
@@ -218,9 +109,60 @@ export const previewNotificationSound = (soundUrl: string) => {
   }
 };
 
-// ✅ Récupérer le son actif
-export const getActiveSound = (): string => {
-  return activeSound;
+// ============================================================
+// ✅ AFFICHER UNE NOTIFICATION SYSTÈME
+// ============================================================
+
+export const showSystemNotification = (title: string, body: string, data: any = {}) => {
+  if (!('Notification' in window)) {
+    console.warn('⚠️ Notifications non supportées');
+    return;
+  }
+
+  if (Notification.permission !== 'granted') {
+    console.warn('⚠️ Permission non accordée');
+    return;
+  }
+
+  try {
+    const options: NotificationOptions = {
+      body: body,
+      icon: '/icon-192.png',
+      badge: '/icon-72.png',
+      vibrate: [200, 100, 200],
+      tag: `notif_${Date.now()}`,
+      requireInteraction: true,
+      silent: false,
+      renotify: true,
+      data: {
+        url: data.url || '/app/notifications',
+        ...data,
+      },
+      actions: [
+        { action: 'open', title: '👀 Voir' },
+        { action: 'dismiss', title: '❌ Fermer' },
+      ],
+    };
+
+    const notification = new Notification(title, options);
+
+    notification.onclick = () => {
+      window.focus();
+      const url = notification.data?.url || '/app/notifications';
+      window.location.href = url;
+      notification.close();
+    };
+
+    notification.onclose = () => {
+      console.log('🔔 Notification fermée');
+    };
+
+    console.log('🔔 Notification système affichée:', title);
+    return notification;
+  } catch (error) {
+    console.error('❌ Erreur affichage notification:', error);
+    return null;
+  }
 };
 
 // ============================================================
@@ -236,7 +178,7 @@ export const updateNotificationBadge = (count: number) => {
 };
 
 // ============================================================
-// ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN (FCM)
+// ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN
 // ============================================================
 
 export const requestNotificationPermission = async (userId: string) => {
@@ -269,8 +211,6 @@ export const requestNotificationPermission = async (userId: string) => {
     console.log('✅ FCM Token généré:', fcmToken.substring(0, 30) + '...');
 
     const authKey = findSupabaseAuthKey();
-    console.log('🔑 Clé auth utilisée:', authKey);
-    
     const authData = localStorage.getItem(authKey);
     
     if (!authData) {
@@ -295,8 +235,6 @@ export const requestNotificationPermission = async (userId: string) => {
       return null;
     }
 
-    console.log('🔐 Access token présent:', !!accessToken);
-
     const response = await fetch(`${API_URL}/notifications/register-token`, {
       method: 'POST',
       headers: {
@@ -312,7 +250,6 @@ export const requestNotificationPermission = async (userId: string) => {
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('❌ Erreur enregistrement token:', error);
       throw new Error(error.error || "Erreur lors de l'enregistrement du token");
     }
 
@@ -322,12 +259,24 @@ export const requestNotificationPermission = async (userId: string) => {
     const { unreadCount } = useNotificationStore.getState();
     updateNotificationBadge(unreadCount);
 
+    // ✅ Configurer l'écoute des messages FCM en foreground
     onFCMessage((payload) => {
       console.log('📨 Message FCM reçu en foreground:', payload);
       
       const notification = payload.notification || {};
       const data = payload.data || {};
       
+      // ✅ Afficher la notification système
+      showSystemNotification(
+        notification.title || 'Santé Plus Services',
+        notification.body || 'Nouvelle notification',
+        data
+      );
+      
+      // ✅ Jouer le son
+      playNotificationSound();
+      
+      // ✅ Ajouter au store
       useNotificationStore.getState().addNotification({
         id: `fcm_${Date.now()}`,
         user_id: userId,
@@ -338,8 +287,6 @@ export const requestNotificationPermission = async (userId: string) => {
         is_read: false,
         created_at: new Date().toISOString(),
       } as any);
-      
-      playNotificationSound();
     });
 
     return fcmToken;
@@ -350,7 +297,7 @@ export const requestNotificationPermission = async (userId: string) => {
 };
 
 // ============================================================
-// ✅ SUPPRIMER LE TOKEN (DÉCONNEXION)
+// ✅ SUPPRIMER LE TOKEN
 // ============================================================
 
 export const removePushToken = async (token?: string) => {
