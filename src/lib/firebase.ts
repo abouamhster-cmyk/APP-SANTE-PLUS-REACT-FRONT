@@ -41,22 +41,22 @@ try {
   console.error('❌ Erreur initialisation Firebase:', error);
 }
 
-// ✅ Attendre que le SW soit enregistré
+// ✅ Attendre que le SW soit prêt
 const waitForServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
   if (!('serviceWorker' in navigator)) return null;
 
-  // ✅ Attendre que le SW soit prêt
   try {
-    const registration = await navigator.serviceWorker.ready;
-    console.log('📡 SW Registration prêt:', registration);
-    return registration;
+    // ✅ Utiliser le SW stocké dans window ou attendre
+    const reg = (window as any).swRegistration || await navigator.serviceWorker.ready;
+    console.log('📡 SW Registration:', reg);
+    return reg;
   } catch (error) {
     console.error('❌ Erreur attente SW:', error);
     return null;
   }
 };
 
-// ✅ Obtenir le token FCM avec le Service Worker existant
+// ✅ Obtenir le token FCM
 export const getFCMToken = async (): Promise<string | null> => {
   try {
     const supported = await isSupported();
@@ -74,7 +74,6 @@ export const getFCMToken = async (): Promise<string | null> => {
       return null;
     }
 
-    // ✅ Attendre que le SW soit prêt
     const swRegistration = await waitForServiceWorker();
     if (!swRegistration) {
       console.warn('⚠️ Aucun Service Worker disponible');
