@@ -10,17 +10,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { Loader2, CreditCard, ExternalLink, Calendar, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// ✅ IMPORTER LES HELPERS
-import {
-  getPonctualPrice,
-  getVisitPaymentAmount,
-  getDraftExpiryTime,
-  isDraftExpired,
-} from '@/lib/constants';
+import { getPonctualPrice } from '@/lib/constants';
 import {
   isVisitDraft,
   isVisitPonctual,
   requiresVisitPayment,
+  getVisitPaymentAmount,
+  getDraftExpiryTime,
+  isDraftExpired,
 } from '@/utils/helpers';
 
 interface VisitPaymentModalProps {
