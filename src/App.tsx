@@ -20,6 +20,9 @@ import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
 // ✅ IMPORTER le service de notifications
 import { requestNotificationPermission } from '@/services/notificationService';
 
+// ✅ IMPORTER le store de notifications
+import { useNotificationStore } from '@/stores/notificationStore';
+
 // ============================================================
 // AUTH PAGES
 // ============================================================
@@ -127,7 +130,6 @@ import AidantDetailPage from '@/features/aidants/pages/AidantDetailPage';
 // STORES
 // ============================================================
 import { useAuthStore } from '@/stores/authStore';
-import { useNotificationStore } from '@/stores/notificationStore';
 import { useOfferStore } from '@/stores/offerStore';
 import { useContractStore } from '@/stores/contractStore';
 
@@ -160,7 +162,16 @@ function App() {
     isInitialized: isAuthInitialized,
   } = useAuthStore();
 
-  const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
+  const {
+    fetchNotifications,
+    subscribe,
+    unsubscribe,
+    unreadCount,
+    notificationsEnabled,
+    toggleNotifications,
+    addNotification,
+  } = useNotificationStore();
+
   const { fetchOffers, isInitialized: isOffersInitialized } = useOfferStore();
   const { checkContract } = useContractStore();
 
@@ -171,6 +182,7 @@ function App() {
   const hasLoadedOffers = useRef(false);
   const keepAliveStarted = useRef(false);
   const notificationInitialized = useRef(false);
+  const realtimeInitialized = useRef(false);
 
   // ============================================================
   // EFFETS - GESTION DU RECHARGEMENT
@@ -263,6 +275,14 @@ function App() {
             return;
           }
 
+          // ✅ Vérifier la permission système
+          if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+              const permission = await Notification.requestPermission();
+              console.log('📢 Permission notification système:', permission);
+            }
+          }
+
           // ✅ Vérifier si déjà enregistré
           const storedToken = localStorage.getItem('push_token');
           if (storedToken) {
@@ -299,6 +319,48 @@ function App() {
   }, [isAuthenticated, isAuthInitialized]);
 
   // ============================================================
+  // ✅ EFFET - REALTIME NOTIFICATIONS (LE PLUS IMPORTANT !)
+  // ============================================================
+  useEffect(() => {
+    if (isAuthenticated && isAuthInitialized && !realtimeInitialized.current) {
+      console.log('🔔 [Realtime] Initialisation du canal Realtime...');
+      realtimeInitialized.current = true;
+
+      // ✅ S'abonner au canal Realtime
+      subscribe();
+
+      // ✅ Charger les notifications existantes
+      fetchNotifications();
+
+      // ✅ Si les notifications sont désactivées, les activer
+      if (!notificationsEnabled) {
+        toggleNotifications();
+      }
+
+      console.log('✅ [Realtime] Canal Realtime activé');
+    }
+
+    return () => {
+      if (realtimeInitialized.current) {
+        console.log('🔔 [Realtime] Fermeture du canal...');
+        unsubscribe();
+        realtimeInitialized.current = false;
+      }
+    };
+  }, [isAuthenticated, isAuthInitialized, subscribe, unsubscribe, fetchNotifications, toggleNotifications, notificationsEnabled]);
+
+  // ============================================================
+  // ✅ EFFET - MISE À JOUR DU BADGE
+  // ============================================================
+  useEffect(() => {
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) Santé Plus Services`;
+    } else {
+      document.title = 'Santé Plus Services';
+    }
+  }, [unreadCount]);
+
+  // ============================================================
   // EFFETS - CHARGEMENT DES OFFRES
   // ============================================================
   useEffect(() => {
@@ -308,21 +370,6 @@ function App() {
       fetchOffers();
     }
   }, [isAuthInitialized, isOffersInitialized, fetchOffers]);
-
-  // ============================================================
-  // EFFETS - NOTIFICATIONS (STORE)
-  // ============================================================
-  useEffect(() => {
-    if (!isAuthenticated || !isAuthInitialized) return;
-
-    console.log('🔔 Fetching notifications...');
-    fetchNotifications();
-    subscribe();
-
-    return () => {
-      unsubscribe();
-    };
-  }, [isAuthenticated, isAuthInitialized, fetchNotifications, subscribe, unsubscribe]);
 
   // ============================================================
   // EFFETS - VÉRIFICATION DU CONTRAT
