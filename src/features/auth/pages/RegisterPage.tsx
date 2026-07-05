@@ -30,16 +30,14 @@ import {
 
 import { authAPI } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
-// ✅ SUPPRIMER l'import OFFERS
-// import { OFFERS } from '@/lib/constants';
+ 
 import { Offer } from '@/types';
 import { InfoModal } from '@/components/ui/InfoModal';
 import { FAQContent } from '../components/FAQContent';
 import { CGUContent } from '../components/CGUContent';
 import toast from 'react-hot-toast';
 
-// ✅ IMPORTER LE STORE POUR LES OFFRES DYNAMIQUES
-import { useOfferStore } from '@/stores/offerStore';
+ import { useOfferStore } from '@/stores/offerStore';
 
 type AccountChoice = 'family_with_patient' | 'personal' | 'aidant';
 type PatientCategory = 'senior' | 'maman_bebe';
