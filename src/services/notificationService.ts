@@ -3,6 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { getFCMToken, onFCMessage } from '@/lib/firebase';
 import { NotificationType } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -84,13 +85,10 @@ export const updateNotificationBadge = (count: number) => {
   } else {
     document.title = 'Santé Plus Services';
   }
-  
-  // ✅ Mettre à jour le favicon (optionnel)
-  // ...
 };
 
 // ============================================================
-// ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN
+// ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN (FCM)
 // ============================================================
 
 export const requestNotificationPermission = async (userId: string) => {
@@ -116,11 +114,16 @@ export const requestNotificationPermission = async (userId: string) => {
       return null;
     }
 
-    // ✅ Générer un token unique
-    const token = `push_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    console.log('✅ Token push généré:', token.substring(0, 30) + '...');
+    // ✅ Obtenir le token FCM
+    const fcmToken = await getFCMToken();
+    if (!fcmToken) {
+      console.warn('❌ Impossible d\'obtenir le FCM token');
+      return null;
+    }
 
-    // ✅ Récupérer le token d'authentification avec la bonne clé
+    console.log('✅ FCM Token généré:', fcmToken.substring(0, 30) + '...');
+
+    // ✅ Récupérer le token d'authentification
     const authKey = findSupabaseAuthKey();
     console.log('🔑 Clé auth utilisée:', authKey);
     
@@ -159,7 +162,7 @@ export const requestNotificationPermission = async (userId: string) => {
         'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
-        token,
+        token: fcmToken,
         device_info: navigator.userAgent,
         user_id: userId,
       }),
@@ -172,14 +175,37 @@ export const requestNotificationPermission = async (userId: string) => {
     }
 
     // ✅ Sauvegarder le token en local
-    localStorage.setItem('push_token', token);
+    localStorage.setItem('push_token', fcmToken);
     console.log('✅ Token push enregistré avec succès');
 
     // ✅ Mettre à jour le badge
     const { unreadCount } = useNotificationStore.getState();
     updateNotificationBadge(unreadCount);
 
-    return token;
+    // ✅ Configurer l'écoute des messages en foreground
+    onFCMessage((payload) => {
+      console.log('📨 Message FCM reçu en foreground:', payload);
+      
+      const notification = payload.notification || {};
+      const data = payload.data || {};
+      
+      // ✅ Ajouter au store
+      useNotificationStore.getState().addNotification({
+        id: `fcm_${Date.now()}`,
+        user_id: userId,
+        title: notification.title || 'Santé Plus',
+        body: notification.body || 'Nouvelle notification',
+        type: data.type || 'system',
+        data: data,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      } as any);
+      
+      // ✅ Jouer le son
+      playNotificationSound();
+    });
+
+    return fcmToken;
   } catch (error) {
     console.error('❌ Erreur permission notifications:', error);
     return null;
@@ -240,11 +266,11 @@ export const removePushToken = async (token?: string) => {
 };
 
 // ============================================================
-// ✅ INITIALISATION (simplifiée)
+// ✅ INITIALISATION
 // ============================================================
 
 export const initializeFirebase = () => {
-  console.log('✅ Notifications initialisées (mode simplifié)');
+  console.log('✅ Firebase initialisé pour les notifications');
   return null;
 };
 
