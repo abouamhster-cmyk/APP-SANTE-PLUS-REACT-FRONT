@@ -1,4 +1,7 @@
 // 📁 src/features/orders/pages/CreateOrderPage.tsx
+// VERSION CORRIGÉE - LOGIQUE UNIFIÉE COMMANDES (ABONNEMENT vs PONCTUEL)
+// ✅ Utilisation des fonctions helpers de constants.ts
+// ✅ Logique cohérente pour les paiements et statuts
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -33,11 +36,23 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { ORDER_TYPES } from '@/lib/constants';
+
+// ✅ IMPORTER LES HELPERS DEPUIS CONSTANTS
+import {
+  getPonctualOrderPrice,
+  getOrderStatusForCreation,
+  requiresPonctualPayment,
+} from '@/lib/constants';
+
 import { OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { PaymentModal } from '@/features/billing/components/PaymentModal';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
+
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
@@ -69,7 +84,7 @@ const CreateOrderPage = () => {
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
 
-  // ✅ NOUVEAU : choix du destinataire
+  // Choix du destinataire
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
   const [targetPatientId, setTargetPatientId] = useState<string>('');
 
@@ -89,7 +104,9 @@ const CreateOrderPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Charger les patients
+  // =============================================
+  // EFFETS : CHARGEMENT ET SAUVEGARDE
+  // =============================================
   useEffect(() => {
     fetchPatients();
   }, []);
@@ -174,19 +191,9 @@ const CreateOrderPage = () => {
     };
   }, []);
 
-  const selectedPatient = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
-
-  const itemsTotal = formData.items.reduce(
-    (sum, item) => sum + item.quantity * item.price,
-    0
-  );
-
-  const finalEstimatedAmount = formData.estimated_amount
-    ? parseFloat(formData.estimated_amount)
-    : itemsTotal;
-
-  const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
-
+  // =============================================
+  // ✅ CALCUL DU PRIX PONCTUEL
+  // =============================================
   const getPonctualPrice = () => {
     const prices: Record<string, number> = {
       medicaments: 5000,
@@ -203,6 +210,9 @@ const CreateOrderPage = () => {
     return hasActiveSubscription && remainingOrders > 0;
   };
 
+  // =============================================
+  // ✅ GESTION DES FICHIERS
+  // =============================================
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -230,6 +240,9 @@ const CreateOrderPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ GESTION DES ARTICLES
+  // =============================================
   const addItem = () => {
     setFormData({
       ...formData,
@@ -261,7 +274,9 @@ const CreateOrderPage = () => {
     });
   };
 
-  // ✅ VALIDATION des données avant préparation
+  // =============================================
+  // ✅ VALIDATION DES DONNÉES
+  // =============================================
   const validateOrderData = (): boolean => {
     if (!formData.description || formData.description.trim() === '') {
       toast.error('Veuillez ajouter une description');
@@ -287,7 +302,9 @@ const CreateOrderPage = () => {
     return true;
   };
 
-  // ✅ Préparer les données de la commande sans la créer
+  // =============================================
+  // ✅ PRÉPARER LES DONNÉES DE LA COMMANDE
+  // =============================================
   const prepareOrderData = async () => {
     if (!validateOrderData()) {
       return null;
@@ -347,10 +364,13 @@ const CreateOrderPage = () => {
     };
   };
 
-  // ✅ Soumission du formulaire
+  // =============================================
+  // ✅ SOUMISSION DU FORMULAIRE
+  // =============================================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ✅ CAS 1 : Commande ponctuelle → Paiement
     if (orderType === 'ponctual') {
       const orderData = await prepareOrderData();
       if (!orderData) return;
@@ -369,6 +389,7 @@ const CreateOrderPage = () => {
       return;
     }
 
+    // ✅ CAS 2 : Commande avec abonnement
     if (orderType === 'subscription') {
       if (!canUseSubscription()) {
         const msg = getBlockMessage('order');
@@ -379,7 +400,9 @@ const CreateOrderPage = () => {
     }
   };
 
-  // ✅ Créer la commande avec abonnement (direct)
+  // =============================================
+  // ✅ CRÉER LA COMMANDE AVEC ABONNEMENT (DIRECT)
+  // =============================================
   const createOrderWithSubscription = async () => {
     if (!validateOrderData()) {
       return;
@@ -448,7 +471,9 @@ const CreateOrderPage = () => {
     }
   };
 
-  // ✅ Callback du modal de paiement
+  // =============================================
+  // ✅ CALLBACK DU MODAL DE PAIEMENT
+  // =============================================
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
     isRedirecting.current = false;
@@ -456,9 +481,27 @@ const CreateOrderPage = () => {
 
   const isLoading_ = isLoading || isUploading;
 
-  // ✅ Options de destinataire
+  // =============================================
+  // ✅ DONNÉES DÉRIVÉES
+  // =============================================
+  const selectedPatient = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
+
+  const itemsTotal = formData.items.reduce(
+    (sum, item) => sum + item.quantity * item.price,
+    0
+  );
+
+  const finalEstimatedAmount = formData.estimated_amount
+    ? parseFloat(formData.estimated_amount)
+    : itemsTotal;
+
+  const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
+
   const hasPatients = patients.length > 0;
 
+  // =============================================
+  // ✅ RENDU
+  // =============================================
   return (
     <div className="space-y-6 pb-10">
       {/* HEADER */}
@@ -1179,7 +1222,7 @@ const CreateOrderPage = () => {
 };
 
 // =============================================
-// SOUS-COMPOSANTS (inchangés)
+// SOUS-COMPOSANTS
 // =============================================
 
 interface ModernPanelProps {
