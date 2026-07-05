@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/RegisterPage.tsx
-// 📌 Inscription - SOUMISSION UNIQUEMENT SUR CLIC MANUEL
+ 
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
@@ -30,12 +30,16 @@ import {
 
 import { authAPI } from '@/lib/api';
 import { Logo } from '@/components/ui/Logo';
-import { OFFERS } from '@/lib/constants';
+// ✅ SUPPRIMER l'import OFFERS
+// import { OFFERS } from '@/lib/constants';
 import { Offer } from '@/types';
 import { InfoModal } from '@/components/ui/InfoModal';
 import { FAQContent } from '../components/FAQContent';
 import { CGUContent } from '../components/CGUContent';
 import toast from 'react-hot-toast';
+
+// ✅ IMPORTER LE STORE POUR LES OFFRES DYNAMIQUES
+import { useOfferStore } from '@/stores/offerStore';
 
 type AccountChoice = 'family_with_patient' | 'personal' | 'aidant';
 type PatientCategory = 'senior' | 'maman_bebe';
@@ -144,6 +148,16 @@ const RegisterPage = () => {
 
   const [accountChoice, setAccountChoice] =
     useState<AccountChoice>('family_with_patient');
+
+  // ✅ RÉCUPÉRER LES OFFRES DYNAMIQUES
+  const { offers, fetchOffers, isInitialized: offersInitialized } = useOfferStore();
+
+  // ✅ CHARGER LES OFFRES AU MONTAGE
+  useEffect(() => {
+    if (!offersInitialized) {
+      fetchOffers();
+    }
+  }, [offersInitialized, fetchOffers]);
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -397,8 +411,29 @@ const RegisterPage = () => {
     } finally { setIsLoading(false); }
   };
 
+  // ✅ renderOfferPreview - VERSION CORRIGÉE AVEC OFFRES DYNAMIQUES
   const renderOfferPreview = () => {
-    const offers = formData.patientCategory === 'maman_bebe' ? OFFERS.maman_bebe : OFFERS.senior;
+    // ✅ Filtrer les offres dynamiques par catégorie
+    const filteredOffers = formData.patientCategory === 'maman_bebe'
+      ? offers.filter(o => o.category === 'maman_bebe' || o.category === 'pack_confort')
+      : offers.filter(o => o.category === 'senior' || o.category === 'pack_confort');
+
+    // ✅ Si les offres ne sont pas encore chargées, afficher un placeholder
+    if (!offersInitialized || filteredOffers.length === 0) {
+      return (
+        <div className="rounded-2xl p-4 border" style={{ background: `${branding.primary}04`, borderColor: `${branding.primary}12` }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${branding.primary}10`, color: branding.primary }}>
+              <CreditCard size={16} />
+            </div>
+            <div>
+              <p className="font-bold text-xs" style={{ color: branding.text }}>Chargement des offres...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-2xl p-4 border" style={{ background: `${branding.primary}04`, borderColor: `${branding.primary}12` }}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
@@ -416,19 +451,19 @@ const RegisterPage = () => {
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {offers.map((offer: Offer, index: number) => (
-            <div key={index} className="bg-white rounded-2xl p-2.5 border transition-all" style={{ borderColor: branding.border }}>
+          {filteredOffers.slice(0, 4).map((offer: Offer, index: number) => (
+            <div key={offer.id || index} className="bg-white rounded-2xl p-2.5 border transition-all" style={{ borderColor: branding.border }}>
               <p className="text-sm">{offer.badge?.split(' ')[0] || '📌'}</p>
               <p className="text-[10px] font-semibold mt-1 truncate" style={{ color: branding.text }}>{offer.name}</p>
               <p className="text-[10px] font-bold mt-0.5" style={{ color: branding.primary }}>{Number(offer.price || 0).toLocaleString()} FCFA</p>
-              <p className="text-[9px] text-gray-400 mt-0.5">{offer.period}</p>
+              <p className="text-[9px] text-gray-400 mt-0.5">{offer.period || offer.type || 'mois'}</p>
             </div>
           ))}
         </div>
         {showOfferDetails && (
           <div className="mt-3 bg-white rounded-2xl border p-3 space-y-2" style={{ borderColor: branding.border }}>
-            {offers.map((offer: Offer, index: number) => (
-              <div key={index} className="flex justify-between items-center gap-3 text-[11px] border-b last:border-b-0 pb-1.5 last:pb-0" style={{ borderColor: branding.border }}>
+            {filteredOffers.map((offer: Offer, index: number) => (
+              <div key={offer.id || index} className="flex justify-between items-center gap-3 text-[11px] border-b last:border-b-0 pb-1.5 last:pb-0" style={{ borderColor: branding.border }}>
                 <span className="font-medium text-gray-700">{offer.name}{offer.visitsPerWeek ? ` · ${offer.visitsPerWeek * 4} visites/mois` : ''}{offer.durationDays && !offer.visitsPerWeek ? ` · ${offer.durationDays} jours` : ''}</span>
                 <span className="font-bold" style={{ color: branding.primary }}>{Number(offer.price || 0).toLocaleString()} FCFA</span>
               </div>
