@@ -41,6 +41,55 @@ function findSupabaseAuthKey(): string {
 }
 
 // ============================================================
+// ✅ JOUER LE SON DE NOTIFICATION
+// ============================================================
+
+export const playNotificationSound = () => {
+  try {
+    // ✅ Essayer avec un fichier audio
+    const audio = new Audio('/notification.mp3');
+    audio.volume = 0.5;
+    audio.play().catch(() => {
+      // ✅ Fallback: utiliser l'API Web Audio
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.value = 0.3;
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+        // ✅ Nettoyer le contexte après 1 seconde
+        setTimeout(() => ctx.close(), 1000);
+      } catch (e) {
+        console.warn('⚠️ Son non disponible');
+      }
+    });
+  } catch (error) {
+    console.warn('⚠️ Erreur lecture son:', error);
+  }
+};
+
+// ============================================================
+// ✅ METTRE À JOUR LE BADGE
+// ============================================================
+
+export const updateNotificationBadge = (count: number) => {
+  // ✅ Mettre à jour le title
+  if (count > 0) {
+    document.title = `(${count}) Santé Plus Services`;
+  } else {
+    document.title = 'Santé Plus Services';
+  }
+  
+  // ✅ Mettre à jour le favicon (optionnel)
+  // ...
+};
+
+// ============================================================
 // ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN
 // ============================================================
 
@@ -126,6 +175,10 @@ export const requestNotificationPermission = async (userId: string) => {
     localStorage.setItem('push_token', token);
     console.log('✅ Token push enregistré avec succès');
 
+    // ✅ Mettre à jour le badge
+    const { unreadCount } = useNotificationStore.getState();
+    updateNotificationBadge(unreadCount);
+
     return token;
   } catch (error) {
     console.error('❌ Erreur permission notifications:', error);
@@ -134,7 +187,7 @@ export const requestNotificationPermission = async (userId: string) => {
 };
 
 // ============================================================
-// SUPPRIMER LE TOKEN (DÉCONNEXION)
+// ✅ SUPPRIMER LE TOKEN (DÉCONNEXION)
 // ============================================================
 
 export const removePushToken = async (token?: string) => {
@@ -178,13 +231,16 @@ export const removePushToken = async (token?: string) => {
 
     localStorage.removeItem('push_token');
     console.log('✅ Token push supprimé');
+    
+    // ✅ Réinitialiser le badge
+    updateNotificationBadge(0);
   } catch (error) {
     console.error('❌ Erreur suppression token:', error);
   }
 };
 
 // ============================================================
-// INITIALISATION (simplifiée)
+// ✅ INITIALISATION (simplifiée)
 // ============================================================
 
 export const initializeFirebase = () => {
@@ -193,7 +249,7 @@ export const initializeFirebase = () => {
 };
 
 // ============================================================
-// NOTIFICATIONS POUR LES AIDANTS
+// ✅ NOTIFICATIONS POUR LES AIDANTS
 // ============================================================
 
 export const notifyAidant = {
@@ -250,7 +306,7 @@ export const notifyAidant = {
 };
 
 // ============================================================
-// NOTIFICATIONS POUR LES FAMILLES
+// ✅ NOTIFICATIONS POUR LES FAMILLES
 // ============================================================
 
 export const notifyFamily = {
@@ -327,7 +383,7 @@ export const notifyFamily = {
 };
 
 // ============================================================
-// NOTIFICATIONS POUR LES ADMINISTRATEURS
+// ✅ NOTIFICATIONS POUR LES ADMINISTRATEURS
 // ============================================================
 
 export const notifyAdmin = {
@@ -369,7 +425,7 @@ export const notifyAdmin = {
 };
 
 // ============================================================
-// UTILITAIRES DE NOTIFICATION
+// ✅ UTILITAIRES DE NOTIFICATION
 // ============================================================
 
 export const notify = {
@@ -391,6 +447,10 @@ export const notify = {
         .insert(notifications);
 
       if (error) throw error;
+      
+      // ✅ Jouer le son et mettre à jour le badge
+      playNotificationSound();
+      
       return { success: true, sent: userIds.length };
     } catch (error) {
       console.error('❌ Erreur envoi notifications multiples:', error);
@@ -482,6 +542,10 @@ export const notify = {
         });
 
       if (error) throw error;
+      
+      // ✅ Jouer le son
+      playNotificationSound();
+      
       return { success: true };
     } catch (error) {
       console.error('❌ Erreur envoi à la famille:', error);
@@ -505,6 +569,10 @@ export const notify = {
         });
 
       if (error) throw error;
+      
+      // ✅ Jouer le son
+      playNotificationSound();
+      
       return { success: true };
     } catch (error) {
       console.error('❌ Erreur envoi à l\'aidant:', error);
