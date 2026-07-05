@@ -41,14 +41,29 @@ try {
   console.error('❌ Erreur initialisation Firebase:', error);
 }
 
-// ✅ Attendre que le SW soit prêt
+// ✅ Attendre que le SW soit prêt ET pleinement actif (Évite l'erreur 'no active Service Worker')
 const waitForServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
   if (!('serviceWorker' in navigator)) return null;
 
   try {
-    // ✅ Utiliser le SW stocké dans window ou attendre
-    const reg = (window as any).swRegistration || await navigator.serviceWorker.ready;
-    console.log('📡 SW Registration:', reg);
+    // 1️⃣ On attend que l'API native confirme que le Service Worker est prêt
+    const reg = await navigator.serviceWorker.ready;
+
+    // 2️⃣ Double sécurité : si pour une raison quelconque reg.active est temporairement null,
+    // on attend par petits paliers que l'activation soit complétée par le navigateur
+    let attempts = 0;
+    while (!reg.active && attempts < 15) {
+      console.log(`⏳ Attente de l'activation du Service Worker (Tentative ${attempts + 1})...`);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      attempts++;
+    }
+
+    if (!reg.active) {
+      console.warn("⚠️ Le Service Worker est prêt mais n'a pas pu être activé à temps.");
+    } else {
+      console.log('📡 Service Worker actif et prêt pour Firebase :', reg);
+    }
+
     return reg;
   } catch (error) {
     console.error('❌ Erreur attente SW:', error);
