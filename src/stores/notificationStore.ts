@@ -45,6 +45,7 @@ function showSystemNotification(notification: Notification) {
     const body = notification.body || 'Nouvelle notification';
     const icon = '/icon-192.png';
 
+    // ✅ 1. SUPPRESSION DE 'renotify' (non standard)
     const options: NotificationOptions = {
       body: body,
       icon: icon,
@@ -52,7 +53,6 @@ function showSystemNotification(notification: Notification) {
       tag: notification.id || `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
-      renotify: true,  // ✅ Correction : renotify existe bien dans NotificationOptions
       data: {
         url: '/app/notifications',
         notificationId: notification.id,
@@ -65,20 +65,26 @@ function showSystemNotification(notification: Notification) {
 
     const notif = new Notification(title, options);
 
+    // ✅ Gestion du clic principal
     notif.onclick = () => {
       window.focus();
-      window.location.href = '/app/notifications';
+      const url = notif.data?.url || '/app/notifications';
+      window.location.href = url;
       notif.close();
     };
 
-    // ✅ CORRIGÉ : addEventListener au lieu de onnotificationclick
+    // ✅ 2. CORRECTION DU CAST ET AJOUT DE close()
     notif.addEventListener('click', (event) => {
-      const target = event.target as Notification;
+      // ✅ Cast correct via 'unknown' pour éviter l'erreur TS2352
+      const target = event.target as unknown as Notification;
       if (target && target.data) {
         window.focus();
         window.location.href = target.data?.url || '/app/notifications';
       }
-      target?.close();
+      // ✅ 3. VÉRIFICATION de l'existence de close() avant de l'appeler
+      if (target && typeof target.close === 'function') {
+        target.close();
+      }
     });
 
     console.log('🔔 Notification affichée !', notification.title);
