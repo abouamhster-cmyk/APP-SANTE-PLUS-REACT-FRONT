@@ -8,7 +8,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { NotificationType } from '@/types';
 import toast from 'react-hot-toast';
 
-// ✅ Configuration Firebase - À remplacer par vos variables d'environnement
+// ✅ Configuration Firebase
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -86,25 +86,21 @@ export const initializeFirebase = () => {
       // ✅ Ajouter la notification au store
       useNotificationStore.getState().addNotification(newNotification);
 
-      // ✅ Afficher le toast
-      const title = notification.title || 'Notification';
-      const body = notification.body || '';
+      // ✅ Afficher le toast - Version SANS JSX
+      const titleText = notification.title || 'Notification';
+      const bodyText = notification.body || '';
 
-      toast.success(
-        <div className="flex flex-col">
-          <span className="font-bold text-sm">{title}</span>
-          <span className="text-xs opacity-90">{body}</span>
-        </div>,
-        {
-          duration: 5000,
-          icon: '📨',
-          position: 'top-center',
-          style: {
-            minWidth: '280px',
-            maxWidth: '420px',
-          },
-        }
-      );
+      // ✅ Utiliser une chaîne de caractères avec saut de ligne
+      toast.success(`${titleText}\n${bodyText}`, {
+        duration: 5000,
+        icon: '📨',
+        position: 'top-center',
+        style: {
+          minWidth: '280px',
+          maxWidth: '420px',
+          whiteSpace: 'pre-line',
+        },
+      });
 
       // ✅ Jouer un son de notification
       try {
