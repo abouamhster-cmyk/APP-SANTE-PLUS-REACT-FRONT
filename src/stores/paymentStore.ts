@@ -1,9 +1,16 @@
 // 📁 src/stores/paymentStore.ts
+ 
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Subscription, Payment } from '@/types';
 import { useAuthStore } from './authStore';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  getPonctualPrice,
+  getPonctualOrderPrice,
+} from '@/lib/constants';
 
 interface CreatePaymentData {
   amount: number;
@@ -18,6 +25,14 @@ interface CreatePaymentData {
   patient_id?: string | null;
   target_type?: 'personal' | 'patient';
   target_name?: string;
+  // ✅ NOUVEAU : type explicite pour le webhook
+  metadata?: {
+    type?: 'visit' | 'order' | 'subscription';
+    is_ponctual?: boolean;
+    is_visit?: boolean;
+    visit_id?: string | null;
+    order_data?: any;
+  };
 }
 
 // =============================================
@@ -324,7 +339,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE PAYMENT - AVEC is_visit ET visit_id
+  // ✅ CREATE PAYMENT - LOGIQUE UNIFIÉE AVEC METADATA
   // =============================================
   createPayment: async (data: CreatePaymentData) => {
     try {
@@ -353,10 +368,19 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       const isVisit = data.is_visit || false;
       const visitId = data.visit_id || null;
 
-      // ✅ NOUVEAUX CHAMPS
-      const patientId = data.patient_id || null;
+       const patientId = data.patient_id || null;
       const targetType = data.target_type || (patientId ? 'patient' : 'personal');
       const targetName = data.target_name || profile?.full_name || user.email || 'Client';
+
+      // ✅ DÉTERMINER LE TYPE EXPLICITE POUR LE WEBHOOK
+      let type: 'visit' | 'order' | 'subscription' = 'subscription';
+      if (isVisit) {
+        type = 'visit';
+      } else if (isPonctual && data.order_data) {
+        type = 'order';
+      } else if (isPonctual) {
+        type = 'order';
+      }
 
       console.log('📤 Envoi paiement avec is_ponctual:', isPonctual);
       console.log('📤 Envoi paiement avec is_visit:', isVisit);
@@ -365,6 +389,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       console.log('📤 Envoi paiement avec patient_id:', patientId);
       console.log('📤 Envoi paiement avec target_type:', targetType);
       console.log('📤 Envoi paiement avec target_name:', targetName);
+      console.log('📤 Envoi paiement avec type explicite:', type);
 
       const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
         method: 'POST',
@@ -383,12 +408,14 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           customer_name: profile?.full_name || user.email,
           user_id: user.id,
           is_ponctual: isPonctual,
-          is_visit: isVisit,                       // ✅ AJOUTÉ
-          visit_id: visitId,                       // ✅ AJOUTÉ
+          is_visit: isVisit,
+          visit_id: visitId,
           order_data: data.order_data || null,
           patient_id: patientId,
           target_type: targetType,
           target_name: targetName,
+          // ✅ AJOUTER LE TYPE EXPLICITE
+          type: type,
         }),
       });
 
@@ -426,6 +453,8 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
             patient_id: patientId,
             target_type: targetType,
             target_name: targetName,
+            // ✅ AJOUTER LE TYPE EXPLICITE POUR LE WEBHOOK
+            type: type,
           },
         })
         .select()
@@ -448,6 +477,8 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         payment_url: paymentUrl,
         transaction_id: result.transaction_id,
         reference: result.reference,
+        // ✅ RETOURNER LE TYPE POUR LE FRONTEND
+        type: type,
       };
     } catch (error: any) {
       console.error('Create payment error:', error);
@@ -457,105 +488,19 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE PONCTUAL PAYMENT
+  // CREATE PONCTUAL PAYMENT - DÉPRÉCIÉ, UTILISER createPayment
   // =============================================
   createPonctualPayment: async (data: { amount: number; description: string; orderId?: string }) => {
     try {
-      set({ isLoading: true, error: null });
-
-      const { user, profile } = useAuthStore.getState();
-
-      if (!user) {
-        throw new Error('Utilisateur non connecté');
-      }
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      if (!token) {
-        throw new Error('Session expirée');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          montant: data.amount,
-          amount: data.amount,
-          description: data.description,
-          email_client: profile?.email || user.email,
-          customer_email: profile?.email || user.email,
-          customer_name: profile?.full_name || user.email,
-          order_id: data.orderId || null,
-          is_ponctual: true,
-          abonnement_id: null,
-          plan_id: null,
-        }),
+      // ✅ REDIRIGER VERS createPayment
+      const result = await get().createPayment({
+        amount: data.amount,
+        description: data.description,
+        is_ponctual: true,
+        order_data: data.orderId ? { order_id: data.orderId } : null,
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result?.error || result?.message || 'Erreur paiement');
-      }
-
-      const paymentUrl = result?.payment_url || result?.url || result?.checkout_url;
-
-      if (!paymentUrl) {
-        throw new Error("Le lien de paiement n'a pas été généré");
-      }
-
-      const { data: payment, error: dbError } = await supabase
-        .from('paiements')
-        .insert({
-          user_id: user.id,
-          amount: data.amount,
-          method: 'fedapay',
-          reference: String(result.transaction_id),
-          status: 'en_attente',
-          commande_id: data.orderId || null,
-          abonnement_id: null,
-          metadata: {
-            description: data.description,
-            transaction_id: String(result.transaction_id),
-            payment_url: paymentUrl,
-            is_ponctual: true,
-          },
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        console.warn('⚠️ Erreur sauvegarde paiement:', dbError);
-      }
-
-      let paymentWithUser = payment;
-      if (payment?.user_id) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', payment.user_id)
-          .maybeSingle();
-        paymentWithUser = { ...payment, user: profileData };
-      }
-
-      get().invalidateCache();
-      await Promise.all([
-        get().fetchSubscriptions(true),
-        get().fetchPayments(true),
-      ]);
-
-      set({ isLoading: false });
-
-      return {
-        success: true,
-        payment_url: paymentUrl,
-        transaction_id: result.transaction_id,
-        reference: result.reference,
-      };
+      
+      return result;
     } catch (error: any) {
       console.error('Create ponctual payment error:', error);
       set({ error: error.message, isLoading: false });
