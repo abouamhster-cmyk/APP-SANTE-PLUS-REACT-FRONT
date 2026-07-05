@@ -175,7 +175,7 @@ export const showSystemNotification = (title: string, body: string, data: any = 
   }
 
   try {
-    // ✅ NotificationOptions sans renotify
+    // ✅ NotificationOptions sans 'actions' (non standard)
     const options: NotificationOptions = {
       body: body,
       icon: '/icon-192.png',
@@ -187,10 +187,6 @@ export const showSystemNotification = (title: string, body: string, data: any = 
         url: data.url || '/app/notifications',
         ...data,
       },
-      actions: [
-        { action: 'open', title: '👀 Voir' },
-        { action: 'dismiss', title: '❌ Fermer' },
-      ],
     };
 
     const notification = new Notification(title, options);
