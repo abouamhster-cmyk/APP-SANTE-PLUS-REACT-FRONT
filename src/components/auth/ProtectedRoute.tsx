@@ -4,9 +4,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { useContractStore } from '@/stores/contractStore';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-// ✅ Importer ContractModal transformé en page
 import { ContractModal } from '@/components/contract/ContractModal';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Scale, ShieldAlert } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -37,25 +36,33 @@ export const ProtectedRoute = ({
     checkContract,
     acceptContract,
     isChecking,
+    isInitialized: contractInitialized,
   } = useContractStore();
 
   const [isBlocked, setIsBlocked] = useState(false);
+  const hasCheckedContract = useRef(false);
 
-  // ✅ Vérifier le contrat dès que l'utilisateur est authentifié
+  // ✅ Vérifier le contrat UNE SEULE FOIS
   useEffect(() => {
-    if (isAuthenticated && user && profile) {
+    if (isAuthenticated && user && profile && !hasCheckedContract.current) {
+      console.log('📜 Vérification du contrat (une seule fois)...');
+      hasCheckedContract.current = true;
       checkContract();
     }
   }, [isAuthenticated, user, profile]);
 
-  // ✅ Gérer l'état de blocage
+  // ✅ Mettre à jour le blocage
   useEffect(() => {
-    if (needsAcceptance && !hasAccepted) {
-      setIsBlocked(true);
-    } else {
-      setIsBlocked(false);
+    if (contractInitialized) {
+      // ✅ Si le contrat est accepté en cache, ne pas bloquer
+      const cachedAccepted = localStorage.getItem('sante_plus_contract_accepted');
+      if (cachedAccepted === 'true') {
+        setIsBlocked(false);
+        return;
+      }
+      setIsBlocked(needsAcceptance && !hasAccepted);
     }
-  }, [needsAcceptance, hasAccepted]);
+  }, [needsAcceptance, hasAccepted, contractInitialized]);
 
   // ✅ Vérifier les permissions par rôle
   const hasRequiredRole = () => {
@@ -75,12 +82,13 @@ export const ProtectedRoute = ({
     needsAcceptance,
     hasAccepted,
     isBlocked,
+    contractInitialized,
   });
 
   // =============================================
   // CHARGEMENT
   // =============================================
-  if (!isInitialized || authLoading || isChecking) {
+  if (!isInitialized || authLoading || (isChecking && !contractInitialized)) {
     return (
       <div
         className="min-h-screen w-full flex items-center justify-center"
@@ -126,9 +134,6 @@ export const ProtectedRoute = ({
           <p className="text-sm mt-2" style={{ color: 'var(--color-text-light)' }}>
             Vous n'avez pas les droits nécessaires pour accéder à cette page.
           </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--color-text-light)' }}>
-            Rôle actuel : <strong>{profile?.role || 'Inconnu'}</strong>
-          </p>
           <button
             onClick={() => window.location.href = '/app'}
             className="mt-4 px-6 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90"
@@ -147,7 +152,6 @@ export const ProtectedRoute = ({
   if (isBlocked && contract) {
     return (
       <>
-        {/* ✅ ContractModal en plein écran via le wrapper */}
         <ContractModal
           isOpen={true}
           contract={{
@@ -164,11 +168,12 @@ export const ProtectedRoute = ({
             setIsBlocked(false);
           }}
           onClose={() => {
-            useAuthStore.getState().logout();
+            // ✅ Ne pas déconnecter, juste fermer
+            console.log('📜 Contrat non accepté - accès refusé');
           }}
         />
 
-        {/* Overlay de fond pour l'effet de blocage */}
+        {/* Overlay de fond */}
         <div 
           className="fixed inset-0 z-[99998] flex items-center justify-center pointer-events-none"
           style={{ background: 'var(--color-background, #f5f0e8)' }}
@@ -186,11 +191,6 @@ export const ProtectedRoute = ({
             <p className="text-sm mt-2" style={{ color: 'var(--color-text-light)' }}>
               Veuillez lire et accepter les conditions générales pour continuer.
             </p>
-            <div className="mt-4 animate-pulse-slow">
-              <span className="text-xs" style={{ color: 'var(--color-text-light)' }}>
-                ⏳ En attente de votre acceptation...
-              </span>
-            </div>
           </div>
         </div>
       </>
