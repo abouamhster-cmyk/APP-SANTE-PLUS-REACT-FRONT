@@ -52,7 +52,7 @@ function showSystemNotification(notification: Notification) {
       tag: notification.id || `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
-      renotify: true,
+      renotify: true,  // ✅ Correction : renotify existe bien dans NotificationOptions
       data: {
         url: '/app/notifications',
         notificationId: notification.id,
