@@ -41,7 +41,11 @@ try {
   console.error('❌ Erreur initialisation Firebase:', error);
 }
 
-// ✅ Obtenir le token FCM avec le Service Worker existant
+// ✅ Stocker l'app dans window pour debug
+if (typeof window !== 'undefined') {
+  (window as any).firebaseApp = app;
+}
+
 export const getFCMToken = async (): Promise<string | null> => {
   try {
     const supported = await isSupported();
@@ -59,12 +63,13 @@ export const getFCMToken = async (): Promise<string | null> => {
       return null;
     }
 
-    // ✅ Récupérer l'enregistrement du SW stocké dans window
+    // ✅ Récupérer le SW stocké dans window
     const swRegistration = (window as any).firebaseSWRegistration;
+    console.log('📡 SW Registration pour getToken:', swRegistration);
 
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swRegistration, // ✅ Utiliser le SW existant
+      serviceWorkerRegistration: swRegistration,
     });
 
     if (token) {
