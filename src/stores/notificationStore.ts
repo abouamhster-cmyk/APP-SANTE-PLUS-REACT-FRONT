@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import { Notification } from '@/types';
+import type { Notification } from '@/types';  
 import { useAuthStore } from './authStore';
 import { playNotificationSound, updateNotificationBadge } from '@/services/notificationService';
 
@@ -11,7 +11,7 @@ import { playNotificationSound, updateNotificationBadge } from '@/services/notif
 // =============================================
 
 const NOTIFICATIONS_CACHE_KEY = 'sante_plus_notifications_cache';
-const CACHE_DURATION = 30000; // 30 secondes
+const CACHE_DURATION = 30000;
 
 const getCachedNotifications = (): { data: Notification[]; timestamp: number } | null => {
   try {
@@ -38,11 +38,10 @@ const clearCachedNotifications = () => {
 };
 
 // =============================================
-// AFFICHER LA NOTIFICATION SYSTÈME
+// AFFICHER LA NOTIFICATION SYSTÈME - CORRIGÉ
 // =============================================
 
 function showSystemNotification(notification: Notification) {
-  // ✅ Vérifier la permission
   if (Notification.permission !== 'granted') {
     console.warn('⚠️ Permission notifications non accordée');
     return;
@@ -57,7 +56,6 @@ function showSystemNotification(notification: Notification) {
       body: body,
       icon: icon,
       badge: '/icon-72.png',
-      vibrate: [200, 100, 200],
       tag: notification.id || `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
@@ -80,13 +78,15 @@ function showSystemNotification(notification: Notification) {
       notif.close();
     };
 
-    notif.onnotificationclick = (event) => {
-      if (event.action === 'open') {
+    // ✅ CORRIGÉ : Utiliser addEventListener au lieu de onnotificationclick
+    notif.addEventListener('click', (event) => {
+      const target = event.target as Notification;
+      if (target && target.data) {
         window.focus();
-        window.location.href = '/app/notifications';
+        window.location.href = target.data?.url || '/app/notifications';
       }
-      notif.close();
-    };
+      target?.close();
+    });
 
     console.log('🔔 [System] Notification affichée !', notification.title);
   } catch (error) {
@@ -139,11 +139,6 @@ const initializeNotifications = () => {
 };
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
-
-  // ============================================================
-  // ÉTAT INITIAL
-  // ============================================================
-
   notifications: [],
   unreadCount: 0,
   isLoading: false,
@@ -153,10 +148,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   lastFetch: null,
   isCacheInvalidated: false,
   error: null,
-
-  // ============================================================
-  // INVALIDER LE CACHE
-  // ============================================================
 
   invalidateCache: () => {
     clearCachedNotifications();
@@ -168,18 +159,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     console.log('🔄 Cache notifications invalidé');
   },
 
-  // ============================================================
-  // RAFRAÎCHIR
-  // ============================================================
-
   refresh: async () => {
     get().invalidateCache();
     await get().fetchNotifications(true);
   },
-
-  // ============================================================
-  // SOUSCRIRE AU CANAL REALTIME
-  // ============================================================
 
   subscribe: () => {
     const { user } = useAuthStore.getState();
@@ -195,12 +178,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       return;
     }
 
-    // ✅ Se désabonner de l'ancien canal
     get().unsubscribe();
 
     console.log(`📡 [Realtime] Création du canal pour l'utilisateur ${user.id}`);
 
-    // ✅ Créer le canal avec les bonnes options
     const channel = supabase
       .channel(`notifications:${user.id}`)
       .on(
@@ -216,22 +197,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
           const notification = payload.new as Notification;
 
-          // ✅ Vérifier que c'est bien pour l'utilisateur connecté
           if (notification.user_id === user.id) {
-            // ✅ Ajouter au store
             get().addNotification(notification);
-
-            // ✅ Jouer le son
             playNotificationSound();
-
-            // ✅ Afficher la notification système
             showSystemNotification(notification);
 
-            // ✅ Mettre à jour le badge
             const { unreadCount } = get();
             updateNotificationBadge(unreadCount);
 
-            // ✅ Mettre à jour le titre de la page
             if (unreadCount > 0) {
               document.title = `(${unreadCount}) Santé Plus Services`;
             }
@@ -252,10 +225,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     console.log('✅ [Realtime] Canal créé');
   },
 
-  // ============================================================
-  // SE DÉSABONNER DU CANAL REALTIME
-  // ============================================================
-
   unsubscribe: () => {
     const { subscription } = get();
     if (subscription) {
@@ -269,10 +238,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       }
     }
   },
-
-  // ============================================================
-  // RÉCUPÉRER LES NOTIFICATIONS
-  // ============================================================
 
   fetchNotifications: async (force = false) => {
     const state = get();
@@ -370,10 +335,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // MARQUER COMME LU
-  // ============================================================
-
   markAsRead: async (id: string) => {
     try {
       const { error } = await supabase
@@ -414,10 +375,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // TOUT MARQUER COMME LU
-  // ============================================================
-
   markAllRead: async () => {
     try {
       const { user } = useAuthStore.getState();
@@ -453,10 +410,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // AJOUTER UNE NOTIFICATION
-  // ============================================================
-
   addNotification: (notification) => {
     const { notificationsEnabled } = get();
 
@@ -486,10 +439,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
   },
 
-  // ============================================================
-  // VIDER LES NOTIFICATIONS
-  // ============================================================
-
   clearNotifications: () => {
     get().invalidateCache();
     updateNotificationBadge(0);
@@ -499,10 +448,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       unreadCount: 0,
     });
   },
-
-  // ============================================================
-  // ACTIVER/DÉSACTIVER LES NOTIFICATIONS
-  // ============================================================
 
   toggleNotifications: () => {
     const { notificationsEnabled } = get();
@@ -528,10 +473,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // DÉFINIR L'ÉTAT DES NOTIFICATIONS
-  // ============================================================
-
   setNotificationsEnabled: (enabled: boolean) => {
     try {
       const savedPrefs = localStorage.getItem('sante_plus_preferences');
@@ -552,10 +493,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       get().subscribe();
     }
   },
-
-  // ============================================================
-  // OBTENIR LE NOMBRE DE NOTIFICATIONS NON LUES
-  // ============================================================
 
   getUnreadCount: () => {
     return get().unreadCount;
