@@ -1,4 +1,5 @@
 // 📁 src/stores/visitStore.ts
+ 
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -7,6 +8,13 @@ import { useAuthStore } from './authStore';
 import { assignmentAPI } from '@/lib/api';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  getPonctualPrice,
+  getVisitStatusForCreation,
+  requiresPonctualPayment,
+} from '@/lib/constants';
 
 // ============================================================
 // CONSTANTES
@@ -21,22 +29,19 @@ const generateVisitReference = (): string => {
   return `VIS-${year}${month}${day}-${random}`;
 };
 
-// ✅ PRIX DES VISITES PONCTUELLES
-const VISIT_PONCTUAL_PRICES: Record<string, number> = {
-  '30': 5000,
-  '45': 6000,
-  '60': 7500,
-  '90': 10000,
-  '120': 12500,
-};
-
-const DEFAULT_VISIT_PRICE = 7500;
-
-// ✅ EXPORTER LA FONCTION getPonctualPrice
+// ✅ EXPORTER LA FONCTION getPonctualPrice (déjà dans constants.ts)
+// On garde une référence locale pour compatibilité
 export const getPonctualPrice = (durationMinutes: number = 60): number => {
-  const price = VISIT_PONCTUAL_PRICES[durationMinutes.toString()];
+  const prices: Record<string, number> = {
+    '30': 5000,
+    '45': 6000,
+    '60': 7500,
+    '90': 10000,
+    '120': 12500,
+  };
+  const price = prices[durationMinutes.toString()];
   if (price) return price;
-  return Math.round((durationMinutes / 60) * DEFAULT_VISIT_PRICE);
+  return Math.round((durationMinutes / 60) * 7500);
 };
 
 // ============================================================
@@ -218,7 +223,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let visitsWithFullRelations = visitsData;
 
       if (profile?.role === 'family' && visitsWithFullRelations.length > 0) {
-        // Récupérer tous les aidant_id uniques
         const aidantIds = [...new Set(
           visitsWithFullRelations
             .filter((v: any) => v.aidant_id)
@@ -226,7 +230,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         )];
 
         if (aidantIds.length > 0) {
-          // Récupérer les aidants avec leurs profils
           const { data: aidantsData } = await supabase
             .from('aidants')
             .select(`
@@ -249,13 +252,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
             .in('id', aidantIds);
 
           if (aidantsData) {
-            // Créer un mapping aidant_id → aidant
             const aidantMap = aidantsData.reduce((acc: any, a: any) => {
               acc[a.id] = a;
               return acc;
             }, {});
 
-            // Remplacer les aidants dans les visites
             visitsWithFullRelations = visitsWithFullRelations.map((visit: any) => ({
               ...visit,
               aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
@@ -367,7 +368,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // CREATE VISIT - CORRIGÉ
+  // ✅ CREATE VISIT - LOGIQUE UNIFIÉE AVEC HELPERS
   // ============================================================
   createVisit: async (data: Partial<Visit> & { 
     target_type?: 'personal' | 'patient'; 
@@ -394,11 +395,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let requiresPayment = false;
       let paymentAmount = 0;
 
+      // ✅ LOGIQUE UNIFIÉE : Vérifier l'abonnement
       if (isPonctual) {
+        // ✅ CAS 1 : Visite ponctuelle → Paiement requis
         requiresPayment = true;
         status = 'brouillon';
         paymentAmount = getPonctualPrice(data.duration_minutes || 60);
       } else {
+        // ✅ CAS 2 : Vérifier l'abonnement
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_visits, status')
@@ -407,13 +411,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           .maybeSingle();
 
         if (!subscription || subscription.remaining_visits <= 0) {
+          // ✅ PAS D'ABONNEMENT OU PLUS DE VISITES → Paiement requis
           requiresPayment = true;
           status = 'brouillon';
           paymentAmount = getPonctualPrice(data.duration_minutes || 60);
         }
       }
 
-      // ✅ Récupérer l'aidant actif
+      // ✅ Récupérer l'aidant actif (si pas de paiement requis)
       let finalAidantId = data.aidant_id || null;
       let autoAssigned = false;
 
@@ -432,6 +437,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
+      // ✅ CONSTRUIRE LES DONNÉES DE LA VISITE
       const visitData = {
         reference: generateVisitReference(),
         user_id: targetUserId || user.id,
@@ -450,7 +456,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         requested_by: user.id,
         actions: data.actions || [],
         notes: data.notes || null,
-        visit_type: data.visit_type || 'ponctuelle',
+        visit_type: data.visit_type || (requiresPayment ? 'ponctuelle' : 'permanente'),
         assignment_type: data.assignment_type || 'ponctuelle',
         draft_expires_at: requiresPayment ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
         metadata: {
@@ -512,7 +518,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
 
-      // ✅ NOTIFICATIONS
+      // ✅ SI PAIEMENT REQUIS
       if (requiresPayment) {
         await supabase.from('notifications').insert({
           user_id: targetUserId || user.id,
@@ -532,7 +538,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         return fullVisit;
       }
 
-      // ✅ Pas de paiement requis
+      // ✅ PAS DE PAIEMENT REQUIS
       if (finalAidantId) {
         await supabase.from('notifications').insert({
           user_id: finalAidantId,
@@ -926,7 +932,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // VALIDATE VISIT
+  // VALIDATE VISIT - AVEC DÉCOMPTE UNIQUEMENT SI NON PONCTUEL
   // ============================================================
   validateVisit: async (id: string) => {
     try {
@@ -965,7 +971,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ VÉRIFIER SI VISITE PONCTUELLE PAYÉE
+      // ✅ VÉRIFIER SI VISITE PONCTUELLE PAYÉE → NE PAS DÉCOMPTER
       const isPonctual = visit.metadata?.is_ponctual === true || visit.metadata?.is_draft === true;
       const wasPaid = visit.metadata?.payment_completed === true;
 
