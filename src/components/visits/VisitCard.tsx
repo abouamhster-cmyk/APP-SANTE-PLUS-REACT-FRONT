@@ -1,4 +1,8 @@
 // 📁 src/components/visits/VisitCard.tsx
+// VERSION CORRIGÉE - AFFICHAGE CLAIR DES VISITES
+// ✅ Ajout du statut "brouillon" avec couleurs et icônes
+// ✅ Affichage des informations de paiement
+// ✅ Distinction claire entre visites avec/sans abonnement
 
 import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, AlertCircle, UserCheck, Users, Clock as ClockIcon, CreditCard, UserPlus } from 'lucide-react';
 import { Visit } from '@/types';
@@ -7,6 +11,18 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { formatDate } from '@/utils/helpers';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  isVisitDraft,
+  isVisitPonctual,
+  requiresVisitPayment,
+  getVisitPaymentAmount,
+  getDraftExpiryTime,
+  isDraftExpired,
+  canConvertDraftToSubscription,
+  canPayVisitPonctual,
+} from '@/utils/helpers';
 
 // ✅ INTERFACE AVEC TOUTES LES PROPS
 interface VisitCardProps {
@@ -52,15 +68,22 @@ export const VisitCard = ({
     return 'Non assigné';
   };
 
-  const isDraft = visit.status === 'brouillon';
-  const canConvertToSubscription = isDraft && hasActiveSubscription && remainingVisits > 0;
+  // ✅ UTILISATION DES HELPERS
+  const isDraft = isVisitDraft(visit);
+  const isPonctual = isVisitPonctual(visit);
+  const requiresPayment = requiresVisitPayment(visit);
+  const paymentAmount = getVisitPaymentAmount(visit);
+  const draftExpiry = getDraftExpiryTime(visit);
+  const isExpiredDraft = isDraftExpired(visit);
+  const canConvert = canConvertDraftToSubscription(visit, hasActiveSubscription, remainingVisits);
+  const canPay = canPayVisitPonctual(visit);
 
   // ✅ Déterminer si l'aidant peut être assigné
   const canAssignAidant = (isAdminOrCoordinator || isAidant) && 
     (visit.status === 'expire' || visit.status === 'refusee' || 
      ((visit.status === 'planifiee' || visit.status === 'en_attente') && !visit.aidant_id));
 
-  // ✅ NOUVEAUX STATUTS
+  // ✅ NOUVEAUX STATUTS AVEC BROUILLON
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'planifiee': return '#4CAF50';
@@ -74,7 +97,7 @@ export const VisitCard = ({
       case 'expire': return '#795548';
       case 'replanifiee': return '#FF5722';
       case 'no_show': return '#795548';
-      case 'brouillon': return '#F59E0B';
+      case 'brouillon': return '#F59E0B'; // ✅ Couleur orange
       default: return '#9E9E9E';
     }
   };
@@ -92,7 +115,7 @@ export const VisitCard = ({
       case 'expire': return 'Expirée';
       case 'replanifiee': return 'Replanifiée';
       case 'no_show': return 'Absent';
-      case 'brouillon': return 'En attente paiement';
+      case 'brouillon': return '💳 En attente paiement'; // ✅ Libellé clair
       default: return status;
     }
   };
@@ -108,7 +131,7 @@ export const VisitCard = ({
       case 'annulee': return <XCircle size={12} />;
       case 'refusee': return <XCircle size={12} />;
       case 'expire': return <AlertCircle size={12} />;
-      case 'brouillon': return <CreditCard size={12} />;
+      case 'brouillon': return <CreditCard size={12} />; // ✅ Icône crédit
       default: return <ClockIcon size={12} />;
     }
   };
@@ -124,7 +147,9 @@ export const VisitCard = ({
   if (compact) {
     return (
       <div 
-        className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
+        className={`bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer ${
+          isDraft ? 'border-yellow-400' : ''
+        }`}
         style={{ borderLeftColor: getStatusColor(visit.status) }}
         onClick={onClick}
       >
@@ -157,9 +182,15 @@ export const VisitCard = ({
                 </span>
               )}
               {isDraft && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-yellow-100 text-yellow-700">
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-yellow-100 text-yellow-700 animate-pulse">
                   <CreditCard size={10} />
                   Paiement requis
+                </span>
+              )}
+              {isExpiredDraft && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-red-100 text-red-600">
+                  <AlertCircle size={10} />
+                  Expiré
                 </span>
               )}
             </div>
@@ -179,12 +210,23 @@ export const VisitCard = ({
                 </span>
               )}
             </div>
+            {/* ✅ AFFICHAGE MONTANT ET EXPIRATION POUR BROUILLON */}
+            {isDraft && (
+              <div className="flex items-center gap-2 text-[10px] mt-0.5" style={{ color: colors.text + '50' }}>
+                <span className="text-yellow-600">💳 {paymentAmount.toLocaleString()} FCFA</span>
+                {draftExpiry && (
+                  <span className={`${isExpiredDraft ? 'text-red-500' : 'text-gray-400'}`}>
+                    • Expire dans {draftExpiry}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
             {/* ✅ BOUTON BROUILLON : Valider avec abonnement OU Payer */}
             {showActions && isDraft && onConvertToSubscription && onPonctualPayment && (
-              canConvertToSubscription ? (
+              canConvert ? (
                 <button
                   onClick={(e) => { e.stopPropagation(); onConvertToSubscription(); }}
                   className="px-2 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
@@ -199,7 +241,7 @@ export const VisitCard = ({
                   onClick={(e) => { e.stopPropagation(); onPonctualPayment(); }}
                   className="px-2 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80 animate-pulse"
                   style={{ background: '#F59E0B' }}
-                  title={`Payer ${visit.metadata?.payment_amount || 7500} FCFA`}
+                  title={`Payer ${paymentAmount} FCFA`}
                 >
                   <CreditCard size={12} />
                   Payer
@@ -291,10 +333,18 @@ export const VisitCard = ({
         </div>
 
         {/* ✅ Info visites restantes */}
-        {isDraft && canConvertToSubscription && (
+        {isDraft && canConvert && (
           <div className="mt-1.5 text-[10px] text-green-600 flex items-center gap-1">
             <CheckCircle size={10} />
             <span>{remainingVisits} visite(s) restante(s) sur votre abonnement</span>
+          </div>
+        )}
+
+        {/* ✅ Info expiration du brouillon */}
+        {isDraft && isExpiredDraft && (
+          <div className="mt-1.5 text-[10px] text-red-500 flex items-center gap-1">
+            <AlertCircle size={10} />
+            <span>Brouillon expiré - Veuillez recréer la visite</span>
           </div>
         )}
       </div>
@@ -304,7 +354,9 @@ export const VisitCard = ({
   // ✅ Version complète
   return (
     <div 
-      className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
+      className={`bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer ${
+        isDraft ? 'border-yellow-400' : ''
+      }`}
       style={{ borderLeftColor: getStatusColor(visit.status) }}
       onClick={onClick}
     >
@@ -338,9 +390,15 @@ export const VisitCard = ({
               </span>
             )}
             {isDraft && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 animate-pulse">
                 <CreditCard size={12} />
                 En attente paiement
+              </span>
+            )}
+            {isExpiredDraft && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-600">
+                <AlertCircle size={12} />
+                Expiré
               </span>
             )}
           </div>
@@ -353,7 +411,12 @@ export const VisitCard = ({
           {isDraft && (
             <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: colors.text + '50' }}>
               <CreditCard size={12} />
-              <span>Montant: {visit.metadata?.payment_amount || 7500} FCFA</span>
+              <span>Montant: {paymentAmount.toLocaleString()} FCFA</span>
+              {draftExpiry && (
+                <span className={`${isExpiredDraft ? 'text-red-500' : 'text-gray-400'}`}>
+                  • Expire dans {draftExpiry}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -362,7 +425,7 @@ export const VisitCard = ({
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           {/* ✅ BOUTON BROUILLON : Valider avec abonnement OU Payer */}
           {showActions && isDraft && onConvertToSubscription && onPonctualPayment && (
-            canConvertToSubscription ? (
+            canConvert ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onConvertToSubscription(); }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-90"
@@ -381,7 +444,7 @@ export const VisitCard = ({
                 style={{ background: '#F59E0B' }}
               >
                 <CreditCard size={16} />
-                💳 Payer {visit.metadata?.payment_amount || 7500} FCFA
+                💳 Payer {paymentAmount.toLocaleString()} FCFA
               </button>
             )
           )}
@@ -523,10 +586,29 @@ export const VisitCard = ({
       )}
 
       {/* ✅ Info visites restantes pour brouillon */}
-      {isDraft && canConvertToSubscription && (
+      {isDraft && canConvert && (
         <div className="mt-3 flex items-center gap-2 text-xs text-green-600 bg-green-50 p-2 rounded-lg">
           <CheckCircle size={14} />
           <span>✅ {remainingVisits} visite(s) restante(s) sur votre abonnement</span>
+        </div>
+      )}
+
+      {/* ✅ Info expiration du brouillon */}
+      {isDraft && isExpiredDraft && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
+          <AlertCircle size={14} />
+          <span>⚠️ Brouillon expiré - Veuillez recréer la visite</span>
+        </div>
+      )}
+
+      {/* ✅ Info paiement requis (si brouillon mais pas encore expiré) */}
+      {isDraft && !isExpiredDraft && !canConvert && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-yellow-600 bg-yellow-50 p-2 rounded-lg">
+          <CreditCard size={14} />
+          <span>💳 Paiement requis - {paymentAmount.toLocaleString()} FCFA</span>
+          {draftExpiry && (
+            <span className="text-yellow-500">• Expire dans {draftExpiry}</span>
+          )}
         </div>
       )}
     </div>
