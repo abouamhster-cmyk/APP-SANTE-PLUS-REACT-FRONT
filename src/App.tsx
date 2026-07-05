@@ -18,7 +18,10 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
 
 // ✅ IMPORTER le service de notifications
-import { requestNotificationPermission } from '@/services/notificationService';
+import { 
+  requestNotificationPermission,
+  initializeNotificationSound
+} from '@/services/notificationService';
 
 // ✅ IMPORTER le store de notifications
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -183,6 +186,7 @@ function App() {
   const keepAliveStarted = useRef(false);
   const notificationInitialized = useRef(false);
   const realtimeInitialized = useRef(false);
+  const soundInitialized = useRef(false);
 
   // ============================================================
   // EFFETS - GESTION DU RECHARGEMENT
@@ -256,6 +260,17 @@ function App() {
       console.log('🚪 [App] Déconnexion - Arrêt Keep-Alive');
       keepAliveStarted.current = false;
       keepAliveService.stop();
+    }
+  }, [isAuthenticated, isAuthInitialized]);
+
+  // ============================================================
+  // ✅ EFFET - INITIALISATION DU SON DE NOTIFICATION
+  // ============================================================
+  useEffect(() => {
+    if (isAuthenticated && isAuthInitialized && !soundInitialized.current) {
+      console.log('🔔 [App] Initialisation du son de notification...');
+      soundInitialized.current = true;
+      initializeNotificationSound();
     }
   }, [isAuthenticated, isAuthInitialized]);
 
