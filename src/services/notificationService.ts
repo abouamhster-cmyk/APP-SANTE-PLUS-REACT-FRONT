@@ -5,7 +5,6 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { getFCMToken, onFCMessage } from '@/lib/firebase';
 import { NotificationType } from '@/types';
-import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
@@ -21,9 +20,7 @@ export const NOTIFICATION_SOUNDS = {
 
 let activeSound = NOTIFICATION_SOUNDS.SOUND_1;
 
-export const getActiveSound = (): string => {
-  return activeSound;
-};
+export const getActiveSound = (): string => activeSound;
 
 export const setNotificationSound = (soundUrl: string) => {
   if (Object.values(NOTIFICATION_SOUNDS).includes(soundUrl)) {
@@ -37,16 +34,10 @@ export const saveNotificationSoundPreference = async (soundUrl: string) => {
   try {
     const { user } = useAuthStore.getState();
     if (!user) return;
-
     await supabase
       .from('profiles')
-      .update({ 
-        preferences: { 
-          notification_sound: soundUrl 
-        } 
-      })
+      .update({ preferences: { notification_sound: soundUrl } })
       .eq('id', user.id);
-    
     console.log('✅ Préférence son sauvegardée');
   } catch (error) {
     console.error('❌ Erreur sauvegarde préférence:', error);
@@ -57,19 +48,15 @@ export const loadNotificationSoundPreference = async () => {
   try {
     const { user } = useAuthStore.getState();
     if (!user) return null;
-
     const { data, error } = await supabase
       .from('profiles')
       .select('preferences')
       .eq('id', user.id)
       .single();
-
     if (error) throw error;
-
     const sound = data?.preferences?.notification_sound;
     if (sound && Object.values(NOTIFICATION_SOUNDS).includes(sound)) {
       setNotificationSound(sound);
-      console.log('✅ Préférence son chargée:', sound);
       return sound;
     }
     return null;
@@ -100,25 +87,18 @@ function findSupabaseAuthKey(): string {
     'sb-mrsrogkjthtnppecndyc-auth-token.1',
     'sb-localhost-auth-token',
   ];
-  
   for (const key of possibleKeys) {
-    if (localStorage.getItem(key)) {
-      return key;
-    }
+    if (localStorage.getItem(key)) return key;
   }
-  
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith('sb-') && key.includes('auth-token')) {
-      return key;
-    }
+    if (key && key.startsWith('sb-') && key.includes('auth-token')) return key;
   }
-  
   return 'supabase.auth.token';
 }
 
 // ============================================================
-// ✅ JOUER LE SON
+// ✅ JOUER LE SON (UNIVERSEL)
 // ============================================================
 
 export const playNotificationSound = () => {
@@ -126,6 +106,7 @@ export const playNotificationSound = () => {
     const audio = new Audio(activeSound);
     audio.volume = 0.7;
     audio.play().catch(() => {
+      // Fallback Web Audio
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = ctx.createOscillator();
@@ -160,7 +141,7 @@ export const previewNotificationSound = (soundUrl: string) => {
 };
 
 // ============================================================
-// ✅ AFFICHER UNE NOTIFICATION SYSTÈME
+// ✅ AFFICHER UNE NOTIFICATION SYSTÈME (UNIVERSEL)
 // ============================================================
 
 export const showSystemNotification = (title: string, body: string, data: any = {}) => {
@@ -175,7 +156,7 @@ export const showSystemNotification = (title: string, body: string, data: any = 
   }
 
   try {
-    // ✅ NotificationOptions sans 'actions' (non standard)
+    // ✅ Options compatibles avec tous les navigateurs
     const options: NotificationOptions = {
       body: body,
       icon: '/icon-192.png',
@@ -183,10 +164,15 @@ export const showSystemNotification = (title: string, body: string, data: any = 
       tag: `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
+      renotify: true,
       data: {
         url: data.url || '/app/notifications',
         ...data,
       },
+      actions: [
+        { action: 'open', title: '👀 Voir' },
+        { action: 'dismiss', title: '❌ Fermer' },
+      ],
     };
 
     const notification = new Notification(title, options);
@@ -257,7 +243,6 @@ export const requestNotificationPermission = async (userId: string) => {
 
     const authKey = findSupabaseAuthKey();
     const authData = localStorage.getItem(authKey);
-    
     if (!authData) {
       console.warn('❌ Pas de token d\'authentification');
       return null;
@@ -304,14 +289,14 @@ export const requestNotificationPermission = async (userId: string) => {
     const { unreadCount } = useNotificationStore.getState();
     updateNotificationBadge(unreadCount);
 
-    // ✅ Configurer l'écoute des messages FCM en foreground
+    // ✅ Écouter les messages FCM en foreground
     onFCMessage((payload) => {
       console.log('📨 Message FCM reçu en foreground:', payload);
       
       const notification = payload.notification || {};
       const data = payload.data || {};
       
-      // ✅ Afficher la notification système
+      // ✅ Afficher la notification système (UNIVERSEL)
       showSystemNotification(
         notification.title || 'Santé Plus Services',
         notification.body || 'Nouvelle notification',
@@ -352,7 +337,6 @@ export const removePushToken = async (token?: string) => {
 
     const authKey = findSupabaseAuthKey();
     const authData = localStorage.getItem(authKey);
-    
     if (!authData) {
       console.warn('❌ Pas de token d\'authentification');
       return;
@@ -391,10 +375,6 @@ export const removePushToken = async (token?: string) => {
     console.error('❌ Erreur suppression token:', error);
   }
 };
-
-// ============================================================
-// ✅ INITIALISATION
-// ============================================================
 
 export const initializeFirebase = () => {
   console.log('✅ Firebase initialisé pour les notifications');
@@ -600,9 +580,7 @@ export const notify = {
         .insert(notifications);
 
       if (error) throw error;
-      
       playNotificationSound();
-      
       return { success: true, sent: userIds.length };
     } catch (error) {
       console.error('❌ Erreur envoi notifications multiples:', error);
@@ -616,12 +594,7 @@ export const notify = {
         .from('profiles')
         .select('id')
         .in('role', ['admin', 'coordinator']);
-
-      if (!admins || admins.length === 0) {
-        console.log('ℹ️ Aucun admin trouvé');
-        return { success: true, sent: 0 };
-      }
-
+      if (!admins || admins.length === 0) return { success: true, sent: 0 };
       return await notify.sendToMultiple(
         admins.map((a: any) => a.id),
         title,
@@ -637,34 +610,19 @@ export const notify = {
 
   sendToAidants: async (title: string, body: string, type: NotificationType, data: any = {}, onlyAvailable: boolean = true) => {
     try {
-      let query = supabase
-        .from('profiles')
-        .select('id')
-        .eq('role', 'aidant');
-
+      let query = supabase.from('profiles').select('id').eq('role', 'aidant');
       if (onlyAvailable) {
         const { data: aidants } = await supabase
           .from('aidants')
           .select('user_id')
           .eq('available', true)
           .eq('is_verified', true);
-
-        if (!aidants || aidants.length === 0) {
-          console.log('ℹ️ Aucun aidant disponible trouvé');
-          return { success: true, sent: 0 };
-        }
-
+        if (!aidants || aidants.length === 0) return { success: true, sent: 0 };
         const userIds = aidants.map((a: any) => a.user_id);
         return await notify.sendToMultiple(userIds, title, body, type, data);
       }
-
       const { data: profiles } = await query;
-
-      if (!profiles || profiles.length === 0) {
-        console.log('ℹ️ Aucun aidant trouvé');
-        return { success: true, sent: 0 };
-      }
-
+      if (!profiles || profiles.length === 0) return { success: true, sent: 0 };
       return await notify.sendToMultiple(
         profiles.map((p: any) => p.id),
         title,
@@ -680,23 +638,12 @@ export const notify = {
 
   sendToFamily: async (familyId: string, title: string, body: string, type: NotificationType, data: any = {}) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: familyId,
-          title,
-          body,
-          type,
-          data,
-          is_read: false,
-          is_sent: true,
-          sent_at: new Date().toISOString(),
-        });
-
+      const { error } = await supabase.from('notifications').insert({
+        user_id: familyId, title, body, type, data,
+        is_read: false, is_sent: true, sent_at: new Date().toISOString(),
+      });
       if (error) throw error;
-      
       playNotificationSound();
-      
       return { success: true };
     } catch (error) {
       console.error('❌ Erreur envoi à la famille:', error);
@@ -706,23 +653,12 @@ export const notify = {
 
   sendToAidant: async (aidantUserId: string, title: string, body: string, type: NotificationType, data: any = {}) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: aidantUserId,
-          title,
-          body,
-          type,
-          data,
-          is_read: false,
-          is_sent: true,
-          sent_at: new Date().toISOString(),
-        });
-
+      const { error } = await supabase.from('notifications').insert({
+        user_id: aidantUserId, title, body, type, data,
+        is_read: false, is_sent: true, sent_at: new Date().toISOString(),
+      });
       if (error) throw error;
-      
       playNotificationSound();
-      
       return { success: true };
     } catch (error) {
       console.error('❌ Erreur envoi à l\'aidant:', error);
@@ -737,12 +673,7 @@ export const notify = {
         .select('aidant_id')
         .eq('patient_id', patientId)
         .not('aidant_id', 'is', null);
-
-      if (!visits || visits.length === 0) {
-        console.log('ℹ️ Aucun aidant assigné à ce patient');
-        return { success: true, sent: 0 };
-      }
-
+      if (!visits || visits.length === 0) return { success: true, sent: 0 };
       const aidantIds = [...new Set(visits.map((v: any) => v.aidant_id))];
       const { data: aidants } = await supabase
         .from('aidants')
@@ -750,12 +681,7 @@ export const notify = {
         .in('id', aidantIds)
         .eq('available', true)
         .eq('is_verified', true);
-
-      if (!aidants || aidants.length === 0) {
-        console.log('ℹ️ Aucun aidant disponible trouvé');
-        return { success: true, sent: 0 };
-      }
-
+      if (!aidants || aidants.length === 0) return { success: true, sent: 0 };
       return await notify.sendToMultiple(
         aidants.map((a: any) => a.user_id),
         title,
