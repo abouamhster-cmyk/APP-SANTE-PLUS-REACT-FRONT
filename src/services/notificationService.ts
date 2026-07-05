@@ -145,50 +145,50 @@ export const previewNotificationSound = (soundUrl: string) => {
 // ============================================================
  
 
-export const showSystemNotification = (title: string, body: string, data: any = {}) => {
+export const showSystemNotification = async (title: string, body: string, data: any = {}) => {
   if (!('Notification' in window)) {
     console.warn('⚠️ Notifications non supportées');
-    return;
+    return null;
   }
 
   if (Notification.permission !== 'granted') {
     console.warn('⚠️ Permission non accordée');
-    return;
+    return null;
   }
 
   try {
-    // ✅ NotificationOptions SANS renotify (non standard)
     const options: NotificationOptions = {
       body: body,
       icon: '/icon-192.png',
       badge: '/icon-72.png',
-      tag: `notif_${Date.now()}`,
+      tag: data.tag || `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
-       data: {
+      data: {
         url: data.url || '/app/notifications',
         ...data,
       },
     };
 
-    const notification = new Notification(title, options);
-
-    notification.onclick = () => {
-      window.focus();
-      const url = (notification as any).data?.url || '/app/notifications';
-      window.location.href = url;
-      notification.close();
-    };
-
-    notification.onclose = () => {
-      console.log('🔔 Notification fermée');
-    };
-
-    console.log('🔔 Notification système affichée:', title);
-    return notification;
+    // ✅ Sur mobile, l'API "new Notification()" échoue souvent.
+    // ✅ On utilise le Service Worker disponible (requis pour Chrome Android / Safari iOS)
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, options);
+      console.log('🔔 Notification affichée via Service Worker (Mobile/Desktop)');
+    } else {
+      // ✅ Fallback classique pour ordinateur de bureau sans Service Worker actif
+      const notification = new Notification(title, options);
+      notification.onclick = () => {
+        window.focus();
+        const url = (notification as any).data?.url || '/app/notifications';
+        window.location.href = url;
+        notification.close();
+      };
+      console.log('🔔 Notification affichée via constructeur classique (Desktop Fallback)');
+    }
   } catch (error) {
     console.error('❌ Erreur affichage notification:', error);
-    return null;
   }
 };
 // ============================================================
