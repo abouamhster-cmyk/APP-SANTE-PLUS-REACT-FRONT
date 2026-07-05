@@ -58,25 +58,38 @@
     <div id="root"></div>
     
     <!-- ============================================================
-    SERVICE WORKER REGISTRATION
+    SERVICE WORKER REGISTRATION (PWA + FIREBASE)
     ============================================================ -->
      
-    <!-- ✅ Service Worker Firebase pour les notifications push -->
-      <script>
-        if ('serviceWorker' in navigator) {
-          window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
-              .then((registration) => {
-                console.log('✅ Service Worker enregistré:', registration);
-              })
-              .catch((error) => {
-                console.log('❌ Erreur Service Worker:', error);
-              });
-          });
-        }
-      </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          // ✅ 1. Enregistrer le Service Worker PWA principal
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('✅ Service Worker PWA enregistré:', registration);
+            })
+            .catch((error) => {
+              console.log('❌ Erreur Service Worker PWA:', error);
+            });
+
+          // ✅ 2. Enregistrer le Service Worker Firebase pour les notifications push
+          navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then((registration) => {
+              console.log('✅ Firebase Messaging SW enregistré:', registration);
+            })
+            .catch((error) => {
+              console.log('❌ Erreur Firebase Messaging SW:', error);
+            });
+        });
+      } else {
+        console.warn('⚠️ Service Workers non supportés par ce navigateur');
+      }
+    </script>
     
-    <!-- ✅ Son de notification (optionnel) -->
+    <!-- ============================================================
+    SON DE NOTIFICATION
+    ============================================================ -->
     <audio id="notification-sound" preload="auto">
       <source src="/notification.mp3" type="audio/mpeg">
     </audio>
