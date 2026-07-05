@@ -10,7 +10,38 @@ import toast from 'react-hot-toast';
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ============================================================
-// DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN
+// ✅ HELPER : TROUVER LA CLÉ SUPABASE AUTH
+// ============================================================
+
+function findSupabaseAuthKey(): string {
+  const possibleKeys = [
+    'supabase.auth.token',
+    'supabase-auth-token',
+    'sb-mrsrogkjthtnppecndyc-auth-token',
+    'sb-mrsrogkjthtnppecndyc-auth-token.0',
+    'sb-mrsrogkjthtnppecndyc-auth-token.1',
+    'sb-localhost-auth-token',
+  ];
+  
+  for (const key of possibleKeys) {
+    if (localStorage.getItem(key)) {
+      return key;
+    }
+  }
+  
+  // Recherche par préfixe
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('sb-') && key.includes('auth-token')) {
+      return key;
+    }
+  }
+  
+  return 'supabase.auth.token'; // Fallback
+}
+
+// ============================================================
+// ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN
 // ============================================================
 
 export const requestNotificationPermission = async (userId: string) => {
@@ -40,20 +71,43 @@ export const requestNotificationPermission = async (userId: string) => {
     const token = `push_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     console.log('✅ Token push généré:', token.substring(0, 30) + '...');
 
-    // ✅ Enregistrer le token sur le backend
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!accessToken) {
+    // ✅ Récupérer le token d'authentification avec la bonne clé
+    const authKey = findSupabaseAuthKey();
+    console.log('🔑 Clé auth utilisée:', authKey);
+    
+    const authData = localStorage.getItem(authKey);
+    
+    if (!authData) {
       console.warn('❌ Pas de token d\'authentification');
       return null;
     }
 
+    let parsed;
+    try {
+      parsed = JSON.parse(authData);
+    } catch {
+      console.warn('❌ Token auth invalide');
+      return null;
+    }
+
+    // ✅ Extraire le token d'accès
+    const accessToken = parsed?.access_token || 
+                        parsed?.currentSession?.access_token ||
+                        parsed?.[0]?.access_token;
+
+    if (!accessToken) {
+      console.warn('❌ Pas de token d\'accès');
+      return null;
+    }
+
+    console.log('🔐 Access token présent:', !!accessToken);
+
+    // ✅ Enregistrer le token sur le backend
     const response = await fetch(`${API_URL}/notifications/register-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         token,
@@ -88,15 +142,32 @@ export const removePushToken = async (token?: string) => {
     const { user } = useAuthStore.getState();
     if (!user) return;
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
+    const authKey = findSupabaseAuthKey();
+    const authData = localStorage.getItem(authKey);
+    
+    if (!authData) {
+      console.warn('❌ Pas de token d\'authentification');
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(authData);
+    } catch {
+      console.warn('❌ Token auth invalide');
+      return;
+    }
+
+    const accessToken = parsed?.access_token || 
+                        parsed?.currentSession?.access_token ||
+                        parsed?.[0]?.access_token;
 
     if (accessToken) {
       await fetch(`${API_URL}/notifications/remove-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           token: token || 'all',
