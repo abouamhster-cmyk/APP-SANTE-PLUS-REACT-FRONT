@@ -15,6 +15,9 @@ const firebaseConfig = {
   measurementId: "G-7WGYHF8R7M"
 };
 
+// ✅ TA CLÉ VAPID
+const VAPID_KEY = "BOpnRL7xQjAbTUpp54ICOabzXZNWHmLqLYAEA0uKubtvDrJNHteoxE7UGnLlPbvgCWPYlwcwQdPGRfShNBBi0Bc";
+
 // ✅ Initialiser Firebase (une seule fois)
 let app;
 let messaging;
@@ -56,7 +59,7 @@ export const getFCMToken = async (): Promise<string | null> => {
     }
 
     const token = await getToken(messaging, {
-      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+      vapidKey: VAPID_KEY,
     });
 
     if (token) {
@@ -93,4 +96,4 @@ export const getMessagingInstance = () => {
   return messaging;
 };
 
-export { app, messaging, analytics };
+export { app, messaging, analytics, VAPID_KEY };
