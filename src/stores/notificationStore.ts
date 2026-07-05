@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types';
 import { useAuthStore } from './authStore';
+import { playNotificationSound, updateNotificationBadge } from '@/services/notificationService';
 
 // =============================================
 // HELPERS DE CACHE
@@ -84,6 +85,9 @@ const initializeNotifications = () => {
 };
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
+  // ============================================================
+  // ÉTAT INITIAL
+  // ============================================================
   notifications: [],
   unreadCount: 0,
   isLoading: false,
@@ -94,6 +98,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   isCacheInvalidated: false,
   error: null,  
 
+  // ============================================================
+  // INVALIDER LE CACHE
+  // ============================================================
   invalidateCache: () => {
     clearCachedNotifications();
     set({ 
@@ -104,11 +111,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     console.log('🔄 Cache notifications invalidé');
   },
 
+  // ============================================================
+  // RAFRAÎCHIR
+  // ============================================================
   refresh: async () => {
     get().invalidateCache();
     await get().fetchNotifications(true);
   },
 
+  // ============================================================
+  // SOUSCRIRE AU CANAL REALTIME
+  // ============================================================
   subscribe: () => {
     const { user, profile } = useAuthStore.getState();
 
@@ -136,24 +149,42 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           const notification = payload.new as Notification;
           
           if (notification.user_id === user.id) {
+            console.log('📨 Nouvelle notification en temps réel:', notification);
+            
+            // ✅ Jouer le son
+            playNotificationSound();
+            
+            // ✅ Ajouter la notification au store
             get().addNotification(notification);
+            
+            // ✅ Mettre à jour le badge
+            const { unreadCount } = get();
+            updateNotificationBadge(unreadCount);
           }
         }
       )
       .subscribe();
 
     set({ subscription });
+    console.log('📡 Canal Realtime notifications activé');
   },
 
+  // ============================================================
+  // SE DÉSABONNER DU CANAL REALTIME
+  // ============================================================
   unsubscribe: () => {
     const { subscription } = get();
 
     if (subscription) {
       supabase.removeChannel(subscription);
       set({ subscription: null });
+      console.log('📡 Canal Realtime notifications désactivé');
     }
   },
 
+  // ============================================================
+  // RÉCUPÉRER LES NOTIFICATIONS
+  // ============================================================
   fetchNotifications: async (force = false) => {
     const state = get();
     
@@ -176,6 +207,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
         console.log('📦 Utilisation du cache localStorage notifications');
         const unread = cached.data.filter((n) => !n.is_read).length || 0;
+        
+        // ✅ Mettre à jour le badge
+        updateNotificationBadge(unread);
+        
         set({ 
           notifications: cached.data,
           unreadCount: unread,
@@ -211,6 +246,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const notifications = data || [];
       const unread = notifications.filter((n) => !n.is_read).length || 0;
 
+      // ✅ Mettre à jour le badge
+      updateNotificationBadge(unread);
+
       setCachedNotifications(notifications);
       
       set({
@@ -228,6 +266,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const cached = getCachedNotifications();
       if (cached && cached.data.length > 0) {
         const unread = cached.data.filter((n) => !n.is_read).length || 0;
+        
+        // ✅ Mettre à jour le badge avec le cache
+        updateNotificationBadge(unread);
+        
         set({
           notifications: cached.data,
           unreadCount: unread,
@@ -247,6 +289,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // MARQUER COMME LU
+  // ============================================================
   markAsRead: async (id: string) => {
     try {
       const { error } = await supabase
@@ -266,6 +311,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const target = state.notifications.find((n) => n.id === id);
         const wasUnread = target ? !target.is_read : false;
 
+        const newUnreadCount = wasUnread
+          ? Math.max(0, state.unreadCount - 1)
+          : state.unreadCount;
+
+        // ✅ Mettre à jour le badge
+        updateNotificationBadge(newUnreadCount);
+
         return {
           notifications: state.notifications.map((n) =>
             n.id === id
@@ -276,9 +328,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
                 }
               : n
           ),
-          unreadCount: wasUnread
-            ? Math.max(0, state.unreadCount - 1)
-            : state.unreadCount,
+          unreadCount: newUnreadCount,
         };
       });
     } catch (error) {
@@ -286,6 +336,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // TOUT MARQUER COMME LU
+  // ============================================================
   markAllRead: async () => {
     try {
       const { user } = useAuthStore.getState();
@@ -306,6 +359,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       get().invalidateCache();
       await get().fetchNotifications(true);
 
+      // ✅ Mettre à jour le badge
+      updateNotificationBadge(0);
+
       set((state) => ({
         notifications: state.notifications.map((n) => ({
           ...n,
@@ -319,6 +375,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // AJOUTER UNE NOTIFICATION
+  // ============================================================
   addNotification: (notification) => {
     const { notificationsEnabled } = get();
 
@@ -353,15 +412,26 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         return state;
       }
 
+      const newUnreadCount = state.unreadCount + 1;
+      
+      // ✅ Mettre à jour le badge
+      updateNotificationBadge(newUnreadCount);
+
       return {
         notifications: [notification, ...state.notifications].slice(0, 50),
-        unreadCount: state.unreadCount + 1,
+        unreadCount: newUnreadCount,
       };
     });
   },
 
+  // ============================================================
+  // VIDER LES NOTIFICATIONS
+  // ============================================================
   clearNotifications: () => {
     get().invalidateCache();
+    
+    // ✅ Réinitialiser le badge
+    updateNotificationBadge(0);
     
     set({
       notifications: [],
@@ -369,6 +439,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
   },
 
+  // ============================================================
+  // ACTIVER/DÉSACTIVER LES NOTIFICATIONS
+  // ============================================================
   toggleNotifications: () => {
     const { notificationsEnabled } = get();
     const newState = !notificationsEnabled;
@@ -387,11 +460,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     if (!newState) {
       get().unsubscribe();
+      // ✅ Réinitialiser le badge
+      updateNotificationBadge(0);
     } else {
       get().subscribe();
     }
   },
 
+  // ============================================================
+  // DÉFINIR L'ÉTAT DES NOTIFICATIONS
+  // ============================================================
   setNotificationsEnabled: (enabled: boolean) => {
     try {
       const savedPrefs = localStorage.getItem('sante_plus_preferences');
@@ -406,11 +484,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     if (!enabled) {
       get().unsubscribe();
+      // ✅ Réinitialiser le badge
+      updateNotificationBadge(0);
     } else {
       get().subscribe();
     }
   },
 
+  // ============================================================
+  // OBTENIR LE NOMBRE DE NOTIFICATIONS NON LUES
+  // ============================================================
   getUnreadCount: () => {
     return get().unreadCount;
   },
