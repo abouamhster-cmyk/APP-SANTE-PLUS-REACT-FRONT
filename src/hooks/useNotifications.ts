@@ -15,7 +15,7 @@ export const usePushNotifications = () => {
     setIsSupported(supported);
   }, []);
 
-  useEffect => {
+  useEffect(() => {
     if (!isAuthenticated || !user || !isSupported) return;
 
     const setupPush = async () => {
