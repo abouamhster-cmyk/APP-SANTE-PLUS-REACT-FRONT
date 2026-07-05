@@ -1,4 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
+ 
 
 import { useEffect, useState } from 'react';
 import {
@@ -11,9 +12,9 @@ import {
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
-import { usePaymentStore } from '@/stores/paymentStore';   
+import { usePaymentStore } from '@/stores/paymentStore';
 import { useOfferStore } from '@/stores/offerStore';
-import { usePatientStore } from '@/stores/patientStore';  
+import { usePatientStore } from '@/stores/patientStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { PaymentModal } from '../components/PaymentModal';
@@ -21,9 +22,19 @@ import { VisitDaysPicker } from '@/components/subscriptions/VisitDaysPicker';
 import { Offer } from '@/types';
 import toast from 'react-hot-toast';
 
+// =============================================
+// TYPES
+// =============================================
+
+type TabType = 'all' | 'senior' | 'maman_bebe' | 'ponctuelle';
+
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
+
 const BillingPage = () => {
   const { profile, role } = useAuthStore();
-  const { patients, fetchPatients } = usePatientStore(); 
+  const { patients, fetchPatients } = usePatientStore();
 
   const {
     isFamily,
@@ -39,6 +50,7 @@ const BillingPage = () => {
     cancelSubscription,
   } = usePaymentStore();
 
+  // ✅ OFFRES DYNAMIQUES DEPUIS LA BASE DE DONNÉES
   const {
     offers,
     isLoading: offersLoading,
@@ -49,11 +61,11 @@ const BillingPage = () => {
   const [filteredOffers, setFilteredOffers] = useState<Offer[]>([]);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'senior' | 'maman_bebe' | 'ponctuelle'>('all');
+  const [activeTab, setActiveTab] = useState<TabType>('all');
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null); 
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -62,76 +74,93 @@ const BillingPage = () => {
   const isPersonalAccount = role === 'family' && !patientCategory;
   const isAidantRole = role === 'aidant';
 
+  // =============================================
+  // EFFETS : CHARGEMENT DES DONNÉES
+  // =============================================
+
   // ✅ Charger les patients
   useEffect(() => {
     fetchPatients();
   }, [fetchPatients]);
 
+  // ✅ Charger les offres dynamiques depuis la BDD
   useEffect(() => {
     if (!offersInitialized) {
       fetchOffers();
     }
   }, [offersInitialized, fetchOffers]);
 
+  // ✅ Charger les abonnements et paiements
   useEffect(() => {
     fetchSubscriptions();
     fetchPayments();
   }, []);
 
-  // ✅ FILTRAGE DES OFFRES SELON LE TYPE DE COMPTE
+  // =============================================
+  // ✅ FILTRAGE DES OFFRES SELON LE RÔLE ET LA CATÉGORIE
+  // =============================================
   useEffect(() => {
     if (offers.length === 0) return;
 
     let filtered: Offer[] = [];
 
+    // 🦸 AIDANT → Pas d'abonnement visible
     if (isAidantRole) {
       setFilteredOffers([]);
       return;
     }
 
+    // 👔 ADMIN / COORDINATEUR → Toutes les offres
     if (role === 'admin' || role === 'coordinator') {
       filtered = offers;
       setFilteredOffers(filtered);
       return;
     }
 
+    // 👤 COMPTE PERSONNEL (sans patient) → Pack Confort + Ponctuelle
     if (isPersonalAccount) {
       filtered = offers.filter((o: Offer) => 
         o.category === 'pack_confort' || 
         o.type === 'ponctuelle' ||
-        o.id?.startsWith('ponctual-')
+        o.category === 'ponctuelle'
       );
       setFilteredOffers(filtered);
       return;
     }
 
+    // 👴 SENIOR → Senior + Pack Confort + Ponctuelle
     if (patientCategory === 'senior') {
       filtered = offers.filter((o: Offer) => 
         o.category === 'senior' || 
         o.category === 'pack_confort' ||
         o.type === 'ponctuelle' ||
-        o.id?.startsWith('ponctual-')
+        o.category === 'ponctuelle'
       );
       setFilteredOffers(filtered);
       return;
     }
 
+    // 👶 MAMAN & BÉBÉ → Maman + Pack Confort + Ponctuelle
     if (patientCategory === 'maman_bebe') {
       filtered = offers.filter((o: Offer) => 
         o.category === 'maman_bebe' || 
         o.category === 'pack_confort' ||
         o.type === 'ponctuelle' ||
-        o.id?.startsWith('ponctual-')
+        o.category === 'ponctuelle'
       );
       setFilteredOffers(filtered);
       return;
     }
 
+    // 🔄 FALLBACK
     filtered = offers;
     setFilteredOffers(filtered);
   }, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
 
-  const getVisibleTabs = (): ('all' | 'senior' | 'maman_bebe' | 'ponctuelle')[] => {
+  // =============================================
+  // ✅ ONGLETS DISPONIBLES
+  // =============================================
+  const getVisibleTabs = (): TabType[] => {
     if (isAidantRole) return [];
     if (isPersonalAccount) return ['all', 'ponctuelle'];
     if (patientCategory === 'senior') return ['all', 'senior', 'ponctuelle'];
@@ -139,6 +168,11 @@ const BillingPage = () => {
     return ['all', 'senior', 'maman_bebe', 'ponctuelle'];
   };
 
+  const visibleTabs = getVisibleTabs();
+
+  // =============================================
+  // ✅ STATUTS
+  // =============================================
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
   const hasActiveSubscription = subscriptions.some((sub) => sub.status === 'actif');
 
@@ -146,20 +180,24 @@ const BillingPage = () => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif');
   };
 
-  // ✅ openPayment corrigé avec patientId
+  // =============================================
+  // ✅ OUVERTURE DU MODAL DE PAIEMENT
+  // =============================================
   const openPayment = (offer: Offer) => {
     // ✅ Récupérer le premier patient de la famille (ou null)
     const activePatient = patients.length > 0 ? patients[0] : null;
     const patientId = activePatient?.id || null;
 
+    // ✅ Offre ponctuelle → Paiement direct
     if (offer.category === 'ponctuelle' || offer.type === 'ponctuelle') {
       setSelectedOffer(offer);
       setPendingOrderData(null);
-      setSelectedPatientId(patientId);  
+      setSelectedPatientId(patientId);
       setIsPaymentOpen(true);
       return;
     }
 
+    // ✅ Abonnement → Vérifier s'il n'y en a pas déjà un actif
     if (hasActiveSubscription) {
       toast.error('Vous avez déjà un abonnement actif');
       return;
@@ -167,10 +205,13 @@ const BillingPage = () => {
 
     setSelectedOffer(offer);
     setPendingOrderData(null);
-    setSelectedPatientId(patientId); 
+    setSelectedPatientId(patientId);
     setIsPaymentOpen(true);
   };
 
+  // =============================================
+  // ✅ SUCCÈS DU PAIEMENT
+  // =============================================
   const handlePaymentSuccess = async () => {
     await fetchSubscriptions();
     await fetchPayments();
@@ -179,6 +220,9 @@ const BillingPage = () => {
     toast.success('Paiement effectué avec succès !');
   };
 
+  // =============================================
+  // ✅ STATISTIQUES
+  // =============================================
   const stats = {
     total: offers.length,
     senior: offers.filter((o: Offer) => o.category === 'senior').length,
@@ -186,6 +230,9 @@ const BillingPage = () => {
     ponctuelle: offers.filter((o: Offer) => o.category === 'ponctuelle' || o.type === 'ponctuelle').length,
   };
 
+  // =============================================
+  // ✅ CHARGEMENT
+  // =============================================
   const isLoading = storeLoading || offersLoading;
 
   if (isLoading) {
@@ -202,6 +249,9 @@ const BillingPage = () => {
     );
   }
 
+  // =============================================
+  // 🦸 VUE AIDANT
+  // =============================================
   if (isAidantRole) {
     return (
       <div className="max-w-5xl mx-auto pb-8">
@@ -224,11 +274,15 @@ const BillingPage = () => {
     );
   }
 
-  const visibleTabs = getVisibleTabs();
-
+  // =============================================
+  // ✅ RENDU PRINCIPAL
+  // =============================================
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12 sm:pb-8">
-      {/* HEADER */}
+
+      {/* ============================================================
+      HEADER
+      ============================================================ */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
         style={{
@@ -259,7 +313,9 @@ const BillingPage = () => {
         </div>
       </section>
 
-      {/* ABONNEMENT ACTIF */}
+      {/* ============================================================
+      ABONNEMENT ACTIF
+      ============================================================ */}
       {activeSubscription && (
         <section
           className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border-l-4 transition-all"
@@ -296,7 +352,9 @@ const BillingPage = () => {
         </section>
       )}
 
-      {/* FILTRES PAR CATÉGORIES */}
+      {/* ============================================================
+      FILTRES PAR CATÉGORIES
+      ============================================================ */}
       {visibleTabs.length > 0 && (
         <section className="bg-white rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
           <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
@@ -333,7 +391,9 @@ const BillingPage = () => {
         </section>
       )}
 
-      {/* GRILLE DES OFFRES DISPONIBLES */}
+      {/* ============================================================
+      GRILLE DES OFFRES DISPONIBLES
+      ============================================================ */}
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredOffers.length > 0 ? (
           filteredOffers.map((offer: Offer) => (
@@ -364,7 +424,9 @@ const BillingPage = () => {
         )}
       </section>
 
-      {/* HISTORIQUE DES TRANSACTIONS */}
+      {/* ============================================================
+      HISTORIQUE DES TRANSACTIONS
+      ============================================================ */}
       <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)]">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
@@ -387,7 +449,9 @@ const BillingPage = () => {
         )}
       </section>
 
-      {/* MODALS */}
+      {/* ============================================================
+      MODALS
+      ============================================================ */}
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => {
