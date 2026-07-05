@@ -1,7 +1,5 @@
 // 📁 src/features/orders/pages/CreateOrderPage.tsx
-// VERSION CORRIGÉE - LOGIQUE UNIFIÉE COMMANDES (ABONNEMENT vs PONCTUEL)
-// ✅ Utilisation des fonctions helpers de constants.ts
-// ✅ Logique cohérente pour les paiements et statuts
+ 
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
