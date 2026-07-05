@@ -14,9 +14,11 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 
- import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
+// ✅ IMPORTER le service Keep-Alive
+import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
 
- import { initializeFirebase, requestNotificationPermission } from '@/services/notificationService';
+// ✅ IMPORTER le service de notifications (sans Firebase)
+import { requestNotificationPermission } from '@/services/notificationService';
 
 // ============================================================
 // AUTH PAGES
@@ -246,17 +248,13 @@ function App() {
   }, [isAuthenticated, isAuthInitialized]);
 
   // ============================================================
-  // ✅ EFFET - INITIALISATION DES NOTIFICATIONS PUSH
+  // ✅ EFFET - INITIALISATION DES NOTIFICATIONS PUSH (SANS FIREBASE)
   // ============================================================
   useEffect(() => {
     if (isAuthenticated && isAuthInitialized && !notificationInitialized.current) {
       console.log('🔔 [App] Initialisation des notifications push...');
       notificationInitialized.current = true;
 
-      // ✅ 1. Initialiser Firebase
-      initializeFirebase();
-
-      // ✅ 2. Vérifier la permission et enregistrer le token
       const initNotifications = async () => {
         try {
           const { user } = useAuthStore.getState();
@@ -266,9 +264,9 @@ function App() {
           }
 
           // ✅ Vérifier si déjà enregistré
-          const storedToken = localStorage.getItem('fcm_token');
+          const storedToken = localStorage.getItem('push_token');
           if (storedToken) {
-            console.log('ℹ️ Token FCM déjà enregistré');
+            console.log('ℹ️ Token push déjà enregistré');
             return;
           }
 
@@ -296,7 +294,7 @@ function App() {
     // ✅ Réinitialiser si déconnecté
     if (!isAuthenticated && isAuthInitialized && notificationInitialized.current) {
       notificationInitialized.current = false;
-      localStorage.removeItem('fcm_token');
+      localStorage.removeItem('push_token');
     }
   }, [isAuthenticated, isAuthInitialized]);
 
