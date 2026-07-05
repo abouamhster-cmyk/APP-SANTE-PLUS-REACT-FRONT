@@ -60,19 +60,24 @@
     <!-- ============================================================
     SERVICE WORKER REGISTRATION
     ============================================================ -->
+     
+    <!-- ✅ Service Worker Firebase pour les notifications push -->
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('✅ Service Worker enregistré avec succès:', registration);
-            })
-            .catch((error) => {
-              console.log('❌ Erreur lors de l\'enregistrement du Service Worker:', error);
-            });
-        });
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+          .then((registration) => {
+            console.log('✅ Firebase Service Worker enregistré:', registration);
+          })
+          .catch((error) => {
+            console.log('❌ Erreur Firebase Service Worker:', error);
+          });
       }
     </script>
+    
+    <!-- ✅ Son de notification (optionnel) -->
+    <audio id="notification-sound" preload="auto">
+      <source src="/notification.mp3" type="audio/mpeg">
+    </audio>
     
     <script type="module" src="/src/main.tsx"></script>
   </body>
