@@ -1,7 +1,7 @@
 // 📁 src/components/PWA/NotificationPermission.tsx
 
 import { Bell, BellOff, BellRing, AlertCircle, Loader2 } from 'lucide-react';
-import { useNotifications } from '@/hooks/useNotifications';
+import { usePushNotifications } from '@/hooks/useNotifications';  
 import { getThemeColors } from '@/lib/permissions';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -17,7 +17,8 @@ export const NotificationPermission = ({
   showLabel = true,
   size = 'md'
 }: NotificationPermissionProps) => {
-  const { isEnabled, permission, isSupported, requestPermission, enable } = useNotifications();
+  // ✅ Utiliser le bon hook
+  const { isSupported, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
   const [isLoading, setIsLoading] = useState(false);
   const colors = getThemeColors('senior');
 
@@ -33,7 +34,6 @@ export const NotificationPermission = ({
     lg: 20,
   };
 
-  // ✅ Si les notifications ne sont pas supportées
   if (!isSupported) {
     return (
       <div className={`flex items-center gap-2 text-gray-400 ${className}`}>
@@ -43,26 +43,7 @@ export const NotificationPermission = ({
     );
   }
 
-  // ✅ Si la permission est refusée
-  if (permission === 'denied') {
-    return (
-      <button
-        onClick={() => {
-          toast.error(
-            'Veuillez autoriser les notifications dans les paramètres de votre navigateur.',
-            { duration: 4000 }
-          );
-        }}
-        className={`flex items-center gap-2 text-red-500 hover:text-red-600 transition ${sizeClasses[size]} ${className}`}
-      >
-        <BellOff size={iconSizes[size]} />
-        {showLabel && <span>Notifications bloquées</span>}
-      </button>
-    );
-  }
-
-  // ✅ Si les notifications sont activées
-  if (isEnabled) {
+  if (isSubscribed) {
     return (
       <div className={`flex items-center gap-2 ${className}`} style={{ color: colors.primary }}>
         <BellRing size={iconSizes[size]} className="animate-pulse" />
@@ -71,13 +52,12 @@ export const NotificationPermission = ({
     );
   }
 
-  // ✅ Sinon, bouton pour activer
   return (
     <button
       onClick={async () => {
         setIsLoading(true);
         try {
-          await enable();
+          await subscribe();
           toast.success('🔔 Notifications activées !');
         } catch (error) {
           toast.error('Erreur lors de l\'activation des notifications');
