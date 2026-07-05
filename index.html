@@ -58,29 +58,19 @@
     <div id="root"></div>
     
     <!-- ============================================================
-    SERVICE WORKER REGISTRATION
+    SERVICE WORKER REGISTRATION - UNIFIÉ
     ============================================================ -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // ✅ 1. Service Worker PWA principal
-          navigator.serviceWorker.register('/sw.js')
+          // ✅ Enregistrer UN SEUL Service Worker (fusionné)
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then((registration) => {
-              console.log('✅ SW PWA enregistré:', registration);
+              console.log('✅ Service Worker enregistré:', registration);
+              window.swRegistration = registration;
             })
             .catch((error) => {
-              console.error('❌ Erreur SW PWA:', error);
-            });
-
-          // ✅ 2. Service Worker Firebase (avec scope explicite)
-          navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
-            .then((registration) => {
-              console.log('✅ SW Firebase enregistré:', registration);
-              // ✅ Stocker la référence pour l'utiliser dans getToken
-              window.firebaseSWRegistration = registration;
-            })
-            .catch((error) => {
-              console.error('❌ Erreur SW Firebase:', error);
+              console.error('❌ Erreur Service Worker:', error);
             });
         });
       } else {
