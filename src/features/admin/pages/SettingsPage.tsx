@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/SettingsPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import {
   Settings,
@@ -32,6 +32,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
+import { NotificationSoundSelector } from '@/components/settings';
 import toast from 'react-hot-toast';
 
 interface Setting {
@@ -91,7 +92,6 @@ const SettingsPage = () => {
         throw new Error('Token manquant');
       }
 
-      // ✅ Utiliser l'URL complète
       const response = await fetch(`${API_BASE_URL}/settings`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -99,14 +99,12 @@ const SettingsPage = () => {
         },
       });
 
-      // ✅ Vérifier si la réponse est OK
       if (!response.ok) {
         const text = await response.text();
         console.error('❌ Réponse serveur:', text.substring(0, 200));
         throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
 
-      // ✅ Vérifier que c'est bien du JSON
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         console.error('❌ Content-Type:', contentType);
@@ -125,7 +123,6 @@ const SettingsPage = () => {
       console.error('❌ Fetch settings error:', error);
       toast.error(error.message || 'Erreur lors du chargement des paramètres');
       
-      // ✅ Charger des valeurs par défaut si l'API échoue
       loadDefaultSettings();
     } finally {
       setIsLoading(false);
@@ -270,12 +267,10 @@ const SettingsPage = () => {
     }
   };
 
-
   const handleReset = async () => {
     if (!window.confirm('Voulez-vous vraiment réinitialiser tous les paramètres ?')) return;
     
     try {
-      // Recharger les paramètres depuis le serveur
       await fetchSettings();
       setHasChanges(false);
       toast.success('Paramètres réinitialisés');
@@ -284,12 +279,10 @@ const SettingsPage = () => {
     }
   };
 
-  // ✅ Obtenir les champs par catégorie
   const getFieldsByCategory = (category: string) => {
     return fields.filter(f => f.category === category);
   };
 
-  // ✅ Onglets
   const tabs = [
     { id: 'general', label: 'Général', icon: <Settings size={18} /> },
     { id: 'security', label: 'Sécurité', icon: <Shield size={18} /> },
@@ -410,6 +403,13 @@ const SettingsPage = () => {
               colors={colors}
             />
           ))}
+
+          {/* ✅ AJOUT DU SÉLECTEUR DE SON DANS L'ONGLET NOTIFICATIONS */}
+          {activeTab === 'notifications' && (
+            <div className="pt-4 border-t border-gray-200">
+              <NotificationSoundSelector />
+            </div>
+          )}
         </div>
       </section>
     </div>
