@@ -29,6 +29,7 @@ import {
   UserCircle,
   Settings,
   Key,
+  Volume2,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -39,6 +40,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
+import { NotificationSoundSelector } from '@/components/settings/NotificationSoundSelector';
 import toast from 'react-hot-toast';
 
 // =============================================
@@ -581,6 +583,16 @@ const ProfilePage = () => {
               onClick={handleToggleDarkMode} 
               colors={colors} 
             />
+            
+            {/* ✅ SÉLECTEUR DE SON DE NOTIFICATION */}
+            <div className="border-t pt-4 mt-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Volume2 size={16} style={{ color: colors.primary }} />
+                <span className="text-sm font-bold" style={{ color: colors.text }}>Son de notification</span>
+              </div>
+              <NotificationSoundSelector />
+            </div>
+
             <button 
               onClick={() => setShowLanguageModal(true)} 
               className="w-full flex items-center justify-between p-4 rounded-2xl border hover:bg-gray-50 transition"
