@@ -1,13 +1,23 @@
 // 📁 src/components/orders/OrderCard.tsx
+ 
 
 import { useState } from 'react';
 import { Order } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatCurrency } from '@/utils/helpers';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  isOrderPendingPayment,
+  isOrderPonctual,
+  requiresOrderPayment,
+} from '@/utils/helpers';
+
 import { 
   Eye, Package, Truck, CheckCircle, XCircle, Clock, 
-  Image, Play, AlertCircle, ShoppingBag, User, UserPlus, UserCheck 
+  Image, Play, AlertCircle, ShoppingBag, User, UserPlus, UserCheck,
+  CreditCard,
 } from 'lucide-react';
 
 interface OrderCardProps {
@@ -44,15 +54,9 @@ export const OrderCard = ({
 
   // ✅ FONCTION ROBUSTE POUR OBTENIR LE NOM DE L'AIDANT
   const getAidantName = () => {
-    // ✅ Chemin 1 : order.aidant?.user?.full_name
     if (order.aidant?.user?.full_name) {
       return order.aidant.user.full_name;
     }
-    // ✅ Chemin 2 : order.aidant?.user?.full_name (via le profil)
-    if (order.aidant?.user?.full_name) {
-      return order.aidant.user.full_name;
-    }
-    // ✅ Fallback
     return 'Non assigné';
   };
 
@@ -61,7 +65,7 @@ export const OrderCard = ({
     return !!(order.aidant_id || order.aidant);
   };
 
-  // ✅ NOUVEAUX STATUTS
+  // ✅ NOUVEAUX STATUTS AVEC attente_paiement
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'creee': return '#9E9E9E';
@@ -71,7 +75,7 @@ export const OrderCard = ({
       case 'livree': return '#2196F3';
       case 'validee': return '#4CAF50';
       case 'annulee': return '#9E9E9E';
-      case 'attente_paiement': return '#8b5cf6';
+      case 'attente_paiement': return '#8b5cf6'; // ✅ Nouveau statut
       default: return '#9E9E9E';
     }
   };
@@ -85,7 +89,7 @@ export const OrderCard = ({
       case 'livree': return '📦 Livrée';
       case 'validee': return '✅ Validée';
       case 'annulee': return '❌ Annulée';
-      case 'attente_paiement': return '💳 En attente paiement';
+      case 'attente_paiement': return '💳 En attente paiement'; // ✅ Nouveau statut
       default: return status;
     }
   };
@@ -99,7 +103,7 @@ export const OrderCard = ({
       case 'livree': return <Truck size={14} />;
       case 'validee': return <CheckCircle size={14} />;
       case 'annulee': return <XCircle size={14} />;
-      case 'attente_paiement': return <ShoppingBag size={14} />;
+      case 'attente_paiement': return <CreditCard size={14} />; // ✅ Nouveau statut
       default: return <Package size={14} />;
     }
   };
@@ -109,6 +113,8 @@ export const OrderCard = ({
   const isAvailable = order.status === 'en_attente' || order.status === 'disponible';
   const isInProgress = order.status === 'en_cours';
   const isDelivered = order.status === 'livree';
+  const isPonctual = isOrderPonctual(order);
+  const isPaid = order.is_paid === true;
 
   // ✅ Vérifier si l'utilisateur peut agir sur la commande
   const canTake = isAvailable && (isAidant || isAdminOrCoordinator);
@@ -136,7 +142,9 @@ export const OrderCard = ({
   if (compact) {
     return (
       <div 
-        className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
+        className={`bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer ${
+          isPendingPayment ? 'border-purple-400' : ''
+        }`}
         style={{ borderLeftColor: getStatusColor(order.status) }}
         onClick={onClick}
       >
@@ -162,9 +170,15 @@ export const OrderCard = ({
                   Urgent
                 </span>
               )}
-              {order.order_type === 'ponctual' && (
+              {isPonctual && (
                 <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-600">
                   💳 Ponctuelle
+                </span>
+              )}
+              {isPendingPayment && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-purple-100 text-purple-600 animate-pulse">
+                  <CreditCard size={10} />
+                  Paiement requis
                 </span>
               )}
             </div>
@@ -183,7 +197,6 @@ export const OrderCard = ({
                   {order.patient.first_name} {order.patient.last_name}
                 </span>
               )}
-              {/* ✅ AFFICHAGE DE L'AIDANT EN COMPACT */}
               {hasAidant() && (
                 <span className="flex items-center gap-0.5 text-green-600">
                   <UserCheck size={11} />
@@ -267,6 +280,14 @@ export const OrderCard = ({
             <span>{order.status === 'disponible' ? 'Urgent - Disponible à tous' : 'En attente de prise (30min)'}</span>
           </div>
         )}
+
+        {/* ✅ Indicateur paiement en attente */}
+        {isPendingPayment && (
+          <div className="mt-2 text-[10px] text-purple-600 flex items-center gap-1">
+            <CreditCard size={12} />
+            <span>Paiement requis pour finaliser la commande</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -274,7 +295,9 @@ export const OrderCard = ({
   // ✅ Version complète
   return (
     <div 
-      className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer hover:border-[var(--color-primary)]/50"
+      className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer hover:border-[var(--color-primary)]/50 ${
+        isPendingPayment ? 'border-purple-400' : ''
+      }`}
       style={{ borderLeftColor: getStatusColor(order.status) }}
       onClick={onClick}
     >
@@ -305,14 +328,19 @@ export const OrderCard = ({
                 👤 {order.patient.first_name} {order.patient.last_name}
               </span>
             )}
-            {order.order_type === 'ponctual' && (
+            {isPonctual && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">
                 💳 Ponctuelle
               </span>
             )}
-            {order.is_paid && order.order_type === 'ponctual' && (
+            {isPonctual && isPaid && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">
                 ✅ Payée
+              </span>
+            )}
+            {isPendingPayment && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-600">
+                💳 En attente paiement
               </span>
             )}
           </div>
@@ -470,7 +498,7 @@ export const OrderCard = ({
         </div>
       )}
 
-      {/* ✅ Barre de progression */}
+      {/* ✅ Barre de progression (sauf pour attente_paiement) */}
       {order.status !== 'annulee' && order.status !== 'validee' && order.status !== 'attente_paiement' && (
         <div className="mt-4 flex items-center gap-2">
           {['creee', 'en_cours', 'livree'].map((status, index) => {
@@ -517,6 +545,27 @@ export const OrderCard = ({
         <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
           <CheckCircle size={14} />
           <span>Validée automatiquement</span>
+        </div>
+      )}
+
+      {/* ✅ Info paiement en attente */}
+      {isPendingPayment && (
+        <div className="mt-3 p-3 rounded-lg bg-purple-50 border border-purple-200 flex items-center gap-2">
+          <CreditCard size={16} className="text-purple-600" />
+          <span className="text-xs font-medium text-purple-700">
+            💳 Paiement requis - Effectuez le paiement pour finaliser la commande
+          </span>
+          <button
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              // ✅ Rediriger vers la page de paiement
+              window.location.href = '/app/billing';
+            }}
+            className="ml-auto px-3 py-1 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+            style={{ background: colors.primary }}
+          >
+            Payer
+          </button>
         </div>
       )}
     </div>
