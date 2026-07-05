@@ -20,7 +20,7 @@ import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
 // ✅ IMPORTER le service de notifications
 import { 
   requestNotificationPermission,
-  initializeNotificationSound
+  loadNotificationSoundPreference
 } from '@/services/notificationService';
 
 // ✅ IMPORTER le store de notifications
@@ -270,7 +270,7 @@ function App() {
     if (isAuthenticated && isAuthInitialized && !soundInitialized.current) {
       console.log('🔔 [App] Initialisation du son de notification...');
       soundInitialized.current = true;
-      initializeNotificationSound();
+      loadNotificationSoundPreference();
     }
   }, [isAuthenticated, isAuthInitialized]);
 
