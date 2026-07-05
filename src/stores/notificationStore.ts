@@ -1,5 +1,5 @@
 // 📁 src/stores/notificationStore.ts
- 
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Notification } from '@/types';
@@ -11,7 +11,7 @@ import { playNotificationSound, updateNotificationBadge } from '@/services/notif
 // =============================================
 
 const NOTIFICATIONS_CACHE_KEY = 'sante_plus_notifications_cache';
-const CACHE_DURATION = 30000; // 30 secondes pour les notifications (plus court)
+const CACHE_DURATION = 30000; // 30 secondes
 
 const getCachedNotifications = (): { data: Notification[]; timestamp: number } | null => {
   try {
@@ -38,6 +38,63 @@ const clearCachedNotifications = () => {
 };
 
 // =============================================
+// AFFICHER LA NOTIFICATION SYSTÈME
+// =============================================
+
+function showSystemNotification(notification: Notification) {
+  // ✅ Vérifier la permission
+  if (Notification.permission !== 'granted') {
+    console.warn('⚠️ Permission notifications non accordée');
+    return;
+  }
+
+  try {
+    const title = notification.title || 'Santé Plus';
+    const body = notification.body || 'Nouvelle notification';
+    const icon = '/icon-192.png';
+
+    const options: NotificationOptions = {
+      body: body,
+      icon: icon,
+      badge: '/icon-72.png',
+      vibrate: [200, 100, 200],
+      tag: notification.id || `notif_${Date.now()}`,
+      requireInteraction: true,
+      silent: false,
+      renotify: true,
+      data: {
+        url: '/app/notifications',
+        notificationId: notification.id,
+      },
+      actions: [
+        { action: 'open', title: '👀 Voir' },
+        { action: 'dismiss', title: '❌ Fermer' },
+      ],
+    };
+
+    const notif = new Notification(title, options);
+
+    notif.onclick = () => {
+      window.focus();
+      window.location.href = '/app/notifications';
+      notif.close();
+    };
+
+    notif.onnotificationclick = (event) => {
+      if (event.action === 'open') {
+        window.focus();
+        window.location.href = '/app/notifications';
+      }
+      notif.close();
+    };
+
+    console.log('🔔 [System] Notification affichée !', notification.title);
+  } catch (error) {
+    console.error('❌ Erreur affichage notification système:', error);
+  }
+}
+
+// =============================================
 // STORE
 // =============================================
 
@@ -50,7 +107,7 @@ interface NotificationState {
   isInitialized: boolean;
   lastFetch: number | null;
   isCacheInvalidated: boolean;
-  error: string | null;  
+  error: string | null;
 
   subscribe: () => void;
   unsubscribe: () => void;
@@ -62,15 +119,13 @@ interface NotificationState {
   toggleNotifications: () => void;
   setNotificationsEnabled: (enabled: boolean) => void;
   getUnreadCount: () => number;
-  
-  // ✅ GESTION DU CACHE
+
   invalidateCache: () => void;
   refresh: () => Promise<void>;
 }
 
 const initializeNotifications = () => {
   const saved = localStorage.getItem('sante_plus_preferences');
-
   if (saved) {
     try {
       const prefs = JSON.parse(saved);
@@ -80,14 +135,15 @@ const initializeNotifications = () => {
       return true;
     }
   }
-
   return true;
 };
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
+
   // ============================================================
   // ÉTAT INITIAL
   // ============================================================
+
   notifications: [],
   unreadCount: 0,
   isLoading: false,
@@ -96,14 +152,15 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   isInitialized: false,
   lastFetch: null,
   isCacheInvalidated: false,
-  error: null,  
+  error: null,
 
   // ============================================================
   // INVALIDER LE CACHE
   // ============================================================
+
   invalidateCache: () => {
     clearCachedNotifications();
-    set({ 
+    set({
       isCacheInvalidated: true,
       isInitialized: false,
       lastFetch: null,
@@ -114,6 +171,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ============================================================
   // RAFRAÎCHIR
   // ============================================================
+
   refresh: async () => {
     get().invalidateCache();
     await get().fetchNotifications(true);
@@ -122,20 +180,28 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ============================================================
   // SOUSCRIRE AU CANAL REALTIME
   // ============================================================
+
   subscribe: () => {
-    const { user, profile } = useAuthStore.getState();
-
-    if (!user) return;
-
+    const { user } = useAuthStore.getState();
     const { notificationsEnabled } = get();
 
-    if (!notificationsEnabled) return;
+    if (!user) {
+      console.log('ℹ️ [Realtime] Utilisateur non connecté');
+      return;
+    }
 
+    if (!notificationsEnabled) {
+      console.log('ℹ️ [Realtime] Notifications désactivées');
+      return;
+    }
+
+    // ✅ Se désabonner de l'ancien canal
     get().unsubscribe();
 
-    let filter = `user_id=eq.${user.id}`;
+    console.log(`📡 [Realtime] Création du canal pour l'utilisateur ${user.id}`);
 
-    const subscription = supabase
+    // ✅ Créer le canal avec les bonnes options
+    const channel = supabase
       .channel(`notifications:${user.id}`)
       .on(
         'postgres_changes',
@@ -143,51 +209,74 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           event: 'INSERT',
           schema: 'public',
           table: 'notifications',
-          filter: filter,
+          filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        async (payload) => {
+          console.log('📨 [Realtime] NOUVELLE NOTIFICATION REÇUE !', payload);
+
           const notification = payload.new as Notification;
-          
+
+          // ✅ Vérifier que c'est bien pour l'utilisateur connecté
           if (notification.user_id === user.id) {
-            console.log('📨 Nouvelle notification en temps réel:', notification);
-            
+            // ✅ Ajouter au store
+            get().addNotification(notification);
+
             // ✅ Jouer le son
             playNotificationSound();
-            
-            // ✅ Ajouter la notification au store
-            get().addNotification(notification);
-            
+
+            // ✅ Afficher la notification système
+            showSystemNotification(notification);
+
             // ✅ Mettre à jour le badge
             const { unreadCount } = get();
             updateNotificationBadge(unreadCount);
+
+            // ✅ Mettre à jour le titre de la page
+            if (unreadCount > 0) {
+              document.title = `(${unreadCount}) Santé Plus Services`;
+            }
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`📡 [Realtime] Statut: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [Realtime] Canal actif et prêt !');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('⚠️ [Realtime] Erreur canal, reconnexion dans 5s...');
+          setTimeout(() => get().subscribe(), 5000);
+        }
+      });
 
-    set({ subscription });
-    console.log('📡 Canal Realtime notifications activé');
+    set({ subscription: channel });
+    console.log('✅ [Realtime] Canal créé');
   },
 
   // ============================================================
   // SE DÉSABONNER DU CANAL REALTIME
   // ============================================================
+
   unsubscribe: () => {
     const { subscription } = get();
-
     if (subscription) {
-      supabase.removeChannel(subscription);
-      set({ subscription: null });
-      console.log('📡 Canal Realtime notifications désactivé');
+      try {
+        console.log('📡 [Realtime] Désabonnement...');
+        supabase.removeChannel(subscription);
+        set({ subscription: null });
+        console.log('✅ [Realtime] Désabonné');
+      } catch (error) {
+        console.error('❌ [Realtime] Erreur désabonnement:', error);
+      }
     }
   },
 
   // ============================================================
   // RÉCUPÉRER LES NOTIFICATIONS
   // ============================================================
+
   fetchNotifications: async (force = false) => {
     const state = get();
-    
+
     if (state.isLoading) {
       console.log('ℹ️ Déjà en cours de chargement, skip...');
       return;
@@ -207,14 +296,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
         console.log('📦 Utilisation du cache localStorage notifications');
         const unread = cached.data.filter((n) => !n.is_read).length || 0;
-        
-        // ✅ Mettre à jour le badge
         updateNotificationBadge(unread);
-        
-        set({ 
+        set({
           notifications: cached.data,
           unreadCount: unread,
-          isLoading: false, 
+          isLoading: false,
           isInitialized: true,
           lastFetch: cached.timestamp,
           isCacheInvalidated: false,
@@ -230,7 +316,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const { user } = useAuthStore.getState();
 
       if (!user) {
-        set({ notifications: [], unreadCount: 0, isLoading: false, isInitialized: true, error: null });
+        set({ notifications: [], unreadCount: 0, isLoading: false, isInitialized: true });
         return;
       }
 
@@ -246,11 +332,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       const notifications = data || [];
       const unread = notifications.filter((n) => !n.is_read).length || 0;
 
-      // ✅ Mettre à jour le badge
       updateNotificationBadge(unread);
-
       setCachedNotifications(notifications);
-      
+
       set({
         notifications,
         unreadCount: unread,
@@ -261,15 +345,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         error: null,
       });
     } catch (error) {
-      console.error('Fetch notifications error:', error);
-      
+      console.error('❌ Fetch notifications error:', error);
+
       const cached = getCachedNotifications();
       if (cached && cached.data.length > 0) {
         const unread = cached.data.filter((n) => !n.is_read).length || 0;
-        
-        // ✅ Mettre à jour le badge avec le cache
         updateNotificationBadge(unread);
-        
         set({
           notifications: cached.data,
           unreadCount: unread,
@@ -280,7 +361,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           error: error instanceof Error ? error.message : 'Erreur de chargement (cache utilisé)',
         });
       } else {
-        set({ 
+        set({
           isLoading: false,
           isInitialized: true,
           error: error instanceof Error ? error.message : 'Erreur inconnue',
@@ -292,6 +373,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ============================================================
   // MARQUER COMME LU
   // ============================================================
+
   markAsRead: async (id: string) => {
     try {
       const { error } = await supabase
@@ -310,39 +392,35 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       set((state) => {
         const target = state.notifications.find((n) => n.id === id);
         const wasUnread = target ? !target.is_read : false;
+        const newUnreadCount = wasUnread ? Math.max(0, state.unreadCount - 1) : state.unreadCount;
 
-        const newUnreadCount = wasUnread
-          ? Math.max(0, state.unreadCount - 1)
-          : state.unreadCount;
-
-        // ✅ Mettre à jour le badge
         updateNotificationBadge(newUnreadCount);
+
+        if (newUnreadCount > 0) {
+          document.title = `(${newUnreadCount}) Santé Plus Services`;
+        } else {
+          document.title = 'Santé Plus Services';
+        }
 
         return {
           notifications: state.notifications.map((n) =>
-            n.id === id
-              ? {
-                  ...n,
-                  is_read: true,
-                  read_at: new Date().toISOString(),
-                }
-              : n
+            n.id === id ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
           ),
           unreadCount: newUnreadCount,
         };
       });
     } catch (error) {
-      console.error('Mark as read error:', error);
+      console.error('❌ Mark as read error:', error);
     }
   },
 
   // ============================================================
   // TOUT MARQUER COMME LU
   // ============================================================
+
   markAllRead: async () => {
     try {
       const { user } = useAuthStore.getState();
-
       if (!user) return;
 
       const { error } = await supabase
@@ -359,8 +437,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       get().invalidateCache();
       await get().fetchNotifications(true);
 
-      // ✅ Mettre à jour le badge
       updateNotificationBadge(0);
+      document.title = 'Santé Plus Services';
 
       set((state) => ({
         notifications: state.notifications.map((n) => ({
@@ -371,51 +449,35 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: 0,
       }));
     } catch (error) {
-      console.error('Mark all read error:', error);
+      console.error('❌ Mark all read error:', error);
     }
   },
 
   // ============================================================
   // AJOUTER UNE NOTIFICATION
   // ============================================================
+
   addNotification: (notification) => {
     const { notificationsEnabled } = get();
 
-    if (!notificationsEnabled) return;
+    if (!notificationsEnabled) {
+      console.log('ℹ️ Notifications désactivées, ajout ignoré');
+      return;
+    }
 
     set((state) => {
-      const alreadyExistsById = state.notifications.some(
-        (n) => n.id === notification.id
-      );
-
+      const alreadyExistsById = state.notifications.some((n) => n.id === notification.id);
       if (alreadyExistsById) {
         return state;
       }
 
-      const alreadyExistsByContent = state.notifications.some((n) => {
-        const sameTitle = n.title === notification.title;
-        const sameBody = n.body === notification.body;
-        const sameType = n.type === notification.type;
-
-        const nTime = new Date(n.created_at).getTime();
-        const notifTime = new Date(notification.created_at).getTime();
-
-        const closeInTime =
-          Number.isFinite(nTime) &&
-          Number.isFinite(notifTime) &&
-          Math.abs(nTime - notifTime) < 3000;
-
-        return sameTitle && sameBody && sameType && closeInTime;
-      });
-
-      if (alreadyExistsByContent) {
-        return state;
-      }
-
       const newUnreadCount = state.unreadCount + 1;
-      
-      // ✅ Mettre à jour le badge
+
       updateNotificationBadge(newUnreadCount);
+
+      if (newUnreadCount > 0) {
+        document.title = `(${newUnreadCount}) Santé Plus Services`;
+      }
 
       return {
         notifications: [notification, ...state.notifications].slice(0, 50),
@@ -427,12 +489,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ============================================================
   // VIDER LES NOTIFICATIONS
   // ============================================================
+
   clearNotifications: () => {
     get().invalidateCache();
-    
-    // ✅ Réinitialiser le badge
     updateNotificationBadge(0);
-    
+    document.title = 'Santé Plus Services';
     set({
       notifications: [],
       unreadCount: 0,
@@ -442,13 +503,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ============================================================
   // ACTIVER/DÉSACTIVER LES NOTIFICATIONS
   // ============================================================
+
   toggleNotifications: () => {
     const { notificationsEnabled } = get();
     const newState = !notificationsEnabled;
 
-    const savedPrefs = localStorage.getItem('sante_plus_preferences');
-
     try {
+      const savedPrefs = localStorage.getItem('sante_plus_preferences');
       const prefs = savedPrefs ? JSON.parse(savedPrefs) : {};
       prefs.notifications = newState;
       localStorage.setItem('sante_plus_preferences', JSON.stringify(prefs));
@@ -460,8 +521,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     if (!newState) {
       get().unsubscribe();
-      // ✅ Réinitialiser le badge
       updateNotificationBadge(0);
+      document.title = 'Santé Plus Services';
     } else {
       get().subscribe();
     }
@@ -470,6 +531,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ============================================================
   // DÉFINIR L'ÉTAT DES NOTIFICATIONS
   // ============================================================
+
   setNotificationsEnabled: (enabled: boolean) => {
     try {
       const savedPrefs = localStorage.getItem('sante_plus_preferences');
@@ -484,8 +546,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     if (!enabled) {
       get().unsubscribe();
-      // ✅ Réinitialiser le badge
       updateNotificationBadge(0);
+      document.title = 'Santé Plus Services';
     } else {
       get().subscribe();
     }
@@ -494,6 +556,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   // ============================================================
   // OBTENIR LE NOMBRE DE NOTIFICATIONS NON LUES
   // ============================================================
+
   getUnreadCount: () => {
     return get().unreadCount;
   },
