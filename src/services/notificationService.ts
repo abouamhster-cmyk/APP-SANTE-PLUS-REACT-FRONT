@@ -22,18 +22,120 @@ export const NOTIFICATION_SOUNDS = {
 
 // ✅ Son actif (par défaut SOUND_1)
 let activeSound = NOTIFICATION_SOUNDS.SOUND_1;
+let isInitialized = false;
 
+// ✅ INITIALISATION : Charger depuis localStorage ET depuis la base
+export const initializeNotificationSound = async () => {
+  if (isInitialized) return;
+  isInitialized = true;
+
+  try {
+    // 1. Essayer de charger depuis la base
+    const { user } = useAuthStore.getState();
+    if (user) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('preferences')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data?.preferences?.notification_sound) {
+        const sound = data.preferences.notification_sound;
+        if (Object.values(NOTIFICATION_SOUNDS).includes(sound)) {
+          activeSound = sound;
+          localStorage.setItem('notification_sound', sound);
+          console.log('✅ Son chargé depuis la base:', sound);
+          return;
+        }
+      }
+    }
+
+    // 2. Fallback: charger depuis localStorage
+    const saved = localStorage.getItem('notification_sound');
+    if (saved && Object.values(NOTIFICATION_SOUNDS).includes(saved)) {
+      activeSound = saved;
+      console.log('✅ Son chargé depuis localStorage:', saved);
+      return;
+    }
+
+    // 3. Défaut
+    activeSound = NOTIFICATION_SOUNDS.SOUND_1;
+    console.log('ℹ️ Son par défaut utilisé');
+  } catch (error) {
+    console.warn('⚠️ Erreur chargement préférence son:', error);
+    // Fallback localStorage
+    const saved = localStorage.getItem('notification_sound');
+    if (saved && Object.values(NOTIFICATION_SOUNDS).includes(saved)) {
+      activeSound = saved;
+    } else {
+      activeSound = NOTIFICATION_SOUNDS.SOUND_1;
+    }
+  }
+};
+
+// ✅ SAUVEGARDER LE CHOIX DANS LA BASE
+export const saveNotificationSoundPreference = async (soundUrl: string) => {
+  try {
+    const { user } = useAuthStore.getState();
+    if (!user) {
+      console.warn('⚠️ Utilisateur non connecté, sauvegarde locale uniquement');
+      setNotificationSound(soundUrl);
+      return;
+    }
+
+    // Récupérer les préférences actuelles
+    const { data: profile, error: fetchError } = await supabase
+      .from('profiles')
+      .select('preferences')
+      .eq('id', user.id)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
+
+    const currentPrefs = profile?.preferences || {};
+    const updatedPrefs = {
+      ...currentPrefs,
+      notification_sound: soundUrl,
+    };
+
+    // Sauvegarder dans Supabase
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ preferences: updatedPrefs })
+      .eq('id', user.id);
+
+    if (updateError) throw updateError;
+
+    // Mettre à jour le localStorage
+    localStorage.setItem('notification_sound', soundUrl);
+    activeSound = soundUrl;
+
+    console.log('✅ Son sauvegardé dans la base:', soundUrl);
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde préférence son:', error);
+    // Fallback: sauvegarde locale uniquement
+    localStorage.setItem('notification_sound', soundUrl);
+    activeSound = soundUrl;
+  }
+};
+
+// ✅ CHANGER LE SON
 export const setNotificationSound = (soundUrl: string) => {
   if (Object.values(NOTIFICATION_SOUNDS).includes(soundUrl)) {
     activeSound = soundUrl;
     localStorage.setItem('notification_sound', soundUrl);
-    console.log('🔔 Son de notification changé:', soundUrl);
+    console.log('🔔 Son changé (local):', soundUrl);
+    
+    // ✅ Sauvegarder dans la base si connecté
+    saveNotificationSoundPreference(soundUrl);
   } else {
     console.warn('⚠️ Son non disponible:', soundUrl);
   }
 };
 
-// ✅ Charger le son sauvegardé
+// ✅ Charger le son sauvegardé (fallback)
 const loadSavedSound = () => {
   const saved = localStorage.getItem('notification_sound');
   if (saved && Object.values(NOTIFICATION_SOUNDS).includes(saved)) {
@@ -114,6 +216,11 @@ export const previewNotificationSound = (soundUrl: string) => {
     console.warn('⚠️ Erreur prévisualisation son:', error);
     return false;
   }
+};
+
+// ✅ Récupérer le son actif
+export const getActiveSound = (): string => {
+  return activeSound;
 };
 
 // ============================================================
