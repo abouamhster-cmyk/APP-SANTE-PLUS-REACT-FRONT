@@ -14,8 +14,9 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 
-// ✅ IMPORTER le service Keep-Alive
-import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
+ import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
+
+ import { initializeFirebase, requestNotificationPermission } from '@/services/notificationService';
 
 // ============================================================
 // AUTH PAGES
@@ -100,8 +101,6 @@ import RegistrationsPage from '@/features/admin/pages/RegistrationsPage';
 import RegistrationDetailsPage from '@/features/admin/pages/RegistrationDetailsPage';
 import AidantsPage from '@/features/admin/pages/AidantsPage';
 import AidantCandidatesPage from '@/features/admin/pages/AidantCandidatesPage';
-// ✅ AssignAidantPage supprimé - redirigé vers /app/patients
-// import AssignAidantPage from '@/features/admin/pages/AssignAidantPage';
 import UsersPage from '@/features/admin/pages/UsersPage';
 import OffersPage from '@/features/admin/pages/OffersPage';
 import SettingsPage from '@/features/admin/pages/SettingsPage';
@@ -169,6 +168,7 @@ function App() {
   const hasInitialized = useRef(false);
   const hasLoadedOffers = useRef(false);
   const keepAliveStarted = useRef(false);
+  const notificationInitialized = useRef(false);
 
   // ============================================================
   // EFFETS - GESTION DU RECHARGEMENT
@@ -246,6 +246,61 @@ function App() {
   }, [isAuthenticated, isAuthInitialized]);
 
   // ============================================================
+  // ✅ EFFET - INITIALISATION DES NOTIFICATIONS PUSH
+  // ============================================================
+  useEffect(() => {
+    if (isAuthenticated && isAuthInitialized && !notificationInitialized.current) {
+      console.log('🔔 [App] Initialisation des notifications push...');
+      notificationInitialized.current = true;
+
+      // ✅ 1. Initialiser Firebase
+      initializeFirebase();
+
+      // ✅ 2. Vérifier la permission et enregistrer le token
+      const initNotifications = async () => {
+        try {
+          const { user } = useAuthStore.getState();
+          if (!user) {
+            console.warn('⚠️ Utilisateur non trouvé pour les notifications');
+            return;
+          }
+
+          // ✅ Vérifier si déjà enregistré
+          const storedToken = localStorage.getItem('fcm_token');
+          if (storedToken) {
+            console.log('ℹ️ Token FCM déjà enregistré');
+            return;
+          }
+
+          // ✅ Demander la permission
+          const token = await requestNotificationPermission(user.id);
+          if (token) {
+            console.log('✅ Notifications push activées');
+          } else {
+            console.log('ℹ️ Notifications push non activées par l\'utilisateur');
+          }
+        } catch (error) {
+          console.error('❌ Erreur initialisation notifications:', error);
+        }
+      };
+
+      // ✅ Délai pour ne pas bloquer le chargement
+      const timer = setTimeout(initNotifications, 3000);
+
+      return () => {
+        clearTimeout(timer);
+        notificationInitialized.current = false;
+      };
+    }
+
+    // ✅ Réinitialiser si déconnecté
+    if (!isAuthenticated && isAuthInitialized && notificationInitialized.current) {
+      notificationInitialized.current = false;
+      localStorage.removeItem('fcm_token');
+    }
+  }, [isAuthenticated, isAuthInitialized]);
+
+  // ============================================================
   // EFFETS - CHARGEMENT DES OFFRES
   // ============================================================
   useEffect(() => {
@@ -257,7 +312,7 @@ function App() {
   }, [isAuthInitialized, isOffersInitialized, fetchOffers]);
 
   // ============================================================
-  // EFFETS - NOTIFICATIONS
+  // EFFETS - NOTIFICATIONS (STORE)
   // ============================================================
   useEffect(() => {
     if (!isAuthenticated || !isAuthInitialized) return;
@@ -450,7 +505,6 @@ function App() {
                   </RoleGuard>
                 } 
               />
-              {/* ✅ Route AssignAidant redirigée vers /app/patients */}
               <Route 
                 path="/app/assign-aidants" 
                 element={
