@@ -1,5 +1,4 @@
 // 📁 src/utils/helpers.ts
- 
 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -107,7 +106,7 @@ export const getStatusColor = (status: string): string => {
     planifiee: '#4CAF50',
     en_attente: '#FF9800',
     acceptee: '#2196F3',
-    en_cours: '#2196F3',
+    en_cours: '#2196F3', // ✅ Déclaré ici une fois (Visites et Commandes l'utiliseront)
     terminee: '#9C27B0',
     validee: '#4CAF50',
     annulee: '#F44336',
@@ -115,12 +114,11 @@ export const getStatusColor = (status: string): string => {
     expire: '#795548',
     replanifiee: '#FF5722',
     no_show: '#795548',
-    brouillon: '#F59E0B', // ✅ Couleur orange pour le brouillon
+    brouillon: '#F59E0B',
     attente_paiement: '#8b5cf6',
     // Commandes
     creee: '#9E9E9E',
     disponible: '#F44336',
-    en_cours: '#2196F3',
     livree: '#2196F3',
     valide: '#4CAF50',
     echoue: '#F44336',
@@ -142,7 +140,7 @@ export const getStatusLabel = (status: string): string => {
     planifiee: 'Planifiée',
     en_attente: 'En attente',
     acceptee: 'Acceptée',
-    en_cours: 'En cours',
+    en_cours: 'En cours', 
     terminee: 'Terminée',
     validee: 'Validée',
     annulee: 'Annulée',
@@ -150,12 +148,11 @@ export const getStatusLabel = (status: string): string => {
     expire: 'Expirée',
     replanifiee: 'Replanifiée',
     no_show: 'Absent',
-    brouillon: '💳 Paiement requis', // ✅ Libellé clair
+    brouillon: '💳 Paiement requis',
     attente_paiement: 'En attente paiement',
     // Commandes
     creee: 'Créée',
     disponible: 'Disponible',
-    en_cours: 'En cours',
     livree: 'Livrée',
     valide: 'Validé',
     echoue: 'Échoué',
@@ -175,12 +172,6 @@ export const getStatusLabel = (status: string): string => {
 // ✅ VISITE DISPLAY HELPERS
 // =============================================
 
-/**
- * Retourne le nom à afficher pour une visite
- * - Si patient existe → nom du patient
- * - Si visite personnelle → target_name
- * - Sinon → 'Personnel'
- */
 export const getVisitDisplayName = (visit: Visit | null | undefined): string => {
   if (!visit) return 'Visite';
   if (visit.patient) {
@@ -195,12 +186,6 @@ export const getVisitDisplayName = (visit: Visit | null | undefined): string => 
   return 'Visite';
 };
 
-/**
- * Retourne l'adresse à afficher pour une visite
- * - Si patient a une adresse → adresse du patient
- * - Si visite personnelle → 'Adresse personnelle'
- * - Sinon → 'Adresse non renseignée'
- */
 export const getVisitDisplayAddress = (visit: Visit | null | undefined): string => {
   if (!visit) return 'Adresse non renseignée';
   if (visit.patient?.address) {
@@ -212,9 +197,6 @@ export const getVisitDisplayAddress = (visit: Visit | null | undefined): string 
   return 'Adresse non renseignée';
 };
 
-/**
- * Retourne la catégorie à afficher pour une visite
- */
 export const getVisitDisplayCategory = (visit: Visit | null | undefined): string => {
   if (!visit) return 'Non spécifié';
   if (visit.patient?.category === 'maman_bebe') {
@@ -229,9 +211,6 @@ export const getVisitDisplayCategory = (visit: Visit | null | undefined): string
   return 'Non spécifié';
 };
 
-/**
- * Retourne le type de destinataire
- */
 export const getVisitDisplayType = (visit: Visit | null | undefined): string => {
   if (!visit) return 'Visite';
   if (visit.patient) {
@@ -243,9 +222,6 @@ export const getVisitDisplayType = (visit: Visit | null | undefined): string => 
   return 'Visite';
 };
 
-/**
- * Retourne le nom de l'aidant ou 'Non assigné'
- */
 export const getVisitDisplayAidant = (visit: Visit | null | undefined): string => {
   if (!visit) return 'Non assigné';
   if (visit.aidant?.user?.full_name) {
@@ -255,20 +231,14 @@ export const getVisitDisplayAidant = (visit: Visit | null | undefined): string =
 };
 
 // =============================================
-// ✅ BROUILLON HELPERS (NOUVEAUX)
+// ✅ BROUILLON HELPERS
 // =============================================
 
-/**
- * Vérifie si une visite est un brouillon (en attente de paiement)
- */
 export const isVisitDraft = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'brouillon';
 };
 
-/**
- * Vérifie si une visite est ponctuelle (payée à l'unité)
- */
 export const isVisitPonctual = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.metadata?.is_ponctual === true || 
@@ -276,31 +246,19 @@ export const isVisitPonctual = (visit: Visit | null | undefined): boolean => {
          visit.visit_type === 'ponctuelle';
 };
 
-/**
- * Vérifie si une visite nécessite un paiement
- */
 export const requiresVisitPayment = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.metadata?.requires_payment === true || isVisitDraft(visit);
 };
 
-/**
- * Retourne le montant du paiement pour une visite ponctuelle
- */
 export const getVisitPaymentAmount = (visit: Visit | null | undefined): number => {
   if (!visit) return 0;
   if (visit.metadata?.payment_amount) {
     return visit.metadata.payment_amount;
   }
-  // ✅ Utiliser le helper de constants.ts via import
-  // Note: Pour éviter la dépendance circulaire, on importe getPonctualPrice
-  // dans le fichier qui appelle cette fonction
-  return 7500; // Valeur par défaut
+  return 7500;
 };
 
-/**
- * Retourne le temps restant avant l'expiration d'un brouillon
- */
 export const getDraftExpiryTime = (visit: Visit | null | undefined): string | null => {
   if (!visit || !isVisitDraft(visit)) return null;
   if (!visit.draft_expires_at) return null;
@@ -318,9 +276,6 @@ export const getDraftExpiryTime = (visit: Visit | null | undefined): string | nu
   return `${minutes}min`;
 };
 
-/**
- * Vérifie si un brouillon est expiré
- */
 export const isDraftExpired = (visit: Visit | null | undefined): boolean => {
   if (!visit || !isVisitDraft(visit)) return false;
   if (!visit.draft_expires_at) return false;
@@ -330,10 +285,6 @@ export const isDraftExpired = (visit: Visit | null | undefined): boolean => {
   return expiry.getTime() <= now.getTime();
 };
 
-/**
- * Vérifie si une visite peut être convertie depuis un brouillon
- * (utilise l'abonnement)
- */
 export const canConvertDraftToSubscription = (
   visit: Visit | null | undefined,
   hasActiveSubscription: boolean,
@@ -346,9 +297,6 @@ export const canConvertDraftToSubscription = (
   return true;
 };
 
-/**
- * Vérifie si une visite peut être payée en mode ponctuel
- */
 export const canPayVisitPonctual = (
   visit: Visit | null | undefined
 ): boolean => {
@@ -358,28 +306,19 @@ export const canPayVisitPonctual = (
 };
 
 // =============================================
-// ✅ COMMANDE HELPERS (NOUVEAUX)
+// ✅ COMMANDE HELPERS
 // =============================================
 
-/**
- * Vérifie si une commande est en attente de paiement
- */
 export const isOrderPendingPayment = (order: any | null | undefined): boolean => {
   if (!order) return false;
   return order.status === 'attente_paiement';
 };
 
-/**
- * Vérifie si une commande est ponctuelle
- */
 export const isOrderPonctual = (order: any | null | undefined): boolean => {
   if (!order) return false;
   return order.order_type === 'ponctual' || order.is_ponctual === true;
 };
 
-/**
- * Vérifie si une commande nécessite un paiement
- */
 export const requiresOrderPayment = (order: any | null | undefined): boolean => {
   if (!order) return false;
   return isOrderPendingPayment(order) || 
@@ -387,54 +326,35 @@ export const requiresOrderPayment = (order: any | null | undefined): boolean => 
 };
 
 // =============================================
-// ✅ VISITE STATUS HELPERS (COMPLÉMENTAIRES)
+// ✅ VISITE STATUS HELPERS
 // =============================================
 
-/**
- * Vérifie si la visite est terminée (en attente de validation)
- */
 export const isVisitCompleted = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'terminee';
 };
 
-/**
- * Vérifie si la visite est validée
- */
 export const isVisitValidated = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'validee';
 };
 
-/**
- * Vérifie si la visite peut être démarrée (acceptée ou planifiée)
- */
 export const canStartVisit = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'acceptee' || visit.status === 'planifiee';
 };
 
-/**
- * Vérifie si la visite peut être complétée (en cours)
- */
 export const canCompleteVisit = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'en_cours';
 };
 
-/**
- * Vérifie si la visite peut être annulée
- */
 export const canCancelVisit = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return ['planifiee', 'en_attente', 'brouillon'].includes(visit.status);
 };
 
-/**
- * Vérifie si la visite peut être approuvée (planifiée)
- */
 export const canApproveVisit = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'planifiee';
 };
-
