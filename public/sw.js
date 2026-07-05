@@ -92,42 +92,25 @@ self.addEventListener('activate', (event) => {
 // STRATÉGIE DE CACHE - NETWORK FIRST AVEC FALLBACK
 // ============================================================
 self.addEventListener('fetch', (event) => {
-  // ✅ Ignorer les requêtes API
-  if (event.request.url.includes('/api/')) {
-    return;
-  }
-
-  // ✅ Ignorer les requêtes de statistiques
-  if (event.request.url.includes('analytics') || event.request.url.includes('telemetry')) {
-    return;
-  }
-
-  // ✅ Ignorer les requêtes vers les services externes
-  if (event.request.url.includes('google') || event.request.url.includes('facebook')) {
-    return;
-  }
+  if (event.request.url.includes('/api/')) return;
+  if (event.request.url.includes('analytics') || event.request.url.includes('telemetry')) return;
+  if (event.request.url.includes('google') || event.request.url.includes('facebook')) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
         if (response && response.status === 200) {
           const responseClone = response.clone();
-          caches.open(DYNAMIC_CACHE)
-            .then((cache) => {
-              cache.put(event.request, responseClone);
-            })
-            .catch((error) => {
-              console.warn('⚠️ Erreur mise en cache dynamique:', error);
-            });
+          caches.open(DYNAMIC_CACHE).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
         }
         return response;
       })
       .catch(() => {
         return caches.match(event.request)
           .then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
+            if (cachedResponse) return cachedResponse;
             if (event.request.headers.get('accept')?.includes('text/html')) {
               return caches.match('/');
             }
@@ -141,7 +124,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ============================================================
-// ✅ FIREBASE MESSAGING INTÉGRÉ
+// ✅ FIREBASE MESSAGING INTÉGRÉ (CORRIGÉ)
 // ============================================================
 try {
   importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
@@ -159,25 +142,44 @@ try {
 
   const messaging = firebase.messaging();
 
-  // ✅ Gestion des messages en arrière-plan
+  // ✅ Gestion des messages en arrière-plan (AVEC AFFICHAGE FORCÉ)
   messaging.onBackgroundMessage((payload) => {
     console.log('📨 Message Firebase en arrière-plan:', payload);
 
     const notificationTitle = payload.notification?.title || 'Santé Plus Services';
     const notificationBody = payload.notification?.body || 'Vous avez une nouvelle notification';
     const notificationIcon = '/icon-192.png';
+    const notificationBadge = '/icon-72.png';
 
+    // ✅ FORCER l'affichage de la notification
     const notificationOptions = {
       body: notificationBody,
       icon: notificationIcon,
-      badge: '/icon-72.png',
+      badge: notificationBadge,
       vibrate: [200, 100, 200],
       data: payload.data || {},
       requireInteraction: true,
       tag: `notif_${Date.now()}`,
+      renotify: true,
+      silent: false,
+      actions: [
+        { action: 'open', title: '👀 Voir' },
+        { action: 'dismiss', title: '❌ Fermer' },
+      ],
     };
 
+    // ✅ Afficher immédiatement la notification
     self.registration.showNotification(notificationTitle, notificationOptions);
+
+    // ✅ Essayer de jouer un son via le SW
+    try {
+      self.registration.active?.postMessage({
+        type: 'PLAY_SOUND',
+        sound: '/notification.mp3'
+      });
+    } catch (e) {
+      console.warn('⚠️ Son non joué par le SW');
+    }
   });
 
   console.log('✅ Firebase Messaging intégré au SW');
@@ -187,7 +189,7 @@ try {
 }
 
 // ============================================================
-// NOTIFICATIONS PUSH (WEB PUSH NATIF)
+// NOTIFICATIONS PUSH (WEB PUSH NATIF) - AVEC AFFICHAGE FORCÉ
 // ============================================================
 self.addEventListener('push', (event) => {
   console.log('📨 Notification push reçue:', event);
@@ -206,6 +208,7 @@ self.addEventListener('push', (event) => {
   const tag = data.tag || 'notification';
   const url = data.url || '/app';
 
+  // ✅ FORCER l'affichage de la notification
   const options = {
     body: body,
     icon: icon,
@@ -221,6 +224,8 @@ self.addEventListener('push', (event) => {
       { action: 'dismiss', title: '❌ Fermer' },
     ],
     requireInteraction: true,
+    renotify: true,
+    silent: false,
   };
 
   event.waitUntil(
@@ -261,13 +266,24 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ============================================================
-// GESTION DES MESSAGES
+// GESTION DES MESSAGES DU SW (POUR LE SON)
 // ============================================================
 self.addEventListener('message', (event) => {
   console.log('📨 Message reçu par le SW:', event.data);
   
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  }
+  
+  // ✅ Jouer un son depuis le SW
+  if (event.data && event.data.type === 'PLAY_SOUND') {
+    try {
+      const audio = new Audio(event.data.sound || '/notification.mp3');
+      audio.volume = 0.7;
+      audio.play().catch(() => {});
+    } catch (e) {
+      // Ignorer
+    }
   }
 });
 
