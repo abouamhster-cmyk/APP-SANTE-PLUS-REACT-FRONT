@@ -17,7 +17,7 @@ import { AuthLayout } from '@/components/layout/AuthLayout';
 // ✅ IMPORTER le service Keep-Alive
 import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
 
-// ✅ IMPORTER le service de notifications (sans Firebase)
+// ✅ IMPORTER le service de notifications
 import { requestNotificationPermission } from '@/services/notificationService';
 
 // ============================================================
@@ -248,7 +248,7 @@ function App() {
   }, [isAuthenticated, isAuthInitialized]);
 
   // ============================================================
-  // ✅ EFFET - INITIALISATION DES NOTIFICATIONS PUSH (SANS FIREBASE)
+  // ✅ EFFET - INITIALISATION DES NOTIFICATIONS PUSH
   // ============================================================
   useEffect(() => {
     if (isAuthenticated && isAuthInitialized && !notificationInitialized.current) {
