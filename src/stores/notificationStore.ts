@@ -33,8 +33,8 @@ const clearCachedNotifications = () => {
   } catch { /* ignore */ }
 };
 
-// ✅ AFFICHER LA NOTIFICATION SYSTÈME - CORRIGÉ
-function showSystemNotification(notification: Notification) {
+// ✅ AFFICHER LA NOTIFICATION SYSTÈME 
+async function showSystemNotification(notification: Notification) {
   if (Notification.permission !== 'granted') {
     console.warn('⚠️ Permission notifications non accordée');
     return;
@@ -43,12 +43,10 @@ function showSystemNotification(notification: Notification) {
   try {
     const title = notification.title || 'Santé Plus';
     const body = notification.body || 'Nouvelle notification';
-    const icon = '/icon-192.png';
 
-    // ✅ 1. SUPPRESSION DE 'actions' (non standard dans NotificationOptions)
     const options: NotificationOptions = {
       body: body,
-      icon: icon,
+      icon: '/icon-192.png',
       badge: '/icon-72.png',
       tag: notification.id || `notif_${Date.now()}`,
       requireInteraction: true,
@@ -59,30 +57,21 @@ function showSystemNotification(notification: Notification) {
       },
     };
 
-    const notif = new Notification(title, options);
-
-    // ✅ Gestion du clic principal
-    notif.onclick = () => {
-      window.focus();
-      const url = (notif as any).data?.url || '/app/notifications';
-      window.location.href = url;
-      notif.close();
-    };
-
-    // ✅ 2. CORRECTION : Utilisation de 'any' pour éviter les erreurs de type
-    notif.addEventListener('click', (event) => {
-      const target = event.target as any;
-      if (target && target.data) {
+    // ✅ Utilisation du Service Worker pour mobile et fallback desktop
+    if ('serviceWorker' in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification(title, options);
+      console.log('🔔 Notification temps réel affichée via Service Worker');
+    } else {
+      const notif = new Notification(title, options);
+      notif.onclick = () => {
         window.focus();
-        window.location.href = target.data?.url || '/app/notifications';
-      }
-      // ✅ 3. VÉRIFICATION de l'existence de close() avant de l'appeler
-      if (target && typeof target.close === 'function') {
-        target.close();
-      }
-    });
-
-    console.log('🔔 Notification affichée !', notification.title);
+        const url = (notif as any).data?.url || '/app/notifications';
+        window.location.href = url;
+        notif.close();
+      };
+      console.log('🔔 Notification temps réel affichée via constructeur classique');
+    }
   } catch (error) {
     console.error('❌ Erreur affichage notification:', error);
   }
