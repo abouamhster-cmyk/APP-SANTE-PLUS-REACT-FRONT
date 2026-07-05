@@ -5,7 +5,9 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
-    <!-- PWA META TAGS -->
+    <!-- ============================================================
+    PWA META TAGS
+    ============================================================ -->
     <meta name="theme-color" content="#1a4a3a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -13,7 +15,9 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="application-name" content="Santé Plus" />
     
-    <!-- APPLE TOUCH ICONS -->
+    <!-- ============================================================
+    APPLE TOUCH ICONS
+    ============================================================ -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="apple-touch-icon" sizes="72x72" href="/icon-72.png" />
     <link rel="apple-touch-icon" sizes="96x96" href="/icon-96.png" />
@@ -24,14 +28,20 @@
     <link rel="apple-touch-icon" sizes="256x256" href="/icon-256.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
     
-    <!-- MANIFEST -->
+    <!-- ============================================================
+    MANIFEST
+    ============================================================ -->
     <link rel="manifest" href="/manifest.json" />
     
-    <!-- MICROSOFT / WINDOWS -->
+    <!-- ============================================================
+    MICROSOFT / WINDOWS
+    ============================================================ -->
     <meta name="msapplication-TileColor" content="#1a4a3a" />
     <meta name="msapplication-TileImage" content="/icon-192.png" />
     
-    <!-- SEO -->
+    <!-- ============================================================
+    SEO
+    ============================================================ -->
     <meta name="description" content="Santé Plus Services - Accompagnement humain et coordination à domicile" />
     <meta property="og:title" content="Santé Plus Services" />
     <meta property="og:description" content="Accompagnement humain et coordination à domicile" />
@@ -48,31 +58,39 @@
     <div id="root"></div>
     
     <!-- ============================================================
-    SERVICE WORKER REGISTRATION (UNIFIÉ)
+    SERVICE WORKER REGISTRATION
     ============================================================ -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          // ✅ Enregistrer les SW un par un avec gestion des erreurs
-          
-          // 1. PWA principal
+          // ✅ 1. Service Worker PWA principal
           navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('✅ SW PWA:', reg.scope))
-            .catch(err => console.error('❌ SW PWA:', err));
-          
-          // 2. Firebase Messaging (avec scope explicite)
-          navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
-            .then(reg => {
-              console.log('✅ SW Firebase:', reg.scope);
-              // ✅ Stocker la référence pour l'utiliser dans getToken
-              window.firebaseSWRegistration = reg;
+            .then((registration) => {
+              console.log('✅ SW PWA enregistré:', registration);
             })
-            .catch(err => console.error('❌ SW Firebase:', err));
+            .catch((error) => {
+              console.error('❌ Erreur SW PWA:', error);
+            });
+
+          // ✅ 2. Service Worker Firebase (avec scope explicite)
+          navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
+            .then((registration) => {
+              console.log('✅ SW Firebase enregistré:', registration);
+              // ✅ Stocker la référence pour l'utiliser dans getToken
+              window.firebaseSWRegistration = registration;
+            })
+            .catch((error) => {
+              console.error('❌ Erreur SW Firebase:', error);
+            });
         });
+      } else {
+        console.warn('⚠️ Service Workers non supportés par ce navigateur');
       }
     </script>
     
-    <!-- SON DE NOTIFICATION -->
+    <!-- ============================================================
+    SON DE NOTIFICATION
+    ============================================================ -->
     <audio id="notification-sound" preload="auto">
       <source src="/notification.mp3" type="audio/mpeg">
     </audio>
