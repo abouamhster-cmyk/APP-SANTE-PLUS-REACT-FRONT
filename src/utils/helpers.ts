@@ -462,7 +462,7 @@ export default {
   getVisitDisplayCategory,
   getVisitDisplayType,
   getVisitDisplayAidant,
-   isVisitDraft,
+  isVisitDraft,
   isVisitPonctual,
   requiresVisitPayment,
   getVisitPaymentAmount,
