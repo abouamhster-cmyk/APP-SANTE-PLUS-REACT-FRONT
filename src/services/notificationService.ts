@@ -21,11 +21,61 @@ export const NOTIFICATION_SOUNDS = {
 
 let activeSound = NOTIFICATION_SOUNDS.SOUND_1;
 
+export const getActiveSound = (): string => {
+  return activeSound;
+};
+
 export const setNotificationSound = (soundUrl: string) => {
   if (Object.values(NOTIFICATION_SOUNDS).includes(soundUrl)) {
     activeSound = soundUrl;
     localStorage.setItem('notification_sound', soundUrl);
     console.log('🔔 Son de notification changé:', soundUrl);
+  }
+};
+
+export const saveNotificationSoundPreference = async (soundUrl: string) => {
+  try {
+    const { user } = useAuthStore.getState();
+    if (!user) return;
+
+    await supabase
+      .from('profiles')
+      .update({ 
+        preferences: { 
+          notification_sound: soundUrl 
+        } 
+      })
+      .eq('id', user.id);
+    
+    console.log('✅ Préférence son sauvegardée');
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde préférence:', error);
+  }
+};
+
+export const loadNotificationSoundPreference = async () => {
+  try {
+    const { user } = useAuthStore.getState();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('preferences')
+      .eq('id', user.id)
+      .single();
+
+    if (error) throw error;
+
+    const sound = data?.preferences?.notification_sound;
+    if (sound && Object.values(NOTIFICATION_SOUNDS).includes(sound)) {
+      setNotificationSound(sound);
+      console.log('✅ Préférence son chargée:', sound);
+      return sound;
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Erreur chargement préférence:', error);
+    return null;
   }
 };
 
@@ -125,11 +175,11 @@ export const showSystemNotification = (title: string, body: string, data: any = 
   }
 
   try {
+    // ✅ NotificationOptions sans vibrate pour éviter l'erreur
     const options: NotificationOptions = {
       body: body,
       icon: '/icon-192.png',
       badge: '/icon-72.png',
-      vibrate: [200, 100, 200],
       tag: `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
@@ -148,7 +198,7 @@ export const showSystemNotification = (title: string, body: string, data: any = 
 
     notification.onclick = () => {
       window.focus();
-      const url = notification.data?.url || '/app/notifications';
+      const url = (notification as any).data?.url || '/app/notifications';
       window.location.href = url;
       notification.close();
     };
