@@ -1,4 +1,5 @@
 // 📁 src/features/visits/pages/VisitsPage.tsx
+ 
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,11 +23,23 @@ import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
 import { VisitPaymentModal } from '../components/VisitPaymentModal';
 import { AssignAidantModal } from '@/components/common/AssignAidantModal';
+
+// ✅ IMPORTER LES HELPERS DEPUIS CONSTANTS
+import {
+  getPonctualPrice,
+  getVisitStatusForCreation,
+  requiresPonctualPayment,
+} from '@/lib/constants';
+
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
 
 const VisitsPage = () => {
   const navigate = useNavigate();
@@ -47,11 +60,11 @@ const VisitsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  
+
   // ✅ États pour le paiement
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingVisit, setPendingVisit] = useState<any>(null);
-  
+
   // ✅ États pour la conversion
   const [isConverting, setIsConverting] = useState(false);
 
@@ -66,12 +79,17 @@ const VisitsPage = () => {
   const canStartVisit = isAidant || isAdminOrCoordinator;
   const canCancelVisit = isAdminOrCoordinator || isFamily;
 
+  // =============================================
+  // EFFETS : CHARGEMENT DES DONNÉES
+  // =============================================
   useEffect(() => {
     fetchVisits();
     fetchPatients();
   }, []);
 
+  // =============================================
   // ✅ FILTRES SIMPLIFIÉS ET PROPRES
+  // =============================================
   const statusFilterOptions = useMemo(() => {
     if (isAidant) {
       return [
@@ -92,6 +110,9 @@ const VisitsPage = () => {
     ];
   }, [isAidant]);
 
+  // =============================================
+  // ✅ TRI ET FILTRAGE DES VISITES
+  // =============================================
   const sortedVisits = useMemo(() => {
     return visits
       .filter((visit) => {
@@ -105,10 +126,12 @@ const VisitsPage = () => {
       );
   }, [visits, filterStatus]);
 
-  // ✅ CONVERTIR UN BROUILLON EN VISITE PLANIFIÉE
+  // =============================================
+  // ✅ CONVERTIR UN BROUILLON EN VISITE PLANIFIÉE (AVEC ABONNEMENT)
+  // =============================================
   const handleConvertToSubscription = async (visitId: string) => {
     if (isConverting) return;
-    
+
     setIsConverting(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -134,6 +157,8 @@ const VisitsPage = () => {
       }
 
       toast.success(`Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
+      
+      // ✅ Recharger les données
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur conversion:', error);
@@ -143,25 +168,32 @@ const VisitsPage = () => {
     }
   };
 
+  // =============================================
   // ✅ PAIEMENT PONCTUEL
+  // =============================================
   const handlePonctualPayment = (visit: any) => {
     setPendingVisit(visit);
     setShowPaymentModal(true);
   };
 
+  // =============================================
   // ✅ ASSIGNATION D'AIDANT
+  // =============================================
   const handleShowAssignAidantModal = (visit: any) => {
     setSelectedVisitForAssign(visit);
     setShowAssignModal(true);
   };
 
-const handleAssignAidantSuccess = async () => {
-  // ✅ Forcer l'invalidation du cache et le rechargement
-  useVisitStore.getState().invalidateCache();
-  await fetchVisits(true);
-  toast.success('Aidant assigné avec succès');
-};
+  const handleAssignAidantSuccess = async () => {
+    // ✅ Forcer l'invalidation du cache et le rechargement
+    useVisitStore.getState().invalidateCache();
+    await fetchVisits();
+    toast.success('Aidant assigné avec succès');
+  };
 
+  // =============================================
+  // ✅ OUVERTURE DU MODAL DE CRÉATION
+  // =============================================
   const handleAdd = () => {
     if (!canPlanify) {
       toast.error('Vous n\'avez pas les droits pour planifier une visite');
@@ -172,10 +204,13 @@ const handleAssignAidantSuccess = async () => {
     setIsModalOpen(true);
   };
 
+  // =============================================
+  // ✅ SUCCÈS DU MODAL
+  // =============================================
   const handleModalSuccess = (newVisit?: any) => {
     fetchVisits();
     setIsModalOpen(false);
-    
+
     if (newVisit && newVisit.metadata?.requires_payment) {
       setPendingVisit(newVisit);
       setShowPaymentModal(true);
@@ -185,6 +220,9 @@ const handleAssignAidantSuccess = async () => {
     }
   };
 
+  // =============================================
+  // ✅ SUCCÈS DU PAIEMENT
+  // =============================================
   const handlePaymentSuccess = async () => {
     setShowPaymentModal(false);
     setPendingVisit(null);
@@ -192,6 +230,9 @@ const handleAssignAidantSuccess = async () => {
     toast.success('Visite planifiée après paiement !');
   };
 
+  // =============================================
+  // ✅ DÉMARRER UNE VISITE
+  // =============================================
   const handleStartVisit = async (visitId: string) => {
     try {
       await startVisit(visitId);
@@ -202,6 +243,9 @@ const handleAssignAidantSuccess = async () => {
     }
   };
 
+  // =============================================
+  // ✅ ANNULER UNE VISITE
+  // =============================================
   const handleCancelVisit = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
 
@@ -214,10 +258,15 @@ const handleAssignAidantSuccess = async () => {
     }
   };
 
-  // ✅ Compter les brouillons
+  // =============================================
+  // ✅ STATISTIQUES
+  // =============================================
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
+  // =============================================
+  // ✅ CHARGEMENT
+  // =============================================
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -232,9 +281,12 @@ const handleAssignAidantSuccess = async () => {
     );
   }
 
+  // =============================================
+  // ✅ RENDU PRINCIPAL
+  // =============================================
   return (
     <div className="w-full max-w-full overflow-hidden space-y-5 pb-24 sm:pb-10">
-      
+
       {/* ============================================================
       EN-TÊTE
       ============================================================ */}
@@ -264,7 +316,9 @@ const handleAssignAidantSuccess = async () => {
         </div>
       </section>
 
-      {/* ✅ BANNIÈRE D'ALERTE BROUILLONS */}
+      {/* ============================================================
+      ✅ BANNIÈRE D'ALERTE BROUILLONS
+      ============================================================ */}
       {isFamily && canConvertDrafts && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm border border-yellow-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -311,7 +365,7 @@ const handleAssignAidantSuccess = async () => {
           {statusFilterOptions.map((option) => {
             const isActive = filterStatus === option.value;
             const hasBadge = option.value === 'brouillon' && draftCount > 0;
-            
+
             return (
               <button
                 key={option.value}
@@ -424,7 +478,9 @@ const handleAssignAidantSuccess = async () => {
         </button>
       )}
 
-      {/* MODAL DE PLANIFICATION */}
+      {/* ============================================================
+      MODAL DE PLANIFICATION
+      ============================================================ */}
       <VisitModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -434,7 +490,9 @@ const handleAssignAidantSuccess = async () => {
         onSuccess={handleModalSuccess}
       />
 
-      {/* MODAL DE PAIEMENT */}
+      {/* ============================================================
+      MODAL DE PAIEMENT
+      ============================================================ */}
       {showPaymentModal && pendingVisit && (
         <VisitPaymentModal
           isOpen={showPaymentModal}
@@ -447,7 +505,9 @@ const handleAssignAidantSuccess = async () => {
         />
       )}
 
-      {/* MODAL D'ASSIGNATION D'AIDANT */}
+      {/* ============================================================
+      MODAL D'ASSIGNATION D'AIDANT
+      ============================================================ */}
       {showAssignModal && selectedVisitForAssign && (
         <AssignAidantModal
           isOpen={showAssignModal}
