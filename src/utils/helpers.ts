@@ -358,3 +358,34 @@ export const canApproveVisit = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'planifiee';
 };
+
+
+
+/**
+ * Soft delete une visite (marque comme supprimée, ne supprime pas vraiment)
+ */
+export const softDeleteVisit = async (visitId: string): Promise<boolean> => {
+    try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        if (!token) throw new Error('Non authentifié');
+
+        const response = await fetch(`${API_URL}/visits/${visitId}/soft-delete`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ deleted_at: new Date().toISOString() }),
+        });
+
+        if (!response.ok) throw new Error('Erreur lors de la suppression');
+
+        return true;
+    } catch (error) {
+        console.error('❌ Soft delete error:', error);
+        toast.error('Erreur lors de la suppression');
+        return false;
+    }
+};
