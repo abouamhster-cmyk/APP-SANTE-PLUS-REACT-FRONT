@@ -1,5 +1,5 @@
 // 📁 public/sw.js
-// ✅ Service Worker pour PWA - Santé Plus Services
+// ✅ Service Worker UNIFIÉ - PWA + Firebase Messaging
 
 const CACHE_NAME = 'sante-plus-v1';
 const DYNAMIC_CACHE = 'sante-plus-dynamic-v1';
@@ -103,14 +103,13 @@ self.addEventListener('fetch', (event) => {
   }
 
   // ✅ Ignorer les requêtes vers les services externes
-  if (event.request.url.includes('google') || event.request.url.includes('facebook') || event.request.url.includes('firebase')) {
+  if (event.request.url.includes('google') || event.request.url.includes('facebook')) {
     return;
   }
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // ✅ Mettre en cache les réponses réussies
         if (response && response.status === 200) {
           const responseClone = response.clone();
           caches.open(DYNAMIC_CACHE)
@@ -124,23 +123,17 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        // ✅ Fallback: retourner la version en cache
         return caches.match(event.request)
           .then((cachedResponse) => {
             if (cachedResponse) {
               return cachedResponse;
             }
-            
-            // ✅ Si c'est une page HTML, retourner index.html
             if (event.request.headers.get('accept')?.includes('text/html')) {
               return caches.match('/');
             }
-            
-            // ✅ Fallback pour les images
             if (event.request.url.match(/\.(png|jpg|jpeg|svg|gif|webp)$/)) {
               return caches.match('/icon-192.png');
             }
-            
             return new Response('Offline', { status: 503 });
           });
       })
@@ -148,7 +141,53 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ============================================================
-// NOTIFICATIONS PUSH
+// ✅ FIREBASE MESSAGING INTÉGRÉ
+// ============================================================
+try {
+  importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
+
+  firebase.initializeApp({
+    apiKey: "AIzaSyD9a_D_5nQCwUH9LJssDdyOFGCRHm8VvcU",
+    authDomain: "sante-plus-services-react.firebaseapp.com",
+    projectId: "sante-plus-services-react",
+    storageBucket: "sante-plus-services-react.firebasestorage.app",
+    messagingSenderId: "418910358878",
+    appId: "1:418910358878:web:419cf684292515e17953cf",
+    measurementId: "G-7WGYHF8R7M"
+  });
+
+  const messaging = firebase.messaging();
+
+  // ✅ Gestion des messages en arrière-plan
+  messaging.onBackgroundMessage((payload) => {
+    console.log('📨 Message Firebase en arrière-plan:', payload);
+
+    const notificationTitle = payload.notification?.title || 'Santé Plus Services';
+    const notificationBody = payload.notification?.body || 'Vous avez une nouvelle notification';
+    const notificationIcon = '/icon-192.png';
+
+    const notificationOptions = {
+      body: notificationBody,
+      icon: notificationIcon,
+      badge: '/icon-72.png',
+      vibrate: [200, 100, 200],
+      data: payload.data || {},
+      requireInteraction: true,
+      tag: `notif_${Date.now()}`,
+    };
+
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  });
+
+  console.log('✅ Firebase Messaging intégré au SW');
+
+} catch (error) {
+  console.error('❌ Erreur intégration Firebase dans SW:', error);
+}
+
+// ============================================================
+// NOTIFICATIONS PUSH (WEB PUSH NATIF)
 // ============================================================
 self.addEventListener('push', (event) => {
   console.log('📨 Notification push reçue:', event);
@@ -209,13 +248,11 @@ self.addEventListener('notificationclick', (event) => {
       includeUncontrolled: true,
     })
     .then((clientList) => {
-      // ✅ Si une fenêtre est déjà ouverte, la focaliser
       for (const client of clientList) {
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // ✅ Sinon, ouvrir une nouvelle fenêtre
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
@@ -224,7 +261,7 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ============================================================
-// GESTION DES MESSAGES (pour communication avec l'app)
+// GESTION DES MESSAGES
 // ============================================================
 self.addEventListener('message', (event) => {
   console.log('📨 Message reçu par le SW:', event.data);
@@ -234,7 +271,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// ============================================================
-// LOG DE DÉMARRAGE
-// ============================================================
 console.log('✅ Service Worker Santé Plus Services chargé');
