@@ -143,6 +143,7 @@ export const previewNotificationSound = (soundUrl: string) => {
 // ============================================================
 // ✅ AFFICHER UNE NOTIFICATION SYSTÈME (UNIVERSEL)
 // ============================================================
+ 
 
 export const showSystemNotification = (title: string, body: string, data: any = {}) => {
   if (!('Notification' in window)) {
@@ -156,7 +157,7 @@ export const showSystemNotification = (title: string, body: string, data: any = 
   }
 
   try {
-    // ✅ Options compatibles avec tous les navigateurs
+    // ✅ NotificationOptions SANS renotify (non standard)
     const options: NotificationOptions = {
       body: body,
       icon: '/icon-192.png',
@@ -164,8 +165,7 @@ export const showSystemNotification = (title: string, body: string, data: any = 
       tag: `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
-      renotify: true,
-      data: {
+       data: {
         url: data.url || '/app/notifications',
         ...data,
       },
@@ -195,7 +195,6 @@ export const showSystemNotification = (title: string, body: string, data: any = 
     return null;
   }
 };
-
 // ============================================================
 // ✅ METTRE À JOUR LE BADGE
 // ============================================================
