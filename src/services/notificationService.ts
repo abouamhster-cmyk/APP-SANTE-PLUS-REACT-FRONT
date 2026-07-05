@@ -175,7 +175,7 @@ export const showSystemNotification = (title: string, body: string, data: any = 
   }
 
   try {
-    // ✅ NotificationOptions sans vibrate pour éviter l'erreur
+    // ✅ NotificationOptions sans renotify
     const options: NotificationOptions = {
       body: body,
       icon: '/icon-192.png',
@@ -183,7 +183,6 @@ export const showSystemNotification = (title: string, body: string, data: any = 
       tag: `notif_${Date.now()}`,
       requireInteraction: true,
       silent: false,
-      renotify: true,
       data: {
         url: data.url || '/app/notifications',
         ...data,
