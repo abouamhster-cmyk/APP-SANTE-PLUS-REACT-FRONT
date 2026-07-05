@@ -35,10 +35,11 @@ export const NotificationSoundSelector = () => {
 
   const handlePreview = (url: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const success = previewNotificationSound(url);
-    if (!success) {
+    const audio = new Audio(url);
+    audio.volume = 0.3;
+    audio.play().catch(() => {
       toast.error('Impossible de jouer l\'aperçu');
-    }
+    });
   };
 
   return (
