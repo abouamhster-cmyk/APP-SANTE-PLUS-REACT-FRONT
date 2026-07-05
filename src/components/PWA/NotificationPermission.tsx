@@ -1,7 +1,7 @@
 // 📁 src/components/PWA/NotificationPermission.tsx
 
 import { Bell, BellOff, BellRing, AlertCircle, Loader2 } from 'lucide-react';
-import { usePushNotifications } from '@/hooks/useNotifications';  
+import { usePushNotifications } from '@/hooks/useNotifications';
 import { getThemeColors } from '@/lib/permissions';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
@@ -17,7 +17,6 @@ export const NotificationPermission = ({
   showLabel = true,
   size = 'md'
 }: NotificationPermissionProps) => {
-  // ✅ Utiliser le bon hook
   const { isSupported, isSubscribed, subscribe, unsubscribe } = usePushNotifications();
   const [isLoading, setIsLoading] = useState(false);
   const colors = getThemeColors('senior');
