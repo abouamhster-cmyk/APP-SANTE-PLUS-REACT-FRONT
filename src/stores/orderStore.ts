@@ -1,4 +1,5 @@
 // 📁 src/stores/orderStore.ts
+ 
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -6,6 +7,13 @@ import { Order, OrderStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  getPonctualOrderPrice,
+  getOrderStatusForCreation,
+  requiresPonctualPayment,
+} from '@/lib/constants';
 
 // =============================================
 // CONSTANTES
@@ -190,7 +198,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       let ordersWithFullRelations = ordersData;
 
       if (profile?.role === 'family' && ordersWithFullRelations.length > 0) {
-        // Récupérer tous les aidant_id uniques
         const aidantIds = [...new Set(
           ordersWithFullRelations
             .filter((o: any) => o.aidant_id)
@@ -198,7 +205,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         )];
 
         if (aidantIds.length > 0) {
-          // Récupérer les aidants avec leurs profils
           const { data: aidantsData } = await supabase
             .from('aidants')
             .select(`
@@ -221,13 +227,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             .in('id', aidantIds);
 
           if (aidantsData) {
-            // Créer un mapping aidant_id → aidant
             const aidantMap = aidantsData.reduce((acc: any, a: any) => {
               acc[a.id] = a;
               return acc;
             }, {});
 
-            // Remplacer les aidants dans les commandes
             ordersWithFullRelations = ordersWithFullRelations.map((order: any) => ({
               ...order,
               aidant: order.aidant_id ? aidantMap[order.aidant_id] || null : null,
@@ -325,7 +329,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE ORDER - AVEC TARGET_TYPE
+  // ✅ CREATE ORDER - LOGIQUE UNIFIÉE
   // =============================================
   createOrder: async (data: Partial<Order> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
     try {
@@ -344,13 +348,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const isPonctual = data.order_type === 'ponctual' || false;
       let status: OrderStatus = 'creee';
+      let requiresPayment = false;
+      let paymentAmount = 0;
 
+      // ✅ LOGIQUE UNIFIÉE : Vérifier l'abonnement
       if (isPonctual) {
+        // ✅ CAS 1 : Commande ponctuelle → Paiement requis
+        requiresPayment = true;
         status = 'attente_paiement';
-      }
-
-      // ✅ Vérifier le quota sur le COMPTE (pas sur le patient)
-      if (!isPonctual) {
+        paymentAmount = getPonctualOrderPrice(data.items);
+      } else {
+        // ✅ CAS 2 : Vérifier l'abonnement
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_orders, status')
@@ -359,7 +367,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           .maybeSingle();
 
         if (!subscription || subscription.remaining_orders <= 0) {
+          // ✅ PAS D'ABONNEMENT OU PLUS DE COMMANDES → Paiement requis
+          requiresPayment = true;
           status = 'attente_paiement';
+          paymentAmount = getPonctualOrderPrice(data.items);
         }
       }
 
@@ -384,12 +395,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         prescription_url: data.prescription_url || null,
         delivery_notes: data.delivery_notes || null,
         order_type: isPonctual ? 'ponctual' : 'subscription',
-        is_paid: false,
+        is_paid: !requiresPayment,
         is_ponctual: isPonctual,
         metadata: {
-          requires_payment: status === 'attente_paiement',
+          requires_payment: requiresPayment,
           created_by: user.id,
           created_at: new Date().toISOString(),
+          payment_amount: requiresPayment ? paymentAmount : null,
         }
       };
 
@@ -430,6 +442,22 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       get().invalidateCache();
       await get().fetchOrders(true);
 
+      // ✅ Notification si paiement requis
+      if (requiresPayment) {
+        await supabase.from('notifications').insert({
+          user_id: user.id,
+          title: '💳 Paiement requis pour la commande',
+          body: `Un paiement de ${paymentAmount} FCFA est requis pour valider votre commande "${data.description}".`,
+          type: 'commande',
+          data: { 
+            order_id: newOrder.id, 
+            status: 'attente_paiement', 
+            action: 'pay',
+            amount: paymentAmount,
+          },
+        });
+      }
+
       set({ isLoading: false });
 
       return fullOrder;
@@ -441,7 +469,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // =============================================
-  // CONFIRMER PAIEMENT
+  // CONFIRMER PAIEMENT - ATTENTE_PAIEMENT → CREEE
   // =============================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
