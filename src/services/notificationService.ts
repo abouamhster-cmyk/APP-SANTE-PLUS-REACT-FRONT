@@ -209,11 +209,8 @@ export const updateNotificationBadge = (count: number) => {
 
 export const requestNotificationPermission = async (userId: string) => {
   try {
+    // ✅ On ne bloque plus l'exécution si le token existe déjà localement
     const storedToken = localStorage.getItem('push_token');
-    if (storedToken) {
-      console.log('ℹ️ Token push déjà enregistré');
-      return storedToken;
-    }
 
     if (!('Notification' in window)) {
       console.warn('❌ Notifications non supportées');
@@ -239,8 +236,7 @@ export const requestNotificationPermission = async (userId: string) => {
     const authKey = findSupabaseAuthKey();
     const authData = localStorage.getItem(authKey);
     if (!authData) {
-      console.warn('❌ Pas de token d\'authentification');
-      return null;
+      return fcmToken;
     }
 
     let parsed;
@@ -248,7 +244,7 @@ export const requestNotificationPermission = async (userId: string) => {
       parsed = JSON.parse(authData);
     } catch {
       console.warn('❌ Token auth invalide');
-      return null;
+      return fcmToken;
     }
 
     const accessToken = parsed?.access_token || 
@@ -257,9 +253,10 @@ export const requestNotificationPermission = async (userId: string) => {
 
     if (!accessToken) {
       console.warn('❌ Pas de token d\'accès');
-      return null;
+      return fcmToken;
     }
 
+    // ✅ On envoie SYSTÉMATIQUEMENT le jeton au démarrage pour garantir la synchronisation avec le serveur
     const response = await fetch(`${API_URL}/notifications/register-token`, {
       method: 'POST',
       headers: {
@@ -279,29 +276,25 @@ export const requestNotificationPermission = async (userId: string) => {
     }
 
     localStorage.setItem('push_token', fcmToken);
-    console.log('✅ Token push enregistré avec succès');
+    console.log('✅ Token push enregistré et synchronisé avec succès');
 
     const { unreadCount } = useNotificationStore.getState();
     updateNotificationBadge(unreadCount);
 
-    // ✅ Écouter les messages FCM en foreground
+    // Écouter les messages FCM en foreground
     onFCMessage((payload) => {
       console.log('📨 Message FCM reçu en foreground:', payload);
-      
       const notification = payload.notification || {};
       const data = payload.data || {};
       
-      // ✅ Afficher la notification système (UNIVERSEL)
       showSystemNotification(
         notification.title || 'Santé Plus Services',
         notification.body || 'Nouvelle notification',
         data
       );
       
-      // ✅ Jouer le son
       playNotificationSound();
       
-      // ✅ Ajouter au store
       useNotificationStore.getState().addNotification({
         id: `fcm_${Date.now()}`,
         user_id: userId,
