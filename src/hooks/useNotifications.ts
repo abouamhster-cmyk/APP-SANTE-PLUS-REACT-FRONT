@@ -1,63 +1,66 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
-import { getFCMToken, onFCMessage } from '@/lib/firebase';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { requestNotificationPermission } from '@/services/notificationService';
 
 export const usePushNotifications = () => {
   const { isAuthenticated, user } = useAuthStore();
+  const { subscribe, unsubscribe, fetchNotifications } = useNotificationStore();
+  const [isSupported, setIsSupported] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+    setIsSupported(supported);
+  }, []);
 
-    const init = async () => {
+  useEffect(() => {
+    if (!isAuthenticated || !user || !isSupported) return;
+
+    const setupPush = async () => {
       try {
-        const permission = await Notification.requestPermission();
-
-        if (permission !== 'granted') {
-          console.warn('❌ Permission refusée');
-          return;
-        }
-
-        const token = await getFCMToken();
-
-        if (!token) return;
-
-        await fetch('/api/notifications/register-token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            token,
-            user_id: user.id,
-            device_info: navigator.userAgent,
-          }),
-        });
-
-        console.log('✅ Token envoyé au backend');
-
-        // Foreground messages
-        onFCMessage((payload) => {
-          console.log('📨 Message foreground:', payload);
-
-          const { title, body } = payload.notification || {};
-
-          if (title) {
-            new Notification(title, {
-              body,
-              icon: '/icon-192.png',
-            });
+        const storedToken = localStorage.getItem('push_token');
+        if (storedToken) {
+          setIsSubscribed(true);
+        } else {
+          // Si la permission est déjà accordée, on récupère le token silencieusement
+          if (Notification.permission === 'granted') {
+            const token = await requestNotificationPermission(user.id);
+            if (token) setIsSubscribed(true);
           }
-        });
-
+        }
       } catch (error) {
-        console.error('❌ Init notifications error:', error);
+        console.error('❌ Erreur setup push:', error);
       }
     };
 
-    init();
-  }, [isAuthenticated, user]);
+    setupPush();
+    subscribe();
+    fetchNotifications();
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAuthenticated, user, isSupported, subscribe, unsubscribe, fetchNotifications]);  
+
+  // Gère l'activation manuelle lors du clic utilisateur
+  const handleSubscribe = async () => {
+    if (!user) return;
+    try {
+      const token = await requestNotificationPermission(user.id);
+      if (token) {
+        setIsSubscribed(true);
+      }
+    } catch (error) {
+      console.error('❌ Erreur activation push:', error);
+    }
+    subscribe(); // Connexion au canal Realtime Supabase
+  };
 
   return {
-    isSupported: 'Notification' in window,
+    isSupported,
+    isSubscribed,
+    subscribe: handleSubscribe,
+    unsubscribe,
   };
 };
