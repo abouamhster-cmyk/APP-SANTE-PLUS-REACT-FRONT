@@ -11,8 +11,7 @@ import toast from 'react-hot-toast';
 
 // ✅ IMPORTER LES HELPERS
 import {
-  getPonctualPrice,
-  getVisitStatusForCreation,
+   getVisitStatusForCreation,
   requiresPonctualPayment,
 } from '@/lib/constants';
 
