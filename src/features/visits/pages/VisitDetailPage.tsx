@@ -1,4 +1,5 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
+ 
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -36,6 +37,14 @@ import {
   getVisitDisplayAddress,
   getVisitDisplayAidant
 } from '@/utils/helpers';
+
+// ✅ IMPORTER LES HELPERS DEPUIS CONSTANTS
+import {
+  getPonctualPrice,
+  getVisitStatusForCreation,
+  requiresPonctualPayment,
+} from '@/lib/constants';
+
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal';
 import { supabase } from '@/lib/supabase';
@@ -72,7 +81,7 @@ const VisitDetailPage = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  // ✅ États pour l'assignation d'aidant
+  // États pour l'assignation d'aidant
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [assignmentType, setAssignmentType] = useState<'permanente' | 'temporaire' | 'ponctuelle'>('ponctuelle');
@@ -97,13 +106,16 @@ const VisitDetailPage = () => {
     };
   }, [showCompleteModal]);
 
-  // ✅ Charger les aidants disponibles quand l'admin ouvre le modal
+  // Charger les aidants disponibles quand l'admin ouvre le modal
   useEffect(() => {
     if (showAssignModal) {
       fetchAidants({ onlyAvailable: true });
     }
   }, [showAssignModal, fetchAidants]);
 
+  // =============================================
+  // ✅ OUVERTURE DU MODAL DE PAIEMENT
+  // =============================================
   const handleOpenPayment = () => {
     if (!currentVisit) return;
     if (currentVisit.status === 'brouillon' && currentVisit.metadata?.requires_payment) {
@@ -111,6 +123,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ SUCCÈS DU PAIEMENT
+  // =============================================
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
     toast.success('✅ Visite planifiée après paiement !');
@@ -121,6 +136,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ APPROUVER UNE VISITE
+  // =============================================
   const handleApprove = async () => {
     if (!id) return;
     setIsUpdating(true);
@@ -137,6 +155,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ REFUSER UNE VISITE
+  // =============================================
   const handleRefuse = async () => {
     if (!id) return;
     const reason = prompt('Motif du refus :');
@@ -156,6 +177,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ DÉMARRER UNE VISITE
+  // =============================================
   const handleStart = async () => {
     setIsUpdating(true);
     try {
@@ -171,6 +195,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ TERMINER UNE VISITE
+  // =============================================
   const handleComplete = async (data: {
     actions: string[];
     notes: string;
@@ -222,6 +249,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ ANNULER UNE VISITE
+  // =============================================
   const handleCancel = async () => {
     if (window.confirm('Annuler cette visite ?')) {
       setIsUpdating(true);
@@ -239,7 +269,9 @@ const VisitDetailPage = () => {
     }
   };
 
-  // ✅ Fonction d'assignation d'aidant
+  // =============================================
+  // ✅ ASSIGNER UN AIDANT
+  // =============================================
   const handleAssignAidant = async () => {
     if (!selectedAidantId) {
       toast.error('Veuillez sélectionner un aidant');
@@ -262,6 +294,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ FONCTIONS D'AFFICHAGE
+  // =============================================
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
       planifiee: '#4CAF50',
@@ -276,7 +311,7 @@ const VisitDetailPage = () => {
       replanifiee: '#FF5722',
       no_show: '#795548',
       attente_paiement: '#8b5cf6',
-      brouillon: '#8b5cf6',
+      brouillon: '#F59E0B', // ✅ Couleur distincte pour le brouillon
     };
     return statusColors[status] || '#9E9E9E';
   };
@@ -295,7 +330,7 @@ const VisitDetailPage = () => {
       replanifiee: 'Replanifiée',
       no_show: 'Absent',
       attente_paiement: 'Paiement en attente',
-      brouillon: 'Brouillon - Paiement requis',
+      brouillon: '💳 Paiement requis', // ✅ Libellé clair
     };
     return labels[status] || status;
   };
@@ -317,6 +352,9 @@ const VisitDetailPage = () => {
     }
   };
 
+  // =============================================
+  // ✅ EXPIRATION DU BROUILLON
+  // =============================================
   const getDraftExpiryText = () => {
     if (!currentVisit?.draft_expires_at) return null;
     const expiry = new Date(currentVisit.draft_expires_at);
@@ -329,9 +367,10 @@ const VisitDetailPage = () => {
     return `${minutes}min`;
   };
 
-  // ✅ Déterminer le statut d'affichage de l'aidant - CORRIGÉ
+  // =============================================
+  // ✅ DÉTERMINER LE STATUT D'AFFICHAGE DE L'AIDANT
+  // =============================================
   const getAidantDisplayStatus = () => {
-    // ✅ Récupérer le nom de l'aidant via le bon chemin
     const aidantName = currentVisit?.aidant?.user?.full_name || 'Non assigné';
     
     if (isAidant) {
@@ -369,6 +408,32 @@ const VisitDetailPage = () => {
     };
   };
 
+  // =============================================
+  // ✅ VÉRIFICATIONS D'ÉTAT
+  // =============================================
+  const isDraft = currentVisit?.status === 'brouillon';
+  const isPendingApproval = currentVisit?.status === 'planifiee' || currentVisit?.status === 'en_attente';
+  const isAccepted = currentVisit?.status === 'acceptee';
+  const isInProgress = currentVisit?.status === 'en_cours';
+  const isCompleted = currentVisit?.status === 'terminee';
+  const isExpired = currentVisit?.status === 'expire';
+  const isRefused = currentVisit?.status === 'refusee';
+  const hasNoAidant = !currentVisit?.aidant_id;
+  
+  // ✅ SEUL le propriétaire de la visite peut payer (pas l'admin)
+  const isOwner = currentVisit?.user_id === profile?.id;
+  const requiresPayment = isDraft && currentVisit?.metadata?.requires_payment && isOwner;
+
+  // ✅ L'admin peut assigner un aidant si la visite n'en a pas ou si elle est expirée/refusée
+  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused);
+
+  const aidantStatus = getAidantDisplayStatus();
+  const draftExpiry = getDraftExpiryText();
+  const paymentAmount = currentVisit?.metadata?.payment_amount || getPonctualPrice(currentVisit?.duration_minutes || 60);
+
+  // =============================================
+  // ✅ CHARGEMENT
+  // =============================================
   if (isLoading || !currentVisit) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -381,24 +446,10 @@ const VisitDetailPage = () => {
   }
 
   const visit = currentVisit;
-  const isPendingApproval = visit.status === 'planifiee' || visit.status === 'en_attente';
-  const isAccepted = visit.status === 'acceptee';
-  const isInProgress = visit.status === 'en_cours';
-  const isCompleted = visit.status === 'terminee';
-  const isExpired = visit.status === 'expire';
-  const isRefused = visit.status === 'refusee';
-  const isDraft = visit.status === 'brouillon';
-  const hasNoAidant = !visit.aidant_id;
-  
-  // ✅ SEUL le propriétaire de la visite peut payer (pas l'admin)
-  const isOwner = visit.user_id === profile?.id;
-  const requiresPayment = isDraft && visit.metadata?.requires_payment && isOwner;
 
-  // ✅ L'admin peut assigner un aidant si la visite n'en a pas ou si elle est expirée/refusée
-  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused);
-
-  const aidantStatus = getAidantDisplayStatus();
-
+  // =============================================
+  // ✅ RENDU PRINCIPAL
+  // =============================================
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
       
@@ -444,7 +495,9 @@ const VisitDetailPage = () => {
           </div>
         </div>
 
-        {/* ACTIONS STATUTS */}
+        {/* ============================================================
+        ACTIONS STATUTS
+        ============================================================ */}
         <div className="flex flex-wrap gap-1.5">
           {isPendingApproval && isAidant && (
             <>
@@ -526,7 +579,6 @@ const VisitDetailPage = () => {
             </button>
           )}
 
-          {/* ✅ BOUTON ASSIGNER UN AIDANT (ADMIN) */}
           {canAssignAidant && (
             <button
               onClick={() => setShowAssignModal(true)}
@@ -581,134 +633,7 @@ const VisitDetailPage = () => {
       )}
 
       {/* ============================================================
-      MODAL D'ASSIGNATION D'AIDANT
-      ============================================================ */}
-      {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div 
-            className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-xl"
-            style={{ borderColor: colors.border }}
-          >
-            {/* En-tête */}
-            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: colors.border }}>
-              <div className="flex items-center gap-2">
-                <Users size={18} style={{ color: colors.primary }} />
-                <h2 className="font-bold text-sm" style={{ color: colors.text }}>
-                  Assigner un aidant
-                </h2>
-              </div>
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition"
-              >
-                <X size={18} style={{ color: colors.text }} />
-              </button>
-            </div>
-
-            {/* Corps */}
-            <div className="p-5 space-y-4">
-              {/* Sélection de l'aidant */}
-              <div>
-                <label className="block text-xs font-bold mb-1.5" style={{ color: colors.text }}>
-                  Choisir un aidant
-                </label>
-                <select
-                  value={selectedAidantId}
-                  onChange={(e) => setSelectedAidantId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-sm focus:ring-2 transition"
-                  style={{
-                    borderColor: colors.border,
-                    background: 'var(--color-background, #f5f0e8)',
-                    color: colors.text,
-                  }}
-                  disabled={aidantsLoading}
-                >
-                  <option value="">Sélectionner un aidant...</option>
-                  {aidants.map((aidant) => (
-                    <option key={aidant.id} value={aidant.id}>
-                      {aidant.user?.full_name || 'Aidant'} 
-                      {aidant.specialties?.length > 0 ? ` (${aidant.specialties.slice(0, 2).join(', ')})` : ''}
-                      {aidant.available ? ' 🟢' : ' 🔴'}
-                    </option>
-                  ))}
-                </select>
-                {aidantsLoading && (
-                  <p className="text-xs text-gray-400 mt-1">Chargement des aidants...</p>
-                )}
-              </div>
-
-              {/* Type d'assignation */}
-              <div>
-                <label className="block text-xs font-bold mb-1.5" style={{ color: colors.text }}>
-                  Type d'assignation
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['permanente', 'temporaire', 'ponctuelle'] as const).map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setAssignmentType(type)}
-                      className={`py-2 rounded-xl text-xs font-semibold transition ${
-                        assignmentType === type
-                          ? 'text-white shadow-sm'
-                          : 'border text-gray-600 hover:bg-gray-50'
-                      }`}
-                      style={{
-                        background: assignmentType === type ? colors.primary : 'transparent',
-                        borderColor: assignmentType === type ? colors.primary : colors.border,
-                      }}
-                    >
-                      {type === 'permanente' && '📌 Permanente'}
-                      {type === 'temporaire' && '⏳ Temporaire'}
-                      {type === 'ponctuelle' && '⚡ Ponctuelle'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Info */}
-              <div 
-                className="p-3 rounded-xl flex items-start gap-2"
-                style={{ background: colors.primary + '05', borderColor: colors.primary + '10' }}
-              >
-                <AlertCircle size={16} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
-                <p className="text-xs" style={{ color: colors.text + '70' }}>
-                  L'aidant sera notifié de cette assignation. Il devra approuver la visite pour la prendre en charge.
-                </p>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex gap-3 p-5 border-t" style={{ borderColor: colors.border }}>
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 transition"
-                style={{ borderColor: colors.border, color: colors.text }}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleAssignAidant}
-                disabled={!selectedAidantId || isUpdating}
-                className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
-                style={{ background: colors.primary }}
-              >
-                {isUpdating ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <UserPlus size={14} />
-                    Assigner
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================
-      BANDEAU DE PAIEMENT - UNIQUEMENT POUR LE PROPRIÉTAIRE
+      ✅ BANDEAU DE PAIEMENT - UNIQUEMENT POUR LE PROPRIÉTAIRE
       ============================================================ */}
       {requiresPayment && (
         <div 
@@ -733,9 +658,9 @@ const VisitDetailPage = () => {
                 💳 Paiement requis pour valider la visite
               </p>
               <p className="text-[11px] font-medium mt-0.5 flex flex-wrap items-center gap-1" style={{ color: colors.text + '70' }}>
-                <span>Montant : <strong style={{ color: colors.primary }}>{visit.metadata?.payment_amount || 0} FCFA</strong></span>
+                <span>Montant : <strong style={{ color: colors.primary }}>{paymentAmount.toLocaleString()} FCFA</strong></span>
                 <span>•</span>
-                <span>{getDraftExpiryText() ? `Expire dans : ${getDraftExpiryText()}` : 'Expire bientôt'}</span>
+                <span>{draftExpiry ? `Expire dans : ${draftExpiry}` : 'Expire bientôt'}</span>
               </p>
             </div>
           </div>
@@ -757,7 +682,7 @@ const VisitDetailPage = () => {
         {/* COLONNE DE GAUCHE : Compte-rendu et Informations (2/3) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* CARTES D'INFORMATIONS RAPIDES - ADAPTÉES SELON LE RÔLE */}
+          {/* CARTES D'INFORMATIONS RAPIDES */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <InfoCard
               icon={<User size={15} />}
