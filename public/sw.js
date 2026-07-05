@@ -1,5 +1,5 @@
 // 📁 public/sw.js
-// ✅ Service Worker UNIFIÉ - PWA + Firebase Messaging
+// ✅ Service Worker UNIFIÉ - PWA + Firebase Messaging (Sans Conflit de Push)
 
 const CACHE_NAME = 'sante-plus-v1';
 const DYNAMIC_CACHE = 'sante-plus-dynamic-v1';
@@ -124,7 +124,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // ============================================================
-// ✅ FIREBASE MESSAGING INTÉGRÉ (CORRIGÉ)
+// ✅ INTEGRATION FIREBASE MESSAGING (UNIQUE ÉCOUTEUR DE PUSH)
 // ============================================================
 try {
   importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
@@ -142,7 +142,7 @@ try {
 
   const messaging = firebase.messaging();
 
-  // ✅ Gestion des messages en arrière-plan (AVEC AFFICHAGE FORCÉ)
+  // ✅ Gestion des messages reçus en arrière-plan (AVEC IDENTIFIANT UNIQUE PAR PUSH)
   messaging.onBackgroundMessage((payload) => {
     console.log('📨 Message Firebase en arrière-plan:', payload);
 
@@ -151,7 +151,8 @@ try {
     const notificationIcon = '/icon-192.png';
     const notificationBadge = '/icon-72.png';
 
-    // ✅ FORCER l'affichage de la notification
+    // ✅ IDENTIFIANT UNIQUE (tag) : Date.now() garantit que chaque notification s'affiche
+    // de manière indépendante sans écraser ou bloquer les anciennes déjà affichées.
     const notificationOptions = {
       body: notificationBody,
       icon: notificationIcon,
@@ -159,7 +160,7 @@ try {
       vibrate: [200, 100, 200],
       data: payload.data || {},
       requireInteraction: true,
-      tag: `notif_${Date.now()}`,
+      tag: `notif_${Date.now()}`, 
       renotify: true,
       silent: false,
       actions: [
@@ -168,10 +169,9 @@ try {
       ],
     };
 
-    // ✅ Afficher immédiatement la notification
     self.registration.showNotification(notificationTitle, notificationOptions);
 
-    // ✅ Essayer de jouer un son via le SW
+    // ✅ Essayer de jouer un son de notification
     try {
       self.registration.active?.postMessage({
         type: 'PLAY_SOUND',
@@ -187,51 +187,6 @@ try {
 } catch (error) {
   console.error('❌ Erreur intégration Firebase dans SW:', error);
 }
-
-// ============================================================
-// NOTIFICATIONS PUSH (WEB PUSH NATIF) - AVEC AFFICHAGE FORCÉ
-// ============================================================
-self.addEventListener('push', (event) => {
-  console.log('📨 Notification push reçue:', event);
-  
-  let data = {};
-  try {
-    data = event.data?.json() || {};
-  } catch (error) {
-    console.warn('⚠️ Erreur parsing notification:', error);
-  }
-
-  const title = data.title || 'Santé Plus Services';
-  const body = data.body || 'Vous avez une nouvelle notification';
-  const icon = data.icon || '/icon-192.png';
-  const badge = data.badge || '/icon-72.png';
-  const tag = data.tag || `notif_${Date.now()}`;
-  const url = data.url || '/app';
-
-  // ✅ FORCER l'affichage de la notification
-  const options = {
-    body: body,
-    icon: icon,
-    badge: badge,
-    tag: tag,
-    vibrate: [200, 100, 200],
-    data: {
-      url: url,
-      ...data.data,
-    },
-    actions: [
-      { action: 'open', title: '👀 Voir' },
-      { action: 'dismiss', title: '❌ Fermer' },
-    ],
-    requireInteraction: true,
-    renotify: true,
-    silent: false,
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
-});
 
 // ============================================================
 // GESTION DU CLIC SUR NOTIFICATION
@@ -266,7 +221,7 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ============================================================
-// GESTION DES MESSAGES DU SW (POUR LE SON)
+// GESTION DES MESSAGES DU SW (POUR LE SON ET SKIP_WAITING)
 // ============================================================
 self.addEventListener('message', (event) => {
   console.log('📨 Message reçu par le SW:', event.data);
