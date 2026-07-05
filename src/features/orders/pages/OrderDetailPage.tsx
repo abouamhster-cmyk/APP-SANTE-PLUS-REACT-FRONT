@@ -1,5 +1,6 @@
 // 📁 src/features/orders/pages/OrderDetailPage.tsx
  
+
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -26,6 +27,7 @@ import {
   Award,
   AlertCircle,
   Loader2,
+  CreditCard,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -33,6 +35,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime } from '@/utils/helpers';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  isOrderPendingPayment,
+  isOrderPonctual,
+  requiresOrderPayment,
+} from '@/utils/helpers';
+
 import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -191,6 +201,13 @@ const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
         bg: '#F4433615', 
         label: 'Annulée' 
       },
+      // ✅ NOUVEAU STATUT
+      attente_paiement: { 
+        icon: <CreditCard size={14} />, 
+        color: '#8b5cf6', 
+        bg: '#8b5cf615', 
+        label: 'En attente paiement' 
+      },
     };
     return map[status] || map['creee'];
   };
@@ -292,6 +309,8 @@ const OrderDetailPage = () => {
       livree: 'Livrée',
       validee: 'Validée',
       annulee: 'Annulée',
+      // ✅ NOUVEAU STATUT
+      attente_paiement: 'En attente paiement',
     };
     return map[status] || status;
   };
@@ -372,6 +391,11 @@ const OrderDetailPage = () => {
     window.open(url, '_blank');
   };
 
+  // ✅ Vérifier si la commande est en attente de paiement
+  const isPendingPayment = currentOrder?.status === 'attente_paiement';
+  const isPonctual = isOrderPonctual(currentOrder);
+  const isPaid = currentOrder?.is_paid === true;
+
   if (isLoading || !currentOrder) {
     return (
       <div className="min-h-[420px] flex items-center justify-center">
@@ -395,7 +419,6 @@ const OrderDetailPage = () => {
   const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
   const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
-  const isPonctual = order.order_type === 'ponctual';
   const isUrgent = order.status === 'disponible' || order.status === 'en_attente';
 
   return (
@@ -429,10 +452,17 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
-              {order.is_paid && isPonctual && (
+              {/* ✅ AFFICHAGE PAIEMENT */}
+              {isPonctual && isPaid && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
                   Payée
+                </span>
+              )}
+              {isPendingPayment && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-600">
+                  <CreditCard size={14} />
+                  En attente paiement
                 </span>
               )}
             </div>
@@ -542,6 +572,47 @@ const OrderDetailPage = () => {
         />
       </div>
 
+      {/* ✅ BANDEAU PAIEMENT EN ATTENTE */}
+      {isPendingPayment && (
+        <div 
+          className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          style={{ 
+            background: colors.primary + '08',
+            borderColor: colors.primary + '20',
+          }}
+        >
+          <div className="flex items-start gap-3 min-w-0">
+            <div 
+              className="p-2 rounded-xl shrink-0"
+              style={{ 
+                background: colors.primary + '15',
+                color: colors.primary,
+              }}
+            >
+              <CreditCard size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold" style={{ color: colors.text }}>
+                💳 Paiement requis pour finaliser la commande
+              </p>
+              <p className="text-[11px] font-medium mt-0.5" style={{ color: colors.text + '70' }}>
+                Montant : <strong style={{ color: colors.primary }}>{formatCurrency(order.estimated_amount || 0)}</strong>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              // ✅ Rediriger vers la page de paiement
+              navigate('/app/billing');
+            }}
+            className="w-full sm:w-auto px-5 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm text-center shrink-0"
+            style={{ background: colors.primary }}
+          >
+            Payer maintenant
+          </button>
+        </div>
+      )}
+
       {/* PERSONNES - Inchangé */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
@@ -556,7 +627,7 @@ const OrderDetailPage = () => {
             name={
               order.patient
                 ? `${order.patient.first_name} ${order.patient.last_name}`
-                : 'Non spécifié'
+                : order.target_name || 'Non spécifié'
             }
             detail={order.patient?.phone || 'Aucun téléphone'}
             detailIcon={<Phone size={12} />}
@@ -734,12 +805,24 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {isPonctual && order.is_paid && (
+        {/* ✅ INFO COMMANDE PONCTUELLE */}
+        {isPonctual && isPaid && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
               <p className="text-sm font-medium text-green-700">Paiement effectué</p>
               <p className="text-xs text-green-600">Commande ponctuelle - Paiement confirmé.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ INFO COMMANDE EN ATTENTE PAIEMENT */}
+        {isPendingPayment && (
+          <div className="mt-3 p-3 rounded-xl bg-purple-50 border border-purple-200 flex items-start gap-2">
+            <CreditCard size={18} style={{ color: '#8b5cf6' }} className="mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-purple-700">Paiement requis</p>
+              <p className="text-xs text-purple-600">Effectuez le paiement pour finaliser votre commande.</p>
             </div>
           </div>
         )}
@@ -854,6 +937,7 @@ const getStatusColor = (status: string): string => {
     livree: '#2196F3',
     validee: '#4CAF50',
     annulee: '#9E9E9E',
+    attente_paiement: '#8b5cf6',
   };
   return colors[status] || '#9E9E9E';
 };
