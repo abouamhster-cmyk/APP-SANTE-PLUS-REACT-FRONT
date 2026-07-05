@@ -4,7 +4,6 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported, Messaging } from 'firebase/messaging';
 import { getAnalytics, isSupported as isAnalyticsSupported, Analytics } from 'firebase/analytics';
 
-// ✅ TES CLÉS FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyD9a_D_5nQCwUH9LJssDdyOFGCRHm8VvcU",
   authDomain: "sante-plus-services-react.firebaseapp.com",
@@ -15,10 +14,8 @@ const firebaseConfig = {
   measurementId: "G-7WGYHF8R7M"
 };
 
-// ✅ TA CLÉ VAPID
 const VAPID_KEY = "BOpnRL7xQjAbTUpp54ICOabzXZNWHmLqLYAEA0uKubtvDrJNHteoxE7UGnLlPbvgCWPYlwcwQdPGRfShNBBi0Bc";
 
-// ✅ Initialiser Firebase (une seule fois)
 let app: FirebaseApp | undefined;
 let messaging: Messaging | undefined;
 let analytics: Analytics | undefined;
@@ -32,7 +29,6 @@ try {
     console.log('✅ Firebase déjà initialisé');
   }
 
-  // ✅ Analytics (optionnel - seulement en production)
   if (typeof window !== 'undefined') {
     isAnalyticsSupported().then((supported) => {
       if (supported && app) {
@@ -45,12 +41,12 @@ try {
   console.error('❌ Erreur initialisation Firebase:', error);
 }
 
-// ✅ Obtenir le token FCM pour les notifications push
+// ✅ Obtenir le token FCM avec le Service Worker existant
 export const getFCMToken = async (): Promise<string | null> => {
   try {
     const supported = await isSupported();
     if (!supported) {
-      console.warn('⚠️ Firebase Messaging non supporté sur ce navigateur');
+      console.warn('⚠️ Firebase Messaging non supporté');
       return null;
     }
 
@@ -63,8 +59,12 @@ export const getFCMToken = async (): Promise<string | null> => {
       return null;
     }
 
+    // ✅ Récupérer l'enregistrement du SW stocké dans window
+    const swRegistration = (window as any).firebaseSWRegistration;
+
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: swRegistration, // ✅ Utiliser le SW existant
     });
 
     if (token) {
@@ -80,7 +80,6 @@ export const getFCMToken = async (): Promise<string | null> => {
   }
 };
 
-// ✅ Écouter les messages en foreground
 export const onFCMessage = (callback: (payload: any) => void) => {
   try {
     if (!messaging && app) {
@@ -89,15 +88,12 @@ export const onFCMessage = (callback: (payload: any) => void) => {
     if (messaging) {
       onMessage(messaging, callback);
       console.log('✅ Écoute FCM activée (foreground)');
-    } else {
-      console.warn('⚠️ Messaging non disponible');
     }
   } catch (error) {
     console.error('❌ Erreur onFCMessage:', error);
   }
 };
 
-// ✅ Récupérer l'instance de messaging
 export const getMessagingInstance = (): Messaging | undefined => {
   if (!messaging && app) {
     messaging = getMessaging(app);
