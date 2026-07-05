@@ -6,10 +6,10 @@ import {
   NOTIFICATION_SOUNDS, 
   previewNotificationSound,
   getActiveSound,
-  saveNotificationSoundPreference
+  saveNotificationSoundPreference 
 } from '@/services/notificationService';
 import { getThemeColors } from '@/lib/permissions';
-import { CheckCircle, Volume2, Loader2 } from 'lucide-react';
+import { CheckCircle, Volume2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface SoundOption {
@@ -28,65 +28,27 @@ const soundOptions: SoundOption[] = [
 export const NotificationSoundSelector = () => {
   const [selectedSound, setSelectedSound] = useState(() => {
     const saved = localStorage.getItem('notification_sound');
-    const active = getActiveSound();
-    return saved || active || NOTIFICATION_SOUNDS.SOUND_1;
+    return saved || NOTIFICATION_SOUNDS.SOUND_1;
   });
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   
   const colors = getThemeColors('senior');
 
-  // ✅ Mettre à jour si le son change ailleurs (ex: depuis un autre onglet)
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'notification_sound') {
-        const newSound = e.newValue;
-        if (newSound && Object.values(NOTIFICATION_SOUNDS).includes(newSound)) {
-          setSelectedSound(newSound);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Charger le son actif
+    const active = getActiveSound();
+    setSelectedSound(active);
   }, []);
 
-  // ✅ Écouter les changements de son via l'API
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const current = getActiveSound();
-      if (current !== selectedSound && Object.values(NOTIFICATION_SOUNDS).includes(current)) {
-        setSelectedSound(current);
-      }
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [selectedSound]);
-
   const handleSelect = async (url: string) => {
-    if (url === selectedSound) return;
+    setSelectedSound(url);
+    setNotificationSound(url);
     
-    setIsLoading(true);
-    setIsSaving(true);
-    
+    // ✅ Sauvegarder dans le backend
     try {
-      // Mettre à jour l'UI immédiatement
-      setSelectedSound(url);
-      
-      // Sauvegarder dans localStorage et base de données
       await saveNotificationSoundPreference(url);
-      
       toast.success('🔔 Son de notification changé !');
     } catch (error) {
-      console.error('❌ Erreur sauvegarde son:', error);
-      toast.error('Erreur lors du changement de son');
-      
-      // Revenir à l'ancien son
-      const fallback = localStorage.getItem('notification_sound') || NOTIFICATION_SOUNDS.SOUND_1;
-      setSelectedSound(fallback);
-    } finally {
-      setIsLoading(false);
-      setIsSaving(false);
+      toast.error('Erreur lors de la sauvegarde');
     }
   };
 
@@ -100,64 +62,41 @@ export const NotificationSoundSelector = () => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium" style={{ color: colors.text }}>
-          Son de notification
-        </p>
-        {isSaving && (
-          <span className="text-[10px] text-gray-400 flex items-center gap-1">
-            <Loader2 size={12} className="animate-spin" />
-            Sauvegarde...
-          </span>
-        )}
-      </div>
+      <p className="text-xs font-medium" style={{ color: colors.text }}>
+        Son de notification
+      </p>
       
       <div className="grid grid-cols-3 gap-2">
-        {soundOptions.map((option) => {
-          const isSelected = selectedSound === option.url;
-          
-          return (
+        {soundOptions.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => handleSelect(option.url)}
+            className={`relative p-3 rounded-xl border transition-all ${
+              selectedSound === option.url
+                ? 'border-[--color-primary] bg-[--color-primary]05 shadow-sm'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-2xl">{option.emoji}</span>
+              <span className="text-[10px] font-medium" style={{ color: colors.text }}>
+                {option.label}
+              </span>
+              {selectedSound === option.url && (
+                <CheckCircle size={14} style={{ color: colors.primary }} />
+              )}
+            </div>
+            
             <button
-              key={option.id}
-              onClick={() => handleSelect(option.url)}
-              disabled={isLoading}
-              className={`relative p-3 rounded-xl border transition-all ${
-                isSelected
-                  ? 'border-[--color-primary] bg-[--color-primary]05 shadow-sm'
-                  : 'border-gray-200 hover:border-gray-300'
-              } disabled:opacity-60 disabled:cursor-not-allowed`}
+              onClick={(e) => handlePreview(option.url, e)}
+              className="absolute top-1 right-1 p-1 rounded-full hover:bg-gray-100 transition"
+              title="Écouter l'aperçu"
             >
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-2xl">{option.emoji}</span>
-                <span className="text-[10px] font-medium" style={{ color: colors.text }}>
-                  {option.label}
-                </span>
-                {isSelected && (
-                  <CheckCircle size={14} style={{ color: colors.primary }} />
-                )}
-                {isLoading && isSelected && (
-                  <Loader2 size={12} className="animate-spin mt-1" style={{ color: colors.primary }} />
-                )}
-              </div>
-              
-              <button
-                onClick={(e) => handlePreview(option.url, e)}
-                className="absolute top-1 right-1 p-1 rounded-full hover:bg-gray-100 transition"
-                title="Écouter l'aperçu"
-                disabled={isLoading}
-              >
-                <Volume2 size={12} className="text-gray-400" />
-              </button>
+              <Volume2 size={12} className="text-gray-400" />
             </button>
-          );
-        })}
+          </button>
+        ))}
       </div>
-      
-      <p className="text-[10px] text-gray-400 text-center">
-        💾 Le son est sauvegardé sur votre compte
-      </p>
     </div>
   );
 };
-
-export default NotificationSoundSelector;
