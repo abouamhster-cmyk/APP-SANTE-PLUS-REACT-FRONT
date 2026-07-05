@@ -1,4 +1,4 @@
-// 📁 frontend/src/hooks/usePushNotifications.ts
+// 📁 src/hooks/useNotifications.ts
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
@@ -15,18 +15,16 @@ export const usePushNotifications = () => {
     setIsSupported(supported);
   }, []);
 
-  useEffect(() => {
+  useEffect => {
     if (!isAuthenticated || !user || !isSupported) return;
 
-    // ✅ S'abonner aux notifications
     const setupPush = async () => {
       try {
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
         
         if (!subscription) {
-          // ✅ Demander l'abonnement
-          const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+          const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
           if (!VAPID_KEY) {
             console.warn('⚠️ VAPID_KEY manquant');
             return;
@@ -37,7 +35,6 @@ export const usePushNotifications = () => {
             applicationServerKey: urlBase64ToUint8Array(VAPID_KEY),
           });
 
-          // ✅ Envoyer l'abonnement au backend
           await fetch('/api/notifications/register-token', {
             method: 'POST',
             headers: {
@@ -61,8 +58,6 @@ export const usePushNotifications = () => {
     };
 
     setupPush();
-
-    // ✅ S'abonner au canal Realtime
     subscribe();
     fetchNotifications();
 
@@ -74,12 +69,11 @@ export const usePushNotifications = () => {
   return {
     isSupported,
     isSubscribed,
-    subscribe: () => subscribe(),
-    unsubscribe: () => unsubscribe(),
+    subscribe,
+    unsubscribe,
   };
 };
 
-// ✅ Helper pour convertir la clé VAPID
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
