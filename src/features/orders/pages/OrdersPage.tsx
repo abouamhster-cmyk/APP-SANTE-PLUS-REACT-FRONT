@@ -1,4 +1,5 @@
 // 📁 src/features/orders/pages/OrdersPage.tsx
+ 
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,7 @@ import {
   ClipboardList,
   AlertCircle,
   UserPlus,
+  CreditCard,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -29,6 +31,13 @@ import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import toast from 'react-hot-toast';
 
+// ✅ IMPORTER LES HELPERS
+import {
+  isOrderPendingPayment,
+  isOrderPonctual,
+  requiresOrderPayment,
+} from '@/utils/helpers';
+
 // ✅ FILTRES AVEC NOUVEAUX STATUTS
 const statusFilters = [
   { key: 'all', label: 'Toutes', icon: <List size={12} /> },
@@ -39,6 +48,8 @@ const statusFilters = [
   { key: 'livree', label: '📦 Livrées', icon: <Truck size={12} /> },
   { key: 'validee', label: '✅ Validées', icon: <CheckCircle size={12} /> },
   { key: 'annulee', label: '❌ Annulées', icon: <X size={12} /> },
+  // ✅ NOUVEAU FILTRE POUR LES COMMANDES EN ATTENTE DE PAIEMENT
+  { key: 'attente_paiement', label: '💳 En attente paiement', icon: <CreditCard size={12} /> },
 ];
 
 const OrdersPage = () => {
@@ -58,14 +69,14 @@ const OrdersPage = () => {
   const [activeStatus, setActiveStatus] = useState('all');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // ✅ États pour l'assignation d'aidant
+  // États pour l'assignation d'aidant
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedOrderForAssign, setSelectedOrderForAssign] = useState<any>(null);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ UTILISER le hook de rafraîchissement
+  // UTILISER le hook de rafraîchissement
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: fetchOrders,
     onError: (error) => toast.error('Erreur lors du rafraîchissement des commandes'),
@@ -84,20 +95,19 @@ const OrdersPage = () => {
     }
   }, []);
 
-  // ✅ HANDLER D'ASSIGNATION
+  // HANDLER D'ASSIGNATION
   const handleShowAssignAidantModal = (order: any) => {
     setSelectedOrderForAssign(order);
     setShowAssignModal(true);
   };
 
- 
- const handleAssignAidantSuccess = async () => {
-  // ✅ Forcer l'invalidation du cache et le rechargement
-  useOrderStore.getState().invalidateCache();
-  await fetchOrders(true);
-  toast.success('Aidant assigné avec succès');
-};
+  const handleAssignAidantSuccess = async () => {
+    useOrderStore.getState().invalidateCache();
+    await fetchOrders(true);
+    toast.success('Aidant assigné avec succès');
+  };
 
+  // ✅ FILTRAGE AVEC NOUVEAUX STATUTS
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       const matchStatus = activeStatus === 'all' || order.status === activeStatus;
@@ -115,6 +125,7 @@ const OrdersPage = () => {
     });
   }, [orders, search, activeStatus]);
 
+  // ✅ STATISTIQUES AVEC NOUVEAUX STATUTS
   const stats = {
     total: orders.length,
     pending: orders.filter((order) => order.status === 'en_attente').length,
@@ -122,15 +133,20 @@ const OrdersPage = () => {
     inProgress: orders.filter((order) => order.status === 'en_cours').length,
     delivery: orders.filter((order) => order.status === 'livree').length,
     completed: orders.filter((order) => order.status === 'validee').length,
+    // ✅ NOUVEAU : Commandes en attente de paiement
+    pendingPayment: orders.filter((order) => order.status === 'attente_paiement').length,
+    // ✅ Commandes ponctuelles
+    ponctual: orders.filter((order) => isOrderPonctual(order)).length,
   };
 
+  // ✅ HANDLER STATUT AVEC NOUVEAUX STATUTS
   const handleStatusChange = async (id: string, status: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     try {
       // ✅ Vérifier que le statut est valide
-      const validStatuses = ['creee', 'en_attente', 'en_cours', 'livree', 'validee', 'annulee', 'disponible'];
+      const validStatuses = ['creee', 'en_attente', 'en_cours', 'livree', 'validee', 'annulee', 'disponible', 'attente_paiement'];
       if (!validStatuses.includes(status)) {
         toast.error(`Statut "${status}" invalide pour une commande`);
         setIsProcessing(false);
@@ -144,11 +160,11 @@ const OrdersPage = () => {
         livree: 'Commande livrée avec succès',
         annulee: 'Commande annulée',
         disponible: 'Commande disponible pour tous les aidants',
+        attente_paiement: 'Commande en attente de paiement',
       };
 
       toast.success(statusMessages[status] || `Commande ${status}`);
 
-      // ✅ Recharger après mise à jour
       await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur mise à jour:', error);
@@ -233,6 +249,10 @@ const OrdersPage = () => {
               {stats.available > 0 && (
                 <span className="ml-2 text-red-500">🚨 {stats.available} urgente(s)</span>
               )}
+              {/* ✅ INDICATEUR PAIEMENT EN ATTENTE */}
+              {stats.pendingPayment > 0 && (
+                <span className="ml-2 text-purple-500">💳 {stats.pendingPayment} en attente paiement</span>
+              )}
             </p>
           </div>
 
@@ -293,6 +313,29 @@ const OrdersPage = () => {
           color="#4CAF50"
         />
       </section>
+
+      {/* ✅ BANDEAU COMMANDES EN ATTENTE DE PAIEMENT */}
+      {stats.pendingPayment > 0 && isFamily && (
+        <div className="bg-purple-50 border-l-4 border-purple-400 p-3 rounded-xl shadow-sm border border-purple-200">
+          <div className="flex items-center gap-3">
+            <CreditCard className="text-purple-500" size={20} />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-purple-800 text-sm">
+                💳 {stats.pendingPayment} commande{stats.pendingPayment > 1 ? 's' : ''} en attente de paiement
+              </p>
+              <p className="text-xs text-purple-700">
+                Effectuez le paiement pour finaliser votre commande.
+              </p>
+            </div>
+            <button
+              onClick={() => setActiveStatus('attente_paiement')}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition"
+            >
+              Voir
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* RECHERCHE + FILTRE */}
       <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
@@ -371,6 +414,7 @@ const OrdersPage = () => {
             </button>
           )}
 
+          {/* ✅ SI COMMANDES EXISTENT MAIS FILTRÉES */}
           {isFamily && orders.length > 0 && (
             <button
               onClick={() => setSearch('')}
