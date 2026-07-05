@@ -1,8 +1,8 @@
 // 📁 src/lib/firebase.ts
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
-import { getAnalytics, isSupported as isAnalyticsSupported } from 'firebase/analytics';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getMessaging, getToken, onMessage, isSupported, Messaging } from 'firebase/messaging';
+import { getAnalytics, isSupported as isAnalyticsSupported, Analytics } from 'firebase/analytics';
 
 // ✅ TES CLÉS FIREBASE
 const firebaseConfig = {
@@ -19,9 +19,9 @@ const firebaseConfig = {
 const VAPID_KEY = "BOpnRL7xQjAbTUpp54ICOabzXZNWHmLqLYAEA0uKubtvDrJNHteoxE7UGnLlPbvgCWPYlwcwQdPGRfShNBBi0Bc";
 
 // ✅ Initialiser Firebase (une seule fois)
-let app;
-let messaging;
-let analytics;
+let app: FirebaseApp | undefined;
+let messaging: Messaging | undefined;
+let analytics: Analytics | undefined;
 
 try {
   if (getApps().length === 0) {
@@ -35,7 +35,7 @@ try {
   // ✅ Analytics (optionnel - seulement en production)
   if (typeof window !== 'undefined') {
     isAnalyticsSupported().then((supported) => {
-      if (supported) {
+      if (supported && app) {
         analytics = getAnalytics(app);
         console.log('✅ Firebase Analytics activé');
       }
@@ -54,8 +54,13 @@ export const getFCMToken = async (): Promise<string | null> => {
       return null;
     }
 
-    if (!messaging) {
+    if (!messaging && app) {
       messaging = getMessaging(app);
+    }
+
+    if (!messaging) {
+      console.warn('⚠️ Messaging non initialisé');
+      return null;
     }
 
     const token = await getToken(messaging, {
@@ -78,19 +83,23 @@ export const getFCMToken = async (): Promise<string | null> => {
 // ✅ Écouter les messages en foreground
 export const onFCMessage = (callback: (payload: any) => void) => {
   try {
-    if (!messaging) {
+    if (!messaging && app) {
       messaging = getMessaging(app);
     }
-    onMessage(messaging, callback);
-    console.log('✅ Écoute FCM activée (foreground)');
+    if (messaging) {
+      onMessage(messaging, callback);
+      console.log('✅ Écoute FCM activée (foreground)');
+    } else {
+      console.warn('⚠️ Messaging non disponible');
+    }
   } catch (error) {
     console.error('❌ Erreur onFCMessage:', error);
   }
 };
 
 // ✅ Récupérer l'instance de messaging
-export const getMessagingInstance = () => {
-  if (!messaging) {
+export const getMessagingInstance = (): Messaging | undefined => {
+  if (!messaging && app) {
     messaging = getMessaging(app);
   }
   return messaging;
