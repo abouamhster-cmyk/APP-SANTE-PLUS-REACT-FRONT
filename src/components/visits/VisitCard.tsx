@@ -1,8 +1,5 @@
 // 📁 src/components/visits/VisitCard.tsx
-// VERSION CORRIGÉE - AFFICHAGE CLAIR DES VISITES
-// ✅ Ajout du statut "brouillon" avec couleurs et icônes
-// ✅ Affichage des informations de paiement
-// ✅ Distinction claire entre visites avec/sans abonnement
+ 
 
 import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, AlertCircle, UserCheck, Users, Clock as ClockIcon, CreditCard, UserPlus } from 'lucide-react';
 import { Visit } from '@/types';
