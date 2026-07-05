@@ -205,7 +205,7 @@ self.addEventListener('push', (event) => {
   const body = data.body || 'Vous avez une nouvelle notification';
   const icon = data.icon || '/icon-192.png';
   const badge = data.badge || '/icon-72.png';
-  const tag = data.tag || 'notification';
+  const tag = data.tag || `notif_${Date.now()}`;
   const url = data.url || '/app';
 
   // ✅ FORCER l'affichage de la notification
