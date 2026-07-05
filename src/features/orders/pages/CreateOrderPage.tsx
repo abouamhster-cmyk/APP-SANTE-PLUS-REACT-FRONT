@@ -21,8 +21,6 @@ import {
   Sparkles,
   CheckCircle,
   Loader2,
-  Calendar,
-  Clock,
   AlertCircle,
   Users,
 } from 'lucide-react';
@@ -69,9 +67,7 @@ const CreateOrderPage = () => {
   const {
     hasActiveSubscription,
     remainingOrders,
-    can,
     getBlockMessage,
-    isLoading: subLoading,
   } = useSubscriptionGuard();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
