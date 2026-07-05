@@ -14,9 +14,6 @@ firebase.initializeApp({
   measurementId: "G-7WGYHF8R7M"
 });
 
-// ✅ TA CLÉ VAPID (pour le SW)
-const VAPID_KEY = "BOpnRL7xQjAbTUpp54ICOabzXZNWHmLqLYAEA0uKubtvDrJNHteoxE7UGnLlPbvgCWPYlwcwQdPGRfShNBBi0Bc";
-
 const messaging = firebase.messaging();
 
 // ✅ Gestion des notifications en arrière-plan
@@ -41,10 +38,8 @@ messaging.onBackgroundMessage((payload) => {
     tag: `notif_${Date.now()}`,
   };
 
-  // ✅ Afficher la notification
   self.registration.showNotification(notificationTitle, notificationOptions);
 
-  // ✅ Jouer un son (si disponible)
   try {
     self.registration.active?.postMessage({
       type: 'PLAY_SOUND',
@@ -71,13 +66,11 @@ self.addEventListener('notificationclick', (event) => {
       type: 'window',
       includeUncontrolled: true,
     }).then((clientList) => {
-      // ✅ Si une fenêtre est déjà ouverte, la focaliser
       for (const client of clientList) {
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // ✅ Sinon, ouvrir une nouvelle fenêtre
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
