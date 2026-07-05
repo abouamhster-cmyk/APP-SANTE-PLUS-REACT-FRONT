@@ -441,8 +441,8 @@ export const canApproveVisit = (visit: Visit | null | undefined): boolean => {
 // =============================================
 // ✅ EXPORT PAR DÉFAUT
 // =============================================
+ 
 
-// ✅ Vérifié - Chaque propriété apparaît une seule fois
 export default {
   cn,
   formatDate,
@@ -474,8 +474,8 @@ export default {
   isOrderPendingPayment,
   isOrderPonctual,
   requiresOrderPayment,
-  isVisitCompleted,    
-  isVisitValidated,      
+  isVisitCompleted,
+  isVisitValidated,
   canStartVisit,
   canCompleteVisit,
   canCancelVisit,
