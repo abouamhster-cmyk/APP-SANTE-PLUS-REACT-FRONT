@@ -2,13 +2,9 @@
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import type { Notification } from '@/types';  
+import type { Notification } from '@/types';
 import { useAuthStore } from './authStore';
 import { playNotificationSound, updateNotificationBadge } from '@/services/notificationService';
-
-// =============================================
-// HELPERS DE CACHE
-// =============================================
 
 const NOTIFICATIONS_CACHE_KEY = 'sante_plus_notifications_cache';
 const CACHE_DURATION = 30000;
@@ -37,10 +33,7 @@ const clearCachedNotifications = () => {
   } catch { /* ignore */ }
 };
 
-// =============================================
-// AFFICHER LA NOTIFICATION SYSTÈME - CORRIGÉ
-// =============================================
-
+// ✅ AFFICHER LA NOTIFICATION SYSTÈME - CORRIGÉ
 function showSystemNotification(notification: Notification) {
   if (Notification.permission !== 'granted') {
     console.warn('⚠️ Permission notifications non accordée');
@@ -78,7 +71,7 @@ function showSystemNotification(notification: Notification) {
       notif.close();
     };
 
-    // ✅ CORRIGÉ : Utiliser addEventListener au lieu de onnotificationclick
+    // ✅ CORRIGÉ : addEventListener au lieu de onnotificationclick
     notif.addEventListener('click', (event) => {
       const target = event.target as Notification;
       if (target && target.data) {
@@ -88,15 +81,11 @@ function showSystemNotification(notification: Notification) {
       target?.close();
     });
 
-    console.log('🔔 [System] Notification affichée !', notification.title);
+    console.log('🔔 Notification affichée !', notification.title);
   } catch (error) {
-    console.error('❌ Erreur affichage notification système:', error);
+    console.error('❌ Erreur affichage notification:', error);
   }
 }
-
-// =============================================
-// STORE
-// =============================================
 
 interface NotificationState {
   notifications: Notification[];
@@ -131,7 +120,7 @@ const initializeNotifications = () => {
       const prefs = JSON.parse(saved);
       return prefs.notifications !== false;
     } catch (e) {
-      console.error('Erreur chargement préférences notifications:', e);
+      console.error('Erreur chargement préférences:', e);
       return true;
     }
   }
