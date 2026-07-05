@@ -1,7 +1,7 @@
 // 📁 public/firebase-messaging-sw.js
 
 // ============================================================
-// IMPORT DES SCRIPTS FIREBASE
+// IMPORT DES SCRIPTS FIREBASE (CORRIGÉ)
 // ============================================================
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
@@ -59,16 +59,14 @@ messaging.onBackgroundMessage((payload) => {
 });
 
 // ============================================================
-// GESTION DU CLIC SUR NOTIFICATION
+// CLIC SUR LA NOTIFICATION
 // ============================================================
 self.addEventListener('notificationclick', (event) => {
   console.log('🔔 [SW] Clic sur notification:', event);
 
   event.notification.close();
 
-  if (event.action === 'dismiss') {
-    return;
-  }
+  if (event.action === 'dismiss') return;
 
   const urlToOpen = event.notification?.data?.url || '/app';
 
@@ -76,25 +74,22 @@ self.addEventListener('notificationclick', (event) => {
     clients.matchAll({
       type: 'window',
       includeUncontrolled: true
-    })
-    .then((clientList) => {
+    }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes(urlToOpen) && 'focus' in client) {
           return client.focus();
         }
       }
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
+      return clients.openWindow(urlToOpen);
     })
   );
 });
 
 // ============================================================
-// GESTION DU CLIC SUR LES ACTIONS
+// CLIC SUR LES ACTIONS (BOUTONS)
 // ============================================================
 self.addEventListener('notificationactionclick', (event) => {
-  console.log('🔔 [SW] Action sur notification:', event.action);
+  console.log('🔔 [SW] Action:', event.action);
 
   event.notification.close();
 
@@ -104,4 +99,20 @@ self.addEventListener('notificationactionclick', (event) => {
   }
 });
 
+// ============================================================
+// INSTALLATION + ACTIVATION (BONNE PRATIQUE)
+// ============================================================
+self.addEventListener('install', (event) => {
+  console.log('⚙️ [SW] Install');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('⚙️ [SW] Activate');
+  event.waitUntil(self.clients.claim());
+});
+
+// ============================================================
+// READY
+// ============================================================
 console.log('✅ Firebase Messaging Service Worker chargé');
