@@ -1,4 +1,8 @@
 // 📁 src/features/billing/components/PaymentModalContent.tsx
+// VERSION CORRIGÉE - LOGIQUE DE PAIEMENT UNIFIÉE
+// ✅ Suppression des IDs d'offres en dur
+// ✅ Utilisation des helpers pour la détection ponctuelle
+// ✅ Logique cohérente pour les paiements
 
 import { useState } from 'react';
 import {
@@ -15,6 +19,17 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Offer } from '@/types';
 import toast from 'react-hot-toast';
+
+// ✅ IMPORTER LES HELPERS
+import {
+  getPonctualPrice,
+  getPonctualOrderPrice,
+} from '@/lib/constants';
+import {
+  isVisitDraft,
+  isVisitPonctual,
+  requiresVisitPayment,
+} from '@/utils/helpers';
 
 interface PaymentModalContentProps {
   offer?: Offer | null;
@@ -59,19 +74,25 @@ export const PaymentModalContent = ({
 
   const period = selectedOffer?.period || selectedOffer?.type || 'mois';
 
+  // ✅ DÉTECTION PONCTUELLE - SANS IDs EN DUR
   const isPonctual = forcePonctual ||
     period === 'ponctuelle' ||
     period === 'intervention' ||
     selectedOffer?.category === 'ponctuelle' ||
     selectedOffer?.type === 'ponctuelle' ||
-    selectedOffer?.id === 'b4b01a84-1b0c-4973-9e58-43945c1c4991' ||
-    selectedOffer?.id === '6e4ba26d-98c5-4e29-a129-f33a828f0b44';
+    // ✅ Vérification par nom (fallback)
+    selectedOffer?.name?.toLowerCase().includes('ponctuel') ||
+    selectedOffer?.name?.toLowerCase().includes('intervention');
 
   const amount = selectedOffer?.price || 50000;
   const planName = selectedOffer?.name || 'Abonnement Santé Plus';
   const visitsPerWeek = selectedOffer?.visitsPerWeek || selectedOffer?.visits_per_week || null;
 
   const hasPatients = orderData?.hasPatients || false;
+
+  // ✅ Détecter si c'est une visite ou une commande
+  const isVisit = isPonctual && !!orderData?.visit_id;
+  const isOrder = isPonctual && !!orderData?.description && !orderData?.visit_id;
 
   const getSubscriptionLabel = () => {
     if (isPonctual) return 'ponctuel';
@@ -82,16 +103,40 @@ export const PaymentModalContent = ({
   };
 
   const getInfoMessage = () => {
+    if (isVisit) {
+      return 'Vous allez payer cette visite ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement. Une fois le paiement effectué, la visite sera planifiée.';
+    }
+    if (isOrder) {
+      return 'Vous allez payer cette commande ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement. Une fois le paiement effectué, la commande sera créée.';
+    }
     if (isPonctual) {
-      return 'Vous allez payer cette commande ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement.';
+      return 'Vous allez payer ce service ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement.';
     }
     return 'FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement.';
+  };
+
+  const getTitle = () => {
+    if (isVisit) return 'Visite ponctuelle';
+    if (isOrder) return 'Commande ponctuelle';
+    if (isPonctual) return 'Service ponctuel';
+    return planName;
+  };
+
+  const getDescription = () => {
+    if (isVisit) {
+      return `Visite le ${orderData?.scheduled_date || 'prochainement'} à ${orderData?.scheduled_time || '---'}`;
+    }
+    if (isOrder) {
+      return orderData?.description || 'Commande ponctuelle';
+    }
+    return `Abonnement ${getSubscriptionLabel()}`;
   };
 
   const handlePayment = async () => {
     setIsLoading(true);
 
     try {
+      // ✅ Nettoyer les données en attente
       if (isPonctual && orderData) {
         sessionStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
         localStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
@@ -103,13 +148,10 @@ export const PaymentModalContent = ({
         localStorage.removeItem('pending_ponctual_order');
       }
 
-      // ✅ Détecter si c'est une visite
-      const isVisit = isPonctual && !!orderData?.visit_id;
-
       const orderDataForBackend = (isPonctual && orderData) ? {
         patient_id: orderData.patient_id || propPatientId || null,
         type: orderData.type || 'autre',
-        description: orderData.description || 'Commande ponctuelle',
+        description: orderData.description || (isVisit ? 'Visite ponctuelle' : 'Commande ponctuelle'),
         address: orderData.address || 'Adresse non spécifiée',
         items: orderData.items || [],
         prescription_url: orderData.prescription_url || null,
@@ -118,7 +160,7 @@ export const PaymentModalContent = ({
         // ✅ Si c'est une visite, ajouter les champs spécifiques
         ...(isVisit ? {
           visit_id: orderData.visit_id,
-          duration_minutes: orderData.duration_minutes,
+          duration_minutes: orderData.duration_minutes || 60,
           scheduled_date: orderData.scheduled_date,
           scheduled_time: orderData.scheduled_time,
         } : {}),
@@ -133,6 +175,7 @@ export const PaymentModalContent = ({
       console.log('📤 Envoi paiement avec patient_id:', finalPatientId);
       console.log('📤 Envoi paiement avec is_visit:', isVisit);
       console.log('📤 Envoi paiement avec visit_id:', orderData?.visit_id || null);
+      console.log('📤 Envoi paiement avec type:', isVisit ? 'visit' : (isOrder ? 'order' : 'subscription'));
 
       const result = await createPayment({
         plan_id: offerId,
@@ -147,6 +190,14 @@ export const PaymentModalContent = ({
         patient_id: finalPatientId,
         target_type: selectedTargetType,
         target_name: selectedTargetName || profile?.full_name || 'Client',
+        // ✅ Ajouter le type explicite pour le webhook
+        metadata: {
+          type: isVisit ? 'visit' : (isOrder ? 'order' : 'subscription'),
+          is_ponctual: isPonctual,
+          is_visit: isVisit,
+          visit_id: orderData?.visit_id || null,
+          order_data: orderDataForBackend,
+        },
       });
 
       const paymentUrl = result?.payment_url || result?.url || result?.checkout_url;
@@ -186,16 +237,23 @@ export const PaymentModalContent = ({
 
           <div className="min-w-0">
             <p className="font-black" style={{ color: colors.text }}>
-              {isPonctual ? `Commande ponctuelle` : planName}
+              {getTitle()}
             </p>
 
             <p className="text-sm text-gray-500 mt-0.5">
-              {isPonctual ? 'Paiement unique sans engagement' : `Abonnement ${getSubscriptionLabel()}`}
+              {getDescription()}
             </p>
 
             {visitsPerWeek && !isPonctual && (
               <p className="text-xs text-gray-400 mt-1">
                 📅 {visitsPerWeek} visite{visitsPerWeek > 1 ? 's' : ''} par semaine
+              </p>
+            )}
+
+            {/* ✅ Indicateur de type pour le débogage */}
+            {isPonctual && (
+              <p className="text-xs text-orange-500 mt-1 font-medium">
+                ⚡ Service ponctuel - Paiement unique
               </p>
             )}
           </div>
@@ -219,6 +277,9 @@ export const PaymentModalContent = ({
         <p className="text-xs leading-relaxed text-gray-600">
           {getInfoMessage()}
         </p>
+        <p className="text-[10px] text-gray-400 mt-1">
+          💳 Paiement sécurisé via FedaPay
+        </p>
       </div>
 
       <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
@@ -240,7 +301,10 @@ export const PaymentModalContent = ({
           style={{ background: colors.primary }}
         >
           {isLoading ? (
-            <Loader2 size={18} className="animate-spin" />
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Traitement...
+            </>
           ) : (
             <>
               {isPonctual ? `Payer ${amount.toLocaleString()} FCFA` : 'Continuer'}
