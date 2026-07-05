@@ -11,6 +11,38 @@ import toast from 'react-hot-toast';
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ============================================================
+// ✅ CONFIGURATION DES SONS DE NOTIFICATION
+// ============================================================
+
+export const NOTIFICATION_SOUNDS = {
+  DEFAULT: '/notification.mp3',
+  SOUND_1: '/notification-sound-1.mp3',
+  SOUND_2: '/notification-sound-2.mp3',
+};
+
+// ✅ Son actif (par défaut SOUND_1)
+let activeSound = NOTIFICATION_SOUNDS.SOUND_1;
+
+export const setNotificationSound = (soundUrl: string) => {
+  if (Object.values(NOTIFICATION_SOUNDS).includes(soundUrl)) {
+    activeSound = soundUrl;
+    localStorage.setItem('notification_sound', soundUrl);
+    console.log('🔔 Son de notification changé:', soundUrl);
+  } else {
+    console.warn('⚠️ Son non disponible:', soundUrl);
+  }
+};
+
+// ✅ Charger le son sauvegardé
+const loadSavedSound = () => {
+  const saved = localStorage.getItem('notification_sound');
+  if (saved && Object.values(NOTIFICATION_SOUNDS).includes(saved)) {
+    activeSound = saved;
+  }
+};
+loadSavedSound();
+
+// ============================================================
 // ✅ HELPER : TROUVER LA CLÉ SUPABASE AUTH
 // ============================================================
 
@@ -30,7 +62,6 @@ function findSupabaseAuthKey(): string {
     }
   }
   
-  // Recherche par préfixe
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('sb-') && key.includes('auth-token')) {
@@ -38,7 +69,7 @@ function findSupabaseAuthKey(): string {
     }
   }
   
-  return 'supabase.auth.token'; // Fallback
+  return 'supabase.auth.token';
 }
 
 // ============================================================
@@ -47,11 +78,10 @@ function findSupabaseAuthKey(): string {
 
 export const playNotificationSound = () => {
   try {
-    // ✅ Essayer avec un fichier audio
-    const audio = new Audio('/notification.mp3');
+    const audio = new Audio(activeSound);
     audio.volume = 0.5;
     audio.play().catch(() => {
-      // ✅ Fallback: utiliser l'API Web Audio
+      // ✅ Fallback: API Web Audio
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = ctx.createOscillator();
@@ -63,7 +93,6 @@ export const playNotificationSound = () => {
         gainNode.gain.value = 0.3;
         oscillator.start();
         setTimeout(() => oscillator.stop(), 200);
-        // ✅ Nettoyer le contexte après 1 seconde
         setTimeout(() => ctx.close(), 1000);
       } catch (e) {
         console.warn('⚠️ Son non disponible');
@@ -74,12 +103,24 @@ export const playNotificationSound = () => {
   }
 };
 
+// ✅ Prévisualiser un son
+export const previewNotificationSound = (soundUrl: string) => {
+  try {
+    const audio = new Audio(soundUrl);
+    audio.volume = 0.3;
+    audio.play();
+    return true;
+  } catch (error) {
+    console.warn('⚠️ Erreur prévisualisation son:', error);
+    return false;
+  }
+};
+
 // ============================================================
 // ✅ METTRE À JOUR LE BADGE
 // ============================================================
 
 export const updateNotificationBadge = (count: number) => {
-  // ✅ Mettre à jour le title
   if (count > 0) {
     document.title = `(${count}) Santé Plus Services`;
   } else {
@@ -93,14 +134,12 @@ export const updateNotificationBadge = (count: number) => {
 
 export const requestNotificationPermission = async (userId: string) => {
   try {
-    // ✅ Vérifier si déjà enregistré
     const storedToken = localStorage.getItem('push_token');
     if (storedToken) {
       console.log('ℹ️ Token push déjà enregistré');
       return storedToken;
     }
 
-    // ✅ Vérifier la permission
     if (!('Notification' in window)) {
       console.warn('❌ Notifications non supportées');
       return null;
@@ -114,7 +153,6 @@ export const requestNotificationPermission = async (userId: string) => {
       return null;
     }
 
-    // ✅ Obtenir le token FCM
     const fcmToken = await getFCMToken();
     if (!fcmToken) {
       console.warn('❌ Impossible d\'obtenir le FCM token');
@@ -123,7 +161,6 @@ export const requestNotificationPermission = async (userId: string) => {
 
     console.log('✅ FCM Token généré:', fcmToken.substring(0, 30) + '...');
 
-    // ✅ Récupérer le token d'authentification
     const authKey = findSupabaseAuthKey();
     console.log('🔑 Clé auth utilisée:', authKey);
     
@@ -142,7 +179,6 @@ export const requestNotificationPermission = async (userId: string) => {
       return null;
     }
 
-    // ✅ Extraire le token d'accès
     const accessToken = parsed?.access_token || 
                         parsed?.currentSession?.access_token ||
                         parsed?.[0]?.access_token;
@@ -154,7 +190,6 @@ export const requestNotificationPermission = async (userId: string) => {
 
     console.log('🔐 Access token présent:', !!accessToken);
 
-    // ✅ Enregistrer le token sur le backend
     const response = await fetch(`${API_URL}/notifications/register-token`, {
       method: 'POST',
       headers: {
@@ -174,22 +209,18 @@ export const requestNotificationPermission = async (userId: string) => {
       throw new Error(error.error || "Erreur lors de l'enregistrement du token");
     }
 
-    // ✅ Sauvegarder le token en local
     localStorage.setItem('push_token', fcmToken);
     console.log('✅ Token push enregistré avec succès');
 
-    // ✅ Mettre à jour le badge
     const { unreadCount } = useNotificationStore.getState();
     updateNotificationBadge(unreadCount);
 
-    // ✅ Configurer l'écoute des messages en foreground
     onFCMessage((payload) => {
       console.log('📨 Message FCM reçu en foreground:', payload);
       
       const notification = payload.notification || {};
       const data = payload.data || {};
       
-      // ✅ Ajouter au store
       useNotificationStore.getState().addNotification({
         id: `fcm_${Date.now()}`,
         user_id: userId,
@@ -201,7 +232,6 @@ export const requestNotificationPermission = async (userId: string) => {
         created_at: new Date().toISOString(),
       } as any);
       
-      // ✅ Jouer le son
       playNotificationSound();
     });
 
@@ -257,8 +287,6 @@ export const removePushToken = async (token?: string) => {
 
     localStorage.removeItem('push_token');
     console.log('✅ Token push supprimé');
-    
-    // ✅ Réinitialiser le badge
     updateNotificationBadge(0);
   } catch (error) {
     console.error('❌ Erreur suppression token:', error);
@@ -474,7 +502,6 @@ export const notify = {
 
       if (error) throw error;
       
-      // ✅ Jouer le son et mettre à jour le badge
       playNotificationSound();
       
       return { success: true, sent: userIds.length };
@@ -569,7 +596,6 @@ export const notify = {
 
       if (error) throw error;
       
-      // ✅ Jouer le son
       playNotificationSound();
       
       return { success: true };
@@ -596,7 +622,6 @@ export const notify = {
 
       if (error) throw error;
       
-      // ✅ Jouer le son
       playNotificationSound();
       
       return { success: true };
