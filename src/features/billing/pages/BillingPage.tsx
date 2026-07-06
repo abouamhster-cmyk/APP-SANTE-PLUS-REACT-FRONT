@@ -1,6 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-// ✅ Version finale - Abonnements UNIQUEMENT (pas de ponctuel)
-
+ 
 import { useEffect, useState } from 'react';
 import {
   CreditCard,
@@ -96,69 +95,70 @@ const BillingPage = () => {
     fetchPayments();
   }, []);
 
-  // =============================================
-  // ✅ FILTRAGE DES OFFRES - UNIQUEMENT LES ABONNEMENTS
-  // =============================================
-  useEffect(() => {
-    if (offers.length === 0) return;
+ 
+// =============================================
+// ✅ FILTRAGE DES OFFRES - SUPPRESSION DES PONCTUELLES
+// =============================================
+useEffect(() => {
+  if (offers.length === 0) return;
 
-    let filtered: Offer[] = [];
+  let filtered: Offer[] = [];
 
-    // 🦸 AIDANT → Pas d'abonnement visible
-    if (isAidantRole) {
-      setFilteredOffers([]);
-      return;
-    }
+  // 🦸 AIDANT → Pas d'abonnement visible
+  if (isAidantRole) {
+    setFilteredOffers([]);
+    return;
+  }
 
-    // 👔 ADMIN / COORDINATEUR → Toutes les offres (sauf ponctuelles)
-    if (role === 'admin' || role === 'coordinator') {
-      filtered = offers.filter((o: Offer) => 
-        o.category !== 'ponctuelle' && o.type !== 'ponctuelle'
-      );
-      setFilteredOffers(filtered);
-      return;
-    }
-
-    // 👤 COMPTE PERSONNEL (sans patient) → Pack Confort uniquement
-    if (isPersonalAccount) {
-      filtered = offers.filter((o: Offer) => 
-        o.category === 'pack_confort' &&
-        o.category !== 'ponctuelle' &&
-        o.type !== 'ponctuelle'
-      );
-      setFilteredOffers(filtered);
-      return;
-    }
-
-    // 👴 SENIOR → Senior + Pack Confort (pas de ponctuelle)
-    if (patientCategory === 'senior') {
-      filtered = offers.filter((o: Offer) => 
-        (o.category === 'senior' || o.category === 'pack_confort') &&
-        o.category !== 'ponctuelle' &&
-        o.type !== 'ponctuelle'
-      );
-      setFilteredOffers(filtered);
-      return;
-    }
-
-    // 👶 MAMAN & BÉBÉ → Maman + Pack Confort (pas de ponctuelle)
-    if (patientCategory === 'maman_bebe') {
-      filtered = offers.filter((o: Offer) => 
-        (o.category === 'maman_bebe' || o.category === 'pack_confort') &&
-        o.category !== 'ponctuelle' &&
-        o.type !== 'ponctuelle'
-      );
-      setFilteredOffers(filtered);
-      return;
-    }
-
-    // 🔄 FALLBACK
+  // 👔 ADMIN / COORDINATEUR → Toutes les offres (sauf ponctuelles)
+  if (role === 'admin' || role === 'coordinator') {
     filtered = offers.filter((o: Offer) => 
       o.category !== 'ponctuelle' && o.type !== 'ponctuelle'
     );
     setFilteredOffers(filtered);
-  }, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
+    return;
+  }
 
+  // 👤 COMPTE PERSONNEL (sans patient) → Pack Confort uniquement
+  if (isPersonalAccount) {
+    filtered = offers.filter((o: Offer) => 
+      o.category === 'pack_confort' &&
+      o.category !== 'ponctuelle' &&
+      o.type !== 'ponctuelle'
+    );
+    setFilteredOffers(filtered);
+    return;
+  }
+
+  // 👴 SENIOR → Senior + Pack Confort (pas de ponctuelle)
+  if (patientCategory === 'senior') {
+    filtered = offers.filter((o: Offer) => 
+      (o.category === 'senior' || o.category === 'pack_confort') &&
+      o.category !== 'ponctuelle' &&
+      o.type !== 'ponctuelle'
+    );
+    setFilteredOffers(filtered);
+    return;
+  }
+
+  // 👶 MAMAN & BÉBÉ → Maman + Pack Confort (pas de ponctuelle)
+  if (patientCategory === 'maman_bebe') {
+    filtered = offers.filter((o: Offer) => 
+      (o.category === 'maman_bebe' || o.category === 'pack_confort') &&
+      o.category !== 'ponctuelle' &&
+      o.type !== 'ponctuelle'
+    );
+    setFilteredOffers(filtered);
+    return;
+  }
+
+  // 🔄 FALLBACK
+  filtered = offers.filter((o: Offer) => 
+    o.category !== 'ponctuelle' && o.type !== 'ponctuelle'
+  );
+  setFilteredOffers(filtered);
+}, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
+  
   // =============================================
   // ✅ ONGLETS DISPONIBLES - PLUS DE PONCTUELLE
   // =============================================
