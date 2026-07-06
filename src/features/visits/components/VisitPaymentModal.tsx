@@ -1,12 +1,23 @@
-// 📁 frontend/src/features/visits/components/VisitPaymentModal.tsx
-// ✅ Wrapper qui utilise PonctualPaymentModal pour éviter la duplication
-
+// 📁 src/features/visits/components/VisitPaymentModal.tsx
+ 
 import { useState } from 'react';
+import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { useVisitStore } from '@/stores/visitStore';
+import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
-import { getVisitPaymentAmount, getPonctualPrice } from '@/utils/helpers';
+import { Loader2, CreditCard, ExternalLink, Calendar, Clock, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+import { getPonctualPrice } from '@/lib/constants';
+import {
+  isVisitDraft,
+  isVisitPonctual,
+  requiresVisitPayment,
+  getVisitPaymentAmount,
+  getDraftExpiryTime,
+  isDraftExpired,
+} from '@/utils/helpers';
 
 // ============================================================
 // TYPES
@@ -73,7 +84,7 @@ export const VisitPaymentModal = ({
 
   // ✅ Handler annulation du paiement
   const handlePaymentCancel = () => {
-    toast.info('Paiement annulé');
+    toast.success('Paiement annulé');
     onClose();
   };
 
