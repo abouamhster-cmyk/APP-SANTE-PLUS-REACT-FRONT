@@ -100,7 +100,7 @@ export const formatPhoneNumber = (phone: string) => {
 };
 
 // =============================================
-// ✅ STATUS HELPERS UNIFIÉS (VERSION UNIQUE)
+// STATUS HELPERS UNIFIÉS
 // =============================================
 
 export const getStatusColor = (status: string): string => {
@@ -180,7 +180,7 @@ export const getStatusLabel = (status: string): string => {
 };
 
 // =============================================
-// ✅ VISITE DISPLAY HELPERS
+// VISITE DISPLAY HELPERS
 // =============================================
 
 export const getVisitDisplayName = (visit: Visit | null | undefined): string => {
@@ -242,7 +242,7 @@ export const getVisitDisplayAidant = (visit: Visit | null | undefined): string =
 };
 
 // =============================================
-// ✅ BROUILLON HELPERS (VISITES PONCTUELLES)
+// BROUILLON HELPERS (VISITES PONCTUELLES)
 // =============================================
 
 export const isVisitDraft = (visit: Visit | null | undefined): boolean => {
@@ -318,7 +318,7 @@ export const canPayVisitPonctual = (
 };
 
 // =============================================
-// ✅ COMMANDE HELPERS
+// COMMANDE HELPERS
 // =============================================
 
 export const isOrderPendingPayment = (order: any | null | undefined): boolean => {
@@ -339,9 +339,6 @@ export const requiresOrderPayment = (order: any | null | undefined): boolean => 
          (isOrderPonctual(order) && !order.is_paid);
 };
 
-/**
- * Vérifie si une commande a été payée (mode ponctuel)
- */
 export const isOrderPaid = (order: any | null | undefined): boolean => {
   if (!order) return false;
   return order.is_paid === true || 
@@ -349,9 +346,6 @@ export const isOrderPaid = (order: any | null | undefined): boolean => {
          order.metadata?.paid_at !== undefined;
 };
 
-/**
- * Récupère le montant d'une commande ponctuelle
- */
 export const getOrderPaymentAmount = (order: any | null | undefined): number => {
   if (!order) return 0;
   if (order.metadata?.payment_amount) {
@@ -364,7 +358,7 @@ export const getOrderPaymentAmount = (order: any | null | undefined): number => 
 };
 
 // =============================================
-// ✅ VISITE STATUS HELPERS
+// VISITE STATUS HELPERS
 // =============================================
 
 export const isVisitCompleted = (visit: Visit | null | undefined): boolean => {
@@ -397,20 +391,13 @@ export const canApproveVisit = (visit: Visit | null | undefined): boolean => {
   return visit.status === 'planifiee';
 };
 
-/**
- * Vérifie si une visite utilise un abonnement
- */
 export const isVisitUsingSubscription = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
-  // ✅ Vérifier dans metadata car subscription_id peut être dans metadata
   return visit.metadata?.subscription_id !== null && 
          visit.metadata?.subscription_id !== undefined && 
          visit.metadata?.subscription_used === true;
 };
 
-/**
- * Vérifie si une visite est en mode ponctuel
- */
 export const isVisitPonctualMode = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.metadata?.ponctual_mode === true || 
@@ -418,7 +405,32 @@ export const isVisitPonctualMode = (visit: Visit | null | undefined): boolean =>
 };
 
 // =============================================
-// ✅ SOFT DELETE (avec import correct)
+// ABONNEMENT HELPERS
+// =============================================
+
+export const isSubscriptionActive = (subscription: any | null | undefined): boolean => {
+  if (!subscription) return false;
+  if (subscription.status !== 'actif') return false;
+  
+  const today = new Date();
+  const endDate = new Date(subscription.end_date);
+  return endDate >= today;
+};
+
+export const hasAvailableVisits = (subscription: any | null | undefined): boolean => {
+  if (!subscription) return false;
+  if (!isSubscriptionActive(subscription)) return false;
+  return (subscription.remaining_visits || 0) > 0;
+};
+
+export const hasAvailableOrders = (subscription: any | null | undefined): boolean => {
+  if (!subscription) return false;
+  if (!isSubscriptionActive(subscription)) return false;
+  return (subscription.remaining_orders || 0) > 0;
+};
+
+// =============================================
+// SOFT DELETE
 // =============================================
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -447,40 +459,6 @@ export const softDeleteVisit = async (visitId: string): Promise<boolean> => {
     toast.error('Erreur lors de la suppression');
     return false;
   }
-};
-
-// =============================================
-// ✅ ABONNEMENT HELPERS
-// =============================================
-
-/**
- * Vérifie si un abonnement est actif
- */
-export const isSubscriptionActive = (subscription: any | null | undefined): boolean => {
-  if (!subscription) return false;
-  if (subscription.status !== 'actif') return false;
-  
-  const today = new Date();
-  const endDate = new Date(subscription.end_date);
-  return endDate >= today;
-};
-
-/**
- * Vérifie si un abonnement a des visites disponibles
- */
-export const hasAvailableVisits = (subscription: any | null | undefined): boolean => {
-  if (!subscription) return false;
-  if (!isSubscriptionActive(subscription)) return false;
-  return (subscription.remaining_visits || 0) > 0;
-};
-
-/**
- * Vérifie si un abonnement a des commandes disponibles
- */
-export const hasAvailableOrders = (subscription: any | null | undefined): boolean => {
-  if (!subscription) return false;
-  if (!isSubscriptionActive(subscription)) return false;
-  return (subscription.remaining_orders || 0) > 0;
 };
 
 // =============================================
