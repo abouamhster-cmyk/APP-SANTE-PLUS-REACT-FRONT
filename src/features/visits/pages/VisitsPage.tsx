@@ -11,28 +11,20 @@ import {
   CheckCircle,
   UserPlus,
   Sparkles,
-  Clock,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
+import { usePonctualPayment } from '@/hooks/usePonctualPayment';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
-import { VisitPaymentModal } from '../components/VisitPaymentModal';
+import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import { AssignAidantModal } from '@/components/common/AssignAidantModal';
-
-// ✅ IMPORTER LES HELPERS
-import {
-  getPonctualPrice,
-  getVisitStatusForCreation,
-  requiresPonctualPayment,
-} from '@/lib/constants';
-import { getStatusColor, getStatusLabel } from '@/utils/helpers';
-
+import { getPonctualPrice } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -66,14 +58,25 @@ const VisitsPage = () => {
     singular,
   } = useTerminology();
 
+  // ✅ Hook de paiement ponctuel unifié
+  const {
+    isPaymentModalOpen,
+    pendingPaymentData,
+    payVisitPonctual,
+    handlePaymentSuccess,
+    handlePaymentCancel,
+  } = usePonctualPayment({
+    onSuccess: () => {
+      fetchVisits();
+      toast.success('Visite planifiée après paiement !');
+    },
+    redirectPath: '/app/visits',
+  });
+
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-
-  // ✅ États pour le paiement
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [pendingVisit, setPendingVisit] = useState<any>(null);
 
   // ✅ États pour la conversion
   const [isConverting, setIsConverting] = useState(false);
@@ -236,11 +239,24 @@ const VisitsPage = () => {
   };
 
   // =============================================
-  // ✅ PAIEMENT PONCTUEL
+  // ✅ PAIEMENT PONCTUEL - AVEC LE HOOK UNIFIÉ
   // =============================================
   const handlePonctualPayment = (visit: any) => {
-    setPendingVisit(visit);
-    setShowPaymentModal(true);
+    const patientName = visit.patient 
+      ? `${visit.patient.first_name} ${visit.patient.last_name}` 
+      : visit.target_name || 'Personnel';
+
+    payVisitPonctual({
+      visitId: visit.id,
+      scheduledDate: visit.scheduled_date,
+      scheduledTime: visit.scheduled_time,
+      durationMinutes: visit.duration_minutes || 60,
+      patientName: patientName,
+      patientId: visit.patient_id || null,
+      targetType: visit.target_type || 'personal',
+      targetName: visit.target_name || 'Personnel',
+      address: visit.patient?.address || 'Adresse non spécifiée',
+    });
   };
 
   // =============================================
@@ -278,26 +294,11 @@ const VisitsPage = () => {
     setIsModalOpen(false);
 
     if (newVisit && newVisit.metadata?.requires_payment) {
-      setPendingVisit(newVisit);
-      setShowPaymentModal(true);
-      const price = getPonctualPrice(newVisit.duration_minutes || 60);
-      toast(`💳 Paiement de ${price.toLocaleString()} FCFA requis pour planifier la visite`, { 
-        icon: '💳', 
-        duration: 5000 
-      });
+      // ✅ Utiliser le hook unifié pour le paiement
+      handlePonctualPayment(newVisit);
     } else {
       toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
     }
-  };
-
-  // =============================================
-  // ✅ SUCCÈS DU PAIEMENT
-  // =============================================
-  const handlePaymentSuccess = async () => {
-    setShowPaymentModal(false);
-    setPendingVisit(null);
-    await fetchVisits();
-    toast.success('Visite planifiée après paiement !');
   };
 
   // =============================================
@@ -616,17 +617,15 @@ const VisitsPage = () => {
       />
 
       {/* ============================================================
-      MODAL DE PAIEMENT
+      MODAL DE PAIEMENT PONCTUEL UNIFIÉ
       ============================================================ */}
-      {showPaymentModal && pendingVisit && (
-        <VisitPaymentModal
-          isOpen={showPaymentModal}
-          onClose={() => {
-            setShowPaymentModal(false);
-            setPendingVisit(null);
-          }}
-          visit={pendingVisit}
+      {isPaymentModalOpen && pendingPaymentData && (
+        <PonctualPaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={handlePaymentCancel}
           onSuccess={handlePaymentSuccess}
+          paymentData={pendingPaymentData}
+          redirectPath="/app/visits"
         />
       )}
 
