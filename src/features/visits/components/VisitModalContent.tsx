@@ -1,7 +1,22 @@
-// 📁 src/features/visits/components/VisitModalContent.tsx
+// 📁 frontend/src/features/visits/components/VisitModalContent.tsx
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, Sparkles, CheckCircle } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  User,
+  UserCircle,
+  Users,
+  Search,
+  AlertCircle,
+  CreditCard,
+  Sparkles,
+  CheckCircle,
+  Loader2,
+  Zap,
+  UserPlus,
+} from 'lucide-react';
+
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -10,13 +25,18 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { getThemeColors } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
+import { VisitWizardModal } from './VisitWizardModal';
 import toast from 'react-hot-toast';
+
+// ============================================================
+// TYPES
+// ============================================================
 
 interface VisitModalContentProps {
   mode: 'create' | 'edit';
   visit: Visit | null;
   patients: Patient[];
-  onSuccess: () => void;
+  onSuccess: (newVisit?: any) => void;
   onCancel: () => void;
 }
 
@@ -34,6 +54,10 @@ interface Account {
   type: 'account_with_patients' | 'personal_account';
 }
 
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+
 export const VisitModalContent = ({
   mode,
   visit,
@@ -42,8 +66,8 @@ export const VisitModalContent = ({
   onCancel,
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
-  const { profile, role } = useAuthStore();
-  
+  const { profile, role, user } = useAuthStore();
+
   // ✅ Utiliser le guard d'abonnement
   const {
     hasActiveSubscription,
@@ -74,6 +98,12 @@ export const VisitModalContent = ({
   const [targetType, setTargetType] = useState<'account' | 'patient'>('account');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
+  // ✅ ÉTATS POUR LE WIZARD
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardData, setWizardData] = useState<any>(null);
+  const [isWizardLoading, setIsWizardLoading] = useState(false);
+  const [pendingVisitData, setPendingVisitData] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     patient_id: '',
     scheduled_date: '',
@@ -90,7 +120,7 @@ export const VisitModalContent = ({
   // ✅ Message d'information sur l'abonnement
   const subscriptionMessage = (() => {
     if (isAidant || isAdmin) return null;
-    
+
     if (hasActiveSubscription && remainingVisits > 0) {
       return {
         type: 'success',
@@ -98,7 +128,7 @@ export const VisitModalContent = ({
         text: `✅ ${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} disponible${remainingVisits > 1 ? 's' : ''} sur votre abonnement`,
       };
     }
-    
+
     if (hasActiveSubscription && remainingVisits === 0) {
       return {
         type: 'warning',
@@ -106,7 +136,7 @@ export const VisitModalContent = ({
         text: '⚠️ Plus de visites disponibles sur votre abonnement. Passez en mode ponctuel ou renouvelez.',
       };
     }
-    
+
     return {
       type: 'info',
       icon: <CreditCard size={14} />,
@@ -182,12 +212,11 @@ export const VisitModalContent = ({
         notes: '',
         is_urgent: false,
       });
-      
+
       if (isAdmin && accounts.length > 0) {
         setSelectedAccountId(accounts[0].id);
         setTargetType('account');
-      } 
-      else if (!isAdmin && profile?.id) {
+      } else if (!isAdmin && profile?.id) {
         setSelectedAccountId(profile.id);
         setTargetType('account');
       } else {
@@ -203,6 +232,55 @@ export const VisitModalContent = ({
     account.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     account.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // ============================================================
+  // ✅ GESTION DU WIZARD
+  // ============================================================
+
+  const handleWizardSuccess = async (wizardResult: any) => {
+    setIsWizardLoading(true);
+    setShowWizard(false);
+
+    try {
+      // ✅ Préparer les données avec le choix du wizard
+      const visitPayload = {
+        ...pendingVisitData,
+        wizard_choice: wizardResult.wizardChoice,
+        selected_aidant_id: wizardResult.aidantId,
+        assignment_type: wizardResult.assignmentType || 'ponctuelle',
+      };
+
+      // ✅ Créer la visite via le store
+      const result = await createVisit(visitPayload);
+
+      // ✅ Vérifier le résultat
+      if (result?.status === 'en_attente_aidant') {
+        toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
+        onSuccess(result);
+      } else if (result?.status === 'brouillon') {
+        // ✅ Paiement requis → on laisse le composant parent gérer
+        onSuccess(result);
+      } else {
+        toast.success('Visite planifiée avec succès !');
+        onSuccess(result);
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur création visite avec wizard:', error);
+      toast.error(error.message || 'Erreur lors de la création de la visite');
+    } finally {
+      setIsWizardLoading(false);
+      setPendingVisitData(null);
+    }
+  };
+
+  const handleWizardClose = () => {
+    setShowWizard(false);
+    setPendingVisitData(null);
+  };
+
+  // ============================================================
+  // ✅ SOUMISSION DU FORMULAIRE
+  // ============================================================
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -239,7 +317,7 @@ export const VisitModalContent = ({
           setIsLoading(false);
           return;
         }
-        
+
         if (isAdmin && selectedAccount) {
           const patientBelongsToAccount = selectedAccount.patients.some(p => p.id === formData.patient_id);
           if (!patientBelongsToAccount) {
@@ -277,9 +355,7 @@ export const VisitModalContent = ({
       }
 
       // ✅ DÉTERMINER SI PAIEMENT REQUIS (BACKEND LE FERA AUSSI)
-      // On ajoute un flag pour que le backend sache si on veut forcer le mode ponctuel
       if (isFamilyUser && !can('visit')) {
-        // ✅ Pas d'abonnement ou plus de visites → mode ponctuel
         data.is_ponctual = true;
         data.requires_payment = true;
         console.log('💳 Mode ponctuel activé pour cette visite');
@@ -288,20 +364,46 @@ export const VisitModalContent = ({
       console.log('📤 Données envoyées:', data);
 
       if (mode === 'create') {
+        // ✅ Tenter de créer la visite
         const result = await createVisit(data);
-        
-        // ✅ Si la visite est en brouillon (paiement requis), afficher un message
+
+        // ✅ Si le backend demande le wizard
+        if (result?.requires_wizard) {
+          // ✅ Ouvrir le wizard avec les données
+          const targetTypeForWizard = data.patient_id ? 'patient' : 'personal_account';
+          const targetIdForWizard = data.patient_id || data.target_user_id || user?.id;
+
+          setPendingVisitData(data);
+          setWizardData({
+            targetType: targetTypeForWizard,
+            targetId: targetIdForWizard,
+            targetName: data.target_name || 'Personnel',
+            familyId: data.target_user_id || user?.id,
+            scheduledDate: data.scheduled_date,
+            scheduledTime: data.scheduled_time,
+          });
+          setShowWizard(true);
+          setIsLoading(false);
+          return;
+        }
+
+        // ✅ Si la visite est en brouillon (paiement requis)
         if (result?.status === 'brouillon') {
           const price = getPonctualPrice(formData.duration_minutes || 60);
           toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
+          onSuccess(result);
+        } else if (result?.status === 'en_attente_aidant') {
+          toast.success('🦸 Visite créée en attente d\'aidant. L\'administration a été notifiée.');
+          onSuccess(result);
         } else {
           toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
+          onSuccess(result);
         }
       } else if (visit) {
         await updateVisit(visit.id, data);
         toast.success('Visite mise à jour');
+        onSuccess();
       }
-      onSuccess();
     } catch (error: any) {
       console.error('❌ Erreur visite:', error);
       toast.error(error?.message || 'Erreur lors de l\'enregistrement');
@@ -310,7 +412,10 @@ export const VisitModalContent = ({
     }
   };
 
-  // ✅ RENDU DES SÉLECTEURS (inchangé)
+  // ============================================================
+  // RENDU DES SÉLECTEURS
+  // ============================================================
+
   const renderAccountSelector = () => {
     if (!isAdmin) return null;
 
@@ -338,8 +443,8 @@ export const VisitModalContent = ({
           </button>
 
           {showAccountSelector && (
-            <div 
-              className="absolute z-30 mt-1 left-0 right-0 w-full bg-white rounded-xl border shadow-lg max-h-60 overflow-y-auto" 
+            <div
+              className="absolute z-30 mt-1 left-0 right-0 w-full bg-white rounded-xl border shadow-lg max-h-60 overflow-y-auto"
               style={{ borderColor: colors.border }}
             >
               <div className="p-2 sticky top-0 bg-white border-b" style={{ borderColor: colors.border }}>
@@ -380,8 +485,8 @@ export const VisitModalContent = ({
                         {account.full_name}
                       </p>
                       <p className="text-[10px] text-gray-400 truncate mt-0.5">
-                        {account.has_patient 
-                          ? `👨‍👩‍👦 ${account.patients.length} proche(s)` 
+                        {account.has_patient
+                          ? `👨‍👩‍👦 ${account.patients.length} proche(s)`
                           : '👤 Compte personnel'}
                         {account.patient_category === 'maman_bebe' && ' 👶'}
                       </p>
@@ -466,8 +571,8 @@ export const VisitModalContent = ({
   const renderPatientSelector = () => {
     if (targetType !== 'patient') return null;
 
-    const patientList = isAdmin && selectedAccount?.has_patient 
-      ? accountPatients 
+    const patientList = isAdmin && selectedAccount?.has_patient
+      ? accountPatients
       : patients;
 
     if (patientList.length === 0) {
@@ -561,8 +666,8 @@ export const VisitModalContent = ({
             {targetName}
           </p>
           <p className="text-[10px] text-gray-400 mt-0.5">
-            {isAccount 
-              ? `👤 Planification pour le titulaire principal de ${selectedAccount.full_name}.` 
+            {isAccount
+              ? `👤 Planification pour le titulaire principal de ${selectedAccount.full_name}.`
               : `👨‍👩‍👦 Planification pour un membre du compte de ${selectedAccount.full_name}.`}
           </p>
           {!isAccount && accountPatients.length > 0 && (
@@ -643,13 +748,31 @@ export const VisitModalContent = ({
     );
   };
 
-  // =============================================
-  // ✅ RENDU AVEC BANDEAU D'ABONNEMENT
-  // =============================================
+  // ============================================================
+  // RENDU PRINCIPAL
+  // ============================================================
+
+  // Si le wizard est ouvert
+  if (showWizard && wizardData) {
+    return (
+      <VisitWizardModal
+        isOpen={showWizard}
+        onClose={handleWizardClose}
+        onSuccess={handleWizardSuccess}
+        targetType={wizardData.targetType}
+        targetId={wizardData.targetId}
+        targetName={wizardData.targetName}
+        familyId={wizardData.familyId}
+        scheduledDate={wizardData.scheduledDate}
+        scheduledTime={wizardData.scheduledTime}
+        colors={colors}
+      />
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full overflow-hidden">
-      
+
       {/* 🔹 ADMIN : Sélection de compte */}
       {isAdmin && renderAccountSelector()}
 
@@ -669,7 +792,7 @@ export const VisitModalContent = ({
       ✅ BANDEAU D'INFORMATION ABONNEMENT (FAMILLE UNIQUEMENT)
       ============================================================ */}
       {isFamilyUser && subscriptionMessage && (
-        <div 
+        <div
           className={`p-3 rounded-xl flex items-start gap-2.5 border ${
             subscriptionMessage.type === 'success' ? 'bg-green-50 border-green-200' :
             subscriptionMessage.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
@@ -833,10 +956,10 @@ export const VisitModalContent = ({
           type="submit"
           className="flex-1 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold transition hover:opacity-90 flex items-center justify-center disabled:opacity-55"
           style={{ background: colors.primary }}
-          disabled={isLoading || (targetType === 'patient' && !formData.patient_id)}
+          disabled={isLoading || (targetType === 'patient' && !formData.patient_id) || isWizardLoading}
         >
           {isLoading ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <Loader2 size={16} className="animate-spin" />
           ) : (
             mode === 'create' ? 'Planifier' : 'Mettre à jour'
           )}
