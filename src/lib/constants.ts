@@ -1,5 +1,5 @@
 // 📁 src/lib/constants.ts
- 
+
 import { Offer, OfferCategory } from '@/types';
 
 export const APP_NAME = 'Santé Plus Services';
@@ -163,6 +163,44 @@ export const getPonctualOrderPrice = (items?: Array<{ quantity: number; price: n
 };
 
 // =============================================
+// ✅ PRIX DES COMMANDES PONCTUELLES PAR TYPE
+// =============================================
+
+/**
+ * Grille tarifaire des commandes ponctuelles par type
+ * Utilisée par le frontend ET le backend
+ */
+export const ORDER_PONCTUAL_PRICES: Record<string, number> = {
+  medicaments: 5000,
+  produits_bebe: 5000,
+  produits_hygiene: 4000,
+  courses: 3000,
+  repas: 4000,
+  autre: 5000,
+};
+
+export const DEFAULT_ORDER_PRICE = 2500;
+
+/**
+ * Calcule le prix d'une commande ponctuelle par type
+ * @param type - Type de commande
+ * @param items - Liste des articles (optionnel)
+ * @returns Prix en FCFA
+ */
+export const getPonctualOrderPriceByType = (
+  type: string = 'autre',
+  items?: Array<{ quantity: number; price: number }>
+): number => {
+  // Si des articles sont fournis, calculer le total
+  if (items && items.length > 0) {
+    const total = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+    if (total > 0) return total;
+  }
+  // Sinon, prix forfaitaire selon le type
+  return ORDER_PONCTUAL_PRICES[type] || DEFAULT_ORDER_PRICE;
+};
+
+// =============================================
 // GET LOGO BY THEME
 // =============================================
 
@@ -226,6 +264,33 @@ export const getOrderStatusForCreation = (
   return 'attente_paiement';
 };
 
+/**
+ * Vérifie si une commande est en attente de paiement
+ */
+export const isOrderPendingPayment = (order: any): boolean => {
+  if (!order) return false;
+  return order.status === 'attente_paiement';
+};
+
+/**
+ * Vérifie si une commande est ponctuelle
+ */
+export const isOrderPonctual = (order: any): boolean => {
+  if (!order) return false;
+  return order.order_type === 'ponctual' || 
+         order.is_ponctual === true || 
+         order.metadata?.ponctual_mode === true;
+};
+
+/**
+ * Vérifie si une commande nécessite un paiement
+ */
+export const requiresOrderPayment = (order: any): boolean => {
+  if (!order) return false;
+  return isOrderPendingPayment(order) || 
+         (isOrderPonctual(order) && !order.is_paid);
+};
+
 // =============================================
 // EXPORT PAR DÉFAUT
 // =============================================
@@ -244,8 +309,14 @@ export default {
   DEFAULT_VISIT_PRICE,
   getPonctualPrice,
   getPonctualOrderPrice,
+  getPonctualOrderPriceByType,
+  ORDER_PONCTUAL_PRICES,
+  DEFAULT_ORDER_PRICE,
   getLogoByTheme,
   requiresPonctualPayment,
   getVisitStatusForCreation,
   getOrderStatusForCreation,
+  isOrderPendingPayment,
+  isOrderPonctual,
+  requiresOrderPayment,
 };
