@@ -1,324 +1,614 @@
-// 📁 src/components/visits/VisitCard.tsx
- 
+// 📁 frontend/src/components/visits/VisitCard.tsx
 
-import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, AlertCircle, UserCheck, Users, Clock as ClockIcon, CreditCard, UserPlus } from 'lucide-react';
+import { memo, useMemo, useCallback } from 'react';
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  User,
+  Play,
+  CheckCircle,
+  XCircle,
+  Eye,
+  AlertCircle,
+  UserCheck,
+  Users,
+  Clock as ClockIcon,
+  CreditCard,
+  Package,
+  Phone,
+  Home,
+  UserPlus,
+  Zap,
+  Shield,
+  Loader2,
+} from 'lucide-react';
+
 import { Visit } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
-import { formatDate } from '@/utils/helpers';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { formatDate, formatTime, cn } from '@/utils/helpers';
 
-// ✅ IMPORTER LES HELPERS
-import {
-  isVisitDraft,
-  isVisitPonctual,
-  requiresVisitPayment,
-  getVisitPaymentAmount,
-  getDraftExpiryTime,
-  isDraftExpired,
-  canConvertDraftToSubscription,
-  canPayVisitPonctual,
-} from '@/utils/helpers';
+// ============================================================
+// TYPES
+// ============================================================
 
-// ✅ INTERFACE AVEC TOUTES LES PROPS
 interface VisitCardProps {
   visit: Visit;
+  onClick?: () => void;
   onStart?: () => void;
   onComplete?: () => void;
   onCancel?: () => void;
   onView?: () => void;
-  onClick?: () => void;
   onApprove?: () => void;
   onRefuse?: () => void;
-  onConvertToSubscription?: () => void;  
-  onPonctualPayment?: () => void;        
-  onShowAssignAidantModal?: (visit: Visit) => void;
+  onConvertToSubscription?: () => void;
+  onPonctualPayment?: () => void;
+  onShowAssignAidantModal?: () => void;
+  onReassign?: () => void;
   showActions?: boolean;
   compact?: boolean;
+  colors?: any;
 }
 
-export const VisitCard = ({ 
-  visit, 
-  onStart, 
-  onComplete, 
-  onCancel, 
-  onView,
+// ============================================================
+// CONFIGURATION DES STATUTS
+// ============================================================
+
+const STATUS_CONFIG: Record<string, {
+  label: string;
+  color: string;
+  bg: string;
+  icon: React.ReactNode;
+  progress: number;
+  nextActions?: string[];
+  isFinal?: boolean;
+}> = {
+  planifiee: {
+    label: 'Planifiée',
+    color: '#4CAF50',
+    bg: '#4CAF5015',
+    icon: <Calendar size={12} />,
+    progress: 20,
+    nextActions: ['Approuver', 'Refuser', 'Annuler'],
+  },
+  en_attente: {
+    label: 'En attente',
+    color: '#FF9800',
+    bg: '#FF980015',
+    icon: <ClockIcon size={12} />,
+    progress: 15,
+    nextActions: ['Approuver', 'Refuser', 'Annuler'],
+  },
+  acceptee: {
+    label: 'Acceptée',
+    color: '#2196F3',
+    bg: '#2196F315',
+    icon: <CheckCircle size={12} />,
+    progress: 40,
+    nextActions: ['Démarrer', 'Annuler'],
+  },
+  en_cours: {
+    label: 'En cours',
+    color: '#2196F3',
+    bg: '#2196F315',
+    icon: <Play size={12} />,
+    progress: 60,
+    nextActions: ['Terminer'],
+  },
+  terminee: {
+    label: 'Terminée',
+    color: '#9C27B0',
+    bg: '#9C27B015',
+    icon: <CheckCircle size={12} />,
+    progress: 80,
+    nextActions: ['Valider', 'Refuser'],
+  },
+  validee: {
+    label: 'Validée',
+    color: '#4CAF50',
+    bg: '#4CAF5015',
+    icon: <CheckCircle size={12} />,
+    progress: 100,
+    isFinal: true,
+    nextActions: [],
+  },
+  annulee: {
+    label: 'Annulée',
+    color: '#F44336',
+    bg: '#F4433615',
+    icon: <XCircle size={12} />,
+    progress: 0,
+    isFinal: true,
+    nextActions: [],
+  },
+  refusee: {
+    label: 'Refusée',
+    color: '#F44336',
+    bg: '#F4433615',
+    icon: <XCircle size={12} />,
+    progress: 0,
+    isFinal: true,
+    nextActions: ['Réassigner'],
+  },
+  expire: {
+    label: 'Expirée',
+    color: '#795548',
+    bg: '#79554815',
+    icon: <AlertCircle size={12} />,
+    progress: 0,
+    isFinal: true,
+    nextActions: ['Réassigner'],
+  },
+  replanifiee: {
+    label: 'Replanifiée',
+    color: '#FF5722',
+    bg: '#FF572215',
+    icon: <Calendar size={12} />,
+    progress: 20,
+    nextActions: ['Approuver', 'Refuser'],
+  },
+  no_show: {
+    label: 'Absent',
+    color: '#795548',
+    bg: '#79554815',
+    icon: <XCircle size={12} />,
+    progress: 0,
+    isFinal: true,
+    nextActions: ['Réassigner'],
+  },
+  // ✅ NOUVEAUX STATUTS
+  attente_paiement: {
+    label: '💳 En attente paiement',
+    color: '#8b5cf6',
+    bg: '#8b5cf615',
+    icon: <CreditCard size={12} />,
+    progress: 5,
+    nextActions: ['Payer'],
+  },
+  brouillon: {
+    label: '💳 Paiement requis',
+    color: '#F59E0B',
+    bg: '#F59E0B15',
+    icon: <CreditCard size={12} />,
+    progress: 5,
+    nextActions: ['Payer', 'Convertir', 'Annuler'],
+  },
+  en_attente_aidant: {
+    label: '🦸 En attente aidant',
+    color: '#FF5722',
+    bg: '#FF572215',
+    icon: <UserPlus size={12} />,
+    progress: 10,
+    nextActions: ['Assigner', 'Annuler'],
+  },
+};
+
+const getStatusConfig = (status: string) => {
+  return STATUS_CONFIG[status] || STATUS_CONFIG['planifiee'];
+};
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+
+export const VisitCard = memo(({
+  visit,
   onClick,
+  onStart,
+  onComplete,
+  onCancel,
+  onView,
   onApprove,
   onRefuse,
-  onConvertToSubscription,  
+  onConvertToSubscription,
   onPonctualPayment,
-  onShowAssignAidantModal,         
+  onShowAssignAidantModal,
+  onReassign,
   showActions = false,
-  compact = false 
+  compact = false,
+  colors: propColors,
 }: VisitCardProps) => {
-  const colors = getThemeColors('senior');
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-  const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
+  const colors = propColors || getThemeColors('senior');
 
-  // ✅ FONCTION POUR OBTENIR LE NOM DE L'AIDANT
-  const getAidantName = () => {
+  // ============================================================
+  // CALCULS MEMOISÉS
+  // ============================================================
+
+  const statusConfig = useMemo(() => getStatusConfig(visit.status), [visit.status]);
+
+  const isPendingApproval = useMemo(() => {
+    return visit.status === 'planifiee' || visit.status === 'en_attente';
+  }, [visit.status]);
+
+  const isAccepted = useMemo(() => visit.status === 'acceptee', [visit.status]);
+  const isInProgress = useMemo(() => visit.status === 'en_cours', [visit.status]);
+  const isCompleted = useMemo(() => visit.status === 'terminee', [visit.status]);
+  const isExpired = useMemo(() => visit.status === 'expire', [visit.status]);
+  const isRefused = useMemo(() => visit.status === 'refusee', [visit.status]);
+  const isDraft = useMemo(() => visit.status === 'brouillon', [visit.status]);
+  const isWaitingAidant = useMemo(() => visit.status === 'en_attente_aidant', [visit.status]);
+  const isPendingPayment = useMemo(() => visit.status === 'attente_paiement', [visit.status]);
+  const isUrgent = useMemo(() => visit.is_urgent === true, [visit.is_urgent]);
+
+  const isPonctual = useMemo(() => {
+    return visit.metadata?.is_ponctual === true ||
+           visit.metadata?.ponctual_mode === true ||
+           visit.visit_type === 'ponctuelle';
+  }, [visit]);
+
+  const requiresPayment = useMemo(() => {
+    return isDraft && visit.metadata?.requires_payment === true;
+  }, [isDraft, visit]);
+
+  const canConvertToSubscription = useMemo(() => {
+    return isDraft && visit.metadata?.requires_payment === true;
+  }, [isDraft, visit]);
+
+  // ✅ Nom du patient
+  const patientName = useMemo(() => {
+    if (visit.patient) {
+      return `${visit.patient.first_name} ${visit.patient.last_name}`;
+    }
+    return visit.target_name || 'Patient';
+  }, [visit]);
+
+  // ✅ Nom de l'aidant
+  const aidantName = useMemo(() => {
     if (visit.aidant?.user?.full_name) {
       return visit.aidant.user.full_name;
     }
+    if (visit.aidant?.full_name) {
+      return visit.aidant.full_name;
+    }
     return 'Non assigné';
-  };
+  }, [visit]);
 
-  // ✅ UTILISATION DES HELPERS
-  const isDraft = isVisitDraft(visit);
-  const isPonctual = isVisitPonctual(visit);
-  const requiresPayment = requiresVisitPayment(visit);
-  const paymentAmount = getVisitPaymentAmount(visit);
-  const draftExpiry = getDraftExpiryTime(visit);
-  const isExpiredDraft = isDraftExpired(visit);
-  const canConvert = canConvertDraftToSubscription(visit, hasActiveSubscription, remainingVisits);
-  const canPay = canPayVisitPonctual(visit);
+  // ✅ Adresse
+  const address = useMemo(() => {
+    return visit.patient?.address || 'Adresse non renseignée';
+  }, [visit]);
 
-  // ✅ Déterminer si l'aidant peut être assigné
-  const canAssignAidant = (isAdminOrCoordinator || isAidant) && 
-    (visit.status === 'expire' || visit.status === 'refusee' || 
-     ((visit.status === 'planifiee' || visit.status === 'en_attente') && !visit.aidant_id));
+  // ✅ Catégorie
+  const category = useMemo(() => {
+    if (visit.patient?.category === 'maman_bebe') return '👶 Maman & Bébé';
+    if (visit.patient?.category === 'senior') return '👴 Senior';
+    if (visit.target_type === 'personal') return '👤 Personnel';
+    return 'Non spécifié';
+  }, [visit]);
 
-  // ✅ NOUVEAUX STATUTS AVEC BROUILLON
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'planifiee': return '#4CAF50';
-      case 'en_attente': return '#FF9800';
-      case 'acceptee': return '#2196F3';
-      case 'en_cours': return '#2196F3';
-      case 'terminee': return '#9C27B0';
-      case 'validee': return '#4CAF50';
-      case 'annulee': return '#F44336';
-      case 'refusee': return '#F44336';
-      case 'expire': return '#795548';
-      case 'replanifiee': return '#FF5722';
-      case 'no_show': return '#795548';
-      case 'brouillon': return '#F59E0B'; // ✅ Couleur orange
-      default: return '#9E9E9E';
-    }
-  };
+  // ✅ Durée
+  const duration = useMemo(() => {
+    return visit.duration_minutes || 60;
+  }, [visit]);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'planifiee': return 'Planifiée';
-      case 'en_attente': return 'En attente';
-      case 'acceptee': return 'Acceptée';
-      case 'en_cours': return 'En cours';
-      case 'terminee': return 'Terminée';
-      case 'validee': return 'Validée';
-      case 'annulee': return 'Annulée';
-      case 'refusee': return 'Refusée';
-      case 'expire': return 'Expirée';
-      case 'replanifiee': return 'Replanifiée';
-      case 'no_show': return 'Absent';
-      case 'brouillon': return '💳 En attente paiement'; // ✅ Libellé clair
-      default: return status;
-    }
-  };
+  // ✅ Expiration du brouillon
+  const draftExpiry = useMemo(() => {
+    if (!isDraft || !visit.draft_expires_at) return null;
+    const expiry = new Date(visit.draft_expires_at);
+    const now = new Date();
+    const diff = expiry.getTime() - now.getTime();
+    if (diff <= 0) return 'Expiré';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) return `${hours}h ${minutes}min`;
+    return `${minutes}min`;
+  }, [isDraft, visit]);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'planifiee': return <Calendar size={12} />;
-      case 'en_attente': return <ClockIcon size={12} />;
-      case 'acceptee': return <CheckCircle size={12} />;
-      case 'en_cours': return <Play size={12} />;
-      case 'terminee': return <CheckCircle size={12} />;
-      case 'validee': return <CheckCircle size={12} />;
-      case 'annulee': return <XCircle size={12} />;
-      case 'refusee': return <XCircle size={12} />;
-      case 'expire': return <AlertCircle size={12} />;
-      case 'brouillon': return <CreditCard size={12} />; // ✅ Icône crédit
-      default: return <ClockIcon size={12} />;
-    }
-  };
+  // ✅ Montant du paiement
+  const paymentAmount = useMemo(() => {
+    if (visit.metadata?.payment_amount) return visit.metadata.payment_amount;
+    if (visit.payment_amount) return visit.payment_amount;
+    return 7500; // Prix par défaut
+  }, [visit]);
 
-  const isPendingApproval = visit.status === 'planifiee' || visit.status === 'en_attente';
-  const isAccepted = visit.status === 'acceptee';
-  const isInProgress = visit.status === 'en_cours';
-  const isExpired = visit.status === 'expire';
-  const isRefused = visit.status === 'refusee';
-  const isCompleted = visit.status === 'terminee' || visit.status === 'validee';
+  // ✅ Barre de progression
+  const progress = useMemo(() => {
+    return statusConfig.progress || 0;
+  }, [statusConfig]);
 
-  // ✅ Version compacte
+  // ✅ Actions disponibles
+  const canStart = useMemo(() => {
+    return isAccepted && (isAidant || isAdminOrCoordinator);
+  }, [isAccepted, isAidant, isAdminOrCoordinator]);
+
+  const canComplete = useMemo(() => {
+    return isInProgress && isAidant;
+  }, [isInProgress, isAidant]);
+
+  const canCancel = useMemo(() => {
+    return (isPendingApproval || isAccepted || isDraft || isWaitingAidant) &&
+           (isAdminOrCoordinator || isFamily);
+  }, [isPendingApproval, isAccepted, isDraft, isWaitingAidant, isAdminOrCoordinator, isFamily]);
+
+  const canApprove = useMemo(() => {
+    return isPendingApproval && isAidant;
+  }, [isPendingApproval, isAidant]);
+
+  const canRefuse = useMemo(() => {
+    return isPendingApproval && isAidant;
+  }, [isPendingApproval, isAidant]);
+
+  const canPay = useMemo(() => {
+    return (isDraft || isPendingPayment) && isFamily && requiresPayment;
+  }, [isDraft, isPendingPayment, isFamily, requiresPayment]);
+
+  const canAssignAidant = useMemo(() => {
+    return isWaitingAidant && isAdminOrCoordinator;
+  }, [isWaitingAidant, isAdminOrCoordinator]);
+
+  const canReassign = useMemo(() => {
+    return (isExpired || isRefused) && isAdminOrCoordinator;
+  }, [isExpired, isRefused, isAdminOrCoordinator]);
+
+  // ============================================================
+  // HANDLERS
+  // ============================================================
+
+  const handleClick = useCallback(() => {
+    if (onClick) onClick();
+  }, [onClick]);
+
+  const handleApprove = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onApprove) onApprove();
+  }, [onApprove]);
+
+  const handleRefuse = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRefuse) onRefuse();
+  }, [onRefuse]);
+
+  const handleStart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onStart) onStart();
+  }, [onStart]);
+
+  const handleComplete = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onComplete) onComplete();
+  }, [onComplete]);
+
+  const handleCancel = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onCancel) onCancel();
+  }, [onCancel]);
+
+  const handleView = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onView) onView();
+  }, [onView]);
+
+  const handleConvertToSubscription = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onConvertToSubscription) onConvertToSubscription();
+  }, [onConvertToSubscription]);
+
+  const handlePonctualPayment = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onPonctualPayment) onPonctualPayment();
+  }, [onPonctualPayment]);
+
+  const handleAssignAidant = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onShowAssignAidantModal) onShowAssignAidantModal();
+  }, [onShowAssignAidantModal]);
+
+  const handleReassign = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onReassign) onReassign();
+  }, [onReassign]);
+
+  // ============================================================
+  // RENDU - VERSION COMPACTE
+  // ============================================================
+
   if (compact) {
     return (
-      <div 
-        className={`bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer ${
-          isDraft ? 'border-yellow-400' : ''
-        }`}
-        style={{ borderLeftColor: getStatusColor(visit.status) }}
-        onClick={onClick}
+      <div
+        onClick={handleClick}
+        className={cn(
+          "bg-white rounded-xl p-3 border-l-4 shadow-sm hover:shadow-md transition-all cursor-pointer",
+          isUrgent ? "animate-pulse-slow" : "",
+          isWaitingAidant ? "border-dashed" : ""
+        )}
+        style={{
+          borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
+          borderColor: isWaitingAidant ? '#FF572240' : 'transparent',
+        }}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
-                {visit.patient?.first_name} {visit.patient?.last_name}
+                {patientName}
               </p>
-              <span 
-                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5"
-                style={{ 
-                  background: getStatusColor(visit.status) + '20',
-                  color: getStatusColor(visit.status),
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 shrink-0"
+                style={{
+                  background: statusConfig.bg,
+                  color: statusConfig.color,
                 }}
               >
-                {getStatusIcon(visit.status)}
-                {getStatusLabel(visit.status)}
+                {statusConfig.icon}
+                {statusConfig.label}
               </span>
-              {visit.is_urgent && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5" style={{ background: '#F44336' + '15', color: '#F44336' }}>
+              {isUrgent && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-100 text-red-600 flex items-center gap-0.5 shrink-0 animate-pulse">
                   <AlertCircle size={10} />
                   Urgent
                 </span>
               )}
-              {isExpired && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-red-100 text-red-600">
-                  <AlertCircle size={10} />
-                  Expirée
+              {isWaitingAidant && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-600 flex items-center gap-0.5 shrink-0">
+                  <UserPlus size={10} />
+                  En attente aidant
                 </span>
               )}
               {isDraft && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-yellow-100 text-yellow-700 animate-pulse">
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-yellow-100 text-yellow-600 flex items-center gap-0.5 shrink-0">
                   <CreditCard size={10} />
-                  Paiement requis
-                </span>
-              )}
-              {isExpiredDraft && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-red-100 text-red-600">
-                  <AlertCircle size={10} />
-                  Expiré
+                  {requiresPayment ? `${paymentAmount.toLocaleString()} FCFA` : 'Brouillon'}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs mt-1" style={{ color: colors.text + '50' }}>
+
+            <div className="flex items-center gap-2 text-xs mt-1 text-gray-400 flex-wrap">
               <span className="flex items-center gap-0.5">
                 <Calendar size={11} />
                 {formatDate(visit.scheduled_date)}
               </span>
+              <span>•</span>
               <span className="flex items-center gap-0.5">
                 <Clock size={11} />
-                {visit.scheduled_time}
+                {visit.scheduled_time} ({duration} min)
               </span>
               {visit.aidant && (
-                <span className="flex items-center gap-0.5">
-                  <UserCheck size={11} />
-                  {getAidantName()}
-                </span>
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5">
+                    <UserCheck size={11} />
+                    {aidantName}
+                  </span>
+                </>
               )}
             </div>
-            {/* ✅ AFFICHAGE MONTANT ET EXPIRATION POUR BROUILLON */}
-            {isDraft && (
-              <div className="flex items-center gap-2 text-[10px] mt-0.5" style={{ color: colors.text + '50' }}>
-                <span className="text-yellow-600">💳 {paymentAmount.toLocaleString()} FCFA</span>
-                {draftExpiry && (
-                  <span className={`${isExpiredDraft ? 'text-red-500' : 'text-gray-400'}`}>
-                    • Expire dans {draftExpiry}
-                  </span>
-                )}
+
+            {/* ✅ Barre de progression */}
+            {!statusConfig.isFinal && progress > 0 && (
+              <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(progress, 100)}%`, background: statusConfig.color }}
+                />
               </div>
+            )}
+
+            {/* ✅ Expiration du brouillon */}
+            {isDraft && draftExpiry && (
+              <p className="text-[9px] text-yellow-600 mt-1 flex items-center gap-0.5">
+                <Clock size={10} />
+                Expire dans {draftExpiry}
+              </p>
             )}
           </div>
 
+          {/* ✅ Actions compactes */}
           <div className="flex items-center gap-1 shrink-0">
-            {/* ✅ BOUTON BROUILLON : Valider avec abonnement OU Payer */}
-            {showActions && isDraft && onConvertToSubscription && onPonctualPayment && (
-              canConvert ? (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onConvertToSubscription(); }}
-                  className="px-2 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
-                  style={{ background: '#10B981' }}
-                  title={`Valider avec l'abonnement (${remainingVisits} restantes)`}
-                >
-                  <CheckCircle size={12} />
-                  Valider
-                </button>
-              ) : (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onPonctualPayment(); }}
-                  className="px-2 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80 animate-pulse"
-                  style={{ background: '#F59E0B' }}
-                  title={`Payer ${paymentAmount} FCFA`}
-                >
-                  <CreditCard size={12} />
-                  Payer
-                </button>
-              )
-            )}
-
-            {/* ✅ AIDANT : Approuver/Refuser */}
-            {showActions && isPendingApproval && isAidant && (
+            {showActions && (
               <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
-                  className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                  style={{ background: '#4CAF50' }}
-                  title="Approuver"
-                >
-                  <CheckCircle size={14} />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
-                  className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                  style={{ background: '#F44336' }}
-                  title="Refuser"
-                >
-                  <XCircle size={14} />
-                </button>
+                {/* AIDANT : Approuver/Refuser */}
+                {canApprove && (
+                  <>
+                    <button
+                      onClick={handleApprove}
+                      className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                      style={{ background: '#4CAF50' }}
+                      title="Approuver"
+                    >
+                      <CheckCircle size={12} />
+                    </button>
+                    <button
+                      onClick={handleRefuse}
+                      className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                      style={{ background: '#F44336' }}
+                      title="Refuser"
+                    >
+                      <XCircle size={12} />
+                    </button>
+                  </>
+                )}
+
+                {/* AIDANT : Démarrer */}
+                {canStart && (
+                  <button
+                    onClick={handleStart}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#4CAF50' }}
+                    title="Démarrer"
+                  >
+                    <Play size={12} />
+                  </button>
+                )}
+
+                {/* AIDANT : Terminer */}
+                {canComplete && (
+                  <button
+                    onClick={handleComplete}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#2196F3' }}
+                    title="Terminer"
+                  >
+                    <CheckCircle size={12} />
+                  </button>
+                )}
+
+                {/* FAMILLE : Payer */}
+                {canPay && (
+                  <button
+                    onClick={handlePonctualPayment}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#8b5cf6' }}
+                    title={`Payer ${paymentAmount.toLocaleString()} FCFA`}
+                  >
+                    <CreditCard size={12} />
+                  </button>
+                )}
+
+                {/* FAMILLE : Convertir avec abonnement */}
+                {canConvertToSubscription && (
+                  <button
+                    onClick={handleConvertToSubscription}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#10B981' }}
+                    title="Utiliser mon abonnement"
+                  >
+                    <Package size={12} />
+                  </button>
+                )}
+
+                {/* ADMIN : Assigner un aidant */}
+                {canAssignAidant && (
+                  <button
+                    onClick={handleAssignAidant}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#FF5722' }}
+                    title="Assigner un aidant"
+                  >
+                    <UserPlus size={12} />
+                  </button>
+                )}
+
+                {/* ADMIN : Réassigner */}
+                {canReassign && (
+                  <button
+                    onClick={handleReassign}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#FF5722' }}
+                    title="Réassigner"
+                  >
+                    <Shield size={12} />
+                  </button>
+                )}
+
+                {/* ADMIN/FAMILLE : Annuler */}
+                {canCancel && (
+                  <button
+                    onClick={handleCancel}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#F44336' }}
+                    title="Annuler"
+                  >
+                    <XCircle size={12} />
+                  </button>
+                )}
               </>
-            )}
-
-            {/* ✅ AIDANT : Démarrer une visite acceptée */}
-            {showActions && isAccepted && isAidant && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onStart?.(); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#4CAF50' }}
-                title="Démarrer"
-              >
-                <Play size={14} />
-              </button>
-            )}
-
-            {/* ✅ AIDANT : Terminer une visite en cours */}
-            {showActions && isInProgress && isAidant && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onComplete?.(); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#2196F3' }}
-                title="Terminer"
-              >
-                <CheckCircle size={14} />
-              </button>
-            )}
-
-            {/* ✅ ADMIN : Assigner un aidant */}
-            {showActions && canAssignAidant && onShowAssignAidantModal && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(visit); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#8B5CF6' }}
-                title="Assigner un aidant"
-              >
-                <UserPlus size={14} />
-              </button>
-            )}
-
-            {/* ✅ ADMIN/FAMILLE : Annuler */}
-            {showActions && (isPendingApproval || isAccepted || isDraft) && (isAdminOrCoordinator || isFamily) && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#F44336' }}
-                title="Annuler"
-              >
-                <XCircle size={14} />
-              </button>
             )}
 
             {onView && (
               <button
-                onClick={(e) => { e.stopPropagation(); onView(); }}
+                onClick={handleView}
                 className="p-1.5 rounded-lg hover:bg-gray-100 transition"
                 style={{ color: colors.primary }}
                 title="Détails"
@@ -328,286 +618,361 @@ export const VisitCard = ({
             )}
           </div>
         </div>
-
-        {/* ✅ Info visites restantes */}
-        {isDraft && canConvert && (
-          <div className="mt-1.5 text-[10px] text-green-600 flex items-center gap-1">
-            <CheckCircle size={10} />
-            <span>{remainingVisits} visite(s) restante(s) sur votre abonnement</span>
-          </div>
-        )}
-
-        {/* ✅ Info expiration du brouillon */}
-        {isDraft && isExpiredDraft && (
-          <div className="mt-1.5 text-[10px] text-red-500 flex items-center gap-1">
-            <AlertCircle size={10} />
-            <span>Brouillon expiré - Veuillez recréer la visite</span>
-          </div>
-        )}
       </div>
     );
   }
 
-  // ✅ Version complète
+  // ============================================================
+  // RENDU - VERSION COMPLÈTE
+  // ============================================================
+
   return (
-    <div 
-      className={`bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer ${
-        isDraft ? 'border-yellow-400' : ''
-      }`}
-      style={{ borderLeftColor: getStatusColor(visit.status) }}
-      onClick={onClick}
+    <div
+      onClick={handleClick}
+      className={cn(
+        "bg-white rounded-2xl p-4 sm:p-5 border-l-4 shadow-sm hover:shadow-md transition-all cursor-pointer",
+        isUrgent ? "animate-pulse-slow" : "",
+        isWaitingAidant ? "border-dashed" : ""
+      )}
+      style={{
+        borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
+        borderColor: isWaitingAidant ? '#FF572240' : 'transparent',
+      }}
     >
-      {/* En-tête */}
+      {/* ============================================================
+      HEADER
+      ============================================================ */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-semibold truncate" style={{ color: colors.text }}>
-              {visit.patient?.first_name} {visit.patient?.last_name}
-            </h3>
-            <span 
-              className="px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1"
-              style={{ 
-                background: getStatusColor(visit.status) + '20',
-                color: getStatusColor(visit.status),
-              }}
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: statusConfig.bg, color: statusConfig.color }}
             >
-              {getStatusIcon(visit.status)}
-              {getStatusLabel(visit.status)}
-            </span>
-            {visit.is_urgent && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: '#F44336' + '15', color: '#F44336' }}>
-                <AlertCircle size={12} />
-                Urgent
-              </span>
-            )}
-            {isExpired && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-600">
-                <AlertCircle size={12} />
-                Expirée
-              </span>
-            )}
-            {isDraft && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-700 animate-pulse">
-                <CreditCard size={12} />
-                En attente paiement
-              </span>
-            )}
-            {isExpiredDraft && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-600">
-                <AlertCircle size={12} />
-                Expiré
-              </span>
-            )}
-          </div>
-          {visit.aidant && (
-            <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: colors.text + '50' }}>
-              <UserCheck size={13} />
-              <span>{getAidantName()}</span>
+              {isPonctual ? <Zap size={16} /> : <Calendar size={16} />}
             </div>
+            <div className="min-w-0">
+              <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
+                {patientName}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+                <span className="flex items-center gap-0.5">
+                  <MapPin size={12} />
+                  {address}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-0.5">
+                  <User size={12} />
+                  {category}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Statut */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium flex items-center gap-1 shrink-0"
+            style={{
+              background: statusConfig.bg,
+              color: statusConfig.color,
+            }}
+          >
+            {statusConfig.icon}
+            {statusConfig.label}
+          </span>
+          {isUrgent && (
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-red-100 text-red-600 flex items-center gap-1 shrink-0 animate-pulse">
+              <AlertCircle size={12} />
+              Urgent
+            </span>
+          )}
+          {isPonctual && (
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-orange-100 text-orange-600 flex items-center gap-1 shrink-0">
+              <Zap size={12} />
+              Ponctuelle
+            </span>
           )}
           {isDraft && (
-            <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: colors.text + '50' }}>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-600 flex items-center gap-1 shrink-0">
               <CreditCard size={12} />
-              <span>Montant: {paymentAmount.toLocaleString()} FCFA</span>
-              {draftExpiry && (
-                <span className={`${isExpiredDraft ? 'text-red-500' : 'text-gray-400'}`}>
-                  • Expire dans {draftExpiry}
-                </span>
-              )}
-            </div>
+              {requiresPayment ? `${paymentAmount.toLocaleString()} FCFA` : 'Brouillon'}
+            </span>
+          )}
+          {isWaitingAidant && (
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-orange-100 text-orange-600 flex items-center gap-1 shrink-0">
+              <UserPlus size={12} />
+              En attente aidant
+            </span>
           )}
         </div>
+      </div>
 
-        {/* Actions */}
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          {/* ✅ BOUTON BROUILLON : Valider avec abonnement OU Payer */}
-          {showActions && isDraft && onConvertToSubscription && onPonctualPayment && (
-            canConvert ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onConvertToSubscription(); }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-90"
-                style={{ background: '#10B981' }}
-              >
-                <CheckCircle size={16} />
-                ✅ Valider avec l'abonnement
-                <span className="text-xs opacity-75 ml-1">
-                  ({remainingVisits} restantes)
-                </span>
-              </button>
-            ) : (
-              <button
-                onClick={(e) => { e.stopPropagation(); onPonctualPayment(); }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-bold transition hover:opacity-90 animate-pulse"
-                style={{ background: '#F59E0B' }}
-              >
-                <CreditCard size={16} />
-                💳 Payer {paymentAmount.toLocaleString()} FCFA
-              </button>
-            )
-          )}
+      {/* ============================================================
+      INFORMATIONS
+      ============================================================ */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+        <InfoItem
+          icon={<Calendar size={14} />}
+          label="Date"
+          value={formatDate(visit.scheduled_date)}
+          color={colors.primary}
+        />
+        <InfoItem
+          icon={<Clock size={14} />}
+          label="Horaire"
+          value={`${visit.scheduled_time} (${duration} min)`}
+          color={colors.primary}
+        />
+        <InfoItem
+          icon={<UserCheck size={14} />}
+          label="Aidant"
+          value={aidantName}
+          color={visit.aidant_id ? '#4CAF50' : '#F44336'}
+        />
+        <InfoItem
+          icon={<Clock size={14} />}
+          label="Statut"
+          value={statusConfig.label}
+          color={statusConfig.color}
+        />
+      </div>
 
-          <div className="flex items-center gap-1.5">
-            {/* ✅ AIDANT : Approuver/Refuser */}
-            {showActions && isPendingApproval && isAidant && (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                  style={{ background: '#4CAF50' }}
-                >
-                  <CheckCircle size={14} />
-                  Approuver
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                  style={{ background: '#F44336' }}
-                >
-                  <XCircle size={14} />
-                  Refuser
-                </button>
-              </>
-            )}
+      {/* ============================================================
+      BADGES SUPPLÉMENTAIRES
+      ============================================================ */}
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {visit.visit_type === 'permanente' && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-blue-100 text-blue-600 flex items-center gap-0.5">
+            <Users size={10} />
+            Permanente
+          </span>
+        )}
+        {visit.is_recurring && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-purple-100 text-purple-600 flex items-center gap-0.5">
+            <Calendar size={10} />
+            Récurrente
+          </span>
+        )}
+        {visit.subscription_id && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-green-100 text-green-600 flex items-center gap-0.5">
+            <Package size={10} />
+            Avec abonnement
+          </span>
+        )}
+        {visit.metadata?.auto_assigned_aidant && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-blue-100 text-blue-600 flex items-center gap-0.5">
+            <Zap size={10} />
+            Auto-assigné
+          </span>
+        )}
+      </div>
 
-            {/* ✅ AIDANT : Démarrer une visite acceptée */}
-            {showActions && isAccepted && isAidant && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onStart?.(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                style={{ background: '#4CAF50' }}
-              >
-                <Play size={14} />
-                Démarrer
-              </button>
-            )}
-
-            {/* ✅ AIDANT : Terminer une visite en cours */}
-            {showActions && isInProgress && isAidant && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onComplete?.(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                style={{ background: '#2196F3' }}
-              >
-                <CheckCircle size={14} />
-                Terminer
-              </button>
-            )}
-
-            {/* ✅ ADMIN : Assigner un aidant */}
-            {showActions && canAssignAidant && onShowAssignAidantModal && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(visit); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                style={{ background: '#8B5CF6' }}
-              >
-                <UserPlus size={14} />
-                Assigner
-              </button>
-            )}
-
-            {/* ✅ ADMIN/FAMILLE : Annuler */}
-            {showActions && (isPendingApproval || isAccepted || isDraft) && (isAdminOrCoordinator || isFamily) && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                style={{ background: '#F44336' }}
-              >
-                <XCircle size={14} />
-                Annuler
-              </button>
-            )}
-
-            {onView && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onView(); }}
-                className="p-2 rounded-lg hover:bg-gray-100 transition"
-                style={{ color: colors.primary }}
-              >
-                <Eye size={18} />
-              </button>
-            )}
+      {/* ============================================================
+      BARRE DE PROGRESSION
+      ============================================================ */}
+      {!statusConfig.isFinal && progress > 0 && (
+        <div className="mt-3">
+          <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
+            <span>Progression</span>
+            <span>{Math.min(progress, 100)}%</span>
+          </div>
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(progress, 100)}%`, background: statusConfig.color }}
+            />
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Informations */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <Calendar size={15} className="opacity-60" />
-          <span>{formatDate(visit.scheduled_date)}</span>
+      {/* ============================================================
+      EXPIRATION DU BROUILLON
+      ============================================================ */}
+      {isDraft && draftExpiry && (
+        <div className="mt-3 p-2 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center gap-2">
+          <Clock size={14} className="text-yellow-600" />
+          <p className="text-xs text-yellow-700 font-medium">
+            Expire dans {draftExpiry} • {requiresPayment ? `Paiement de ${paymentAmount.toLocaleString()} FCFA requis` : 'Validez votre visite'}
+          </p>
         </div>
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <Clock size={15} className="opacity-60" />
-          <span>{visit.scheduled_time}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <MapPin size={15} className="opacity-60" />
-          <span className="truncate">{visit.patient?.address}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <User size={15} className="opacity-60" />
-          <span className="truncate">{getAidantName()}</span>
-        </div>
-      </div>
+      )}
 
-      {/* Notes */}
+      {/* ============================================================
+      VISITE EN ATTENTE D'AIDANT
+      ============================================================ */}
+      {isWaitingAidant && (
+        <div className="mt-3 p-2 rounded-lg bg-orange-50 border border-orange-200 flex items-center gap-2">
+          <UserPlus size={14} className="text-orange-600" />
+          <p className="text-xs text-orange-700 font-medium">
+            En attente d'aidant • L'administration a été notifiée
+          </p>
+        </div>
+      )}
+
+      {/* ============================================================
+      NOTES
+      ============================================================ */}
       {visit.notes && (
-        <div className="mt-3 p-3 rounded-xl" style={{ background: colors.primary + '05' }}>
-          <p className="text-sm" style={{ color: colors.text + '70' }}>{visit.notes}</p>
+        <div className="mt-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+          <p className="text-xs text-gray-600 italic">"{visit.notes}"</p>
         </div>
       )}
 
-      {/* Badge de type */}
-      {visit.visit_type && visit.visit_type !== 'ponctuelle' && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: colors.primary }}>
-          {visit.visit_type === 'permanente' ? (
+      {/* ============================================================
+      ACTIONS
+      ============================================================ */}
+      {showActions && (
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: colors.border }}>
+          {/* AIDANT : Approuver/Refuser */}
+          {canApprove && (
             <>
-              <Users size={13} />
-              <span>Visite permanente</span>
+              <button
+                onClick={handleApprove}
+                className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+                style={{ background: '#4CAF50' }}
+              >
+                <CheckCircle size={12} />
+                Approuver
+              </button>
+              <button
+                onClick={handleRefuse}
+                className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+                style={{ background: '#F44336' }}
+              >
+                <XCircle size={12} />
+                Refuser
+              </button>
             </>
-          ) : visit.visit_type === 'intervalle' ? (
-            <>
-              <Calendar size={13} />
-              <span>Visite sur intervalle</span>
-            </>
-          ) : null}
-        </div>
-      )}
+          )}
 
-      {/* ✅ Badge d'expiration */}
-      {isExpired && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-          <AlertCircle size={14} />
-          <span>Expirée - Réassignation nécessaire</span>
-        </div>
-      )}
+          {/* AIDANT : Démarrer */}
+          {canStart && (
+            <button
+              onClick={handleStart}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#4CAF50' }}
+            >
+              <Play size={12} />
+              Démarrer
+            </button>
+          )}
 
-      {/* ✅ Info visites restantes pour brouillon */}
-      {isDraft && canConvert && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-green-600 bg-green-50 p-2 rounded-lg">
-          <CheckCircle size={14} />
-          <span>✅ {remainingVisits} visite(s) restante(s) sur votre abonnement</span>
-        </div>
-      )}
+          {/* AIDANT : Terminer */}
+          {canComplete && (
+            <button
+              onClick={handleComplete}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#2196F3' }}
+            >
+              <CheckCircle size={12} />
+              Terminer
+            </button>
+          )}
 
-      {/* ✅ Info expiration du brouillon */}
-      {isDraft && isExpiredDraft && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-          <AlertCircle size={14} />
-          <span>⚠️ Brouillon expiré - Veuillez recréer la visite</span>
-        </div>
-      )}
+          {/* FAMILLE : Payer */}
+          {canPay && (
+            <button
+              onClick={handlePonctualPayment}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#8b5cf6' }}
+            >
+              <CreditCard size={12} />
+              Payer {paymentAmount.toLocaleString()} FCFA
+            </button>
+          )}
 
-      {/* ✅ Info paiement requis (si brouillon mais pas encore expiré) */}
-      {isDraft && !isExpiredDraft && !canConvert && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-yellow-600 bg-yellow-50 p-2 rounded-lg">
-          <CreditCard size={14} />
-          <span>💳 Paiement requis - {paymentAmount.toLocaleString()} FCFA</span>
-          {draftExpiry && (
-            <span className="text-yellow-500">• Expire dans {draftExpiry}</span>
+          {/* FAMILLE : Convertir avec abonnement */}
+          {canConvertToSubscription && (
+            <button
+              onClick={handleConvertToSubscription}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#10B981' }}
+            >
+              <Package size={12} />
+              Utiliser abonnement
+            </button>
+          )}
+
+          {/* ADMIN : Assigner un aidant */}
+          {canAssignAidant && (
+            <button
+              onClick={handleAssignAidant}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#FF5722' }}
+            >
+              <UserPlus size={12} />
+              Assigner
+            </button>
+          )}
+
+          {/* ADMIN : Réassigner */}
+          {canReassign && (
+            <button
+              onClick={handleReassign}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#FF5722' }}
+            >
+              <Shield size={12} />
+              Réassigner
+            </button>
+          )}
+
+          {/* ADMIN/FAMILLE : Annuler */}
+          {canCancel && (
+            <button
+              onClick={handleCancel}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#F44336' }}
+            >
+              <XCircle size={12} />
+              Annuler
+            </button>
+          )}
+
+          {/* Voir détails */}
+          {onView && (
+            <button
+              onClick={handleView}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-gray-50 flex items-center justify-center gap-1"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              <Eye size={12} />
+              Détails
+            </button>
           )}
         </div>
       )}
     </div>
   );
+});
+
+// ============================================================
+// SOUS-COMPOSANTS
+// ============================================================
+
+interface InfoItemProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: string;
+}
+
+const InfoItem = ({ icon, label, value, color }: InfoItemProps) => {
+  return (
+    <div className="flex items-start gap-2">
+      <div className="text-gray-400 mt-0.5">{icon}</div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-gray-400 font-medium">{label}</p>
+        <p className="text-xs font-bold truncate" style={{ color }}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
 };
+
+VisitCard.displayName = 'VisitCard';
+
+export default VisitCard;
