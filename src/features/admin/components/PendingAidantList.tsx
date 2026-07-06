@@ -49,7 +49,8 @@ interface PendingVisit {
   status: string;
   created_at: string;
   waiting_for_aidant_since: string | null;
-  notes?: string | null;  // ✅ Ajout de la propriété notes
+  aidant_id: string | null;  
+  notes?: string | null; 
   patient?: {
     id: string;
     first_name: string;
