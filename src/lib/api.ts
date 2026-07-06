@@ -3,21 +3,15 @@
 import axios from 'axios';
 import { supabase } from './supabase';
 
- // NOTE: VITE_API_URL se termine déjà par /api dans Vercel
+// NOTE: VITE_API_URL se termine déjà par /api dans Vercel
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-// ✅ Fonction utilitaire pour normaliser les URLs - CORRIGÉE
+// ✅ Fonction utilitaire pour normaliser les URLs
 const normalizeApiUrl = (endpoint: string): string => {
-  // Nettoyer le base URL (enlever les slashs en fin)
   const cleanBase = API_URL.replace(/\/+$/, '');
-  
-  // Nettoyer l'endpoint (enlever les slashs en début)
   let cleanEndpoint = endpoint.replace(/^\/+/, '');
   
-  // ✅ Si le base se termine par /api, on le garde tel quel
-  // ✅ Si l'endpoint commence par api/, on le retire pour éviter le double
   if (cleanEndpoint.startsWith('api/')) {
-    // Si le base contient déjà /api, on retire le api/ de l'endpoint
     if (cleanBase.endsWith('/api') || cleanBase.includes('/api')) {
       cleanEndpoint = cleanEndpoint.replace(/^api\//, '');
       return `${cleanBase}/${cleanEndpoint}`;
@@ -25,28 +19,19 @@ const normalizeApiUrl = (endpoint: string): string => {
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  // ✅ Si le base se termine par /api et l'endpoint ne commence pas par api/
-  // on ne fait que concaténer
   if (cleanBase.endsWith('/api')) {
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  // ✅ Si le base contient /api mais ne se termine pas par /api
   if (cleanBase.includes('/api')) {
     return `${cleanBase}/${cleanEndpoint}`;
   }
   
-  // ✅ Cas général : ajouter "api" si nécessaire
   return `${cleanBase}/api/${cleanEndpoint}`;
 };
 
 // ✅ Vérification au chargement
 console.log('📡 API_URL:', API_URL);
-console.log('📡 Exemples d\'URLs générées:');
-console.log(`   /auth/login → ${normalizeApiUrl('/auth/login')}`);
-console.log(`   /visits → ${normalizeApiUrl('/visits')}`);
-console.log(`   /api/health → ${normalizeApiUrl('/api/health')}`);
-console.log(`   /billing/health → ${normalizeApiUrl('/billing/health')}`);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -85,6 +70,18 @@ export const authAPI = {
   addProche: (data: any) => api.post(normalizeApiUrl('/auth/add-patient'), data),
   addPatient: (data: any) => api.post(normalizeApiUrl('/auth/add-patient'), data),
   deleteAccount: (userId: string) => api.post(normalizeApiUrl('/auth/delete-account'), { userId }),
+  
+  // ✅ Admin - Approbation aidant
+  approveAidant: (aidantId: string, comments?: string) => 
+    api.post(normalizeApiUrl('/auth/admin/approve-aidant'), { aidantId, comments }),
+  
+  // ✅ Admin - Refus aidant
+  rejectAidant: (aidantId: string, comments?: string) => 
+    api.post(normalizeApiUrl('/auth/admin/reject-aidant'), { aidantId, comments }),
+  
+  // ✅ Admin - Traiter une inscription
+  processRegistration: (registrationId: string, status: string, comments?: string) =>
+    api.post(normalizeApiUrl('/auth/admin/process-registration'), { registrationId, status, comments }),
 };
 
 // =============================================
@@ -131,6 +128,11 @@ export const visitAPI = {
     api.post(normalizeApiUrl(`/visits/${id}/cancel-draft`), { reason }),
   getPrice: (id: string) => api.get(normalizeApiUrl(`/visits/${id}/price`)),
   getDrafts: () => api.get(normalizeApiUrl('/visits/drafts/my')),
+  // ✅ Convertir un brouillon en visite avec abonnement
+  convertToSubscription: (id: string) => 
+    api.post(normalizeApiUrl(`/visits/${id}/convert-to-subscription`)),
+  // ✅ Obtenir les comptes pour l'admin
+  getAccounts: () => api.get(normalizeApiUrl('/visits/accounts')),
 };
 
 // =============================================
@@ -176,6 +178,29 @@ export const paymentAPI = {
   getSubscriptions: () => api.get(normalizeApiUrl('/payments/subscriptions')),
   subscribe: (data: any) => api.post(normalizeApiUrl('/payments/subscribe'), data),
   cancelSubscription: (id: string) => api.post(normalizeApiUrl(`/payments/subscriptions/${id}/cancel`)),
+  // ✅ Générer un paiement via FedaPay
+  generatePayment: (data: {
+    amount: number;
+    description?: string;
+    plan_id?: string;
+    abonnement_id?: string;
+    email?: string;
+    is_ponctual?: boolean;
+    is_visit?: boolean;
+    visit_id?: string;
+    order_data?: any;
+    patient_id?: string;
+    target_type?: string;
+    target_name?: string;
+    type?: 'visit' | 'order' | 'subscription';
+  }) => api.post(normalizeApiUrl('/billing/generate-payment'), data),
+  // ✅ Vérifier un paiement
+  verifyPayment: (transactionId?: string, reference?: string) => {
+    const params = new URLSearchParams();
+    if (transactionId) params.append('transaction_id', transactionId);
+    if (reference) params.append('reference', reference);
+    return api.get(normalizeApiUrl(`/billing/verify-payment?${params.toString()}`));
+  },
 };
 
 // =============================================
@@ -214,7 +239,6 @@ export const adminAPI = {
 // ✅ ASSIGNMENTS API 
 // =============================================
 export const assignmentAPI = {
-  // Récupérer toutes les assignations (admin)
   getAll: (filters?: { targetType?: string; targetId?: string; status?: string; aidantUserId?: string }) => {
     const params = new URLSearchParams();
     if (filters?.targetType) params.append('targetType', filters.targetType);
@@ -226,7 +250,6 @@ export const assignmentAPI = {
     return api.get(normalizeApiUrl(url));
   },
 
-  //  Récupérer les assignations de la famille connectée
   getMyAssignments: (filters?: { status?: string; targetType?: string }) => {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
@@ -236,21 +259,18 @@ export const assignmentAPI = {
     return api.get(normalizeApiUrl(url));
   },
 
-  // Récupérer l'aidant actif pour une cible
   getActive: (targetType: string, targetId: string, familyId?: string) => {
     const params = new URLSearchParams({ targetType, targetId });
     if (familyId) params.append('familyId', familyId);
     return api.get(normalizeApiUrl(`/assignments/active?${params.toString()}`));
   },
 
-  // Récupérer tous les aidants pour une cible
   getAllForTarget: (targetType: string, targetId: string, familyId?: string) => {
     const params = new URLSearchParams({ targetType, targetId });
     if (familyId) params.append('familyId', familyId);
     return api.get(normalizeApiUrl(`/assignments/all?${params.toString()}`));
   },
 
-  // ✅ Assignation pour les familles
   familyAssign: (data: {
     aidantUserId: string;
     targetType: 'personal_account' | 'patient';
@@ -261,7 +281,6 @@ export const assignmentAPI = {
     return api.post(normalizeApiUrl('/assignments/family/assign'), data);
   },
 
-  // Créer une assignation (admin uniquement)
   create: (data: {
     aidantUserId: string;
     targetType: string;
@@ -272,39 +291,31 @@ export const assignmentAPI = {
     expiresAt?: string | null;
   }) => api.post(normalizeApiUrl('/assignments'), data),
 
-  // Révoquer une assignation
   revoke: (assignmentId: string, reason?: string) => 
     api.delete(normalizeApiUrl(`/assignments/${assignmentId}`), { data: { reason } }),
 
-  // Vérifier si un aidant est assigné à une cible
   check: (aidantUserId: string, targetType: string, targetId: string) => {
     const params = new URLSearchParams({ aidantUserId, targetType, targetId });
     return api.get(normalizeApiUrl(`/assignments/check?${params.toString()}`));
   },
 
-  // Récupérer les assignations d'un aidant
   getByAidant: (aidantUserId: string, status?: string) => {
     const url = `/assignments/aidant/${aidantUserId}${status ? `?status=${status}` : ''}`;
     return api.get(normalizeApiUrl(url));
   },
 
-  // Récupérer les assignations pour une cible
   getByTarget: (targetType: string, targetId: string, status?: string) => {
     const url = `/assignments/target/${targetType}/${targetId}${status ? `?status=${status}` : ''}`;
     return api.get(normalizeApiUrl(url));
   },
 
-  // Admin : Récupérer toutes les assignations
   adminGetAll: () => api.get(normalizeApiUrl('/assignments/admin/all')),
 
-  // Admin : Mettre à jour le statut d'une assignation
   adminUpdateStatus: (assignmentId: string, status: string, reason?: string) =>
     api.put(normalizeApiUrl(`/assignments/admin/${assignmentId}/status`), { status, reason }),
 
-  // Admin : Statistiques des assignations
   adminGetStats: () => api.get(normalizeApiUrl('/assignments/admin/stats')),
 
-  // Admin : Assignation forcée
   adminForceAssign: (data: {
     aidantUserId: string;
     targetType: string;
@@ -349,6 +360,50 @@ export const offersAPI = {
   update: (id: string, data: any) => api.put(normalizeApiUrl(`/offers/${id}`), data),
   delete: (id: string) => api.delete(normalizeApiUrl(`/offers/${id}`)),
   sync: () => api.post(normalizeApiUrl('/offers/sync')),
+  // ✅ Récupérer les offres par catégorie
+  getByCategory: (category: string) => api.get(normalizeApiUrl(`/offers/categories?category=${category}`)),
+  // ✅ Récupérer les offres ponctuelles
+  getPonctual: () => api.get(normalizeApiUrl('/offers/ponctual')),
+};
+
+// =============================================
+// SUBSCRIPTIONS API
+// =============================================
+export const subscriptionsAPI = {
+  // ✅ Récupérer les abonnements de l'utilisateur
+  getMy: () => api.get(normalizeApiUrl('/subscriptions/my')),
+  // ✅ Vérifier si l'utilisateur a un abonnement actif
+  getActive: () => api.get(normalizeApiUrl('/subscriptions/active')),
+  // ✅ Créer un abonnement
+  create: (data: { offreId: string; patientId?: string }) => 
+    api.post(normalizeApiUrl('/subscriptions'), data),
+  // ✅ Utiliser une visite (décompter)
+  useVisit: (subscriptionId: string, data: { visitId: string; isPonctual?: boolean; wasPaid?: boolean }) =>
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/use-visit`), data),
+  // ✅ Utiliser une commande (décompter)
+  useOrder: (subscriptionId: string, data: { orderId: string; isPonctual?: boolean; wasPaid?: boolean }) =>
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/use-order`), data),
+  // ✅ Renouveler un abonnement
+  renew: (subscriptionId: string) => 
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/renew`)),
+  // ✅ Annuler l'auto-renouvellement
+  cancelAutoRenew: (subscriptionId: string) =>
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/cancel-auto-renew`)),
+};
+
+// =============================================
+// ADMIN SETUP API
+// =============================================
+export const adminSetupAPI = {
+  // ✅ Vérifier le PIN
+  verifyPin: (pin: string) => api.post(normalizeApiUrl('/admin-setup/verify-pin'), { pin }),
+  // ✅ Envoyer un OTP
+  sendOTP: (email: string) => api.post(normalizeApiUrl('/admin-setup/send-otp'), { email }),
+  // ✅ Vérifier l'OTP
+  verifyOTP: (email: string, otp: string) => api.post(normalizeApiUrl('/admin-setup/verify-otp'), { email, otp }),
+  // ✅ Créer un compte admin
+  createAdmin: (data: { full_name: string; email: string; password: string; role: string; phone?: string; otp: string }) =>
+    api.post(normalizeApiUrl('/admin-setup/create'), data),
 };
 
 export default api;
