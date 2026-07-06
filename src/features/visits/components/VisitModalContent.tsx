@@ -279,7 +279,7 @@ export const VisitModalContent = ({
   };
 
   // ============================================================
-  // ✅ SOUMISSION DU FORMULAIRE
+  // ✅ SOUMISSION DU FORMULAIRE - CORRIGÉE
   // ============================================================
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -368,7 +368,8 @@ export const VisitModalContent = ({
         const result = await createVisit(data);
 
         // ✅ Si le backend demande le wizard
-        if (result?.requires_wizard) {
+        // 🔧 CORRECTION : Utiliser 'in' operator ou type guard
+        if (result && typeof result === 'object' && 'requires_wizard' in result && result.requires_wizard === true) {
           // ✅ Ouvrir le wizard avec les données
           const targetTypeForWizard = data.patient_id ? 'patient' : 'personal_account';
           const targetIdForWizard = data.patient_id || data.target_user_id || user?.id;
