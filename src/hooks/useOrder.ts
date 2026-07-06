@@ -8,8 +8,18 @@ import { Order, OrderStatus } from '@/types';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// TYPES
+// TYPES ÉTENDUS
 // ============================================================
+
+interface ExtendedOrder extends Order {
+  metadata?: {
+    ponctual_mode?: boolean;
+    is_ponctual?: boolean;
+    [key: string]: any;
+  };
+  is_ponctual?: boolean;
+  order_type?: 'subscription' | 'ponctual';
+}
 
 interface OrderQuota {
   current: number;
@@ -201,20 +211,16 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     }
   }, [storeFetchOrders, isAidant, fetchAvailableOrders, fetchQuota]);
 
+  // ✅ CORRIGÉ : takeOrder avec try/catch pour void
   const takeOrder = useCallback(async (orderId: string): Promise<boolean> => {
     try {
-      // ✅ CORRECTION : storeTakeOrder retourne un objet avec success
-      const result = await storeTakeOrder(orderId);
+      await storeTakeOrder(orderId);
       
-      // ✅ Vérifier result.success au lieu de result directement
-      if (result && (result as any).success !== false) {
-        // Rafraîchir le quota
-        await fetchQuota();
-        await fetchAvailableOrders();
-        toast.success('Commande prise en charge ✅');
-        return true;
-      }
-      return false;
+      // Rafraîchir le quota
+      await fetchQuota();
+      await fetchAvailableOrders();
+      toast.success('Commande prise en charge ✅');
+      return true;
     } catch (error: any) {
       console.error('❌ takeOrder error:', error);
       toast.error(error.message || 'Erreur lors de la prise de commande');
@@ -344,7 +350,7 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
   }, [invalidateCache, fetchOrders, isAidant, fetchQuota, fetchAvailableOrders]);
 
   // ============================================================
-  // STATISTIQUES
+  // STATISTIQUES AVEC TYPE ÉTENDU
   // ============================================================
 
   const stats = useMemo(() => ({
@@ -356,11 +362,12 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     validated: orders.filter(o => o.status === 'validee').length,
     cancelled: orders.filter(o => o.status === 'annulee').length,
     pendingPayment: orders.filter(o => o.status === 'attente_paiement').length,
-    ponctual: orders.filter(o => 
-      o.order_type === 'ponctual' || 
-      o.is_ponctual === true || 
-      (o.metadata && (o.metadata as any).ponctual_mode === true)
-    ).length,
+    ponctual: orders.filter(o => {
+      const ext = o as ExtendedOrder;
+      return ext.order_type === 'ponctual' || 
+             ext.is_ponctual === true || 
+             (ext.metadata && ext.metadata.ponctual_mode === true);
+    }).length,
   }), [orders]);
 
   const activeOrders = useMemo(() => {
@@ -375,12 +382,14 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     return orders.filter(o => o.status === 'attente_paiement');
   }, [orders]);
 
+  // ✅ CORRIGÉ : Accès à metadata avec ExtendedOrder
   const ponctualOrders = useMemo(() => {
-    return orders.filter(o => 
-      o.order_type === 'ponctual' || 
-      o.is_ponctual === true || 
-      (o.metadata && (o.metadata as any).ponctual_mode === true)
-    );
+    return orders.filter(o => {
+      const ext = o as ExtendedOrder;
+      return ext.order_type === 'ponctual' || 
+             ext.is_ponctual === true || 
+             (ext.metadata && ext.metadata.ponctual_mode === true);
+    });
   }, [orders]);
 
   // ============================================================
