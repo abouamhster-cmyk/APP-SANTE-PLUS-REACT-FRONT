@@ -31,7 +31,7 @@ import { formatDate, formatCurrency, cn } from '@/utils/helpers';
 // TYPES
 // ============================================================
 
-// ✅ Interface étendue pour gérer metadata
+// ✅ Interface étendue pour gérer metadata - CORRIGÉE
 interface ExtendedOrder extends Order {
   metadata?: {
     paid_at?: string;
@@ -43,7 +43,7 @@ interface ExtendedOrder extends Order {
   };
   is_ponctual?: boolean;
   is_paid?: boolean;
-  order_type?: string;
+  order_type?: 'subscription' | 'ponctual';  // ✅ Type exact
 }
 
 interface OrderCardProps {
