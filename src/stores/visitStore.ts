@@ -376,7 +376,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT - AVEC SUPPORT WIZARD
+  // ✅ CREATE VISIT - CORRIGÉ AVEC GESTION D'ERREUR
   // ============================================================
   createVisit: async (data: Partial<Visit> & { 
     target_type?: 'personal' | 'patient'; 
@@ -455,10 +455,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       // ✅ Si pas d'aidant et pas de paiement requis → wizard
       if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant' && !wizardChoice) {
-        // Le wizard sera géré par le composant
-        // On retourne une indication pour ouvrir le wizard
         set({ isLoading: false });
-        // @ts-ignore - Propriété temporaire pour le wizard
         return {
           ...data as Visit,
           requires_wizard: true,
@@ -509,12 +506,44 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       console.log('📤 Données visite envoyées:', JSON.stringify(visitData, null, 2));
 
-      // ✅ Appel API au lieu de Supabase direct
-      const response = await api.post('/visits', visitData);
-      const newVisit = response.data?.visit || response.data;
+      // ✅ Appel API - AVEC GESTION D'ERREUR
+      let newVisit;
+      try {
+        const response = await api.post('/visits', visitData);
+        console.log('📤 Réponse API createVisit:', response.status, response.data);
+        
+        newVisit = response.data?.visit || response.data;
 
-      if (!newVisit) {
-        throw new Error('Erreur lors de la création de la visite');
+        if (!newVisit) {
+          throw new Error('Erreur lors de la création de la visite: réponse vide');
+        }
+      } catch (apiError: any) {
+        console.error('❌ Erreur API createVisit:', apiError);
+        
+        // ✅ Gérer les différentes erreurs
+        if (apiError.response?.status === 400) {
+          const errorMessage = apiError.response?.data?.error || 'Données invalides';
+          throw new Error(errorMessage);
+        }
+        
+        if (apiError.response?.status === 401) {
+          throw new Error('Session expirée. Veuillez vous reconnecter.');
+        }
+        
+        if (apiError.response?.status === 403) {
+          throw new Error('Vous n\'avez pas les droits pour créer une visite.');
+        }
+        
+        if (apiError.response?.status === 500) {
+          throw new Error('Erreur serveur. Veuillez réessayer plus tard.');
+        }
+        
+        // ✅ Si l'erreur a un message personnalisé
+        if (apiError.message) {
+          throw new Error(apiError.message);
+        }
+        
+        throw apiError;
       }
 
       // ✅ Récupérer les relations
@@ -633,6 +662,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       set({ isLoading: false });
       return fullVisit;
+
     } catch (error: any) {
       console.error('❌ Create visit error:', error);
       set({ error: error.message, isLoading: false });
