@@ -866,7 +866,7 @@ const VisitsPage = () => {
           currentAidantId={selectedVisitForAssign.aidant_id}
           colors={colors}
           allowForce={isAdminOrCoordinator}
-          onAssignAidant={handleAdminAssignAidant}
+          onAssignAidant={async (aidantId: string, assignmentType: string, force?: boolean) => {   await handleAdminAssignAidant(selectedVisitForAssign.id, aidantId, assignmentType); }}
         />
       )}
     </div>
