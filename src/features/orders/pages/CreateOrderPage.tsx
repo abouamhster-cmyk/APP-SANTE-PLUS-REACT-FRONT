@@ -84,9 +84,7 @@ const CreateOrderPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRedirecting = useRef(false);
 
-  const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>(
-    canUseSubscription() ? 'subscription' : 'ponctual'
-  );
+  const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
   const [pendingOrderData, setPendingOrderData] = useState<any>(null);
 
   // Choix du destinataire
@@ -114,44 +112,41 @@ const CreateOrderPage = () => {
     return hasActiveSubscription && remainingOrders > 0;
   };
 
-
-
   // ✅ Message d'information sur l'abonnement
-const subscriptionInfo = (() => {
-  if (isAidant || isAdminOrCoordinator) return null;
-  
-  if (canUseSubscription()) {
+  const subscriptionInfo = (() => {
+    if (isAidant || isAdminOrCoordinator) return null;
+    
+    if (canUseSubscription()) {
+      return {
+        type: 'success',
+        icon: <CheckCircle size={18} />,
+        title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
+        description: 'Utilisez votre abonnement pour ne pas payer de frais supplémentaires.',
+      };
+    }
+    
+    if (hasActiveSubscription && remainingOrders === 0) {
+      return {
+        type: 'warning',
+        icon: <AlertCircle size={18} />,
+        title: '⚠️ Plus de commandes disponibles',
+        description: 'Vous avez utilisé toutes vos commandes. Passez en mode ponctuel ou renouvelez votre abonnement.',
+      };
+    }
+    
     return {
-      type: 'success',
-      icon: <CheckCircle size={18} />,
-      title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
-      description: 'Utilisez votre abonnement pour ne pas payer de frais supplémentaires.',
+      type: 'info',
+      icon: <Sparkles size={18} />,
+      title: '💡 Mode ponctuel',
+      description: 'Vous n\'avez pas d\'abonnement actif. Utilisez le mode ponctuel pour payer à l\'acte.',
     };
-  }
-  
-  if (hasActiveSubscription && remainingOrders === 0) {
-    return {
-      type: 'warning',
-      icon: <AlertCircle size={18} />,
-      title: '⚠️ Plus de commandes disponibles',
-      description: 'Vous avez utilisé toutes vos commandes. Passez en mode ponctuel ou renouvelez votre abonnement.',
-    };
-  }
-  
-  return {
-    type: 'info',
-    icon: <Sparkles size={18} />,
-    title: '💡 Mode ponctuel',
-    description: 'Vous n\'avez pas d\'abonnement actif. Utilisez le mode ponctuel pour payer à l\'acte.',
-  };
-})();
-  
+  })();
+
   // ✅ Calcul du prix ponctuel
-  const getPonctualPrice = () => {
+  const getPonctualPrice = (): number => {
     return getPonctualOrderPriceByType(formData.type, formData.items);
   };
 
-  
   // =============================================
   // EFFETS : CHARGEMENT ET SAUVEGARDE
   // =============================================
@@ -329,86 +324,88 @@ const subscriptionInfo = (() => {
     return true;
   };
 
+  // =============================================
+  // PRÉPARER LES DONNÉES DE LA COMMANDE
+  // =============================================
+  const prepareOrderData = async () => {
+    if (!validateOrderData()) return null;
 
-// =============================================
-// PRÉPARER LES DONNÉES DE LA COMMANDE
-// =============================================
-const prepareOrderData = async () => {
-  if (!validateOrderData()) return null;
+    let prescriptionUrl = null;
 
-  let prescriptionUrl = null;
+    if (prescriptionFile) {
+      const fileExt = prescriptionFile.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `prescriptions/${fileName}`;
 
-  if (prescriptionFile) {
-    const fileExt = prescriptionFile.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `prescriptions/${fileName}`;
+      const { error } = await supabase.storage
+        .from('orders')
+        .upload(filePath, prescriptionFile);
 
-    const { error } = await supabase.storage
-      .from('orders')
-      .upload(filePath, prescriptionFile);
+      if (error) {
+        console.error('Upload error:', error);
+        toast.error("Erreur lors de l'upload de la prescription");
+        return null;
+      }
 
-    if (error) {
-      console.error('Upload error:', error);
-      toast.error("Erreur lors de l'upload de la prescription");
-      return null;
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('orders').getPublicUrl(filePath);
+
+      prescriptionUrl = publicUrl;
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from('orders').getPublicUrl(filePath);
+    const validItems = formData.items
+      .filter((item) => item.name.trim() !== '')
+      .map((item) => ({
+        ...item,
+        total: item.quantity * item.price,
+      }));
 
-    prescriptionUrl = publicUrl;
-  }
+    const selectedPatient = patients.find((p) => p.id === targetPatientId);
+    const finalTargetType = targetType;
+    const finalTargetName = targetType === 'personal' 
+      ? profile?.full_name || 'Personnel'
+      : selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Patient';
 
-  const validItems = formData.items
-    .filter((item) => item.name.trim() !== '')
-    .map((item) => ({
-      ...item,
-      total: item.quantity * item.price,
-    }));
+    const finalPatientId = targetType === 'patient' ? targetPatientId : null;
 
-  const finalTargetType = targetType;
-  const finalTargetName = targetType === 'personal' 
-    ? profile?.full_name || 'Personnel'
-    : selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Patient';
-
-  // ✅ Retourner les données sans orderId (sera généré par le backend)
-  return {
-    patient_id: targetType === 'patient' ? targetPatientId : null,
-    type: formData.type as any,
-    description: formData.description.trim(),
-    address: formData.address.trim(),
-    estimated_amount: finalEstimatedAmount || null,
-    items: validItems,
-    prescription_url: prescriptionUrl,
-    order_type: 'ponctual',
-    is_paid: false,
-    category: 'ponctuelle',
-    target_type: finalTargetType,
-    target_name: finalTargetName,
-    hasPatients: patients.length > 0,
-     target_id: targetType === 'patient' ? targetPatientId : null,
-    targetId: targetType === 'patient' ? targetPatientId : null,
+    return {
+      patient_id: finalPatientId,
+      type: formData.type as any,
+      description: formData.description.trim(),
+      address: formData.address.trim(),
+      estimated_amount: finalEstimatedAmount || null,
+      items: validItems,
+      prescription_url: prescriptionUrl,
+      order_type: 'ponctual',
+      is_paid: false,
+      category: 'ponctuelle',
+      target_type: finalTargetType,
+      target_name: finalTargetName,
+      hasPatients: patients.length > 0,
+    };
   };
-};
 
-// ✅ Dans handlePonctualPayment, utiliser les bonnes propriétés
-const handlePonctualPayment = async () => {
-  const orderData = await prepareOrderData();
-  if (!orderData) return;
+  // =============================================
+  // PAYEMENT PONCTUEL VIA LE HOOK
+  // =============================================
+  const handlePonctualPayment = async () => {
+    const orderData = await prepareOrderData();
+    if (!orderData) return;
 
-  // ✅ Utiliser les bonnes propriétés
-  payOrderPonctual({
-    description: orderData.description,
-    orderType: orderData.type,
-    items: orderData.items,
-    address: orderData.address,
-    prescriptionUrl: orderData.prescription_url || undefined,
-    targetType: orderData.target_type as 'personal' | 'patient',
-    targetName: orderData.target_name,
-    patientId: orderData.patient_id,
-  });
-};
+    // ✅ Utiliser le hook de paiement ponctuel
+    payOrderPonctual({
+      description: orderData.description,
+      orderType: orderData.type,
+      items: orderData.items,
+      address: orderData.address,
+      prescriptionUrl: orderData.prescription_url || undefined,
+      targetType: orderData.target_type as 'personal' | 'patient',
+      targetName: orderData.target_name,
+      patientId: orderData.patient_id,
+    });
+  };
+
   // =============================================
   // SOUMISSION DU FORMULAIRE
   // =============================================
@@ -417,24 +414,7 @@ const handlePonctualPayment = async () => {
 
     // ✅ CAS 1 : Commande ponctuelle → Paiement via usePonctualPayment
     if (orderType === 'ponctual') {
-      const orderData = await prepareOrderData();
-      if (!orderData) return;
-
-      setPendingOrderData(orderData);
-      
-      // ✅ Utiliser le hook de paiement ponctuel
-      payOrderPonctual({
-        orderId: orderData.orderId,
-        description: orderData.description,
-        orderType: orderData.type,
-        items: orderData.items,
-        address: orderData.address,
-        prescriptionUrl: orderData.prescription_url,
-        targetType: orderData.target_type,
-        targetName: orderData.target_name,
-        patientId: orderData.patient_id,
-      });
-      
+      await handlePonctualPayment();
       return;
     }
 
@@ -488,6 +468,7 @@ const handlePonctualPayment = async () => {
           total: item.quantity * item.price,
         }));
 
+      const selectedPatient = patients.find((p) => p.id === targetPatientId);
       const finalTargetType = targetType;
       const finalTargetName = targetType === 'personal' 
         ? profile?.full_name || 'Personnel'
