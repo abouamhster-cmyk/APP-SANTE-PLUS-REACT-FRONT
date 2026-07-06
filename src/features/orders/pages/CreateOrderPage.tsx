@@ -1,4 +1,4 @@
-// 📁 src/features/orders/pages/CreateOrderPage.tsx
+// 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +22,8 @@ import {
   Loader2,
   AlertCircle,
   Users,
+  Clock,
+  UserCheck,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -45,7 +47,7 @@ import toast from 'react-hot-toast';
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
   const { createOrder, isLoading } = useOrderStore();
   const { patients, fetchPatients } = usePatientStore();
 
@@ -63,6 +65,7 @@ const CreateOrderPage = () => {
     remainingOrders,
     can,
     getActionMessage,
+    isLoading: subLoading,
   } = useSubscriptionGuard();
 
   // ✅ Utiliser le hook de paiement ponctuel
@@ -112,6 +115,49 @@ const CreateOrderPage = () => {
     return hasActiveSubscription && remainingOrders > 0;
   };
 
+  // ✅ Vérifier le quota de commandes en cours
+  const [aidantQuota, setAidantQuota] = useState<{
+    current: number;
+    max: number;
+    available: number;
+    canTake: boolean;
+  } | null>(null);
+
+  // ✅ Charger le quota de l'aidant si c'est un aidant
+  useEffect(() => {
+    if (isAidant && user) {
+      fetchAidantQuota();
+    }
+  }, [isAidant, user]);
+
+  const fetchAidantQuota = async () => {
+    try {
+      const { data: aidant, error } = await supabase
+        .from('aidants')
+        .select('current_orders, max_orders')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('❌ Erreur récupération quota:', error);
+        return;
+      }
+
+      const current = aidant?.current_orders || 0;
+      const max = aidant?.max_orders || 2;
+      const available = max - current;
+
+      setAidantQuota({
+        current,
+        max,
+        available,
+        canTake: current < max,
+      });
+    } catch (error) {
+      console.error('❌ fetchAidantQuota error:', error);
+    }
+  };
+
   // ✅ Message d'information sur l'abonnement
   const subscriptionInfo = (() => {
     if (isAidant || isAdminOrCoordinator) return null;
@@ -145,6 +191,13 @@ const CreateOrderPage = () => {
   // ✅ Calcul du prix ponctuel
   const getPonctualPrice = (): number => {
     return getPonctualOrderPriceByType(formData.type, formData.items);
+  };
+
+  // ✅ Vérifier si l'aidant peut prendre une commande
+  const canTakeOrder = (): boolean => {
+    if (!isAidant) return true;
+    if (!aidantQuota) return true;
+    return aidantQuota.canTake;
   };
 
   // =============================================
@@ -321,6 +374,12 @@ const CreateOrderPage = () => {
       return false;
     }
 
+    // ✅ Vérifier le quota de l'aidant
+    if (isAidant && !canTakeOrder()) {
+      toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours (maximum ${aidantQuota?.max || 2})`);
+      return false;
+    }
+
     return true;
   };
 
@@ -412,6 +471,12 @@ const CreateOrderPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ✅ Vérifier le quota de l'aidant
+    if (isAidant && !canTakeOrder()) {
+      toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours (maximum ${aidantQuota?.max || 2})`);
+      return;
+    }
+
     // ✅ CAS 1 : Commande ponctuelle → Paiement via usePonctualPayment
     if (orderType === 'ponctual') {
       await handlePonctualPayment();
@@ -498,7 +563,7 @@ const CreateOrderPage = () => {
     }
   };
 
-  const isLoading_ = isLoading || isUploading || isPaymentLoading;
+  const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
 
   // =============================================
   // DONNÉES DÉRIVÉES
@@ -583,6 +648,23 @@ const CreateOrderPage = () => {
             />
           </div>
         </div>
+
+        {/* ✅ BANDEAU QUOTA AIDANT */}
+        {isAidant && aidantQuota && (
+          <div className={`mt-4 p-3 rounded-xl flex items-center justify-between border ${
+            aidantQuota.canTake ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              <UserCheck size={16} className={aidantQuota.canTake ? 'text-green-600' : 'text-red-600'} />
+              <span className={`text-sm font-medium ${aidantQuota.canTake ? 'text-green-700' : 'text-red-700'}`}>
+                Commandes en cours : {aidantQuota.current}/{aidantQuota.max}
+              </span>
+            </div>
+            <span className={`text-xs font-bold ${aidantQuota.canTake ? 'text-green-600' : 'text-red-600'}`}>
+              {aidantQuota.canTake ? `${aidantQuota.available} place${aidantQuota.available > 1 ? 's' : ''} disponible${aidantQuota.available > 1 ? 's' : ''}` : '❌ Quota atteint'}
+            </span>
+          </div>
+        )}
       </section>
 
       {/* ✅ BANDEAU D'INFORMATION ABONNEMENT */}
@@ -861,6 +943,21 @@ const CreateOrderPage = () => {
                 )}
               </button>
             </div>
+
+            {/* ✅ Message pour l'aidant */}
+            {isAidant && (
+              <div className="mt-4 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
+                <AlertCircle size={16} className="text-blue-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-blue-700">
+                    En tant qu'aidant, vous pouvez créer des commandes
+                  </p>
+                  <p className="text-[10px] text-blue-600">
+                    Les commandes seront disponibles pour tous les aidants. Vous pouvez en prendre si vous avez de la place.
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Section infos */}
@@ -1163,6 +1260,14 @@ const CreateOrderPage = () => {
               value={prescriptionFile ? 'Ajoutée' : 'Non ajoutée'}
             />
 
+            {isAidant && aidantQuota && (
+              <SummaryLine
+                label="Commandes en cours"
+                value={`${aidantQuota.current}/${aidantQuota.max}`}
+                color={aidantQuota.canTake ? '#4CAF50' : '#F44336'}
+              />
+            )}
+
             <div className="rounded-[1.5rem] p-4" style={{ background: colors.primary + '10' }}>
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -1213,10 +1318,10 @@ const CreateOrderPage = () => {
             <div className="grid grid-cols-1 gap-3 pt-2">
               <button
                 type="submit"
-                disabled={isLoading_ || (orderType === 'subscription' && !canUseSubscription())}
+                disabled={isLoading_ || (orderType === 'subscription' && !canUseSubscription()) || (isAidant && !canTakeOrder())}
                 className="w-full py-3.5 rounded-2xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-70"
                 style={{
-                  background: (orderType === 'subscription' && !canUseSubscription())
+                  background: (orderType === 'subscription' && !canUseSubscription()) || (isAidant && !canTakeOrder())
                     ? '#9CA3AF'
                     : colors.primary,
                 }}
@@ -1250,6 +1355,20 @@ const CreateOrderPage = () => {
                 Annuler
               </button>
             </div>
+
+            {/* ✅ Message quota pour aidant */}
+            {isAidant && !canTakeOrder() && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2">
+                <AlertCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-red-700">
+                  ⚠️ Vous avez atteint votre quota maximum de commandes en cours ({aidantQuota?.max || 2}).
+                  <br />
+                  <span className="text-[10px] text-red-600">
+                    Attendez qu'une commande soit livrée ou validée pour en créer une nouvelle.
+                  </span>
+                </p>
+              </div>
+            )}
           </div>
         </aside>
       </form>
@@ -1360,13 +1479,14 @@ const CompactHeaderStat = ({ label, value, color }: CompactHeaderStatProps) => {
 interface SummaryLineProps {
   label: string;
   value: string;
+  color?: string;
 }
 
-const SummaryLine = ({ label, value }: SummaryLineProps) => {
+const SummaryLine = ({ label, value, color }: SummaryLineProps) => {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
       <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-semibold text-gray-900 text-right">
+      <span className="text-sm font-semibold text-gray-900 text-right" style={{ color }}>
         {value}
       </span>
     </div>
