@@ -22,6 +22,7 @@ import {
   Users,
   Shield,
   Zap,
+  CreditCard,  // ✅ AJOUT DE L'IMPORT MANQUANT
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useVisitStore } from '@/stores/visitStore';
@@ -46,6 +47,8 @@ interface VisitToValidate {
   report: string | null;
   start_time: string | null;
   end_time: string | null;
+  aidant_id: string | null;  // ✅ AJOUT DE LA PROPRIÉTÉ MANQUANTE
+  patient_id: string | null;  // ✅ AJOUT DE LA PROPRIÉTÉ MANQUANTE
   metadata: {
     audio_url?: string | null;
     photos?: string[];
@@ -137,7 +140,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
     bg: '#8b5cf615',
     icon: <CreditCard size={14} />,
   },
-  // ✅ NOUVEAU STATUT
   en_attente_aidant: {
     label: '🦸 En attente d\'aidant',
     color: '#FF5722',
@@ -182,7 +184,6 @@ const AdminVisitValidationPage = () => {
     try {
       setIsLoading(true);
       
-      // ✅ Récupérer TOUTES les visites qui ont besoin d'attention
       const { data: visitsData, error: visitsError } = await supabase
         .from('visites')
         .select('*')
@@ -254,6 +255,8 @@ const AdminVisitValidationPage = () => {
           family,
           photos, 
           audios, 
+          aidant_id: visit.aidant_id,  // ✅ CONSERVER L'ID
+          patient_id: visit.patient_id, // ✅ CONSERVER L'ID
           metadata: { 
             ...visit.metadata, 
             audio_url: visit.metadata?.audio_url || null,
@@ -418,7 +421,6 @@ const AdminVisitValidationPage = () => {
     expired: visits.filter(v => v.status === 'expire').length,
     refused: visits.filter(v => v.status === 'refusee').length,
     pendingPayment: visits.filter(v => v.status === 'attente_paiement').length,
-    // ✅ NOUVEAU: Visites en attente d'aidant
     waitingAidant: visits.filter(v => v.status === 'en_attente_aidant').length,
   };
 
@@ -512,7 +514,6 @@ const AdminVisitValidationPage = () => {
         <CompactStat label="Validées" value={stats.validated} color="#10b981" />
         <CompactStat label="Expirées" value={stats.expired} color="#ef4444" />
         <CompactStat label="Refusées" value={stats.refused} color="#ef4444" />
-        {/* ✅ NOUVEAU STAT */}
         <CompactStat 
           label="🦸 En attente aidant" 
           value={stats.waitingAidant} 
@@ -846,7 +847,7 @@ const AdminVisitValidationPage = () => {
       )}
 
       {/* ============================================================
-      MODAL D'ASSIGNATION D'AIDANT
+      MODAL D'ASSIGNATION D'AIDANT - CORRIGÉ
       ============================================================ */}
       {showAssignModal && selectedVisitForAssign && (
         <AssignAidantModal
@@ -861,13 +862,13 @@ const AdminVisitValidationPage = () => {
             `${selectedVisitForAssign.patient?.first_name || ''} ${selectedVisitForAssign.patient?.last_name || ''}`.trim() || 'Visite'}
           onSuccess={handleAssignSuccess}
           currentAidantId={selectedVisitForAssign.aidant_id}
-          isAdmin={true}
+          colors={colors}  // ✅ AJOUT DE LA PROPRIÉTÉ MANQUANTE
           allowForce={true}
         />
       )}
 
       {/* ============================================================
-      MODAL WIZARD
+      MODAL WIZARD - CORRIGÉ
       ============================================================ */}
       {showWizardModal && selectedVisitForAssign && (
         <VisitWizardModal
@@ -914,8 +915,8 @@ const AdminVisitValidationPage = () => {
               toast.error(error.message || 'Erreur lors de l\'assignation');
             }
           }}
-          targetType={selectedVisitForAssign.patient_id ? 'patient' : 'personal_account'}
-          targetId={selectedVisitForAssign.patient_id || selectedVisitForAssign.user_id}
+          targetType={selectedVisitForAssign.patient ? 'patient' : 'personal_account'}
+          targetId={selectedVisitForAssign.patient?.id || selectedVisitForAssign.user_id}
           targetName={selectedVisitForAssign.target_name || 
             `${selectedVisitForAssign.patient?.first_name || ''} ${selectedVisitForAssign.patient?.last_name || ''}`.trim() || 'Visite'}
           familyId={selectedVisitForAssign.user_id}
