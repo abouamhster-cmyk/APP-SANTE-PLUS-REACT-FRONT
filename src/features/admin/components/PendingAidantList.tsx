@@ -49,6 +49,7 @@ interface PendingVisit {
   status: string;
   created_at: string;
   waiting_for_aidant_since: string | null;
+  notes?: string | null;  // ✅ Ajout de la propriété notes
   patient?: {
     id: string;
     first_name: string;
@@ -112,8 +113,9 @@ export const PendingAidantList = ({
     setIsLoadingVisits(true);
     try {
       const pendingVisits = await getPendingAidantVisits();
-      setVisits(pendingVisits);
-      setFilteredVisits(pendingVisits);
+      // ✅ CORRECTION : Typage explicite avec as
+      setVisits(pendingVisits as PendingVisit[]);
+      setFilteredVisits(pendingVisits as PendingVisit[]);
     } catch (error) {
       console.error('❌ Erreur chargement visites en attente:', error);
       toast.error('Erreur lors du chargement des visites');
@@ -125,7 +127,7 @@ export const PendingAidantList = ({
   useEffect(() => {
     loadData();
     fetchAidants({ onlyAvailable: false });
-  }, []);
+  }, [loadData, fetchAidants]);
 
   // ============================================================
   // FILTRAGE
@@ -430,8 +432,8 @@ export const PendingAidantList = ({
             `${selectedVisit.patient?.first_name || ''} ${selectedVisit.patient?.last_name || ''}`.trim() || 'Visite'}
           onSuccess={handleAssignSuccess}
           colors={colors}
-          isAdmin={true}
           allowForce={true}
+          currentAidantId={selectedVisit.aidant_id}
           onAssignAidant={async (aidantId, assignmentType, force) => {
             await assignAidantToVisit(selectedVisit.id, aidantId, assignmentType, force);
           }}
