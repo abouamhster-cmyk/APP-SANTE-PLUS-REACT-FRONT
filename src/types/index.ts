@@ -1,4 +1,4 @@
-// 📁 src/types/index.ts
+// 📁 frontend/src/types/index.ts
 
 // ============================================================
 // EXPORTER TOUS LES TYPES AIDANTS
@@ -13,7 +13,7 @@ export type UserRole = 'family' | 'aidant' | 'coordinator' | 'admin';
 export type ProcheCategory = 'senior' | 'maman_bebe';
 export type PatientCategory = 'senior' | 'maman_bebe';
 
-// ✅ VISITE STATUS 
+// ✅ VISITE STATUS - AVEC NOUVEAUX STATUTS
 export type VisitStatus = 
   | 'planifiee' 
   | 'en_attente' 
@@ -27,9 +27,10 @@ export type VisitStatus =
   | 'refusee'
   | 'expire'          
   | 'attente_paiement'
-  | 'brouillon';
+  | 'brouillon'
+   | 'en_attente_aidant';  // Visite planifiée SANS aidant assigné
 
-// ✅ ORDER STATUS
+// ✅ ORDER STATUS - AVEC NOUVEAUX STATUTS
 export type OrderStatus = 
   | 'creee'        
   | 'en_attente'    
@@ -38,15 +39,27 @@ export type OrderStatus =
   | 'livree'       
   | 'validee'      
   | 'annulee'
-  | 'attente_paiement';
+  | 'attente_paiement';  
 
+// ✅ AIDANT STATUS
+export type AidantStatus = 'pending' | 'approved' | 'rejected' | 'active' | 'inactive';
+
+// ✅ PAYMENT STATUS
 export type PaymentStatus = 'en_attente' | 'valide' | 'echoue' | 'rembourse' | 'annule' | 'en_attente_de_confirmation';
-export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
-export type NotificationType = 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
-export type OrderType = 'subscription' | 'ponctual';
-export type TargetType = 'personal' | 'patient';
 
-// ✅ Assignment Types (réexporté depuis assignment.ts mais ajout pour complétude)
+// ✅ SUBSCRIPTION STATUS
+export type SubscriptionStatus = 'en_attente' | 'actif' | 'expire' | 'annule' | 'suspendu' | 'en_cours_de_renouvellement';
+
+// ✅ NOTIFICATION TYPE
+export type NotificationType = 'visite' | 'message' | 'commande' | 'paiement' | 'system' | 'alert' | 'reminder' | 'promotion';
+
+// ✅ ORDER TYPE
+export type OrderType = 'subscription' | 'ponctual';
+
+// ✅ TARGET TYPE
+export type TargetType = 'personal' | 'patient' | 'personal_account';
+
+// ✅ ASSIGNMENT TYPES (réexporté depuis assignment.ts)
 export type { 
   TargetType as AssignmentTargetType,
   AssignmentType,
@@ -187,6 +200,10 @@ export interface Aidant {
   background_check_date: string | null;
   languages: string[];
   availability_hours: Record<string, any>;
+  current_assignments?: number;
+  max_assignments?: number;
+  current_orders?: number;
+  max_orders?: number;
   created_at: string;
   updated_at: string;
 }
@@ -255,8 +272,13 @@ export interface Visit {
   requires_payment?: boolean;
   payment_amount?: number;
   draft_expires_at?: string | null;
-  // ✅ NOUVEAU - auto assignation
   auto_assigned_aidant?: boolean;
+  // 🆕 NOUVEAUX CHAMPS
+  is_permanent?: boolean;
+  assigned_by_admin?: boolean;
+  admin_assigned_at?: string | null;
+  waiting_for_aidant_since?: string | null;
+  subscription_id?: string | null;
 }
 
 export type VisitWithPatient = Visit;
@@ -312,7 +334,14 @@ export interface Order {
   created_at: string;
   updated_at: string;
   is_ponctual?: boolean;
-   auto_assigned_aidant?: boolean;
+  auto_assigned_aidant?: boolean;
+  // 🆕 NOUVEAUX CHAMPS
+  current_aidant_id?: string | null;
+  taken_at?: string | null;
+  taken_by?: string | null;
+  auto_validation_at?: string | null;
+  is_auto_validated?: boolean;
+  subscription_id?: string | null;
 }
 
 export interface OrderItem {
@@ -362,7 +391,7 @@ export interface Message {
 }
 
 // =============================================
-// OFFRE & ABONNEMENT - ABONNEMENT LIÉ AU COMPTE
+// OFFRE & ABONNEMENT
 // =============================================
 
 export interface OfferDB {
@@ -535,6 +564,12 @@ export interface DashboardStats {
   visitsInProgress: number;
   pendingRegistrations: number;
   revenue: number;
+  // 🆕 NOUVEAUX STATS
+  visitsWaitingAidant?: number;
+  ordersAvailable?: number;
+  totalBeneficiaires?: number;
+  assignedCount?: number;
+  unassignedCount?: number;
 }
 
 export interface DailyStats {
@@ -600,7 +635,7 @@ export interface JournalEntry {
   notes: string | null;
   photos: string[];
   audio_url: string | null;
-  status: 'planifiee' | 'en_cours' | 'terminee' | 'validee';
+  status: VisitStatus;
   rating: number | null;
   feedback: string | null;
   created_at: string;
@@ -718,4 +753,62 @@ export interface ContractStatus {
   contract: Contract | null;
   has_accepted: boolean;
   latest_acceptance: UserContractAcceptance | null;
+}
+
+// =============================================
+// 🆕 WIZARD OPTIONS
+// =============================================
+
+export interface WizardOption {
+  type: 'ponctuelle' | 'permanente' | 'without_aidant' | 'force' | 'auto';
+  label: string;
+  description: string;
+  quota: number | string;
+  icon?: React.ReactNode;
+}
+
+export interface WizardAidant {
+  id: string;
+  user_id: string;
+  user?: {
+    id: string;
+    full_name: string;
+    email: string;
+    phone: string | null;
+    avatar_url: string | null;
+  } | null;
+  specialties: string[];
+  available: boolean;
+  rating: number;
+  total_missions: number;
+  is_verified: boolean;
+  current_assignments: number;
+  max_assignments: number;
+  available_slots: number;
+  is_available: boolean;
+  zones: string[];
+  experience_years: number;
+}
+
+export interface WizardData {
+  hasAidant: boolean;
+  hasAvailableAidants: boolean;
+  aidants: WizardAidant[];
+  options: WizardOption[];
+  canProceed: boolean;
+  allFull: boolean;
+  message?: string;
+  error?: string;
+  isAdmin?: boolean;
+}
+
+// =============================================
+// 🆕 QUOTA INFO
+// =============================================
+
+export interface QuotaInfo {
+  current: number;
+  max: number;
+  available: number;
+  canTake: boolean;
 }
