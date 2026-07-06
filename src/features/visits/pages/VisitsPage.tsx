@@ -11,6 +11,10 @@ import {
   CheckCircle,
   UserPlus,
   Sparkles,
+  Users,
+  User,
+  Clock,
+  Eye,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -22,6 +26,7 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
+import { VisitWizardModal } from '../components/VisitWizardModal';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import { AssignAidantModal } from '@/components/common/AssignAidantModal';
 import { getPonctualPrice } from '@/lib/constants';
@@ -31,6 +36,16 @@ import toast from 'react-hot-toast';
 // ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
+// ============================================================
+// TYPES
+// ============================================================
+
+interface VisitWizardData {
+  aidantId?: string | null;
+  wizardChoice?: string;
+  assignmentType?: string;
+}
+
 // =============================================
 // COMPOSANT PRINCIPAL
 // =============================================
@@ -38,8 +53,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender
 const VisitsPage = () => {
   const navigate = useNavigate();
 
-  const { profile, role } = useAuthStore();
-  const { visits, isLoading, fetchVisits, startVisit, cancelVisit } = useVisitStore();
+  const { profile, role, user } = useAuthStore();
+  const { visits, isLoading, fetchVisits, startVisit, cancelVisit, createVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
 
   // ✅ Utiliser le guard d'abonnement
@@ -65,6 +80,7 @@ const VisitsPage = () => {
     payVisitPonctual,
     handlePaymentSuccess,
     handlePaymentCancel,
+    isLoading: isPaymentLoading,
   } = usePonctualPayment({
     onSuccess: () => {
       fetchVisits();
@@ -77,6 +93,19 @@ const VisitsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+
+  // ✅ États pour le Wizard
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardData, setWizardData] = useState<{
+    targetType: 'patient' | 'personal_account' | 'personal';
+    targetId: string;
+    targetName: string;
+    familyId?: string;
+    scheduledDate?: string;
+    scheduledTime?: string;
+    visitData?: any;
+  } | null>(null);
+  const [isWizardLoading, setIsWizardLoading] = useState(false);
 
   // ✅ États pour la conversion
   const [isConverting, setIsConverting] = useState(false);
@@ -104,7 +133,7 @@ const VisitsPage = () => {
   }, []);
 
   // =============================================
-  // ✅ FILTRES SIMPLIFIÉS AVEC MODE PONCTUEL
+  // ✅ FILTRES SIMPLIFIÉS AVEC MODE PONCTUEL + EN_ATTENTE_AIDANT
   // =============================================
   const statusFilterOptions = useMemo(() => {
     if (isAidantRole) {
@@ -118,12 +147,13 @@ const VisitsPage = () => {
     }
     return [
       { value: 'all', label: 'Toutes les visites' },
-      { value: 'planifiee', label: 'Planifiées' },
-      { value: 'acceptee', label: 'Confirmées' },
-      { value: 'en_cours', label: 'En cours' },
-      { value: 'terminee', label: 'Terminées' },
+      { value: 'planifiee', label: '📅 Planifiées' },
+      { value: 'acceptee', label: '✅ Confirmées' },
+      { value: 'en_cours', label: '🔄 En cours' },
+      { value: 'terminee', label: '📋 Terminées' },
       { value: 'brouillon', label: '💳 En attente paiement' },
       { value: 'ponctuel', label: '⚡ Mode ponctuel' },
+      { value: 'en_attente_aidant', label: '🦸 En attente d\'aidant' },
     ];
   }, [isAidantRole]);
 
@@ -157,6 +187,7 @@ const VisitsPage = () => {
     v.metadata?.is_ponctual === true ||
     v.visit_type === 'ponctuelle'
   ).length;
+  const waitingForAidantCount = visits.filter(v => v.status === 'en_attente_aidant').length;
   const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
   // ✅ Message d'information sur l'abonnement
@@ -197,6 +228,87 @@ const VisitsPage = () => {
       color: '#10B981',
     };
   }, [hasActiveSubscription, remainingVisits, isAidantRole, isAdminOrCoordinator, colors.primary]);
+
+  // =============================================
+  // ✅ GESTION DU WIZARD - CRÉATION DE VISITE
+  // =============================================
+
+  const handleCreateVisitWithWizard = async (visitData: any) => {
+    // Déterminer la cible
+    let targetType: 'patient' | 'personal_account' | 'personal' = 'personal';
+    let targetId = user?.id || '';
+    let targetName = profile?.full_name || 'Personnel';
+    let familyId = user?.id || '';
+
+    if (visitData.patient_id) {
+      targetType = 'patient';
+      targetId = visitData.patient_id;
+      const patient = patients.find(p => p.id === visitData.patient_id);
+      targetName = patient ? `${patient.first_name} ${patient.last_name}` : 'Patient';
+    } else if (visitData.target_user_id) {
+      targetType = 'personal_account';
+      targetId = visitData.target_user_id;
+      targetName = visitData.target_name || 'Compte personnel';
+    }
+
+    setWizardData({
+      targetType,
+      targetId,
+      targetName,
+      familyId,
+      scheduledDate: visitData.scheduled_date,
+      scheduledTime: visitData.scheduled_time,
+      visitData,
+    });
+    setShowWizard(true);
+  };
+
+  // ✅ SUCCÈS DU WIZARD
+  const handleWizardSuccess = async (data: VisitWizardData) => {
+    if (!wizardData) return;
+
+    setIsWizardLoading(true);
+    setShowWizard(false);
+
+    try {
+      const visitPayload = {
+        ...wizardData.visitData,
+        wizard_choice: data.wizardChoice,
+        selected_aidant_id: data.aidantId,
+        assignment_type: data.assignmentType || 'ponctuelle',
+      };
+
+      // ✅ Créer la visite via le store
+      const result = await createVisit(visitPayload);
+
+      // ✅ Si la visite est en attente d'aidant
+      if (result?.status === 'en_attente_aidant') {
+        toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
+      } else if (result?.status === 'brouillon') {
+        // Paiement requis
+        const price = getPonctualPrice(result.duration_minutes || 60);
+        toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis.`);
+        // Ouvrir le modal de paiement
+        handlePonctualPayment(result);
+      } else {
+        toast.success('Visite planifiée avec succès !');
+      }
+
+      await fetchVisits();
+    } catch (error: any) {
+      console.error('❌ Erreur création visite:', error);
+      toast.error(error.message || 'Erreur lors de la création de la visite');
+    } finally {
+      setIsWizardLoading(false);
+      setWizardData(null);
+    }
+  };
+
+  // ✅ ANNULATION DU WIZARD
+  const handleWizardClose = () => {
+    setShowWizard(false);
+    setWizardData(null);
+  };
 
   // =============================================
   // ✅ CONVERTIR UN BROUILLON EN VISITE PLANIFIÉE
@@ -260,7 +372,7 @@ const VisitsPage = () => {
   };
 
   // =============================================
-  // ✅ ASSIGNATION D'AIDANT
+  // ✅ ASSIGNATION D'AIDANT (ADMIN)
   // =============================================
   const handleShowAssignAidantModal = (visit: any) => {
     setSelectedVisitForAssign(visit);
@@ -271,6 +383,47 @@ const VisitsPage = () => {
     useVisitStore.getState().invalidateCache();
     await fetchVisits();
     toast.success('Aidant assigné avec succès');
+  };
+
+  // =============================================
+  // ✅ ADMIN : ASSIGNER UN AIDANT À UNE VISITE EN ATTENTE
+  // =============================================
+  const handleAdminAssignAidant = async (visitId: string, aidantId: string, assignmentType: string = 'permanente') => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        toast.error('Session expirée');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/visits/admin/assign-aidant`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          visitId,
+          aidantId,
+          assignmentType,
+          force: true,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur lors de l\'assignation');
+      }
+
+      toast.success(result.message || 'Aidant assigné avec succès');
+      await fetchVisits();
+    } catch (error: any) {
+      console.error('❌ Erreur assignation:', error);
+      toast.error(error.message || 'Erreur lors de l\'assignation');
+    }
   };
 
   // =============================================
@@ -373,6 +526,9 @@ const VisitsPage = () => {
                 )}
               </span>
             )}
+            {isAdminOrCoordinator && waitingForAidantCount > 0 && (
+              <span className="ml-2 text-orange-500">⚠️ {waitingForAidantCount} en attente d'aidant</span>
+            )}
           </p>
         </div>
 
@@ -472,6 +628,36 @@ const VisitsPage = () => {
       )}
 
       {/* ============================================================
+      ✅ BANNIÈRE D'ALERTE VISITES EN ATTENTE D'AIDANT (ADMIN)
+      ============================================================ */}
+      {isAdminOrCoordinator && waitingForAidantCount > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-xl shadow-sm border border-orange-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-orange-500 mt-0.5" size={24} />
+              <div>
+                <p className="font-bold text-orange-800">
+                  🦸 {waitingForAidantCount} visite{waitingForAidantCount > 1 ? 's' : ''} en attente d'aidant
+                </p>
+                <p className="text-sm text-orange-700">
+                  Tous les aidants sont complets (4/4). Assignez un aidant à ces visites.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setFilterStatus('en_attente_aidant');
+                document.querySelector('.visits-list')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
+            >
+              👔 Voir les visites
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
       BARRE DE FILTRES HORIZONTALE (TABS)
       ============================================================ */}
       <section className="w-full overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -480,6 +666,7 @@ const VisitsPage = () => {
             const isActive = filterStatus === option.value;
             const hasBadge = option.value === 'brouillon' && draftCount > 0;
             const hasPonctualBadge = option.value === 'ponctuel' && ponctualCount > 0;
+            const hasWaitingBadge = option.value === 'en_attente_aidant' && waitingForAidantCount > 0;
 
             return (
               <button
@@ -489,7 +676,7 @@ const VisitsPage = () => {
                   isActive
                     ? 'text-white shadow-sm'
                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                } ${hasBadge || hasPonctualBadge ? 'relative' : ''}`}
+                } ${hasBadge || hasPonctualBadge || hasWaitingBadge ? 'relative' : ''}`}
                 style={{
                   backgroundColor: isActive ? colors.primary : undefined,
                 }}
@@ -503,6 +690,11 @@ const VisitsPage = () => {
                 {hasPonctualBadge && option.value === 'ponctuel' && (
                   <span className="ml-1.5 bg-blue-400 text-white px-1.5 py-0.5 rounded-full text-[8px] font-bold">
                     {ponctualCount}
+                  </span>
+                )}
+                {hasWaitingBadge && option.value === 'en_attente_aidant' && (
+                  <span className="ml-1.5 bg-orange-400 text-white px-1.5 py-0.5 rounded-full text-[8px] font-bold">
+                    {waitingForAidantCount}
                   </span>
                 )}
               </button>
@@ -562,6 +754,7 @@ const VisitsPage = () => {
           >
             {filterStatus === 'brouillon' ? <CreditCard size={20} /> : 
              filterStatus === 'ponctuel' ? <Sparkles size={20} /> :
+             filterStatus === 'en_attente_aidant' ? <Users size={20} /> :
              <Calendar size={20} />}
           </div>
 
@@ -572,9 +765,11 @@ const VisitsPage = () => {
           <p className="text-xs text-gray-400 mt-0.5">
             {filterStatus === 'ponctuel' 
               ? 'Vous n\'avez pas encore de visites en mode ponctuel.'
-              : filterStatus !== 'all' 
-                ? 'Essayez de changer de filtre pour voir d\'autres statuts.' 
-                : 'Les visites programmées s\'afficheront ici.'}
+              : filterStatus === 'en_attente_aidant'
+                ? 'Aucune visite en attente d\'aidant.'
+                : filterStatus !== 'all' 
+                  ? 'Essayez de changer de filtre pour voir d\'autres statuts.' 
+                  : 'Les visites programmées s\'afficheront ici.'}
           </p>
 
           {canPlanify && filterStatus === 'all' && (
@@ -613,8 +808,32 @@ const VisitsPage = () => {
         mode={modalMode}
         visit={selectedVisit}
         patients={patients}
-        onSuccess={handleModalSuccess}
+        onSuccess={(newVisit?: any) => {
+          // ✅ Si la visite nécessite un wizard, l'ouvrir
+          if (newVisit && newVisit.requires_wizard) {
+            // Le wizard sera ouvert via handleModalSuccess
+          }
+          handleModalSuccess(newVisit);
+        }}
       />
+
+      {/* ============================================================
+      🆕 MODAL WIZARD
+      ============================================================ */}
+      {showWizard && wizardData && (
+        <VisitWizardModal
+          isOpen={showWizard}
+          onClose={handleWizardClose}
+          onSuccess={handleWizardSuccess}
+          targetType={wizardData.targetType}
+          targetId={wizardData.targetId}
+          targetName={wizardData.targetName}
+          familyId={wizardData.familyId}
+          scheduledDate={wizardData.scheduledDate}
+          scheduledTime={wizardData.scheduledTime}
+          colors={colors}
+        />
+      )}
 
       {/* ============================================================
       MODAL DE PAIEMENT PONCTUEL UNIFIÉ
@@ -630,7 +849,7 @@ const VisitsPage = () => {
       )}
 
       {/* ============================================================
-      MODAL D'ASSIGNATION D'AIDANT
+      MODAL D'ASSIGNATION D'AIDANT (ADMIN)
       ============================================================ */}
       {showAssignModal && selectedVisitForAssign && (
         <AssignAidantModal
@@ -645,6 +864,8 @@ const VisitsPage = () => {
             `${selectedVisitForAssign.patient?.first_name || ''} ${selectedVisitForAssign.patient?.last_name || ''}`.trim() || 'Visite'}
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedVisitForAssign.aidant_id}
+          allowForce={isAdminOrCoordinator}
+          onAssignAidant={handleAdminAssignAidant}
         />
       )}
     </div>
