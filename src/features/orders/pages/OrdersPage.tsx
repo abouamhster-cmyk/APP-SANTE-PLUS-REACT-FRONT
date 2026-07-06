@@ -572,7 +572,7 @@ const OrdersPage = () => {
             setShowAssignModal(false);
             setSelectedOrderForAssign(null);
           }}
-          targetType="order"
+          targetType="patient"
           targetId={selectedOrderForAssign.id}
           targetName={selectedOrderForAssign.target_name || `Commande ${selectedOrderForAssign.id.slice(0, 8)}`}
           onSuccess={handleAssignAidantSuccess}
