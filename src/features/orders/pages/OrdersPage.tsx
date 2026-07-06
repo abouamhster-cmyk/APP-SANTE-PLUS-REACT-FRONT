@@ -29,7 +29,7 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
-import { AssignAidantModal } from '@/components/common/AssignAidantModal';
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import {
@@ -577,7 +577,7 @@ const OrdersPage = () => {
           targetName={selectedOrderForAssign.target_name || `Commande ${selectedOrderForAssign.id.slice(0, 8)}`}
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedOrderForAssign.aidant_id}
-          isAdmin={isAdminOrCoordinator}
+          allowForce={isAdminOrCoordinator}
         />
       )}
     </div>
