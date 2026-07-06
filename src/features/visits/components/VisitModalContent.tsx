@@ -1,13 +1,15 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, Sparkles } from 'lucide-react';
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getThemeColors } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
+import { getPonctualPrice } from '@/lib/constants';
 import toast from 'react-hot-toast';
 
 interface VisitModalContentProps {
@@ -41,6 +43,19 @@ export const VisitModalContent = ({
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
   const { profile, role } = useAuthStore();
+  
+  // ✅ Utiliser le guard d'abonnement
+  const {
+    hasActiveSubscription,
+    remainingVisits,
+    can,
+    getActionMessage,
+    isFamily,
+    isAidant: isAidantRole,
+    isAdminOrCoordinator,
+    isLoading: subLoading,
+  } = useSubscriptionGuard();
+
   const [isLoading, setIsLoading] = useState(false);
   const colors = getThemeColors('senior');
 
@@ -48,9 +63,6 @@ export const VisitModalContent = ({
     singular,
     plural,
     getCategoryLabel,
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
   } = useTerminology();
 
   // ✅ ÉTATS POUR LA GESTION DES COMPTES
@@ -59,8 +71,6 @@ export const VisitModalContent = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
 
-  // 'account' = pour le compte lui-même (personnel)
-  // 'patient' = pour un patient du compte
   const [targetType, setTargetType] = useState<'account' | 'patient'>('account');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
@@ -74,6 +84,38 @@ export const VisitModalContent = ({
   });
 
   const isAdmin = isAdminOrCoordinator;
+  const isFamilyUser = isFamily;
+  const isAidant = isAidantRole;
+
+  // ✅ Message d'information sur l'abonnement
+  const subscriptionMessage = (() => {
+    if (isAidant || isAdmin) return null;
+    
+    if (hasActiveSubscription && remainingVisits > 0) {
+      return {
+        type: 'success',
+        icon: <CheckCircle size={14} />,
+        text: `✅ ${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} disponible${remainingVisits > 1 ? 's' : ''} sur votre abonnement`,
+      };
+    }
+    
+    if (hasActiveSubscription && remainingVisits === 0) {
+      return {
+        type: 'warning',
+        icon: <AlertCircle size={14} />,
+        text: '⚠️ Plus de visites disponibles sur votre abonnement. Passez en mode ponctuel ou renouvelez.',
+      };
+    }
+    
+    return {
+      type: 'info',
+      icon: <CreditCard size={14} />,
+      text: '💳 Aucun abonnement actif. Utilisez le mode ponctuel ou souscrivez un abonnement.',
+    };
+  })();
+
+  // ✅ Prix ponctuel selon la durée
+  const ponctualPrice = getPonctualPrice(formData.duration_minutes || 60);
 
   // ✅ Charger les comptes pour l'admin
   useEffect(() => {
@@ -82,7 +124,6 @@ export const VisitModalContent = ({
     }
   }, [isAdmin]);
 
-  // ✅ Pour les utilisateurs non-admin, sélectionner automatiquement leur compte
   useEffect(() => {
     if (!isAdmin && profile?.id) {
       setSelectedAccountId(profile.id);
@@ -142,7 +183,6 @@ export const VisitModalContent = ({
         is_urgent: false,
       });
       
-      // ✅ Sélection par défaut du compte
       if (isAdmin && accounts.length > 0) {
         setSelectedAccountId(accounts[0].id);
         setTargetType('account');
@@ -169,7 +209,6 @@ export const VisitModalContent = ({
     setIsLoading(true);
 
     try {
-      // ✅ Vérifier les dates
       const today = new Date().toISOString().split('T')[0];
       if (formData.scheduled_date < today) {
         toast.error('La date de visite ne peut pas être dans le passé');
@@ -201,7 +240,6 @@ export const VisitModalContent = ({
           return;
         }
         
-        // ✅ Vérifier que le patient appartient bien au compte
         if (isAdmin && selectedAccount) {
           const patientBelongsToAccount = selectedAccount.patients.some(p => p.id === formData.patient_id);
           if (!patientBelongsToAccount) {
@@ -238,14 +276,30 @@ export const VisitModalContent = ({
         data.patient_id = null;
       }
 
+      // ✅ DÉTERMINER SI PAIEMENT REQUIS (BACKEND LE FERA AUSSI)
+      // On ajoute un flag pour que le backend sache si on veut forcer le mode ponctuel
+      if (isFamilyUser && !can('visit')) {
+        // ✅ Pas d'abonnement ou plus de visites → mode ponctuel
+        data.is_ponctual = true;
+        data.requires_payment = true;
+        console.log('💳 Mode ponctuel activé pour cette visite');
+      }
+
       console.log('📤 Données envoyées:', data);
 
       if (mode === 'create') {
-        await createVisit(data);
-       // toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
+        const result = await createVisit(data);
+        
+        // ✅ Si la visite est en brouillon (paiement requis), afficher un message
+        if (result?.status === 'brouillon') {
+          const price = getPonctualPrice(formData.duration_minutes || 60);
+          toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
+        } else {
+          toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
+        }
       } else if (visit) {
         await updateVisit(visit.id, data);
-       // toast.success('Visite mise à jour');
+        toast.success('Visite mise à jour');
       }
       onSuccess();
     } catch (error: any) {
@@ -256,7 +310,7 @@ export const VisitModalContent = ({
     }
   };
 
-  // ✅ SÉLECTEUR DE COMPTE (ADMIN UNIQUEMENT)
+  // ✅ RENDU DES SÉLECTEURS (inchangé)
   const renderAccountSelector = () => {
     if (!isAdmin) return null;
 
@@ -345,7 +399,6 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ SÉLECTEUR DE DESTINATAIRE (ADMIN UNIQUEMENT)
   const renderTargetTypeSelector = () => {
     if (!isAdmin || !selectedAccount) return null;
 
@@ -410,7 +463,6 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ SÉLECTEUR DE PATIENT (UNIFIÉ : ADMIN ET FAMILLE)
   const renderPatientSelector = () => {
     if (targetType !== 'patient') return null;
 
@@ -435,7 +487,7 @@ export const VisitModalContent = ({
     return (
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
-          {isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire'} *
+          {isFamilyUser ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire'} *
         </label>
         <div className="relative">
           <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
@@ -466,11 +518,9 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ RÉSUMÉ COMPACT ET SÉCURISÉ DU DESTINATAIRE (UNIFIÉ)
   const renderTargetSummary = () => {
     const isAccount = targetType === 'account';
 
-    // Rendu pour l'Utilisateur Standard (Famille / Aidant)
     if (!isAdmin && profile) {
       const targetName = isAccount ? profile.full_name : (() => {
         const selectedPatient = patients.find(p => p.id === formData.patient_id);
@@ -494,7 +544,6 @@ export const VisitModalContent = ({
       );
     }
 
-    // Rendu pour l'Administrateur
     if (!selectedAccount) return null;
 
     const targetName = isAccount ? selectedAccount.full_name : (() => {
@@ -526,7 +575,6 @@ export const VisitModalContent = ({
     );
   };
 
-  // ✅ CONFIGURATION COMMUNE POUR L'UTILISATEUR STANDARD (BOUTONS DE SÉLECTION)
   const renderFamilyContent = () => {
     if (isAdmin) return null;
 
@@ -576,7 +624,7 @@ export const VisitModalContent = ({
           >
             <Users size={14} />
             <span className="truncate">
-              {isFamily ? 'Proche' : isAidant ? 'Bénéficiaire' : 'Bénéficiaire'}
+              {isFamilyUser ? 'Proche' : isAidant ? 'Bénéficiaire' : 'Bénéficiaire'}
             </span>
           </button>
         </div>
@@ -595,6 +643,10 @@ export const VisitModalContent = ({
     );
   };
 
+  // =============================================
+  // ✅ RENDU AVEC BANDEAU D'ABONNEMENT
+  // =============================================
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full overflow-hidden">
       
@@ -612,6 +664,59 @@ export const VisitModalContent = ({
 
       {/* 🔹 Résumé destinataire de la visite (Unifié) */}
       {renderTargetSummary()}
+
+      {/* ============================================================
+      ✅ BANDEAU D'INFORMATION ABONNEMENT (FAMILLE UNIQUEMENT)
+      ============================================================ */}
+      {isFamilyUser && subscriptionMessage && (
+        <div 
+          className={`p-3 rounded-xl flex items-start gap-2.5 border ${
+            subscriptionMessage.type === 'success' ? 'bg-green-50 border-green-200' :
+            subscriptionMessage.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+            'bg-blue-50 border-blue-200'
+          }`}
+        >
+          <div className={`mt-0.5 ${
+            subscriptionMessage.type === 'success' ? 'text-green-600' :
+            subscriptionMessage.type === 'warning' ? 'text-yellow-600' :
+            'text-blue-600'
+          }`}>
+            {subscriptionMessage.icon}
+          </div>
+          <div>
+            <p className={`text-xs font-medium ${
+              subscriptionMessage.type === 'success' ? 'text-green-700' :
+              subscriptionMessage.type === 'warning' ? 'text-yellow-700' :
+              'text-blue-700'
+            }`}>
+              {subscriptionMessage.text}
+            </p>
+            {!hasActiveSubscription && (
+              <p className="text-[10px] text-blue-600 mt-0.5">
+                💳 Prix ponctuel : {ponctualPrice.toLocaleString()} FCFA pour {formData.duration_minutes} min
+              </p>
+            )}
+            {hasActiveSubscription && remainingVisits === 0 && (
+              <p className="text-[10px] text-yellow-600 mt-0.5">
+                💳 Prix ponctuel : {ponctualPrice.toLocaleString()} FCFA pour {formData.duration_minutes} min
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+      BANDEAU POUR AIDANT (info sur la notification)
+      ============================================================ */}
+      {isAidant && (
+        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
+          <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-medium text-blue-700">En tant qu'aidant, vous serez notifié de cette visite</p>
+            <p className="text-[10px] text-blue-600">Une fois la visite approuvée, elle apparaîtra dans votre planning.</p>
+          </div>
+        </div>
+      )}
 
       {/* 🔹 Grille Date et Heure */}
       <div className="grid grid-cols-2 gap-3 w-full min-w-0">
@@ -674,6 +779,12 @@ export const VisitModalContent = ({
           <option value="90">1h30</option>
           <option value="120">2 heures</option>
         </select>
+        {/* ✅ AFFICHAGE DU PRIX PONCTUEL EN TEMPS RÉEL */}
+        {isFamilyUser && !hasActiveSubscription && (
+          <p className="text-[10px] text-gray-400 mt-1">
+            💳 Prix ponctuel : {ponctualPrice.toLocaleString()} FCFA
+          </p>
+        )}
       </div>
 
       {/* 🔹 Notes */}
@@ -707,17 +818,6 @@ export const VisitModalContent = ({
           ⚠️ Signaler comme visite urgente
         </label>
       </div>
-
-      {/* 🔹 Info supplémentaire pour l'aidant */}
-      {isAidant && (
-        <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
-          <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-medium text-blue-700">En tant qu'aidant, vous serez notifié de cette visite</p>
-            <p className="text-[10px] text-blue-600">Une fois la visite approuvée, elle apparaîtra dans votre planning.</p>
-          </div>
-        </div>
-      )}
 
       {/* 🔹 Boutons actions */}
       <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
