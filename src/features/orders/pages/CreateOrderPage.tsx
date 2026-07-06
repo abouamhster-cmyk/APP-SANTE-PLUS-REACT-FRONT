@@ -110,45 +110,48 @@ const CreateOrderPage = () => {
   const colors = getThemeColors(themeName);
 
   // ✅ Vérifier si l'utilisateur peut utiliser l'abonnement
-  const canUseSubscription = () => {
+  const canUseSubscription = (): boolean => {
     return hasActiveSubscription && remainingOrders > 0;
   };
 
+
+
+  // ✅ Message d'information sur l'abonnement
+const subscriptionInfo = (() => {
+  if (isAidant || isAdminOrCoordinator) return null;
+  
+  if (canUseSubscription()) {
+    return {
+      type: 'success',
+      icon: <CheckCircle size={18} />,
+      title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
+      description: 'Utilisez votre abonnement pour ne pas payer de frais supplémentaires.',
+    };
+  }
+  
+  if (hasActiveSubscription && remainingOrders === 0) {
+    return {
+      type: 'warning',
+      icon: <AlertCircle size={18} />,
+      title: '⚠️ Plus de commandes disponibles',
+      description: 'Vous avez utilisé toutes vos commandes. Passez en mode ponctuel ou renouvelez votre abonnement.',
+    };
+  }
+  
+  return {
+    type: 'info',
+    icon: <Sparkles size={18} />,
+    title: '💡 Mode ponctuel',
+    description: 'Vous n\'avez pas d\'abonnement actif. Utilisez le mode ponctuel pour payer à l\'acte.',
+  };
+})();
+  
   // ✅ Calcul du prix ponctuel
   const getPonctualPrice = () => {
     return getPonctualOrderPriceByType(formData.type, formData.items);
   };
 
-  // ✅ Message d'information sur l'abonnement
-  const subscriptionInfo = (() => {
-    if (isAidant || isAdminOrCoordinator) return null;
-    
-    if (canUseSubscription()) {
-      return {
-        type: 'success',
-        icon: <CheckCircle size={18} />,
-        title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
-        description: 'Utilisez votre abonnement pour ne pas payer de frais supplémentaires.',
-      };
-    }
-    
-    if (hasActiveSubscription && remainingOrders === 0) {
-      return {
-        type: 'warning',
-        icon: <AlertCircle size={18} />,
-        title: '⚠️ Plus de commandes disponibles',
-        description: 'Vous avez utilisé toutes vos commandes. Passez en mode ponctuel ou renouvelez votre abonnement.',
-      };
-    }
-    
-    return {
-      type: 'info',
-      icon: <Sparkles size={18} />,
-      title: '💡 Mode ponctuel',
-      description: 'Vous n\'avez pas d\'abonnement actif. Utilisez le mode ponctuel pour payer à l\'acte.',
-    };
-  })();
-
+  
   // =============================================
   // EFFETS : CHARGEMENT ET SAUVEGARDE
   // =============================================
