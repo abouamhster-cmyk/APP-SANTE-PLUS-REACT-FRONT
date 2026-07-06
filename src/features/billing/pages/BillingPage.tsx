@@ -1,4 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
+// ✅ Version finale - Abonnements UNIQUEMENT (pas de ponctuel)
 
 import { useEffect, useState } from 'react';
 import {
@@ -27,7 +28,7 @@ import toast from 'react-hot-toast';
 // TYPES
 // =============================================
 
-// ✅ SUPPRIMER 'ponctuelle' des tabs - ce n'est PAS un abonnement
+// ✅ UNIQUEMENT les catégories d'abonnement
 type TabType = 'all' | 'senior' | 'maman_bebe' | 'pack_confort';
 
 // =============================================
@@ -96,7 +97,7 @@ const BillingPage = () => {
   }, []);
 
   // =============================================
-  // ✅ FILTRAGE DES OFFRES - SUPPRESSION DES PONCTUELLES
+  // ✅ FILTRAGE DES OFFRES - UNIQUEMENT LES ABONNEMENTS
   // =============================================
   useEffect(() => {
     if (offers.length === 0) return;
@@ -185,15 +186,15 @@ const BillingPage = () => {
   // ✅ OUVERTURE DU MODAL DE PAIEMENT
   // =============================================
   const openPayment = (offer: Offer) => {
-    // ✅ Récupérer le premier patient de la famille (ou null)
-    const activePatient = patients.length > 0 ? patients[0] : null;
-    const patientId = activePatient?.id || null;
-
     // ✅ Vérifier si l'utilisateur a déjà un abonnement actif
     if (hasActiveSub) {
       toast.error('Vous avez déjà un abonnement actif');
       return;
     }
+
+    // ✅ Récupérer le premier patient de la famille (ou null)
+    const activePatient = patients.length > 0 ? patients[0] : null;
+    const patientId = activePatient?.id || null;
 
     setSelectedOffer(offer);
     setSelectedPatientId(patientId);
@@ -208,11 +209,11 @@ const BillingPage = () => {
     await fetchPayments();
     await fetchOffers();
     setIsPaymentOpen(false);
-    toast.success('Paiement effectué avec succès !');
+    toast.success('Abonnement activé avec succès !');
   };
 
   // =============================================
-  // ✅ STATISTIQUES - PLUS DE PONCTUELLE
+  // ✅ STATISTIQUES
   // =============================================
   const stats = {
     total: filteredOffers.length,
