@@ -1,7 +1,7 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, Sparkles } from 'lucide-react';
+import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, Sparkles, CheckCircle } from 'lucide-react';
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
