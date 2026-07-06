@@ -31,6 +31,21 @@ import { formatDate, formatCurrency, cn } from '@/utils/helpers';
 // TYPES
 // ============================================================
 
+// ✅ Interface étendue pour gérer metadata
+interface ExtendedOrder extends Order {
+  metadata?: {
+    paid_at?: string;
+    payment_completed?: boolean;
+    ponctual_mode?: boolean;
+    requires_payment?: boolean;
+    payment_amount?: number;
+    [key: string]: any;
+  };
+  is_ponctual?: boolean;
+  is_paid?: boolean;
+  order_type?: string;
+}
+
 interface OrderCardProps {
   order: Order;
   onClick?: () => void;
@@ -132,7 +147,7 @@ const getStatusConfig = (status: string) => {
 // ============================================================
 
 export const OrderCard = memo(({
-  order,
+  order: orderProp,
   onClick,
   onStatusChange,
   onTakeOrder,
@@ -146,6 +161,9 @@ export const OrderCard = memo(({
 }: OrderCardProps) => {
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
   const colors = propColors || getThemeColors('senior');
+
+  // ✅ Caster l'order en ExtendedOrder pour accéder à metadata
+  const order = orderProp as ExtendedOrder;
 
   // ============================================================
   // CALCULS MEMOISÉS
@@ -204,6 +222,9 @@ export const OrderCard = memo(({
   const aidantName = useMemo(() => {
     if (order.aidant?.user?.full_name) {
       return order.aidant.user.full_name;
+    }
+    if (order.aidant && typeof order.aidant === 'object' && 'full_name' in order.aidant) {
+      return (order.aidant as any).full_name;
     }
     return 'Non assigné';
   }, [order]);
