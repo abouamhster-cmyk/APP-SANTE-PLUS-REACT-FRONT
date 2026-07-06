@@ -156,26 +156,27 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
   // RÉCUPÉRATION DES COMMANDES DISPONIBLES (AIDANT)
   // ============================================================
 
-  const fetchAvailableOrders = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('commandes')
-        .select(`
-          *,
-          patient:patients(*),
-          aidant:aidants(*, user:profiles(*))
-        `)
-        .in('status', ['creee', 'en_attente', 'disponible'])
-        .order('created_at', { ascending: true });
+ 
+const fetchAvailableOrders = useCallback(async () => {
+  try {
+    const { data, error } = await supabase
+      .from('commandes')
+      .select(`
+        *,
+        patient:patients(*),
+        aidant:aidants!commandes_aidant_id_fkey(*, user:profiles(*))
+      `)
+      .in('status', ['creee', 'en_attente', 'disponible'])
+      .order('created_at', { ascending: true });
 
-      if (error) throw error;
-      setAvailableOrders(data || []);
-      return data || [];
-    } catch (error) {
-      console.error('❌ fetchAvailableOrders error:', error);
-      return [];
-    }
-  }, []);
+    if (error) throw error;
+    setAvailableOrders(data || []);
+    return data || [];
+  } catch (error) {
+    console.error('❌ fetchAvailableOrders error:', error);
+    return [];
+  }
+}, []);
 
   // ============================================================
   // CHARGEMENT DES DONNÉES
