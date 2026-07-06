@@ -1,5 +1,4 @@
-// 📁 src/stores/orderStore.ts
- 
+// 📁 frontend/src/stores/orderStore.ts
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -15,11 +14,12 @@ import {
   requiresPonctualPayment,
 } from '@/lib/constants';
 
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
 // =============================================
 // CONSTANTES
 // =============================================
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   creee: 'Créée',
@@ -42,6 +42,9 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   annulee: '#9E9E9E',
   attente_paiement: '#8b5cf6',
 };
+
+// ✅ QUOTA MAX DE COMMANDES EN COURS PAR AIDANT
+const MAX_ORDERS_IN_PROGRESS = 2;
 
 // =============================================
 // HELPERS DE CACHE
@@ -97,7 +100,12 @@ interface OrderState {
   
   fetchOrders: (force?: boolean) => Promise<void>;
   fetchOrderById: (id: string) => Promise<void>;
-  createOrder: (data: Partial<Order> & { target_type?: 'personal' | 'patient'; target_name?: string }) => Promise<Order>;
+  createOrder: (data: Partial<Order> & { 
+    target_type?: 'personal' | 'patient'; 
+    target_name?: string;
+    wizard_choice?: string;
+    selected_aidant_id?: string;
+  }) => Promise<Order>;
   updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
@@ -109,12 +117,17 @@ interface OrderState {
   startDelivery: (id: string, location?: { lat: number; lng: number }) => Promise<void>;
   completeDelivery: (id: string, proof_url?: string) => Promise<void>;
   getAssignedOrders: () => Order[];
-  getAvailableOrders: () => Order[];
+  getAvailableOrders: () => Promise<Order[]>;
   getDeliveryOrders: () => Order[];
   canManageOrders: () => boolean;
   invalidateCache: () => void;
   refresh: () => Promise<void>;
   clearError: () => void;
+  
+  // 🆕 NOUVELLES FONCTIONS
+  checkOrderQuota: () => Promise<{ current: number; max: number; available: number; canTake: boolean }>;
+  getQuotaInfo: () => { current: number; max: number; available: number; canTake: boolean };
+  autoValidateOrder: (id: string) => Promise<void>;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
@@ -146,9 +159,67 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     await get().fetchOrders(true);
   },
 
-  // =============================================
+  // ============================================================
+  // 🆕 VÉRIFICATION DU QUOTA DE COMMANDES
+  // ============================================================
+  checkOrderQuota: async () => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        return { current: 0, max: MAX_ORDERS_IN_PROGRESS, available: 0, canTake: false };
+      }
+
+      const { data: aidant, error } = await supabase
+        .from('aidants')
+        .select('current_orders, max_orders')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error || !aidant) {
+        return { current: 0, max: MAX_ORDERS_IN_PROGRESS, available: 0, canTake: false };
+      }
+
+      const current = aidant.current_orders || 0;
+      const max = aidant.max_orders || MAX_ORDERS_IN_PROGRESS;
+      const available = max - current;
+
+      return {
+        current,
+        max,
+        available,
+        canTake: current < max,
+      };
+    } catch (error) {
+      console.error('❌ checkOrderQuota error:', error);
+      return { current: 0, max: MAX_ORDERS_IN_PROGRESS, available: 0, canTake: false };
+    }
+  },
+
+  getQuotaInfo: () => {
+    // Version synchrone pour l'affichage
+    const state = get();
+    const { user } = useAuthStore.getState();
+    
+    // Calculer à partir des commandes en cours
+    const inProgressOrders = state.orders.filter(
+      o => o.status === 'en_cours' && o.aidant_id === user?.id
+    );
+    
+    const current = inProgressOrders.length;
+    const max = MAX_ORDERS_IN_PROGRESS;
+    const available = max - current;
+
+    return {
+      current,
+      max,
+      available,
+      canTake: current < max,
+    };
+  },
+
+  // ============================================================
   // FETCH ORDERS - AVEC CACHE ET RÉCUPÉRATION DES AIDANTS
-  // =============================================
+  // ============================================================
   fetchOrders: async (force = false) => {
     const state = get();
     
@@ -268,9 +339,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // FETCH ORDER BY ID
-  // =============================================
+  // ============================================================
   fetchOrderById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -328,10 +399,15 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // ✅ CREATE ORDER - LOGIQUE UNIFIÉE
-  // =============================================
-  createOrder: async (data: Partial<Order> & { target_type?: 'personal' | 'patient'; target_name?: string }) => {
+  // ============================================================
+  // ✅ CREATE ORDER - AVEC SUPPORT WIZARD
+  // ============================================================
+  createOrder: async (data: Partial<Order> & { 
+    target_type?: 'personal' | 'patient'; 
+    target_name?: string;
+    wizard_choice?: string;
+    selected_aidant_id?: string;
+  }): Promise<Order> => {
     try {
       set({ isLoading: true, error: null });
       
@@ -353,12 +429,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       // ✅ LOGIQUE UNIFIÉE : Vérifier l'abonnement
       if (isPonctual) {
-        // ✅ CAS 1 : Commande ponctuelle → Paiement requis
         requiresPayment = true;
         status = 'attente_paiement';
         paymentAmount = getPonctualOrderPrice(data.items);
       } else {
-        // ✅ CAS 2 : Vérifier l'abonnement
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_orders, status')
@@ -367,12 +441,15 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           .maybeSingle();
 
         if (!subscription || subscription.remaining_orders <= 0) {
-          // ✅ PAS D'ABONNEMENT OU PLUS DE COMMANDES → Paiement requis
           requiresPayment = true;
           status = 'attente_paiement';
           paymentAmount = getPonctualOrderPrice(data.items);
         }
       }
+
+      // ✅ Gestion du wizard
+      const wizardChoice = data.wizard_choice || null;
+      const selectedAidantId = data.selected_aidant_id || null;
 
       const orderData = {
         user_id: user.id,
@@ -397,16 +474,20 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         order_type: isPonctual ? 'ponctual' : 'subscription',
         is_paid: !requiresPayment,
         is_ponctual: isPonctual,
+        wizard_choice: wizardChoice,
+        selected_aidant_id: selectedAidantId,
         metadata: {
           requires_payment: requiresPayment,
           created_by: user.id,
           created_at: new Date().toISOString(),
           payment_amount: requiresPayment ? paymentAmount : null,
+          wizard_choice: wizardChoice || null,
+          selected_aidant: selectedAidantId || null,
         }
       };
 
       const response = await api.post('/orders', orderData);
-      const newOrder = response.data;
+      const newOrder = response.data?.order || response.data;
 
       if (!newOrder) {
         throw new Error('Erreur lors de la création de la commande');
@@ -468,9 +549,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // CONFIRMER PAIEMENT - ATTENTE_PAIEMENT → CREEE
-  // =============================================
+  // ============================================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -498,15 +579,21 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // PRENDRE UNE COMMANDE
-  // =============================================
+  // ============================================================
+  // 🆕 PRENDRE UNE COMMANDE - AVEC VÉRIFICATION QUOTA
+  // ============================================================
   takeOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
+
+      // ✅ Vérifier le quota avant de prendre
+      const quotaCheck = await get().checkOrderQuota();
+      if (!quotaCheck.canTake) {
+        throw new Error(`Vous avez déjà ${quotaCheck.current} commande(s) en cours (maximum ${quotaCheck.max})`);
+      }
 
       const response = await api.post(`/orders/${id}/take`);
       const order = response.data;
@@ -520,23 +607,26 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       set({ isLoading: false });
       toast.success('✅ Commande prise en charge');
+      
+      return order;
     } catch (error: any) {
       console.error('❌ Take order error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
+      throw error;
     }
   },
 
-  // =============================================
+  // ============================================================
   // ACCEPT ORDER (alias)
-  // =============================================
+  // ============================================================
   acceptOrder: async (id: string) => {
     return get().takeOrder(id);
   },
 
-  // =============================================
+  // ============================================================
   // PREPARE ORDER
-  // =============================================
+  // ============================================================
   prepareOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -563,9 +653,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // MARK ORDER READY
-  // =============================================
+  // ============================================================
   markOrderReady: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -592,9 +682,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // START DELIVERY
-  // =============================================
+  // ============================================================
   startDelivery: async (id: string, location?: { lat: number; lng: number }) => {
     try {
       set({ isLoading: true, error: null });
@@ -621,9 +711,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // COMPLETE DELIVERY
-  // =============================================
+  // ============================================================
+  // COMPLETE DELIVERY - DÉCRÉMENTE current_orders
+  // ============================================================
   completeDelivery: async (id: string, proof_url?: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -650,9 +740,50 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
+  // 🆕 AUTO-VALIDATION D'UNE COMMANDE
+  // ============================================================
+  autoValidateOrder: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const response = await fetch(`${API_URL}/orders/${id}/auto-validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de l\'auto-validation');
+      }
+
+      const result = await response.json();
+
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
+      toast.success('✅ Commande auto-validée');
+    } catch (error: any) {
+      console.error('❌ Auto-validate order error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
+    }
+  },
+
+  // ============================================================
   // UPDATE ORDER STATUS
-  // =============================================
+  // ============================================================
   updateOrderStatus: async (id: string, status: OrderStatus) => {
     try {
       set({ isLoading: true, error: null });
@@ -680,9 +811,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // UPDATE ORDER
-  // =============================================
+  // ============================================================
   updateOrder: async (id: string, data: Partial<Order>) => {
     try {
       set({ isLoading: true, error: null });
@@ -711,9 +842,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
   // DELETE ORDER
-  // =============================================
+  // ============================================================
   deleteOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -737,18 +868,48 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // =============================================
+  // ============================================================
+  // 🆕 RÉCUPÉRER LES COMMANDES DISPONIBLES (POUR AIDANTS)
+  // ============================================================
+  getAvailableOrders: async (): Promise<Order[]> => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) return [];
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const response = await fetch(`${API_URL}/orders/available`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors du chargement');
+      }
+
+      const result = await response.json();
+
+      return result.data || [];
+    } catch (error: any) {
+      console.error('❌ getAvailableOrders error:', error);
+      return [];
+    }
+  },
+
+  // ============================================================
   // GETTERS
-  // =============================================
+  // ============================================================
   getAssignedOrders: () => {
     const { user } = useAuthStore.getState();
     const state = get();
     return state.orders.filter(o => o.aidant_id === user?.id);
-  },
-
-  getAvailableOrders: () => {
-    const state = get();
-    return state.orders.filter(o => o.status === 'creee' || o.status === 'disponible');
   },
 
   getDeliveryOrders: () => {
