@@ -33,6 +33,23 @@ import { formatDate, formatTime, cn } from '@/utils/helpers';
 // TYPES
 // ============================================================
 
+// ✅ Interface étendue pour gérer metadata et les champs optionnels
+interface ExtendedVisit extends Visit {
+  metadata?: {
+    is_ponctual?: boolean;
+    ponctual_mode?: boolean;
+    requires_payment?: boolean;
+    payment_amount?: number;
+    auto_assigned_aidant?: boolean;
+    [key: string]: any;
+  };
+  payment_amount?: number;
+  visit_type?: string;
+  is_recurring?: boolean;
+  subscription_id?: string | null;
+  draft_expires_at?: string | null;
+}
+
 interface VisitCardProps {
   visit: Visit;
   onClick?: () => void;
@@ -157,7 +174,6 @@ const STATUS_CONFIG: Record<string, {
     isFinal: true,
     nextActions: ['Réassigner'],
   },
-  // ✅ NOUVEAUX STATUTS
   attente_paiement: {
     label: '💳 En attente paiement',
     color: '#8b5cf6',
@@ -193,7 +209,7 @@ const getStatusConfig = (status: string) => {
 // ============================================================
 
 export const VisitCard = memo(({
-  visit,
+  visit: visitProp,
   onClick,
   onStart,
   onComplete,
@@ -211,6 +227,9 @@ export const VisitCard = memo(({
 }: VisitCardProps) => {
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
   const colors = propColors || getThemeColors('senior');
+
+  // ✅ Caster la visite en ExtendedVisit pour accéder à metadata
+  const visit = visitProp as ExtendedVisit;
 
   // ============================================================
   // CALCULS MEMOISÉS
@@ -254,13 +273,15 @@ export const VisitCard = memo(({
     return visit.target_name || 'Patient';
   }, [visit]);
 
-  // ✅ Nom de l'aidant
+  // ✅ Nom de l'aidant - CORRIGÉ avec vérification sécurisée
   const aidantName = useMemo(() => {
+    // ✅ Vérifier la structure aidant.user.full_name
     if (visit.aidant?.user?.full_name) {
       return visit.aidant.user.full_name;
     }
-    if (visit.aidant?.full_name) {
-      return visit.aidant.full_name;
+    // ✅ Vérifier si aidant a directement full_name (structure alternative)
+    if (visit.aidant && typeof visit.aidant === 'object' && 'full_name' in visit.aidant) {
+      return (visit.aidant as any).full_name;
     }
     return 'Non assigné';
   }, [visit]);
@@ -300,7 +321,7 @@ export const VisitCard = memo(({
   const paymentAmount = useMemo(() => {
     if (visit.metadata?.payment_amount) return visit.metadata.payment_amount;
     if (visit.payment_amount) return visit.payment_amount;
-    return 7500; // Prix par défaut
+    return 7500;
   }, [visit]);
 
   // ✅ Barre de progression
