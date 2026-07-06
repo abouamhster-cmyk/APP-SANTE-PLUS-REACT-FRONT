@@ -1,7 +1,5 @@
 // 📁 src/lib/constants.ts
-// VERSION CORRIGÉE - Suppression des IDs d'offres statiques
-// Les offres sont désormais dynamiques (base de données)
-
+ 
 import { Offer, OfferCategory } from '@/types';
 
 export const APP_NAME = 'Santé Plus Services';
@@ -164,8 +162,6 @@ export const getPonctualOrderPrice = (items?: Array<{ quantity: number; price: n
   return 2500; // Prix minimum pour une commande ponctuelle
 };
 
-
-
 // =============================================
 // GET LOGO BY THEME
 // =============================================
@@ -187,40 +183,25 @@ export const getLogoByTheme = (
 };
 
 // =============================================
-// HELPERS DE COMPATIBILITÉ (pour la transition)
+// HELPERS DE COMPATIBILITÉ
 // =============================================
 
 /**
- * @deprecated - Utiliser getPonctualPrice() à la place
- * Gardé pour compatibilité avec le code existant
- */
-export const getPonctualPriceLegacy = getPonctualPrice;
-
-/**
  * Vérifie si un service est ponctuel (sans abonnement)
- * @param serviceType - 'visit' | 'order'
- * @param hasActiveSubscription - L'utilisateur a-t-il un abonnement actif ?
- * @param remainingQuota - Quota restant (visites ou commandes)
- * @returns true si le service doit être payé (ponctuel)
  */
 export const requiresPonctualPayment = (
   serviceType: 'visit' | 'order',
   hasActiveSubscription: boolean,
   remainingQuota: number
 ): boolean => {
-  // ✅ Si l'utilisateur a un abonnement avec des quotas restants → Pas de paiement
   if (hasActiveSubscription && remainingQuota > 0) {
     return false;
   }
-  // ✅ Sinon → Paiement requis
   return true;
 };
 
 /**
  * Retourne le statut approprié pour une visite en fonction de l'abonnement
- * @param hasActiveSubscription - L'utilisateur a-t-il un abonnement actif ?
- * @param remainingVisits - Visites restantes
- * @returns 'planifiee' | 'brouillon'
  */
 export const getVisitStatusForCreation = (
   hasActiveSubscription: boolean,
@@ -234,9 +215,6 @@ export const getVisitStatusForCreation = (
 
 /**
  * Retourne le statut approprié pour une commande en fonction de l'abonnement
- * @param hasActiveSubscription - L'utilisateur a-t-il un abonnement actif ?
- * @param remainingOrders - Commandes restantes
- * @returns 'creee' | 'attente_paiement'
  */
 export const getOrderStatusForCreation = (
   hasActiveSubscription: boolean,
