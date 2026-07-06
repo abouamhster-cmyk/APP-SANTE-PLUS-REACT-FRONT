@@ -62,7 +62,7 @@ interface UseOrderReturn {
   refresh: () => Promise<void>;
 
   // Utilitaires
-  canTakeOrder: () => boolean;
+  canTakeOrder: boolean;
   getQuotaMessage: () => string;
   getQuotaColor: () => string;
   getAvailableCount: () => number;
@@ -308,7 +308,7 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
       
       // Rafraîchir
       await fetchOrders(true);
-      if (isAidant && status === 'annulee' || status === 'livree') {
+      if (isAidant && (status === 'annulee' || status === 'livree')) {
         await fetchQuota();
       }
       
@@ -385,7 +385,7 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
   // UTILITAIRES
   // ============================================================
 
-  const canTakeOrder = useCallback((): boolean => {
+  const canTakeOrder = useMemo((): boolean => {
     if (!isAidant) return false;
     if (!quota) return false;
     return quota.canTake && stats.available > 0;
@@ -446,8 +446,8 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     getAvailableOrders: fetchAvailableOrders,
     refresh,
 
-    // Utilitaires
-    canTakeOrder: canTakeOrder(),
+    // Utilitaires (corrigés : retournent des fonctions ou des valeurs)
+    canTakeOrder, // ✅ Maintenant une valeur booléenne
     getQuotaMessage,
     getQuotaColor,
     getAvailableCount,
