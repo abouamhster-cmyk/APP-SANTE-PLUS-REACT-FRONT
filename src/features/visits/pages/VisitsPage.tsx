@@ -1,5 +1,4 @@
 // 📁 src/features/visits/pages/VisitsPage.tsx
- 
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +10,8 @@ import {
   CreditCard,
   CheckCircle,
   UserPlus,
+  Sparkles,
+  Clock,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -24,12 +25,13 @@ import { VisitModal } from '../components/VisitModal';
 import { VisitPaymentModal } from '../components/VisitPaymentModal';
 import { AssignAidantModal } from '@/components/common/AssignAidantModal';
 
-// ✅ IMPORTER LES HELPERS DEPUIS CONSTANTS
+// ✅ IMPORTER LES HELPERS
 import {
   getPonctualPrice,
   getVisitStatusForCreation,
   requiresPonctualPayment,
 } from '@/lib/constants';
+import { getStatusColor, getStatusLabel } from '@/utils/helpers';
 
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -47,13 +49,21 @@ const VisitsPage = () => {
   const { profile, role } = useAuthStore();
   const { visits, isLoading, fetchVisits, startVisit, cancelVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
-  const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
+
+  // ✅ Utiliser le guard d'abonnement
+  const {
+    hasActiveSubscription,
+    remainingVisits,
+    can,
+    getActionMessage,
+    isFamily,
+    isAidant: isAidantRole,
+    isAdminOrCoordinator,
+    isLoading: subLoading,
+  } = useSubscriptionGuard();
 
   const {
     singular,
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
   } = useTerminology();
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -76,8 +86,11 @@ const VisitsPage = () => {
   const colors = getThemeColors(themeName);
 
   const canPlanify = isAdminOrCoordinator || isFamily;
-  const canStartVisit = isAidant || isAdminOrCoordinator;
+  const canStartVisit = isAidantRole || isAdminOrCoordinator;
   const canCancelVisit = isAdminOrCoordinator || isFamily;
+
+  // ✅ Déterminer si l'utilisateur peut créer des visites avec abonnement
+  const canCreateWithSubscription = isFamily && hasActiveSubscription && remainingVisits > 0;
 
   // =============================================
   // EFFETS : CHARGEMENT DES DONNÉES
@@ -88,10 +101,10 @@ const VisitsPage = () => {
   }, []);
 
   // =============================================
-  // ✅ FILTRES SIMPLIFIÉS ET PROPRES
+  // ✅ FILTRES SIMPLIFIÉS AVEC MODE PONCTUEL
   // =============================================
   const statusFilterOptions = useMemo(() => {
-    if (isAidant) {
+    if (isAidantRole) {
       return [
         { value: 'all', label: 'Tout' },
         { value: 'planifiee', label: 'À valider' },
@@ -102,13 +115,14 @@ const VisitsPage = () => {
     }
     return [
       { value: 'all', label: 'Toutes les visites' },
+      { value: 'planifiee', label: 'Planifiées' },
       { value: 'acceptee', label: 'Confirmées' },
       { value: 'en_cours', label: 'En cours' },
       { value: 'terminee', label: 'Terminées' },
-      { value: 'brouillon', label: 'En attente de paiement' },
-      { value: 'planifiee', label: 'Planifiées' },
+      { value: 'brouillon', label: '💳 En attente paiement' },
+      { value: 'ponctuel', label: '⚡ Mode ponctuel' },
     ];
-  }, [isAidant]);
+  }, [isAidantRole]);
 
   // =============================================
   // ✅ TRI ET FILTRAGE DES VISITES
@@ -117,6 +131,11 @@ const VisitsPage = () => {
     return visits
       .filter((visit) => {
         if (filterStatus === 'all') return true;
+        if (filterStatus === 'ponctuel') {
+          return visit.metadata?.ponctual_mode === true || 
+                 visit.metadata?.is_ponctual === true ||
+                 visit.visit_type === 'ponctuelle';
+        }
         return visit.status === filterStatus;
       })
       .sort(
@@ -127,7 +146,57 @@ const VisitsPage = () => {
   }, [visits, filterStatus]);
 
   // =============================================
-  // ✅ CONVERTIR UN BROUILLON EN VISITE PLANIFIÉE (AVEC ABONNEMENT)
+  // ✅ STATISTIQUES
+  // =============================================
+  const draftCount = visits.filter(v => v.status === 'brouillon').length;
+  const ponctualCount = visits.filter(v => 
+    v.metadata?.ponctual_mode === true || 
+    v.metadata?.is_ponctual === true ||
+    v.visit_type === 'ponctuelle'
+  ).length;
+  const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
+
+  // ✅ Message d'information sur l'abonnement
+  const subscriptionInfo = useMemo(() => {
+    if (isAidantRole || isAdminOrCoordinator) return null;
+    
+    if (!hasActiveSubscription) {
+      return {
+        type: 'info',
+        icon: <Sparkles size={18} />,
+        title: '💡 Pas d\'abonnement ?',
+        description: 'Utilisez le mode ponctuel pour planifier vos visites à l\'acte.',
+        action: 'Voir les offres',
+        actionLink: '/app/billing',
+        color: colors.primary,
+      };
+    }
+    
+    if (remainingVisits === 0) {
+      return {
+        type: 'warning',
+        icon: <AlertCircle size={18} />,
+        title: '⚠️ Plus de visites disponibles',
+        description: 'Vous avez utilisé toutes vos visites. Passez en mode ponctuel ou renouvelez votre abonnement.',
+        action: 'Renouveler',
+        actionLink: '/app/billing',
+        color: '#F59E0B',
+      };
+    }
+    
+    return {
+      type: 'success',
+      icon: <CheckCircle size={18} />,
+      title: `✅ ${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} disponible${remainingVisits > 1 ? 's' : ''}`,
+      description: `Vous pouvez planifier ${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} avec votre abonnement.`,
+      action: null,
+      actionLink: null,
+      color: '#10B981',
+    };
+  }, [hasActiveSubscription, remainingVisits, isAidantRole, isAdminOrCoordinator, colors.primary]);
+
+  // =============================================
+  // ✅ CONVERTIR UN BROUILLON EN VISITE PLANIFIÉE
   // =============================================
   const handleConvertToSubscription = async (visitId: string) => {
     if (isConverting) return;
@@ -157,8 +226,6 @@ const VisitsPage = () => {
       }
 
       toast.success(`Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
-      
-      // ✅ Recharger les données
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur conversion:', error);
@@ -185,7 +252,6 @@ const VisitsPage = () => {
   };
 
   const handleAssignAidantSuccess = async () => {
-    // ✅ Forcer l'invalidation du cache et le rechargement
     useVisitStore.getState().invalidateCache();
     await fetchVisits();
     toast.success('Aidant assigné avec succès');
@@ -214,7 +280,11 @@ const VisitsPage = () => {
     if (newVisit && newVisit.metadata?.requires_payment) {
       setPendingVisit(newVisit);
       setShowPaymentModal(true);
-      toast('Paiement requis pour planifier la visite', { icon: '💳', duration: 4000 });
+      const price = getPonctualPrice(newVisit.duration_minutes || 60);
+      toast(`💳 Paiement de ${price.toLocaleString()} FCFA requis pour planifier la visite`, { 
+        icon: '💳', 
+        duration: 5000 
+      });
     } else {
       toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
     }
@@ -259,15 +329,9 @@ const VisitsPage = () => {
   };
 
   // =============================================
-  // ✅ STATISTIQUES
-  // =============================================
-  const draftCount = visits.filter(v => v.status === 'brouillon').length;
-  const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
-
-  // =============================================
   // ✅ CHARGEMENT
   // =============================================
-  if (isLoading) {
+  if (isLoading || subLoading) {
     return (
       <div className="space-y-4">
         <div className="h-16 bg-white rounded-2xl animate-pulse" />
@@ -293,12 +357,21 @@ const VisitsPage = () => {
       <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
         <div>
           <h1 className="text-xl font-black text-gray-800" style={{ color: colors.text }}>
-            {isAidant ? 'Mes missions' : 'Planning des visites'}
+            {isAidantRole ? 'Mes missions' : 'Planning des visites'}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            {isAidant 
+            {isAidantRole 
               ? 'Retrouvez vos accompagnements programmés et passés.' 
               : 'Suivi et planification des visites d\'accompagnement à domicile.'}
+            {isFamily && (
+              <span className="ml-2">
+                {hasActiveSubscription ? (
+                  <span className="text-green-600">✅ {remainingVisits} visites restantes</span>
+                ) : (
+                  <span className="text-blue-600">💡 Mode ponctuel disponible</span>
+                )}
+              </span>
+            )}
           </p>
         </div>
 
@@ -310,11 +383,59 @@ const VisitsPage = () => {
               style={{ background: colors.primary }}
             >
               <Plus size={14} />
-              Planifier une visite
+              {isFamily && !canCreateWithSubscription ? 'Visite ponctuelle' : 'Planifier'}
             </button>
           )}
         </div>
       </section>
+
+      {/* ============================================================
+      ✅ BANNIÈRE D'INFORMATION ABONNEMENT
+      ============================================================ */}
+      {isFamily && subscriptionInfo && (
+        <div 
+          className={`rounded-xl p-4 border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            subscriptionInfo.type === 'success' ? 'bg-green-50 border-green-200' :
+            subscriptionInfo.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+            'bg-blue-50 border-blue-200'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 ${
+              subscriptionInfo.type === 'success' ? 'text-green-600' :
+              subscriptionInfo.type === 'warning' ? 'text-yellow-600' :
+              'text-blue-600'
+            }`}>
+              {subscriptionInfo.icon}
+            </div>
+            <div>
+              <p className={`text-sm font-bold ${
+                subscriptionInfo.type === 'success' ? 'text-green-700' :
+                subscriptionInfo.type === 'warning' ? 'text-yellow-700' :
+                'text-blue-700'
+              }`}>
+                {subscriptionInfo.title}
+              </p>
+              <p className={`text-xs ${
+                subscriptionInfo.type === 'success' ? 'text-green-600' :
+                subscriptionInfo.type === 'warning' ? 'text-yellow-600' :
+                'text-blue-600'
+              }`}>
+                {subscriptionInfo.description}
+              </p>
+            </div>
+          </div>
+          {subscriptionInfo.action && subscriptionInfo.actionLink && (
+            <button
+              onClick={() => navigate(subscriptionInfo.actionLink!)}
+              className="px-4 py-2 rounded-xl text-white text-xs font-bold transition hover:opacity-90 shrink-0"
+              style={{ background: subscriptionInfo.color }}
+            >
+              {subscriptionInfo.action}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ============================================================
       ✅ BANNIÈRE D'ALERTE BROUILLONS
@@ -344,14 +465,6 @@ const VisitsPage = () => {
               >
                 ✅ Valider maintenant
               </button>
-              <button
-                onClick={() => {
-                  toast.success('Les visites en brouillon sont disponibles dans l\'onglet "En attente de paiement"');
-                }}
-                className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
-              >
-                Plus tard
-              </button>
             </div>
           </div>
         </div>
@@ -365,6 +478,7 @@ const VisitsPage = () => {
           {statusFilterOptions.map((option) => {
             const isActive = filterStatus === option.value;
             const hasBadge = option.value === 'brouillon' && draftCount > 0;
+            const hasPonctualBadge = option.value === 'ponctuel' && ponctualCount > 0;
 
             return (
               <button
@@ -374,7 +488,7 @@ const VisitsPage = () => {
                   isActive
                     ? 'text-white shadow-sm'
                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                } ${hasBadge ? 'relative' : ''}`}
+                } ${hasBadge || hasPonctualBadge ? 'relative' : ''}`}
                 style={{
                   backgroundColor: isActive ? colors.primary : undefined,
                 }}
@@ -383,6 +497,11 @@ const VisitsPage = () => {
                 {hasBadge && (
                   <span className="ml-1.5 bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded-full text-[8px] font-bold">
                     {draftCount}
+                  </span>
+                )}
+                {hasPonctualBadge && option.value === 'ponctuel' && (
+                  <span className="ml-1.5 bg-blue-400 text-white px-1.5 py-0.5 rounded-full text-[8px] font-bold">
+                    {ponctualCount}
                   </span>
                 )}
               </button>
@@ -440,7 +559,9 @@ const VisitsPage = () => {
               color: colors.primary,
             }}
           >
-            {filterStatus === 'brouillon' ? <CreditCard size={20} /> : <Calendar size={20} />}
+            {filterStatus === 'brouillon' ? <CreditCard size={20} /> : 
+             filterStatus === 'ponctuel' ? <Sparkles size={20} /> :
+             <Calendar size={20} />}
           </div>
 
           <h3 className="text-sm font-bold text-gray-700">
@@ -448,7 +569,11 @@ const VisitsPage = () => {
           </h3>
 
           <p className="text-xs text-gray-400 mt-0.5">
-            {filterStatus !== 'all' ? 'Essayez de changer de filtre pour voir d\'autres statuts.' : 'Les visites programmées s\'afficheront ici.'}
+            {filterStatus === 'ponctuel' 
+              ? 'Vous n\'avez pas encore de visites en mode ponctuel.'
+              : filterStatus !== 'all' 
+                ? 'Essayez de changer de filtre pour voir d\'autres statuts.' 
+                : 'Les visites programmées s\'afficheront ici.'}
           </p>
 
           {canPlanify && filterStatus === 'all' && (
@@ -458,7 +583,7 @@ const VisitsPage = () => {
               style={{ background: colors.primary }}
             >
               <Plus size={14} />
-              Créer une planification
+              {isFamily && !canCreateWithSubscription ? 'Créer une visite ponctuelle' : 'Créer une planification'}
             </button>
           )}
         </section>
