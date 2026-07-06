@@ -1,4 +1,4 @@
-// 📁 frontend/src/hooks/usePonctualPayment.ts
+// 📁 src/hooks/usePonctualPayment.ts
 // ✅ Hook pour gérer les paiements ponctuels unifiés
 
 import { useState, useCallback } from 'react';
