@@ -203,9 +203,11 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
 
   const takeOrder = useCallback(async (orderId: string): Promise<boolean> => {
     try {
+      // ✅ CORRECTION : storeTakeOrder retourne un objet avec success
       const result = await storeTakeOrder(orderId);
       
-      if (result) {
+      // ✅ Vérifier result.success au lieu de result directement
+      if (result && (result as any).success !== false) {
         // Rafraîchir le quota
         await fetchQuota();
         await fetchAvailableOrders();
@@ -357,7 +359,7 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     ponctual: orders.filter(o => 
       o.order_type === 'ponctual' || 
       o.is_ponctual === true || 
-      o.metadata?.ponctual_mode === true
+      (o.metadata && (o.metadata as any).ponctual_mode === true)
     ).length,
   }), [orders]);
 
@@ -377,7 +379,7 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     return orders.filter(o => 
       o.order_type === 'ponctual' || 
       o.is_ponctual === true || 
-      o.metadata?.ponctual_mode === true
+      (o.metadata && (o.metadata as any).ponctual_mode === true)
     );
   }, [orders]);
 
@@ -446,8 +448,8 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     getAvailableOrders: fetchAvailableOrders,
     refresh,
 
-    // Utilitaires (corrigés : retournent des fonctions ou des valeurs)
-    canTakeOrder, // ✅ Maintenant une valeur booléenne
+    // Utilitaires
+    canTakeOrder,
     getQuotaMessage,
     getQuotaColor,
     getAvailableCount,
