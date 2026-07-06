@@ -193,7 +193,7 @@ const AdminNotificationsPage = () => {
     }
   };
 
-  // ✅ Récupérer les visites en attente d'aidant
+  // ✅ Récupérer les visites en attente d'aidant - CORRIGÉ
   const fetchPendingVisits = async () => {
     try {
       const { data, error } = await supabase
@@ -213,7 +213,21 @@ const AdminNotificationsPage = () => {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setPendingVisits(data || []);
+
+      // ✅ CORRECTION: Transformer les données pour s'assurer que family et patient sont des objets uniques
+      const formattedVisits: PendingAidantVisit[] = (data || []).map((item: any) => ({
+        id: item.id,
+        target_name: item.target_name,
+        scheduled_date: item.scheduled_date,
+        scheduled_time: item.scheduled_time,
+        user_id: item.user_id,
+        created_at: item.created_at,
+        waiting_for_aidant_since: item.waiting_for_aidant_since,
+        patient: Array.isArray(item.patient) ? item.patient[0] : item.patient,
+        family: Array.isArray(item.family) ? item.family[0] : item.family,
+      }));
+
+      setPendingVisits(formattedVisits);
     } catch (error) {
       console.error('❌ fetchPendingVisits error:', error);
     }
@@ -245,7 +259,6 @@ const AdminNotificationsPage = () => {
     alerts: notifications.filter(n => n.type === 'alert').length,
     reminders: notifications.filter(n => n.type === 'reminder').length,
     system: notifications.filter(n => n.type === 'system').length,
-    // ✅ NOUVEAU : Visites en attente d'aidant
     pendingAidant: pendingVisits.length,
   };
 
