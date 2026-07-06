@@ -329,65 +329,86 @@ const subscriptionInfo = (() => {
     return true;
   };
 
-  // =============================================
-  // PRÉPARER LES DONNÉES DE LA COMMANDE
-  // =============================================
-  const prepareOrderData = async () => {
-    if (!validateOrderData()) return null;
 
-    let prescriptionUrl = null;
+// =============================================
+// PRÉPARER LES DONNÉES DE LA COMMANDE
+// =============================================
+const prepareOrderData = async () => {
+  if (!validateOrderData()) return null;
 
-    if (prescriptionFile) {
-      const fileExt = prescriptionFile.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `prescriptions/${fileName}`;
+  let prescriptionUrl = null;
 
-      const { error } = await supabase.storage
-        .from('orders')
-        .upload(filePath, prescriptionFile);
+  if (prescriptionFile) {
+    const fileExt = prescriptionFile.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `prescriptions/${fileName}`;
 
-      if (error) {
-        console.error('Upload error:', error);
-        toast.error("Erreur lors de l'upload de la prescription");
-        return null;
-      }
+    const { error } = await supabase.storage
+      .from('orders')
+      .upload(filePath, prescriptionFile);
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('orders').getPublicUrl(filePath);
-
-      prescriptionUrl = publicUrl;
+    if (error) {
+      console.error('Upload error:', error);
+      toast.error("Erreur lors de l'upload de la prescription");
+      return null;
     }
 
-    const validItems = formData.items
-      .filter((item) => item.name.trim() !== '')
-      .map((item) => ({
-        ...item,
-        total: item.quantity * item.price,
-      }));
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from('orders').getPublicUrl(filePath);
 
-    const finalTargetType = targetType;
-    const finalTargetName = targetType === 'personal' 
-      ? profile?.full_name || 'Personnel'
-      : selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Patient';
+    prescriptionUrl = publicUrl;
+  }
 
-    return {
-      patient_id: targetType === 'patient' ? targetPatientId : null,
-      type: formData.type as any,
-      description: formData.description.trim(),
-      address: formData.address.trim(),
-      estimated_amount: finalEstimatedAmount || null,
-      items: validItems,
-      prescription_url: prescriptionUrl,
-      order_type: 'ponctual',
-      is_paid: false,
-      category: 'ponctuelle',
-      target_type: finalTargetType,
-      target_name: finalTargetName,
-      hasPatients: patients.length > 0,
-    };
+  const validItems = formData.items
+    .filter((item) => item.name.trim() !== '')
+    .map((item) => ({
+      ...item,
+      total: item.quantity * item.price,
+    }));
+
+  const finalTargetType = targetType;
+  const finalTargetName = targetType === 'personal' 
+    ? profile?.full_name || 'Personnel'
+    : selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'Patient';
+
+  // ✅ Retourner les données sans orderId (sera généré par le backend)
+  return {
+    patient_id: targetType === 'patient' ? targetPatientId : null,
+    type: formData.type as any,
+    description: formData.description.trim(),
+    address: formData.address.trim(),
+    estimated_amount: finalEstimatedAmount || null,
+    items: validItems,
+    prescription_url: prescriptionUrl,
+    order_type: 'ponctual',
+    is_paid: false,
+    category: 'ponctuelle',
+    target_type: finalTargetType,
+    target_name: finalTargetName,
+    hasPatients: patients.length > 0,
+     target_id: targetType === 'patient' ? targetPatientId : null,
+    targetId: targetType === 'patient' ? targetPatientId : null,
   };
+};
 
+// ✅ Dans handlePonctualPayment, utiliser les bonnes propriétés
+const handlePonctualPayment = async () => {
+  const orderData = await prepareOrderData();
+  if (!orderData) return;
+
+  // ✅ Utiliser les bonnes propriétés
+  payOrderPonctual({
+    description: orderData.description,
+    orderType: orderData.type,
+    items: orderData.items,
+    address: orderData.address,
+    prescriptionUrl: orderData.prescription_url || undefined,
+    targetType: orderData.target_type as 'personal' | 'patient',
+    targetName: orderData.target_name,
+    patientId: orderData.patient_id,
+  });
+};
   // =============================================
   // SOUMISSION DU FORMULAIRE
   // =============================================
