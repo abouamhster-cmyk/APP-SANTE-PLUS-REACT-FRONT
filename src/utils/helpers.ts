@@ -402,8 +402,9 @@ export const canApproveVisit = (visit: Visit | null | undefined): boolean => {
  */
 export const isVisitUsingSubscription = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
-  return visit.subscription_id !== null && 
-         visit.subscription_id !== undefined && 
+  // ✅ Vérifier dans metadata car subscription_id peut être dans metadata
+  return visit.metadata?.subscription_id !== null && 
+         visit.metadata?.subscription_id !== undefined && 
          visit.metadata?.subscription_used === true;
 };
 
