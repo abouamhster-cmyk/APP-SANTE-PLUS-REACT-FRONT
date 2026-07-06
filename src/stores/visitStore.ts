@@ -1,5 +1,4 @@
-// 📁 src/stores/visitStore.ts
- 
+// 📁 frontend/src/stores/visitStore.ts
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -11,9 +10,12 @@ import toast from 'react-hot-toast';
 
 // ✅ IMPORTER LES HELPERS
 import {
-   getVisitStatusForCreation,
+  getVisitStatusForCreation,
   requiresPonctualPayment,
 } from '@/lib/constants';
+
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ============================================================
 // CONSTANTES
@@ -29,7 +31,6 @@ const generateVisitReference = (): string => {
 };
 
 // ✅ EXPORTER LA FONCTION getPonctualPrice (déjà dans constants.ts)
-// On garde une référence locale pour compatibilité
 export const getPonctualPrice = (durationMinutes: number = 60): number => {
   const prices: Record<string, number> = {
     '30': 5000,
@@ -93,6 +94,8 @@ interface VisitState {
     target_type?: 'personal' | 'patient'; 
     target_name?: string;
     target_user_id?: string;
+    wizard_choice?: string;
+    selected_aidant_id?: string;
   }) => Promise<Visit>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
@@ -112,6 +115,12 @@ interface VisitState {
   canManageVisits: () => boolean;
   clearError: () => void;
   getActiveAidantForVisit: (patientId?: string, familyId?: string) => Promise<string | null>;
+  
+  // 🆕 NOUVELLES FONCTIONS
+  assignAidantToVisit: (visitId: string, aidantId: string, assignmentType?: string, force?: boolean) => Promise<any>;
+  getPendingAidantVisits: () => Promise<Visit[]>;
+  getAvailableAidantsForVisit: (targetType?: string, targetId?: string) => Promise<any[]>;
+  getVisitWizardOptions: (targetType: string, targetId: string, familyId?: string) => Promise<any>;
 }
 
 export const useVisitStore = create<VisitState>((set, get) => ({
@@ -367,12 +376,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT - LOGIQUE UNIFIÉE AVEC HELPERS
+  // ✅ CREATE VISIT - AVEC SUPPORT WIZARD
   // ============================================================
   createVisit: async (data: Partial<Visit> & { 
     target_type?: 'personal' | 'patient'; 
     target_name?: string;
     target_user_id?: string;
+    wizard_choice?: string;
+    selected_aidant_id?: string;
   }): Promise<Visit> => {
     try {
       set({ isLoading: true, error: null });
@@ -396,12 +407,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       // ✅ LOGIQUE UNIFIÉE : Vérifier l'abonnement
       if (isPonctual) {
-        // ✅ CAS 1 : Visite ponctuelle → Paiement requis
         requiresPayment = true;
         status = 'brouillon';
         paymentAmount = getPonctualPrice(data.duration_minutes || 60);
       } else {
-        // ✅ CAS 2 : Vérifier l'abonnement
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('id, remaining_visits, status')
@@ -410,7 +419,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           .maybeSingle();
 
         if (!subscription || subscription.remaining_visits <= 0) {
-          // ✅ PAS D'ABONNEMENT OU PLUS DE VISITES → Paiement requis
           requiresPayment = true;
           status = 'brouillon';
           paymentAmount = getPonctualPrice(data.duration_minutes || 60);
@@ -420,6 +428,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       // ✅ Récupérer l'aidant actif (si pas de paiement requis)
       let finalAidantId = data.aidant_id || null;
       let autoAssigned = false;
+      let wizardChoice = data.wizard_choice || null;
+      let selectedAidantId = data.selected_aidant_id || null;
 
       if (!finalAidantId && status !== 'brouillon') {
         const patientId = data.patient_id || undefined;
@@ -434,6 +444,17 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         if (finalAidantId) {
           console.log(`✅ Aidant automatique trouvé pour la visite: ${finalAidantId}`);
         }
+      }
+
+      // ✅ Si pas d'aidant et pas de paiement requis → wizard
+      if (!finalAidantId && status !== 'brouillon' && !wizardChoice) {
+        // Le wizard sera géré par le composant
+        // On retourne une indication pour ouvrir le wizard
+        set({ isLoading: false });
+        return {
+          ...data as Visit,
+          requires_wizard: true,
+        } as any;
       }
 
       // ✅ CONSTRUIRE LES DONNÉES DE LA VISITE
@@ -458,6 +479,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         visit_type: data.visit_type || (requiresPayment ? 'ponctuelle' : 'permanente'),
         assignment_type: data.assignment_type || 'ponctuelle',
         draft_expires_at: requiresPayment ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
+        is_permanent: wizardChoice === 'permanente',
+        assigned_by_admin: profile?.role === 'admin' || profile?.role === 'coordinator',
+        admin_assigned_at: (profile?.role === 'admin' || profile?.role === 'coordinator') ? new Date().toISOString() : null,
+        waiting_for_aidant_since: status === 'en_attente_aidant' ? new Date().toISOString() : null,
         metadata: {
           created_by: user.id,
           created_at: new Date().toISOString(),
@@ -468,20 +493,20 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           scheduled_from_draft: false,
           target_user_id: targetUserId || user.id,
           auto_assigned_aidant: autoAssigned,
+          wizard_choice: wizardChoice || null,
+          selected_aidant: selectedAidantId || null,
+          waiting_for_aidant: status === 'en_attente_aidant',
         }
       };
 
       console.log('📤 Données visite envoyées:', JSON.stringify(visitData, null, 2));
 
-      const { data: newVisit, error } = await supabase
-        .from('visites')
-        .insert(visitData)
-        .select()
-        .single();
+      // ✅ Appel API au lieu de Supabase direct
+      const response = await api.post('/visits', visitData);
+      const newVisit = response.data?.visit || response.data;
 
-      if (error) {
-        console.error('❌ Erreur création visite:', error);
-        throw error;
+      if (!newVisit) {
+        throw new Error('Erreur lors de la création de la visite');
       }
 
       // ✅ Récupérer les relations
@@ -537,6 +562,12 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         return fullVisit;
       }
 
+      // ✅ SI VISITE EN ATTENTE D'AIDANT
+      if (newVisit.status === 'en_attente_aidant') {
+        set({ isLoading: false });
+        return fullVisit;
+      }
+
       // ✅ PAS DE PAIEMENT REQUIS
       if (finalAidantId) {
         await supabase.from('notifications').insert({
@@ -566,30 +597,36 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // CONFIRMER PAIEMENT - BROUILLON → PLANIFIEE
+  // 🆕 ASSIGNER UN AIDANT À UNE VISITE (ADMIN)
   // ============================================================
-  confirmPayment: async (id: string, transactionId: string): Promise<Visit> => {
+  assignAidantToVisit: async (visitId: string, aidantId: string, assignmentType: string = 'permanente', force: boolean = false) => {
     try {
       set({ isLoading: true, error: null });
-
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
 
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api'}/visits/${id}/confirm-payment`, {
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const response = await fetch(`${API_URL}/visits/admin/assign-aidant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ transaction_id: transactionId }),
+        body: JSON.stringify({
+          visitId,
+          aidantId,
+          assignmentType,
+          force,
+        }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la confirmation du paiement');
+        throw new Error(error.error || 'Erreur lors de l\'assignation');
       }
 
       const result = await response.json();
@@ -597,18 +634,130 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       get().invalidateCache();
       await get().fetchVisits(true);
 
-      set({ 
-        currentVisit: result.visit,
-        isLoading: false,
+      set({ isLoading: false });
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ assignAidantToVisit error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // ============================================================
+  // 🆕 RÉCUPÉRER LES VISITES EN ATTENTE D'AIDANT
+  // ============================================================
+  getPendingAidantVisits: async (): Promise<Visit[]> => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const response = await fetch(`${API_URL}/visits/pending-aidant`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      toast.success('✅ Visite planifiée après paiement !');
-      return result.visit;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors du chargement');
+      }
+
+      const result = await response.json();
+
+      set({ isLoading: false });
+
+      return result.data || [];
     } catch (error: any) {
-      console.error('❌ Confirm payment error:', error);
+      console.error('❌ getPendingAidantVisits error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message);
-      throw error;
+      return [];
+    }
+  },
+
+  // ============================================================
+  // 🆕 RÉCUPÉRER LES AIDANTS DISPONIBLES POUR UNE VISITE
+  // ============================================================
+  getAvailableAidantsForVisit: async (targetType?: string, targetId?: string): Promise<any[]> => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) return [];
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const params = new URLSearchParams();
+      if (targetType) params.append('targetType', targetType);
+      if (targetId) params.append('targetId', targetId);
+
+      const response = await fetch(`${API_URL}/visits/available-aidants?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors du chargement');
+      }
+
+      const result = await response.json();
+
+      return result.data || [];
+    } catch (error: any) {
+      console.error('❌ getAvailableAidantsForVisit error:', error);
+      return [];
+    }
+  },
+
+  // ============================================================
+  // 🆕 RÉCUPÉRER LES OPTIONS DU WIZARD
+  // ============================================================
+  getVisitWizardOptions: async (targetType: string, targetId: string, familyId?: string): Promise<any> => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) return null;
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Session expirée');
+      }
+
+      const params = new URLSearchParams({
+        targetType,
+        targetId,
+      });
+      if (familyId) params.append('familyId', familyId);
+
+      const response = await fetch(`${API_URL}/visits/wizard-options?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors du chargement');
+      }
+
+      const result = await response.json();
+
+      return result.data;
+    } catch (error: any) {
+      console.error('❌ getVisitWizardOptions error:', error);
+      return null;
     }
   },
 
@@ -677,6 +826,53 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       console.error('❌ Delete visit error:', error);
       set({ error: error.message, isLoading: false });
       toast.error(error.message);
+    }
+  },
+
+  // ============================================================
+  // CONFIRMER PAIEMENT - BROUILLON → PLANIFIEE
+  // ============================================================
+  confirmPayment: async (id: string, transactionId: string): Promise<Visit> => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const response = await fetch(`${API_URL}/visits/${id}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ transaction_id: transactionId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erreur lors de la confirmation du paiement');
+      }
+
+      const result = await response.json();
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ 
+        currentVisit: result.visit,
+        isLoading: false,
+      });
+
+      toast.success('✅ Visite planifiée après paiement !');
+      return result.visit;
+    } catch (error: any) {
+      console.error('❌ Confirm payment error:', error);
+      set({ error: error.message, isLoading: false });
+      toast.error(error.message);
+      throw error;
     }
   },
 
