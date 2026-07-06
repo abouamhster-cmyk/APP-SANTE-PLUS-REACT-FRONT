@@ -1,5 +1,5 @@
-// 📁 src/features/admin/pages/AdminNotificationsPage.tsx
- 
+// 📁 frontend/src/features/admin/pages/AdminNotificationsPage.tsx
+
 import { useEffect, useState } from 'react';
 import {
   Bell,
@@ -21,12 +21,22 @@ import {
   Plus,
   Filter,
   Search,
+  UserPlus,
+  Shield,
+  Calendar,
+  MapPin,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { formatDate } from '@/utils/helpers';
+import { formatDate, formatTime } from '@/utils/helpers';
+import { Modal } from '@/components/ui/Modal';
+import { InfoRow } from '@/components/ui/InfoRow';
 import toast from 'react-hot-toast';
+
+// ============================================================
+// TYPES
+// ============================================================
 
 interface Notification {
   id: string;
@@ -51,6 +61,28 @@ interface Notification {
   created_at: string;
 }
 
+interface PendingAidantVisit {
+  id: string;
+  target_name: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  user_id: string;
+  family?: {
+    id: string;
+    full_name: string;
+    email: string;
+    phone: string;
+  } | null;
+  patient?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    address: string;
+  } | null;
+  created_at: string;
+  waiting_for_aidant_since: string;
+}
+
 interface NotificationForm {
   title: string;
   body: string;
@@ -61,9 +93,14 @@ interface NotificationForm {
   image_url: string;
 }
 
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+
 const AdminNotificationsPage = () => {
   const { profile, role } = useAuthStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [pendingVisits, setPendingVisits] = useState<PendingAidantVisit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,6 +108,7 @@ const AdminNotificationsPage = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showPendingVisits, setShowPendingVisits] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -88,10 +126,16 @@ const AdminNotificationsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ Chargement initial
   useEffect(() => {
     fetchNotifications();
     fetchUsers();
+    fetchPendingVisits();
   }, []);
+
+  // ============================================================
+  // RÉCUPÉRATION DES DONNÉES
+  // ============================================================
 
   const fetchNotifications = async () => {
     try {
@@ -149,6 +193,36 @@ const AdminNotificationsPage = () => {
     }
   };
 
+  // ✅ Récupérer les visites en attente d'aidant
+  const fetchPendingVisits = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('visites')
+        .select(`
+          id,
+          target_name,
+          scheduled_date,
+          scheduled_time,
+          user_id,
+          created_at,
+          waiting_for_aidant_since,
+          patient:patients(id, first_name, last_name, address),
+          family:profiles!visites_user_id_fkey(id, full_name, email, phone)
+        `)
+        .eq('status', 'en_attente_aidant')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setPendingVisits(data || []);
+    } catch (error) {
+      console.error('❌ fetchPendingVisits error:', error);
+    }
+  };
+
+  // ============================================================
+  // FILTRES
+  // ============================================================
+
   const filteredNotifications = notifications.filter(notif => {
     const matchesSearch =
       notif.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -159,16 +233,25 @@ const AdminNotificationsPage = () => {
     return matchesSearch && matchesType;
   });
 
+  // ============================================================
+  // STATISTIQUES
+  // ============================================================
+
   const stats = {
     total: notifications.length,
     sent: notifications.filter(n => n.is_sent).length,
     delivered: notifications.filter(n => n.is_delivered).length,
     read: notifications.filter(n => n.is_read).length,
-    // ✅ NOUVEAUX STATS
     alerts: notifications.filter(n => n.type === 'alert').length,
     reminders: notifications.filter(n => n.type === 'reminder').length,
     system: notifications.filter(n => n.type === 'system').length,
+    // ✅ NOUVEAU : Visites en attente d'aidant
+    pendingAidant: pendingVisits.length,
   };
+
+  // ============================================================
+  // TYPES DE NOTIFICATIONS
+  // ============================================================
 
   const notificationTypes = [
     { value: 'system', label: 'Système', icon: <Info size={14} />, color: '#3b82f6' },
@@ -186,6 +269,10 @@ const AdminNotificationsPage = () => {
     { value: 'admin', label: '👑 Admins', icon: <UserCheck size={14} /> },
     { value: 'specific', label: '👤 Cible précise', icon: <User size={14} /> },
   ];
+
+  // ============================================================
+  // HANDLERS
+  // ============================================================
 
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +405,10 @@ const AdminNotificationsPage = () => {
     return found?.color || '#94a3b8';
   };
 
+  // ============================================================
+  // RENDU
+  // ============================================================
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Header */}
@@ -332,11 +423,19 @@ const AdminNotificationsPage = () => {
             </h1>
             <p className="text-xs" style={{ color: colors.textLight }}>
               {stats.total} notifications • {stats.alerts} alertes • {stats.reminders} rappels
+              {stats.pendingAidant > 0 && (
+                <span className="ml-2 text-orange-500 font-bold">
+                  ⚠️ {stats.pendingAidant} visite(s) en attente d'aidant
+                </span>
+              )}
             </p>
           </div>
           <div className="flex gap-2.5 shrink-0">
             <button
-              onClick={fetchNotifications}
+              onClick={() => {
+                fetchNotifications();
+                fetchPendingVisits();
+              }}
               disabled={isLoading}
               className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 bg-white hover:bg-gray-50"
               style={{ borderColor: colors.border, color: colors.text }}
@@ -356,12 +455,96 @@ const AdminNotificationsPage = () => {
         </div>
       </section>
 
+      {/* ✅ BANDEAU VISITES EN ATTENTE D'AIDANT */}
+      {stats.pendingAidant > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-xl shadow-sm border border-orange-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <UserPlus size={20} className="text-orange-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold text-orange-800">
+                  🦸 {stats.pendingAidant} visite{stats.pendingAidant > 1 ? 's' : ''} en attente d'aidant
+                </p>
+                <p className="text-sm text-orange-700">
+                  Tous les aidants sont complets (4/4). Assignez un aidant à ces visites.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setShowPendingVisits(!showPendingVisits)}
+                className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
+              >
+                {showPendingVisits ? 'Masquer' : 'Voir les visites'}
+              </button>
+            </div>
+          </div>
+
+          {/* ✅ Liste des visites en attente */}
+          {showPendingVisits && pendingVisits.length > 0 && (
+            <div className="mt-4 space-y-2 max-h-60 overflow-y-auto">
+              {pendingVisits.map((visit) => (
+                <div
+                  key={visit.id}
+                  className="bg-white rounded-xl p-3 border border-orange-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-gray-800">
+                      {visit.target_name || visit.patient?.first_name || 'Patient'}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                      <span className="flex items-center gap-0.5">
+                        <Calendar size={12} />
+                        {formatDate(visit.scheduled_date)}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-0.5">
+                        <Clock size={12} />
+                        {visit.scheduled_time}
+                      </span>
+                      {visit.family && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-0.5">
+                            <User size={12} />
+                            {visit.family.full_name}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-orange-500 mt-0.5">
+                      En attente depuis {formatDate(visit.waiting_for_aidant_since)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // Rediriger vers la page de la visite
+                      window.location.href = `/app/visits/${visit.id}`;
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-white text-xs font-bold shrink-0"
+                    style={{ background: colors.primary }}
+                  >
+                    👔 Assigner
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Statistiques épurées */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Bell size={16} />} />
         <StatCard label="Envoyées" value={stats.sent} color="#10b981" icon={<Send size={16} />} />
         <StatCard label="Délivrées" value={stats.delivered} color="#3b82f6" icon={<CheckCircle size={16} />} />
         <StatCard label="Alertes" value={stats.alerts} color="#ef4444" icon={<AlertCircle size={16} />} />
+        <StatCard 
+          label="En attente aidant" 
+          value={stats.pendingAidant} 
+          color="#FF5722" 
+          icon={<UserPlus size={16} />} 
+        />
       </section>
 
       {/* Formulaire de création d'alerte épuré */}
@@ -603,6 +786,10 @@ const AdminNotificationsPage = () => {
   );
 };
 
+// ============================================================
+// SOUS-COMPOSANTS
+// ============================================================
+
 interface StatCardProps {
   label: string;
   value: string | number;
@@ -651,6 +838,14 @@ const NotificationDetailsModal = ({ notification, onClose, colors }: Notificatio
             <span className="text-gray-400">Envoyé</span>
             <span className="font-semibold">{formatDate(notification.created_at)}</span>
           </div>
+          {notification.data?.link && (
+            <div className="flex justify-between py-1.5">
+              <span className="text-gray-400">Lien</span>
+              <a href={notification.data.link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline truncate max-w-[150px]">
+                Voir
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>
