@@ -1,5 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import {
   CreditCard,
@@ -27,7 +27,7 @@ import toast from 'react-hot-toast';
 // TYPES
 // =============================================
 
-// ✅ UNIQUEMENT les catégories d'abonnement
+// ✅ UNIQUEMENT les catégories d'abonnement (pas de ponctuelle)
 type TabType = 'all' | 'senior' | 'maman_bebe' | 'pack_confort';
 
 // =============================================
@@ -95,70 +95,63 @@ const BillingPage = () => {
     fetchPayments();
   }, []);
 
- 
-// =============================================
-// ✅ FILTRAGE DES OFFRES - SUPPRESSION DES PONCTUELLES
-// =============================================
-useEffect(() => {
-  if (offers.length === 0) return;
+  // =============================================
+  // ✅ FILTRAGE DES OFFRES - SUPPRESSION DES PONCTUELLES
+  // =============================================
+  useEffect(() => {
+    if (offers.length === 0) return;
 
-  let filtered: Offer[] = [];
+    let filtered: Offer[] = [];
 
-  // 🦸 AIDANT → Pas d'abonnement visible
-  if (isAidantRole) {
-    setFilteredOffers([]);
-    return;
-  }
+    // 🦸 AIDANT → Pas d'abonnement visible
+    if (isAidantRole) {
+      setFilteredOffers([]);
+      return;
+    }
 
-  // 👔 ADMIN / COORDINATEUR → Toutes les offres (sauf ponctuelles)
-  if (role === 'admin' || role === 'coordinator') {
+    // 👔 ADMIN / COORDINATEUR → Toutes les offres (sauf ponctuelles)
+    if (role === 'admin' || role === 'coordinator') {
+      filtered = offers.filter((o: Offer) => 
+        o.category !== 'ponctuelle' && o.type !== 'ponctuelle'
+      );
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // 👤 COMPTE PERSONNEL (sans patient) → Pack Confort uniquement
+    if (isPersonalAccount) {
+      filtered = offers.filter((o: Offer) => 
+        o.category === 'pack_confort'
+      );
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // 👴 SENIOR → Senior + Pack Confort
+    if (patientCategory === 'senior') {
+      filtered = offers.filter((o: Offer) => 
+        o.category === 'senior' || o.category === 'pack_confort'
+      );
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // 👶 MAMAN & BÉBÉ → Maman + Pack Confort
+    if (patientCategory === 'maman_bebe') {
+      filtered = offers.filter((o: Offer) => 
+        o.category === 'maman_bebe' || o.category === 'pack_confort'
+      );
+      setFilteredOffers(filtered);
+      return;
+    }
+
+    // 🔄 FALLBACK
     filtered = offers.filter((o: Offer) => 
       o.category !== 'ponctuelle' && o.type !== 'ponctuelle'
     );
     setFilteredOffers(filtered);
-    return;
-  }
+  }, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
 
-  // 👤 COMPTE PERSONNEL (sans patient) → Pack Confort uniquement
-  if (isPersonalAccount) {
-    filtered = offers.filter((o: Offer) => 
-      o.category === 'pack_confort' &&
-      o.category !== 'ponctuelle' &&
-      o.type !== 'ponctuelle'
-    );
-    setFilteredOffers(filtered);
-    return;
-  }
-
-  // 👴 SENIOR → Senior + Pack Confort (pas de ponctuelle)
-  if (patientCategory === 'senior') {
-    filtered = offers.filter((o: Offer) => 
-      (o.category === 'senior' || o.category === 'pack_confort') &&
-      o.category !== 'ponctuelle' &&
-      o.type !== 'ponctuelle'
-    );
-    setFilteredOffers(filtered);
-    return;
-  }
-
-  // 👶 MAMAN & BÉBÉ → Maman + Pack Confort (pas de ponctuelle)
-  if (patientCategory === 'maman_bebe') {
-    filtered = offers.filter((o: Offer) => 
-      (o.category === 'maman_bebe' || o.category === 'pack_confort') &&
-      o.category !== 'ponctuelle' &&
-      o.type !== 'ponctuelle'
-    );
-    setFilteredOffers(filtered);
-    return;
-  }
-
-  // 🔄 FALLBACK
-  filtered = offers.filter((o: Offer) => 
-    o.category !== 'ponctuelle' && o.type !== 'ponctuelle'
-  );
-  setFilteredOffers(filtered);
-}, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
-  
   // =============================================
   // ✅ ONGLETS DISPONIBLES - PLUS DE PONCTUELLE
   // =============================================
@@ -525,7 +518,6 @@ const OfferCardCompact = ({
   onChoose,
 }: OfferCardCompactProps) => {
   // ✅ TOUJOURS FALSE - Plus d'offres ponctuelles ici
-  const isPonctuelle = false;
   const isDisabled = isSubscribed || hasActiveSubscription;
 
   const getIcon = () => {
