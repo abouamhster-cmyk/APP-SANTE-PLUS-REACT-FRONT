@@ -16,7 +16,6 @@ import {
   UserCheck,
   Calendar,
   DollarSign,
-  MoreHorizontal,
   Play,
   Check,
   X,
@@ -26,7 +25,7 @@ import {
 import { Order } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime, formatCurrency, cn } from '@/utils/helpers';
+import { formatDate, formatCurrency, cn } from '@/utils/helpers';
 
 // ============================================================
 // TYPES
@@ -153,6 +152,7 @@ export const OrderCard = memo(({
   // ============================================================
 
   const statusConfig = useMemo(() => getStatusConfig(order.status), [order.status]);
+
   const isPonctual = useMemo(() => {
     return order.order_type === 'ponctual' || 
            order.is_ponctual === true || 
@@ -200,13 +200,10 @@ export const OrderCard = memo(({
     return order.target_name || 'Client';
   }, [order]);
 
-  // ✅ Nom de l'aidant
+  // ✅ Nom de l'aidant - CORRIGÉ
   const aidantName = useMemo(() => {
     if (order.aidant?.user?.full_name) {
       return order.aidant.user.full_name;
-    }
-    if (order.aidant?.full_name) {
-      return order.aidant.full_name;
     }
     return 'Non assigné';
   }, [order]);
@@ -260,10 +257,9 @@ export const OrderCard = memo(({
   }, [onShowAssignAidantModal]);
 
   // ============================================================
-  // RENDU
+  // RENDU - VERSION COMPACTE
   // ============================================================
 
-  // ✅ Version compacte
   if (compact) {
     return (
       <div
@@ -424,7 +420,10 @@ export const OrderCard = memo(({
     );
   }
 
-  // ✅ Version complète
+  // ============================================================
+  // RENDU - VERSION COMPLÈTE
+  // ============================================================
+
   return (
     <div
       onClick={handleClick}
