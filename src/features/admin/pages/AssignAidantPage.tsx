@@ -188,7 +188,7 @@ const AssignAidantPage = () => {
         }))
       );
 
-      // 4. Assignations - ✅ RÉCUPÉRATION ET MISE À JOUR
+      // 4. Assignations
       try {
         const response = await assignmentAPI.adminGetAll();
         console.log('📡 Response adminGetAll:', response);
@@ -648,9 +648,6 @@ const AssignAidantPage = () => {
                               {item.priority === 2 && (
                                 <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">P2</span>
                               )}
-                              {item.priority === 3 && (
-                                <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">P3</span>
-                              )}
                             </div>
 
                             <div className="min-w-0">
@@ -740,9 +737,8 @@ const AssignAidantPage = () => {
       <div className="bg-white rounded-3xl p-4 border border-black/5">
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <span className="font-medium text-gray-500">Légende des priorités :</span>
-          <span className="flex items-center gap-1 text-green-600"><Circle size={8} fill="#10b981" /> P1 - Patient (priorité max)</span>
+          <span className="flex items-center gap-1 text-green-600"><Circle size={8} fill="#10b981} /> P1 - Patient (priorité max)</span>
           <span className="flex items-center gap-1 text-blue-600"><Circle size={8} fill="#3b82f6" /> P2 - Compte personnel (fallback)</span>
-          <span className="flex items-center gap-1 text-purple-600"><Circle size={8} fill="#8b5cf6" /> P3 - Famille (dernier fallback)</span>
           <span className="flex items-center gap-2 text-gray-400 ml-auto">
             {isProcessing && <Loader2 size={12} className="animate-spin" />}
             {isProcessing ? 'Traitement en cours...' : 'Prêt'}
