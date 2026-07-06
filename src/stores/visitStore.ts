@@ -431,7 +431,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       let wizardChoice = data.wizard_choice || null;
       let selectedAidantId = data.selected_aidant_id || null;
 
-      if (!finalAidantId && status !== 'brouillon') {
+      // ✅ Si wizard_choice est 'without_aidant' → status = en_attente_aidant
+      if (wizardChoice === 'without_aidant') {
+        status = 'en_attente_aidant';
+        finalAidantId = null;
+        requiresPayment = false;
+      }
+
+      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
         const patientId = data.patient_id || undefined;
         const familyId = targetUserId || user.id;
         
@@ -447,10 +454,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       // ✅ Si pas d'aidant et pas de paiement requis → wizard
-      if (!finalAidantId && status !== 'brouillon' && !wizardChoice) {
+      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant' && !wizardChoice) {
         // Le wizard sera géré par le composant
         // On retourne une indication pour ouvrir le wizard
         set({ isLoading: false });
+        // @ts-ignore - Propriété temporaire pour le wizard
         return {
           ...data as Visit,
           requires_wizard: true,
@@ -564,6 +572,42 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       // ✅ SI VISITE EN ATTENTE D'AIDANT
       if (newVisit.status === 'en_attente_aidant') {
+        // Notification aux admins
+        const { data: admins } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('role', ['admin', 'coordinator']);
+
+        if (admins && admins.length > 0) {
+          for (const admin of admins) {
+            await supabase.from('notifications').insert({
+              user_id: admin.id,
+              title: '🚨 Visite planifiée sans aidant disponible !',
+              body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}. Tous les aidants sont complets (4/4).`,
+              type: 'alert',
+              data: {
+                visit_id: newVisit.id,
+                action: 'assign_aidant',
+                urgency: 'high',
+                target_name: targetDisplay,
+                scheduled_date: newVisit.scheduled_date,
+                scheduled_time: newVisit.scheduled_time,
+              },
+            });
+          }
+        }
+
+        await supabase.from('notifications').insert({
+          user_id: targetUserId || user.id,
+          title: '⏳ Visite en attente d\'aidant',
+          body: `Votre visite pour ${targetDisplay} est en attente d'assignation. L'administration a été notifiée.`,
+          type: 'visite',
+          data: {
+            visit_id: newVisit.id,
+            status: 'en_attente_aidant',
+          },
+        });
+
         set({ isLoading: false });
         return fullVisit;
       }
@@ -898,7 +942,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         throw new Error('Vous n\'êtes pas assigné à cette visite');
       }
 
-      if (visit.status !== 'planifiee') {
+      if (visit.status !== 'planifiee' && visit.status !== 'en_attente') {
         throw new Error('Cette visite ne peut pas être approuvée');
       }
 
