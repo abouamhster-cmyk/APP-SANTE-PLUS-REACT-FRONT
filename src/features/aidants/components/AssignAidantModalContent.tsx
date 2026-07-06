@@ -226,8 +226,9 @@ export const AssignAidantModalContent = ({
         });
 
         if (!result.success) {
-          throw new Error(result.error || 'Erreur lors de l\'assignation');
+          throw new Error(result.message || 'Erreur lors de l\'assignation');
         }
+
 
         // ✅ Rafraîchir les données
         await Promise.all([
@@ -266,8 +267,9 @@ export const AssignAidantModalContent = ({
         });
 
         if (!result.success) {
-          throw new Error(result.error || 'Erreur lors de l\'assignation');
+          throw new Error(result.message || 'Erreur lors de l\'assignation');
         }
+
 
         await Promise.all([
           fetchMyAssignments(),
