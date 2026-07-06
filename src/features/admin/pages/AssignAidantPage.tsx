@@ -732,13 +732,17 @@ const AssignAidantPage = () => {
       )}
 
       {/* ============================================================
-      LÉGENDE
+      LÉGENDE - CORRIGÉE
       ============================================================ */}
       <div className="bg-white rounded-3xl p-4 border border-black/5">
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <span className="font-medium text-gray-500">Légende des priorités :</span>
-          <span className="flex items-center gap-1 text-green-600"><Circle size={8} fill="#10b981} /> P1 - Patient (priorité max)</span>
-          <span className="flex items-center gap-1 text-blue-600"><Circle size={8} fill="#3b82f6" /> P2 - Compte personnel (fallback)</span>
+          <span className="flex items-center gap-1 text-green-600">
+            <Circle size={8} fill="#10b981" /> P1 - Patient (priorité max)
+          </span>
+          <span className="flex items-center gap-1 text-blue-600">
+            <Circle size={8} fill="#3b82f6" /> P2 - Compte personnel (fallback)
+          </span>
           <span className="flex items-center gap-2 text-gray-400 ml-auto">
             {isProcessing && <Loader2 size={12} className="animate-spin" />}
             {isProcessing ? 'Traitement en cours...' : 'Prêt'}
