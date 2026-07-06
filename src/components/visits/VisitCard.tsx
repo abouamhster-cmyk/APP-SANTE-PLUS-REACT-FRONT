@@ -33,7 +33,7 @@ import { formatDate, formatTime, cn } from '@/utils/helpers';
 // TYPES
 // ============================================================
 
-// ✅ Interface étendue pour gérer metadata et les champs optionnels
+// ✅ Interface étendue pour gérer metadata et les champs optionnels - CORRIGÉE
 interface ExtendedVisit extends Visit {
   metadata?: {
     is_ponctual?: boolean;
@@ -44,7 +44,7 @@ interface ExtendedVisit extends Visit {
     [key: string]: any;
   };
   payment_amount?: number;
-  visit_type?: string;
+  visit_type?: 'permanente' | 'ponctuelle' | 'intervalle';  // ✅ Type exact
   is_recurring?: boolean;
   subscription_id?: string | null;
   draft_expires_at?: string | null;
