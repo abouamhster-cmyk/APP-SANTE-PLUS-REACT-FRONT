@@ -28,7 +28,7 @@ import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
 import { VisitWizardModal } from '../components/VisitWizardModal';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
-import { AssignAidantModal } from '@/components/common/AssignAidantModal';
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 import { getPonctualPrice } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -849,7 +849,7 @@ const VisitsPage = () => {
       )}
 
       {/* ============================================================
-      MODAL D'ASSIGNATION D'AIDANT (ADMIN)
+      MODAL D'ASSIGNATION D'AIDANT (ADMIN) - 
       ============================================================ */}
       {showAssignModal && selectedVisitForAssign && (
         <AssignAidantModal
@@ -864,6 +864,7 @@ const VisitsPage = () => {
             `${selectedVisitForAssign.patient?.first_name || ''} ${selectedVisitForAssign.patient?.last_name || ''}`.trim() || 'Visite'}
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedVisitForAssign.aidant_id}
+          colors={colors}
           allowForce={isAdminOrCoordinator}
           onAssignAidant={handleAdminAssignAidant}
         />
