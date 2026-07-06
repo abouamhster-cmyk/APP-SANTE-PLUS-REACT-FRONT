@@ -10,6 +10,10 @@ import {
   Clock,
   User,
   Award,
+  Users,
+  ShoppingBag,
+  UserCheck,
+  Zap,
 } from 'lucide-react';
 import { AidantProfile } from '@/types/aidant';
 import { cn } from '@/utils/helpers';
@@ -19,12 +23,23 @@ import { cn } from '@/utils/helpers';
 // ============================================================
 
 interface AidantCardProps {
-  aidant: AidantProfile;
+  aidant: AidantProfile & {
+    current_assignments?: number;
+    max_assignments?: number;
+    available_slots?: number;
+    is_available?: boolean;
+    current_orders?: number;
+    max_orders?: number;
+    available_order_slots?: number;
+    can_take_orders?: boolean;
+  };
   onClick: () => void;
   onAssign: () => void;
   colors: any;
   compact?: boolean;
   showActions?: boolean;
+  showQuota?: boolean;
+  showOrderQuota?: boolean;
 }
 
 // ============================================================
@@ -37,7 +52,9 @@ export const AidantCard = memo(({
   onAssign,
   colors,
   compact = false,
-  showActions = true
+  showActions = true,
+  showQuota = true,
+  showOrderQuota = false,
 }: AidantCardProps) => {
 
   // ============================================================
@@ -45,7 +62,12 @@ export const AidantCard = memo(({
   // ============================================================
 
   const status = useMemo(() => {
-    if (!aidant.is_available) {
+    const current = aidant.current_assignments || 0;
+    const max = aidant.max_assignments || 4;
+    const isFull = current >= max;
+    const isAvailable = aidant.is_available !== undefined ? aidant.is_available : aidant.available;
+
+    if (!isAvailable) {
       return { 
         label: 'Indisponible', 
         icon: <AlertCircle size={12} />, 
@@ -53,7 +75,7 @@ export const AidantCard = memo(({
         bg: 'bg-red-50' 
       };
     }
-    if (aidant.active_assignments >= aidant.max_assignments) {
+    if (isFull) {
       return { 
         label: 'Complet', 
         icon: <Clock size={12} />, 
@@ -67,14 +89,63 @@ export const AidantCard = memo(({
       color: 'text-green-500', 
       bg: 'bg-green-50' 
     };
-  }, [aidant.is_available, aidant.active_assignments, aidant.max_assignments]);
+  }, [aidant]);
+
+  // ✅ Quota d'assignations
+  const assignmentQuota = useMemo(() => {
+    const current = aidant.current_assignments || 0;
+    const max = aidant.max_assignments || 4;
+    const available = aidant.available_slots !== undefined ? aidant.available_slots : Math.max(0, max - current);
+    const isFull = current >= max;
+    const isAvailable = aidant.is_available !== undefined ? aidant.is_available : aidant.available;
+
+    return {
+      current,
+      max,
+      available,
+      isFull,
+      isAvailable,
+      percentage: max > 0 ? Math.round((current / max) * 100) : 0,
+    };
+  }, [aidant]);
+
+  // ✅ Quota de commandes
+  const orderQuota = useMemo(() => {
+    const current = aidant.current_orders || 0;
+    const max = aidant.max_orders || 2;
+    const available = aidant.available_order_slots !== undefined ? aidant.available_order_slots : Math.max(0, max - current);
+    const isFull = current >= max;
+    const canTake = aidant.can_take_orders !== undefined ? aidant.can_take_orders : current < max;
+
+    return {
+      current,
+      max,
+      available,
+      isFull,
+      canTake,
+      percentage: max > 0 ? Math.round((current / max) * 100) : 0,
+    };
+  }, [aidant]);
 
   const name = useMemo(() => aidant.user?.full_name || 'Aidant', [aidant.user]);
-  const rating = useMemo(() => aidant.avg_rating || 0, [aidant.avg_rating]);
+  const rating = useMemo(() => aidant.avg_rating || aidant.rating || 0, [aidant]);
   const missions = useMemo(() => aidant.total_missions || 0, [aidant.total_missions]);
   const zones = useMemo(() => aidant.zones?.slice(0, 2).join(', ') || '—', [aidant.zones]);
-  const remaining = useMemo(() => Math.max(0, aidant.max_assignments - aidant.active_assignments), [aidant.max_assignments, aidant.active_assignments]);
   const responseTime = useMemo(() => aidant.average_response_time || '~5', [aidant.average_response_time]);
+  const experience = useMemo(() => aidant.experience_years || 0, [aidant.experience_years]);
+
+  // ✅ Déterminer si l'aidant peut être assigné
+  const canBeAssigned = useMemo(() => {
+    return assignmentQuota.isAvailable && !assignmentQuota.isFull;
+  }, [assignmentQuota]);
+
+  // ✅ Couleur de la barre de progression
+  const getProgressColor = useCallback((percentage: number) => {
+    if (percentage >= 90) return '#ef4444';
+    if (percentage >= 70) return '#f59e0b';
+    if (percentage >= 40) return '#3b82f6';
+    return '#10b981';
+  }, []);
 
   // ============================================================
   // HANDLERS
@@ -87,16 +158,15 @@ export const AidantCard = memo(({
 
   const handleAssign = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (aidant.is_available && remaining > 0) {
+    if (canBeAssigned) {
       onAssign();
     }
-  }, [aidant.is_available, remaining, onAssign]);
+  }, [canBeAssigned, onAssign]);
 
   // ============================================================
-  // RENDU
+  // RENDU - VERSION COMPACTE
   // ============================================================
 
-  // Version compacte
   if (compact) {
     return (
       <div
@@ -120,7 +190,7 @@ export const AidantCard = memo(({
             <h4 className="font-semibold text-sm truncate" style={{ color: colors.text }}>
               {name}
             </h4>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-wrap">
               <span className="flex items-center gap-0.5">
                 <Star size={10} className="text-yellow-400 fill-yellow-400" />
                 {rating.toFixed(1)}
@@ -135,12 +205,30 @@ export const AidantCard = memo(({
                 {status.label}
               </span>
             </div>
+
+            {/* ✅ Quota d'assignations (compact) */}
+            {showQuota && (
+              <div className="mt-1 flex items-center gap-1.5">
+                <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(assignmentQuota.percentage, 100)}%`,
+                      background: getProgressColor(assignmentQuota.percentage),
+                    }}
+                  />
+                </div>
+                <span className="text-[8px] text-gray-400 font-medium whitespace-nowrap">
+                  {assignmentQuota.current}/{assignmentQuota.max}
+                </span>
+              </div>
+            )}
           </div>
 
-          {showActions && remaining > 0 && aidant.is_available && (
+          {showActions && canBeAssigned && (
             <button
               onClick={handleAssign}
-              className="px-3 py-1 rounded-lg text-white text-xs font-bold shrink-0"
+              className="px-3 py-1 rounded-lg text-white text-xs font-bold shrink-0 transition hover:opacity-80"
               style={{ background: colors.primary }}
             >
               Choisir
@@ -151,7 +239,10 @@ export const AidantCard = memo(({
     );
   }
 
-  // Version complète
+  // ============================================================
+  // RENDU - VERSION COMPLÈTE
+  // ============================================================
+
   return (
     <div
       onClick={handleClick}
@@ -190,12 +281,12 @@ export const AidantCard = memo(({
                   <Briefcase size={13} />
                   {missions} missions
                 </span>
-                {aidant.experience_years > 0 && (
+                {experience > 0 && (
                   <>
                     <span>•</span>
                     <span className="flex items-center gap-1">
                       <Award size={13} />
-                      {aidant.experience_years} ans
+                      {experience} ans
                     </span>
                   </>
                 )}
@@ -222,7 +313,10 @@ export const AidantCard = memo(({
                   className="px-2 py-0.5 rounded-full text-[10px] font-medium"
                   style={{ background: colors.primary + '12', color: colors.primary }}
                 >
-                  {spec}
+                  {spec === 'maman_bebe' ? '👶 Maman & Bébé' :
+                   spec === 'senior' ? '👴 Senior' :
+                   spec === 'accompagnement' ? '🤝 Accompagnement' :
+                   spec}
                 </span>
               ))}
               {aidant.specialties.length > 3 && (
@@ -252,10 +346,76 @@ export const AidantCard = memo(({
         <div className="flex items-center gap-1.5">
           <User size={14} className="text-gray-400" />
           <span>
-            {aidant.active_assignments || 0}/{aidant.max_assignments || 4} missions
-            {remaining > 0 && ` (${remaining} places)`}
+            {assignmentQuota.current}/{assignmentQuota.max} missions
+            {assignmentQuota.available > 0 && ` (${assignmentQuota.available} places)`}
           </span>
         </div>
+      </div>
+
+      {/* ============================================================
+      QUOTAS (Barres de progression)
+      ============================================================ */}
+      <div className="mt-4 space-y-2">
+        {/* ✅ Quota d'assignations */}
+        {showQuota && (
+          <div>
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="flex items-center gap-1 text-gray-500">
+                <Users size={12} />
+                Assignations
+              </span>
+              <span className="font-medium" style={{ color: getProgressColor(assignmentQuota.percentage) }}>
+                {assignmentQuota.current}/{assignmentQuota.max}
+                {assignmentQuota.available > 0 && (
+                  <span className="text-gray-400 font-normal ml-1">
+                    ({assignmentQuota.available} place{assignmentQuota.available > 1 ? 's' : ''})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="mt-0.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(assignmentQuota.percentage, 100)}%`,
+                  background: getProgressColor(assignmentQuota.percentage),
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ✅ Quota de commandes */}
+        {showOrderQuota && (
+          <div>
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="flex items-center gap-1 text-gray-500">
+                <ShoppingBag size={12} />
+                Commandes en cours
+              </span>
+              <span className="font-medium" style={{ color: orderQuota.canTake ? '#4CAF50' : '#F44336' }}>
+                {orderQuota.current}/{orderQuota.max}
+                {orderQuota.available > 0 && (
+                  <span className="text-gray-400 font-normal ml-1">
+                    ({orderQuota.available} place{orderQuota.available > 1 ? 's' : ''})
+                  </span>
+                )}
+                {!orderQuota.canTake && (
+                  <span className="text-red-500 font-normal ml-1">⚠️</span>
+                )}
+              </span>
+            </div>
+            <div className="mt-0.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min(orderQuota.percentage, 100)}%`,
+                  background: orderQuota.canTake ? '#3b82f6' : '#ef4444',
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ============================================================
@@ -274,30 +434,73 @@ export const AidantCard = memo(({
         <div className="mt-4 flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
           <button
             onClick={handleClick}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium border transition hover:bg-gray-50"
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium border transition hover:bg-gray-50 flex items-center justify-center gap-1.5"
             style={{ borderColor: colors.border, color: colors.text }}
           >
+            <User size={16} />
             Voir le profil
           </button>
 
-          {aidant.is_available && remaining > 0 ? (
+          {canBeAssigned ? (
             <button
               onClick={handleAssign}
-              className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90"
+              className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90 flex items-center justify-center gap-1.5"
               style={{ background: colors.primary }}
             >
-              ✅ Choisir cet aidant
+              <UserCheck size={16} />
+              Choisir cet aidant
             </button>
           ) : (
             <button
               disabled
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed bg-gray-100 text-gray-400"
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed bg-gray-100 text-gray-400 flex items-center justify-center gap-1.5"
             >
-              {!aidant.is_available ? 'Indisponible' : 'Complet'}
+              {!assignmentQuota.isAvailable ? (
+                <>
+                  <AlertCircle size={16} />
+                  Indisponible
+                </>
+              ) : assignmentQuota.isFull ? (
+                <>
+                  <Clock size={16} />
+                  Complet
+                </>
+              ) : (
+                <>
+                  <AlertCircle size={16} />
+                  Non disponible
+                </>
+              )}
             </button>
           )}
         </div>
       )}
+
+      {/* ============================================================
+      RÉSUMÉ DES QUOTAS (pied de carte)
+      ============================================================ */}
+      <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-3 text-[10px] text-gray-400" style={{ borderColor: colors.border + '40' }}>
+        <span className="flex items-center gap-0.5">
+          <Users size={10} />
+          {assignmentQuota.current}/{assignmentQuota.max} assignations
+        </span>
+        {showOrderQuota && (
+          <span className="flex items-center gap-0.5">
+            <ShoppingBag size={10} />
+            {orderQuota.current}/{orderQuota.max} commandes
+          </span>
+        )}
+        <span className="flex items-center gap-0.5">
+          <Star size={10} className="text-yellow-400 fill-yellow-400" />
+          {rating.toFixed(1)}
+        </span>
+        {aidant.is_verified && (
+          <span className="flex items-center gap-0.5 text-green-600">
+            <CheckCircle size={10} />
+            Vérifié
+          </span>
+        )}
+      </div>
     </div>
   );
 });
