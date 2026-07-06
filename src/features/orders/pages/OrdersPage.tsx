@@ -1,5 +1,4 @@
 // 📁 src/features/orders/pages/OrdersPage.tsx
- 
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,27 +17,27 @@ import {
   AlertCircle,
   UserPlus,
   CreditCard,
+  Sparkles,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { AssignAidantModal } from '@/components/common/AssignAidantModal';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
-import toast from 'react-hot-toast';
-
-// ✅ IMPORTER LES HELPERS
 import {
   isOrderPendingPayment,
   isOrderPonctual,
   requiresOrderPayment,
 } from '@/utils/helpers';
+import toast from 'react-hot-toast';
 
-// ✅ FILTRES AVEC NOUVEAUX STATUTS
+// ✅ FILTRES AVEC MODE PONCTUEL
 const statusFilters = [
   { key: 'all', label: 'Toutes', icon: <List size={12} /> },
   { key: 'creee', label: '📝 Créées', icon: <Package size={12} /> },
@@ -48,8 +47,9 @@ const statusFilters = [
   { key: 'livree', label: '📦 Livrées', icon: <Truck size={12} /> },
   { key: 'validee', label: '✅ Validées', icon: <CheckCircle size={12} /> },
   { key: 'annulee', label: '❌ Annulées', icon: <X size={12} /> },
-  // ✅ NOUVEAU FILTRE POUR LES COMMANDES EN ATTENTE DE PAIEMENT
   { key: 'attente_paiement', label: '💳 En attente paiement', icon: <CreditCard size={12} /> },
+  // ✅ NOUVEAU FILTRE PONCTUEL
+  { key: 'ponctual', label: '⚡ Ponctuelles', icon: <Sparkles size={12} /> },
 ];
 
 const OrdersPage = () => {
@@ -65,18 +65,35 @@ const OrdersPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
+  // ✅ Utiliser le guard d'abonnement
+  const {
+    hasActiveSubscription,
+    remainingOrders,
+    can,
+  } = useSubscriptionGuard();
+
   const [search, setSearch] = useState('');
   const [activeStatus, setActiveStatus] = useState('all');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // États pour l'assignation d'aidant
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedOrderForAssign, setSelectedOrderForAssign] = useState<any>(null);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // UTILISER le hook de rafraîchissement
+  // ✅ STATISTIQUES
+  const stats = useMemo(() => ({
+    total: orders.length,
+    pending: orders.filter((order) => order.status === 'en_attente').length,
+    available: orders.filter((order) => order.status === 'disponible').length,
+    inProgress: orders.filter((order) => order.status === 'en_cours').length,
+    delivery: orders.filter((order) => order.status === 'livree').length,
+    completed: orders.filter((order) => order.status === 'validee').length,
+    pendingPayment: orders.filter((order) => order.status === 'attente_paiement').length,
+    ponctual: orders.filter((order) => isOrderPonctual(order)).length,
+  }), [orders]);
+
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: fetchOrders,
     onError: (error) => toast.error('Erreur lors du rafraîchissement des commandes'),
@@ -107,12 +124,18 @@ const OrdersPage = () => {
     toast.success('Aidant assigné avec succès');
   };
 
-  // ✅ FILTRAGE AVEC NOUVEAUX STATUTS
+  // ✅ FILTRAGE
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
-      const matchStatus = activeStatus === 'all' || order.status === activeStatus;
-      const query = search.trim().toLowerCase();
+      let matchStatus = true;
+      
+      if (activeStatus === 'ponctual') {
+        matchStatus = isOrderPonctual(order);
+      } else if (activeStatus !== 'all') {
+        matchStatus = order.status === activeStatus;
+      }
 
+      const query = search.trim().toLowerCase();
       const matchSearch =
         !query ||
         order.description?.toLowerCase().includes(query) ||
@@ -125,27 +148,12 @@ const OrdersPage = () => {
     });
   }, [orders, search, activeStatus]);
 
-  // ✅ STATISTIQUES AVEC NOUVEAUX STATUTS
-  const stats = {
-    total: orders.length,
-    pending: orders.filter((order) => order.status === 'en_attente').length,
-    available: orders.filter((order) => order.status === 'disponible').length,
-    inProgress: orders.filter((order) => order.status === 'en_cours').length,
-    delivery: orders.filter((order) => order.status === 'livree').length,
-    completed: orders.filter((order) => order.status === 'validee').length,
-    // ✅ NOUVEAU : Commandes en attente de paiement
-    pendingPayment: orders.filter((order) => order.status === 'attente_paiement').length,
-    // ✅ Commandes ponctuelles
-    ponctual: orders.filter((order) => isOrderPonctual(order)).length,
-  };
-
-  // ✅ HANDLER STATUT AVEC NOUVEAUX STATUTS
+  // ✅ HANDLER STATUT
   const handleStatusChange = async (id: string, status: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     try {
-      // ✅ Vérifier que le statut est valide
       const validStatuses = ['creee', 'en_attente', 'en_cours', 'livree', 'validee', 'annulee', 'disponible', 'attente_paiement'];
       if (!validStatuses.includes(status)) {
         toast.error(`Statut "${status}" invalide pour une commande`);
@@ -164,7 +172,6 @@ const OrdersPage = () => {
       };
 
       toast.success(statusMessages[status] || `Commande ${status}`);
-
       await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur mise à jour:', error);
@@ -225,7 +232,7 @@ const OrdersPage = () => {
 
   return (
     <div className="w-full max-w-full overflow-hidden space-y-4 pb-24 sm:pb-10">
-      {/* HEADER AVEC BOUTON DE RAFRAÎCHISSEMENT */}
+      {/* HEADER */}
       <section className="w-full bg-white rounded-2xl p-4 shadow-sm border border-black/5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -249,9 +256,11 @@ const OrdersPage = () => {
               {stats.available > 0 && (
                 <span className="ml-2 text-red-500">🚨 {stats.available} urgente(s)</span>
               )}
-              {/* ✅ INDICATEUR PAIEMENT EN ATTENTE */}
               {stats.pendingPayment > 0 && (
                 <span className="ml-2 text-purple-500">💳 {stats.pendingPayment} en attente paiement</span>
+              )}
+              {stats.ponctual > 0 && (
+                <span className="ml-2 text-orange-500">⚡ {stats.ponctual} ponctuelle(s)</span>
               )}
             </p>
           </div>
@@ -280,7 +289,7 @@ const OrdersPage = () => {
         </div>
       </section>
 
-      {/* STATS COMPACTES - AVEC NOUVEAUX STATUTS */}
+      {/* STATS COMPACTES */}
       <section className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         <CompactStat
           icon={<Package size={14} />}
@@ -307,10 +316,10 @@ const OrdersPage = () => {
           color="#2196F3"
         />
         <CompactStat
-          icon={<CheckCircle size={14} />}
-          label="Validées"
-          value={stats.completed}
-          color="#4CAF50"
+          icon={<Sparkles size={14} />}
+          label="Ponctuelles"
+          value={stats.ponctual}
+          color="#F59E0B"
         />
       </section>
 
@@ -414,7 +423,6 @@ const OrdersPage = () => {
             </button>
           )}
 
-          {/* ✅ SI COMMANDES EXISTENT MAIS FILTRÉES */}
           {isFamily && orders.length > 0 && (
             <button
               onClick={() => setSearch('')}
