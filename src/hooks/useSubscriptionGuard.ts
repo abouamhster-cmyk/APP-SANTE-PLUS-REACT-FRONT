@@ -1,5 +1,5 @@
 // 📁 src/hooks/useSubscriptionGuard.ts
-
+ 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
@@ -46,7 +46,27 @@ export const useSubscriptionGuard = () => {
       try {
         console.log('🔍 Vérification abonnement pour:', user.id, 'Rôle:', role);
 
-        // ✅ CAS 1 : AIDANT
+        // ✅ CAS 1 : ADMIN / COORDINATEUR → Accès illimité
+        if (role === 'admin' || role === 'coordinator') {
+          console.log('👔 Admin/Coord détecté - Accès illimité');
+          setStatus({
+            hasActiveSubscription: true,
+            isExpired: false,
+            hasNeverSubscribed: false,
+            remainingVisits: Number.MAX_SAFE_INTEGER,
+            remainingOrders: Number.MAX_SAFE_INTEGER,
+            subscription: null,
+            isLoading: false,
+            totalVisits: Number.MAX_SAFE_INTEGER,
+            totalOrders: Number.MAX_SAFE_INTEGER,
+            startDate: null,
+            endDate: null,
+            role: role,
+          });
+          return;
+        }
+
+        // ✅ CAS 2 : AIDANT → Pas de vérification d'abonnement
         if (role === 'aidant') {
           console.log('🦸 Aidant détecté - Pas de vérification d\'abonnement');
           setStatus({
@@ -66,27 +86,7 @@ export const useSubscriptionGuard = () => {
           return;
         }
 
-        // ✅ CAS 2 : ADMIN / COORDINATEUR
-        if (role === 'admin' || role === 'coordinator') {
-          console.log('👔 Admin/Coord détecté - Pas de vérification d\'abonnement');
-          setStatus({
-            hasActiveSubscription: true,
-            isExpired: false,
-            hasNeverSubscribed: false,
-            remainingVisits: 999,
-            remainingOrders: 999,
-            subscription: null,
-            isLoading: false,
-            totalVisits: 999,
-            totalOrders: 999,
-            startDate: null,
-            endDate: null,
-            role: role,
-          });
-          return;
-        }
-
-        // ✅ CAS 3 : FAMILLE
+        // ✅ CAS 3 : FAMILLE → Vérification de l'abonnement
         if (role === 'family') {
           console.log('👨‍👩‍👦 Famille détectée - Vérification de l\'abonnement');
 
@@ -156,62 +156,8 @@ export const useSubscriptionGuard = () => {
         }
 
         // ✅ CAS 4 : AUTRE RÔLE
-        console.log('⚠️ Rôle non reconnu:', role, '- Vérification standard');
-        const { data: subscriptions, error } = await supabase
-          .from('abonnements')
-          .select(`
-            *,
-            offre:offres(*)
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (error) {
-          console.error('❌ Erreur:', error);
-          setStatus(prev => ({ ...prev, isLoading: false, role: role }));
-          return;
-        }
-
-        const subscription = subscriptions?.[0] || null;
-
-        if (!subscription) {
-          setStatus({
-            hasActiveSubscription: false,
-            isExpired: false,
-            hasNeverSubscribed: true,
-            remainingVisits: 0,
-            remainingOrders: 0,
-            subscription: null,
-            isLoading: false,
-            totalVisits: 0,
-            totalOrders: 0,
-            startDate: null,
-            endDate: null,
-            role: role,
-          });
-          return;
-        }
-
-        const isActive = subscription.status === 'actif';
-        const endDate = new Date(subscription.end_date);
-        const today = new Date();
-        const isExpired = subscription.status === 'expire' || endDate < today;
-
-        setStatus({
-          hasActiveSubscription: isActive && !isExpired,
-          isExpired: isExpired,
-          hasNeverSubscribed: false,
-          remainingVisits: subscription.remaining_visits || 0,
-          remainingOrders: subscription.remaining_orders || 0,
-          subscription,
-          isLoading: false,
-          totalVisits: subscription.total_visits || 0,
-          totalOrders: subscription.total_orders || 0,
-          startDate: subscription.start_date,
-          endDate: subscription.end_date,
-          role: role,
-        });
+        console.log('⚠️ Rôle non reconnu:', role);
+        setStatus(prev => ({ ...prev, isLoading: false, role: role }));
 
       } catch (error) {
         console.error('❌ Check subscription error:', error);
