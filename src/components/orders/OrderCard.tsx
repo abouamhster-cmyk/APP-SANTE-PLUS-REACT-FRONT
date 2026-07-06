@@ -1,268 +1,416 @@
-// 📁 src/components/orders/OrderCard.tsx
- 
+// 📁 frontend/src/components/orders/OrderCard.tsx
 
-import { useState } from 'react';
+import { memo, useMemo, useCallback } from 'react';
+import {
+  Package,
+  MapPin,
+  Clock,
+  User,
+  CheckCircle,
+  XCircle,
+  Eye,
+  AlertCircle,
+  ShoppingBag,
+  Truck,
+  CreditCard,
+  UserCheck,
+  Calendar,
+  DollarSign,
+  MoreHorizontal,
+  Play,
+  Check,
+  X,
+  Users,
+} from 'lucide-react';
+
 import { Order } from '@/types';
 import { getThemeColors } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatCurrency } from '@/utils/helpers';
+import { formatDate, formatTime, formatCurrency, cn } from '@/utils/helpers';
 
-// ✅ IMPORTER LES HELPERS
-import {
-  isOrderPendingPayment,
-  isOrderPonctual,
-  requiresOrderPayment,
-} from '@/utils/helpers';
-
-import { 
-  Eye, Package, Truck, CheckCircle, XCircle, Clock, 
-  Image, Play, AlertCircle, ShoppingBag, User, UserPlus, UserCheck,
-  CreditCard,
-} from 'lucide-react';
+// ============================================================
+// TYPES
+// ============================================================
 
 interface OrderCardProps {
   order: Order;
+  onClick?: () => void;
   onStatusChange?: (status: string) => void;
   onTakeOrder?: () => void;
+  onDeliver?: () => void;
+  onCancel?: () => void;
   onView?: () => void;
-  onClick?: () => void;
-  onShowAssignAidantModal?: (order: Order) => void;
+  onShowAssignAidantModal?: () => void;
   showActions?: boolean;
   compact?: boolean;
+  colors?: any;
 }
 
-export const OrderCard = ({ 
-  order, 
-  onStatusChange, 
-  onTakeOrder,
-  onView,
+// ============================================================
+// CONFIGURATION DES STATUTS
+// ============================================================
+
+const STATUS_CONFIG: Record<string, {
+  label: string;
+  color: string;
+  bg: string;
+  icon: React.ReactNode;
+  progress: number;
+  nextActions?: string[];
+}> = {
+  creee: {
+    label: 'Créée',
+    color: '#9E9E9E',
+    bg: '#9E9E9E15',
+    icon: <Package size={12} />,
+    progress: 0,
+    nextActions: ['Prendre', 'Annuler'],
+  },
+  en_attente: {
+    label: 'En attente',
+    color: '#FF9800',
+    bg: '#FF980015',
+    icon: <Clock size={12} />,
+    progress: 10,
+    nextActions: ['Prendre', 'Annuler'],
+  },
+  disponible: {
+    label: '🚨 Disponible',
+    color: '#F44336',
+    bg: '#F4433615',
+    icon: <AlertCircle size={12} />,
+    progress: 15,
+    nextActions: ['Prendre (Urgent)'],
+  },
+  en_cours: {
+    label: 'En cours',
+    color: '#2196F3',
+    bg: '#2196F315',
+    icon: <Truck size={12} />,
+    progress: 40,
+    nextActions: ['Livrer', 'Annuler'],
+  },
+  livree: {
+    label: 'Livrée',
+    color: '#2196F3',
+    bg: '#2196F315',
+    icon: <CheckCircle size={12} />,
+    progress: 70,
+    nextActions: ['Valider'],
+  },
+  validee: {
+    label: 'Validée',
+    color: '#4CAF50',
+    bg: '#4CAF5015',
+    icon: <CheckCircle size={12} />,
+    progress: 100,
+    nextActions: [],
+  },
+  annulee: {
+    label: 'Annulée',
+    color: '#F44336',
+    bg: '#F4433615',
+    icon: <XCircle size={12} />,
+    progress: 0,
+    nextActions: [],
+  },
+  attente_paiement: {
+    label: '💳 En attente paiement',
+    color: '#8b5cf6',
+    bg: '#8b5cf615',
+    icon: <CreditCard size={12} />,
+    progress: 5,
+    nextActions: ['Payer'],
+  },
+};
+
+const getStatusConfig = (status: string) => {
+  return STATUS_CONFIG[status] || STATUS_CONFIG['creee'];
+};
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+
+export const OrderCard = memo(({
+  order,
   onClick,
+  onStatusChange,
+  onTakeOrder,
+  onDeliver,
+  onCancel,
+  onView,
   onShowAssignAidantModal,
   showActions = false,
-  compact = false 
+  compact = false,
+  colors: propColors,
 }: OrderCardProps) => {
-  const colors = getThemeColors('senior');
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const {
-    singular,
-    getCategoryLabel,
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
-  } = useTerminology();
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+  const colors = propColors || getThemeColors('senior');
 
-  // ✅ FONCTION ROBUSTE POUR OBTENIR LE NOM DE L'AIDANT
-  const getAidantName = () => {
+  // ============================================================
+  // CALCULS MEMOISÉS
+  // ============================================================
+
+  const statusConfig = useMemo(() => getStatusConfig(order.status), [order.status]);
+  const isPonctual = useMemo(() => {
+    return order.order_type === 'ponctual' || 
+           order.is_ponctual === true || 
+           order.metadata?.ponctual_mode === true;
+  }, [order]);
+
+  const isPaid = useMemo(() => {
+    return order.is_paid === true || 
+           order.metadata?.paid_at !== undefined ||
+           order.metadata?.payment_completed === true;
+  }, [order]);
+
+  const isPendingPayment = useMemo(() => {
+    return order.status === 'attente_paiement';
+  }, [order]);
+
+  const isInProgress = useMemo(() => {
+    return order.status === 'en_cours';
+  }, [order]);
+
+  const isDelivered = useMemo(() => {
+    return order.status === 'livree';
+  }, [order]);
+
+  const isAvailable = useMemo(() => {
+    return order.status === 'creee' || order.status === 'en_attente' || order.status === 'disponible';
+  }, [order]);
+
+  const isUrgent = useMemo(() => {
+    return order.status === 'disponible';
+  }, [order]);
+
+  const isCompleted = useMemo(() => {
+    return order.status === 'validee' || order.status === 'annulee';
+  }, [order]);
+
+  // ✅ Nom du patient/client
+  const patientName = useMemo(() => {
+    if (order.patient) {
+      return `${order.patient.first_name} ${order.patient.last_name}`;
+    }
+    if (order.family?.full_name) {
+      return order.family.full_name;
+    }
+    return order.target_name || 'Client';
+  }, [order]);
+
+  // ✅ Nom de l'aidant
+  const aidantName = useMemo(() => {
     if (order.aidant?.user?.full_name) {
       return order.aidant.user.full_name;
     }
+    if (order.aidant?.full_name) {
+      return order.aidant.full_name;
+    }
     return 'Non assigné';
-  };
+  }, [order]);
 
-  // ✅ FONCTION POUR VÉRIFIER SI UN AIDANT EST ASSIGNÉ
-  const hasAidant = () => {
-    return !!(order.aidant_id || order.aidant);
-  };
+  // ✅ Montant
+  const amount = useMemo(() => {
+    return order.estimated_amount || order.final_amount || 0;
+  }, [order]);
 
-  // ✅ NOUVEAUX STATUTS AVEC attente_paiement
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'creee': return '#9E9E9E';
-      case 'en_attente': return '#FF9800';
-      case 'disponible': return '#F44336';
-      case 'en_cours': return '#2196F3';
-      case 'livree': return '#2196F3';
-      case 'validee': return '#4CAF50';
-      case 'annulee': return '#9E9E9E';
-      case 'attente_paiement': return '#8b5cf6'; // ✅ Nouveau statut
-      default: return '#9E9E9E';
-    }
-  };
+  // ✅ Articles
+  const itemsCount = useMemo(() => {
+    return order.items?.length || 0;
+  }, [order]);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'creee': return '📝 Créée';
-      case 'en_attente': return '⏳ En attente';
-      case 'disponible': return '🚨 Disponible';
-      case 'en_cours': return '🔄 En cours';
-      case 'livree': return '📦 Livrée';
-      case 'validee': return '✅ Validée';
-      case 'annulee': return '❌ Annulée';
-      case 'attente_paiement': return '💳 En attente paiement'; // ✅ Nouveau statut
-      default: return status;
-    }
-  };
+  // ✅ Barre de progression
+  const progress = useMemo(() => {
+    return statusConfig.progress || 0;
+  }, [statusConfig]);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'creee': return <Package size={14} />;
-      case 'en_attente': return <Clock size={14} />;
-      case 'disponible': return <AlertCircle size={14} />;
-      case 'en_cours': return <Play size={14} />;
-      case 'livree': return <Truck size={14} />;
-      case 'validee': return <CheckCircle size={14} />;
-      case 'annulee': return <XCircle size={14} />;
-      case 'attente_paiement': return <CreditCard size={14} />; // ✅ Nouveau statut
-      default: return <Package size={14} />;
-    }
-  };
+  // ============================================================
+  // HANDLERS
+  // ============================================================
 
-  const isUrgent = order.status === 'disponible' || order.status === 'en_attente';
-  const isPendingPayment = order.status === 'attente_paiement';
-  const isAvailable = order.status === 'en_attente' || order.status === 'disponible';
-  const isInProgress = order.status === 'en_cours';
-  const isDelivered = order.status === 'livree';
-  const isPonctual = isOrderPonctual(order);
-  const isPaid = order.is_paid === true;
+  const handleClick = useCallback(() => {
+    if (onClick) onClick();
+  }, [onClick]);
 
-  // ✅ Vérifier si l'utilisateur peut agir sur la commande
-  const canTake = isAvailable && (isAidant || isAdminOrCoordinator);
-  const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
-  const canDeliver = isInProgress && (isAidant || isAdminOrCoordinator);
-  const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
-  const canAssignAidant = (isAdminOrCoordinator) && 
-    ['creee', 'en_attente', 'disponible'].includes(order.status);
+  const handleTakeOrder = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onTakeOrder) onTakeOrder();
+  }, [onTakeOrder]);
 
-  const handleStatusChange = (status: string) => {
-    if (isProcessing || !onStatusChange) return;
-    setIsProcessing(true);
-    onStatusChange(status);
-    setTimeout(() => setIsProcessing(false), 3000);
-  };
+  const handleDeliver = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDeliver) onDeliver();
+  }, [onDeliver]);
 
-  const handleTakeOrder = () => {
-    if (isProcessing || !onTakeOrder) return;
-    setIsProcessing(true);
-    onTakeOrder();
-    setTimeout(() => setIsProcessing(false), 3000);
-  };
+  const handleCancel = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onCancel) onCancel();
+  }, [onCancel]);
+
+  const handleView = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onView) onView();
+  }, [onView]);
+
+  const handleShowAssignAidant = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onShowAssignAidantModal) onShowAssignAidantModal();
+  }, [onShowAssignAidantModal]);
+
+  // ============================================================
+  // RENDU
+  // ============================================================
 
   // ✅ Version compacte
   if (compact) {
     return (
-      <div 
-        className={`bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer ${
-          isPendingPayment ? 'border-purple-400' : ''
-        }`}
-        style={{ borderLeftColor: getStatusColor(order.status) }}
-        onClick={onClick}
+      <div
+        onClick={handleClick}
+        className={cn(
+          "bg-white rounded-2xl p-3 border-l-4 shadow-sm hover:shadow-md transition-all cursor-pointer",
+          isUrgent ? "animate-pulse-slow" : ""
+        )}
+        style={{ 
+          borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
+          borderColor: isUrgent ? '#F4433630' : 'transparent',
+        }}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
-                {order.description}
+              <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
+                {order.description || 'Commande'}
               </p>
-              <span 
-                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5"
-                style={{ 
-                  background: getStatusColor(order.status) + '20',
-                  color: getStatusColor(order.status),
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 shrink-0"
+                style={{
+                  background: statusConfig.bg,
+                  color: statusConfig.color,
                 }}
               >
-                {getStatusIcon(order.status)}
-                {getStatusLabel(order.status)}
+                {statusConfig.icon}
+                {statusConfig.label}
               </span>
               {isUrgent && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-red-100 text-red-600 animate-pulse">
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-100 text-red-600 flex items-center gap-0.5 shrink-0 animate-pulse">
                   <AlertCircle size={10} />
                   Urgent
                 </span>
               )}
               {isPonctual && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-600">
-                  💳 Ponctuelle
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-600 flex items-center gap-0.5 shrink-0">
+                  <CreditCard size={10} />
+                  Ponctuelle
                 </span>
               )}
               {isPendingPayment && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-purple-100 text-purple-600 animate-pulse">
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-purple-100 text-purple-600 flex items-center gap-0.5 shrink-0">
                   <CreditCard size={10} />
-                  Paiement requis
+                  En attente paiement
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs mt-1" style={{ color: colors.text + '50' }}>
+
+            <div className="flex items-center gap-2 text-xs mt-1 text-gray-400 flex-wrap">
               <span className="flex items-center gap-0.5">
-                <Package size={11} />
-                {order.type}
+                <User size={11} />
+                {patientName}
               </span>
+              <span>•</span>
               <span className="flex items-center gap-0.5">
-                <Clock size={11} />
-                {formatDate(order.created_at)}
+                <DollarSign size={11} />
+                {formatCurrency(amount)}
               </span>
-              {order.patient && (
-                <span className="flex items-center gap-0.5">
-                  <User size={11} />
-                  {order.patient.first_name} {order.patient.last_name}
-                </span>
+              {itemsCount > 0 && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5">
+                    <ShoppingBag size={11} />
+                    {itemsCount} article{itemsCount > 1 ? 's' : ''}
+                  </span>
+                </>
               )}
-              {hasAidant() && (
-                <span className="flex items-center gap-0.5 text-green-600">
-                  <UserCheck size={11} />
-                  {getAidantName()}
-                </span>
+              {order.aidant_id && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-0.5">
+                    <UserCheck size={11} />
+                    {aidantName}
+                  </span>
+                </>
               )}
             </div>
+
+            {/* ✅ Barre de progression */}
+            {!isCompleted && !isPendingPayment && (
+              <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(progress, 100)}%`, background: statusConfig.color }}
+                />
+              </div>
+            )}
           </div>
 
+          {/* ✅ Actions compactes */}
           <div className="flex items-center gap-1 shrink-0">
-            {/* ✅ AIDANT : Prendre une commande disponible */}
-            {showActions && canTake && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleTakeOrder(); }}
-                disabled={isProcessing}
-                className={`p-1.5 rounded-lg text-white transition hover:opacity-80 ${
-                  order.status === 'disponible' ? 'animate-pulse' : ''
-                }`}
-                style={{ background: order.status === 'disponible' ? '#F44336' : '#FF9800' }}
-                title={order.status === 'disponible' ? 'Prendre (Urgent)' : 'Prendre'}
-              >
-                {order.status === 'disponible' ? <AlertCircle size={14} /> : <Play size={14} />}
-              </button>
-            )}
+            {showActions && (
+              <>
+                {/* AIDANT : Prendre une commande disponible */}
+                {isAvailable && isAidant && (
+                  <button
+                    onClick={handleTakeOrder}
+                    className={`p-1.5 rounded-lg text-white transition hover:opacity-80 ${isUrgent ? 'animate-pulse' : ''}`}
+                    style={{ background: isUrgent ? '#F44336' : '#FF9800' }}
+                    title={isUrgent ? 'Prendre (Urgent)' : 'Prendre'}
+                  >
+                    <Play size={12} />
+                  </button>
+                )}
 
-            {/* ✅ AIDANT : Accepter une commande créée */}
-            {showActions && canAccept && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleStatusChange('en_cours'); }}
-                disabled={isProcessing}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#4CAF50' }}
-                title="Accepter"
-              >
-                <CheckCircle size={14} />
-              </button>
-            )}
+                {/* AIDANT : Livrer une commande en cours */}
+                {isInProgress && isAidant && (
+                  <button
+                    onClick={handleDeliver}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#2196F3' }}
+                    title="Livrer"
+                  >
+                    <Truck size={12} />
+                  </button>
+                )}
 
-            {/* ✅ AIDANT : Livrer une commande en cours */}
-            {showActions && canDeliver && (
-              <button
-                onClick={(e) => { e.stopPropagation(); handleStatusChange('livree'); }}
-                disabled={isProcessing}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#2196F3' }}
-                title="Livrer"
-              >
-                <Truck size={14} />
-              </button>
-            )}
+                {/* ADMIN : Assigner un aidant */}
+                {isAdminOrCoordinator && (isAvailable || isPendingPayment) && onShowAssignAidantModal && (
+                  <button
+                    onClick={handleShowAssignAidant}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#FF5722' }}
+                    title="Assigner un aidant"
+                  >
+                    <Users size={12} />
+                  </button>
+                )}
 
-            {/* ✅ ADMIN : Assigner un aidant */}
-            {showActions && canAssignAidant && onShowAssignAidantModal && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(order); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#8B5CF6' }}
-                title="Assigner un aidant"
-              >
-                <UserPlus size={14} />
-              </button>
+                {/* ADMIN/FAMILLE : Annuler */}
+                {(isAvailable || isInProgress) && (isAdminOrCoordinator || isFamily) && (
+                  <button
+                    onClick={handleCancel}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: '#F44336' }}
+                    title="Annuler"
+                  >
+                    <XCircle size={12} />
+                  </button>
+                )}
+              </>
             )}
 
             {onView && (
               <button
-                onClick={(e) => { e.stopPropagation(); onView(); }}
+                onClick={handleView}
                 className="p-1.5 rounded-lg hover:bg-gray-100 transition"
                 style={{ color: colors.primary }}
                 title="Détails"
@@ -272,302 +420,266 @@ export const OrderCard = ({
             )}
           </div>
         </div>
-
-        {/* ✅ Indicateur d'urgence */}
-        {isUrgent && (
-          <div className="mt-2 text-[10px] text-red-600 flex items-center gap-1">
-            <AlertCircle size={12} />
-            <span>{order.status === 'disponible' ? 'Urgent - Disponible à tous' : 'En attente de prise (30min)'}</span>
-          </div>
-        )}
-
-        {/* ✅ Indicateur paiement en attente */}
-        {isPendingPayment && (
-          <div className="mt-2 text-[10px] text-purple-600 flex items-center gap-1">
-            <CreditCard size={12} />
-            <span>Paiement requis pour finaliser la commande</span>
-          </div>
-        )}
       </div>
     );
   }
 
   // ✅ Version complète
   return (
-    <div 
-      className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer hover:border-[var(--color-primary)]/50 ${
-        isPendingPayment ? 'border-purple-400' : ''
-      }`}
-      style={{ borderLeftColor: getStatusColor(order.status) }}
-      onClick={onClick}
+    <div
+      onClick={handleClick}
+      className={cn(
+        "bg-white rounded-2xl p-4 sm:p-5 border-l-4 shadow-sm hover:shadow-md transition-all cursor-pointer",
+        isUrgent ? "animate-pulse-slow" : ""
+      )}
+      style={{ 
+        borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
+        borderColor: isUrgent ? '#F4433630' : 'transparent',
+      }}
     >
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold truncate" style={{ color: colors.text }}>
-            {order.description}
-          </h3>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <span 
-              className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1"
-              style={{ 
-                background: getStatusColor(order.status) + '20',
-                color: getStatusColor(order.status),
-              }}
+      {/* ============================================================
+      HEADER
+      ============================================================ */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: statusConfig.bg, color: statusConfig.color }}
             >
-              {getStatusIcon(order.status)}
-              {getStatusLabel(order.status)}
-            </span>
-            {isUrgent && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 bg-red-100 text-red-600 animate-pulse">
-                <AlertCircle size={12} />
-                Urgent
-              </span>
-            )}
-            {order.patient && (
-              <span className="text-xs" style={{ color: colors.text + '60' }}>
-                👤 {order.patient.first_name} {order.patient.last_name}
-              </span>
-            )}
-            {isPonctual && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">
-                💳 Ponctuelle
-              </span>
-            )}
-            {isPonctual && isPaid && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">
-                ✅ Payée
-              </span>
-            )}
-            {isPendingPayment && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-600">
-                💳 En attente paiement
-              </span>
-            )}
+              {isPonctual ? <CreditCard size={16} /> : <Package size={16} />}
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
+                {order.description || 'Commande'}
+              </p>
+              <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+                <span className="flex items-center gap-0.5">
+                  <User size={12} />
+                  {patientName}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-0.5">
+                  <MapPin size={12} />
+                  {order.address || 'Adresse non spécifiée'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* ✅ AIDANT : Prendre une commande disponible */}
-          {showActions && canTake && (
+        {/* Statut */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium flex items-center gap-1 shrink-0"
+            style={{
+              background: statusConfig.bg,
+              color: statusConfig.color,
+            }}
+          >
+            {statusConfig.icon}
+            {statusConfig.label}
+          </span>
+          {isUrgent && (
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-red-100 text-red-600 flex items-center gap-1 shrink-0 animate-pulse">
+              <AlertCircle size={12} />
+              Urgent
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ============================================================
+      INFORMATIONS
+      ============================================================ */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+        <InfoItem
+          icon={<DollarSign size={14} />}
+          label="Montant"
+          value={formatCurrency(amount)}
+          color={colors.primary}
+        />
+        <InfoItem
+          icon={<Package size={14} />}
+          label="Articles"
+          value={`${itemsCount} article${itemsCount > 1 ? 's' : ''}`}
+          color={colors.primary}
+        />
+        <InfoItem
+          icon={<Calendar size={14} />}
+          label="Créée le"
+          value={formatDate(order.created_at)}
+          color={colors.primary}
+        />
+        <InfoItem
+          icon={<UserCheck size={14} />}
+          label="Aidant"
+          value={aidantName}
+          color={order.aidant_id ? '#4CAF50' : '#F44336'}
+        />
+      </div>
+
+      {/* ============================================================
+      BADGES SUPPLÉMENTAIRES
+      ============================================================ */}
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {isPonctual && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-600 flex items-center gap-0.5">
+            <CreditCard size={10} />
+            Mode ponctuel
+          </span>
+        )}
+        {isPaid && isPonctual && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-green-100 text-green-600 flex items-center gap-0.5">
+            <CheckCircle size={10} />
+            Payée
+          </span>
+        )}
+        {isPendingPayment && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-purple-100 text-purple-600 flex items-center gap-0.5">
+            <CreditCard size={10} />
+            En attente paiement
+          </span>
+        )}
+        {order.order_type === 'subscription' && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-blue-100 text-blue-600 flex items-center gap-0.5">
+            <Package size={10} />
+            Avec abonnement
+          </span>
+        )}
+        {order.is_auto_validated && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-600 flex items-center gap-0.5">
+            <CheckCircle size={10} />
+            Auto-validée
+          </span>
+        )}
+      </div>
+
+      {/* ============================================================
+      BARRE DE PROGRESSION
+      ============================================================ */}
+      {!isCompleted && !isPendingPayment && (
+        <div className="mt-3">
+          <div className="flex justify-between text-[9px] text-gray-400 mb-0.5">
+            <span>Progression</span>
+            <span>{Math.min(progress, 100)}%</span>
+          </div>
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(progress, 100)}%`, background: statusConfig.color }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+      ACTIONS
+      ============================================================ */}
+      {showActions && (
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: colors.border }}>
+          {/* AIDANT : Prendre une commande disponible */}
+          {isAvailable && isAidant && (
             <button
-              onClick={(e) => { e.stopPropagation(); handleTakeOrder(); }}
-              disabled={isProcessing}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80 ${
-                order.status === 'disponible' ? 'animate-pulse' : ''
-              }`}
-              style={{ background: order.status === 'disponible' ? '#F44336' : '#FF9800' }}
+              onClick={handleTakeOrder}
+              className={`flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1 ${isUrgent ? 'animate-pulse' : ''}`}
+              style={{ background: isUrgent ? '#F44336' : '#FF9800' }}
             >
-              {order.status === 'disponible' ? <AlertCircle size={14} /> : <Play size={14} />}
-              {order.status === 'disponible' ? 'Prendre (Urgent)' : 'Prendre'}
+              {isUrgent ? <AlertCircle size={12} /> : <Play size={12} />}
+              {isUrgent ? 'Prendre (Urgent)' : 'Prendre'}
             </button>
           )}
 
-          {/* ✅ AIDANT : Accepter une commande créée */}
-          {showActions && canAccept && (
+          {/* AIDANT : Livrer une commande en cours */}
+          {isInProgress && isAidant && (
             <button
-              onClick={(e) => { e.stopPropagation(); handleStatusChange('en_cours'); }}
-              disabled={isProcessing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-              style={{ background: '#4CAF50' }}
-            >
-              <CheckCircle size={14} />
-              Accepter
-            </button>
-          )}
-
-          {/* ✅ AIDANT : Livrer une commande en cours */}
-          {showActions && canDeliver && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleStatusChange('livree'); }}
-              disabled={isProcessing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              onClick={handleDeliver}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
               style={{ background: '#2196F3' }}
             >
-              <Truck size={14} />
+              <Truck size={12} />
               Livrer
             </button>
           )}
 
-          {/* ✅ ADMIN : Assigner un aidant */}
-          {showActions && canAssignAidant && onShowAssignAidantModal && (
+          {/* ADMIN : Assigner un aidant */}
+          {isAdminOrCoordinator && (isAvailable || isPendingPayment) && onShowAssignAidantModal && (
             <button
-              onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(order); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-              style={{ background: '#8B5CF6' }}
+              onClick={handleShowAssignAidant}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#FF5722' }}
             >
-              <UserPlus size={14} />
+              <Users size={12} />
               Assigner
             </button>
           )}
 
-          {/* ✅ ADMIN : Annuler */}
-          {showActions && canCancel && (
+          {/* ADMIN : Valider une commande livrée */}
+          {isDelivered && isAdminOrCoordinator && onStatusChange && (
             <button
-              onClick={(e) => { e.stopPropagation(); handleStatusChange('annulee'); }}
-              disabled={isProcessing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
+              onClick={(e) => { e.stopPropagation(); onStatusChange('validee'); }}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: '#4CAF50' }}
+            >
+              <Check size={12} />
+              Valider
+            </button>
+          )}
+
+          {/* FAMILLE/ADMIN : Annuler */}
+          {(isAvailable || isInProgress) && (isAdminOrCoordinator || isFamily) && (
+            <button
+              onClick={handleCancel}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
               style={{ background: '#F44336' }}
             >
-              <XCircle size={14} />
+              <X size={12} />
               Annuler
             </button>
           )}
 
-          <button
-            onClick={(e) => { e.stopPropagation(); if (onView) onView(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition hover:opacity-80"
-            style={{ background: colors.primary + '15', color: colors.primary }}
-          >
-            <Eye size={14} />
-            Détails
-          </button>
-        </div>
-      </div>
-
-      {/* ✅ AFFICHAGE DE L'AIDANT EN VERSION COMPLÈTE */}
-      {hasAidant() ? (
-        <div className="mt-3 flex items-center gap-2 p-2 rounded-lg bg-green-50 border border-green-200">
-          <UserCheck size={16} className="text-green-600" />
-          <span className="text-xs font-medium text-green-700">
-            Aidant assigné : <strong>{getAidantName()}</strong>
-          </span>
-        </div>
-      ) : isAdminOrCoordinator && (
-        <div className="mt-3 flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
-          <AlertCircle size={16} className="text-amber-600" />
-          <span className="text-xs font-medium text-amber-700">
-            Aucun aidant assigné
-          </span>
-          {showActions && canAssignAidant && onShowAssignAidantModal && (
+          {/* Voir détails */}
+          {onView && (
             <button
-              onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(order); }}
-              className="ml-auto px-2 py-0.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-              style={{ background: '#8B5CF6' }}
+              onClick={handleView}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-gray-50 flex items-center justify-center gap-1"
+              style={{ borderColor: colors.border, color: colors.text }}
             >
-              <UserPlus size={12} className="inline mr-1" />
-              Assigner
+              <Eye size={12} />
+              Détails
             </button>
           )}
         </div>
       )}
+    </div>
+  );
+});
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3">
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
-          <span>📦 {order.type}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
-          <span>📍 {order.address.length > 20 ? order.address.slice(0, 20) + '...' : order.address}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
-          <span>💰 {formatCurrency(order.estimated_amount || 0)}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm" style={{ color: colors.text + '80' }}>
-          <span>📅 {formatDate(order.created_at)}</span>
-        </div>
+// ============================================================
+// SOUS-COMPOSANTS
+// ============================================================
+
+interface InfoItemProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color: string;
+}
+
+const InfoItem = ({ icon, label, value, color }: InfoItemProps) => {
+  return (
+    <div className="flex items-start gap-2">
+      <div className="text-gray-400 mt-0.5">{icon}</div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-gray-400 font-medium">{label}</p>
+        <p className="text-xs font-bold truncate" style={{ color }}>
+          {value}
+        </p>
       </div>
-
-      {/* Prescription */}
-      {order.prescription_url && (
-        <div className="mt-3 flex items-center gap-2">
-          <Image size={16} style={{ color: colors.primary }} />
-          <span className="text-xs" style={{ color: colors.primary }}>
-            📎 Ordonnance jointe
-          </span>
-          <button
-            onClick={(e) => { e.stopPropagation(); window.open(order.prescription_url!, '_blank'); }}
-            className="text-xs font-medium hover:underline"
-            style={{ color: colors.primary }}
-          >
-            Voir
-          </button>
-        </div>
-      )}
-
-      {/* ✅ Indicateur d'urgence */}
-      {isUrgent && (
-        <div className="mt-3 p-2 rounded-lg flex items-center gap-2" style={{ 
-          background: order.status === 'disponible' ? '#FEF2F2' : '#FFFBEB',
-          border: order.status === 'disponible' ? '1px solid #FECACA' : '1px solid #FDE68A'
-        }}>
-          <AlertCircle size={16} style={{ color: order.status === 'disponible' ? '#F44336' : '#FF9800' }} />
-          <span className="text-xs font-medium" style={{ color: order.status === 'disponible' ? '#F44336' : '#FF9800' }}>
-            {order.status === 'disponible' 
-              ? '🚨 Commande urgente - Disponible à tous les aidants' 
-              : '⏳ En attente de prise - 30 minutes maximum'}
-          </span>
-        </div>
-      )}
-
-      {/* ✅ Barre de progression (sauf pour attente_paiement) */}
-      {order.status !== 'annulee' && order.status !== 'validee' && order.status !== 'attente_paiement' && (
-        <div className="mt-4 flex items-center gap-2">
-          {['creee', 'en_cours', 'livree'].map((status, index) => {
-            const statusIndex = ['creee', 'en_cours', 'livree'].indexOf(status);
-            const currentIndex = ['creee', 'en_cours', 'livree'].indexOf(order.status);
-            const isDone = currentIndex >= statusIndex;
-
-            return (
-              <div key={status} className="flex items-center">
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${
-                    isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
-                  }`}
-                  style={{ background: isDone ? colors.primary : '#e5e7eb' }}
-                >
-                  {isDone ? <CheckCircle size={14} /> : index + 1}
-                </div>
-                {index < 2 && (
-                  <div
-                    className={`w-6 h-0.5 mx-1 transition-all ${
-                      isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-200'
-                    }`}
-                  />
-                )}
-              </div>
-            );
-          })}
-          <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>
-            {Math.round((['creee', 'en_cours', 'livree'].indexOf(order.status) + 1) / 3 * 100)}%
-          </span>
-        </div>
-      )}
-
-      {/* ✅ Info de validation automatique */}
-      {order.status === 'livree' && (
-        <div className="mt-3 text-xs text-blue-600 flex items-center gap-1">
-          <Clock size={14} />
-          <span>En attente de validation automatique (dans 12h)</span>
-        </div>
-      )}
-
-      {/* ✅ Info de validation effectuée */}
-      {order.status === 'validee' && (
-        <div className="mt-3 text-xs text-green-600 flex items-center gap-1">
-          <CheckCircle size={14} />
-          <span>Validée automatiquement</span>
-        </div>
-      )}
-
-      {/* ✅ Info paiement en attente */}
-      {isPendingPayment && (
-        <div className="mt-3 p-3 rounded-lg bg-purple-50 border border-purple-200 flex items-center gap-2">
-          <CreditCard size={16} className="text-purple-600" />
-          <span className="text-xs font-medium text-purple-700">
-            💳 Paiement requis - Effectuez le paiement pour finaliser la commande
-          </span>
-          <button
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              // ✅ Rediriger vers la page de paiement
-              window.location.href = '/app/billing';
-            }}
-            className="ml-auto px-3 py-1 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-            style={{ background: colors.primary }}
-          >
-            Payer
-          </button>
-        </div>
-      )}
     </div>
   );
 };
+
+OrderCard.displayName = 'OrderCard';
+
+export default OrderCard;
