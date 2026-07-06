@@ -1,23 +1,16 @@
 // 📁 src/features/visits/components/VisitPaymentModal.tsx
- 
+
 import { useState } from 'react';
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
-import { usePaymentStore } from '@/stores/paymentStore';
-import { useVisitStore } from '@/stores/visitStore';
+import { useNavigate } from 'react-router-dom';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { Loader2, CreditCard, ExternalLink, Calendar, Clock, AlertCircle } from 'lucide-react';
-import toast from 'react-hot-toast';
-
+import { useVisitStore } from '@/stores/visitStore';
 import { getPonctualPrice } from '@/lib/constants';
 import {
-  isVisitDraft,
-  isVisitPonctual,
-  requiresVisitPayment,
   getVisitPaymentAmount,
-  getDraftExpiryTime,
-  isDraftExpired,
 } from '@/utils/helpers';
+import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
+import toast from 'react-hot-toast';
 
 // ============================================================
 // TYPES
@@ -40,9 +33,23 @@ export const VisitPaymentModal = ({
   visit,
   onSuccess,
 }: VisitPaymentModalProps) => {
+  const navigate = useNavigate();
   const { profile, role } = useAuthStore();
   const { fetchVisits, invalidateCache } = useVisitStore();
   const [isInternalLoading, setIsInternalLoading] = useState(false);
+
+  // ✅ Si la visite n'est pas en brouillon, ne pas afficher le modal
+  if (visit && visit.status !== 'brouillon') {
+    return null;
+  }
+
+  // ✅ Vérifier si le brouillon est expiré
+  const isExpired = visit?.draft_expires_at && new Date(visit.draft_expires_at) < new Date();
+  if (isExpired) {
+    toast.error('Ce brouillon a expiré. Veuillez recréer la visite.');
+    onClose();
+    return null;
+  }
 
   // ✅ Calcul du montant
   const amount = getVisitPaymentAmount(visit) || getPonctualPrice(visit.duration_minutes || 60);
@@ -87,19 +94,6 @@ export const VisitPaymentModal = ({
     toast.success('Paiement annulé');
     onClose();
   };
-
-  // ✅ Si la visite est déjà planifiée, ne pas afficher le modal
-  if (visit && visit.status !== 'brouillon') {
-    return null;
-  }
-
-  // ✅ Si la visite est expirée, afficher un message
-  const isExpired = visit?.draft_expires_at && new Date(visit.draft_expires_at) < new Date();
-  if (isExpired) {
-    toast.error('Ce brouillon a expiré. Veuillez recréer la visite.');
-    onClose();
-    return null;
-  }
 
   return (
     <PonctualPaymentModal
