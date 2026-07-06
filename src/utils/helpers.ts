@@ -389,3 +389,84 @@ export const softDeleteVisit = async (visitId: string): Promise<boolean> => {
         return false;
     }
 };
+
+
+// =============================================
+// STATUS HELPERS UNIFIÉS
+// =============================================
+
+export const getStatusColor = (status: string): string => {
+  const colors: Record<string, string> = {
+    // Visites
+    planifiee: '#4CAF50',
+    en_attente: '#FF9800',
+    acceptee: '#2196F3',
+    en_cours: '#2196F3',
+    terminee: '#9C27B0',
+    validee: '#4CAF50',
+    annulee: '#F44336',
+    refusee: '#F44336',
+    expire: '#795548',
+    replanifiee: '#FF5722',
+    no_show: '#795548',
+    brouillon: '#F59E0B',
+    attente_paiement: '#8b5cf6',
+    
+    // Commandes
+    creee: '#9E9E9E',
+    disponible: '#F44336',
+    livree: '#2196F3',
+    
+    // Paiements
+    valide: '#4CAF50',
+    echoue: '#F44336',
+    rembourse: '#9E9E9E',
+    en_attente_de_confirmation: '#FF9800',
+    
+    // Abonnements
+    actif: '#4CAF50',
+    suspendu: '#FF9800',
+    en_cours_de_renouvellement: '#2196F3',
+    info_requise: '#2196F3',
+    en_cours_de_traitement: '#9C27B0',
+  };
+  return colors[status] || '#9E9E9E';
+};
+
+export const getStatusLabel = (status: string): string => {
+  const labels: Record<string, string> = {
+    // Visites
+    planifiee: 'Planifiée',
+    en_attente: 'En attente',
+    acceptee: 'Acceptée',
+    en_cours: 'En cours',
+    terminee: 'Terminée',
+    validee: 'Validée',
+    annulee: 'Annulée',
+    refusee: 'Refusée',
+    expire: 'Expirée',
+    replanifiee: 'Replanifiée',
+    no_show: 'Absent',
+    brouillon: 'En attente paiement',
+    attente_paiement: 'Paiement en attente',
+    
+    // Commandes
+    creee: 'Créée',
+    disponible: 'Disponible',
+    livree: 'Livrée',
+    
+    // Paiements
+    valide: 'Validé',
+    echoue: 'Échoué',
+    rembourse: 'Remboursé',
+    en_attente_de_confirmation: 'En attente de confirmation',
+    
+    // Abonnements
+    actif: 'Actif',
+    suspendu: 'Suspendu',
+    en_cours_de_renouvellement: 'En cours de renouvellement',
+    info_requise: 'Info requise',
+    en_cours_de_traitement: 'En cours de traitement',
+  };
+  return labels[status] || status;
+};
