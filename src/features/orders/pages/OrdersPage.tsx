@@ -1,4 +1,4 @@
-// 📁 src/features/orders/pages/OrdersPage.tsx
+// 📁 frontend/src/features/orders/pages/OrdersPage.tsx
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,8 @@ import {
   UserPlus,
   CreditCard,
   Sparkles,
+  UserCheck,
+  RefreshCw,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -35,9 +37,10 @@ import {
   isOrderPonctual,
   requiresOrderPayment,
 } from '@/utils/helpers';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// ✅ FILTRES AVEC MODE PONCTUEL
+// ✅ FILTRES AVEC MODE PONCTUEL ET DISPONIBLE
 const statusFilters = [
   { key: 'all', label: 'Toutes', icon: <List size={12} /> },
   { key: 'creee', label: '📝 Créées', icon: <Package size={12} /> },
@@ -48,13 +51,20 @@ const statusFilters = [
   { key: 'validee', label: '✅ Validées', icon: <CheckCircle size={12} /> },
   { key: 'annulee', label: '❌ Annulées', icon: <X size={12} /> },
   { key: 'attente_paiement', label: '💳 En attente paiement', icon: <CreditCard size={12} /> },
-  // ✅ NOUVEAU FILTRE PONCTUEL
   { key: 'ponctual', label: '⚡ Ponctuelles', icon: <Sparkles size={12} /> },
 ];
 
+// ✅ Interface pour le quota
+interface AidantQuota {
+  current: number;
+  max: number;
+  available: number;
+  canTake: boolean;
+}
+
 const OrdersPage = () => {
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
   const { orders, isLoading, fetchOrders, updateOrderStatus, takeOrder } = useOrderStore();
 
   const {
@@ -79,8 +89,50 @@ const OrdersPage = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedOrderForAssign, setSelectedOrderForAssign] = useState<any>(null);
 
+  // ✅ État pour le quota de l'aidant
+  const [aidantQuota, setAidantQuota] = useState<AidantQuota | null>(null);
+  const [isLoadingQuota, setIsLoadingQuota] = useState(false);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  // ✅ Charger le quota de l'aidant
+  useEffect(() => {
+    if (isAidant && user) {
+      fetchAidantQuota();
+    }
+  }, [isAidant, user, orders]);
+
+  const fetchAidantQuota = async () => {
+    setIsLoadingQuota(true);
+    try {
+      const { data: aidant, error } = await supabase
+        .from('aidants')
+        .select('current_orders, max_orders')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) {
+        console.error('❌ Erreur récupération quota:', error);
+        return;
+      }
+
+      const current = aidant?.current_orders || 0;
+      const max = aidant?.max_orders || 2;
+      const available = max - current;
+
+      setAidantQuota({
+        current,
+        max,
+        available,
+        canTake: current < max,
+      });
+    } catch (error) {
+      console.error('❌ fetchAidantQuota error:', error);
+    } finally {
+      setIsLoadingQuota(false);
+    }
+  };
 
   // ✅ STATISTIQUES
   const stats = useMemo(() => ({
@@ -92,6 +144,10 @@ const OrdersPage = () => {
     completed: orders.filter((order) => order.status === 'validee').length,
     pendingPayment: orders.filter((order) => order.status === 'attente_paiement').length,
     ponctual: orders.filter((order) => isOrderPonctual(order)).length,
+    // ✅ Nouveau : commandes que l'aidant peut prendre
+    canTakeCount: orders.filter((order) => 
+      ['creee', 'en_attente', 'disponible'].includes(order.status)
+    ).length,
   }), [orders]);
 
   const { refreshAll, isRefreshing } = useRefreshableData({
@@ -172,6 +228,12 @@ const OrdersPage = () => {
       };
 
       toast.success(statusMessages[status] || `Commande ${status}`);
+      
+      // ✅ Rafraîchir le quota après action
+      if (isAidant) {
+        await fetchAidantQuota();
+      }
+      
       await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur mise à jour:', error);
@@ -188,6 +250,12 @@ const OrdersPage = () => {
     try {
       await takeOrder(id);
       toast.success('Commande prise en charge');
+      
+      // ✅ Rafraîchir le quota après prise
+      if (isAidant) {
+        await fetchAidantQuota();
+      }
+      
       await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
@@ -262,6 +330,11 @@ const OrdersPage = () => {
               {stats.ponctual > 0 && (
                 <span className="ml-2 text-orange-500">⚡ {stats.ponctual} ponctuelle(s)</span>
               )}
+              {isAidant && aidantQuota && (
+                <span className={`ml-2 ${aidantQuota.canTake ? 'text-green-600' : 'text-red-500'}`}>
+                  📊 {aidantQuota.current}/{aidantQuota.max} en cours
+                </span>
+              )}
             </p>
           </div>
 
@@ -271,6 +344,7 @@ const OrdersPage = () => {
               showText={false}
               onRefresh={() => {
                 fetchOrders();
+                if (isAidant) fetchAidantQuota();
                 toast.success('Commandes actualisées');
               }}
             />
@@ -287,6 +361,41 @@ const OrdersPage = () => {
             )}
           </div>
         </div>
+
+        {/* ✅ BANDEAU QUOTA AIDANT */}
+        {isAidant && aidantQuota && (
+          <div className={`mt-3 p-2.5 rounded-xl flex items-center justify-between border ${
+            aidantQuota.canTake ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              <UserCheck size={15} className={aidantQuota.canTake ? 'text-green-600' : 'text-red-600'} />
+              <span className={`text-xs font-medium ${aidantQuota.canTake ? 'text-green-700' : 'text-red-700'}`}>
+                Commandes en cours : {aidantQuota.current}/{aidantQuota.max}
+              </span>
+            </div>
+            <span className={`text-[10px] font-bold ${aidantQuota.canTake ? 'text-green-600' : 'text-red-600'}`}>
+              {aidantQuota.canTake 
+                ? `✅ ${aidantQuota.available} place${aidantQuota.available > 1 ? 's' : ''} disponible${aidantQuota.available > 1 ? 's' : ''}` 
+                : '❌ Quota atteint'}
+            </span>
+          </div>
+        )}
+
+        {/* ✅ BANDEAU COMMANDES DISPONIBLES (AIDANT) */}
+        {isAidant && stats.canTakeCount > 0 && aidantQuota?.canTake && (
+          <div className="mt-2 p-2 rounded-xl bg-blue-50 border border-blue-200 flex items-center gap-2">
+            <AlertCircle size={14} className="text-blue-500" />
+            <p className="text-xs text-blue-700">
+              📦 {stats.canTakeCount} commande{stats.canTakeCount > 1 ? 's' : ''} disponible{stats.canTakeCount > 1 ? 's' : ''} à prendre
+            </p>
+            <button
+              onClick={() => setActiveStatus('disponible')}
+              className="ml-auto text-xs font-bold text-blue-600 hover:underline"
+            >
+              Voir
+            </button>
+          </div>
+        )}
       </section>
 
       {/* STATS COMPACTES */}
@@ -433,6 +542,13 @@ const OrdersPage = () => {
               Réinitialiser la recherche
             </button>
           )}
+
+          {/* ✅ Message si l'aidant n'a pas de commandes disponibles */}
+          {isAidant && orders.length === 0 && (
+            <p className="text-xs text-gray-400 mt-2">
+              💡 Les nouvelles commandes apparaîtront ici automatiquement.
+            </p>
+          )}
         </section>
       )}
 
@@ -461,6 +577,7 @@ const OrdersPage = () => {
           targetName={selectedOrderForAssign.target_name || `Commande ${selectedOrderForAssign.id.slice(0, 8)}`}
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedOrderForAssign.aidant_id}
+          isAdmin={isAdminOrCoordinator}
         />
       )}
     </div>
