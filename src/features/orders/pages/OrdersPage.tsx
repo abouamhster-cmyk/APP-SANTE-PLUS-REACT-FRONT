@@ -578,6 +578,7 @@ const OrdersPage = () => {
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedOrderForAssign.aidant_id}
           allowForce={isAdminOrCoordinator}
+          colors={colors} 
         />
       )}
     </div>
