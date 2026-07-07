@@ -80,10 +80,8 @@ interface JournalState {
   getEntriesByDate: (date: string) => JournalEntry[];
   getEntriesByWeek: () => { week: string; entries: JournalEntry[] }[];
   
-  // ✅ GESTION DU CACHE
   invalidateCache: () => void;
   refresh: () => Promise<void>;
-  
   clearError: () => void;
 }
 
@@ -96,7 +94,6 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   lastFetch: null,
   isCacheInvalidated: false,
 
-  // ✅ Invalider le cache
   invalidateCache: () => {
     clearCachedEntries();
     clearCachedStats();
@@ -108,7 +105,6 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     console.log('🔄 Cache journal invalidé');
   },
 
-  // ✅ Rafraîchir forcé
   refresh: async () => {
     get().invalidateCache();
     await get().fetchEntries(true);
@@ -116,7 +112,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH ENTRIES - AVEC CACHE
+  // FETCH ENTRIES - AVEC CACHE ET AIDANTS
   // =============================================
   fetchEntries: async (force = false, patientId?: string) => {
     const state = get();
@@ -130,7 +126,6 @@ export const useJournalStore = create<JournalState>((set, get) => ({
       force = true;
     }
 
-    // Si un patientId est fourni, on force le rafraîchissement
     if (patientId) {
       force = true;
     }
@@ -195,7 +190,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ ÉTAPE 2 : Récupérer les patients SEPAREMENT
+      // ✅ ÉTAPE 2 : Récupérer les patients
       const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
@@ -212,52 +207,58 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         }
       }
 
-      // ✅ ÉTAPE 3 : Récupérer les aidants SEPAREMENT
+      // ✅ ÉTAPE 3 : Récupérer les aidants AVEC LEURS PROFILS
       const aidantIds = [...new Set(visits?.map(v => v.aidant_id).filter(Boolean))];
       let aidantMap: Record<string, any> = {};
 
       if (aidantIds.length > 0) {
-        const { data: aidants } = await supabase
+        const { data: aidants, error: aidantsError } = await supabase
           .from('aidants')
-          .select('*')
+          .select(`
+            id,
+            user_id,
+            specialties,
+            available,
+            rating,
+            total_missions,
+            completed_missions,
+            cancelled_missions,
+            user:profiles!aidants_user_id_fkey (
+              id,
+              full_name,
+              email,
+              phone,
+              avatar_url
+            )
+          `)
           .in('id', aidantIds);
-        
+
+        if (aidantsError) {
+          console.error('❌ Erreur récupération aidants:', aidantsError);
+        }
+
         if (aidants) {
-          const userIds = aidants.map(a => a.user_id).filter(Boolean);
-          let profileMap: Record<string, any> = {};
-
-          if (userIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from('profiles')
-              .select('*')
-              .in('id', userIds);
-            if (profiles) {
-              profileMap = profiles.reduce((acc, p) => {
-                acc[p.id] = p;
-                return acc;
-              }, {} as Record<string, any>);
-            }
-          }
-
           aidantMap = aidants.reduce((acc, a) => {
-            acc[a.id] = {
-              ...a,
-              user: a.user_id ? profileMap[a.user_id] || null : null,
-            };
+            acc[a.id] = a;
             return acc;
           }, {} as Record<string, any>);
         }
       }
 
-      // ✅ ÉTAPE 4 : Récupérer les photos SEPAREMENT
+      // ✅ ÉTAPE 4 : Récupérer les photos
       const visitIds = visits?.map(v => v.id) || [];
       let photosMap: Record<string, any[]> = {};
 
       if (visitIds.length > 0) {
-        const { data: photos } = await supabase
+        const { data: photos, error: photosError } = await supabase
           .from('visite_photos')
           .select('*')
           .in('visite_id', visitIds);
+        
+        if (photosError) {
+          console.error('❌ Erreur récupération photos:', photosError);
+        }
+
         if (photos) {
           photosMap = photos.reduce((acc, p) => {
             if (!acc[p.visite_id]) acc[p.visite_id] = [];
@@ -307,7 +308,6 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Fetch journal entries error:', error);
       
-      // En cas d'erreur, utiliser le cache
       const cached = getCachedEntries();
       if (cached && cached.data.length > 0) {
         set({
@@ -325,7 +325,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH STATS - AVEC CACHE
+  // FETCH STATS
   // =============================================
   fetchStats: async (force = false, patientId?: string) => {
     const state = get();
@@ -412,7 +412,6 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         actions_frequency: actionsFrequency,
       };
 
-      // ✅ Mettre en cache
       setCachedStats(stats);
       
       set({
@@ -442,7 +441,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   },
 
   // =============================================
-  // ADD RATING - AVEC INVALIDATION DE CACHE
+  // ADD RATING
   // =============================================
   addRating: async (visitId: string, rating: number, feedback: string) => {
     try {
@@ -460,12 +459,10 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
       await get().fetchEntries(true);
       await get().fetchStats(true);
 
-      // Mise à jour locale immédiate
       set((state) => ({
         entries: state.entries.map(entry =>
           entry.visit_id === visitId
