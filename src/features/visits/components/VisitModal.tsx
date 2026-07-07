@@ -15,7 +15,7 @@ interface VisitModalProps {
   mode: 'create' | 'edit';
   visit: Visit | null;
   patients: Patient[];
-  onSuccess: () => void;
+  onSuccess: (result?: any) => void; // ✅ Acceptation du paramètre optionnel result
 }
 
 export const VisitModal = ({
@@ -58,8 +58,9 @@ export const VisitModal = ({
       
       const result = await createVisit(visitPayload);
       
+      // ✅ TOAST DE CONFIRMATION UNIQUE ET PRÉCIS (Le parent n'en affichera pas de doublon)
       if (result?.status === 'brouillon') {
-        toast.success('💳 Visite créée en brouillon. Paiement requis pour la planifier.');
+        toast.success('💳 Visite créée en brouillon. Redirection vers le paiement...');
       } else if (result?.status === 'en_attente_aidant') {
         toast.success('🦸 Visite créée en attente d\'aidant. Administration notifiée.');
       } else {
@@ -69,7 +70,9 @@ export const VisitModal = ({
       setShowWizard(false);
       setWizardData(null);
       setPendingVisitData(null);
-      onSuccess();
+
+      // ✅ TRANSMETTRE LE RÉSULTAT AU PARENT (pour déclencher le paiement ou fermer proprement)
+      onSuccess(result);
     } catch (error: any) {
       console.error('❌ Erreur création visite avec wizard:', error);
       toast.error(error.message || 'Erreur lors de la création');
@@ -98,7 +101,7 @@ export const VisitModal = ({
           mode={mode}
           visit={visit}
           patients={patients}
-          onSuccess={onSuccess}
+          onSuccess={onSuccess} // ✅ Transmet le résultat de création
           onCancel={onClose}
           onOpenWizard={handleOpenWizard} // ✅ Transmettre la fonction pour ouvrir le wizard
         />
