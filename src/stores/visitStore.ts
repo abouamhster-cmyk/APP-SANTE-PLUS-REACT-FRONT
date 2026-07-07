@@ -377,6 +377,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
   // ============================================================
   // ✅ CREATE VISIT - CORRIGÉ AVEC GESTION D'ERREUR
+  // ET SUPPORT DES COMPTES PERSONNELS (SANS PATIENT)
   // ============================================================
   createVisit: async (data: Partial<Visit> & { 
     target_type?: 'personal' | 'patient'; 
@@ -396,6 +397,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       // ✅ Déterminer target_type et target_name
+      // Si un patient est fourni, on utilise 'patient', sinon 'personal'
       const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
       const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
       const targetUserId = data.target_user_id || (data.patient_id ? null : user.id);
@@ -471,8 +473,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         target_name: targetName,
         aidant_id: finalAidantId,
         coordinator_id: profile?.role === 'family' ? null : user.id,
-        scheduled_date: data.scheduled_date,
-        scheduled_time: data.scheduled_time,
+        scheduled_date: data.scheduled_date || new Date().toISOString().split('T')[0],
+        scheduled_time: data.scheduled_time || new Date().toTimeString().slice(0, 5),
         duration_minutes: data.duration_minutes || 60,
         status: status,
         is_draft: requiresPayment,
@@ -501,6 +503,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           wizard_choice: wizardChoice || null,
           selected_aidant: selectedAidantId || null,
           waiting_for_aidant: status === 'en_attente_aidant',
+          // ✅ INDICATEUR POUR LES COMPTES PERSONNELS (SANS PATIENT)
+          is_personal_account: targetType === 'personal' && !data.patient_id,
         }
       };
 
