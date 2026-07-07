@@ -1,4 +1,5 @@
 // 📁 src/features/aidants/pages/AidantCatalogPage.tsx
+// ✅ CATALOGUE DE PRODUCTION COMPLET : LIBRE D'ASSIGNATION SANS PROCHE
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -21,17 +22,13 @@ import { Illustration } from '@/components/ui/Illustration';
 import { AidantFilters as AidantFiltersType } from '@/types/aidant';
 import toast from 'react-hot-toast';
 
-// ============================================================
-// COMPOSANT PRINCIPAL
-// ============================================================
-
 const AidantCatalogPage = () => {
   const navigate = useNavigate();
 
   const { profile, role } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
   
-  // ✅ Utiliser le nouveau store d'assignation
+  // ✅ Nouveau store d'assignation
   const { 
     fetchAssignments, 
     isLoading: assignmentLoading 
@@ -43,7 +40,6 @@ const AidantCatalogPage = () => {
     fetchAidants,
     filters,
     setFilters: setStoreFilters,
-    fetchMyAssignments,
   } = useAidantCatalogStore();
 
   const [showFilters, setShowFilters] = useState(false);
@@ -68,7 +64,7 @@ const AidantCatalogPage = () => {
       await Promise.all([
         fetchAidants(),
         fetchPatients(),
-        fetchAssignments(),  // ✅ Utiliser fetchAssignments au lieu de fetchMyAssignments
+        fetchAssignments(),  // ✅ Charger les assignations
       ]);
     };
     
@@ -107,7 +103,7 @@ const AidantCatalogPage = () => {
     // ✅ Rafraîchir les données après assignation
     Promise.all([
       fetchAidants(),
-      fetchAssignments(),  // ✅ Utiliser fetchAssignments
+      fetchAssignments(),
     ]);
     
     toast.success('Aidant assigné avec succès');
@@ -116,7 +112,7 @@ const AidantCatalogPage = () => {
   const handleRefresh = useCallback(() => {
     Promise.all([
       fetchAidants(),
-      fetchAssignments(),  // ✅ Utiliser fetchAssignments
+      fetchAssignments(),
     ]);
   }, [fetchAidants, fetchAssignments]);
 
@@ -140,7 +136,6 @@ const AidantCatalogPage = () => {
     return null;
   }
 
-  // ✅ Afficher un message si l'utilisateur n'a pas de patients
   const hasPatients = patients.length > 0;
 
   return (
@@ -247,7 +242,7 @@ const AidantCatalogPage = () => {
                 onClick={() => navigate(`/app/aidants/${aidant.id}`)}
                 onAssign={() => handleAssign(aidant)}
                 colors={colors}
-                showActions={hasPatients}
+                showActions={true}  
               />
             </div>
           ))}
@@ -274,7 +269,7 @@ const AidantCatalogPage = () => {
           isOpen={showAssignModal}
           onClose={() => {
             setShowAssignModal(false);
-            setSelectedAidant(null);
+            setSelectedVisit(null);
           }}
           aidant={selectedAidant}
           patients={patients}
