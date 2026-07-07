@@ -604,7 +604,7 @@ const InfoItem = ({ icon, label, value, color }: InfoItemProps) => (
   <div className="p-3 rounded-xl border" style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
     <div className="flex items-center gap-1.5">
       <span style={{ color }}>{icon}</span>
-      <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: colors.text + '40' }}>
+      <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: color + '90' }}>
         {label}
       </p>
     </div>
