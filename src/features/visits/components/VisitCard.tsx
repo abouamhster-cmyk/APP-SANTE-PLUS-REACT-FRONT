@@ -1,408 +1,50 @@
-// 📁 src/components/visits/VisitCard.tsx
- 
-import { Calendar, Clock, MapPin, User, Play, CheckCircle, XCircle, Eye, AlertCircle, UserCheck, Users, Clock as ClockIcon } from 'lucide-react';
-import { Visit } from '@/types';
-import { getThemeColors } from '@/lib/permissions';
-import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate } from '@/utils/helpers';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+// 📁 src/components/visits/VisitCard.tsx 
+export const VisitCard = memo(({ visit, onClick, compact = false }: VisitCardProps) => {
+  const statusConfig = getStatusConfig(visit.status);
 
-interface VisitCardProps {
-  visit: Visit;
-  onStart?: () => void;
-  onComplete?: () => void;
-  onCancel?: () => void;
-  onView?: () => void;
-  onClick?: () => void;
-  onApprove?: () => void;
-  onRefuse?: () => void;
-  showActions?: boolean;
-  compact?: boolean;
-}
-
-export const VisitCard = ({ 
-  visit, 
-  onStart, 
-  onComplete, 
-  onCancel, 
-  onView,
-  onClick,
-  onApprove,
-  onRefuse,
-  showActions = false,
-  compact = false 
-}: VisitCardProps) => {
-  const colors = getThemeColors('senior');
-  
-  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-
-  // ✅ NOUVEAUX STATUTS
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'planifiee': return '#4CAF50';
-      case 'en_attente': return '#FF9800';
-      case 'acceptee': return '#2196F3';
-      case 'en_cours': return '#2196F3';
-      case 'terminee': return '#9C27B0';
-      case 'validee': return '#4CAF50';
-      case 'annulee': return '#F44336';
-      case 'refusee': return '#F44336';
-      case 'expire': return '#795548';
-      case 'replanifiee': return '#FF5722';
-      case 'no_show': return '#795548';
-      default: return '#9E9E9E';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'planifiee': return 'Planifiée';
-      case 'en_attente': return 'En attente';
-      case 'acceptee': return 'Acceptée';
-      case 'en_cours': return 'En cours';
-      case 'terminee': return 'Terminée';
-      case 'validee': return 'Validée';
-      case 'annulee': return 'Annulée';
-      case 'refusee': return 'Refusée';
-      case 'expire': return 'Expirée';
-      case 'replanifiee': return 'Replanifiée';
-      case 'no_show': return 'Absent';
-      default: return status;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'planifiee': return <Calendar size={12} />;
-      case 'en_attente': return <ClockIcon size={12} />;
-      case 'acceptee': return <CheckCircle size={12} />;
-      case 'en_cours': return <Play size={12} />;
-      case 'terminee': return <CheckCircle size={12} />;
-      case 'validee': return <CheckCircle size={12} />;
-      case 'annulee': return <XCircle size={12} />;
-      case 'refusee': return <XCircle size={12} />;
-      case 'expire': return <AlertCircle size={12} />;
-      default: return <ClockIcon size={12} />;
-    }
-  };
-
-  const isPendingApproval = visit.status === 'planifiee' || visit.status === 'en_attente';
-  const isAccepted = visit.status === 'acceptee';
-  const isInProgress = visit.status === 'en_cours';
-  const isExpired = visit.status === 'expire';
-  const isRefused = visit.status === 'refusee';
-  const isCompleted = visit.status === 'terminee' || visit.status === 'validee';
-
-  // ✅ Version compacte
-  if (compact) {
-    return (
-      <div 
-        className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
-        style={{ borderLeftColor: getStatusColor(visit.status) }}
-        onClick={onClick}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
-                {visit.patient?.first_name} {visit.patient?.last_name}
-              </p>
-              <span 
-                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5"
-                style={{ 
-                  background: getStatusColor(visit.status) + '20',
-                  color: getStatusColor(visit.status),
-                }}
-              >
-                {getStatusIcon(visit.status)}
-                {getStatusLabel(visit.status)}
-              </span>
-              {visit.is_urgent && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5" style={{ background: '#F44336' + '15', color: '#F44336' }}>
-                  <AlertCircle size={10} />
-                  Urgent
-                </span>
-              )}
-              {isExpired && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-0.5 bg-red-100 text-red-600">
-                  <AlertCircle size={10} />
-                  Expirée
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs mt-1" style={{ color: colors.text + '50' }}>
-              <span className="flex items-center gap-0.5">
-                <Calendar size={11} />
-                {formatDate(visit.scheduled_date)}
-              </span>
-              <span className="flex items-center gap-0.5">
-                <Clock size={11} />
-                {visit.scheduled_time}
-              </span>
-              {visit.aidant && (
-                <span className="flex items-center gap-0.5">
-                  <UserCheck size={11} />
-                  {visit.aidant.user?.full_name || 'Non assigné'}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            {/* ✅ AIDANT : Approuver/Refuser */}
-            {showActions && isPendingApproval && isAidant && (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
-                  className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                  style={{ background: '#4CAF50' }}
-                  title="Approuver"
-                >
-                  <CheckCircle size={14} />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
-                  className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                  style={{ background: '#F44336' }}
-                  title="Refuser"
-                >
-                  <XCircle size={14} />
-                </button>
-              </>
-            )}
-
-            {/* ✅ AIDANT : Démarrer une visite acceptée */}
-            {showActions && isAccepted && isAidant && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onStart?.(); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#4CAF50' }}
-                title="Démarrer"
-              >
-                <Play size={14} />
-              </button>
-            )}
-
-            {/* ✅ AIDANT : Terminer une visite en cours */}
-            {showActions && isInProgress && isAidant && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onComplete?.(); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#2196F3' }}
-                title="Terminer"
-              >
-                <CheckCircle size={14} />
-              </button>
-            )}
-
-            {/* ✅ ADMIN/FAMILLE : Annuler */}
-            {showActions && (isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
-                className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                style={{ background: '#F44336' }}
-                title="Annuler"
-              >
-                <XCircle size={14} />
-              </button>
-            )}
-
-            {onView && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onView(); }}
-                className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                style={{ color: colors.primary }}
-                title="Détails"
-              >
-                <Eye size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ Version complète
   return (
     <div 
-      className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-all border-l-4 cursor-pointer"
-      style={{ borderLeftColor: getStatusColor(visit.status) }}
       onClick={onClick}
+      className="group relative bg-white border border-gray-100 rounded-3xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer active:scale-[0.98]"
     >
-      {/* En-tête */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-base font-semibold truncate" style={{ color: colors.text }}>
-              {visit.patient?.first_name} {visit.patient?.last_name}
-            </h3>
-            <span 
-              className="px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1"
-              style={{ 
-                background: getStatusColor(visit.status) + '20',
-                color: getStatusColor(visit.status),
-              }}
-            >
-              {getStatusIcon(visit.status)}
-              {getStatusLabel(visit.status)}
-            </span>
-            {visit.is_urgent && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium" style={{ background: '#F44336' + '15', color: '#F44336' }}>
-                <AlertCircle size={12} />
-                Urgent
-              </span>
-            )}
-            {isExpired && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-600">
-                <AlertCircle size={12} />
-                Expirée
-              </span>
-            )}
-          </div>
-          {visit.aidant && (
-            <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: colors.text + '50' }}>
-              <UserCheck size={13} />
-              <span>{visit.aidant.user?.full_name || 'Non assigné'}</span>
-            </div>
-          )}
+      <div className="flex justify-between items-start mb-4">
+        {/* En-tête : Badge Status discret + Type */}
+        <span 
+          className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+          style={{ background: statusConfig.bg, color: statusConfig.color }}
+        >
+          {statusConfig.label}
+        </span>
+        <span className="text-gray-400 text-xs font-medium">
+          {formatDate(visit.scheduled_date)}
+        </span>
+      </div>
+
+      {/* Corps : Nom + Lieu */}
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center font-bold text-[--color-primary]">
+          {visit.patient?.first_name?.[0] || 'U'}
         </div>
-
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* ✅ AIDANT : Approuver/Refuser */}
-          {showActions && isPendingApproval && isAidant && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                style={{ background: '#4CAF50' }}
-              >
-                <CheckCircle size={14} />
-                Approuver
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-                style={{ background: '#F44336' }}
-              >
-                <XCircle size={14} />
-                Refuser
-              </button>
-            </>
-          )}
-
-          {/* ✅ AIDANT : Démarrer une visite acceptée */}
-          {showActions && isAccepted && isAidant && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onStart?.(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-              style={{ background: '#4CAF50' }}
-            >
-              <Play size={14} />
-              Démarrer
-            </button>
-          )}
-
-          {/* ✅ AIDANT : Terminer une visite en cours */}
-          {showActions && isInProgress && isAidant && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onComplete?.(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-              style={{ background: '#2196F3' }}
-            >
-              <CheckCircle size={14} />
-              Terminer
-            </button>
-          )}
-
-          {/* ✅ ADMIN/FAMILLE : Annuler */}
-          {showActions && (isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-              style={{ background: '#F44336' }}
-            >
-              <XCircle size={14} />
-              Annuler
-            </button>
-          )}
-
-          {/* ✅ ADMIN : Réassigner (expirée/refusée) */}
-          {showActions && (isExpired || isRefused) && isAdminOrCoordinator && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onView?.(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-80"
-              style={{ background: '#FF5722' }}
-            >
-              <AlertCircle size={14} />
-              Réassigner
-            </button>
-          )}
-
-          {onView && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onView(); }}
-              className="p-2 rounded-lg hover:bg-gray-100 transition"
-              style={{ color: colors.primary }}
-            >
-              <Eye size={18} />
-            </button>
-          )}
+        <div>
+          <h3 className="font-black text-gray-900 text-lg">
+            {visit.patient?.first_name} {visit.patient?.last_name}
+          </h3>
+          <p className="text-gray-500 text-sm flex items-center gap-1">
+            <MapPin size={12} /> {visit.patient?.address || 'Adresse non renseignée'}
+          </p>
         </div>
       </div>
 
-      {/* Informations */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <Calendar size={15} className="opacity-60" />
-          <span>{formatDate(visit.scheduled_date)}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <Clock size={15} className="opacity-60" />
+      {/* Pied : Horaire et Bouton Action */}
+      <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-gray-700 font-medium">
+          <Clock size={16} className="text-[--color-primary]" />
           <span>{visit.scheduled_time}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <MapPin size={15} className="opacity-60" />
-          <span className="truncate">{visit.patient?.address}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '70' }}>
-          <User size={15} className="opacity-60" />
-          <span className="truncate">{visit.aidant?.user?.full_name || 'Non assigné'}</span>
-        </div>
+        <button className="text-[--color-primary] font-bold text-sm hover:underline">
+          Détails →
+        </button>
       </div>
-
-      {/* Notes */}
-      {visit.notes && (
-        <div className="mt-3 p-3 rounded-xl" style={{ background: colors.primary + '05' }}>
-          <p className="text-sm" style={{ color: colors.text + '70' }}>{visit.notes}</p>
-        </div>
-      )}
-
-      {/* Badge de type */}
-      {visit.visit_type && visit.visit_type !== 'ponctuelle' && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: colors.primary }}>
-          {visit.visit_type === 'permanente' ? (
-            <>
-              <Users size={13} />
-              <span>Visite permanente</span>
-            </>
-          ) : visit.visit_type === 'intervalle' ? (
-            <>
-              <Calendar size={13} />
-              <span>Visite sur intervalle</span>
-            </>
-          ) : null}
-        </div>
-      )}
-
-      {/* ✅ Badge d'expiration */}
-      {isExpired && (
-        <div className="mt-3 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-          <AlertCircle size={14} />
-          <span>Expirée - Réassignation nécessaire</span>
-        </div>
-      )}
     </div>
   );
-};
+});
