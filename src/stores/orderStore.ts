@@ -1,14 +1,11 @@
 // 📁 frontend/src/stores/orderStore.ts
-// ✅ STORE COMMANDES COMPLET : CORRECTIF CRITIQUE DE SÉCURITÉ SUR L'EXTRACTION DES DONNÉES D'API
+// ✅ STORE COMMANDES COMPLET : CORRECTIF EXPLICITE PDS, ENVELOPPE API ET QUOTAS SANS DOUBLONS
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import api from '@/lib/api';
-import toast from 'react-hot-toast';
-
-
  
 // ✅ IMPORTER LES HELPERS
 import {
@@ -221,7 +218,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // FETCH ORDERS - AVEC CACHE ET RÉCUPÉRATION DES AIDANTS
+  // FETCH ORDERS (Version corrigée et épurée des conflits RLS)
   // ============================================================
   fetchOrders: async (force = false) => {
     const state = get();
@@ -258,66 +255,23 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     try {
       set({ isLoading: true, error: null, isCacheInvalidated: false });
       
-      const { user, profile } = useAuthStore.getState();
+      const { user } = useAuthStore.getState();
       if (!user) {
         set({ orders: [], isLoading: false });
         return;
       }
 
-      // ✅ Appel API
+      // ✅ APPEL API UNIQUE : Le serveur renvoie déjà les relations complètes de l'aidant
       const response = await api.get('/orders');
       const ordersData = response.data || [];
 
-      // ✅ POUR LES FAMILLES : Forcer le rechargement des aidants
-      let ordersWithFullRelations = ordersData;
+      // 🔥 CORRECTIF : Nous avons supprimé l'ancien bloc "if (profile?.role === 'family')"
+      // qui écrasait l'aidant à null à cause des politiques RLS de Supabase.
 
-      if (profile?.role === 'family' && ordersWithFullRelations.length > 0) {
-        const aidantIds = [...new Set(
-          ordersWithFullRelations
-            .filter((o: any) => o.aidant_id)
-            .map((o: any) => o.aidant_id)
-        )];
-
-        if (aidantIds.length > 0) {
-          const { data: aidantsData } = await supabase
-            .from('aidants')
-            .select(`
-              id,
-              user_id,
-              specialties,
-              available,
-              rating,
-              total_missions,
-              completed_missions,
-              cancelled_missions,
-              user:profiles!aidants_user_id_fkey (
-                id,
-                full_name,
-                email,
-                phone,
-                avatar_url
-              )
-            `)
-            .in('id', aidantIds);
-
-          if (aidantsData) {
-            const aidantMap = aidantsData.reduce((acc: any, a: any) => {
-              acc[a.id] = a;
-              return acc;
-            }, {});
-
-            ordersWithFullRelations = ordersWithFullRelations.map((order: any) => ({
-              ...order,
-              aidant: order.aidant_id ? aidantMap[order.aidant_id] || null : null,
-            }));
-          }
-        }
-      }
-
-      setCachedOrders(ordersWithFullRelations);
+      setCachedOrders(ordersData);
       
       set({ 
-        orders: ordersWithFullRelations || [], 
+        orders: ordersData, 
         isLoading: false,
         isInitialized: true,
         lastFetch: Date.now(),
@@ -487,8 +441,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       };
 
       const response = await api.post('/orders', orderData);
-      
-       const newOrder = response.data?.order || response.data;
+      const newOrder = response.data?.order || response.data;
 
       if (!newOrder) {
         throw new Error('Erreur lors de la création de la commande');
@@ -557,7 +510,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const response = await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la confirmation du paiement');
@@ -594,7 +548,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const response = await api.post(`/orders/${id}/take`);
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la prise de commande');
@@ -612,10 +567,16 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // ACCEPT ORDER (alias)
+  // ============================================================
   acceptOrder: async (id: string) => {
     return get().takeOrder(id);
   },
 
+  // ============================================================
+  // PREPARE ORDER
+  // ============================================================
   prepareOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -625,7 +586,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const response = await api.post(`/orders/${id}/prepare`);
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la préparation');
@@ -642,13 +604,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // MARK ORDER READY
+  // ============================================================
   markOrderReady: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
 
       const response = await api.post(`/orders/${id}/status`, { status: 'disponible' });
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la mise à disposition');
@@ -665,6 +631,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // START DELIVERY
+  // ============================================================
   startDelivery: async (id: string, location?: { lat: number; lng: number }) => {
     try {
       set({ isLoading: true, error: null });
@@ -674,7 +643,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const response = await api.post(`/orders/${id}/deliver`, { location });
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors du démarrage de la livraison');
@@ -691,6 +661,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // COMPLETE DELIVERY
+  // ============================================================
   completeDelivery: async (id: string, proof_url?: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -700,7 +673,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const response = await api.post(`/orders/${id}/complete`, { proof_url });
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la finalisation de la livraison');
@@ -712,11 +686,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: false });
     } catch (error: any) {
       console.error('❌ Complete delivery error:', error);
-      toast.error(error.message);
-      set({ isLoading: false });
+      set({ error: error.message, isLoading: false });
+      throw error;
     }
   },
 
+  // ============================================================
+  // 🆕 AUTO-VALIDATION D'UNE COMMANDE (après 12h)
+  // ============================================================
   autoValidateOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -743,7 +720,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const result = await response.json();
       
-       const order = result?.order || result;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = result?.order || result;
 
       get().invalidateCache();
       await get().fetchOrders(true);
@@ -756,13 +734,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // UPDATE ORDER STATUS
+  // ============================================================
   updateOrderStatus: async (id: string, status: OrderStatus) => {
     try {
       set({ isLoading: true, error: null });
       
       const response = await api.post(`/orders/${id}/status`, { status });
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la mise à jour du statut');
@@ -782,6 +764,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // UPDATE ORDER
+  // ============================================================
   updateOrder: async (id: string, data: Partial<Order>) => {
     try {
       set({ isLoading: true, error: null });
@@ -793,7 +778,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       const response = await api.put(`/orders/${id}`, data);
       
-       const order = response.data?.order || response.data;
+      // ✅ CORRECTIF D'EXTRACTION D'ENVELOPPE
+      const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la mise à jour');
@@ -810,6 +796,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // DELETE ORDER
+  // ============================================================
   deleteOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -832,6 +821,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // 🆕 RÉCUPÉRER LES COMMANDES DISPONIBLES (POUR LES AIDANTS)
+  // ============================================================
   getAvailableOrders: async (): Promise<Order[]> => {
     try {
       const { user } = useAuthStore.getState();
