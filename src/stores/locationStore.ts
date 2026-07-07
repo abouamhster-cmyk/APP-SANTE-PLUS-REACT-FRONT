@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
 
+ 
 interface LocationState {
   locations: {
     patients: any[];
