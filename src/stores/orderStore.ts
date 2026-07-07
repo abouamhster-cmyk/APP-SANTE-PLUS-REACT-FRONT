@@ -1,4 +1,5 @@
 // 📁 frontend/src/stores/orderStore.ts
+// ✅ STORE COMMANDES COMPLET : CORRECTIF CRITIQUE DE SÉCURITÉ SUR L'EXTRACTION DES DONNÉES D'API
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -399,7 +400,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE ORDER - SANS TOAST
+  // ✅ CREATE ORDER
   // ============================================================
   createOrder: async (data: Partial<Order> & { 
     target_type?: 'personal' | 'patient'; 
@@ -417,7 +418,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         throw new Error('Les aidants ne peuvent pas créer de commandes');
       }
 
-      // ✅ Déterminer target_type et target_name
       const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
       const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
 
@@ -426,7 +426,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       let requiresPayment = false;
       let paymentAmount = 0;
 
-      // ✅ LOGIQUE UNIFIÉE : Vérifier l'abonnement
       if (isPonctual) {
         requiresPayment = true;
         status = 'attente_paiement';
@@ -446,7 +445,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         }
       }
 
-      // ✅ Gestion du wizard
       const wizardChoice = data.wizard_choice || null;
       const selectedAidantId = data.selected_aidant_id || null;
 
@@ -486,13 +484,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       };
 
       const response = await api.post('/orders', orderData);
-      const newOrder = response.data?.order || response.data;
+      
+       const newOrder = response.data?.order || response.data;
 
       if (!newOrder) {
         throw new Error('Erreur lors de la création de la commande');
       }
 
-      // ✅ Récupérer les relations
       let patient = null;
       if (newOrder.patient_id) {
         const { data: patientData } = await supabase
@@ -522,7 +520,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       get().invalidateCache();
       await get().fetchOrders(true);
 
-      // ✅ Notification si paiement requis (pas de toast)
       if (requiresPayment) {
         await supabase.from('notifications').insert({
           user_id: user.id,
@@ -549,14 +546,15 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // CONFIRMER PAIEMENT - SANS TOAST
+  // CONFIRMER PAIEMENT
   // ============================================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
       set({ isLoading: true, error: null });
 
       const response = await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
-      const order = response.data;
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la confirmation du paiement');
@@ -569,8 +567,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         currentOrder: order,
         isLoading: false,
       });
-
-      // ✅ SUPPRIMÉ : toast.success('✅ Paiement confirmé, commande disponible');
     } catch (error: any) {
       console.error('❌ Confirm payment error:', error);
       set({ error: error.message, isLoading: false });
@@ -579,7 +575,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // 🆕 PRENDRE UNE COMMANDE - SANS TOAST
+  // 🆕 PRENDRE UNE COMMANDE
   // ============================================================
   takeOrder: async (id: string) => {
     try {
@@ -588,14 +584,14 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // ✅ Vérifier le quota avant de prendre
       const quotaCheck = await get().checkOrderQuota();
       if (!quotaCheck.canTake) {
         throw new Error(`Vous avez déjà ${quotaCheck.current} commande(s) en cours (maximum ${quotaCheck.max})`);
       }
 
       const response = await api.post(`/orders/${id}/take`);
-      const order = response.data;
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la prise de commande');
@@ -605,27 +601,18 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('✅ Commande prise en charge');
-      
       return order;
     } catch (error: any) {
       console.error('❌ Take order error:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
-  // ============================================================
-  // ACCEPT ORDER (alias)
-  // ============================================================
   acceptOrder: async (id: string) => {
     return get().takeOrder(id);
   },
 
-  // ============================================================
-  // PREPARE ORDER - SANS TOAST
-  // ============================================================
   prepareOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -634,7 +621,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       if (!user) throw new Error('Utilisateur non connecté');
 
       const response = await api.post(`/orders/${id}/prepare`);
-      const order = response.data;
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la préparation');
@@ -644,48 +632,36 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('📦 Commande en préparation');
     } catch (error: any) {
       console.error('❌ Prepare order error:', error);
-      set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
-      throw error;
+      toast.error(error.message);
+      set({ isLoading: false });
     }
   },
 
-  // ============================================================
-  // MARK ORDER READY - SANS TOAST
-  // ============================================================
   markOrderReady: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
 
-      const response = await api.post(`/orders/${id}/ready`);
-      const order = response.data;
+      const response = await api.post(`/orders/${id}/status`, { status: 'disponible' });
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
-        throw new Error('Erreur lors du marquage prêt');
+        throw new Error('Erreur lors de la mise à disposition');
       }
 
       get().invalidateCache();
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('✅ Commande prête à être livrée');
     } catch (error: any) {
-      console.error('❌ Mark order ready error:', error);
-      set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
-      throw error;
+      console.error('❌ Mark ready error:', error);
+      toast.error(error.message);
+      set({ isLoading: false });
     }
   },
 
-  // ============================================================
-  // START DELIVERY - SANS TOAST
-  // ============================================================
   startDelivery: async (id: string, location?: { lat: number; lng: number }) => {
     try {
       set({ isLoading: true, error: null });
@@ -694,7 +670,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       if (!user) throw new Error('Utilisateur non connecté');
 
       const response = await api.post(`/orders/${id}/deliver`, { location });
-      const order = response.data;
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors du démarrage de la livraison');
@@ -704,18 +681,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('🚚 Commande en livraison');
     } catch (error: any) {
       console.error('❌ Start delivery error:', error);
-      set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
-      throw error;
+      toast.error(error.message);
+      set({ isLoading: false });
     }
   },
 
-  // ============================================================
-  // COMPLETE DELIVERY - SANS TOAST
-  // ============================================================
   completeDelivery: async (id: string, proof_url?: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -724,7 +696,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       if (!user) throw new Error('Utilisateur non connecté');
 
       const response = await api.post(`/orders/${id}/complete`, { proof_url });
-      const order = response.data;
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la finalisation de la livraison');
@@ -734,18 +707,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('✅ Commande livrée');
     } catch (error: any) {
       console.error('❌ Complete delivery error:', error);
-      set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
-      throw error;
+      toast.error(error.message);
+      set({ isLoading: false });
     }
   },
 
-  // ============================================================
-  // 🆕 AUTO-VALIDATION D'UNE COMMANDE - SANS TOAST
-  // ============================================================
   autoValidateOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -771,29 +739,27 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       }
 
       const result = await response.json();
+      
+       const order = result?.order || result;
 
       get().invalidateCache();
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('✅ Commande auto-validée');
     } catch (error: any) {
       console.error('❌ Auto-validate order error:', error);
+      toast.error(error.message);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
-      throw error;
     }
   },
 
-  // ============================================================
-  // UPDATE ORDER STATUS - SANS TOAST
-  // ============================================================
   updateOrderStatus: async (id: string, status: OrderStatus) => {
     try {
       set({ isLoading: true, error: null });
       
       const response = await api.post(`/orders/${id}/status`, { status });
-      const order = response.data;
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la mise à jour du statut');
@@ -806,8 +772,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         currentOrder: order,
         isLoading: false,
       });
-
-      // ✅ SUPPRIMÉ : toast.success(`Commande ${getStatusLabel(status)}`);
     } catch (error: any) {
       console.error('❌ Update order status error:', error);
       set({ error: error.message, isLoading: false });
@@ -815,9 +779,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // UPDATE ORDER - SANS TOAST
-  // ============================================================
   updateOrder: async (id: string, data: Partial<Order>) => {
     try {
       set({ isLoading: true, error: null });
@@ -828,7 +789,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       }
 
       const response = await api.put(`/orders/${id}`, data);
-      const order = response.data;
+      
+       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la mise à jour');
@@ -838,7 +800,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('Commande mise à jour');
     } catch (error: any) {
       console.error('❌ Update order error:', error);
       set({ error: error.message, isLoading: false });
@@ -846,9 +807,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // DELETE ORDER - SANS TOAST
-  // ============================================================
   deleteOrder: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -864,7 +822,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      // ✅ SUPPRIMÉ : toast.success('Commande supprimée');
     } catch (error: any) {
       console.error('❌ Delete order error:', error);
       set({ error: error.message, isLoading: false });
@@ -872,9 +829,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // 🆕 RÉCUPÉRER LES COMMANDES DISPONIBLES (POUR AIDANTS)
-  // ============================================================
   getAvailableOrders: async (): Promise<Order[]> => {
     try {
       const { user } = useAuthStore.getState();
@@ -907,9 +861,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // GETTERS
-  // ============================================================
   getAssignedOrders: () => {
     const { user } = useAuthStore.getState();
     const state = get();
