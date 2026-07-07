@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import api from '@/lib/api';
-import toast from 'react-hot-toast';
+// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
 
 // ✅ IMPORTER LES HELPERS
 import {
@@ -400,7 +400,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE ORDER - AVEC SUPPORT WIZARD
+  // ✅ CREATE ORDER - SANS TOAST
   // ============================================================
   createOrder: async (data: Partial<Order> & { 
     target_type?: 'personal' | 'patient'; 
@@ -523,7 +523,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       get().invalidateCache();
       await get().fetchOrders(true);
 
-      // ✅ Notification si paiement requis
+      // ✅ Notification si paiement requis (pas de toast)
       if (requiresPayment) {
         await supabase.from('notifications').insert({
           user_id: user.id,
@@ -550,7 +550,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // CONFIRMER PAIEMENT - ATTENTE_PAIEMENT → CREEE
+  // CONFIRMER PAIEMENT - SANS TOAST
   // ============================================================
   confirmPayment: async (id: string, transactionId: string) => {
     try {
@@ -571,7 +571,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         isLoading: false,
       });
 
-      toast.success('✅ Paiement confirmé, commande disponible');
+      // ✅ SUPPRIMÉ : toast.success('✅ Paiement confirmé, commande disponible');
     } catch (error: any) {
       console.error('❌ Confirm payment error:', error);
       set({ error: error.message, isLoading: false });
@@ -580,7 +580,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // 🆕 PRENDRE UNE COMMANDE - AVEC VÉRIFICATION QUOTA
+  // 🆕 PRENDRE UNE COMMANDE - SANS TOAST
   // ============================================================
   takeOrder: async (id: string) => {
     try {
@@ -606,13 +606,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('✅ Commande prise en charge');
+      // ✅ SUPPRIMÉ : toast.success('✅ Commande prise en charge');
       
       return order;
     } catch (error: any) {
       console.error('❌ Take order error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
@@ -625,7 +625,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // PREPARE ORDER
+  // PREPARE ORDER - SANS TOAST
   // ============================================================
   prepareOrder: async (id: string) => {
     try {
@@ -645,16 +645,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('📦 Commande en préparation');
+      // ✅ SUPPRIMÉ : toast.success('📦 Commande en préparation');
     } catch (error: any) {
       console.error('❌ Prepare order error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
+      throw error;
     }
   },
 
   // ============================================================
-  // MARK ORDER READY
+  // MARK ORDER READY - SANS TOAST
   // ============================================================
   markOrderReady: async (id: string) => {
     try {
@@ -674,16 +675,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('✅ Commande prête à être livrée');
+      // ✅ SUPPRIMÉ : toast.success('✅ Commande prête à être livrée');
     } catch (error: any) {
       console.error('❌ Mark order ready error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
+      throw error;
     }
   },
 
   // ============================================================
-  // START DELIVERY
+  // START DELIVERY - SANS TOAST
   // ============================================================
   startDelivery: async (id: string, location?: { lat: number; lng: number }) => {
     try {
@@ -703,16 +705,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('🚚 Commande en livraison');
+      // ✅ SUPPRIMÉ : toast.success('🚚 Commande en livraison');
     } catch (error: any) {
       console.error('❌ Start delivery error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
+      throw error;
     }
   },
 
   // ============================================================
-  // COMPLETE DELIVERY - DÉCRÉMENTE current_orders
+  // COMPLETE DELIVERY - SANS TOAST
   // ============================================================
   completeDelivery: async (id: string, proof_url?: string) => {
     try {
@@ -732,16 +735,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('✅ Commande livrée');
+      // ✅ SUPPRIMÉ : toast.success('✅ Commande livrée');
     } catch (error: any) {
       console.error('❌ Complete delivery error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
+      throw error;
     }
   },
 
   // ============================================================
-  // 🆕 AUTO-VALIDATION D'UNE COMMANDE
+  // 🆕 AUTO-VALIDATION D'UNE COMMANDE - SANS TOAST
   // ============================================================
   autoValidateOrder: async (id: string) => {
     try {
@@ -773,16 +777,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('✅ Commande auto-validée');
+      // ✅ SUPPRIMÉ : toast.success('✅ Commande auto-validée');
     } catch (error: any) {
       console.error('❌ Auto-validate order error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
+      throw error;
     }
   },
 
   // ============================================================
-  // UPDATE ORDER STATUS
+  // UPDATE ORDER STATUS - SANS TOAST
   // ============================================================
   updateOrderStatus: async (id: string, status: OrderStatus) => {
     try {
@@ -803,7 +808,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         isLoading: false,
       });
 
-      toast.success(`Commande ${getStatusLabel(status)}`);
+      // ✅ SUPPRIMÉ : toast.success(`Commande ${getStatusLabel(status)}`);
     } catch (error: any) {
       console.error('❌ Update order status error:', error);
       set({ error: error.message, isLoading: false });
@@ -812,7 +817,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // UPDATE ORDER
+  // UPDATE ORDER - SANS TOAST
   // ============================================================
   updateOrder: async (id: string, data: Partial<Order>) => {
     try {
@@ -834,7 +839,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('Commande mise à jour');
+      // ✅ SUPPRIMÉ : toast.success('Commande mise à jour');
     } catch (error: any) {
       console.error('❌ Update order error:', error);
       set({ error: error.message, isLoading: false });
@@ -843,7 +848,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // DELETE ORDER
+  // DELETE ORDER - SANS TOAST
   // ============================================================
   deleteOrder: async (id: string) => {
     try {
@@ -860,7 +865,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
-      toast.success('Commande supprimée');
+      // ✅ SUPPRIMÉ : toast.success('Commande supprimée');
     } catch (error: any) {
       console.error('❌ Delete order error:', error);
       set({ error: error.message, isLoading: false });
