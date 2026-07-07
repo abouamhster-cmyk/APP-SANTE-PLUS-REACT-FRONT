@@ -350,7 +350,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT (Pas de isLoading global !)
+  // ✅ CREATE VISIT (Pas d'insertions de notifications doublons)
   // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
@@ -531,85 +531,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         aidant,
       };
 
+      // ✅ PLUS D'INSERTION MANUELLE DE NOTIFICATIONS ICI !
+      // Le backend fait déjà toutes les insertions de notifications, ce qui évite la duplication.
+
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      const targetDisplay = targetName || (patient ? `${patient.first_name} ${patient.last_name}` : 'Personnel');
-
-      if (requiresPayment) {
-        await supabase.from('notifications').insert({
-          user_id: targetUserId || user.id,
-          title: '💳 Paiement requis pour planifier la visite',
-          body: `Un paiement de ${paymentAmount} FCFA est requis pour planifier la visite de ${targetDisplay}.`,
-          type: 'visite',
-          data: { 
-            visit_id: newVisit.id, 
-            status: 'brouillon', 
-            action: 'pay',
-            amount: paymentAmount,
-            requires_payment: true,
-          },
-        });
-
-        return fullVisit;
-      }
-
-      if (newVisit.status === 'en_attente_aidant') {
-        const { data: admins } = await supabase
-          .from('profiles')
-          .select('id')
-          .in('role', ['admin', 'coordinator']);
-
-        if (admins && admins.length > 0) {
-          for (const admin of admins) {
-            await supabase.from('notifications').insert({
-              user_id: admin.id,
-              title: '🚨 Visite planifiée sans aidant disponible !',
-              body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}. Tous les aidants sont complets (4/4).`,
-              type: 'alert',
-              data: {
-                visit_id: newVisit.id,
-                action: 'assign_aidant',
-                urgency: 'high',
-                target_name: targetDisplay,
-                scheduled_date: newVisit.scheduled_date,
-                scheduled_time: newVisit.scheduled_time,
-              },
-            });
-          }
-        }
-
-        await supabase.from('notifications').insert({
-          user_id: targetUserId || user.id,
-          title: '⏳ Visite en attente d\'aidant',
-          body: `Votre visite pour ${targetDisplay} est en attente d'assignation. L'administration a été notifiée.`,
-          type: 'visite',
-          data: {
-            visit_id: newVisit.id,
-            status: 'en_attente_aidant',
-          },
-        });
-
-        return fullVisit;
-      }
-
-      if (finalAidantId) {
-        await supabase.from('notifications').insert({
-          user_id: finalAidantId,
-          title: '📅 Nouvelle visite à valider',
-          body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
-          type: 'visite',
-          data: { visit_id: newVisit.id, action: 'approve' },
-        });
-      }
-
-      await supabase.from('notifications').insert({
-        user_id: targetUserId || user.id,
-        title: '📅 Nouvelle visite planifiée',
-        body: `Visite pour ${targetDisplay} le ${newVisit.scheduled_date} à ${newVisit.scheduled_time}`,
-        type: 'visite',
-        data: { visit_id: newVisit.id, status: 'planifiee' },
-      });
 
       return fullVisit;
 
@@ -770,7 +696,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         throw new Error('Non autorisé');
       }
 
-      const { data: visit, error } = await supabase
+      const { data: visit, error = null } = await supabase
         .from('visites')
         .update(data)
         .eq('id', id)
