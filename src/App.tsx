@@ -295,36 +295,47 @@ function App() {
   // ============================================================
   // EFFETS - INITIALISATION DE L'AUTHENTIFICATION ET DES NOTIFS
   // ============================================================
+ 
   useEffect(() => {
     if (!isAuthenticated || !isAuthInitialized) return;
 
-    if (realtimeInitialized.current) {
-      console.log('ℹ️ Realtime déjà connecté');
-      return;
-    }
+    console.log('📡 [Realtime] Initialisation du canal temps réel...');
 
-    const initNotifications = async () => {
-      realtimeInitialized.current = true;
-      try {
-        console.log('🔔 [Realtime] Initialisation du canal Realtime...');
-        subscribe();
-        await fetchNotifications();
-      } catch (error) {
-        console.error('❌ Erreur initialisation Realtime:', error);
-        realtimeInitialized.current = false;
-      }
-    };
+    // 1️⃣ Canal Visites
+    const visitsChannel = supabase
+      .channel('realtime_visites')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'visites' },
+        (payload) => {
+          console.log('🔄 [Realtime] Changement détecté sur Visites:', payload.eventType);
+          // Invalidation forcée du cache avant de recharger
+          useVisitStore.getState().invalidateCache();
+          useVisitStore.getState().fetchVisits(true);
+        }
+      )
+      .subscribe();
 
-    initNotifications();
+    // 2️⃣ Canal Commandes
+    const ordersChannel = supabase
+      .channel('realtime_orders')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'commandes' },
+        (payload) => {
+          console.log('🔄 [Realtime] Changement détecté sur Commandes:', payload.eventType);
+          // Invalidation forcée du cache avant de recharger
+          useOrderStore.getState().invalidateCache();
+          useOrderStore.getState().fetchOrders(true);
+        }
+      )
+      .subscribe();
 
     return () => {
-      if (realtimeInitialized.current) {
-        console.log('🔔 [Realtime] Fermeture du canal...');
-        unsubscribe();
-        realtimeInitialized.current = false;
-      }
+      supabase.removeChannel(visitsChannel);
+      supabase.removeChannel(ordersChannel);
     };
-  }, [isAuthenticated, isAuthInitialized, subscribe, fetchNotifications, unsubscribe]);
+  }, [isAuthenticated, isAuthInitialized]);
 
   // ============================================================
   // EFFET - MISE À JOUR DU BADGE
