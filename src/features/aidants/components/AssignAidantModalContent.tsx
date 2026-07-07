@@ -538,4 +538,4 @@ export const AssignAidantModalContent = ({
   );
 };
 
-export default VisitModalContent;
+export default AssignAidantModalContent;
