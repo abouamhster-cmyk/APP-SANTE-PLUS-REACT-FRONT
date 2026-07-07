@@ -1,10 +1,11 @@
 // 📁 src/stores/authStore.ts
- 
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@/lib/supabase';
 import { Profile, UserRole } from '@/types';
 
+ 
 interface AuthState {
   user: any | null;
   profile: Profile | null;
@@ -335,6 +336,7 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
+      // ✅ logout - SANS TOAST
       logout: async () => {
         try {
           await supabase.auth.signOut();
@@ -355,6 +357,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // ✅ switchRole - SANS TOAST
       switchRole: async (role: UserRole) => {
         const { user, profile } = get();
 
@@ -400,6 +403,7 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
+      // ✅ updateProfile - SANS TOAST
       updateProfile: async (data: Partial<Profile>) => {
         const { user } = get();
 
