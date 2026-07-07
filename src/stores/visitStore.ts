@@ -159,9 +159,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // FETCH VISITS (Le seul à utiliser isLoading global)
-  // ============================================================
   fetchVisits: async (force = false) => {
     const state = get();
 
@@ -349,9 +346,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // ✅ CREATE VISIT (Pas d'insertions de notifications doublons)
-  // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
     target_name?: string;
@@ -531,9 +525,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         aidant,
       };
 
-      // ✅ PLUS D'INSERTION MANUELLE DE NOTIFICATIONS ICI !
-      // Le backend fait déjà toutes les insertions de notifications, ce qui évite la duplication.
-
       get().invalidateCache();
       await get().fetchVisits(true);
 
@@ -545,6 +536,129 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       throw error;
     }
   },
+
+  // ============================================================
+  // ✅ ENSEMBLE DES ACTIONS MODIFIÉES AVEC LES ROUTES D'API (FRONTEND)
+  // ============================================================
+
+  approveVisit: async (id: string) => {
+    try {
+      set({ error: null });
+      // Appeler le backend d'API officiel
+      await api.post(`/visits/${id}/approve`);
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      toast.success('✅ Mission approuvée avec succès !');
+    } catch (error: any) {
+      console.error('❌ Approve visit error:', error);
+      toast.error(error.message || "Erreur lors de l'approbation");
+    }
+  },
+
+  refuseVisit: async (id: string, reason: string) => {
+    try {
+      set({ error: null });
+      // Appeler le backend d'API officiel
+      await api.post(`/visits/${id}/refuse`, { reason });
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      toast.error('❌ Mission refusée');
+    } catch (error: any) {
+      console.error('❌ Refuse visit error:', error);
+      toast.error(error.message || 'Erreur lors du refus');
+    }
+  },
+
+  reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
+    try {
+      set({ error: null });
+      // Appeler le backend d'API officiel
+      await api.post(`/visits/${id}/reassign`, { 
+        aidant_id: newAidantId, 
+        assignment_type: assignmentType 
+      });
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      toast.success('✅ Visite réassignée avec succès !');
+    } catch (error: any) {
+      console.error('❌ Reassign visit error:', error);
+      toast.error(error.message || 'Erreur lors de la réassignation');
+    }
+  },
+
+  startVisit: async (id: string) => {
+    try {
+      set({ error: null });
+      // Appeler le backend d'API officiel
+      await api.post(`/visits/${id}/start`);
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      toast.success('🚀 Visite démarrée avec succès !');
+    } catch (error: any) {
+      console.error('❌ Start visit error:', error);
+      toast.error(error.message || 'Erreur lors du démarrage');
+    }
+  },
+
+  completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
+    try {
+      set({ error: null });
+      // Appeler le backend d'API officiel
+      await api.post(`/visits/${id}/complete`, data);
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      toast.success('✅ Visite complétée. Rapport envoyé pour validation.');
+    } catch (error: any) {
+      console.error('❌ Complete visit error:', error);
+      toast.error(error.message || 'Erreur lors de la soumission du rapport');
+    }
+  },
+
+  validateVisit: async (id: string) => {
+    try {
+      set({ error: null });
+      // Appeler le backend d'API officiel
+      await api.post(`/visits/${id}/validate`);
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      toast.success('✅ Visite validée avec succès !');
+    } catch (error: any) {
+      console.error('❌ Validate visit error:', error);
+      toast.error(error.message || 'Erreur lors de la validation');
+    }
+  },
+
+  cancelVisit: async (id: string) => {
+    try {
+      set({ error: null });
+      // Appeler le backend d'API officiel
+      await api.post(`/visits/${id}/cancel`);
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      toast.success('✅ Visite annulée avec succès !');
+    } catch (error: any) {
+      console.error('❌ Cancel visit error:', error);
+      toast.error(error.message || "Erreur lors de l'annulation");
+    }
+  },
+
+  // ============================================================
+  // AUTRES SERVICES ET REQUÊTES
+  // ============================================================
 
   assignAidantToVisit: async (visitId: string, aidantId: string, assignmentType: string = 'permanente', force: boolean = false) => {
     try {
@@ -779,241 +893,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Erreur confirmation paiement:', error);
       throw error;
-    }
-  },
-
-  approveVisit: async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('visites')
-        .update({ status: 'acceptee' })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      toast.success('Visite acceptée');
-    } catch (error: any) {
-      console.error('❌ Approve visit error:', error);
-      toast.error(error.message);
-    }
-  },
-
-  refuseVisit: async (id: string, reason: string) => {
-    try {
-      const { error } = await supabase
-        .from('visites')
-        .update({ status: 'refusee', notes: reason })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      toast.success('Visite refusée');
-    } catch (error: any) {
-      console.error('❌ Refuse visit error:', error);
-      toast.error(error.message);
-    }
-  },
-
-  reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
-    try {
-      const { error } = await supabase
-        .from('visites')
-        .update({ aidant_id: newAidantId, assignment_type: assignmentType, status: 'planifiee' })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      toast.success('Aidant réassigné');
-    } catch (error: any) {
-      console.error('❌ Reassign visit error:', error);
-      toast.error(error.message);
-    }
-  },
-
-  startVisit: async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('visites')
-        .update({ status: 'en_cours' })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      toast.success('Visite démarrée');
-    } catch (error: any) {
-      console.error('❌ Start visit error:', error);
-      toast.error(error.message);
-    }
-  },
-
-  completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
-    try {
-      const { error } = await supabase
-        .from('visites')
-        .update({ status: 'terminee', actions: data.actions, notes: data.notes })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      toast.success('✅ Visite complétée');
-    } catch (error: any) {
-      console.error('❌ Complete visit error:', error);
-      toast.error(error.message);
-    }
-  },
-
-  validateVisit: async (id: string) => {
-    try {
-      const { profile } = useAuthStore.getState();
-      if (profile?.role !== 'admin' && profile?.role !== 'coordinator') {
-        throw new Error('Non autorisé');
-      }
-
-      const { data: visit, error: fetchError } = await supabase
-        .from('visites')
-        .select('status, user_id, metadata')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      if (visit.status !== 'terminee') {
-        throw new Error('Seules les visites terminées peuvent être validées');
-      }
-
-      const { data, error } = await supabase
-        .from('visites')
-        .update({
-          status: 'validee',
-          metadata: {
-            ...(visit.metadata || {}),
-            validated_by: profile.id,
-            validated_at: new Date().toISOString(),
-          }
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const isPonctual = visit.metadata?.is_ponctual === true || visit.metadata?.is_draft === true;
-      const wasPaid = visit.metadata?.payment_completed === true;
-
-      if (!isPonctual || !wasPaid) {
-        const { data: subscription, error: subError } = await supabase
-          .from('abonnements')
-          .select('id, remaining_visits, used_visits, total_visits, user_id')
-          .eq('user_id', visit.user_id)
-          .eq('status', 'actif')
-          .maybeSingle();
-
-        if (subscription && !subError && subscription.remaining_visits > 0) {
-          await supabase
-            .from('abonnements')
-            .update({
-              used_visits: subscription.used_visits + 1,
-              remaining_visits: subscription.remaining_visits - 1,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', subscription.id);
-        }
-      }
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      toast.success('✅ Visite validée');
-    } catch (error: any) {
-      console.error('❌ Validate visit error:', error);
-      toast.error(error.message);
-    }
-  },
-
-  cancelVisit: async (id: string) => {
-    try {
-      const { user, profile } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: visit, error: fetchError } = await supabase
-        .from('visites')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      let canCancel = false;
-      if (profile?.role === 'admin' || profile?.role === 'coordinator') {
-        canCancel = true;
-      } else if (profile?.role === 'family') {
-        if (visit.user_id === user.id) {
-          canCancel = true;
-        } else if (visit.patient_id) {
-          const { data: assignment } = await supabase
-            .from('aidant_assignments')
-            .select('id')
-            .eq('target_type', 'patient')
-            .eq('target_id', visit.patient_id)
-            .eq('status', 'active')
-            .maybeSingle();
-
-          if (assignment) {
-            canCancel = true;
-          } else {
-            const { data: link } = await supabase
-              .from('patient_family_links')
-              .select('id')
-              .eq('family_id', user.id)
-              .eq('patient_id', visit.patient_id)
-              .maybeSingle();
-            canCancel = !!link;
-          }
-        }
-      }
-
-      if (!canCancel) {
-        throw new Error('Non autorisé à annuler cette visite');
-      }
-
-      const { data, error } = await supabase
-        .from('visites')
-        .update({
-          status: 'annulee',
-          metadata: {
-            ...(visit.metadata || {}),
-            cancelled_by: user.id,
-            cancelled_at: new Date().toISOString(),
-          }
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      toast.success('Visite annulée');
-    } catch (error: any) {
-      console.error('❌ Cancel visit error:', error);
-      toast.error(error.message);
     }
   },
 
