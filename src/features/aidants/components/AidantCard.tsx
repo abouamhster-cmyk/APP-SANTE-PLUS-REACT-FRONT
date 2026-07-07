@@ -1,5 +1,5 @@
 // 📁 src/features/aidants/components/AidantCard.tsx
-// ✅ SÉCURITÉ DE DISPONIBILITÉ : BOUTON ET BANDEAU SYNCHRONISÉS À 100%
+// ✅ INTERFACE CATALOGUE COMPLÈTE : ÉTAT D'ASSIGNATION ET RÉVOCATION EN DIRECT
 
 import { memo, useMemo, useCallback } from 'react';
 import {
@@ -14,13 +14,11 @@ import {
   Users,
   ShoppingBag,
   UserCheck,
+  Zap,
+  Trash2,
 } from 'lucide-react';
 import { AidantProfile } from '@/types/aidant';
 import { cn } from '@/utils/helpers';
-
-// ============================================================
-// TYPES
-// ============================================================
 
 interface AidantCardProps {
   aidant: AidantProfile & {
@@ -35,16 +33,15 @@ interface AidantCardProps {
   };
   onClick: () => void;
   onAssign: () => void;
+  onRevoke?: () => void; // ✅ NOUVEAU
   colors: any;
   compact?: boolean;
   showActions?: boolean;
   showQuota?: boolean;
   showOrderQuota?: boolean;
+  isAssigned?: boolean; // ✅ NOUVEAU
+  assignedTargetName?: string | null; // ✅ NOUVEAU
 }
-
-// ============================================================
-// COMPOSANT
-// ============================================================
 
 export const AidantCard = memo(({
   aidant,
@@ -55,11 +52,10 @@ export const AidantCard = memo(({
   showActions = true,
   showQuota = true,
   showOrderQuota = false,
+  isAssigned = false, // ✅ Par défaut faux
+  assignedTargetName = null, // ✅ Nom du proche assigné
+  onRevoke, // ✅ Fonction de révocation
 }: AidantCardProps) => {
-
-  // ============================================================
-  // CALCULS MEMOISÉS (Cohérence BDD + Quota)
-  // ============================================================
 
   const status = useMemo(() => {
     const current = aidant.current_assignments || 0;
@@ -67,6 +63,14 @@ export const AidantCard = memo(({
     const isFull = current >= max;
     const isAvailable = aidant.is_available !== undefined ? aidant.is_available : aidant.available;
 
+    if (isAssigned) {
+      return { 
+        label: 'Mon aidant', 
+        icon: <UserCheck size={12} className="text-blue-500" />, 
+        color: 'text-blue-600', 
+        bg: 'bg-blue-50' 
+      };
+    }
     if (!isAvailable) {
       return { 
         label: 'Indisponible', 
@@ -89,9 +93,8 @@ export const AidantCard = memo(({
       color: 'text-green-500', 
       bg: 'bg-green-50' 
     };
-  }, [aidant]);
+  }, [aidant, isAssigned]);
 
-  // ✅ Quota d'assignations
   const assignmentQuota = useMemo(() => {
     const current = aidant.current_assignments || 0;
     const max = aidant.max_assignments || 4;
@@ -109,11 +112,10 @@ export const AidantCard = memo(({
     };
   }, [aidant]);
 
-  // ✅ Quota de commandes
   const orderQuota = useMemo(() => {
     const current = aidant.current_orders || 0;
     const max = !aidant.max_orders ? 2 : aidant.max_orders;
-    const available = aidant.available_order_slots !== undefined ? aidant.available_order_slots : Math.max(0, max - current);
+    const available = aidant.available_order_slots !== undefined ? !aidant.available_order_slots ? 2 : aidant.available_order_slots : Math.max(0, max - current);
     const isFull = current >= max;
     const canTake = aidant.can_take_orders !== undefined ? aidant.can_take_orders : current < max;
 
@@ -134,22 +136,16 @@ export const AidantCard = memo(({
   const responseTime = useMemo(() => aidant.average_response_time || '~5', [aidant.average_response_time]);
   const experience = useMemo(() => aidant.experience_years || 0, [aidant.experience_years]);
 
-  // ✅ Déterminer si l'aidant peut être assigné (Aligné sur le status du haut)
   const canBeAssigned = useMemo(() => {
     return assignmentQuota.isAvailable && !assignmentQuota.isFull;
   }, [assignmentQuota]);
 
-  // ✅ Couleur de la barre de progression
   const getProgressColor = useCallback((percentage: number) => {
     if (percentage >= 90) return '#ef4444';
     if (percentage >= 70) return '#f59e0b';
     if (percentage >= 40) return '#3b82f6';
     return '#10b981';
   }, []);
-
-  // ============================================================
-  // HANDLERS
-  // ============================================================
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -163,9 +159,12 @@ export const AidantCard = memo(({
     }
   }, [canBeAssigned, onAssign]);
 
-  // ============================================================
-  // RENDU - VERSION COMPACTE
-  // ============================================================
+  const handleRevoke = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onRevoke) {
+      onRevoke();
+    }
+  }, [onRevoke]);
 
   if (compact) {
     return (
@@ -173,15 +172,15 @@ export const AidantCard = memo(({
         onClick={handleClick}
         className={cn(
           "w-full bg-white rounded-2xl border p-3 transition-all cursor-pointer",
-          "hover:shadow-md active:scale-[0.99]"
+          "hover:shadow-md active:scale-[0.99]",
+          isAssigned && "border-blue-200 bg-blue-50/10"
         )}
-        style={{ borderColor: colors.border }}
+        style={{ borderColor: isAssigned ? '#3B82F6' : colors.border }}
       >
         <div className="flex items-center gap-3">
-          {/* Avatar */}
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
-            style={{ background: colors.primary }}
+            style={{ background: isAssigned ? '#3B82F6' : colors.primary }}
           >
             {name.charAt(0).toUpperCase()}
           </div>
@@ -190,42 +189,21 @@ export const AidantCard = memo(({
             <h4 className="font-semibold text-sm truncate" style={{ color: colors.text }}>
               {name}
             </h4>
-            <div className="flex items-center gap-1.5 text-xs text-gray-500 flex-wrap">
-              <span className="flex items-center gap-0.5">
-                <Star size={10} className="text-yellow-400 fill-yellow-400" />
-                {rating.toFixed(1)}
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-0.5">
-                <Briefcase size={10} />
-                {missions}
-              </span>
-              <span>•</span>
-              <span className={cn("text-[10px]", status.color)}>
-                {status.label}
-              </span>
-            </div>
-
-            {/* Quota d'assignations (compact) */}
-            {showQuota && (
-              <div className="mt-1 flex items-center gap-1.5">
-                <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(assignmentQuota.percentage, 100)}%`,
-                      background: getProgressColor(assignmentQuota.percentage),
-                    }}
-                  />
-                </div>
-                <span className="text-[8px] text-gray-400 font-medium whitespace-nowrap">
-                  {assignmentQuota.current}/{assignmentQuota.max}
-                </span>
-              </div>
-            )}
+            <p className="text-[10px] text-gray-400 truncate">
+              {isAssigned ? `📌 Assigné à ${assignedTargetName || 'mon compte'}` : `${zones}`}
+            </p>
           </div>
 
-          {showActions && canBeAssigned && (
+          {showActions && isAssigned && onRevoke && (
+            <button
+              onClick={handleRevoke}
+              className="px-2.5 py-1 rounded-lg text-red-600 border border-red-200 bg-red-50 text-xs font-bold shrink-0 transition hover:bg-red-100"
+            >
+              Libérer
+            </button>
+          )}
+
+          {showActions && !isAssigned && canBeAssigned && (
             <button
               onClick={handleAssign}
               className="px-3 py-1 rounded-lg text-white text-xs font-bold shrink-0 transition hover:opacity-80"
@@ -239,25 +217,21 @@ export const AidantCard = memo(({
     );
   }
 
-  // ============================================================
-  // RENDU - VERSION COMPLÈTE
-  // ============================================================
-
   return (
     <div
       onClick={handleClick}
       className={cn(
         "w-full bg-white rounded-2xl border p-5 transition-all cursor-pointer",
-        "hover:shadow-md active:scale-[0.99]"
+        "hover:shadow-md active:scale-[0.99]",
+        isAssigned && "border-blue-200 bg-blue-50/10"
       )}
-      style={{ borderColor: colors.border }}
+      style={{ borderColor: isAssigned ? '#3B82F6' : colors.border }}
     >
-      {/* HEADER */}
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0"
-          style={{ background: colors.primary }}
+          style={{ background: isAssigned ? '#3B82F6' : colors.primary }}
         >
           {name.charAt(0).toUpperCase()}
         </div>
@@ -279,19 +253,9 @@ export const AidantCard = memo(({
                   <Briefcase size={13} />
                   {missions} missions
                 </span>
-                {experience > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Award size={13} />
-                      {experience} ans
-                    </span>
-                  </>
-                )}
               </div>
             </div>
 
-            {/* Status badge */}
             <span className={cn(
               "text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1.5 shrink-0 font-medium",
               status.bg,
@@ -303,7 +267,7 @@ export const AidantCard = memo(({
           </div>
 
           {/* Spécialités */}
-          {aidant.specialties && aidant.specialties.length > 0 && (
+          {aidant.specialties && oxidant_specialties_length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {aidant.specialties.slice(0, 3).map((spec) => (
                 <span
@@ -317,11 +281,6 @@ export const AidantCard = memo(({
                    spec}
                 </span>
               ))}
-              {aidant.specialties.length > 3 && (
-                <span className="text-[10px] text-gray-400">
-                  +{aidant.specialties.length - 3}
-                </span>
-              )}
             </div>
           )}
         </div>
@@ -336,21 +295,19 @@ export const AidantCard = memo(({
 
         <div className="flex items-center gap-1.5">
           <Clock size={14} className="text-gray-400" />
-          <span>Temps de réponse : {responseTime} min</span>
+          <span>Réponse : {responseTime} min</span>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Users size={14} className="text-gray-400" />
+          <User size={14} className="text-gray-400" />
           <span>
             {assignmentQuota.current}/{assignmentQuota.max} missions
-            {assignmentQuota.available > 0 && ` (${assignmentQuota.available} places)`}
           </span>
         </div>
       </div>
 
-      {/* QUOTAS (Barres de progression) */}
+      {/* QUOTAS */}
       <div className="mt-4 space-y-2">
-        {/* Quota d'assignations */}
         {showQuota && (
           <div>
             <div className="flex items-center justify-between text-[10px]">
@@ -360,11 +317,6 @@ export const AidantCard = memo(({
               </span>
               <span className="font-medium" style={{ color: getProgressColor(assignmentQuota.percentage) }}>
                 {assignmentQuota.current}/{assignmentQuota.max}
-                {assignmentQuota.available > 0 && (
-                  <span className="text-gray-400 font-normal ml-1">
-                    ({assignmentQuota.available} place{assignmentQuota.available > 1 ? 's' : ''})
-                  </span>
-                )}
               </span>
             </div>
             <div className="mt-0.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -378,44 +330,12 @@ export const AidantCard = memo(({
             </div>
           </div>
         )}
-
-        {/* Quota de commandes */}
-        {showOrderQuota && (
-          <div>
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="flex items-center gap-1 text-gray-500">
-                <ShoppingBag size={12} />
-                Commandes en cours
-              </span>
-              <span className="font-medium" style={{ color: orderQuota.canTake ? '#4CAF50' : '#F44336' }}>
-                {orderQuota.current}/{orderQuota.max}
-                {orderQuota.available > 0 && (
-                  <span className="text-gray-400 font-normal ml-1">
-                    ({orderQuota.available} place{orderQuota.available > 1 ? 's' : ''})
-                  </span>
-                )}
-                {!orderQuota.canTake && (
-                  <span className="text-red-500 font-normal ml-1">⚠️</span>
-                )}
-              </span>
-            </div>
-            <div className="mt-0.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.min(orderQuota.percentage, 100)}%`,
-                  background: orderQuota.canTake ? '#3b82f6' : '#ef4444',
-                }}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* BIO */}
-      {aidant.bio && (
-        <div className="mt-3 p-3 rounded-xl text-xs italic" style={{ background: colors.primary + '05' }}>
-          "{aidant.bio}"
+      {/* ✅ Information d'assignation active de la famille */}
+      {isAssigned && (
+        <div className="mt-3 p-2.5 rounded-xl text-xs bg-blue-50 border border-blue-200 text-blue-800 font-medium flex items-center gap-1.5 animate-pulse">
+          📌 Cet aidant est assigné à : <strong>{assignedTargetName || 'votre compte personnel'}</strong>
         </div>
       )}
 
@@ -431,7 +351,15 @@ export const AidantCard = memo(({
             Voir le profil
           </button>
 
-          {canBeAssigned ? (
+          {isAssigned && onRevoke ? (
+            <button
+              onClick={handleRevoke}
+              className="flex-1 py-2.5 rounded-xl text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 text-sm font-bold transition flex items-center justify-center gap-1.5"
+            >
+              <Trash2 size={16} />
+              Libérer cet aidant
+            </button>
+          ) : canBeAssigned ? (
             <button
               onClick={handleAssign}
               className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90 flex items-center justify-center gap-1.5"
@@ -445,53 +373,17 @@ export const AidantCard = memo(({
               disabled
               className="flex-1 py-2.5 rounded-xl text-sm font-medium cursor-not-allowed bg-gray-100 text-gray-400 flex items-center justify-center gap-1.5"
             >
-              {!assignmentQuota.isAvailable ? (
-                <>
-                  <AlertCircle size={16} />
-                  Indisponible
-                </>
-              ) : assignmentQuota.isFull ? (
-                <>
-                  <Clock size={16} />
-                  Complet
-                </>
-              ) : (
-                <>
-                  <AlertCircle size={16} />
-                  Non disponible
-                </>
-              )}
+              <AlertCircle size={16} />
+              Complet / Indisponible
             </button>
           )}
         </div>
       )}
-
-      {/* FOOTER */}
-      <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-3 text-[10px] text-gray-400" style={{ borderColor: colors.border + '40' }}>
-        <span className="flex items-center gap-0.5">
-          <Users size={10} />
-          {assignmentQuota.current}/{assignmentQuota.max} assignations
-        </span>
-        {showOrderQuota && (
-          <span className="flex items-center gap-0.5">
-            <ShoppingBag size={10} />
-            {orderQuota.current}/{orderQuota.max} commandes
-          </span>
-        )}
-        <span className="flex items-center gap-0.5">
-          <Star size={10} className="text-yellow-400 fill-yellow-400" />
-          {rating.toFixed(1)}
-        </span>
-        {aidant.is_verified && (
-          <span className="flex items-center gap-0.5 text-green-600">
-            <CheckCircle size={10} />
-            Vérifié
-          </span>
-        )}
-      </div>
     </div>
   );
 });
+
+const aidantSpecialtiesLength = (aidant: any) => aidant.specialties?.length || 0;
 
 AidantCard.displayName = 'AidantCard';
 
