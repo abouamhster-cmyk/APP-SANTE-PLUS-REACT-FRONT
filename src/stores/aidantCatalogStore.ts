@@ -1,22 +1,16 @@
 // 📁 frontend/src/stores/aidantCatalogStore.ts
-
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { 
   AidantProfile, 
-  AidantAssignment, 
   AidantFilters, 
   DEFAULT_FILTERS,
   AidantCatalogState
 } from '@/types';
-import { assignmentAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
-
-// ============================================================
-// TYPES
-// ============================================================
 
 interface AidantWithQuota extends AidantProfile {
   current_assignments: number;
@@ -30,7 +24,6 @@ interface AidantWithQuota extends AidantProfile {
 }
 
 interface AidantCatalogStore extends AidantCatalogState {
-  // 🆕 Nouveaux états
   aidantsWithQuota: AidantWithQuota[];
   isLoadingQuota: boolean;
   quotaFilters: {
@@ -40,7 +33,6 @@ interface AidantCatalogStore extends AidantCatalogState {
     onlyCanTakeOrders?: boolean;
   };
   
-  // 🆕 Nouvelles actions
   getAvailableForFamily: (familyId: string, filters?: any) => Promise<AidantWithQuota[]>;
   getAidantsWithQuota: (filters?: any) => Promise<AidantWithQuota[]>;
   getAidantsByAvailability: (available: boolean) => Promise<AidantWithQuota[]>;
@@ -53,7 +45,6 @@ interface AidantCatalogStore extends AidantCatalogState {
   } | null>;
   refreshQuota: () => Promise<void>;
   
-  // Actions existantes (conservées)
   fetchAidants: (filters?: Partial<AidantFilters>) => Promise<void>;
   fetchAidantById: (id: string) => Promise<void>;
   fetchMyAssignments: () => Promise<void>;
@@ -64,14 +55,7 @@ interface AidantCatalogStore extends AidantCatalogState {
   reset: () => void;
 }
 
-// ============================================================
-// STORE
-// ============================================================
-
 export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
-  // ============================================================
-  // ÉTAT INITIAL
-  // ============================================================
   aidants: [],
   selectedAidant: null,
   assignments: [],
@@ -80,7 +64,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
   filters: { ...DEFAULT_FILTERS },
   totalCount: 0,
 
-  // 🆕 Nouveaux états
   aidantsWithQuota: [],
   isLoadingQuota: false,
   quotaFilters: {
@@ -88,9 +71,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     onlyCanTakeOrders: false,
   },
 
-  // ============================================================
-  // 🆕 GET AVAILABLE AIDANTS FOR FAMILY
-  // ============================================================
   getAvailableForFamily: async (familyId: string, filters = {}) => {
     try {
       set({ isLoadingQuota: true, error: null });
@@ -98,9 +78,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
+      if (!token) throw new Error('Token manquant');
 
       const params = new URLSearchParams({
         familyId,
@@ -108,9 +86,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       });
 
       const response = await fetch(`${API_BASE_URL}/visits/available-aidants?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -121,7 +97,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const result = await response.json();
       const aidants = result.data || [];
 
-      // ✅ Enrichir avec les informations de quota
       const enrichedAidants = await Promise.all(
         aidants.map(async (aidant: any) => {
           const quota = await get().getAidantQuotaById(aidant.id);
@@ -130,7 +105,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
             current_assignments: quota?.currentAssignments || 0,
             max_assignments: quota?.maxAssignments || 4,
             available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-            is_available: (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
+            // ✅ CORRECTION : Un aidant est disponible s'il est actif en BDD ET sous son quota
+            is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
             current_orders: quota?.currentOrders || 0,
             max_orders: quota?.maxOrders || 2,
             available_order_slots: Math.max(0, (quota?.maxOrders || 2) - (quota?.currentOrders || 0)),
@@ -148,19 +124,14 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ getAvailableForFamily error:', error);
       set({ error: error.message, isLoadingQuota: false });
-      toast.error(error.message || 'Erreur lors du chargement des aidants');
       return [];
     }
   },
 
-  // ============================================================
-  // 🆕 GET AIDANTS WITH QUOTA
-  // ============================================================
   getAidantsWithQuota: async (filters = {}) => {
     try {
       set({ isLoadingQuota: true, error: null });
 
-      // Récupérer tous les aidants
       const { data: aidants, error: aidantsError } = await supabase
         .from('aidants')
         .select(`
@@ -178,7 +149,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       if (aidantsError) throw aidantsError;
 
-      // ✅ Enrichir avec les informations de quota
       const enrichedAidants = await Promise.all(
         (aidants || []).map(async (aidant: any) => {
           const quota = await get().getAidantQuotaById(aidant.id);
@@ -187,7 +157,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
             current_assignments: quota?.currentAssignments || 0,
             max_assignments: quota?.maxAssignments || 4,
             available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-            is_available: (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
+             is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
             current_orders: quota?.currentOrders || 0,
             max_orders: quota?.maxOrders || 2,
             available_order_slots: Math.max(0, (quota?.maxOrders || 2) - (quota?.currentOrders || 0)),
@@ -196,29 +166,13 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
         })
       );
 
-      // ✅ Appliquer les filtres
       let filtered = enrichedAidants;
-
       if (filters.onlyAvailable !== false) {
         filtered = filtered.filter(a => a.is_available);
       }
-
       if (filters.onlyCanTakeOrders) {
         filtered = filtered.filter(a => a.can_take_orders);
       }
-
-      if (filters.minSlots) {
-        filtered = filtered.filter(a => a.available_slots >= filters.minSlots);
-      }
-
-      if (filters.maxSlots) {
-        filtered = filtered.filter(a => a.available_slots <= filters.maxSlots);
-      }
-
-      if (filters.minOrderSlots) {
-        filtered = filtered.filter(a => a.available_order_slots >= filters.minOrderSlots);
-      }
-
       set({
         aidantsWithQuota: filtered,
         isLoadingQuota: false,
@@ -232,74 +186,35 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // 🆕 GET AIDANTS BY AVAILABILITY
-  // ============================================================
   getAidantsByAvailability: async (available: boolean) => {
-    try {
-      const aidants = await get().getAidantsWithQuota({
-        onlyAvailable: available,
-      });
-      return aidants;
-    } catch (error: any) {
-      console.error('❌ getAidantsByAvailability error:', error);
-      return [];
-    }
+    return await get().getAidantsWithQuota({ onlyAvailable: available });
   },
 
-  // ============================================================
-  // 🆕 GET AIDANTS WITH ORDER CAPACITY
-  // ============================================================
   getAidantsWithOrderCapacity: async () => {
-    try {
-      const aidants = await get().getAidantsWithQuota({
-        onlyCanTakeOrders: true,
-      });
-      return aidants;
-    } catch (error: any) {
-      console.error('❌ getAidantsWithOrderCapacity error:', error);
-      return [];
-    }
+    return await get().getAidantsWithQuota({ onlyCanTakeOrders: true });
   },
 
-  // ============================================================
-  // 🆕 GET AIDANT QUOTA BY ID
-  // ============================================================
   getAidantQuotaById: async (aidantId: string) => {
     try {
-      // 1. Récupérer l'aidant
       const { data: aidant, error: aidantError } = await supabase
         .from('aidants')
         .select('id, user_id, current_assignments, max_assignments, current_orders, max_orders')
         .eq('id', aidantId)
         .single();
 
-      if (aidantError) {
-        console.error('❌ getAidantQuotaById error:', aidantError);
-        return null;
-      }
+      if (aidantError) return null;
 
-      // 2. Compter les assignations actives (vérification supplémentaire)
-      const { count: activeAssignments, error: countError } = await supabase
+      const { count: activeAssignments } = await supabase
         .from('aidant_assignments')
         .select('id', { count: 'exact', head: true })
         .eq('aidant_user_id', aidant.user_id)
         .eq('status', 'active');
 
-      if (countError) {
-        console.error('❌ Erreur comptage assignations:', countError);
-      }
-
-      // 3. Compter les commandes en cours
-      const { count: activeOrders, error: ordersError } = await supabase
+      const { count: activeOrders } = await supabase
         .from('commandes')
         .select('id', { count: 'exact', head: true })
         .eq('aidant_id', aidantId)
         .in('status', ['en_cours', 'livree']);
-
-      if (ordersError) {
-        console.error('❌ Erreur comptage commandes:', ordersError);
-      }
 
       return {
         currentAssignments: activeAssignments || aidant.current_assignments || 0,
@@ -307,43 +222,28 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
         currentOrders: activeOrders || aidant.current_orders || 0,
         maxOrders: aidant.max_orders || 2,
       };
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ getAidantQuotaById error:', error);
       return null;
     }
   },
 
-  // ============================================================
-  // 🆕 REFRESH QUOTA
-  // ============================================================
   refreshQuota: async () => {
-    try {
-      const state = get();
-      if (state.aidantsWithQuota.length > 0) {
-        await state.getAidantsWithQuota(state.quotaFilters);
-      }
-      // Rafraîchir les aidants du catalogue aussi
-      await state.fetchAidants();
-    } catch (error: any) {
-      console.error('❌ refreshQuota error:', error);
+    const state = get();
+    if (state.aidantsWithQuota.length > 0) {
+      await state.getAidantsWithQuota(state.quotaFilters);
     }
+    await state.fetchAidants();
   },
 
-  // ============================================================
-  // FETCH AIDANTS AVEC FILTRES (EXISTANT - MODIFIÉ)
-  // ============================================================
   fetchAidants: async (filters = {}) => {
     try {
       set({ isLoading: true, error: null });
-
       const currentFilters = { ...get().filters, ...filters };
-      
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
+      if (!token) throw new Error('Token manquant');
 
       const params = new URLSearchParams();
       Object.entries(currentFilters).forEach(([key, value]) => {
@@ -353,9 +253,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       });
 
       const response = await fetch(`${API_BASE_URL}/aidants/catalog?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -365,7 +263,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       const result = await response.json();
 
-      // ✅ Enrichir avec les informations de quota
       const enrichedAidants = await Promise.all(
         (result.data || []).map(async (aidant: any) => {
           const quota = await get().getAidantQuotaById(aidant.id);
@@ -374,7 +271,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
             current_assignments: quota?.currentAssignments || 0,
             max_assignments: quota?.maxAssignments || 4,
             available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-            is_available: (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
+            // ✅ CORRECTION : Cohérence complète disponible BDD + quota
+            is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
             current_orders: quota?.currentOrders || 0,
             max_orders: quota?.maxOrders || 2,
             available_order_slots: Math.max(0, (quota?.maxOrders || 2) - (quota?.currentOrders || 0)),
@@ -392,28 +290,19 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Fetch aidants error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message || 'Erreur lors du chargement des aidants');
     }
   },
 
-  // ============================================================
-  // FETCH AIDANT BY ID (EXISTANT - MODIFIÉ)
-  // ============================================================
   fetchAidantById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
-
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
+      if (!token) throw new Error('Token manquant');
 
       const response = await fetch(`${API_BASE_URL}/aidants/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -424,14 +313,14 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const result = await response.json();
       const aidant = result.data;
 
-      // ✅ Enrichir avec les informations de quota
       const quota = await get().getAidantQuotaById(aidant.id);
       const enrichedAidant = {
         ...aidant,
         current_assignments: quota?.currentAssignments || 0,
         max_assignments: quota?.maxAssignments || 4,
         available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-        is_available: (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
+        // ✅ CORRECTION : Cohérence complète disponible BDD + quota
+        is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
         current_orders: quota?.currentOrders || 0,
         max_orders: quota?.maxOrders || 2,
         available_order_slots: Math.max(0, (quota?.maxOrders || 2) - (quota?.currentOrders || 0)),
@@ -447,13 +336,12 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Fetch aidant by ID error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message || 'Erreur lors du chargement de l\'aidant');
       return null;
     }
   },
 
   // ============================================================
-  // FETCH MY ASSIGNMENTS (EXISTANT - MODIFIÉ)
+  // ✅ UTILISER '/my' POUR LES FAMILLES
   // ============================================================
   fetchMyAssignments: async () => {
     try {
@@ -462,14 +350,17 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
+      if (!token) throw new Error('Token manquant');
+
+      // ✅ DETERMINER LE BON ENDPOINT POUR LES FAMILLES (Évite la 403)
+      const { profile } = useAuthStore.getState();
+      let endpoint = '/assignments';
+      if (profile?.role === 'family') {
+        endpoint = '/assignments/my'; // ✅ Cible la route des familles
       }
 
-      const response = await fetch(`${API_BASE_URL}/assignments`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -503,13 +394,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Fetch assignments error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message || 'Erreur lors du chargement des assignations');
     }
   },
 
-  // ============================================================
-  // ASSIGN AIDANT (EXISTANT - MODIFIÉ AVEC QUOTA)
-  // ============================================================
   assignAidant: async (aidantId: string, patientId: string | null = null, assignmentType = 'permanente') => {
     try {
       set({ isLoading: true, error: null });
@@ -517,11 +404,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
+      if (!token) throw new Error('Token manquant');
 
-      // ✅ Vérifier le quota avant d'assigner
       const quota = await get().getAidantQuotaById(aidantId);
       if (quota && assignmentType === 'permanente' && quota.currentAssignments >= quota.maxAssignments) {
         throw new Error(`Cet aidant a déjà ${quota.currentAssignments}/${quota.maxAssignments} assignations`);
@@ -545,9 +429,13 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
         reason: patientId ? `Assignation au patient ${patientId}` : 'Assignation personnelle',
       };
 
-      console.log('📤 Assignation aidant avec payload:', payload);
+      const { profile } = useAuthStore.getState();
+      let endpoint = '/assignments';
+      if (profile?.role === 'family') {
+        endpoint = '/assignments/family/assign';
+      }
 
-      const response = await fetch(`${API_BASE_URL}/assignments`, {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -562,10 +450,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       }
 
       const result = await response.json();
-
       toast.success('✅ Aidant assigné avec succès !');
 
-      // Rafraîchir les données
       await get().fetchMyAssignments();
       await get().fetchAidants();
       await get().refreshQuota();
@@ -575,14 +461,10 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Assign aidant error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message || 'Erreur lors de l\'assignation');
       throw error;
     }
   },
 
-  // ============================================================
-  // REVOKE ASSIGNMENT (EXISTANT - MODIFIÉ)
-  // ============================================================
   revokeAssignment: async (assignmentId: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -590,15 +472,11 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Token manquant');
-      }
+      if (!token) throw new Error('Token manquant');
 
       const response = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -607,10 +485,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       }
 
       const result = await response.json();
-
       toast.success('✅ Assignation révoquée');
 
-      // Rafraîchir les données
       await get().fetchMyAssignments();
       await get().fetchAidants();
       await get().refreshQuota();
@@ -620,24 +496,15 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Revoke assignment error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message || 'Erreur lors de la révocation');
       throw error;
     }
   },
 
-  // ============================================================
-  // SET FILTERS (EXISTANT)
-  // ============================================================
   setFilters: (filters: Partial<AidantFilters>) => {
-    set((state) => ({
-      filters: { ...state.filters, ...filters },
-    }));
+    set((state) => ({ filters: { ...state.filters, ...filters } }));
     get().fetchAidants();
   },
 
-  // ============================================================
-  // UTILITIES (EXISTANT)
-  // ============================================================
   clearError: () => set({ error: null }),
   
   reset: () => {
