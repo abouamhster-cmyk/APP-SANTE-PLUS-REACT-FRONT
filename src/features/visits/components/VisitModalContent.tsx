@@ -248,18 +248,15 @@ export const VisitModalContent = ({
         wizard_choice: wizardResult.wizardChoice,
         selected_aidant_id: wizardResult.aidantId,
         assignment_type: wizardResult.assignmentType || 'ponctuelle',
-        // ✅ S'assurer que l'aidant est bien passé
         aidant_id: wizardResult.aidantId,
       };
 
       console.log('📤 Wizard - Création visite avec aidant:', visitPayload);
 
-      // ✅ Créer la visite via le store
       const result = await createVisit(visitPayload);
 
       console.log('📤 Wizard - Résultat création:', result);
 
-      // ✅ Vérifier le résultat
       if (result?.status === 'en_attente_aidant') {
         toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
         onSuccess(result);
@@ -276,7 +273,6 @@ export const VisitModalContent = ({
     } catch (error: any) {
       console.error('❌ Erreur création visite avec wizard:', error);
       toast.error(error.message || 'Erreur lors de la création de la visite');
-      // ✅ Réouvrir le wizard en cas d'erreur
       setShowWizard(true);
     } finally {
       setIsWizardLoading(false);
@@ -287,10 +283,12 @@ export const VisitModalContent = ({
   const handleWizardClose = () => {
     setShowWizard(false);
     setPendingVisitData(null);
+    // ✅ Réouvrir le modal de planification si nécessaire
+    // onCancel(); // Ne pas fermer le modal parent
   };
 
   // ============================================================
-  // ✅ SOUMISSION DU FORMULAIRE - CORRIGÉE AVEC GESTION DU WIZARD
+  // ✅ SOUMISSION DU FORMULAIRE - CORRIGÉE
   // ============================================================
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -315,7 +313,7 @@ export const VisitModalContent = ({
         requested_by: profile?.id,
       };
 
-      // ✅ CAS 1: Visite pour un patient (si un patient est sélectionné ET targetType = patient)
+      // ✅ CAS 1: Visite pour un patient
       if (targetType === 'patient' && formData.patient_id) {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -338,7 +336,7 @@ export const VisitModalContent = ({
         data.target_type = 'patient';
         data.target_name = null;
       }
-      // ✅ CAS 2: Visite pour le compte lui-même (personnel) - TOUJOURS DISPONIBLE
+      // ✅ CAS 2: Visite pour le compte lui-même (personnel)
       else {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -354,7 +352,7 @@ export const VisitModalContent = ({
         data.patient_id = null;
       }
 
-      // ✅ DÉTERMINER SI PAIEMENT REQUIS (BACKEND LE FERA AUSSI)
+      // ✅ DÉTERMINER SI PAIEMENT REQUIS
       if (isFamilyUser && !can('visit')) {
         data.is_ponctual = true;
         data.requires_payment = true;
@@ -365,10 +363,8 @@ export const VisitModalContent = ({
 
       if (mode === 'create') {
         try {
-          // ✅ Tenter de créer la visite
           const result = await createVisit(data);
 
-          // ✅ Si la visite est en brouillon (paiement requis)
           if (result?.status === 'brouillon') {
             const price = getPonctualPrice(formData.duration_minutes || 60);
             toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
@@ -388,6 +384,9 @@ export const VisitModalContent = ({
             const wizardDataObj = error.response.data;
             console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
             
+            // ✅ FERMER LE MODAL DE PLANIFICATION avant d'ouvrir le wizard
+            onCancel();
+            
             setPendingVisitData(data);
             setWizardData({
               targetType: wizardDataObj.targetType || 'personal_account',
@@ -402,7 +401,6 @@ export const VisitModalContent = ({
             return;
           }
           
-          // ✅ Autres erreurs
           toast.error(error?.message || 'Erreur lors de la création');
           setIsLoading(false);
         }
@@ -909,7 +907,6 @@ export const VisitModalContent = ({
           <option value="90">1h30</option>
           <option value="120">2 heures</option>
         </select>
-        {/* ✅ AFFICHAGE DU PRIX PONCTUEL EN TEMPS RÉEL */}
         {isFamilyUser && !hasActiveSubscription && (
           <p className="text-[10px] text-gray-400 mt-1">
             💳 Prix ponctuel : {ponctualPrice.toLocaleString()} FCFA
