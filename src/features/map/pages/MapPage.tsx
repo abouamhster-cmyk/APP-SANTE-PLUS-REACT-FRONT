@@ -1,11 +1,11 @@
 // 📁 src/features/map/pages/MapPage.tsx
- 
+// 📌 Dashboard Cartographique Professionnel avec Suivi GPS de Trajectoire
+
 import { useEffect, useRef, useState } from 'react';
 import {
   MapPin,
   Navigation,
   Users,
-  Activity,
   RefreshCw,
   Compass,
   Route,
@@ -13,8 +13,6 @@ import {
   Eye,
   EyeOff,
   User,
-  Heart,
-  Baby,
   AlertCircle,
   Car,
   Footprints,
@@ -22,14 +20,14 @@ import {
   Circle,
   UserCircle,
   Dot,
+  Loader2,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useLocationStore } from '@/stores/locationStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { supabase } from '@/lib/supabase';
-import { Illustration } from '@/components/ui/Illustration';
+import { formatDate } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 type LatLngTuple = [number, number];
@@ -55,61 +53,60 @@ const calculateEstimatedTime = (distance: number): number => {
   return Math.max(Math.round((distance / avgSpeed) * 60), 1);
 };
 
-// ✅ Marqueur avec icônes
+// ✅ Dessin d'un véritable marqueur de carte moderne (Cercle + pointeur vers le bas)
 const makeMarkerIcon = (L: any, color: string, label: string, isPulsing = false, iconType: 'user' | 'patient' | 'aidant' | 'visit' = 'patient') => {
-  const getEmoji = () => {
-    switch (iconType) {
-      case 'user': return '👤';
-      case 'patient': return '👤';
-      case 'aidant': return '🦸';
-      case 'visit': return '📍';
-      default: return '📍';
-    }
-  };
-
   return L.divIcon({
-    className: 'custom-map-marker',
+    className: 'custom-map-marker-wrapper',
     html: `
-      <div style="
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: ${color};
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 12px;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.15);
-        border: 2.5px solid white;
-        ${isPulsing ? `animation: pulse-marker 1.5s ease-in-out infinite;` : ''}
-      ">
-        ${label}
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.18));">
+        <div style="
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: ${color};
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 11px;
+          border: 2.5px solid white;
+          ${isPulsing ? `animation: pulse-marker 1.6s ease-in-out infinite;` : ''}
+        ">
+          ${label}
+        </div>
+        <!-- Pointeur triangulaire vers les coordonnées -->
+        <div style="
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 7px solid ${color};
+          margin-top: -1.5px;
+        "></div>
       </div>
       ${isPulsing ? `
         <style>
           @keyframes pulse-marker {
-            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
-            70% { box-shadow: 0 0 0 16px rgba(220, 38, 38, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+            70% { box-shadow: 0 0 0 14px rgba(220, 38, 38, 0); }
             100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
           }
         </style>
       ` : ''}
     `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16],
+    iconSize: [34, 41],
+    iconAnchor: [17, 41],
+    popupAnchor: [0, -41],
   });
 };
 
-// ✅ Composant de légende
 const LegendItem = ({ color, label, icon }: { color: string; label: string; icon?: React.ReactNode }) => (
-  <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+  <span className="flex items-center gap-1.5 text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 shadow-sm shrink-0">
     {icon ? (
       <span style={{ color }}>{icon}</span>
     ) : (
-      <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
+      <span className="w-2 h-2 rounded-full" style={{ background: color }} />
     )}
     {label}
   </span>
@@ -120,7 +117,6 @@ const MapPage = () => {
 
   const {
     singular,
-    plural,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -262,7 +258,7 @@ const MapPage = () => {
     mapInstanceRef.current.setView(center, mapInstanceRef.current.getZoom() || 13, { animate: true });
   }, [center]);
 
-  // ✅ Marqueurs
+  // ✅ Marqueurs et Trajectoire temps réel
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
@@ -272,17 +268,19 @@ const MapPage = () => {
 
     markersLayer.clearLayers();
 
+    // 1️⃣ Ma Position
     if (userLocation) {
-      const userIcon = makeMarkerIcon(L, colors.primary, 'Moi', false, 'user');
+      const userIcon = makeMarkerIcon(L, colors.primary, '👤', false, 'user');
       L.marker(userLocation, { icon: userIcon })
         .addTo(markersLayer)
         .bindPopup(`
-          <div style="min-width:120px; text-align:center;">
-            <strong style="color:${colors.primary};">📍 Ma position</strong>
+          <div style="text-align:center; padding: 2px;">
+            <strong style="color:${colors.primary}; font-size:12px;">📍 Ma position</strong>
           </div>
         `);
     }
 
+    // 2️⃣ Marqueurs des patients
     if (showPatients) {
       const patientsToShow = getPatientsToShow();
       patientsToShow.forEach((patient: any) => {
@@ -297,30 +295,31 @@ const MapPage = () => {
         L.marker([lat, lng], { icon })
           .addTo(markersLayer)
           .bindPopup(`
-            <div style="min-width:150px;">
-              <strong>${patient.first_name || ''} ${patient.last_name || ''}</strong>
+            <div style="min-width:160px; font-family: sans-serif;">
+              <strong style="font-size:13px; color:#333;">${patient.first_name || ''} ${patient.last_name || ''}</strong>
               <br/>
               <span style="font-size:11px; color:#666;">📍 ${patient.address || ''}</span>
               <br/>
-              <span style="font-size:10px; color:#999;">${categoryLabel}</span>
+              <span style="font-size:10px; color:#888; font-weight:600; display:inline-block; margin-top:4px;">${categoryLabel}</span>
             </div>
           `)
           .on('click', () => setSelectedPatient(patient));
       });
     }
 
+    // 3️⃣ Marqueurs des aidants actifs
     if (showAidants && (isAdmin || isFamilyRole)) {
       locations?.aidants?.forEach((aidant: any) => {
         const lat = Number(aidant.latitude || DEFAULT_CENTER[0]);
         const lng = Number(aidant.longitude || DEFAULT_CENTER[1]);
         if (!lat || !lng) return;
 
-        const icon = makeMarkerIcon(L, '#FF9800', 'A', false, 'aidant');
+        const icon = makeMarkerIcon(L, '#FF9800', '🦸', false, 'aidant');
         L.marker([lat, lng], { icon })
           .addTo(markersLayer)
           .bindPopup(`
-            <div style="min-width:140px;">
-              <strong style="color:#FF9800;">🦸 ${aidant.full_name || 'Aidant'}</strong>
+            <div style="min-width:140px; font-family: sans-serif;">
+              <strong style="color:#FF9800; font-size:13px;">🦸 ${aidant.full_name || 'Aidant'}</strong>
               <br/>
               <span style="font-size:11px; color:#666;">📍 En mission</span>
             </div>
@@ -328,6 +327,7 @@ const MapPage = () => {
       });
     }
 
+    // 4️⃣ Marqueurs des visites actives ET tracé de trajectoire
     if (showActiveVisits) {
       const visitsToShow = getActiveVisitsToShow();
       visitsToShow.forEach((visit: any) => {
@@ -336,21 +336,46 @@ const MapPage = () => {
         const lng = Number(patient?.longitude || DEFAULT_CENTER[1]);
         if (!lat || !lng) return;
 
-        const icon = makeMarkerIcon(L, '#DC2626', 'V', true, 'visit');
+        const icon = makeMarkerIcon(L, '#DC2626', '📍', true, 'visit');
         const aidantName = visit.aidant?.user?.full_name || 'Aidant';
         const patientName = patient ? `${patient.first_name || ''} ${patient.last_name || ''}` : 'Patient';
 
         L.marker([lat, lng], { icon })
           .addTo(markersLayer)
           .bindPopup(`
-            <div style="min-width:160px;">
-              <strong style="color:#DC2626;">🔴 Visite en cours</strong>
-              <br/>
-              <span style="font-size:12px;">🧑‍🤝‍🧑 ${patientName}</span>
-              <br/>
-              <span style="font-size:11px; color:#666;">🦸 ${aidantName}</span>
+            <div style="min-width:160px; font-family: sans-serif; padding:2px;">
+              <strong style="color:#DC2626; font-size:13px;">🔴 Visite en cours</strong>
+              <div style="margin-top:6px; font-size:11px; color:#555; line-height:1.4;">
+                <p style="margin:2px 0;"><strong>Bénéficiaire :</strong> ${patientName}</p>
+                <p style="margin:2px 0;"><strong>Intervenant :</strong> ${aidantName}</p>
+              </div>
             </div>
           `);
+
+        // ============================================================
+        // 🔥 NOUVEAU : DESSINER LA TRAJECTOIRE DE L'AIDANT EN TEMPS RÉEL (location_track)
+        // ============================================================
+        if (visit.location_track && Array.isArray(visit.location_track) && visit.location_track.length > 1) {
+          const latlngs = visit.location_track.map((pt: any) => [pt.lat, pt.lng]);
+          
+          // Tracé bleu pointillé de la trajectoire
+          L.polyline(latlngs, {
+            color: '#3B82F6',
+            weight: 5,
+            opacity: 0.85,
+            dashArray: '5, 8'
+          }).addTo(markersLayer);
+          
+          // Marqueur de départ de la visite (petit cercle vert)
+          const startPt = visit.location_track[0];
+          L.circleMarker([startPt.lat, startPt.lng], {
+            radius: 6,
+            color: '#10B981',
+            fillColor: '#10B981',
+            fillOpacity: 1,
+            weight: 2
+          }).addTo(markersLayer).bindPopup("🟢 Point de départ réel de la visite");
+        }
       });
     }
   }, [leafletLoaded, userLocation, locations, activeVisits, colors.primary, showPatients, showAidants, showActiveVisits]);
@@ -443,7 +468,7 @@ const MapPage = () => {
     if (isFamily) return 'Mes proches';
     if (isAidant) return 'Mes personnes accompagnées';
     if (isAdmin) return 'Bénéficiaires suivis';
-    return 'Patients à proximité';
+    return 'Bénéficiaires à proximité';
   };
 
   const handleRefresh = async () => {
@@ -453,296 +478,299 @@ const MapPage = () => {
   };
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <MapPin size={12} />
-              Carte / Radar
-            </div>
-
-            <h1 className="text-xl font-black flex items-center gap-2" style={{ color: colors.text }}>
-              <MapPin size={22} style={{ color: colors.primary }} />
-              Carte / Radar
-            </h1>
-
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
-              {activeVisits.length} visite(s) en cours
-              {isAdmin && <span className="ml-1 text-[10px] text-gray-400">• Admin</span>}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
-                setUserTracking((prev) => {
-                  const next = !prev;
-                  if (userLocation && next) setCenter(userLocation);
-                  return next;
-                });
-              }}
-              className={`p-1.5 rounded-lg text-xs font-bold transition ${
-                userTracking ? 'text-white' : 'text-gray-600'
-              }`}
-              style={{
-                background: userTracking ? colors.primary : 'transparent',
-              }}
-            >
-              <Compass size={16} />
-            </button>
-
-            <button
-              onClick={handleRefresh}
-              className="p-1.5 rounded-lg text-xs font-bold"
-              style={{ background: colors.primary + '12', color: colors.primary }}
-            >
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* FILTRES COMPACTS */}
-      <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowPatients(!showPatients)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${
-              showPatients ? 'text-white' : 'text-gray-600'
-            }`}
+    <div className="w-full max-w-full overflow-hidden space-y-4 pb-24 sm:pb-10">
+      
+      {/* HEADER PRINCIPAL */}
+      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black mb-1.5"
             style={{
-              background: showPatients ? colors.primary : 'transparent',
+              background: colors.primary + '12',
+              color: colors.primary,
             }}
           >
-            {showPatients ? <Eye size={12} /> : <EyeOff size={12} />}
-            {getPatientLabel()}s
-          </button>
-
-          {(isAdmin || isFamilyRole) && (
-            <button
-              onClick={() => setShowAidants(!showAidants)}
-              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${
-                showAidants ? 'text-white' : 'text-gray-600'
-              }`}
-              style={{
-                background: showAidants ? colors.primary : 'transparent',
-              }}
-            >
-              {showAidants ? <Eye size={12} /> : <EyeOff size={12} />}
-              Aidants
-            </button>
-          )}
-
-          <button
-            onClick={() => setShowActiveVisits(!showActiveVisits)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${
-              showActiveVisits ? 'text-white' : 'text-gray-600'
-            }`}
-            style={{
-              background: showActiveVisits ? '#DC2626' : 'transparent',
-            }}
-          >
-            {showActiveVisits ? <Eye size={12} /> : <EyeOff size={12} />}
-            Actives
-          </button>
+            <MapPin size={12} />
+            Carte / Radar
+          </div>
+          <h1 className="text-lg sm:text-xl font-black text-gray-800" style={{ color: colors.text }}>
+            Localisation et Radar
+          </h1>
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
+            Suivi en direct de vos {getPatientLabel().toLowerCase()}s et des visites actives.
+          </p>
         </div>
-      </section>
 
-      {/* CARTE */}
-      <div className="map-page-shell bg-white rounded-2xl overflow-hidden shadow-sm h-[320px] relative z-0 border border-black/5">
-        {!leafletLoaded && !mapError && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
-            <div className="text-center p-4">
-              <MapPin size={32} className="mx-auto mb-2 opacity-30" style={{ color: colors.primary }} />
-              <p className="text-xs text-gray-400">Chargement de la carte...</p>
-            </div>
-          </div>
-        )}
-
-        {mapError && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
-            <div className="text-center p-4">
-              <AlertCircle size={32} className="mx-auto mb-2 opacity-30" style={{ color: '#EF4444' }} />
-              <p className="text-sm font-bold" style={{ color: colors.text }}>{mapError}</p>
-              <p className="text-xs text-gray-400">Vérifiez votre connexion internet.</p>
-            </div>
-          </div>
-        )}
-
-        <div ref={mapContainerRef} className="w-full h-full relative z-0" />
-      </div>
-
-      {/* ITINÉRAIRE */}
-      {selectedPatient && routeInfo && (
-        <div className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: colors.text }}>
-                <User size={14} style={{ color: colors.primary }} />
-                {selectedPatient.first_name} {selectedPatient.last_name}
-              </p>
-              <p className="text-[10px] text-gray-400 truncate flex items-center gap-1">
-                <MapPin size={10} />
-                {selectedPatient.address || ''}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setSelectedPatient(null);
-                setRouteInfo(null);
-                if (routeLayerRef.current) routeLayerRef.current.clearLayers();
-              }}
-              className="p-1 rounded-lg hover:bg-gray-100 transition"
-            >
-              <X size={16} className="text-gray-400" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            <div className="text-center p-2 rounded-lg" style={{ background: colors.primary + '08' }}>
-              <Navigation size={16} className="mx-auto mb-0.5" style={{ color: colors.primary }} />
-              <p className="text-sm font-bold" style={{ color: colors.primary }}>
-                {isLoadingRoute ? '...' : `${routeInfo.distance.toFixed(1)} km`}
-              </p>
-              <p className="text-[8px] text-gray-400">Distance</p>
-            </div>
-
-            <div className="text-center p-2 rounded-lg" style={{ background: colors.primary + '08' }}>
-              <Clock size={16} className="mx-auto mb-0.5" style={{ color: colors.primary }} />
-              <p className="text-sm font-bold" style={{ color: colors.primary }}>
-                {isLoadingRoute ? '...' : `${routeInfo.duration} min`}
-              </p>
-              <p className="text-[8px] text-gray-400">Temps</p>
-            </div>
-
-            <div className="text-center p-2 rounded-lg" style={{ background: colors.primary + '08' }}>
-              <Route size={16} className="mx-auto mb-0.5" style={{ color: colors.primary }} />
-              <p className="text-sm font-bold" style={{ color: colors.primary }}>
-                {routeInfo.distance > 5 ? (
-                  <Car size={16} className="mx-auto" />
-                ) : (
-                  <Footprints size={16} className="mx-auto" />
-                )}
-              </p>
-              <p className="text-[8px] text-gray-400">
-                {routeInfo.distance > 5 ? 'Voiture' : 'À pied'}
-              </p>
-            </div>
-          </div>
-
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => {
-              const lat = selectedPatient?.latitude;
-              const lng = selectedPatient?.longitude;
-              if (lat && lng) {
-                window.open(`https://www.openstreetmap.org/directions?from=&to=${lat}%2C${lng}`, '_blank');
-              } else {
-                toast.error('Coordonnées non disponibles');
-              }
+              setUserTracking((prev) => {
+                const next = !prev;
+                if (userLocation && next) setCenter(userLocation);
+                return next;
+              });
             }}
-            className="w-full mt-2 py-1.5 rounded-lg text-white text-xs font-medium flex items-center justify-center gap-1.5 transition hover:opacity-90"
-            style={{ background: colors.primary }}
+            className={`p-2 rounded-xl text-xs font-bold transition flex items-center justify-center ${
+              userTracking ? 'text-white' : 'text-gray-600'
+            }`}
+            style={{
+              background: userTracking ? colors.primary : 'var(--color-background, #f5f0e8)',
+            }}
+            title={userTracking ? "Suivi GPS actif" : "Suivi GPS désactivé"}
           >
-            <Navigation size={14} />
-            Ouvrir l'itinéraire
+            <Compass size={16} />
+          </button>
+
+          <button
+            onClick={handleRefresh}
+            className="p-2 rounded-xl flex items-center justify-center transition hover:opacity-85"
+            style={{ background: colors.primary + '15', color: colors.primary }}
+            title="Rafraîchir les positions"
+          >
+            <RefreshCw size={16} />
           </button>
         </div>
-      )}
+      </section>
 
-      {/* PROCHES À PROXIMITÉ */}
-      {userLocation && getPatientsToShow().length > 0 && (
-        <div className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-          <h3 className="text-xs font-bold mb-2 flex items-center gap-1.5" style={{ color: colors.text }}>
-            <Users size={14} style={{ color: colors.primary }} />
-            {getNearbyTitle()} ({getPatientsToShow().length})
-          </h3>
+      {/* DISPOSITION EN GRILLE (MODÈLE DASHBOARD) */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full min-w-0">
+        
+        {/* PANNEAU DE CONTROLE GAUCHE (LETTRES, FILTRES, ITINÉRAIRES) */}
+        <div className="md:col-span-4 space-y-4 flex flex-col justify-start">
+          
+          {/* CARTE FILTRES COMPACTS ET LÉGENDE UNIFIÉE */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">👀 Filtres d'affichage</p>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setShowPatients(!showPatients)}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition flex items-center gap-1.5 ${
+                  showPatients ? 'text-white' : 'bg-gray-50 text-gray-500 border hover:bg-gray-100'
+                }`}
+                style={{
+                  background: showPatients ? '#4CAF50' : undefined,
+                  borderColor: showPatients ? '#4CAF50' : 'rgba(0,0,0,0.06)',
+                }}
+              >
+                {showPatients ? <Eye size={12} /> : <EyeOff size={12} />}
+                {getPatientLabel()}s
+              </button>
 
-          <div className="space-y-1.5 max-h-40 overflow-y-auto">
-            {getPatientsToShow().slice(0, 5).map((patient: any) => {
-              const patientLat = Number(patient.latitude || DEFAULT_CENTER[0]);
-              const patientLng = Number(patient.longitude || DEFAULT_CENTER[1]);
-
-              const distance = calculateDistance(
-                userLocation[0],
-                userLocation[1],
-                patientLat,
-                patientLng
-              );
-
-              const hasActiveVisit = activeVisits.some((v: any) =>
-                v.patient_id === patient.id && v.status === 'en_cours'
-              );
-
-              return (
+              {(isAdmin || isFamilyRole) && (
                 <button
-                  key={patient.id}
-                  onClick={() => setSelectedPatient(patient)}
-                  className={`w-full flex items-center justify-between p-2 rounded-lg transition ${
-                    selectedPatient?.id === patient.id
-                      ? 'border-2'
-                      : 'border hover:bg-gray-50'
+                  onClick={() => setShowAidants(!showAidants)}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition flex items-center gap-1.5 ${
+                    showAidants ? 'text-white' : 'bg-gray-50 text-gray-500 border hover:bg-gray-100'
                   }`}
                   style={{
-                    borderColor: selectedPatient?.id === patient.id ? colors.primary : 'transparent',
-                    background: selectedPatient?.id === patient.id ? colors.primary + '05' : 'transparent',
+                    background: showAidants ? '#FF9800' : undefined,
+                    borderColor: showAidants ? '#FF9800' : 'rgba(0,0,0,0.06)',
                   }}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[8px] font-bold shrink-0"
-                      style={{ background: hasActiveVisit ? '#DC2626' : colors.primary }}
-                    >
-                      {patient.first_name?.charAt(0) || 'P'}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium truncate flex items-center gap-1" style={{ color: colors.text }}>
-                        {patient.first_name} {patient.last_name}
-                        {hasActiveVisit && (
-                          <span className="text-[8px] text-red-500 flex items-center gap-0.5">
-                            <Circle size={6} fill="#DC2626" />
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-[8px] text-gray-400 truncate">{patient.address || ''}</p>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <p className="text-xs font-bold" style={{ color: colors.primary }}>
-                      {distance.toFixed(1)} km
-                    </p>
-                    <p className="text-[8px] text-gray-400">~{calculateEstimatedTime(distance)} min</p>
-                  </div>
+                  {showAidants ? <Eye size={12} /> : <EyeOff size={12} />}
+                  Aidants
                 </button>
-              );
-            })}
+              )}
+
+              <button
+                onClick={() => setShowActiveVisits(!showActiveVisits)}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition flex items-center gap-1.5 ${
+                  showActiveVisits ? 'text-white' : 'bg-gray-50 text-gray-500 border hover:bg-gray-100'
+                }`}
+                style={{
+                  background: showActiveVisits ? '#DC2626' : undefined,
+                  borderColor: showActiveVisits ? '#DC2626' : 'rgba(0,0,0,0.06)',
+                }}
+              >
+                {showActiveVisits ? <Eye size={12} /> : <EyeOff size={12} />}
+                Missions en cours
+              </button>
+            </div>
+            
+            <div className="border-t pt-3" style={{ borderColor: 'rgba(0,0,0,0.05)' }}>
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1.5">Légende</p>
+              <div className="flex flex-wrap gap-1.5">
+                <LegendItem color="#4CAF50" label={getPatientLabel()} icon={<User size={11} />} />
+                {(showAidants && (isAdmin || isFamilyRole)) && (
+                  <LegendItem color="#FF9800" label="Aidant" icon={<UserCircle size={11} />} />
+                )}
+                <LegendItem color={colors.primary} label="Moi" icon={<Dot size={12} />} />
+                {showActiveVisits && (
+                  <LegendItem color="#DC2626" label="Visite" icon={<Circle size={8} fill="#DC2626" />} />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* DÉTAILS DE L'ITINÉRAIRE SÉLECTIONNÉ */}
+          {selectedPatient && routeInfo && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-wider text-gray-400">📍 Itinéraire actif</p>
+                  <p className="text-sm font-black text-gray-800 truncate mt-1 flex items-center gap-1.5">
+                    {selectedPatient.first_name} {selectedPatient.last_name}
+                  </p>
+                  <p className="text-[10px] text-gray-400 truncate mt-0.5">{selectedPatient.address || ''}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedPatient(null);
+                    setRouteInfo(null);
+                    if (routeLayerRef.current) routeLayerRef.current.clearLayers();
+                  }}
+                  className="p-1 rounded-lg hover:bg-gray-100 transition shrink-0"
+                >
+                  <X size={16} className="text-gray-400" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="text-center p-2 rounded-xl" style={{ background: colors.primary + '08' }}>
+                  <Navigation size={16} className="mx-auto mb-1" style={{ color: colors.primary }} />
+                  <p className="text-xs font-black" style={{ color: colors.primary }}>
+                    {isLoadingRoute ? '...' : `${routeInfo.distance.toFixed(1)} km`}
+                  </p>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Distance</p>
+                </div>
+
+                <div className="text-center p-2 rounded-xl" style={{ background: colors.primary + '08' }}>
+                  <Clock size={16} className="mx-auto mb-1" style={{ color: colors.primary }} />
+                  <p className="text-xs font-black" style={{ color: colors.primary }}>
+                    {isLoadingRoute ? '...' : `${routeInfo.duration} min`}
+                  </p>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Temps</p>
+                </div>
+
+                <div className="text-center p-2 rounded-xl" style={{ background: colors.primary + '08' }}>
+                  {routeInfo.distance > 5 ? (
+                    <Car size={16} className="mx-auto mb-1" style={{ color: colors.primary }} />
+                  ) : (
+                    <Footprints size={16} className="mx-auto mb-1" style={{ color: colors.primary }} />
+                  )}
+                  <p className="text-xs font-black" style={{ color: colors.primary }}>
+                    {routeInfo.distance > 5 ? 'Voiture' : 'À pied'}
+                  </p>
+                  <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Moyen</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  const lat = selectedPatient?.latitude;
+                  const lng = selectedPatient?.longitude;
+                  if (lat && lng) {
+                    window.open(`https://www.openstreetmap.org/directions?from=&to=${lat}%2C${lng}`, '_blank');
+                  } else {
+                    toast.error('Coordonnées non disponibles');
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl text-white text-xs font-black flex items-center justify-center gap-1.5 transition hover:opacity-90 shadow-sm"
+                style={{ background: colors.primary }}
+              >
+                <Navigation size={14} />
+                Ouvrir dans Google Maps / GPS
+              </button>
+            </div>
+          )}
+
+          {/* BÉNÉFICIAIRES À PROXIMITÉ (Si aucun itinéraire sélectionné) */}
+          {userLocation && getPatientsToShow().length > 0 && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+              <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
+                <Users size={14} style={{ color: colors.primary }} />
+                {getNearbyTitle()} ({getPatientsToShow().length})
+              </h3>
+
+              <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
+                {getPatientsToShow().slice(0, 5).map((patient: any) => {
+                  const patientLat = Number(patient.latitude || DEFAULT_CENTER[0]);
+                  const patientLng = Number(patient.longitude || DEFAULT_CENTER[1]);
+
+                  const distance = calculateDistance(
+                    userLocation[0],
+                    userLocation[1],
+                    patientLat,
+                    patientLng
+                  );
+
+                  const hasActiveVisit = activeVisits.some((v: any) =>
+                    v.patient_id === patient.id && v.status === 'en_cours'
+                  );
+
+                  return (
+                    <button
+                      key={patient.id}
+                      onClick={() => setSelectedPatient(patient)}
+                      className={`w-full flex items-center justify-between p-2.5 rounded-xl transition ${
+                        selectedPatient?.id === patient.id
+                          ? 'border-2'
+                          : 'border border-gray-100 hover:bg-gray-50'
+                      }`}
+                      style={{
+                        borderColor: selectedPatient?.id === patient.id ? colors.primary : 'transparent',
+                        background: selectedPatient?.id === patient.id ? colors.primary + '05' : 'transparent',
+                      }}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 pr-1">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                          style={{ background: hasActiveVisit ? '#DC2626' : colors.primary }}
+                        >
+                          {patient.first_name?.charAt(0) || 'P'}
+                        </div>
+                        <div className="min-w-0 text-left">
+                          <p className="text-xs font-black truncate flex items-center gap-1 text-gray-800">
+                            {patient.first_name} {patient.last_name}
+                          </p>
+                          <p className="text-[9px] text-gray-400 truncate mt-0.5">{patient.address || ''}</p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-black" style={{ color: colors.primary }}>
+                          {distance.toFixed(1)} km
+                        </p>
+                        <p className="text-[9px] text-gray-400">~{calculateEstimatedTime(distance)} min</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* CONTENEUR DE LA CARTE À DROITE (8 Colonnes) */}
+        <div className="md:col-span-8">
+          <div className="map-page-shell bg-white rounded-3xl overflow-hidden shadow-sm h-[480px] relative z-0 border border-black/5">
+            {!leafletLoaded && !mapError && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+                <div className="text-center p-4">
+                  <MapPin size={32} className="mx-auto mb-2 opacity-30 animate-bounce" style={{ color: colors.primary }} />
+                  <p className="text-xs text-gray-400 font-bold">Initialisation de la carte en cours...</p>
+                </div>
+              </div>
+            )}
+
+            {mapError && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+                <div className="text-center p-4">
+                  <AlertCircle size={32} className="mx-auto mb-2 opacity-30 text-red-500 animate-pulse" />
+                  <p className="text-sm font-bold text-gray-800">{mapError}</p>
+                  <p className="text-xs text-gray-400 mt-1">Vérifiez votre connexion internet ou vos permissions GPS.</p>
+                </div>
+              </div>
+            )}
+
+            <div ref={mapContainerRef} className="w-full h-full relative z-0" />
           </div>
         </div>
-      )}
 
-      {/* LÉGENDE */}
-      <div className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
-        <div className="flex flex-wrap gap-3 justify-center">
-          <LegendItem color="#4CAF50" label={getPatientLabel()} icon={<User size={12} />} />
-          {(showAidants && (isAdmin || isFamilyRole)) && (
-            <LegendItem color="#FF9800" label="Aidant" icon={<UserCircle size={12} />} />
-          )}
-          <LegendItem color={colors.primary} label="Ma position" icon={<Dot size={12} />} />
-          {showActiveVisits && (
-            <LegendItem color="#DC2626" label="Visite en cours" icon={<Circle size={10} fill="#DC2626" />} />
-          )}
-        </div>
       </div>
     </div>
   );
 };
 
 export default MapPage;
+ 
