@@ -6,6 +6,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { getFCMToken, onFCMessage } from '@/lib/firebase';
 import { NotificationType } from '@/types';
 
+ 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ============================================================
@@ -143,7 +144,6 @@ export const previewNotificationSound = (soundUrl: string) => {
 // ============================================================
 // ✅ AFFICHER UNE NOTIFICATION SYSTÈME (UNIVERSEL)
 // ============================================================
- 
 
 export const showSystemNotification = async (title: string, body: string, data: any = {}) => {
   if (!('Notification' in window)) {
@@ -191,6 +191,7 @@ export const showSystemNotification = async (title: string, body: string, data: 
     console.error('❌ Erreur affichage notification:', error);
   }
 };
+
 // ============================================================
 // ✅ METTRE À JOUR LE BADGE
 // ============================================================
@@ -204,7 +205,7 @@ export const updateNotificationBadge = (count: number) => {
 };
 
 // ============================================================
-// ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN
+// ✅ DEMANDER LA PERMISSION ET ENREGISTRER LE TOKEN - SANS TOAST
 // ============================================================
 
 export const requestNotificationPermission = async (userId: string) => {
@@ -315,7 +316,7 @@ export const requestNotificationPermission = async (userId: string) => {
 };
 
 // ============================================================
-// ✅ SUPPRIMER LE TOKEN
+// ✅ SUPPRIMER LE TOKEN - SANS TOAST
 // ============================================================
 
 export const removePushToken = async (token?: string) => {
@@ -546,7 +547,7 @@ export const notifyAdmin = {
 };
 
 // ============================================================
-// ✅ UTILITAIRES DE NOTIFICATION
+// ✅ UTILITAIRES DE NOTIFICATION - SANS TOAST
 // ============================================================
 
 export const notify = {
