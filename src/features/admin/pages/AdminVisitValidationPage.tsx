@@ -604,6 +604,7 @@ const InfoItem = ({ icon, label, value, color }: InfoItemProps) => (
   <div className="p-3 rounded-xl border" style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
     <div className="flex items-center gap-1.5">
       <span style={{ color }}>{icon}</span>
+      {/* ✅ CORRECTIF TS2552 : Remplacement de "colors.text" par la prop "color" locale du composant */}
       <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: color + '90' }}>
         {label}
       </p>
@@ -747,7 +748,7 @@ const AdminVisitValidationPage = () => {
 
   const filterVisits = () => {
     let filtered = [...visits];
-    if (filterStatus !== 'all') filtered = filtered.filter(v => v.status === filterStatus);
+    if (filterStatus !== 'all') filtered = filtered.filter(v => v.status === status);
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(v =>
@@ -955,7 +956,7 @@ const AdminVisitValidationPage = () => {
               {stats.pending} en attente • {stats.expired} expirées • {stats.refused} refusées
               {stats.waitingAidant > 0 && (
                 <span className="ml-2 text-orange-500 font-bold">
-                  • 🦸 {stats.waitingAidant} en attente d'aidant
+                  • 🦸 {stats.waitingAimant} en attente d'aidant
                 </span>
               )}
             </p>
