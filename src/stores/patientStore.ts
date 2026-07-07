@@ -6,6 +6,7 @@ import { Patient } from '@/types';
 import { useAuthStore } from './authStore';
 import { assignmentAPI } from '@/lib/api';
 
+ 
 // ============================================================
 // TYPES
 // ============================================================
@@ -573,7 +574,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // CREATE PATIENT - AVEC INVALIDATION DE CACHE
+  // CREATE PATIENT - AVEC INVALIDATION DE CACHE - SANS TOAST
   // ============================================================
   createPatient: async (data: Partial<Patient>) => {
     try {
@@ -624,16 +625,18 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       set({ isLoading: false });
 
+      // ✅ SUPPRIMÉ : toast.success('Proche créé avec succès');
       return patient;
     } catch (error: any) {
       console.error('❌ Erreur création du proche:', error);
       set({ error: error.message, isLoading: false });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
   // ============================================================
-  // UPDATE PATIENT - AVEC INVALIDATION DE CACHE
+  // UPDATE PATIENT - AVEC INVALIDATION DE CACHE - SANS TOAST
   // ============================================================
   updatePatient: async (id: string, data: Partial<Patient>) => {
     try {
@@ -684,15 +687,18 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         currentPatient: patient,
         isLoading: false,
       }));
+
+      // ✅ SUPPRIMÉ : toast.success('Proche mis à jour');
     } catch (error: any) {
       console.error('❌ Erreur modification du proche:', error);
       set({ error: error.message, isLoading: false });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
   // ============================================================
-  // DELETE PATIENT - AVEC INVALIDATION DE CACHE
+  // DELETE PATIENT - AVEC INVALIDATION DE CACHE - SANS TOAST
   // ============================================================
   deletePatient: async (id: string) => {
     try {
@@ -737,9 +743,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       await get().fetchPatients(true);
 
       set({ isLoading: false });
+
+      // ✅ SUPPRIMÉ : toast.success('Proche supprimé');
     } catch (error: any) {
       console.error('❌ Erreur suppression du proche:', error);
       set({ error: error.message, isLoading: false });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
