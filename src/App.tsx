@@ -2,7 +2,7 @@
 // ✅ CONTROLEUR DE NAVIGATION PRINCIPAL AVEC ECOUTE REALTIME DES MODIFICATIONS EN TÂCHE DE FOND
 
 import { useEffect, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 
@@ -231,7 +231,7 @@ function App() {
 
     console.log('📡 [Realtime] Initialisation de l\'auto-refresh en arrière-plan...');
 
-    // 1️⃣ S’abonner aux changements de la table "visites" (Validation, Refus, etc.)
+    // 1️⃣ S'abonner aux changements de la table "visites" (Validation, Refus, etc.)
     const visitsChannel = supabase
       .channel('realtime_visites_refresh')
       .on(
@@ -240,12 +240,12 @@ function App() {
         () => {
           console.log('🔄 [Realtime] Changement sur les visites, rechargement...');
           const { fetchVisits } = useVisitStore.getState();
-          fetchVisits(true); // Recharger en direct
+          fetchVisits(true);
         }
       )
       .subscribe();
 
-    // 2️⃣ S’abonner aux changements de la table "commandes" (Prise en charge, livraison, etc.)
+    // 2️⃣ S'abonner aux changements de la table "commandes" (Prise en charge, livraison, etc.)
     const ordersChannel = supabase
       .channel('realtime_commandes_refresh')
       .on(
@@ -254,7 +254,7 @@ function App() {
         () => {
           console.log('🔄 [Realtime] Changement sur les commandes, rechargement...');
           const { fetchOrders } = useOrderStore.getState();
-          fetchOrders(true); // Recharger en direct
+          fetchOrders(true);
         }
       )
       .subscribe();
@@ -378,8 +378,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ThemePropsProvider value={{ theme: themeName }}>
+        <ThemeProvider>
           <Routes>
+            {/* ============================================================
+                ROUTES PUBLIQUES
+                ============================================================ */}
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
@@ -389,6 +392,9 @@ function App() {
               <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
             </Route>
 
+            {/* ============================================================
+                ROUTES PROTÉGÉES
+                ============================================================ */}
             <Route
               element={
                 <ProtectedRoute>
@@ -396,42 +402,59 @@ function App() {
                 </ProtectedRoute>
               }
             >
+              {/* 📊 DASHBOARD */}
               <Route path="/app" element={<DashboardPage />} />
               <Route path="/app/dashboard" element={<DashboardPage />} />
 
+              {/* 👨‍👩‍👦 PATIENTS / PROCHES - UNIFIÉ */}
               <Route path="/app/patients" element={<PatientsPage />} />
               <Route path="/app/patients/:id" element={<PatientDetailPage />} />
 
+              {/* 📅 VISITES */}
               <Route path="/app/visits" element={<VisitsPage />} />
               <Route path="/app/visits/:id" element={<VisitDetailPage />} />
 
+              {/* 🛒 COMMANDES */}
               <Route path="/app/orders" element={<OrdersPage />} />
               <Route path="/app/orders/create" element={<CreateOrderPage />} />
               <Route path="/app/orders/:id" element={<OrderDetailPage />} />
 
+              {/* 💬 MESSAGES */}
               <Route path="/app/messages" element={<MessagesPage />} />
 
+              {/* 💳 BILLING / ABONNEMENT */}
               <Route path="/app/billing" element={<BillingPage />} />
 
+              {/* 🗺️ MAP / RADAR */}
               <Route path="/app/map" element={<MapPage />} />
 
+              {/* 🔔 NOTIFICATIONS */}
               <Route path="/app/notifications" element={<NotificationsPage />} />
 
+              {/* 👤 PROFIL */}
               <Route path="/app/profile" element={<ProfilePage />} />
 
+              {/* 🦸 AIDANT - MISSIONS */}
               <Route path="/app/missions" element={<MissionsPage />} />
               <Route path="/app/planning" element={<PlanningPage />} />
               <Route path="/app/history" element={<HistoryPage />} />
 
+              {/* 📚 ÉDUCATION */}
               <Route path="/app/education" element={<EducationPage />} />
 
+              {/* 📖 JOURNAL DE BORD */}
               <Route path="/app/journal" element={<JournalPage />} />
 
+              {/* 🏥 SORTIE D'HÔPITAL */}
               <Route path="/app/discharge" element={<DischargePage />} />
 
+              {/* 🦸 AIDANTS CATALOG */}
               <Route path="/app/aidants" element={<AidantCatalogPage />} />
               <Route path="/app/aidants/:id" element={<AidantDetailPage />} />
 
+              {/* ============================================================
+                  👔 ROUTES ADMIN - PROTÉGÉES PAR RÔLE
+                  ============================================================ */}
               <Route 
                 path="/app/admin" 
                 element={
@@ -477,7 +500,7 @@ function App() {
                 element={
                   <RoleGuard allowedRoles={['admin', 'coordinator']}>
                     <RegistrationsPage />
-                  </Route>
+                  </RoleGuard>
                 } 
               />
               <Route 
@@ -538,6 +561,9 @@ function App() {
               />
             </Route>
 
+            {/* ============================================================
+                REDIRECTIONS
+                ============================================================ */}
             <Route
               path="/"
               element={<Navigate to={isAuthenticated ? '/app' : '/login'} replace />}
@@ -548,19 +574,71 @@ function App() {
             />
           </Routes>
 
-          <button
-            onClick={() => navigate('/app/orders/create')}
-            className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
-            style={{ background: colors.primary }}
-            aria-label="Nouvelle commande"
-          >
-            <Plus size={22} />
-          </button>
+          {/* ============================================================
+              COMPOSANTS GLOBAUX
+              ============================================================ */}
+          <InstallPrompt />
+          <OnboardingTour />
 
-        </div>
-      </div>
-    );
-  }
-};
+          {/* ============================================================
+              TOASTER
+              ============================================================ */}
+          <Toaster
+            position="top-center"
+            reverseOrder={false}
+            gutter={8}
+            containerStyle={{
+              top: 76,
+              zIndex: 999999,
+            }}
+            toastOptions={{
+              duration: 3800,
+              style: {
+                width: 'min(420px, calc(100vw - 28px))',
+                maxWidth: '420px',
+                minHeight: '62px',
+                background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
+                color: '#fff4dc',
+                border: '1px solid rgba(255,255,255,.12)',
+                borderRadius: '22px',
+                padding: '14px 16px',
+                boxShadow: '0 18px 40px rgba(15,31,25,.28), 0 4px 12px rgba(16,185,129,.08)',
+                backdropFilter: 'blur(18px)',
+                fontSize: '13px',
+                fontWeight: 700,
+                lineHeight: 1.35,
+              },
+              success: {
+                icon: '',
+                style: {
+                  border: '1px solid rgba(16,185,129,.38)',
+                  background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
+                  color: '#fff4dc',
+                },
+              },
+              error: {
+                icon: '',
+                duration: 4800,
+                style: {
+                  border: '1px solid rgba(239,68,68,.42)',
+                  background: 'linear-gradient(135deg, rgba(79,18,18,.98), rgba(127,29,29,.98))',
+                  color: '#fff4dc',
+                },
+              },
+              loading: {
+                icon: '',
+                style: {
+                  border: '1px solid rgba(245,158,11,.38)',
+                  background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
+                  color: '#fff4dc',
+                },
+              },
+            }}
+          />
+        </ThemeProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
