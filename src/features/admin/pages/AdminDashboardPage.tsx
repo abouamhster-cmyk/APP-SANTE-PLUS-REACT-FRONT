@@ -28,7 +28,8 @@ import { formatCurrency } from '@/utils/helpers';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { AdminStats } from '@/components/admin/AdminStats';
-import toast from 'react-hot-toast';
+
+// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
 
 // ============================================================
 // TYPES
@@ -248,7 +249,7 @@ const AdminDashboardPage = () => {
       });
     } catch (error) {
       console.error('Fetch dashboard error:', error);
-      toast.error('Erreur lors du chargement du tableau de bord');
+      // ✅ SUPPRIMÉ : toast.error('Erreur lors du chargement du tableau de bord');
     } finally {
       setIsLoading(false);
     }
@@ -256,7 +257,10 @@ const AdminDashboardPage = () => {
 
   useRefreshableData({
     onRefresh: fetchDashboardData,
-    onError: () => toast.error('Erreur lors du rafraîchissement des données'),
+    onError: () => {
+      // ✅ SUPPRIMÉ : toast.error('Erreur lors du rafraîchissement des données');
+      console.error('Erreur lors du rafraîchissement des données');
+    },
   });
 
   useEffect(() => {
@@ -400,7 +404,7 @@ const AdminDashboardPage = () => {
         <RefreshButton 
           onRefresh={() => {
             fetchDashboardData();
-            toast.success('Données actualisées');
+            // ✅ SUPPRIMÉ : toast.success('Données actualisées');
           }}
         />
       </section>
