@@ -9,8 +9,8 @@ import {
   DEFAULT_FILTERS,
   AidantCatalogState
 } from '@/types';
-import toast from 'react-hot-toast';
 
+ 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 interface AidantWithQuota extends AidantProfile {
@@ -72,6 +72,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     onlyCanTakeOrders: false,
   },
 
+  // ============================================================
+  // GET AVAILABLE FOR FAMILY - SANS TOAST
+  // ============================================================
   getAvailableForFamily: async (familyId: string, filters = {}) => {
     try {
       set({ isLoadingQuota: true, error: null });
@@ -128,6 +131,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // GET AIDANTS WITH QUOTA - SANS TOAST
+  // ============================================================
   getAidantsWithQuota: async (filters = {}) => {
     try {
       set({ isLoadingQuota: true, error: null });
@@ -207,7 +213,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { count: activeAssignments } = await supabase
         .from('aidant_assignments')
         .select('id', { count: 'exact', head: true })
-        .eq('ant_user_id', aidant.user_id)
+        .eq('aidant_user_id', aidant.user_id)
         .eq('status', 'active');
 
       const { count: activeOrders } = await supabase
@@ -236,6 +242,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     await state.fetchAidants();
   },
 
+  // ============================================================
+  // FETCH AIDANTS - SANS TOAST
+  // ============================================================
   fetchAidants: async (filters = {}) => {
     try {
       set({ isLoading: true, error: null });
@@ -271,7 +280,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
             current_assignments: quota?.currentAssignments || 0,
             max_assignments: quota?.maxAssignments || 4,
             available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-             is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
+            is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
             current_orders: quota?.currentOrders || 0,
             max_orders: quota?.maxOrders || 2,
             available_order_slots: Math.max(0, (quota?.maxOrders || 2) - (quota?.currentOrders || 0)),
@@ -291,6 +300,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // FETCH AIDANT BY ID - SANS TOAST
+  // ============================================================
   fetchAidantById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -335,6 +347,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // FETCH MY ASSIGNMENTS - SANS TOAST
+  // ============================================================
   fetchMyAssignments: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -388,6 +403,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // ASSIGN AIDANT - SANS TOAST
+  // ============================================================
   assignAidant: async (aidantId: string, patientId: string | null = null, assignmentType = 'permanente') => {
     try {
       set({ isLoading: true, error: null });
@@ -441,7 +459,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       }
 
       const result = await response.json();
-      toast.success('✅ Aidant assigné avec succès !');
+
+      // ✅ SUPPRIMÉ : toast.success('✅ Aidant assigné avec succès !');
 
       await get().fetchMyAssignments();
       await get().fetchAidants();
@@ -452,10 +471,14 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Assign aidant error:', error);
       set({ error: error.message, isLoading: false });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
+  // ============================================================
+  // REVOKE ASSIGNMENT - SANS TOAST
+  // ============================================================
   revokeAssignment: async (assignmentId: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -476,7 +499,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       }
 
       const result = await response.json();
-      toast.success('✅ Assignation révoquée');
+
+      // ✅ SUPPRIMÉ : toast.success('✅ Assignation révoquée');
 
       await get().fetchMyAssignments();
       await get().fetchAidants();
@@ -487,6 +511,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Revoke assignment error:', error);
       set({ error: error.message, isLoading: false });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
