@@ -6,6 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import api from '@/lib/api';
+import toast from 'react-hot-toast';
+
+
  
 // ✅ IMPORTER LES HELPERS
 import {
