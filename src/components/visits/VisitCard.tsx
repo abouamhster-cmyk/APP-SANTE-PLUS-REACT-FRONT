@@ -1,4 +1,4 @@
-// 📁 src/components/visits/VisitCard.tsx (Version Refactorisée)
+// 📁 src/components/visits/VisitCard.tsx
 
 import { memo } from 'react';
 import { MapPin, Clock } from 'lucide-react';
@@ -6,13 +6,23 @@ import { Visit } from '@/types';
 import { formatDate } from '@/utils/helpers';
 
 // ============================================================
-// TYPES
+// TYPES - AVEC TOUTES LES PROPS NÉCESSAIRES
 // ============================================================
 
 interface VisitCardProps {
   visit: Visit;
   onClick?: () => void;
   compact?: boolean;
+  showActions?: boolean;
+  onStart?: () => void;
+  onCancel?: () => void;
+  onConvertToSubscription?: () => void;
+  onPonctualPayment?: () => void;
+  onShowAssignAidantModal?: () => void;
+  onView?: () => void;
+  onComplete?: () => void;
+  onApprove?: () => void;
+  onRefuse?: () => void;
 }
 
 // ============================================================
@@ -43,8 +53,33 @@ const getStatusConfig = (status: string) => {
 // COMPOSANT PRINCIPAL
 // ============================================================
 
-export const VisitCard = memo(({ visit, onClick, compact = false }: VisitCardProps) => {
+export const VisitCard = memo(({ 
+  visit, 
+  onClick, 
+  compact = false,
+  showActions = false,
+  onStart,
+  onCancel,
+  onConvertToSubscription,
+  onPonctualPayment,
+  onShowAssignAidantModal,
+  onView,
+  onComplete,
+  onApprove,
+  onRefuse,
+}: VisitCardProps) => {
   const statusConfig = getStatusConfig(visit.status);
+  const isDraft = visit.status === 'brouillon';
+  const isWaitingAidant = visit.status === 'en_attente_aidant';
+  const isPendingApproval = visit.status === 'planifiee' || visit.status === 'en_attente';
+  const isAccepted = visit.status === 'acceptee';
+  const isInProgress = visit.status === 'en_cours';
+  const isExpired = visit.status === 'expire';
+  const isRefused = visit.status === 'refusee';
+
+  const isAidant = true; // À remplacer par le vrai check si besoin
+  const isAdminOrCoordinator = true; // À remplacer par le vrai check si besoin
+  const isFamily = true; // À remplacer par le vrai check si besoin
 
   // Version compacte pour les listes
   if (compact) {
@@ -74,12 +109,40 @@ export const VisitCard = memo(({ visit, onClick, compact = false }: VisitCardPro
                 >
                   {statusConfig.label}
                 </span>
+                {isDraft && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-yellow-100 text-yellow-600">
+                    💳
+                  </span>
+                )}
+                {isWaitingAidant && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-orange-100 text-orange-600">
+                    🦸
+                  </span>
+                )}
               </div>
             </div>
           </div>
-          <button className="text-[--color-primary] font-bold text-sm hover:underline shrink-0">
-            Détails →
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {showActions && isDraft && onPonctualPayment && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onPonctualPayment(); }}
+                className="px-2 py-1 rounded-lg text-white text-[10px] font-bold bg-purple-500 hover:bg-purple-600"
+              >
+                Payer
+              </button>
+            )}
+            {showActions && isWaitingAidant && onShowAssignAidantModal && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(); }}
+                className="px-2 py-1 rounded-lg text-white text-[10px] font-bold bg-orange-500 hover:bg-orange-600"
+              >
+                Assigner
+              </button>
+            )}
+            <button className="text-[--color-primary] font-bold text-sm hover:underline shrink-0">
+              Détails →
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -92,7 +155,6 @@ export const VisitCard = memo(({ visit, onClick, compact = false }: VisitCardPro
       className="group relative bg-white border border-gray-100 rounded-3xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer active:scale-[0.98]"
     >
       <div className="flex justify-between items-start mb-4">
-        {/* En-tête : Badge Status discret + Type */}
         <span 
           className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
           style={{ background: statusConfig.bg, color: statusConfig.color }}
@@ -104,7 +166,6 @@ export const VisitCard = memo(({ visit, onClick, compact = false }: VisitCardPro
         </span>
       </div>
 
-      {/* Corps : Nom + Lieu */}
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center font-bold text-[--color-primary] text-lg">
           {visit.patient?.first_name?.[0] || 'U'}
@@ -119,7 +180,6 @@ export const VisitCard = memo(({ visit, onClick, compact = false }: VisitCardPro
         </div>
       </div>
 
-      {/* Pied : Horaire et Bouton Action */}
       <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between">
         <div className="flex items-center gap-2 text-gray-700 font-medium">
           <Clock size={16} className="text-[--color-primary]" />
