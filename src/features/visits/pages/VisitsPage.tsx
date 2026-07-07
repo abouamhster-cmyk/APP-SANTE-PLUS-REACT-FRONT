@@ -1,4 +1,4 @@
-// 📁 src/features/visits/pages/VisitsPage.tsx
+// 📁 frontend/src/features/visits/pages/VisitsPage.tsx
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -234,7 +234,6 @@ const VisitsPage = () => {
   // =============================================
 
   const handleCreateVisitWithWizard = async (visitData: any) => {
-    // Déterminer la cible
     let targetType: 'patient' | 'personal_account' | 'personal' = 'personal';
     let targetId = user?.id || '';
     let targetName = profile?.full_name || 'Personnel';
@@ -278,17 +277,13 @@ const VisitsPage = () => {
         assignment_type: data.assignmentType || 'ponctuelle',
       };
 
-      // ✅ Créer la visite via le store
       const result = await createVisit(visitPayload);
 
-      // ✅ Si la visite est en attente d'aidant
       if (result?.status === 'en_attente_aidant') {
         toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
       } else if (result?.status === 'brouillon') {
-        // Paiement requis
         const price = getPonctualPrice(result.duration_minutes || 60);
         toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis.`);
-        // Ouvrir le modal de paiement
         handlePonctualPayment(result);
       } else {
         toast.success('Visite planifiée avec succès !');
@@ -304,7 +299,6 @@ const VisitsPage = () => {
     }
   };
 
-  // ✅ ANNULATION DU WIZARD
   const handleWizardClose = () => {
     setShowWizard(false);
     setWizardData(null);
@@ -351,7 +345,7 @@ const VisitsPage = () => {
   };
 
   // =============================================
-  // ✅ PAIEMENT PONCTUEL - AVEC LE HOOK UNIFIÉ
+  // ✅ PAIEMENT PONCTUEL
   // =============================================
   const handlePonctualPayment = (visit: any) => {
     const patientName = visit.patient 
@@ -385,9 +379,6 @@ const VisitsPage = () => {
     toast.success('Aidant assigné avec succès');
   };
 
-  // =============================================
-  // ✅ ADMIN : ASSIGNER UN AIDANT À UNE VISITE EN ATTENTE
-  // =============================================
   const handleAdminAssignAidant = async (visitId: string, aidantId: string, assignmentType: string = 'permanente') => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -426,9 +417,6 @@ const VisitsPage = () => {
     }
   };
 
-  // =============================================
-  // ✅ OUVERTURE DU MODAL DE CRÉATION
-  // =============================================
   const handleAdd = () => {
     if (!canPlanify) {
       toast.error('Vous n\'avez pas les droits pour planifier une visite');
@@ -440,23 +428,19 @@ const VisitsPage = () => {
   };
 
   // =============================================
-  // ✅ SUCCÈS DU MODAL
+  // ✅ SUCCÈS DU MODAL (SANS DOUBLE TOAST GENÉRIQUE)
   // =============================================
   const handleModalSuccess = (newVisit?: any) => {
     fetchVisits();
     setIsModalOpen(false);
 
     if (newVisit && newVisit.metadata?.requires_payment) {
-      // ✅ Utiliser le hook unifié pour le paiement
+      // ✅ Redirection vers FedaPay si paiement ponctuel requis
       handlePonctualPayment(newVisit);
-    } else {
-      toast.success(modalMode === 'create' ? 'Visite planifiée' : 'Visite mise à jour');
     }
+    // ❌ Supprimé pour éviter les doublons avec les bannières de confirmation des modales précises !
   };
 
-  // =============================================
-  // ✅ DÉMARRER UNE VISITE
-  // =============================================
   const handleStartVisit = async (visitId: string) => {
     try {
       await startVisit(visitId);
@@ -467,9 +451,6 @@ const VisitsPage = () => {
     }
   };
 
-  // =============================================
-  // ✅ ANNULER UNE VISITE
-  // =============================================
   const handleCancelVisit = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
 
@@ -482,9 +463,6 @@ const VisitsPage = () => {
     }
   };
 
-  // =============================================
-  // ✅ CHARGEMENT
-  // =============================================
   if (isLoading || subLoading) {
     return (
       <div className="space-y-4">
@@ -499,9 +477,6 @@ const VisitsPage = () => {
     );
   }
 
-  // =============================================
-  // ✅ RENDU PRINCIPAL
-  // =============================================
   return (
     <div className="w-full max-w-full overflow-hidden space-y-5 pb-24 sm:pb-10">
 
@@ -809,10 +784,6 @@ const VisitsPage = () => {
         visit={selectedVisit}
         patients={patients}
         onSuccess={(newVisit?: any) => {
-          // ✅ Si la visite nécessite un wizard, l'ouvrir
-          if (newVisit && newVisit.requires_wizard) {
-            // Le wizard sera ouvert via handleModalSuccess
-          }
           handleModalSuccess(newVisit);
         }}
       />
@@ -849,7 +820,7 @@ const VisitsPage = () => {
       )}
 
       {/* ============================================================
-      MODAL D'ASSIGNATION D'AIDANT (ADMIN) - 
+      MODAL D'ASSIGNATION D'AIDANT (ADMIN)
       ============================================================ */}
       {showAssignModal && selectedVisitForAssign && (
         <AssignAidantModal
@@ -866,7 +837,9 @@ const VisitsPage = () => {
           currentAidantId={selectedVisitForAssign.aidant_id}
           colors={colors}
           allowForce={isAdminOrCoordinator}
-          onAssignAidant={async (aidantId: string, assignmentType: string, force?: boolean) => {   await handleAdminAssignAidant(selectedVisitForAssign.id, aidantId, assignmentType); }}
+          onAssignAidant={async (aidantId: string, assignmentType: string, force?: boolean) => { 
+            await handleAdminAssignAidant(selectedVisitForAssign.id, aidantId, assignmentType); 
+          }}
         />
       )}
     </div>
