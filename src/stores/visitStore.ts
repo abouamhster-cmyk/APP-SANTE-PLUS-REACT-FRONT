@@ -6,7 +6,7 @@ import { Visit, VisitStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import { assignmentAPI } from '@/lib/api';
 import api from '@/lib/api';
-import toast from 'react-hot-toast';
+// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
 
 // ✅ IMPORTER LES HELPERS
 import { getVisitStatusForCreation, requiresPonctualPayment } from '@/lib/constants';
@@ -207,9 +207,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const response = await api.get('/visits');
       const visitsData = response.data || [];
 
-      // 🔥 CORRECTIF : Nous avons supprimé l'ancien bloc "if (profile?.role === 'family')"
-      // qui écrasait l'aidant à null à cause des règles RLS de Supabase.
-
       setCachedVisits(visitsData);
       
       set({ 
@@ -309,7 +306,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT (Pas d'insertions de notifications doublons)
+  // ✅ CREATE VISIT - SANS TOAST
   // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
@@ -503,121 +500,107 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ ENSEMBLE DES ACTIONS MODIFIÉES AVEC LES ROUTES D'API (FRONTEND)
+  // ✅ ACTIONS - SANS TOAST (les pages gèrent les messages)
   // ============================================================
 
   approveVisit: async (id: string) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel (déclenche la notif d'approbation sur le serveur)
       await api.post(`/visits/${id}/approve`);
-
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Mission approuvée avec succès !');
+      // ✅ SUPPRIMÉ : toast.success('✅ Mission approuvée avec succès !');
     } catch (error: any) {
       console.error('❌ Approve visit error:', error);
-      toast.error(error.message || "Erreur lors de l'approbation");
+      // ✅ SUPPRIMÉ : toast.error(error.message || "Erreur lors de l'approbation");
+      throw error;
     }
   },
 
   refuseVisit: async (id: string, reason: string) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel
       await api.post(`/visits/${id}/refuse`, { reason });
-
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.error('❌ Mission refusée');
+      // ✅ SUPPRIMÉ : toast.error('❌ Mission refusée');
     } catch (error: any) {
       console.error('❌ Refuse visit error:', error);
-      toast.error(error.message || 'Erreur lors du refus');
+      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors du refus');
+      throw error;
     }
   },
 
   reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel
       await api.post(`/visits/${id}/reassign`, { 
         aidant_id: newAidantId, 
         assignment_type: assignmentType 
       });
-
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite réassignée avec succès !');
+      // ✅ SUPPRIMÉ : toast.success('✅ Visite réassignée avec succès !');
     } catch (error: any) {
       console.error('❌ Reassign visit error:', error);
-      toast.error(error.message || 'Erreur lors de la réassignation');
+      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la réassignation');
+      throw error;
     }
   },
 
   startVisit: async (id: string) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel
       await api.post(`/visits/${id}/start`);
-
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('🚀 Visite démarrée avec succès !');
+      // ✅ SUPPRIMÉ : toast.success('🚀 Visite démarrée avec succès !');
     } catch (error: any) {
       console.error('❌ Start visit error:', error);
-      toast.error(error.message || 'Erreur lors du démarrage');
+      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors du démarrage');
+      throw error;
     }
   },
 
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel
       await api.post(`/visits/${id}/complete`, data);
-
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite complétée. Rapport envoyé pour validation.');
+      // ✅ SUPPRIMÉ : toast.success('✅ Visite complétée. Rapport envoyé pour validation.');
     } catch (error: any) {
       console.error('❌ Complete visit error:', error);
-      toast.error(error.message || 'Erreur lors de la soumission du rapport');
+      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la soumission du rapport');
+      throw error;
     }
   },
 
   validateVisit: async (id: string) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel
       await api.post(`/visits/${id}/validate`);
-
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite validée avec succès !');
+      // ✅ SUPPRIMÉ : toast.success('✅ Visite validée avec succès !');
     } catch (error: any) {
       console.error('❌ Validate visit error:', error);
-      toast.error(error.message || 'Erreur lors de la validation');
+      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la validation');
+      throw error;
     }
   },
 
   cancelVisit: async (id: string) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel
       await api.post(`/visits/${id}/cancel`);
-
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite annulée avec succès !');
+      // ✅ SUPPRIMÉ : toast.success('✅ Visite annulée avec succès !');
     } catch (error: any) {
       console.error('❌ Cancel visit error:', error);
-      toast.error(error.message || "Erreur lors de l'annulation");
+      // ✅ SUPPRIMÉ : toast.error(error.message || "Erreur lors de l'annulation");
+      throw error;
     }
   },
 
@@ -791,10 +774,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         currentVisit: { ...get().currentVisit, ...visit } as Visit
       });
 
-      toast.success('Visite mise à jour');
+      // ✅ SUPPRIMÉ : toast.success('Visite mise à jour');
     } catch (error: any) {
       console.error('❌ Update visit error:', error);
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
+      throw error;
     }
   },
 
@@ -815,10 +799,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       get().invalidateCache();
       await get().fetchVisits(true);
 
-      toast.success('Visite supprimée');
+      // ✅ SUPPRIMÉ : toast.success('Visite supprimée');
     } catch (error: any) {
       console.error('❌ Delete visit error:', error);
-      toast.error(error.message);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
+      throw error;
     }
   },
 
@@ -853,7 +838,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         currentVisit: result.visit
       });
 
-      toast.success('✅ Visite planifiée après paiement !');
+      // ✅ SUPPRIMÉ : toast.success('✅ Visite planifiée après paiement !');
       return result.visit;
     } catch (error: any) {
       console.error('❌ Erreur confirmation paiement:', error);
