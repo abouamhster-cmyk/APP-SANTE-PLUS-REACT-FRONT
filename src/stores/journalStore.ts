@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { JournalEntry, JournalStats } from '@/types';
 import { useAuthStore } from './authStore';
 
+ 
 // =============================================
 // HELPERS DE CACHE
 // =============================================
@@ -112,7 +113,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH ENTRIES - AVEC CACHE ET AIDANTS
+  // FETCH ENTRIES - AVEC CACHE ET AIDANTS - SANS TOAST
   // =============================================
   fetchEntries: async (force = false, patientId?: string) => {
     const state = get();
@@ -325,7 +326,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH STATS
+  // FETCH STATS - SANS TOAST
   // =============================================
   fetchStats: async (force = false, patientId?: string) => {
     const state = get();
@@ -441,7 +442,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   },
 
   // =============================================
-  // ADD RATING
+  // ADD RATING - SANS TOAST
   // =============================================
   addRating: async (visitId: string, rating: number, feedback: string) => {
     try {
@@ -470,6 +471,8 @@ export const useJournalStore = create<JournalState>((set, get) => ({
             : entry
         ),
       }));
+
+      // ✅ SUPPRIMÉ : toast.success('Merci pour votre évaluation !');
     } catch (error: any) {
       console.error('❌ Add rating error:', error);
       set({ error: error.message });
