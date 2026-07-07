@@ -25,7 +25,6 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { getThemeColors } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
-import { VisitWizardModal } from './VisitWizardModal';
 import toast from 'react-hot-toast';
 
 // ============================================================
@@ -38,6 +37,7 @@ interface VisitModalContentProps {
   patients: Patient[];
   onSuccess: (newVisit?: any) => void;
   onCancel: () => void;
+  onOpenWizard?: (data: any, wizardData: any) => void; // ✅ NOUVEAU
 }
 
 interface Account {
@@ -64,6 +64,7 @@ export const VisitModalContent = ({
   patients,
   onSuccess,
   onCancel,
+  onOpenWizard, // ✅ NOUVEAU
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
   const { profile, role, user } = useAuthStore();
@@ -98,11 +99,11 @@ export const VisitModalContent = ({
   const [targetType, setTargetType] = useState<'account' | 'patient'>('account');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
-  // ✅ ÉTATS POUR LE WIZARD
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardData, setWizardData] = useState<any>(null);
-  const [isWizardLoading, setIsWizardLoading] = useState(false);
-  const [pendingVisitData, setPendingVisitData] = useState<any>(null);
+  // ✅ ÉTATS POUR LE WIZARD (supprimés car remontés dans le parent)
+  // const [showWizard, setShowWizard] = useState(false);
+  // const [wizardData, setWizardData] = useState<any>(null);
+  // const [isWizardLoading, setIsWizardLoading] = useState(false);
+  // const [pendingVisitData, setPendingVisitData] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -234,60 +235,6 @@ export const VisitModalContent = ({
   );
 
   // ============================================================
-  // ✅ GESTION DU WIZARD
-  // ============================================================
-
-  const handleWizardSuccess = async (wizardResult: any) => {
-    setIsWizardLoading(true);
-    setShowWizard(false);
-
-    try {
-      // ✅ Préparer les données avec le choix du wizard
-      const visitPayload = {
-        ...pendingVisitData,
-        wizard_choice: wizardResult.wizardChoice,
-        selected_aidant_id: wizardResult.aidantId,
-        assignment_type: wizardResult.assignmentType || 'ponctuelle',
-        aidant_id: wizardResult.aidantId,
-      };
-
-      console.log('📤 Wizard - Création visite avec aidant:', visitPayload);
-
-      const result = await createVisit(visitPayload);
-
-      console.log('📤 Wizard - Résultat création:', result);
-
-      if (result?.status === 'en_attente_aidant') {
-        toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
-        onSuccess(result);
-      } else if (result?.status === 'brouillon') {
-        toast.success(`💳 Visite créée en brouillon. Paiement requis pour la planifier.`);
-        onSuccess(result);
-      } else if (result?.id) {
-        toast.success('✅ Visite planifiée avec succès !');
-        onSuccess(result);
-      } else {
-        toast.success('✅ Visite planifiée avec succès !');
-        onSuccess(result);
-      }
-    } catch (error: any) {
-      console.error('❌ Erreur création visite avec wizard:', error);
-      toast.error(error.message || 'Erreur lors de la création de la visite');
-      setShowWizard(true);
-    } finally {
-      setIsWizardLoading(false);
-      setPendingVisitData(null);
-    }
-  };
-
-  const handleWizardClose = () => {
-    setShowWizard(false);
-    setPendingVisitData(null);
-    // ✅ Réouvrir le modal de planification si nécessaire
-    // onCancel(); // Ne pas fermer le modal parent
-  };
-
-  // ============================================================
   // ✅ SOUMISSION DU FORMULAIRE - CORRIGÉE
   // ============================================================
 
@@ -313,7 +260,7 @@ export const VisitModalContent = ({
         requested_by: profile?.id,
       };
 
-      // ✅ CAS 1: Visite pour un patient
+      // ✅ CAS 1: Visite pour un patient (si un patient est sélectionné ET targetType = patient)
       if (targetType === 'patient' && formData.patient_id) {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -336,7 +283,7 @@ export const VisitModalContent = ({
         data.target_type = 'patient';
         data.target_name = null;
       }
-      // ✅ CAS 2: Visite pour le compte lui-même (personnel)
+      // ✅ CAS 2: Visite pour le compte lui-même (personnel) - TOUJOURS DISPONIBLE
       else {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -352,7 +299,7 @@ export const VisitModalContent = ({
         data.patient_id = null;
       }
 
-      // ✅ DÉTERMINER SI PAIEMENT REQUIS
+      // ✅ DÉTERMINER SI PAIEMENT REQUIS (BACKEND LE FERA AUSSI)
       if (isFamilyUser && !can('visit')) {
         data.is_ponctual = true;
         data.requires_payment = true;
@@ -365,6 +312,7 @@ export const VisitModalContent = ({
         try {
           const result = await createVisit(data);
 
+          // ✅ Si la visite est en brouillon (paiement requis)
           if (result?.status === 'brouillon') {
             const price = getPonctualPrice(formData.duration_minutes || 60);
             toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
@@ -384,19 +332,21 @@ export const VisitModalContent = ({
             const wizardDataObj = error.response.data;
             console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
             
-            // ✅ FERMER LE MODAL DE PLANIFICATION avant d'ouvrir le wizard
+            // ✅ FERMER LE MODAL DE PLANIFICATION
             onCancel();
             
-            setPendingVisitData(data);
-            setWizardData({
-              targetType: wizardDataObj.targetType || 'personal_account',
-              targetId: wizardDataObj.targetId || user?.id,
-              targetName: wizardDataObj.targetName || 'Personnel',
-              familyId: wizardDataObj.familyId || user?.id,
-              scheduledDate: data.scheduled_date,
-              scheduledTime: data.scheduled_time,
-            });
-            setShowWizard(true);
+            // ✅ Appeler la fonction du parent pour ouvrir le wizard
+            if (onOpenWizard) {
+              onOpenWizard(data, {
+                targetType: wizardDataObj.targetType || 'personal_account',
+                targetId: wizardDataObj.targetId || user?.id,
+                targetName: wizardDataObj.targetName || 'Personnel',
+                familyId: wizardDataObj.familyId || user?.id,
+                scheduledDate: data.scheduled_date,
+                scheduledTime: data.scheduled_time,
+              });
+            }
+            
             setIsLoading(false);
             return;
           }
@@ -757,24 +707,6 @@ export const VisitModalContent = ({
   // RENDU PRINCIPAL
   // ============================================================
 
-  // Si le wizard est ouvert
-  if (showWizard && wizardData) {
-    return (
-      <VisitWizardModal
-        isOpen={showWizard}
-        onClose={handleWizardClose}
-        onSuccess={handleWizardSuccess}
-        targetType={wizardData.targetType}
-        targetId={wizardData.targetId}
-        targetName={wizardData.targetName}
-        familyId={wizardData.familyId}
-        scheduledDate={wizardData.scheduledDate}
-        scheduledTime={wizardData.scheduledTime}
-        colors={colors}
-      />
-    );
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full overflow-hidden">
 
@@ -960,7 +892,7 @@ export const VisitModalContent = ({
           type="submit"
           className="flex-1 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold transition hover:opacity-90 flex items-center justify-center disabled:opacity-55"
           style={{ background: colors.primary }}
-          disabled={isLoading || isWizardLoading}
+          disabled={isLoading}
         >
           {isLoading ? (
             <Loader2 size={16} className="animate-spin" />
