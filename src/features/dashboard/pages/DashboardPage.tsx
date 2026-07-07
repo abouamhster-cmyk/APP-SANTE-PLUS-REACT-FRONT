@@ -721,32 +721,43 @@ const DashboardPage = () => {
         </section>
       )}
 
-     {/* Nouveau design Menu Rapide */}
-<section className="mt-6">
-  <div className="flex items-center justify-between mb-4 px-1">
-    <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">Services</h2>
-  </div>
+      {/* MENU DE NAVIGATION GRILLE */}
+      <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+            Menu rapide
+          </h2>
+          <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full font-semibold">{tiles.length} outils</span>
+        </div>
 
-  <div className="grid grid-cols-2 gap-3">
-    {tiles.map((tile, index) => (
-      <button
-        key={index}
-        onClick={() => navigate(tile.path)}
-        className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-[var(--color-primary)]/30 transition-all active:scale-[0.98]"
-      >
-        <div 
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: tile.color + '10', color: tile.color }}
-        >
-          {tile.icon}
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          {tiles.map((tile, index) => (
+            <button
+              key={index}
+              onClick={() => navigate(tile.path)}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-300 hover:bg-gray-50/70 hover:shadow-sm active:scale-95 group relative overflow-hidden"
+            >
+              <div
+                className="w-11 h-11 rounded-2xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-105 shadow-inner"
+                style={{ background: tile.color + '0a', color: tile.color }}
+              >
+                {tile.icon}
+              </div>
+              <span className="text-[11px] font-semibold text-center leading-tight text-gray-600 truncate w-full transition-colors group-hover:text-gray-900">
+                {tile.label}
+              </span>
+              {tile.badge !== undefined && tile.badge > 0 && (
+                <span
+                  className="mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all"
+                  style={{ background: tile.color + '12', color: tile.color }}
+                >
+                  {tile.badge}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
-        <div className="text-left">
-          <p className="text-sm font-bold text-gray-800">{tile.label}</p>
-        </div>
-      </button>
-    ))}
-  </div>
-</section>
+      </section>
 
       {/* PROCHES / BENEFICIAIRES RECENTES */}
       {(isFamily || isAidant) && hasProches && (
