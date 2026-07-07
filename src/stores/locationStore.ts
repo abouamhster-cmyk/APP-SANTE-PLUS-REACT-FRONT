@@ -1,5 +1,5 @@
 // 📁 src/stores/locationStore.ts
-// ✅ GESTION DES POSITIONS GPS ET DU TRACKING EN TEMPS RÉEL (COHÉRENT AVEC LA TRAJECTOIRE)
+// ✅ GESTION DES POSITIONS GPS - DOUBLE SUIVI (VISITES + LIVRAISONS DE COMMANDES)
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -11,6 +11,7 @@ interface LocationState {
     aidants: any[];
   };
   activeVisits: any[];
+  activeOrders: any[]; // ✅ NOUVEAU
   isLoading: boolean;
   error: string | null;
   subscription: any | null;
@@ -25,25 +26,21 @@ interface LocationState {
   clearError: () => void;
 }
 
-const DEFAULT_CENTER = { lat: 6.3703, lng: 2.3912 };
-
 export const useLocationStore = create<LocationState>((set, get) => ({
   locations: { patients: [], aidants: [] },
   activeVisits: [],
+  activeOrders: [],
   isLoading: false,
   error: null,
   subscription: null,
   watchId: null,
 
-  // ============================================================
-  // RECUPERER LES VISITES ET POSITIONS ACTIVES
-  // ============================================================
   fetchActiveVisits: async () => {
     try {
       set({ isLoading: true, error: null });
       
-      // ✅ 1. Récupérer les visites en cours
-      const { data: visits, error } = await supabase
+      // 1️⃣ Récupérer les visites en cours
+      const { data: visits, error: visitError } = await supabase
         .from('visites')
         .select(`
           *,
@@ -51,33 +48,50 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         `)
         .eq('status', 'en_cours');
 
-      if (error) {
-        console.error('❌ Erreur fetch active visits:', error);
-        set({ error: error.message, isLoading: false });
-        return;
-      }
+      if (visitError) throw visitError;
 
-      // ✅ 2. Récupérer les patients séparément
-      const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
+      // 2️⃣ Récupérer les commandes en cours de livraison
+      const { data: orders, error: orderError } = await supabase
+        .from('commandes')
+        .select(`
+          *,
+          patient:patients(*)
+        `)
+        .eq('status', 'en_cours');
+
+      if (orderError) throw orderError;
+
+      // 3️⃣ Fusionner et enrichir les patients concernés par les visites + livraisons
+      const patientIds = [
+        ...new Set([
+          ...(visits?.map(v => v.patient_id) || []),
+          ...(orders?.map(o => o.patient_id) || [])
+        ].filter(Boolean))
+      ];
+      
       let patientMap: Record<string, any> = {};
-
       if (patientIds.length > 0) {
-        const { data: patients } = await supabase
+        const { data: patientsData } = await supabase
           .from('patients')
           .select('*')
           .in('id', patientIds);
-        if (patients) {
-          patientMap = patients.reduce((acc, p) => {
+        if (patientsData) {
+          patientMap = patientsData.reduce((acc, p) => {
             acc[p.id] = p;
             return acc;
           }, {} as Record<string, any>);
         }
       }
 
-      // ✅ 3. Récupérer les aidants séparément avec leurs profils
-      const aidantIds = [...new Set(visits?.map(v => v.aidant_id).filter(Boolean))];
-      let aidantMap: Record<string, any> = {};
+      // 4️⃣ Enrichir les aidants concernés
+      const aidantIds = [
+        ...new Set([
+          ...(visits?.map(v => v.aidant_id) || []),
+          ...(orders?.map(o => o.aidant_id) || [])
+        ].filter(Boolean))
+      ];
 
+      let aidantMap: Record<string, any> = {};
       if (aidantIds.length > 0) {
         const { data: aidants } = await supabase
           .from('aidants')
@@ -111,42 +125,51 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         }
       }
 
-      // ✅ 4. Fusionner les visites et les relations
+      // 5️⃣ Fusionner les relations complètes
       const visitsWithRelations = (visits || []).map((visit) => ({
         ...visit,
         patient: visit.patient_id ? patientMap[visit.patient_id] || null : null,
         aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
       }));
 
-      set({ activeVisits: visitsWithRelations || [], isLoading: false });
+      const ordersWithRelations = (orders || []).map((order) => ({
+        ...order,
+        patient: order.patient_id ? patientMap[order.patient_id] || null : null,
+        aidant: order.aidant_id ? aidantMap[order.aidant_id] || null : null,
+      }));
 
-      // ✅ 5. Extraire les coordonnées réelles des patients
-      const patients = visitsWithRelations
-        .filter(v => v.patient)
-        .map(v => ({
-          id: v.patient.id,
-          ...v.patient,
-          latitude: v.patient.latitude || DEFAULT_CENTER.lat,
-          longitude: v.patient.longitude || DEFAULT_CENTER.lng,
-        }));
+      set({ 
+        activeVisits: visitsWithRelations || [], 
+        activeOrders: ordersWithRelations || [],
+        isLoading: false 
+      });
 
-      // ✅ 6. Extraire les coordonnées réelles de l'aidant (issues de son profile)
-      const aidants = visitsWithRelations
-        .filter(v => v.aidant?.user)
-        .map(v => {
-          const profileData = v.aidant.user;
-          return {
-            id: profileData.id,
-            full_name: profileData.full_name,
-            latitude: profileData.last_latitude || DEFAULT_CENTER.lat,
-            longitude: profileData.last_longitude || DEFAULT_CENTER.lng,
-          };
-        });
+      // 6️⃣ Extraire les positions réelles des patients
+      const patients = [
+        ...visitsWithRelations.filter(v => v.patient).map(v => v.patient),
+        ...ordersWithRelations.filter(o => o.patient).map(o => o.patient)
+      ].map(p => ({
+        id: p.id,
+        ...p,
+        latitude: p.latitude || 6.3703,
+        longitude: p.longitude || 2.3912,
+      }));
+
+      // 7️⃣ Extraire les positions GPS réelles des aidants actifs
+      const aidants = [
+        ...visitsWithRelations.filter(v => v.aidant?.user).map(v => v.aidant.user),
+        ...ordersWithRelations.filter(o => o.aidant?.user).map(o => o.aidant.user)
+      ].map(p => ({
+        id: p.id,
+        full_name: p.full_name,
+        latitude: p.last_latitude || 6.3703,
+        longitude: p.last_longitude || 2.3912,
+      }));
 
       set({
         locations: { 
           patients, 
-          aidants: aidants.filter(a => a !== null) 
+          aidants: aidants.filter((a, index, self) => a !== null && self.findIndex(t => t.id === a.id) === index) 
         },
         isLoading: false,
       });
@@ -156,12 +179,9 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // ENREGISTREMENT GPS GENERAL DE L'AIDANT
-  // ============================================================
   startTracking: () => {
     if (!navigator.geolocation) {
-      console.warn('⚠️ La géolocalisation n\'est pas supportée par votre navigateur');
+      console.warn('⚠️ Geolocation not supported');
       return;
     }
 
@@ -171,7 +191,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         await get().updateLocation(latitude, longitude);
       },
       (error) => {
-        console.error('❌ Erreur de géolocalisation:', error);
+        console.error('❌ Geolocation error:', error);
       },
       {
         enableHighAccuracy: true,
@@ -196,7 +216,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       const { user, role } = useAuthStore.getState();
       if (!user) return;
 
-      // 1. Mettre à jour la dernière position globale de l'aidant
       await supabase
         .from('profiles')
         .update({
@@ -206,7 +225,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
         })
         .eq('id', user.id);
 
-      // 2. Si l'utilisateur est un aidant actif, mettre à jour la visite en cours
       if (role === 'aidant') {
         const { data: aidant } = await supabase
           .from('aidants')
@@ -215,6 +233,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
           .single();
 
         if (aidant) {
+          // Si l'aidant est en cours de visite
           const { data: activeVisit } = await supabase
             .from('visites')
             .select('id')
@@ -223,13 +242,30 @@ export const useLocationStore = create<LocationState>((set, get) => ({
             .maybeSingle();
 
           if (activeVisit) {
-            // Sauvegarder la position de départ de la visite si vide
             await supabase
               .from('visites')
-              .update({
-                location_start: { lat, lng },
-              })
+              .update({ location_start: { lat, lng } })
               .eq('id', activeVisit.id);
+          }
+
+          // Si l'aidant est en cours de livraison de commande
+          const { data: activeOrder } = await supabase
+            .from('commandes')
+            .select('id, metadata')
+            .eq('aidant_id', aidant.id)
+            .eq('status', 'en_cours')
+            .maybeSingle();
+
+          if (activeOrder) {
+            const updatedMetadata = {
+              ...(activeOrder.metadata || {}),
+              location_start: activeOrder.metadata?.location_start || { lat, lng }
+            };
+
+            await supabase
+              .from('commandes')
+              .update({ metadata: updatedMetadata })
+              .eq('id', activeOrder.id);
           }
         }
       }
@@ -238,9 +274,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // ABONNEMENT EN DIRECT AUX CHANGEMENTS DE POSITION
-  // ============================================================
   subscribeToLocations: () => {
     get().unsubscribeFromLocations();
 
@@ -255,7 +288,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
           filter: 'role=eq.aidant',
         },
         (payload) => {
-          // Mise à jour de la position de l'aidant sur la carte en temps réel
           set((state) => ({
             locations: {
               ...state.locations,
