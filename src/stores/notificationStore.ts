@@ -6,6 +6,8 @@ import type { Notification } from '@/types';
 import { useAuthStore } from './authStore';
 import { playNotificationSound, updateNotificationBadge } from '@/services/notificationService';
 
+// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
+
 const NOTIFICATIONS_CACHE_KEY = 'sante_plus_notifications_cache';
 const CACHE_DURATION = 30000;
 
@@ -389,6 +391,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
   },
 
+  // ✅ addNotification - SANS TOAST
   addNotification: (notification) => {
     const { notificationsEnabled } = get();
 
@@ -410,6 +413,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       if (newUnreadCount > 0) {
         document.title = `(${newUnreadCount}) Santé Plus Services`;
       }
+
+      // ✅ SUPPRIMÉ : toast.success('🔔 Nouvelle notification');
 
       return {
         notifications: [notification, ...state.notifications].slice(0, 50),
