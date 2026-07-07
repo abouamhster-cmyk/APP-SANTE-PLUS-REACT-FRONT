@@ -1,4 +1,5 @@
-// 📁 src/App.tsx
+// 📁 frontend/src/App.tsx
+// ✅ CONTROLEUR DE NAVIGATION PRINCIPAL AVEC ECOUTE REALTIME DES MODIFICATIONS EN TÂCHE DE FOND
 
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -13,6 +14,11 @@ import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
+
+// ✅ IMPORTER le client de base de données et les stores pour le temps réel
+import { supabase } from '@/lib/supabase';
+import { useVisitStore } from '@/stores/visitStore';
+import { useOrderStore } from '@/stores/orderStore';
 
 // ✅ IMPORTER le service Keep-Alive
 import { initKeepAlive, keepAliveService } from '@/services/keepalive.service';
@@ -60,7 +66,7 @@ import CreateOrderPage from '@/features/orders/pages/CreateOrderPage';
 import OrderDetailPage from '@/features/orders/pages/OrderDetailPage';
 
 // ============================================================
-// EDUCATION
+// ÉDUCATION
 // ============================================================
 import EducationPage from '@/features/education/pages/EducationPage';
 
@@ -216,6 +222,49 @@ function App() {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  // ============================================================
+  // ✅ EFFET - REALTIME AUTO-REFRESH DES VISITES ET DES COMMANDES
+  // ============================================================
+  useEffect(() => {
+    if (!isAuthenticated || !isAuthInitialized) return;
+
+    console.log('📡 [Realtime] Initialisation de l\'auto-refresh en arrière-plan...');
+
+    // 1️⃣ S’abonner aux changements de la table "visites" (Validation, Refus, etc.)
+    const visitsChannel = supabase
+      .channel('realtime_visites_refresh')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'visites' },
+        () => {
+          console.log('🔄 [Realtime] Changement sur les visites, rechargement...');
+          const { fetchVisits } = useVisitStore.getState();
+          fetchVisits(true); // Recharger en direct
+        }
+      )
+      .subscribe();
+
+    // 2️⃣ S’abonner aux changements de la table "commandes" (Prise en charge, livraison, etc.)
+    const ordersChannel = supabase
+      .channel('realtime_commandes_refresh')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'commandes' },
+        () => {
+          console.log('🔄 [Realtime] Changement sur les commandes, rechargement...');
+          const { fetchOrders } = useOrderStore.getState();
+          fetchOrders(true); // Recharger en direct
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(visitsChannel);
+      supabase.removeChannel(ordersChannel);
+    };
+  }, [isAuthenticated, isAuthInitialized]);
+
   // ============================================================
   // EFFETS - INITIALISATION DE L'AUTH
   // ============================================================
@@ -244,119 +293,29 @@ function App() {
   }, [initialize]);
 
   // ============================================================
-  // ✅ EFFET - INITIALISATION KEEP-ALIVE
+  // EFFETS - INITIALISATION DE L'AUTHENTIFICATION ET DES NOTIFS
   // ============================================================
   useEffect(() => {
-    if (isAuthenticated && isAuthInitialized && !keepAliveStarted.current) {
-      console.log('🚀 [App] Initialisation Keep-Alive après authentification');
-      keepAliveStarted.current = true;
-      initKeepAlive();
-      
-      if (keepAliveService.isActive()) {
-        console.log('✅ Keep-Alive actif');
-      } else {
-        console.warn('⚠️ Keep-Alive non démarré');
-      }
+    if (!isAuthenticated || !isAuthInitialized) return;
+
+    if (realtimeInitialized.current) {
+      console.log('ℹ️ Realtime déjà connecté');
+      return;
     }
 
-    if (!isAuthenticated && isAuthInitialized && keepAliveStarted.current) {
-      console.log('🚪 [App] Déconnexion - Arrêt Keep-Alive');
-      keepAliveStarted.current = false;
-      keepAliveService.stop();
-    }
-  }, [isAuthenticated, isAuthInitialized]);
-
-  // ============================================================
-  // ✅ EFFET - INITIALISATION DU SON DE NOTIFICATION
-  // ============================================================
-  useEffect(() => {
-    if (isAuthenticated && isAuthInitialized && !soundInitialized.current) {
-      console.log('🔔 [App] Initialisation du son de notification...');
-      soundInitialized.current = true;
-      loadNotificationSoundPreference();
-    }
-  }, [isAuthenticated, isAuthInitialized]);
-
-  // ============================================================
-  // ✅ EFFET - INITIALISATION DES NOTIFICATIONS PUSH
-  // ============================================================
-  useEffect(() => {
-    if (isAuthenticated && isAuthInitialized && !notificationInitialized.current) {
-      console.log('🔔 [App] Initialisation des notifications push...');
-      notificationInitialized.current = true;
-
-      const initNotifications = async () => {
-        try {
-          const { user } = useAuthStore.getState();
-          if (!user) {
-            console.warn('⚠️ Utilisateur non trouvé pour les notifications');
-            return;
-          }
-
-          // ✅ Vérifier la permission système
-          if ('Notification' in window) {
-            if (Notification.permission === 'default') {
-              const permission = await Notification.requestPermission();
-              console.log('📢 Permission notification système:', permission);
-            }
-          }
-
-          // ✅ Vérifier si déjà enregistré
-          const storedToken = localStorage.getItem('push_token');
-          if (storedToken) {
-            console.log('ℹ️ Token push déjà enregistré');
-            return;
-          }
-
-          // ✅ Demander la permission
-          const token = await requestNotificationPermission(user.id);
-          if (token) {
-            console.log('✅ Notifications push activées');
-          } else {
-            console.log('ℹ️ Notifications push non activées par l\'utilisateur');
-          }
-        } catch (error) {
-          console.error('❌ Erreur initialisation notifications:', error);
-        }
-      };
-
-      // ✅ Délai pour ne pas bloquer le chargement
-      const timer = setTimeout(initNotifications, 3000);
-
-      return () => {
-        clearTimeout(timer);
-        notificationInitialized.current = false;
-      };
-    }
-
-    // ✅ Réinitialiser si déconnecté
-    if (!isAuthenticated && isAuthInitialized && notificationInitialized.current) {
-      notificationInitialized.current = false;
-      localStorage.removeItem('push_token');
-    }
-  }, [isAuthenticated, isAuthInitialized]);
-
-  // ============================================================
-  // ✅ EFFET - REALTIME NOTIFICATIONS (LE PLUS IMPORTANT !)
-  // ============================================================
-  useEffect(() => {
-    if (isAuthenticated && isAuthInitialized && !realtimeInitialized.current) {
-      console.log('🔔 [Realtime] Initialisation du canal Realtime...');
+    const initNotifications = async () => {
       realtimeInitialized.current = true;
-
-      // ✅ S'abonner au canal Realtime
-      subscribe();
-
-      // ✅ Charger les notifications existantes
-      fetchNotifications();
-
-      // ✅ Si les notifications sont désactivées, les activer
-      if (!notificationsEnabled) {
-        toggleNotifications();
+      try {
+        console.log('🔔 [Realtime] Initialisation du canal Realtime...');
+        subscribe();
+        await fetchNotifications();
+      } catch (error) {
+        console.error('❌ Erreur initialisation Realtime:', error);
+        realtimeInitialized.current = false;
       }
+    };
 
-      console.log('✅ [Realtime] Canal Realtime activé');
-    }
+    initNotifications();
 
     return () => {
       if (realtimeInitialized.current) {
@@ -365,10 +324,10 @@ function App() {
         realtimeInitialized.current = false;
       }
     };
-  }, [isAuthenticated, isAuthInitialized, subscribe, unsubscribe, fetchNotifications, toggleNotifications, notificationsEnabled]);
+  }, [isAuthenticated, isAuthInitialized, subscribe, fetchNotifications, unsubscribe]);
 
   // ============================================================
-  // ✅ EFFET - MISE À JOUR DU BADGE
+  // EFFET - MISE À JOUR DU BADGE
   // ============================================================
   useEffect(() => {
     if (unreadCount > 0) {
@@ -419,11 +378,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <ThemeProvider>
+        <ThemePropsProvider value={{ theme: themeName }}>
           <Routes>
-            {/* ============================================================
-                ROUTES PUBLIQUES
-                ============================================================ */}
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
@@ -433,9 +389,6 @@ function App() {
               <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
             </Route>
 
-            {/* ============================================================
-                ROUTES PROTÉGÉES
-                ============================================================ */}
             <Route
               element={
                 <ProtectedRoute>
@@ -443,59 +396,42 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              {/* 📊 DASHBOARD */}
               <Route path="/app" element={<DashboardPage />} />
               <Route path="/app/dashboard" element={<DashboardPage />} />
 
-              {/* 👨‍👩‍👦 PATIENTS / PROCHES - UNIFIÉ */}
               <Route path="/app/patients" element={<PatientsPage />} />
               <Route path="/app/patients/:id" element={<PatientDetailPage />} />
 
-              {/* 📅 VISITES */}
               <Route path="/app/visits" element={<VisitsPage />} />
               <Route path="/app/visits/:id" element={<VisitDetailPage />} />
 
-              {/* 🛒 COMMANDES */}
               <Route path="/app/orders" element={<OrdersPage />} />
               <Route path="/app/orders/create" element={<CreateOrderPage />} />
               <Route path="/app/orders/:id" element={<OrderDetailPage />} />
 
-              {/* 💬 MESSAGES */}
               <Route path="/app/messages" element={<MessagesPage />} />
 
-              {/* 💳 BILLING / ABONNEMENT */}
               <Route path="/app/billing" element={<BillingPage />} />
 
-              {/* 🗺️ MAP / RADAR */}
               <Route path="/app/map" element={<MapPage />} />
 
-              {/* 🔔 NOTIFICATIONS */}
               <Route path="/app/notifications" element={<NotificationsPage />} />
 
-              {/* 👤 PROFIL */}
               <Route path="/app/profile" element={<ProfilePage />} />
 
-              {/* 🦸 AIDANT - MISSIONS */}
               <Route path="/app/missions" element={<MissionsPage />} />
               <Route path="/app/planning" element={<PlanningPage />} />
               <Route path="/app/history" element={<HistoryPage />} />
 
-              {/* 📚 ÉDUCATION */}
               <Route path="/app/education" element={<EducationPage />} />
 
-              {/* 📖 JOURNAL DE BORD */}
               <Route path="/app/journal" element={<JournalPage />} />
 
-              {/* 🏥 SORTIE D'HÔPITAL */}
               <Route path="/app/discharge" element={<DischargePage />} />
 
-              {/* 🦸 AIDANTS CATALOG */}
               <Route path="/app/aidants" element={<AidantCatalogPage />} />
               <Route path="/app/aidants/:id" element={<AidantDetailPage />} />
 
-              {/* ============================================================
-                  👔 ROUTES ADMIN - PROTÉGÉES PAR RÔLE
-                  ============================================================ */}
               <Route 
                 path="/app/admin" 
                 element={
@@ -541,7 +477,7 @@ function App() {
                 element={
                   <RoleGuard allowedRoles={['admin', 'coordinator']}>
                     <RegistrationsPage />
-                  </RoleGuard>
+                  </Route>
                 } 
               />
               <Route 
@@ -602,9 +538,6 @@ function App() {
               />
             </Route>
 
-            {/* ============================================================
-                REDIRECTIONS
-                ============================================================ */}
             <Route
               path="/"
               element={<Navigate to={isAuthenticated ? '/app' : '/login'} replace />}
@@ -615,71 +548,19 @@ function App() {
             />
           </Routes>
 
-          {/* ============================================================
-              COMPOSANTS GLOBAUX
-              ============================================================ */}
-          <InstallPrompt />
-          <OnboardingTour />
+          <button
+            onClick={() => navigate('/app/orders/create')}
+            className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
+            style={{ background: colors.primary }}
+            aria-label="Nouvelle commande"
+          >
+            <Plus size={22} />
+          </button>
 
-          {/* ============================================================
-              TOASTER
-              ============================================================ */}
-          <Toaster
-            position="top-center"
-            reverseOrder={false}
-            gutter={8}
-            containerStyle={{
-              top: 76,
-              zIndex: 999999,
-            }}
-            toastOptions={{
-              duration: 3800,
-              style: {
-                width: 'min(420px, calc(100vw - 28px))',
-                maxWidth: '420px',
-                minHeight: '62px',
-                background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
-                color: '#fff4dc',
-                border: '1px solid rgba(255,255,255,.12)',
-                borderRadius: '22px',
-                padding: '14px 16px',
-                boxShadow: '0 18px 40px rgba(15,31,25,.28), 0 4px 12px rgba(16,185,129,.08)',
-                backdropFilter: 'blur(18px)',
-                fontSize: '13px',
-                fontWeight: 700,
-                lineHeight: 1.35,
-              },
-              success: {
-                icon: '',
-                style: {
-                  border: '1px solid rgba(16,185,129,.38)',
-                  background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
-                  color: '#fff4dc',
-                },
-              },
-              error: {
-                icon: '',
-                duration: 4800,
-                style: {
-                  border: '1px solid rgba(239,68,68,.42)',
-                  background: 'linear-gradient(135deg, rgba(79,18,18,.98), rgba(127,29,29,.98))',
-                  color: '#fff4dc',
-                },
-              },
-              loading: {
-                icon: '',
-                style: {
-                  border: '1px solid rgba(245,158,11,.38)',
-                  background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
-                  color: '#fff4dc',
-                },
-              },
-            }}
-          />
-        </ThemeProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
-  );
-}
+        </div>
+      </div>
+    );
+  }
+};
 
 export default App;
