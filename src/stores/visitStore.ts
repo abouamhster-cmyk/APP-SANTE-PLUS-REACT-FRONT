@@ -376,8 +376,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT - CORRIGÉ AVEC GESTION D'ERREUR
-  // ET SUPPORT DES COMPTES PERSONNELS (SANS PATIENT)
+  // ✅ CREATE VISIT - CORRIGÉ AVEC GESTION DU WIZARD
   // ============================================================
   createVisit: async (data: Partial<Visit> & { 
     target_type?: 'personal' | 'patient'; 
@@ -397,7 +396,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       // ✅ Déterminer target_type et target_name
-      // Si un patient est fourni, on utilise 'patient', sinon 'personal'
       const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
       const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
       const targetUserId = data.target_user_id || (data.patient_id ? null : user.id);
@@ -440,6 +438,13 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         requiresPayment = false;
       }
 
+      // ✅ Si un aidant est sélectionné via le wizard, l'utiliser
+      if (selectedAidantId) {
+        finalAidantId = selectedAidantId;
+        console.log(`✅ Aidant sélectionné via wizard: ${finalAidantId}`);
+      }
+
+      // ✅ Si pas d'aidant et pas de paiement requis → essayer d'en trouver un automatiquement
       if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
         const patientId = data.patient_id || undefined;
         const familyId = targetUserId || user.id;
@@ -455,13 +460,26 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
-      // ✅ Si pas d'aidant et pas de paiement requis → wizard
-      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant' && !wizardChoice) {
+      // ✅ Si toujours pas d'aidant et pas de paiement requis → DÉCLENCHER LE WIZARD
+      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
+        console.log('🔄 Aucun aidant trouvé, déclenchement du wizard');
         set({ isLoading: false });
-        return {
-          ...data as Visit,
-          requires_wizard: true,
-        } as any;
+        
+        // ✅ Créer une erreur spéciale pour déclencher le wizard
+        const wizardError: any = new Error('Aucun aidant disponible');
+        wizardError.response = {
+          status: 422,
+          data: {
+            wizard_required: true,
+            targetType: targetType === 'patient' ? 'patient' : 'personal_account',
+            targetId: data.patient_id || targetUserId || user.id,
+            targetName: targetName || 'Personnel',
+            familyId: targetUserId || user.id,
+            scheduledDate: data.scheduled_date,
+            scheduledTime: data.scheduled_time,
+          }
+        };
+        throw wizardError;
       }
 
       // ✅ CONSTRUIRE LES DONNÉES DE LA VISITE
@@ -503,14 +521,13 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           wizard_choice: wizardChoice || null,
           selected_aidant: selectedAidantId || null,
           waiting_for_aidant: status === 'en_attente_aidant',
-          // ✅ INDICATEUR POUR LES COMPTES PERSONNELS (SANS PATIENT)
           is_personal_account: targetType === 'personal' && !data.patient_id,
         }
       };
 
       console.log('📤 Données visite envoyées:', JSON.stringify(visitData, null, 2));
 
-      // ✅ Appel API - AVEC GESTION D'ERREUR
+      // ✅ Appel API
       let newVisit;
       try {
         const response = await api.post('/visits', visitData);
@@ -524,7 +541,12 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       } catch (apiError: any) {
         console.error('❌ Erreur API createVisit:', apiError);
         
-        // ✅ Gérer les différentes erreurs
+        // ✅ Si c'est une erreur 422 avec wizard_required, la propager
+        if (apiError.response?.status === 422 && apiError.response?.data?.wizard_required) {
+          throw apiError;
+        }
+        
+        // ✅ Gérer les autres erreurs
         if (apiError.response?.status === 400) {
           const errorMessage = apiError.response?.data?.error || 'Données invalides';
           throw new Error(errorMessage);
@@ -542,7 +564,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           throw new Error('Erreur serveur. Veuillez réessayer plus tard.');
         }
         
-        // ✅ Si l'erreur a un message personnalisé
         if (apiError.message) {
           throw new Error(apiError.message);
         }
@@ -605,7 +626,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       // ✅ SI VISITE EN ATTENTE D'AIDANT
       if (newVisit.status === 'en_attente_aidant') {
-        // Notification aux admins
         const { data: admins } = await supabase
           .from('profiles')
           .select('id')
