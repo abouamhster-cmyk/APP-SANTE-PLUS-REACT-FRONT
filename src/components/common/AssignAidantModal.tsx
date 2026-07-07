@@ -88,6 +88,7 @@ export const AssignAidantModal = ({
       setAidants(data || []);
     } catch (error) {
       console.error('❌ Fetch aidants error:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors du chargement des aidants');
     } finally {
       setIsLoading(false);
@@ -185,11 +186,13 @@ export const AssignAidantModal = ({
         }
       }
 
+      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success(`Aidant assigné avec succès à ${targetName}`);
       onSuccess();
       onClose();
     } catch (error: any) {
       console.error('❌ Assign error:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsSubmitting(false);
