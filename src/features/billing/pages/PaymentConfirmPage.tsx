@@ -1,5 +1,5 @@
 // 📁 src/features/billing/pages/PaymentConfirmPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader2, Calendar, User, ShoppingBag, ArrowRight } from 'lucide-react';
@@ -7,8 +7,7 @@ import { getThemeColors } from '@/lib/permissions';
 import { useVisitStore } from '@/stores/visitStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import toast from 'react-hot-toast';
-
+ 
 const PaymentConfirmPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
