@@ -169,12 +169,14 @@ export const PonctualPaymentModal = ({
         localStorage.setItem('pending_ponctual_order', JSON.stringify(pendingData));
       }
 
+      // ✅ UN SEUL TOAST - REDIRECTION
       toast.success('Redirection vers FedaPay...');
       window.location.href = paymentUrl;
       
     } catch (error: any) {
       console.error('❌ Erreur paiement:', error);
       setError(error?.message || 'Erreur lors du lancement du paiement');
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors du paiement');
       setIsLoading(false);
     }
