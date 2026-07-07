@@ -51,6 +51,36 @@ export const formatDate = (date: string | Date) => {
   return 'Date invalide';
 };
 
+
+  
+/**
+ * Calcule la distance totale parcourue (en kilomètres) à partir de la trajectoire d'une visite
+ */
+export const calculateTotalVisitDistance = (locationTrack: any[] | null | undefined): number => {
+  if (!locationTrack || !Array.isArray(locationTrack) || locationTrack.length < 2) return 0;
+
+  let totalDistance = 0;
+  for (let i = 0; i < locationTrack.length - 1; i++) {
+    const p1 = locationTrack[i];
+    const p2 = locationTrack[i + 1];
+    
+    // Formule d'Haversine pour calculer la distance entre p1 et p2
+    const R = 6371; // Rayon de la Terre en km
+    const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
+    const dLng = ((p2.lng - p1.lng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((p1.lat * Math.PI) / 180) *
+        Math.cos((p2.lat * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    
+    totalDistance += R * c;
+  }
+
+  return totalDistance; // Distance en kilomètres (ex: 2.4 km)
+};
 // =============================================
 // FORMATAGE D'HEURE (SÉCURISÉ CONTRE LES "Invalid Date" SUR MOBILE)
 // =============================================
