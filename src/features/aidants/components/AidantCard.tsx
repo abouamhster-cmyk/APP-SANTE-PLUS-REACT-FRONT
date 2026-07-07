@@ -1,7 +1,7 @@
 // 📁 src/features/aidants/components/AidantCard.tsx
 // ✅ INTERFACE CATALOGUE COMPLÈTE : ÉTAT D'ASSIGNATION ET RÉVOCATION EN DIRECT
 
-import { memo, useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback, useState } from 'react';
 import {
   Star,
   MapPin,
@@ -267,7 +267,7 @@ export const AidantCard = memo(({
           </div>
 
           {/* Spécialités */}
-          {aidant.specialties && oxidant_specialties_length > 0 && (
+          {aidant.specialties && aidantSpecialtiesLength(aidant) > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {aidant.specialties.slice(0, 3).map((spec) => (
                 <span
