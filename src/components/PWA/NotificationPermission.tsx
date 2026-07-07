@@ -4,7 +4,7 @@ import { Bell, BellOff, BellRing, AlertCircle, Loader2 } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/useNotifications';
 import { getThemeColors } from '@/lib/permissions';
 import { useState } from 'react';
-import toast from 'react-hot-toast';
+import toast from 'react-hot-toast'; 
 
 interface NotificationPermissionProps {
   className?: string;
@@ -57,9 +57,9 @@ export const NotificationPermission = ({
         setIsLoading(true);
         try {
           await subscribe();
-          toast.success('🔔 Notifications activées !');
+          toast.success('🔔 Notifications activées !'); // ✅ UNIQUE - ON GARDE
         } catch (error) {
-          toast.error('Erreur lors de l\'activation des notifications');
+          toast.error('Erreur lors de l\'activation des notifications'); // ✅ UNIQUE - ON GARDE
         } finally {
           setIsLoading(false);
         }
