@@ -28,8 +28,9 @@ import { formatCurrency } from '@/utils/helpers';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { AdminStats } from '@/components/admin/AdminStats';
+import toast from 'react-hot-toast';
 
-// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
+// ✅ toast CONSERVÉ - C'est une page, c'est ici qu'on affiche les toasts
 
 // ============================================================
 // TYPES
@@ -247,9 +248,14 @@ const AdminDashboardPage = () => {
         pendingAidantVisits: pendingAidantVisits || 0,
         availableOrders: ordersAvailable || 0,
       });
+      
+      // ✅ UN SEUL TOAST DE SUCCÈS
+      toast.success('✅ Données du tableau de bord actualisées');
+      
     } catch (error) {
       console.error('Fetch dashboard error:', error);
-      // ✅ SUPPRIMÉ : toast.error('Erreur lors du chargement du tableau de bord');
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error('Erreur lors du chargement du tableau de bord');
     } finally {
       setIsLoading(false);
     }
@@ -258,14 +264,19 @@ const AdminDashboardPage = () => {
   useRefreshableData({
     onRefresh: fetchDashboardData,
     onError: () => {
-      // ✅ SUPPRIMÉ : toast.error('Erreur lors du rafraîchissement des données');
-      console.error('Erreur lors du rafraîchissement des données');
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error('Erreur lors du rafraîchissement des données');
     },
   });
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // ✅ handleRefresh - UN SEUL TOAST DE SUCCÈS
+  const handleRefresh = () => {
+    fetchDashboardData();
+  };
 
   if (isLoading) {
     return (
@@ -402,10 +413,7 @@ const AdminDashboardPage = () => {
         </div>
 
         <RefreshButton 
-          onRefresh={() => {
-            fetchDashboardData();
-            // ✅ SUPPRIMÉ : toast.success('Données actualisées');
-          }}
+          onRefresh={handleRefresh}
         />
       </section>
 
