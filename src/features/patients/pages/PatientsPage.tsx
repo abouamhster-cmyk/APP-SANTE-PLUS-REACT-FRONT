@@ -1,5 +1,5 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
-
+ 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -245,6 +245,7 @@ const PatientsPage = () => {
       }
     } catch (error) {
       console.error('❌ Erreur fetchAllData:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors du chargement des données');
     } finally {
       setIsLoadingAssignments(false);
@@ -380,12 +381,10 @@ const PatientsPage = () => {
       };
     }
 
-    // ✅ CORRECTION : Total bénéficiaires = TOUS les comptes + TOUS les patients
     const totalFamilies = familyAccounts.length;
     const totalPatients = allPatients.length;
     const totalBeneficiaires = totalFamilies + totalPatients;
     
-    // ✅ Compter les assignations actives
     const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
     const unassignedCount = totalBeneficiaires - assignedCount;
 
@@ -439,11 +438,12 @@ const PatientsPage = () => {
   };
 
   // ============================================================
-  // HANDLERS D'ASSIGNATION
+  // HANDLERS D'ASSIGNATION - UN SEUL TOAST PAR CAS
   // ============================================================
 
   const handleAssign = async (item: AssignmentItem) => {
     if (!selectedAidant) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner un aidant');
       return;
     }
@@ -461,10 +461,12 @@ const PatientsPage = () => {
         expiresAt: null,
       });
 
+      // ✅ UN SEUL TOAST
       toast.success(`${item.targetName} assigné avec succès`);
       await fetchAllData();
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsProcessing(false);
@@ -478,6 +480,7 @@ const PatientsPage = () => {
 
   const handleRevoke = async (item: AssignmentItem) => {
     if (!item.assignmentId) {
+      // ✅ UN SEUL TOAST
       toast.error('Assignation introuvable');
       return;
     }
@@ -489,10 +492,12 @@ const PatientsPage = () => {
 
     try {
       await assignmentAPI.revoke(item.assignmentId, `Révoqué par ${user?.email || 'admin'}`);
+      // ✅ UN SEUL TOAST
       toast.success(`Assignation de ${item.targetName} retirée`);
       await fetchAllData();
     } catch (error: any) {
       console.error('❌ Erreur révocation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la révocation');
     } finally {
       setIsProcessing(false);
@@ -506,12 +511,14 @@ const PatientsPage = () => {
 
   const handleAssignAll = async () => {
     if (!selectedAidant) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner un aidant');
       return;
     }
 
     const unassigned = assignmentItems.filter(item => !item.assignedAidantUserId);
     if (unassigned.length === 0) {
+      // ✅ UN SEUL TOAST
       toast('Tous les bénéficiaires sont déjà assignés', { icon: 'ℹ️' });
       return;
     }
@@ -534,10 +541,12 @@ const PatientsPage = () => {
         });
       }
 
+      // ✅ UN SEUL TOAST
       toast.success(`${unassigned.length} bénéficiaire(s) assignés`);
       await fetchAllData();
     } catch (error: any) {
       console.error('❌ Erreur assignation en masse:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsProcessing(false);
@@ -546,11 +555,12 @@ const PatientsPage = () => {
   };
 
   // ============================================================
-  // GESTION DES PATIENTS (héritée)
+  // GESTION DES PATIENTS (héritée) - UN SEUL TOAST PAR CAS
   // ============================================================
 
   const handleDelete = async (id: string) => {
     if (!canManage) {
+      // ✅ UN SEUL TOAST
       toast.error('Vous n\'avez pas les droits pour supprimer un patient');
       return;
     }
@@ -559,16 +569,19 @@ const PatientsPage = () => {
 
     try {
       await deletePatient(id);
+      // ✅ UN SEUL TOAST
       toast.success(`${singular.charAt(0).toUpperCase() + singular.slice(1)} supprimé`);
       await fetchAllData();
     } catch (error: any) {
-      console.error(error);
+      console.error('❌ Erreur suppression:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || `Erreur lors de la suppression`);
     }
   };
 
   const handleEdit = (patient: any) => {
     if (!canManage) {
+      // ✅ UN SEUL TOAST
       toast.error('Vous n\'avez pas les droits pour modifier un patient');
       return;
     }
@@ -579,6 +592,7 @@ const PatientsPage = () => {
 
   const handleAdd = () => {
     if (!canManage) {
+      // ✅ UN SEUL TOAST
       toast.error('Vous n\'avez pas les droits pour ajouter un patient');
       return;
     }
@@ -595,6 +609,7 @@ const PatientsPage = () => {
     }
     fetchAssignments();
     setIsModalOpen(false);
+    // ✅ UN SEUL TOAST
     toast.success(
       modalMode === 'create'
         ? `${singular.charAt(0).toUpperCase() + singular.slice(1)} ajouté`
@@ -612,7 +627,7 @@ const PatientsPage = () => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   // ✅ UTILISER le hook de rafraîchissement
-  useRefreshableData({
+  const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       if (isAidant) {
         await syncAidantPatients();
@@ -621,7 +636,10 @@ const PatientsPage = () => {
       }
       await fetchAssignments();
     },
-    onError: () => toast.error('Erreur lors du rafraîchissement des données'),
+    onError: () => {
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error('Erreur lors du rafraîchissement des données');
+    },
   });
 
   // ✅ CHARGEMENT INITIAL
@@ -648,7 +666,7 @@ const PatientsPage = () => {
   const isLoading = patientsLoading || isLoadingAssignments;
 
   // ============================================================
-  // SYNCHRONISATION (aidant)
+  // SYNCHRONISATION (aidant) - UN SEUL TOAST PAR CAS
   // ============================================================
 
   const handleSync = async () => {
@@ -661,6 +679,7 @@ const PatientsPage = () => {
         .single();
       
       if (aidantError || !aidant) {
+        // ✅ UN SEUL TOAST
         toast.error('Aidant non trouvé');
         setIsSyncing(false);
         return;
@@ -692,6 +711,7 @@ const PatientsPage = () => {
       }
 
       if (patientIds.length === 0) {
+        // ✅ UN SEUL TOAST
         toast('Aucun patient assigné', { icon: 'ℹ️' });
         usePatientStore.setState({ patients: [] });
         setIsSyncing(false);
@@ -705,6 +725,7 @@ const PatientsPage = () => {
       
       if (patientsError) {
         console.error('❌ Erreur récupération patients:', patientsError);
+        // ✅ UN SEUL TOAST D'ERREUR
         toast.error('Erreur lors de la récupération des patients');
         setIsSyncing(false);
         return;
@@ -712,8 +733,10 @@ const PatientsPage = () => {
 
       if (directPatients && directPatients.length > 0) {
         usePatientStore.setState({ patients: directPatients });
+        // ✅ UN SEUL TOAST
         toast.success(`${directPatients.length} patient(s) synchronisé(s)`);
       } else {
+        // ✅ UN SEUL TOAST
         toast('Aucun patient trouvé', { icon: 'ℹ️' });
         usePatientStore.setState({ patients: [] });
       }
@@ -721,6 +744,7 @@ const PatientsPage = () => {
       await fetchAssignments();
     } catch (error) {
       console.error('❌ Erreur synchronisation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors de la synchronisation');
     } finally {
       setIsSyncing(false);
@@ -779,6 +803,7 @@ const PatientsPage = () => {
                 fetchAllData();
               }
               fetchAssignments();
+              // ✅ UN SEUL TOAST
               toast.success('Données actualisées');
             }}
             disabled={isLoading || isSyncing}
