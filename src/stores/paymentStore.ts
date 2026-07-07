@@ -1,5 +1,4 @@
 // 📁 src/stores/paymentStore.ts
- 
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +11,7 @@ import {
   getPonctualOrderPrice,
 } from '@/lib/constants';
 
+ 
 interface CreatePaymentData {
   amount: number;
   description?: string;
@@ -339,7 +339,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // ✅ CREATE PAYMENT - LOGIQUE UNIFIÉE AVEC METADATA
+  // ✅ CREATE PAYMENT - SANS TOAST
   // =============================================
   createPayment: async (data: CreatePaymentData) => {
     try {
@@ -368,7 +368,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       const isVisit = data.is_visit || false;
       const visitId = data.visit_id || null;
 
-       const patientId = data.patient_id || null;
+      const patientId = data.patient_id || null;
       const targetType = data.target_type || (patientId ? 'patient' : 'personal');
       const targetName = data.target_name || profile?.full_name || user.email || 'Client';
 
@@ -472,6 +472,8 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
 
       set({ isLoading: false });
 
+      // ✅ SUPPRIMÉ : toast.success('Redirection vers FedaPay...');
+      
       return {
         success: true,
         payment_url: paymentUrl,
