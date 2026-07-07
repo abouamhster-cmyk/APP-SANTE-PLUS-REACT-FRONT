@@ -1,5 +1,5 @@
 // 📁 src/features/map/pages/MapPage.tsx
-// 📌 Dashboard Cartographique Professionnel avec Suivi GPS de Trajectoire
+// 📌 Dashboard Cartographique Professionnel avec Suivi GPS de Trajectoire (Double suivi Visites + Commandes)
 
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -117,6 +117,7 @@ const MapPage = () => {
 
   const {
     singular,
+    plural,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -126,6 +127,7 @@ const MapPage = () => {
   const {
     locations,
     activeVisits,
+    activeOrders, // ✅ Destructurer les commandes actives récupérées par le store unifié
     fetchActiveVisits,
     subscribeToLocations,
     unsubscribeFromLocations,
@@ -258,7 +260,7 @@ const MapPage = () => {
     mapInstanceRef.current.setView(center, mapInstanceRef.current.getZoom() || 13, { animate: true });
   }, [center]);
 
-  // ✅ Marqueurs et Trajectoire temps réel
+  // ✅ Marqueurs et Trajectoires temps réel
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
@@ -327,7 +329,7 @@ const MapPage = () => {
       });
     }
 
-    // 4️⃣ Marqueurs des visites actives ET tracé de trajectoire
+    // 4️⃣ Marqueurs des visites actives ET tracé de trajectoire (Bleu)
     if (showActiveVisits) {
       const visitsToShow = getActiveVisitsToShow();
       visitsToShow.forEach((visit: any) => {
@@ -353,20 +355,18 @@ const MapPage = () => {
           `);
 
         // ============================================================
-        // 🔥 NOUVEAU : DESSINER LA TRAJECTOIRE DE L'AIDANT EN TEMPS RÉEL (location_track)
+        // 🔵 TRACER LA TRAJECTOIRE DE LA VISITE EN TEMPS RÉEL (BLEU)
         // ============================================================
         if (visit.location_track && Array.isArray(visit.location_track) && visit.location_track.length > 1) {
           const latlngs = visit.location_track.map((pt: any) => [pt.lat, pt.lng]);
           
-          // Tracé bleu pointillé de la trajectoire
           L.polyline(latlngs, {
-            color: '#3B82F6',
+            color: '#3B82F6', // Ligne bleue
             weight: 5,
             opacity: 0.85,
             dashArray: '5, 8'
           }).addTo(markersLayer);
           
-          // Marqueur de départ de la visite (petit cercle vert)
           const startPt = visit.location_track[0];
           L.circleMarker([startPt.lat, startPt.lng], {
             radius: 6,
@@ -374,11 +374,43 @@ const MapPage = () => {
             fillColor: '#10B981',
             fillOpacity: 1,
             weight: 2
-          }).addTo(markersLayer).bindPopup("🟢 Point de départ réel de la visite");
+          }).addTo(markersLayer).bindPopup("🟢 Point de départ de la visite");
         }
       });
     }
-  }, [leafletLoaded, userLocation, locations, activeVisits, colors.primary, showPatients, showAidants, showActiveVisits]);
+
+    // 5️⃣ Marqueurs des commandes actives ET tracé de trajectoire (Jaune)
+    if (showActiveVisits) {
+      activeOrders.forEach((order: any) => {
+        const patient = order.patient;
+        const lat = Number(patient?.latitude || order.latitude || DEFAULT_CENTER[0]);
+        const lng = Number(patient?.longitude || order.longitude || DEFAULT_CENTER[1]);
+        if (!lat || !lng) return;
+
+        // Si trajectoire de livraison disponible dans le JSON des metadata
+        if (order.metadata?.location_track && Array.isArray(order.metadata.location_track) && order.metadata.location_track.length > 1) {
+          const latlngs = order.metadata.location_track.map((pt: any) => [pt.lat, pt.lng]);
+          
+          // Tracé jaune pointillé pour la livraison de commande
+          L.polyline(latlngs, {
+            color: '#EAB308', // Ligne jaune
+            weight: 5,
+            opacity: 0.85,
+            dashArray: '5, 8'
+          }).addTo(markersLayer);
+          
+          const startPt = order.metadata.location_track[0];
+          L.circleMarker([startPt.lat, startPt.lng], {
+            radius: 6,
+            color: '#EAB308',
+            fillColor: '#EAB308',
+            fillOpacity: 1,
+            weight: 2
+          }).addTo(markersLayer).bindPopup("🟡 Point de départ de la livraison");
+        }
+      });
+    }
+  }, [leafletLoaded, userLocation, locations, activeVisits, activeOrders, colors.primary, showPatients, showAidants, showActiveVisits]);
 
   // ✅ Filtrage
   const getPatientsToShow = () => {
@@ -596,7 +628,10 @@ const MapPage = () => {
                 )}
                 <LegendItem color={colors.primary} label="Moi" icon={<Dot size={12} />} />
                 {showActiveVisits && (
-                  <LegendItem color="#DC2626" label="Visite" icon={<Circle size={8} fill="#DC2626" />} />
+                  <>
+                    <LegendItem color="#3B82F6" label="Trajet Visite (Bleu)" icon={<Circle size={8} fill="#3B82F6" />} />
+                    <LegendItem color="#EAB308" label="Trajet Livraison (Jaune)" icon={<Circle size={8} fill="#EAB308" />} />
+                  </>
                 )}
               </div>
             </div>
@@ -773,4 +808,3 @@ const MapPage = () => {
 };
 
 export default MapPage;
- 
