@@ -1,4 +1,5 @@
 // 📁 src/stores/locationStore.ts
+// ✅ GESTION DES POSITIONS GPS ET DU TRACKING EN TEMPS RÉEL (COHÉRENT AVEC LA TRAJECTOIRE)
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -24,6 +25,8 @@ interface LocationState {
   clearError: () => void;
 }
 
+const DEFAULT_CENTER = { lat: 6.3703, lng: 2.3912 };
+
 export const useLocationStore = create<LocationState>((set, get) => ({
   locations: { patients: [], aidants: [] },
   activeVisits: [],
@@ -32,26 +35,29 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   subscription: null,
   watchId: null,
 
-fetchActiveVisits: async () => {
-  try {
-    set({ isLoading: true, error: null });
-    
-    // ✅ Spécifier la clé étrangère explicite
-    const { data: visits, error } = await supabase
-      .from('visites')
-      .select(`
-        *,
-        patient:patients!visites_patient_id_fkey(*)
-      `)
-      .eq('status', 'en_cours');
+  // ============================================================
+  // RECUPERER LES VISITES ET POSITIONS ACTIVES
+  // ============================================================
+  fetchActiveVisits: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      // ✅ 1. Récupérer les visites en cours
+      const { data: visits, error } = await supabase
+        .from('visites')
+        .select(`
+          *,
+          patient:patients!visites_patient_id_fkey(*)
+        `)
+        .eq('status', 'en_cours');
 
-    if (error) {
-      console.error('❌ Erreur fetch active visits:', error);
-      set({ error: error.message, isLoading: false });
-      return;
-    }
+      if (error) {
+        console.error('❌ Erreur fetch active visits:', error);
+        set({ error: error.message, isLoading: false });
+        return;
+      }
 
-      // ✅ ÉTAPE 2 : Récupérer les patients SEPAREMENT
+      // ✅ 2. Récupérer les patients séparément
       const patientIds = [...new Set(visits?.map(v => v.patient_id).filter(Boolean))];
       let patientMap: Record<string, any> = {};
 
@@ -68,7 +74,7 @@ fetchActiveVisits: async () => {
         }
       }
 
-      // ✅ ÉTAPE 3 : Récupérer les aidants SEPAREMENT
+      // ✅ 3. Récupérer les aidants séparément avec leurs profils
       const aidantIds = [...new Set(visits?.map(v => v.aidant_id).filter(Boolean))];
       let aidantMap: Record<string, any> = {};
 
@@ -105,7 +111,7 @@ fetchActiveVisits: async () => {
         }
       }
 
-      // ✅ ÉTAPE 4 : Fusionner les données
+      // ✅ 4. Fusionner les visites et les relations
       const visitsWithRelations = (visits || []).map((visit) => ({
         ...visit,
         patient: visit.patient_id ? patientMap[visit.patient_id] || null : null,
@@ -114,25 +120,28 @@ fetchActiveVisits: async () => {
 
       set({ activeVisits: visitsWithRelations || [], isLoading: false });
 
-      // ✅ ÉTAPE 5 : Positions des patients
+      // ✅ 5. Extraire les coordonnées réelles des patients
       const patients = visitsWithRelations
         .filter(v => v.patient)
         .map(v => ({
           id: v.patient.id,
           ...v.patient,
-          latitude: v.patient.latitude || 6.3703,
-          longitude: v.patient.longitude || 2.3912,
+          latitude: v.patient.latitude || DEFAULT_CENTER.lat,
+          longitude: v.patient.longitude || DEFAULT_CENTER.lng,
         }));
 
-      // ✅ ÉTAPE 6 : Positions des aidants
+      // ✅ 6. Extraire les coordonnées réelles de l'aidant (issues de son profile)
       const aidants = visitsWithRelations
         .filter(v => v.aidant?.user)
-        .map(v => ({
-          id: v.aidant.user.id,
-          full_name: v.aidant.user.full_name,
-          latitude: 6.36 + Math.random() * 0.02,
-          longitude: 2.38 + Math.random() * 0.02,
-        }));
+        .map(v => {
+          const profileData = v.aidant.user;
+          return {
+            id: profileData.id,
+            full_name: profileData.full_name,
+            latitude: profileData.last_latitude || DEFAULT_CENTER.lat,
+            longitude: profileData.last_longitude || DEFAULT_CENTER.lng,
+          };
+        });
 
       set({
         locations: { 
@@ -147,9 +156,12 @@ fetchActiveVisits: async () => {
     }
   },
 
+  // ============================================================
+  // ENREGISTREMENT GPS GENERAL DE L'AIDANT
+  // ============================================================
   startTracking: () => {
     if (!navigator.geolocation) {
-      console.warn('⚠️ Geolocation not supported');
+      console.warn('⚠️ La géolocalisation n\'est pas supportée par votre navigateur');
       return;
     }
 
@@ -159,7 +171,7 @@ fetchActiveVisits: async () => {
         await get().updateLocation(latitude, longitude);
       },
       (error) => {
-        console.error('❌ Geolocation error:', error);
+        console.error('❌ Erreur de géolocalisation:', error);
       },
       {
         enableHighAccuracy: true,
@@ -184,6 +196,7 @@ fetchActiveVisits: async () => {
       const { user, role } = useAuthStore.getState();
       if (!user) return;
 
+      // 1. Mettre à jour la dernière position globale de l'aidant
       await supabase
         .from('profiles')
         .update({
@@ -193,6 +206,7 @@ fetchActiveVisits: async () => {
         })
         .eq('id', user.id);
 
+      // 2. Si l'utilisateur est un aidant actif, mettre à jour la visite en cours
       if (role === 'aidant') {
         const { data: aidant } = await supabase
           .from('aidants')
@@ -209,6 +223,7 @@ fetchActiveVisits: async () => {
             .maybeSingle();
 
           if (activeVisit) {
+            // Sauvegarder la position de départ de la visite si vide
             await supabase
               .from('visites')
               .update({
@@ -223,6 +238,9 @@ fetchActiveVisits: async () => {
     }
   },
 
+  // ============================================================
+  // ABONNEMENT EN DIRECT AUX CHANGEMENTS DE POSITION
+  // ============================================================
   subscribeToLocations: () => {
     get().unsubscribeFromLocations();
 
@@ -237,6 +255,7 @@ fetchActiveVisits: async () => {
           filter: 'role=eq.aidant',
         },
         (payload) => {
+          // Mise à jour de la position de l'aidant sur la carte en temps réel
           set((state) => ({
             locations: {
               ...state.locations,
