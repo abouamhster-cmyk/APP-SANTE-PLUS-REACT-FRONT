@@ -159,6 +159,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // FETCH VISITS (Le seul à utiliser isLoading global)
+  // ============================================================
   fetchVisits: async (force = false) => {
     const state = get();
 
@@ -194,64 +197,23 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       set({ isLoading: true, error: null, isCacheInvalidated: false });
       
-      const { user, profile } = useAuthStore.getState();
+      const { user } = useAuthStore.getState();
       if (!user) {
         set({ visits: [], isLoading: false });
         return;
       }
 
+      // ✅ APPEL API UNIQUE : Le serveur renvoie déjà les relations complètes de l'aidant
       const response = await api.get('/visits');
       const visitsData = response.data || [];
 
-      let visitsWithFullRelations = visitsData;
+      // 🔥 CORRECTIF : Nous avons supprimé l'ancien bloc "if (profile?.role === 'family')"
+      // qui écrasait l'aidant à null à cause des règles RLS de Supabase.
 
-      if (profile?.role === 'family' && visitsWithFullRelations.length > 0) {
-        const aidantIds = [...new Set(
-          visitsWithFullRelations
-            .filter((v: any) => v.aidant_id)
-            .map((v: any) => v.aidant_id)
-        )];
-
-        if (aidantIds.length > 0) {
-          const { data: aidantsData } = await supabase
-            .from('aidants')
-            .select(`
-              id,
-              user_id,
-              specialties,
-              available,
-              rating,
-              total_missions,
-              completed_missions,
-              cancelled_missions,
-              user:profiles!aidants_user_id_fkey (
-                id,
-                full_name,
-                email,
-                phone,
-                avatar_url
-              )
-            `)
-            .in('id', aidantIds);
-
-          if (aidantsData) {
-            const aidantMap = aidantsData.reduce((acc: any, a: any) => {
-              acc[a.id] = a;
-              return acc;
-            }, {});
-
-            visitsWithFullRelations = visitsWithFullRelations.map((visit: any) => ({
-              ...visit,
-              aidant: visit.aidant_id ? aidantMap[visit.aidant_id] || null : null,
-            }));
-          }
-        }
-      }
-
-      setCachedVisits(visitsWithFullRelations);
+      setCachedVisits(visitsData);
       
       set({ 
-        visits: visitsWithFullRelations, 
+        visits: visitsData, 
         isLoading: false,
         isInitialized: true,
         lastFetch: Date.now(),
@@ -346,6 +308,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // ✅ CREATE VISIT (Pas d'insertions de notifications doublons)
+  // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
     target_name?: string;
@@ -544,7 +509,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   approveVisit: async (id: string) => {
     try {
       set({ error: null });
-      // Appeler le backend d'API officiel
+      // Appeler le backend d'API officiel (déclenche la notif d'approbation sur le serveur)
       await api.post(`/visits/${id}/approve`);
 
       get().invalidateCache();
