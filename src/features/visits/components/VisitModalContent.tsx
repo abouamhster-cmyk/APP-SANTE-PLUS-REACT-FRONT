@@ -37,7 +37,7 @@ interface VisitModalContentProps {
   patients: Patient[];
   onSuccess: (newVisit?: any) => void;
   onCancel: () => void;
-  onOpenWizard?: (data: any, wizardData: any) => void; // ✅ NOUVEAU
+  onOpenWizard?: (data: any, wizardData: any) => void;
 }
 
 interface Account {
@@ -64,7 +64,7 @@ export const VisitModalContent = ({
   patients,
   onSuccess,
   onCancel,
-  onOpenWizard, // ✅ NOUVEAU
+  onOpenWizard,
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
   const { profile, role, user } = useAuthStore();
@@ -98,12 +98,6 @@ export const VisitModalContent = ({
 
   const [targetType, setTargetType] = useState<'account' | 'patient'>('account');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-
-  // ✅ ÉTATS POUR LE WIZARD (supprimés car remontés dans le parent)
-  // const [showWizard, setShowWizard] = useState(false);
-  // const [wizardData, setWizardData] = useState<any>(null);
-  // const [isWizardLoading, setIsWizardLoading] = useState(false);
-  // const [pendingVisitData, setPendingVisitData] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -260,7 +254,7 @@ export const VisitModalContent = ({
         requested_by: profile?.id,
       };
 
-      // ✅ CAS 1: Visite pour un patient (si un patient est sélectionné ET targetType = patient)
+      // ✅ CAS 1: Visite pour un patient
       if (targetType === 'patient' && formData.patient_id) {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -283,7 +277,7 @@ export const VisitModalContent = ({
         data.target_type = 'patient';
         data.target_name = null;
       }
-      // ✅ CAS 2: Visite pour le compte lui-même (personnel) - TOUJOURS DISPONIBLE
+      // ✅ CAS 2: Visite pour le compte lui-même (personnel)
       else {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -308,52 +302,50 @@ export const VisitModalContent = ({
 
       console.log('📤 Données envoyées:', data);
 
-         if (mode === 'create') {
-          try {
-            const result = await createVisit(data);
-    
-            if (result?.status === 'brouillon') {
-              const price = getPonctualPrice(formData.duration_minutes || 60);
-              toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
-              onSuccess(result);
-            } else if (result?.status === 'en_attente_aidant') {
-              toast.success('🦸 Visite créée en attente d\'aidant. L\'administration a été notifiée.');
-              onSuccess(result);
-            } else {
-              toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
-              onSuccess(result);
-            }
-          } catch (error: any) {
-            console.error('❌ Erreur création visite:', error);
-            
-            // ✅ Vérifier si c'est une erreur de wizard (422 avec wizard_required)
-            if (error.response?.status === 422 && error.response?.data?.wizard_required) {
-              const wizardDataObj = error.response.data;
-              console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
-              
- 
-              
-              // ✅ Appeler la fonction du parent pour ouvrir le wizard
-              if (onOpenWizard) {
-                onOpenWizard(data, {
-                  targetType: wizardDataObj.targetType || 'personal_account',
-                  targetId: wizardDataObj.targetId || user?.id,
-                  targetName: wizardDataObj.targetName || 'Personnel',
-                  familyId: wizardDataObj.familyId || user?.id,
-                  scheduledDate: data.scheduled_date,
-                  scheduledTime: data.scheduled_time,
-                });
-              }
-              
-              setIsLoading(false);
-              return;
-            }
-            
-            toast.error(error?.message || 'Erreur lors de la création');
-            setIsLoading(false);
+      if (mode === 'create') {
+        try {
+          const result = await createVisit(data);
+          
+          // ✅ Un seul toast de confirmation unique géré ici (pour éviter les chevauchements)
+          if (result?.status === 'brouillon') {
+            const price = getPonctualPrice(formData.duration_minutes || 60);
+            toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis.`);
+          } else if (result?.status === 'en_attente_aidant') {
+            toast.success('🦸 Visite créée en attente d\'aidant. L\'administration a été notifiée.');
+          } else {
+            toast.success(`✅ Visite planifiée avec succès !`);
           }
-        } else if (visit) {
-         await updateVisit(visit.id, data);
+          
+          onSuccess(result);
+        } catch (error: any) {
+          console.error('❌ Erreur création visite:', error);
+          
+          // ✅ Vérifier si c'est une erreur de wizard (422 avec wizard_required)
+          if (error.response?.status === 422 && error.response?.data?.wizard_required) {
+            const wizardDataObj = error.response.data;
+            console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
+            
+            // ✅ Appeler la fonction du parent pour ouvrir le wizard
+            if (onOpenWizard) {
+              onOpenWizard(data, {
+                targetType: wizardDataObj.targetType || 'personal_account',
+                targetId: wizardDataObj.targetId || user?.id,
+                targetName: wizardDataObj.targetName || 'Personnel',
+                familyId: wizardDataObj.familyId || user?.id,
+                scheduledDate: data.scheduled_date,
+                scheduledTime: data.scheduled_time,
+              });
+            }
+            
+            setIsLoading(false);
+            return;
+          }
+          
+          toast.error(error?.message || 'Erreur lors de la création');
+          setIsLoading(false);
+        }
+      } else if (visit) {
+        await updateVisit(visit.id, data);
         toast.success('Visite mise à jour');
         onSuccess();
       }
