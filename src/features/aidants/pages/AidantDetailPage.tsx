@@ -1,4 +1,5 @@
 // 📁 src/features/aidants/pages/AidantDetailPage.tsx
+// ✅ INTERFACE DE DÉTAIL CORRIGÉE : DEBLOCAGE DE L'ASSIGNATION SANS PROCHES ENREGISTRÉS
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -64,14 +65,12 @@ const AidantDetailPage = () => {
       setIsCheckingAssignment(true);
       try {
         // ✅ 1. Vérifier si l'aidant est assigné au compte personnel de l'utilisateur
-        // ✅ Utiliser le type correct 'personal_account'
         const personalResponse = await fetchActiveAidant(
           'personal_account' as TargetType, 
           user.id
         );
         const personalData = personalResponse as any;
         
-        // ✅ Vérifier si l'aidant est assigné
         const isPersonalAssigned = 
           personalData?.aidant?.id === id || 
           personalData?.aidant_id === id ||
@@ -89,7 +88,6 @@ const AidantDetailPage = () => {
         // ✅ 2. Vérifier si l'aidant est assigné à un des patients de l'utilisateur
         const patientIds = patients.map(p => p.id);
         for (const patientId of patientIds) {
-          // ✅ Utiliser le type correct 'patient'
           const patientResponse = await fetchActiveAidant(
             'patient' as TargetType, 
             patientId, 
@@ -161,7 +159,8 @@ const AidantDetailPage = () => {
 
   if (!aidant) return null;
 
-  const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available && patients.length > 0;
+  // ✅ CORRECTIF : Retirer "&& patients.length > 0" pour autoriser le choix même sans proches enregistrés !
+  const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
 
   return (
     <div className="max-w-3xl mx-auto px-4 pb-24 space-y-6">
@@ -220,7 +219,6 @@ const AidantDetailPage = () => {
                     {aidant.total_missions || 0}
                   </span>
 
-                  {/* ✅ Afficher si déjà assigné */}
                   {isAlreadyAssigned && (
                     <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                       <UserCheck size={12} />
@@ -270,11 +268,11 @@ const AidantDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ MESSAGE SI PAS DE PATIENTS */}
+        {/* BANDEAU SI PAS DE PROCHE */}
         {isFamily && patients.length === 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
             <p className="text-sm text-amber-700">
-              ⚠️ Vous n'avez pas encore de proche enregistré.
+              ⚠️ Vous n'avez pas encore de proche enregistré. Vous pouvez l'assigner à votre propre compte.
             </p>
             <button
               onClick={() => navigate('/app/patients')}
@@ -298,7 +296,7 @@ const AidantDetailPage = () => {
           {canAssign ? (
             <button
               onClick={() => setShowAssignModal(true)}
-              className="w-full py-2 rounded-lg text-white text-sm flex items-center justify-center gap-2"
+              className="w-full py-2 rounded-lg text-white text-sm flex items-center justify-center gap-2 hover:opacity-90"
               style={{ background: colors.primary }}
             >
               <UserPlus size={16} />
