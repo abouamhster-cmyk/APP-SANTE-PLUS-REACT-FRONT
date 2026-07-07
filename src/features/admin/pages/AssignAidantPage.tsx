@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
-// Affichage des assignations
+// Affichage des assignations - 
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
@@ -118,7 +118,6 @@ const AssignAidantPage = () => {
   // ============================================================
   // ÉTATS
   // ============================================================
-
   const [aidants, setAidants] = useState<Aidant[]>([]);
   const [familyAccounts, setFamilyAccounts] = useState<FamilyAccount[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -134,7 +133,6 @@ const AssignAidantPage = () => {
   // ============================================================
   // CHARGEMENT DES DONNÉES
   // ============================================================
-
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setProcessingItems(new Set());
@@ -224,9 +222,9 @@ const AssignAidantPage = () => {
   // ============================================================
   // CONSTRUCTION DE LA LISTE HIÉRARCHIQUE
   // ============================================================
-
   const assignmentItems = familyAccounts.flatMap(family => {
-    const accountKey = `personal_account_${family.id}`;
+    // ✅ CORRECTIF CLÉ : Utiliser "personal" au lieu de "personal_account" pour correspondre au format API
+    const accountKey = `personal_${family.id}`;
     const accountAssignment = assignments[accountKey];
 
     let accountAidantName = '';
@@ -285,9 +283,8 @@ const AssignAidantPage = () => {
   });
 
   // ============================================================
-  // FILTRAGE
+  // FILTRAGE & RECHERCHE
   // ============================================================
-
   const filteredItems = assignmentItems.filter(item => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
@@ -298,10 +295,6 @@ const AssignAidantPage = () => {
     );
   });
 
-  // ============================================================
-  // GROUPEMENT PAR FAMILLE
-  // ============================================================
-
   const grouped = filteredItems.reduce((acc: any, item) => {
     acc[item.familyId] = acc[item.familyId] || {
       name: item.familyName,
@@ -311,18 +304,13 @@ const AssignAidantPage = () => {
     return acc;
   }, {});
 
-  // ============================================================
-  // TOGGLE EXPAND
-  // ============================================================
-
   const toggleExpand = (familyId: string) => {
     setExpanded(prev => ({ ...prev, [familyId]: !prev[familyId] }));
   };
 
   // ============================================================
-  // HANDLERS
+  // HANDLERS D'ASSIGNATION
   // ============================================================
-
   const handleAssign = async (item: AssignmentItem) => {
     if (!selectedAidant) {
       toast.error('Veuillez sélectionner un aidant');
@@ -343,10 +331,7 @@ const AssignAidantPage = () => {
       });
 
       toast.success(`${item.targetName} assigné avec succès`);
-      
-      // ✅ Forcer le rechargement complet
       await fetchData();
-
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
@@ -373,15 +358,11 @@ const AssignAidantPage = () => {
 
     try {
       await assignmentAPI.revoke(item.assignmentId, `Révoqué par ${user?.email || 'admin'}`);
-
       toast.success(`Assignation de ${item.targetName} retirée`);
-      
-      // ✅ Forcer le rechargement complet
       await fetchData();
-
     } catch (error: any) {
       console.error('❌ Erreur révocation:', error);
-      toast.error(error.message || 'Erreur lors de la révocation');
+      toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsProcessing(false);
       setProcessingItems(prev => {
@@ -423,10 +404,7 @@ const AssignAidantPage = () => {
       }
 
       toast.success(`${unassigned.length} bénéficiaire(s) assignés`);
-      
-      // ✅ Forcer le rechargement complet
       await fetchData();
-
     } catch (error: any) {
       console.error('❌ Erreur assignation en masse:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
@@ -436,18 +414,10 @@ const AssignAidantPage = () => {
     }
   };
 
-  // ============================================================
-  // STATISTIQUES
-  // ============================================================
-
   const totalItems = assignmentItems.length;
   const assignedCount = assignmentItems.filter(i => i.assignedAidantUserId).length;
   const unassignedCount = totalItems - assignedCount;
   const totalFamilies = familyAccounts.length;
-
-  // ============================================================
-  // RENDU
-  // ============================================================
 
   if (isLoading) {
     return (
@@ -462,10 +432,7 @@ const AssignAidantPage = () => {
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto pb-10">
-
-      {/* ============================================================
-      HEADER
-      ============================================================ */}
+      {/* HEADER */}
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -510,9 +477,7 @@ const AssignAidantPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-      BARRE D'ACTION
-      ============================================================ */}
+      {/* BARRE D'ACTION */}
       <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
@@ -572,9 +537,7 @@ const AssignAidantPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-      LISTE DES ASSIGNATIONS
-      ============================================================ */}
+      {/* LISTE DES ASSIGNATIONS */}
       {Object.keys(grouped).length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-black/5">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '12' }}>
@@ -626,7 +589,7 @@ const AssignAidantPage = () => {
                   </div>
                 </div>
 
-                {/* LISTE DES ITEMS DU COMPTE */}
+                {/* LISTE DES ITEMS */}
                 {isExpanded && (
                   <div className="divide-y" style={{ borderColor: colors.border }}>
                     {familyItems.map((item: AssignmentItem) => {
@@ -675,7 +638,7 @@ const AssignAidantPage = () => {
                               </div>
                               <p className="text-[10px] text-gray-400 truncate">
                                 {isAccount ? 'Compte personnel' : `Patient de ${item.familyName}`}
-                                {isAssigned && item.assignedAidantName && ` • 🦸 ${item.assignedAidantName}`}
+                                {isAssigned && item.assignedAidantName && ` • 🦸 {item.assignedAidantName}`}
                                 {item.assignmentType && (
                                   <span className="ml-1 text-[9px] opacity-60">
                                     ({ASSIGNMENT_TYPES.find(t => t.value === item.assignmentType)?.label || item.assignmentType})
@@ -731,9 +694,7 @@ const AssignAidantPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      LÉGENDE - CORRIGÉE
-      ============================================================ */}
+      {/* LÉGENDE */}
       <div className="bg-white rounded-3xl p-4 border border-black/5">
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <span className="font-medium text-gray-500">Légende des priorités :</span>
