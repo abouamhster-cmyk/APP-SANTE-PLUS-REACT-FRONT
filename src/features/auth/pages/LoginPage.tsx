@@ -1,6 +1,5 @@
 // 📁 src/features/auth/pages/LoginPage.tsx
-// 📌 Connexion - VERSION AVEC MARGES MINIMALES
-
+ 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -50,13 +49,17 @@ const LoginPage = () => {
 
       if (error) {
         console.error('❌ Erreur de connexion:', error);
+        // ✅ UN SEUL TOAST D'ERREUR
         toast.error(error.message || 'Email ou mot de passe incorrect');
+        setIsLoading(false);
         return;
       }
 
       if (!data?.user) {
         console.error('❌ Aucun utilisateur retourné');
-        toast.error('Utilisateur non trouvé');
+        // ✅ UN SEUL TOAST D'ERREUR (fusionné avec le cas précédent)
+        toast.error('Email ou mot de passe incorrect');
+        setIsLoading(false);
         return;
       }
 
@@ -71,9 +74,11 @@ const LoginPage = () => {
       if (profileError) {
         console.error('❌ Erreur récupération profil:', profileError);
         toast.error('Erreur lors de la récupération du profil');
+        setIsLoading(false);
         return;
       }
 
+      // ✅ Vérification du compte aidant en attente
       if (profile?.role === 'aidant' && !profile?.is_active) {
         toast.error('⏳ Votre compte aidant est en attente de validation.');
         await supabase.auth.signOut();
@@ -81,6 +86,7 @@ const LoginPage = () => {
         return;
       }
 
+      // ✅ Création du profil si inexistant
       if (!profile) {
         console.log('📝 Création du profil...');
 
@@ -100,6 +106,7 @@ const LoginPage = () => {
         if (createError) {
           console.error('❌ Erreur création profil:', createError);
           toast.error('Erreur lors de la création du profil');
+          setIsLoading(false);
           return;
         }
 
@@ -107,11 +114,13 @@ const LoginPage = () => {
 
         setUser(data.user, newProfile);
 
+        // ✅ UN SEUL TOAST DE SUCCÈS
         toast.success('Bienvenue !');
         navigate('/app', { replace: true });
         return;
       }
 
+      // ✅ Vérification supplémentaire du compte aidant
       if (profile.role === 'aidant' && !profile.is_active) {
         toast.error('⏳ Votre compte aidant est en attente de validation.');
         await supabase.auth.signOut();
@@ -123,11 +132,13 @@ const LoginPage = () => {
 
       setUser(data.user, profile);
 
+      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success('Bienvenue !');
       navigate('/app', { replace: true });
 
     } catch (error: any) {
       console.error('❌ Erreur inattendue:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Une erreur est survenue');
     } finally {
       setIsLoading(false);
