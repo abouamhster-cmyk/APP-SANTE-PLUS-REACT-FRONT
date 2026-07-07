@@ -304,13 +304,8 @@ export const VisitModalContent = ({
         requested_by: profile?.id,
       };
 
-      // ✅ CAS 1: Visite pour un patient
-      if (targetType === 'patient') {
-        if (!formData.patient_id) {
-          toast.error(`Veuillez sélectionner un${singular.startsWith('béné') ? ' ' : 'e '}${singular}`);
-          setIsLoading(false);
-          return;
-        }
+      // ✅ CAS 1: Visite pour un patient (si un patient est sélectionné ET targetType = patient)
+      if (targetType === 'patient' && formData.patient_id) {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
           toast.error('Compte utilisateur introuvable');
@@ -332,9 +327,8 @@ export const VisitModalContent = ({
         data.target_type = 'patient';
         data.target_name = null;
       }
-
-      // ✅ CAS 2: Visite pour le compte lui-même (personnel)
-      else if (targetType === 'account') {
+      // ✅ CAS 2: Visite pour le compte lui-même (personnel) - TOUJOURS DISPONIBLE
+      else {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
           toast.error('Compte utilisateur introuvable');
@@ -343,14 +337,9 @@ export const VisitModalContent = ({
         }
         data.target_user_id = accountId;
         data.target_type = 'personal';
-        data.target_name = isAdmin ? selectedAccount?.full_name : profile?.full_name || 'Personnel';
-        data.patient_id = null;
-      }
-
-      // ✅ CAS 3: Fallback
-      else {
-        data.target_type = 'personal';
-        data.target_name = profile?.full_name || 'Personnel';
+        data.target_name = isAdmin 
+          ? (selectedAccount?.full_name || 'Personnel') 
+          : (profile?.full_name || 'Personnel');
         data.patient_id = null;
       }
 
@@ -368,7 +357,6 @@ export const VisitModalContent = ({
         const result = await createVisit(data);
 
         // ✅ Si le backend demande le wizard
-        // 🔧 CORRECTION : Utiliser 'in' operator ou type guard
         if (result && typeof result === 'object' && 'requires_wizard' in result && result.requires_wizard === true) {
           // ✅ Ouvrir le wizard avec les données
           const targetTypeForWizard = data.patient_id ? 'patient' : 'personal_account';
@@ -957,7 +945,7 @@ export const VisitModalContent = ({
           type="submit"
           className="flex-1 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold transition hover:opacity-90 flex items-center justify-center disabled:opacity-55"
           style={{ background: colors.primary }}
-          disabled={isLoading || (targetType === 'patient' && !formData.patient_id) || isWizardLoading}
+          disabled={isLoading || isWizardLoading}
         >
           {isLoading ? (
             <Loader2 size={16} className="animate-spin" />
