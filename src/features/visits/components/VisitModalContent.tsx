@@ -308,54 +308,52 @@ export const VisitModalContent = ({
 
       console.log('📤 Données envoyées:', data);
 
-      if (mode === 'create') {
-        try {
-          const result = await createVisit(data);
-
-          // ✅ Si la visite est en brouillon (paiement requis)
-          if (result?.status === 'brouillon') {
-            const price = getPonctualPrice(formData.duration_minutes || 60);
-            toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
-            onSuccess(result);
-          } else if (result?.status === 'en_attente_aidant') {
-            toast.success('🦸 Visite créée en attente d\'aidant. L\'administration a été notifiée.');
-            onSuccess(result);
-          } else {
-            toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
-            onSuccess(result);
-          }
-        } catch (error: any) {
-          console.error('❌ Erreur création visite:', error);
-          
-          // ✅ Vérifier si c'est une erreur de wizard (422 avec wizard_required)
-          if (error.response?.status === 422 && error.response?.data?.wizard_required) {
-            const wizardDataObj = error.response.data;
-            console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
+         if (mode === 'create') {
+          try {
+            const result = await createVisit(data);
+    
+            if (result?.status === 'brouillon') {
+              const price = getPonctualPrice(formData.duration_minutes || 60);
+              toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
+              onSuccess(result);
+            } else if (result?.status === 'en_attente_aidant') {
+              toast.success('🦸 Visite créée en attente d\'aidant. L\'administration a été notifiée.');
+              onSuccess(result);
+            } else {
+              toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
+              onSuccess(result);
+            }
+          } catch (error: any) {
+            console.error('❌ Erreur création visite:', error);
             
-            // ✅ FERMER LE MODAL DE PLANIFICATION
-            onCancel();
-            
-            // ✅ Appeler la fonction du parent pour ouvrir le wizard
-            if (onOpenWizard) {
-              onOpenWizard(data, {
-                targetType: wizardDataObj.targetType || 'personal_account',
-                targetId: wizardDataObj.targetId || user?.id,
-                targetName: wizardDataObj.targetName || 'Personnel',
-                familyId: wizardDataObj.familyId || user?.id,
-                scheduledDate: data.scheduled_date,
-                scheduledTime: data.scheduled_time,
-              });
+            // ✅ Vérifier si c'est une erreur de wizard (422 avec wizard_required)
+            if (error.response?.status === 422 && error.response?.data?.wizard_required) {
+              const wizardDataObj = error.response.data;
+              console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
+              
+ 
+              
+              // ✅ Appeler la fonction du parent pour ouvrir le wizard
+              if (onOpenWizard) {
+                onOpenWizard(data, {
+                  targetType: wizardDataObj.targetType || 'personal_account',
+                  targetId: wizardDataObj.targetId || user?.id,
+                  targetName: wizardDataObj.targetName || 'Personnel',
+                  familyId: wizardDataObj.familyId || user?.id,
+                  scheduledDate: data.scheduled_date,
+                  scheduledTime: data.scheduled_time,
+                });
+              }
+              
+              setIsLoading(false);
+              return;
             }
             
+            toast.error(error?.message || 'Erreur lors de la création');
             setIsLoading(false);
-            return;
           }
-          
-          toast.error(error?.message || 'Erreur lors de la création');
-          setIsLoading(false);
-        }
-      } else if (visit) {
-        await updateVisit(visit.id, data);
+        } else if (visit) {
+         await updateVisit(visit.id, data);
         toast.success('Visite mise à jour');
         onSuccess();
       }
