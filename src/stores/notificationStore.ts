@@ -6,8 +6,7 @@ import type { Notification } from '@/types';
 import { useAuthStore } from './authStore';
 import { playNotificationSound, updateNotificationBadge } from '@/services/notificationService';
 
-// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
-
+ 
 const NOTIFICATIONS_CACHE_KEY = 'sante_plus_notifications_cache';
 const CACHE_DURATION = 30000;
 
