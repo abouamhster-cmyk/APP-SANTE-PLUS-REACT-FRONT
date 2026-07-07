@@ -1,5 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import {
   CreditCard,
@@ -186,7 +186,7 @@ const BillingPage = () => {
   };
 
   // =============================================
-  // ✅ OUVERTURE DU MODAL DE PAIEMENT
+  // ✅ OUVERTURE DU MODAL DE PAIEMENT - UN SEUL TOAST
   // =============================================
   const openPayment = (offer: Offer) => {
     // ✅ Récupérer le premier patient de la famille (ou null)
@@ -195,6 +195,7 @@ const BillingPage = () => {
 
     // ✅ Vérifier si l'utilisateur a déjà un abonnement actif
     if (hasActiveSub) {
+      // ✅ UN SEUL TOAST
       toast.error('Vous avez déjà un abonnement actif');
       return;
     }
@@ -205,13 +206,14 @@ const BillingPage = () => {
   };
 
   // =============================================
-  // ✅ SUCCÈS DU PAIEMENT
+  // ✅ SUCCÈS DU PAIEMENT - UN SEUL TOAST
   // =============================================
   const handlePaymentSuccess = async () => {
     await fetchSubscriptions();
     await fetchPayments();
     await fetchOffers();
     setIsPaymentOpen(false);
+    // ✅ UN SEUL TOAST
     toast.success('Paiement effectué avec succès !');
   };
 
