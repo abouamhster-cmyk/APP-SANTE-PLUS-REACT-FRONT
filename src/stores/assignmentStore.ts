@@ -11,8 +11,8 @@ import {
   AssignmentStatus,
 } from '@/types/assignment';
 import { useAuthStore } from './authStore';
-import toast from 'react-hot-toast';
 
+ 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const useAssignmentStore = create<AssignmentState>((set, get) => ({
@@ -179,7 +179,7 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
   },
 
   // ============================================================
-  // ASSIGN AIDANT - Version famille
+  // ASSIGN AIDANT - SANS TOAST
   // ============================================================
   assignAidant: async (data: AssignAidantRequest): Promise<AssignAidantResponse> => {
     try {
@@ -221,16 +221,18 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
 
       set({ isLoading: false });
 
+      // ✅ SUPPRIMÉ : toast.success('Aidant assigné avec succès');
       return result;
     } catch (error: any) {
       console.error('❌ Assign aidant error:', error);
       set({ error: error.message, isLoading: false });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
   // ============================================================
-  // REVOKE ASSIGNMENT
+  // REVOKE ASSIGNMENT - SANS TOAST
   // ============================================================
   revokeAssignment: async (assignmentId: string, reason?: string) => {
     try {
@@ -264,11 +266,11 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
 
       set({ isLoading: false });
 
-      toast.success('Assignation révoquée avec succès');
+      // ✅ SUPPRIMÉ : toast.success('Assignation révoquée avec succès');
     } catch (error: any) {
       console.error('❌ Revoke assignment error:', error);
       set({ error: error.message, isLoading: false });
-      toast.error(error.message || 'Erreur lors de la révocation');
+      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la révocation');
       throw error;
     }
   },
