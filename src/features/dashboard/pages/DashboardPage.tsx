@@ -1,5 +1,5 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
-
+ 
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
@@ -99,29 +99,25 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     return tiles;
   }
 
-// 📁 src/features/dashboard/pages/DashboardPage.tsx - PARTIE MODIFIÉE
-
-// Dans la fonction getTilesForRole, pour le rôle admin/coordinator :
-
-if (role === 'admin' || role === 'coordinator') {
-  tiles.push(
-    { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: '#8b5cf6', path: '/app/admin' },
-    { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations },
-    { icon: <UserCheck size={20} />, label: 'Candidatures', color: '#f59e0b', path: '/app/aidant-candidates', badge: stats.pendingAidants },
-     { icon: <Users size={20} />, label: 'Bénéficiaires', color: '#3b82f6', path: '/app/patients', badge: stats.totalBeneficiaires },
-    { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits', badge: stats.todayVisits },
-    { icon: <FileCheck size={20} />, label: 'Valider visites', color: '#84cc16', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
-    { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
-    { icon: <DollarSign size={20} />, label: 'Paiements', color: '#8b5cf6', path: '/app/admin-payments', badge: stats.totalPayments },
-    { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
-    { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
-    { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
-    { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
-    { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
-    { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
-  );
-  return tiles;
-}
+  if (role === 'admin' || role === 'coordinator') {
+    tiles.push(
+      { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: '#8b5cf6', path: '/app/admin' },
+      { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations },
+      { icon: <UserCheck size={20} />, label: 'Candidatures', color: '#f59e0b', path: '/app/aidant-candidates', badge: stats.pendingAidants },
+      { icon: <Users size={20} />, label: 'Bénéficiaires', color: '#3b82f6', path: '/app/patients', badge: stats.totalBeneficiaires },
+      { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits', badge: stats.todayVisits },
+      { icon: <FileCheck size={20} />, label: 'Valider visites', color: '#84cc16', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <DollarSign size={20} />, label: 'Paiements', color: '#8b5cf6', path: '/app/admin-payments', badge: stats.totalPayments },
+      { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
+      { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
+      { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
+      { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
+      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
+      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
+    );
+    return tiles;
+  }
 
   tiles.push(
     { icon: <LayoutDashboard size={20} />, label: 'Accueil', color: colors.primary, path: '/app' },
@@ -213,59 +209,59 @@ const DashboardPage = () => {
   const hasDrafts = drafts.length > 0;
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
-// ✅ CHARGER LES STATS BENEFICIAIRES - CORRIGÉ
-const fetchBeneficiairesStats = async () => {
-  setIsLoadingBeneficiaires(true);
-  try {
-    // 1. Compter les patients
-    const { count: patientsCount } = await supabase
-      .from('patients')
-      .select('*', { count: 'exact', head: true });
+  // ✅ CHARGER LES STATS BENEFICIAIRES - CORRIGÉ
+  const fetchBeneficiairesStats = async () => {
+    setIsLoadingBeneficiaires(true);
+    try {
+      // 1. Compter les patients
+      const { count: patientsCount } = await supabase
+        .from('patients')
+        .select('*', { count: 'exact', head: true });
 
-    // 2. Récupérer les familles (comptes)
-    const { data: familyLinks } = await supabase
-      .from('patient_family_links')
-      .select('family_id');
+      // 2. Récupérer les familles (comptes)
+      const { data: familyLinks } = await supabase
+        .from('patient_family_links')
+        .select('family_id');
 
-    const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
+      const familyIdsWithPatients = new Set(familyLinks?.map(l => l.family_id) || []);
 
-    const { data: allFamilies, error: familiesError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('role', 'family');
+      const { data: allFamilies, error: familiesError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'family');
 
-    if (familiesError) {
-      console.error('❌ Erreur récupération familles:', familiesError);
+      if (familiesError) {
+        console.error('❌ Erreur récupération familles:', familiesError);
+      }
+
+      //  Compter TOUTES les familles, pas seulement celles sans patient
+      const totalFamilies = allFamilies?.length || 0;
+      const personalAccountsCount = (allFamilies || []).filter(
+        (f: any) => !familyIdsWithPatients.has(f.id)
+      ).length;
+
+      //  Total bénéficiaires = TOUS les comptes + TOUS les patients
+      const totalBeneficiaires = totalFamilies + (patientsCount || 0);
+
+      console.log('📊 Stats bénéficiaires:', {
+        totalFamilies,
+        patientsCount: patientsCount || 0,
+        personalAccountsCount,
+        totalBeneficiaires,
+        familyIdsWithPatients: familyIdsWithPatients.size,
+      });
+
+      setBeneficiairesStats({
+        patientsCount: patientsCount || 0,
+        personalAccountsCount: personalAccountsCount,
+        totalBeneficiaires: totalBeneficiaires,
+      });
+    } catch (error) {
+      console.error('❌ Erreur récupération stats bénéficiaires:', error);
+    } finally {
+      setIsLoadingBeneficiaires(false);
     }
-
-    //  Compter TOUTES les familles, pas seulement celles sans patient
-    const totalFamilies = allFamilies?.length || 0;
-    const personalAccountsCount = (allFamilies || []).filter(
-      (f: any) => !familyIdsWithPatients.has(f.id)
-    ).length;
-
-    //  Total bénéficiaires = TOUS les comptes + TOUS les patients
-    const totalBeneficiaires = totalFamilies + (patientsCount || 0);
-
-    console.log('📊 Stats bénéficiaires:', {
-      totalFamilies,
-      patientsCount: patientsCount || 0,
-      personalAccountsCount,
-      totalBeneficiaires,
-      familyIdsWithPatients: familyIdsWithPatients.size,
-    });
-
-    setBeneficiairesStats({
-      patientsCount: patientsCount || 0,
-      personalAccountsCount: personalAccountsCount,
-      totalBeneficiaires: totalBeneficiaires,
-    });
-  } catch (error) {
-    console.error('❌ Erreur récupération stats bénéficiaires:', error);
-  } finally {
-    setIsLoadingBeneficiaires(false);
-  }
-};
+  };
 
   // ✅ CHARGER LES STATS ADMIN
   const fetchAdminStats = async () => {
@@ -318,7 +314,7 @@ const fetchBeneficiairesStats = async () => {
     }
   };
 
-  // ✅ REFRESH
+  // ✅ REFRESH - UN SEUL TOAST D'ERREUR
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       await Promise.all([
@@ -334,7 +330,11 @@ const fetchBeneficiairesStats = async () => {
         await fetchAdminStats();
       }
     },
-    onError: (error) => toast.error('Erreur lors du rafraîchissement'),
+    onError: (error) => {
+      console.error('❌ Erreur rafraîchissement:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error('Erreur lors du rafraîchissement');
+    },
   });
 
   // ✅ CHARGEMENT INITIAL
@@ -504,6 +504,7 @@ const fetchBeneficiairesStats = async () => {
               </Link>
               <button
                 onClick={() => {
+                  // ✅ UN SEUL TOAST
                   toast.success('Les visites en brouillon sont disponibles dans l\'onglet Visites');
                 }}
                 className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
