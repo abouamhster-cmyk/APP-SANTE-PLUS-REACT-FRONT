@@ -1,5 +1,5 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
-
+ 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -106,7 +106,7 @@ const PatientDetailPage = () => {
 
   const canManage = canManagePatients();
 
-  // ✅ UTILISER le hook de rafraîchissement
+  // ✅ REFRESH - UN SEUL TOAST
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       if (id) {
@@ -114,7 +114,11 @@ const PatientDetailPage = () => {
         await fetchVisits();
       }
     },
-    onError: (error) => toast.error('Erreur lors du rafraîchissement des données'),
+    onError: (error) => {
+      console.error('❌ Erreur rafraîchissement:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error('Erreur lors du rafraîchissement des données');
+    },
   });
 
   useEffect(() => {
@@ -156,13 +160,17 @@ const PatientDetailPage = () => {
     return true;
   };
 
+  // ✅ DÉMARRER VISITE - UN SEUL TOAST PAR CAS
   const handleStartVisit = async () => {
     if (!canStartVisit()) {
       if (!hasActiveSubscription) {
+        // ✅ UN SEUL TOAST
         toast.error('💳 Aucun abonnement actif. Veuillez souscrire un abonnement.');
       } else if (remainingVisits <= 0) {
+        // ✅ UN SEUL TOAST
         toast.error('📅 Plus de visites disponibles. Renouvelez votre abonnement.');
       } else {
+        // ✅ UN SEUL TOAST
         toast.error('❌ Impossible de démarrer la visite. Vérifiez les conditions.');
       }
       return;
@@ -186,44 +194,56 @@ const PatientDetailPage = () => {
       await startVisit(visit.id);
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
+      // ✅ UN SEUL TOAST
       toast.success('Visite démarrée !');
       await fetchVisits();
       await fetchPatientById(id!);
     } catch (error: any) {
       console.error('❌ Erreur démarrage:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors du démarrage');
     } finally {
       setIsStarting(false);
     }
   };
 
+  // ✅ APPROUVER - UN SEUL TOAST
   const handleApprove = async (visitId: string) => {
     try {
       await approveVisit(visitId);
+      // ✅ UN SEUL TOAST
       toast.success('Visite approuvée');
       await fetchVisits();
     } catch (error: any) {
+      console.error('❌ Erreur approbation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'approbation');
     }
   };
 
+  // ✅ REFUSER - UN SEUL TOAST
   const handleRefuse = async (visitId: string) => {
     const reason = prompt('Motif du refus :');
     if (!reason) return;
     try {
       await refuseVisit(visitId, reason);
+      // ✅ UN SEUL TOAST
       toast.error('Visite refusée');
       await fetchVisits();
     } catch (error: any) {
+      console.error('❌ Erreur refus:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors du refus');
     }
   };
 
+  // ✅ FINALISER - UN SEUL TOAST
   const handleComplete = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
     if (!activeVisitId) return;
     setIsCompleting(true);
     try {
       await completeVisit(activeVisitId, data);
+      // ✅ UN SEUL TOAST
       toast.success('Visite terminée');
       setShowCompleteModal(false);
       setActiveVisitId(null);
@@ -231,42 +251,54 @@ const PatientDetailPage = () => {
       await fetchPatientById(id!);
     } catch (error: any) {
       console.error('❌ Erreur finalisation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors de la finalisation');
     } finally {
       setIsCompleting(false);
     }
   };
 
+  // ✅ ANNULER - UN SEUL TOAST
   const handleCancel = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
     try {
       await cancelVisit(visitId);
+      // ✅ UN SEUL TOAST
       toast.success('Visite annulée');
       await fetchVisits();
       await fetchPatientById(id!);
     } catch (error: any) {
+      console.error('❌ Erreur annulation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'annulation');
     }
   };
 
+  // ✅ SUPPRIMER - UN SEUL TOAST
   const handleDelete = async () => {
     if (!canManage) {
+      // ✅ UN SEUL TOAST
       toast.error('Vous n\'avez pas les droits pour supprimer un patient');
       return;
     }
     if (window.confirm(confirmDelete)) {
       try {
         await deletePatient(id!);
+        // ✅ UN SEUL TOAST
         toast.success(deleted);
         navigate('/app/patients');
       } catch (error: any) {
+        console.error('❌ Erreur suppression:', error);
+        // ✅ UN SEUL TOAST D'ERREUR
         toast.error(error.message || 'Erreur lors de la suppression');
       }
     }
   };
 
+  // ✅ ÉDITER - UN SEUL TOAST
   const handleEdit = () => {
     if (!canManage) {
+      // ✅ UN SEUL TOAST
       toast.error('Vous n\'avez pas les droits pour modifier un patient');
       return;
     }
@@ -276,6 +308,7 @@ const PatientDetailPage = () => {
   const handleModalSuccess = () => {
     setIsModalOpen(false);
     fetchPatientById(id!);
+    // ✅ UN SEUL TOAST
     toast.success(updated);
   };
 
@@ -283,6 +316,7 @@ const PatientDetailPage = () => {
     setShowVisitModal(false);
     fetchVisits();
     fetchPatientById(id!);
+    // ✅ UN SEUL TOAST
     toast.success('Visite planifiée');
   };
 
@@ -413,6 +447,7 @@ const PatientDetailPage = () => {
                 fetchPatientById(id);
                 fetchVisits();
               }
+              // ✅ UN SEUL TOAST
               toast.success('Données actualisées');
             }}
           />
@@ -791,7 +826,6 @@ const VisitCardCompact = ({
   const isPending = visit.status === 'planifiee' && !visit.approved_at && !visit.refused_at;
   const isAccepted = visit.status === 'acceptee';
 
-  // ✅ CORRECTION : Récupérer le nom de l'aidant via le bon chemin
   const getAidantName = () => {
     if (visit.aidant?.user?.full_name) {
       return visit.aidant.user.full_name;
