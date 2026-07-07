@@ -1,5 +1,5 @@
 // 📁 src/components/onboarding/OnboardingTour.tsx
-
+ 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -45,7 +45,6 @@ type TimerType = ReturnType<typeof setTimeout> | null;
 // Clés localStorage
 const TOUR_STORAGE_KEY = 'sante_plus_tour_seen';
 const TOUR_VERSION = '2.0.0';
-const LOGIN_COUNT_KEY = 'sante_plus_login_count';
 
 export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const navigate = useNavigate();
@@ -56,7 +55,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const { visits, fetchVisits } = useVisitStore();
   const { orders, fetchOrders } = useOrderStore();
 
-  // ✅ Jargon dynamique selon le rôle
   const {
     singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
     plural,          // "proches" / "personnes accompagnées" / "bénéficiaires"
@@ -76,7 +74,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
   const [hasAttemptedShow, setHasAttemptedShow] = useState(false);
-  const [isFirstLogin, setIsFirstLogin] = useState(false);
 
   const navigationTimeoutRef = useRef<TimerType>(null);
   const showTimeoutRef = useRef<TimerType>(null);
@@ -84,17 +81,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // =============================================
-  // 1. VÉRIFICATION DU TOUR DÉJÀ VU ET PREMIÈRE CONNEXION
-  // =============================================
+  // ============================================================
+  // 1. VÉRIFICATION DU TOUR DÉJÀ VU
+  // ============================================================
   useEffect(() => {
     const saved = localStorage.getItem(TOUR_STORAGE_KEY);
-    const loginCount = parseInt(localStorage.getItem(LOGIN_COUNT_KEY) || '0', 10);
-    
-    if (loginCount === 0 && isAuthenticated) {
-      setIsFirstLogin(true);
-    }
-
     if (saved) {
       try {
         const data = JSON.parse(saved);
@@ -106,25 +97,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       }
     }
     setIsReady(true);
-  }, [isAuthenticated]);
+  }, []);
 
-  // =============================================
-  // 2. INCRÉMENTER LE COMPTEUR DE CONNEXIONS
-  // =============================================
-  useEffect(() => {
-    if (isAuthenticated && isInitialized) {
-      const currentCount = parseInt(localStorage.getItem(LOGIN_COUNT_KEY) || '0', 10);
-      localStorage.setItem(LOGIN_COUNT_KEY, String(currentCount + 1));
-      
-      if (currentCount === 0) {
-        setIsFirstLogin(true);
-      }
-    }
-  }, [isAuthenticated, isInitialized]);
-
-  // =============================================
-  // 3. CHARGEMENT DES DONNÉES NÉCESSAIRES
-  // =============================================
+  // ============================================================
+  // 2. CHARGEMENT DES DONNÉES NÉCESSAIRES
+  // ============================================================
   useEffect(() => {
     if (!isAuthenticated || !role) return;
 
@@ -153,9 +130,9 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     loadData();
   }, [isAuthenticated, role, fetchPatients, fetchVisits, fetchOrders]);
 
-  // =============================================
-  // 4. DÉFINITION DES ÉTAPES
-  // =============================================
+  // ============================================================
+  // 3. DÉFINITION DES ÉTAPES
+  // ============================================================
   const steps = useMemo(() => {
     if (!isAuthenticated || !role) return [];
 
@@ -195,22 +172,17 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     });
   }, [steps]);
 
-  // =============================================
-  // 5. DÉCISION D'AFFICHAGE (PREMIÈRE CONNEXION UNIQUEMENT)
-  // =============================================
+  // ============================================================
+  // 4. DÉCISION D'AFFICHAGE (Si non vu, s'affiche systématiquement)
+  // ============================================================
   useEffect(() => {
     if (!isReady) return;
     if (!isInitialized) return;
     if (!isAuthenticated) return;
-    if (hasSeenTour) return;
+    if (hasSeenTour) return; // Bloque l'affichage uniquement si déjà validé/passé
     if (isLoadingData) return;
     if (filteredSteps.length === 0) return;
     if (hasAttemptedShow) return;
-    
-    if (!isFirstLogin) {
-      console.log('ℹ️ Pas la première connexion, tour non affiché');
-      return;
-    }
 
     const blockedPages = [
       '/login',
@@ -244,22 +216,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     filteredSteps.length,
     location.pathname,
     hasAttemptedShow,
-    isFirstLogin,
   ]);
 
-  // =============================================
-  // 6. NETTOYAGE DES TIMEOUTS
-  // =============================================
-  useEffect(() => {
-    return () => {
-      if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
-      if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
-    };
-  }, []);
-
-  // =============================================
-  // 7. COMPLÉTION DU TOUR (DÉCLARÉ EN PREMIER)
-  // =============================================
+  // ============================================================
+  // 5. COMPLÉTION DU TOUR
+  // ============================================================
   const handleComplete = useCallback(() => {
     setIsOpen(false);
     setShouldShow(false);
@@ -270,21 +231,17 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       userId: user?.id,
     }));
     setHasSeenTour(true);
-    setIsFirstLogin(false);
 
     if (onComplete) onComplete();
   }, [onComplete, user?.id]);
 
-  // =============================================
-  // 8. SKIP (utilise handleComplete)
-  // =============================================
   const handleSkip = useCallback(() => {
     handleComplete();
   }, [handleComplete]);
 
-  // =============================================
-  // 9. GESTION DE LA NAVIGATION (utilise handleComplete)
-  // =============================================
+  // ============================================================
+  // 6. GESTION DE LA NAVIGATION D'ÉTAPE
+  // ============================================================
   const handleNavigateAndContinue = useCallback((path: string) => {
     if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
 
@@ -306,9 +263,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
   }, [currentStep, filteredSteps.length, navigate, handleComplete]);
 
-  // =============================================
-  // 10. GESTION DE LA PROCHAINE ÉTAPE (utilise handleComplete)
-  // =============================================
   const handleNext = useCallback(() => {
     const activeStep = filteredSteps[currentStep];
     if (!activeStep) return;
@@ -326,9 +280,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     handleComplete();
   }, [currentStep, filteredSteps, location.pathname, handleNavigateAndContinue, handleComplete]);
 
-  // =============================================
-  // 11. GESTION DE LA TOUCHE ÉCHAP
-  // =============================================
+  // Touche Échap
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -339,9 +291,9 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, handleSkip]);
 
-  // =============================================
-  // 12. RENDU
-  // =============================================
+  // ============================================================
+  // RENDU VISUEL
+  // ============================================================
   if (
     hasSeenTour ||
     !shouldShow ||
@@ -487,7 +439,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 };
 
 // =============================================
-// DÉFINITIONS DES ÉTAPES AVEC JARGON DYNAMIQUE
+// ÉTAPES SÉCURISÉES ET MODULAIRES
 // =============================================
 
 function getAidantSteps(visitsCount: number, ordersCount: number): TourStep[] {
