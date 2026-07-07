@@ -263,7 +263,7 @@ const AidantCatalogPage = () => {
                   colors={colors}
                   showActions={true}
                   isAssigned={isAssigned} // ✅ True s'il est déjà lié
-                  assignedTargetName={activeAssignment?.target_name} // ✅ Nom de la personne assignée
+                  assignedTargetName={(activeAssignment as any)?.target_name} 
                 />
               </div>
             );
@@ -275,7 +275,7 @@ const AidantCatalogPage = () => {
           <h3 className="font-semibold text-xs sm:text-sm" style={{ color: colors.text }}>
             {searchTerm ? 'Aucun aidant ne correspond à votre recherche' : 'Aucun aidant disponible pour le moment'}
           </h3>
-          <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">
+          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
             {searchTerm 
               ? 'Essayez de modifier votre recherche ou vos filtres' 
               : 'Revenez plus tard, de nouveaux aidants peuvent être disponibles'}
