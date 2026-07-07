@@ -15,6 +15,12 @@ import {
   Star,
   Briefcase,
   Clock,
+  ChevronDown,
+  ChevronRight,
+  Phone,
+  Mail,
+  Award,
+  Check,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -46,6 +52,7 @@ interface Aidant {
   is_available: boolean;
   zones: string[];
   experience_years: number;
+  bio?: string | null;
 }
 
 interface WizardOption {
@@ -84,6 +91,303 @@ interface VisitWizardModalProps {
   scheduledTime?: string;
   colors?: any;
 }
+
+// ============================================================
+// SOUS-COMPOSANT : CARTE AIDANT AVEC ACCORDÉON
+// ============================================================
+
+interface AidantCardProps {
+  aidant: Aidant;
+  isSelected: boolean;
+  isFull: boolean;
+  isAdmin: boolean;
+  onSelect: () => void;
+  colors: any;
+}
+
+const AidantCard = ({
+  aidant,
+  isSelected,
+  isFull,
+  isAdmin,
+  onSelect,
+  colors,
+}: AidantCardProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const name = aidant.user?.full_name || 'Aidant';
+  const rating = aidant.rating || 0;
+  const missions = aidant.total_missions || 0;
+  const experience = aidant.experience_years || 0;
+  const specialties = aidant.specialties || [];
+  const zones = aidant.zones || [];
+  const availableSlots = aidant.available_slots || 0;
+  const maxAssignments = aidant.max_assignments || 4;
+  const currentAssignments = aidant.current_assignments || 0;
+  const isAvailable = aidant.is_available !== undefined ? aidant.is_available : aidant.available;
+  const avatarUrl = aidant.user?.avatar_url;
+  const phone = aidant.user?.phone;
+  const email = aidant.user?.email;
+  const bio = aidant.bio;
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 2);
+  };
+
+  const getSpecialtyLabel = (spec: string) => {
+    const labels: Record<string, string> = {
+      senior: '👴 Senior',
+      maman_bebe: '👶 Maman & Bébé',
+      accompagnement: '🤝 Accompagnement',
+      autre: '📝 Autre',
+    };
+    return labels[spec] || spec;
+  };
+
+  const canSelect = isAdmin || (!isFull && isAvailable);
+
+  return (
+    <div
+      className={`rounded-2xl border-2 transition-all overflow-hidden ${
+        isSelected
+          ? 'border-[--color-primary] bg-[--color-primary]04 shadow-md'
+          : 'border-gray-200 hover:border-gray-300'
+      } ${!canSelect ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+      style={{
+        borderColor: isSelected ? colors.primary : undefined,
+      }}
+    >
+      {/* En-tête de la carte (toujours visible) */}
+      <div
+        className="flex items-start gap-3 p-3"
+        onClick={() => {
+          if (canSelect) {
+            onSelect();
+            setIsExpanded(!isExpanded);
+          } else {
+            if (isFull) {
+              toast.error(`Cet aidant est complet (${currentAssignments}/${maxAssignments})`);
+            } else if (!isAvailable) {
+              toast.error('Cet aidant n\'est pas disponible');
+            }
+          }
+        }}
+      >
+        {/* Avatar */}
+        <div className="relative shrink-0">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={name}
+              className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+            />
+          ) : (
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm"
+              style={{ background: colors.primary }}
+            >
+              {getInitials(name)}
+            </div>
+          )}
+          {/* Badge de disponibilité */}
+          <div
+            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${
+              isAvailable && !isFull ? 'bg-green-500' : 'bg-red-500'
+            }`}
+          />
+        </div>
+
+        {/* Infos principales */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
+              {name}
+            </p>
+            {aidant.is_verified && (
+              <CheckCircle size={12} className="text-green-500 shrink-0" />
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
+            <span className="flex items-center gap-0.5">
+              <Star size={11} className="text-yellow-400 fill-yellow-400" />
+              {rating.toFixed(1)}
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-0.5">
+              <Briefcase size={11} />
+              {missions}
+            </span>
+            {experience > 0 && (
+              <>
+                <span>•</span>
+                <span className="flex items-center gap-0.5">
+                  <Award size={11} />
+                  {experience} ans
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Spécialités */}
+          {specialties.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {specialties.slice(0, 2).map((spec) => (
+                <span
+                  key={spec}
+                  className="px-1.5 py-0.5 rounded-full text-[8px] font-medium"
+                  style={{ background: colors.primary + '12', color: colors.primary }}
+                >
+                  {getSpecialtyLabel(spec)}
+                </span>
+              ))}
+              {specialties.length > 2 && (
+                <span className="text-[8px] text-gray-400">+{specialties.length - 2}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Indicateur de sélection + statut */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {isSelected ? (
+            <CheckCircle size={18} style={{ color: colors.primary }} />
+          ) : (
+            <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+          )}
+          <span
+            className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+              isFull
+                ? 'bg-red-100 text-red-600'
+                : isAvailable
+                ? 'bg-green-100 text-green-600'
+                : 'bg-gray-100 text-gray-400'
+            }`}
+          >
+            {isFull
+              ? `${currentAssignments}/${maxAssignments}`
+              : isAvailable
+              ? `${availableSlots} place${availableSlots > 1 ? 's' : ''}`
+              : 'Indisponible'}
+          </span>
+        </div>
+      </div>
+
+      {/* Contenu développé (accordéon) */}
+      {isExpanded && (
+        <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-3">
+          {/* Zones d'intervention */}
+          {zones.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                📍 Zones d'intervention
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {zones.map((zone) => (
+                  <span
+                    key={zone}
+                    className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-600"
+                  >
+                    {zone}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bio */}
+          {bio && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
+                📝 Présentation
+              </p>
+              <p className="text-xs text-gray-600 italic leading-relaxed">"{bio}"</p>
+            </div>
+          )}
+
+          {/* Contact */}
+          {(phone || email) && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
+                📞 Contact
+              </p>
+              <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                {phone && (
+                  <span className="flex items-center gap-1">
+                    <Phone size={11} />
+                    {phone}
+                  </span>
+                )}
+                {email && (
+                  <span className="flex items-center gap-1">
+                    <Mail size={11} />
+                    {email}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Quota détaillé */}
+          <div>
+            <div className="flex justify-between text-[10px] text-gray-500">
+              <span>Assignations</span>
+              <span>{currentAssignments}/{maxAssignments}</span>
+            </div>
+            <div className="mt-0.5 h-1 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${Math.min((currentAssignments / maxAssignments) * 100, 100)}%`,
+                  background: isFull ? colors.primary : '#4CAF50',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Bouton de sélection */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canSelect) {
+                onSelect();
+                // Fermer l'accordéon après sélection
+                setIsExpanded(false);
+              }
+            }}
+            disabled={!canSelect}
+            className="w-full py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: canSelect ? colors.primary : '#9CA3AF',
+            }}
+          >
+            {isSelected ? '✅ Sélectionné' : 'Choisir cet aidant'}
+          </button>
+        </div>
+      )}
+
+      {/* Indicateur pour ouvrir/fermer l'accordéon */}
+      <div
+        className="flex justify-center py-0.5 border-t border-gray-100 hover:bg-gray-50 transition cursor-pointer"
+        onClick={() => {
+          if (canSelect) {
+            setIsExpanded(!isExpanded);
+          }
+        }}
+      >
+        {isExpanded ? (
+          <ChevronDown size={14} className="text-gray-400" />
+        ) : (
+          <ChevronRight size={14} className="text-gray-400" />
+        )}
+      </div>
+    </div>
+  );
+};
 
 // ============================================================
 // COMPOSANT PRINCIPAL
@@ -168,7 +472,7 @@ export const VisitWizardModal = ({
       }
 
       setWizardData(result.data);
-      
+
       // ✅ Sélectionner automatiquement le premier aidant si disponible
       if (result.data.aidants && result.data.aidants.length > 0) {
         setSelectedAidantId(result.data.aidants[0].user_id || result.data.aidants[0].id);
@@ -182,7 +486,6 @@ export const VisitWizardModal = ({
       } else if (result.data.options && result.data.options.length > 0) {
         setSelectedOption(result.data.options[0].type);
       }
-
     } catch (error: any) {
       console.error('❌ Fetch wizard data error:', error);
       setError(error.message || 'Erreur lors du chargement');
@@ -200,7 +503,7 @@ export const VisitWizardModal = ({
     // ✅ Cas 1: Un aidant est déjà assigné
     if (wizardData?.hasAidant) {
       onSuccess({
-        aidantId: null, // Utilisera l'aidant déjà assigné
+        aidantId: null,
         wizardChoice: 'auto',
         assignmentType: 'permanente',
       });
@@ -279,7 +582,7 @@ export const VisitWizardModal = ({
         <div className="bg-white rounded-3xl w-full max-w-md p-8 text-center">
           <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4" style={{ color: colors.primary }} />
           <p className="text-sm font-medium" style={{ color: colors.text }}>
-            Chargement des options...
+            Chargement des aidants disponibles...
           </p>
         </div>
       </div>
@@ -319,7 +622,6 @@ export const VisitWizardModal = ({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
         <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl">
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold" style={{ color: colors.text }}>
               ✅ Aidant déjà assigné
@@ -371,7 +673,6 @@ export const VisitWizardModal = ({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
         <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl">
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold" style={{ color: colors.text }}>
               ⚠️ Tous les aidants sont complets
@@ -389,13 +690,8 @@ export const VisitWizardModal = ({
                   Tous les aidants ont atteint leur quota maximum (4/4)
                 </p>
                 <p className="text-xs text-yellow-600 mt-1">
-                  Vous pouvez planifier la visite sans aidant. L'administration sera notifiée pour assigner un aidant.
+                  Vous pouvez planifier la visite sans aidant. L'administration sera notifiée.
                 </p>
-                {wizardData.message && (
-                  <p className="text-xs text-yellow-700 mt-1 font-medium">
-                    {wizardData.message}
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -408,9 +704,6 @@ export const VisitWizardModal = ({
                   ? 'border-[--color-primary] bg-[--color-primary]08'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
-              style={{
-                borderColor: selectedOption === 'without_aidant' ? colors.primary : undefined,
-              }}
             >
               <div className="flex items-center gap-3">
                 <div
@@ -441,18 +734,12 @@ export const VisitWizardModal = ({
 
             {isAdmin && (
               <button
-                onClick={() => {
-                  // Admin peut voir la liste des aidants pour forcer
-                  setSelectedOption('force');
-                }}
+                onClick={() => setSelectedOption('force')}
                 className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${
                   selectedOption === 'force'
                     ? 'border-[--color-primary] bg-[--color-primary]08'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
-                style={{
-                  borderColor: selectedOption === 'force' ? colors.primary : undefined,
-                }}
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -484,26 +771,17 @@ export const VisitWizardModal = ({
           </div>
 
           <div className="flex gap-2 mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl font-medium border transition hover:bg-gray-50"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
+            <button onClick={onClose} className="flex-1 py-3 rounded-xl font-medium border">
               Annuler
             </button>
             <button
               onClick={handleSubmit}
               disabled={!selectedOption || isSubmitting}
-              className="flex-1 py-3 rounded-xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 rounded-xl text-white font-bold text-sm"
               style={{ background: selectedOption ? colors.primary : '#9CA3AF' }}
             >
-              {isSubmitting ? (
-                <Loader2 className="animate-spin" size={18} />
-              ) : (
-                <>
-                  <CheckCircle size={18} />
-                  {selectedOption === 'without_aidant' ? 'Planifier sans aidant' : 'Continuer'}
-                </>
+              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : (
+                <>{selectedOption === 'without_aidant' ? 'Planifier sans aidant' : 'Continuer'}</>
               )}
             </button>
           </div>
@@ -513,7 +791,7 @@ export const VisitWizardModal = ({
   }
 
   // ============================================================
-  // RENDU - CAS 3: AIDANTS DISPONIBLES
+  // RENDU - CAS 3: AIDANTS DISPONIBLES (AVEC ACCORDÉON)
   // ============================================================
 
   const availableAidants = wizardData?.aidants || [];
@@ -546,92 +824,43 @@ export const VisitWizardModal = ({
             <p className="text-xs text-blue-700">
               {isAdmin
                 ? '👔 En tant qu\'admin, vous pouvez forcer l\'assignation même si l\'aidant est full.'
-                : 'Sélectionnez un aidant et le type d\'assignation souhaité.'}
+                : 'Sélectionnez un aidant ci-dessous. Cliquez sur un aidant pour voir plus de détails.'}
             </p>
           </div>
 
-          {/* Sélection de l'aidant */}
-          <div>
-            <label className="block text-xs font-bold mb-1.5" style={{ color: colors.text }}>
-              <User size={14} className="inline mr-1" />
-              Sélectionner un aidant
-            </label>
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+          {/* Liste des aidants avec accordéon */}
+          {availableAidants.length > 0 ? (
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
               {availableAidants.map((aidant) => {
                 const isSelected = (aidant.user_id || aidant.id) === selectedAidantId;
                 const isFull = aidant.current_assignments >= aidant.max_assignments;
-                const name = aidant.user?.full_name || 'Aidant';
-                const rating = aidant.rating || 0;
-                const missions = aidant.total_missions || 0;
+                const isAvailable = aidant.is_available !== undefined ? aidant.is_available : aidant.available;
 
                 return (
-                  <button
+                  <AidantCard
                     key={aidant.id}
-                    onClick={() => {
-                      if (!isAdmin && isFull) {
-                        toast.error(`Cet aidant est complet (${aidant.current_assignments}/${aidant.max_assignments})`);
-                        return;
+                    aidant={aidant}
+                    isSelected={isSelected}
+                    isFull={isFull}
+                    isAdmin={isAdmin}
+                    onSelect={() => {
+                      if (isAdmin || (!isFull && isAvailable)) {
+                        setSelectedAidantId(aidant.user_id || aidant.id);
                       }
-                      setSelectedAidantId(aidant.user_id || aidant.id);
                     }}
-                    disabled={!isAdmin && isFull}
-                    className={`w-full p-3 rounded-2xl border-2 text-left transition-all ${
-                      isSelected
-                        ? 'border-[--color-primary] bg-[--color-primary]04'
-                        : 'border-gray-200 hover:border-gray-300'
-                    } ${!isAdmin && isFull ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-                    style={{
-                      borderColor: isSelected ? colors.primary : undefined,
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
-                          {name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
-                          <span className="flex items-center gap-0.5">
-                            <Star size={12} className="text-yellow-400 fill-yellow-400" />
-                            {rating.toFixed(1)}
-                          </span>
-                          <span className="flex items-center gap-0.5">
-                            <Briefcase size={12} />
-                            {missions}
-                          </span>
-                          {aidant.zones && aidant.zones.length > 0 && (
-                            <span className="flex items-center gap-0.5">
-                              <MapPin size={12} />
-                              {aidant.zones[0]}
-                            </span>
-                          )}
-                          <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                              isFull
-                                ? 'bg-red-100 text-red-600'
-                                : 'bg-green-100 text-green-600'
-                            }`}
-                          >
-                            {isFull ? `${aidant.current_assignments}/${aidant.max_assignments}` : `${aidant.available_slots} place(s)`}
-                          </span>
-                        </div>
-                      </div>
-                      {isSelected && (
-                        <CheckCircle size={18} style={{ color: colors.primary }} className="shrink-0 mt-1" />
-                      )}
-                    </div>
-                  </button>
+                    colors={colors}
+                  />
                 );
               })}
             </div>
-            {availableAidants.length === 0 && (
-              <p className="text-center text-xs text-gray-400 py-4">
-                Aucun aidant disponible pour le moment
-              </p>
-            )}
-          </div>
+          ) : (
+            <p className="text-center text-xs text-gray-400 py-4">
+              Aucun aidant disponible pour le moment
+            </p>
+          )}
 
           {/* Type d'assignation */}
-          {selectedAidantId && (
+          {selectedAidantId && availableAidants.length > 0 && (
             <div>
               <label className="block text-xs font-bold mb-1.5" style={{ color: colors.text }}>
                 <Zap size={14} className="inline mr-1" />
@@ -639,10 +868,8 @@ export const VisitWizardModal = ({
               </label>
               <div className="space-y-2">
                 {options.map((option) => {
-                  // 🔒 Admin peut voir l'option 'force', pas les familles
                   if (option.type === 'force' && !isAdmin) return null;
 
-                  // 🔒 Si l'aidant est full, l'option 'permanente' est bloquée pour les familles
                   const selectedAidant = availableAidants.find(
                     (a) => (a.user_id || a.id) === selectedAidantId
                   );
