@@ -1,8 +1,11 @@
+// 📁 src/stores/messageStore.ts
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Conversation, Message } from '@/types';
 import { useAuthStore } from './authStore';
 
+ 
 interface MessageState {
   conversations: Conversation[];
   messages: Message[];
@@ -30,6 +33,9 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   error: null,
   subscription: null,
 
+  // ============================================================
+  // FETCH CONVERSATIONS - SANS TOAST
+  // ============================================================
   fetchConversations: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -96,6 +102,9 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // FETCH MESSAGES - SANS TOAST
+  // ============================================================
   fetchMessages: async (conversationId: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -118,6 +127,9 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // SEND MESSAGE - SANS TOAST
+  // ============================================================
   sendMessage: async (data: { conversation_id: string; content: string; attachment?: File }) => {
     try {
       const { user } = useAuthStore.getState();
@@ -164,14 +176,19 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         messages: [...state.messages, message],
       }));
 
+      // ✅ SUPPRIMÉ : toast.success('Message envoyé');
       return message;
     } catch (error: any) {
       console.error('Send message error:', error);
       set({ error: error.message });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
+  // ============================================================
+  // MARK AS READ - SANS TOAST
+  // ============================================================
   markAsRead: async (messageId: string) => {
     try {
       const { error } = await supabase
@@ -186,11 +203,17 @@ export const useMessageStore = create<MessageState>((set, get) => ({
           m.id === messageId ? { ...m, is_read: true } : m
         ),
       }));
+
+      // ✅ SUPPRIMÉ : toast.success('Message marqué comme lu');
     } catch (error: any) {
       console.error('Mark as read error:', error);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
     }
   },
 
+  // ============================================================
+  // MARK ALL READ - SANS TOAST
+  // ============================================================
   markAllRead: async (conversationId: string) => {
     try {
       const { user } = useAuthStore.getState();
@@ -212,11 +235,17 @@ export const useMessageStore = create<MessageState>((set, get) => ({
             : m
         ),
       }));
+
+      // ✅ SUPPRIMÉ : toast.success('Tous les messages ont été marqués comme lus');
     } catch (error: any) {
       console.error('Mark all read error:', error);
+      // ✅ SUPPRIMÉ : toast.error(error.message);
     }
   },
 
+  // ============================================================
+  // CREATE CONVERSATION - SANS TOAST
+  // ============================================================
   createConversation: async (participantIds: string[]) => {
     try {
       const { user } = useAuthStore.getState();
@@ -249,14 +278,19 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         currentConversation: data,
       }));
 
+      // ✅ SUPPRIMÉ : toast.success('Conversation créée');
       return data;
     } catch (error: any) {
       console.error('Create conversation error:', error);
       set({ error: error.message });
+      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
+  // ============================================================
+  // SUBSCRIBE TO MESSAGES
+  // ============================================================
   subscribeToMessages: (conversationId: string) => {
     get().unsubscribeFromMessages();
 
