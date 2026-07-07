@@ -18,9 +18,9 @@ import {
 import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
 
+// ✅ toast CONSERVÉ - C'est une page, c'est ici qu'on affiche les toasts
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
-
 
 type SetupStep = 'pin' | 'email' | 'otp' | 'create';
 type TimerType = ReturnType<typeof setInterval> | null;
@@ -44,6 +44,7 @@ const AdminSetupPage = () => {
     role: 'admin' as 'admin' | 'coordinator',
   });
 
+  // ✅ handleVerifyPin - UN SEUL TOAST PAR ACTION
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pin.length !== 8) {
@@ -74,6 +75,7 @@ const AdminSetupPage = () => {
     }
   };
 
+  // ✅ handleSendOTP - UN SEUL TOAST PAR ACTION
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -83,7 +85,7 @@ const AdminSetupPage = () => {
 
     setIsLoading(true);
     try {
-        const response = await fetch(`${API_BASE_URL}/admin-setup/send-otp`, {
+      const response = await fetch(`${API_BASE_URL}/admin-setup/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -105,6 +107,7 @@ const AdminSetupPage = () => {
     }
   };
 
+  // ✅ handleVerifyOTP - UN SEUL TOAST PAR ACTION
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpCode = typeof otp === 'string' ? otp : String(otp);
@@ -140,6 +143,7 @@ const AdminSetupPage = () => {
     }
   };
 
+  // ✅ handleCreateAccount - UN SEUL TOAST PAR ACTION
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password.length < 6) {
@@ -181,6 +185,7 @@ const AdminSetupPage = () => {
     }
   };
 
+  // ✅ startTimer - UN SEUL TOAST D'EXPIRATION
   const startTimer = (minutes: number) => {
     let timeLeft = minutes * 60;
     setOtpExpiresIn(timeLeft);
