@@ -1,6 +1,5 @@
 // 📁 src/features/auth/pages/ResetPasswordPage.tsx
-// 📌 Réinitialisation du mot de passe
-
+ 
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -38,16 +37,19 @@ const ResetPasswordPage = () => {
     e.preventDefault();
 
     if (!password || !confirmPassword) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez remplir tous les champs');
       return;
     }
 
     if (password !== confirmPassword) {
+      // ✅ UN SEUL TOAST
       toast.error('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (password.length < 6) {
+      // ✅ UN SEUL TOAST
       toast.error('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
@@ -61,6 +63,7 @@ const ResetPasswordPage = () => {
 
       if (error) throw error;
 
+      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success('Mot de passe réinitialisé avec succès');
       setIsDone(true);
 
@@ -69,6 +72,7 @@ const ResetPasswordPage = () => {
       }, 1200);
     } catch (error: any) {
       console.error('❌ Reset password error:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors de la réinitialisation');
     } finally {
       setIsLoading(false);
