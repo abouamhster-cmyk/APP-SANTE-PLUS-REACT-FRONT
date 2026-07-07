@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
-
+ 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -79,6 +79,7 @@ const CreateOrderPage = () => {
   } = usePonctualPayment({
     onSuccess: () => {
       navigate('/app/orders');
+      // ✅ UN SEUL TOAST
       toast.success('Commande créée après paiement !');
     },
     redirectPath: '/app/orders',
@@ -286,16 +287,18 @@ const CreateOrderPage = () => {
   }, []);
 
   // =============================================
-  // GESTION DES FICHIERS
+  // GESTION DES FICHIERS - UN SEUL TOAST PAR CAS
   // =============================================
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner une image');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
+      // ✅ UN SEUL TOAST
       toast.error("L'image ne doit pas dépasser 5MB");
       return;
     }
@@ -350,32 +353,37 @@ const CreateOrderPage = () => {
   };
 
   // =============================================
-  // VALIDATION DES DONNÉES
+  // VALIDATION DES DONNÉES - UN SEUL TOAST PAR CAS
   // =============================================
   const validateOrderData = (): boolean => {
     if (!formData.description || formData.description.trim() === '') {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez ajouter une description');
       return false;
     }
 
     if (!formData.address || formData.address.trim() === '') {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez ajouter une adresse de livraison');
       return false;
     }
 
     if (!formData.type) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner un type de commande');
       return false;
     }
 
     const hasValidItems = formData.items.some(item => item.name.trim() !== '');
     if (!hasValidItems) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez ajouter au moins un article');
       return false;
     }
 
     // ✅ Vérifier le quota de l'aidant
     if (isAidant && !canTakeOrder()) {
+      // ✅ UN SEUL TOAST
       toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours (maximum ${aidantQuota?.max || 2})`);
       return false;
     }
@@ -402,6 +410,7 @@ const CreateOrderPage = () => {
 
       if (error) {
         console.error('Upload error:', error);
+        // ✅ UN SEUL TOAST
         toast.error("Erreur lors de l'upload de la prescription");
         return null;
       }
@@ -466,7 +475,7 @@ const CreateOrderPage = () => {
   };
 
   // =============================================
-  // SOUMISSION DU FORMULAIRE
+  // SOUMISSION DU FORMULAIRE - UN SEUL TOAST
   // =============================================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -487,6 +496,7 @@ const CreateOrderPage = () => {
     if (orderType === 'subscription') {
       if (!canUseSubscription()) {
         const msg = getActionMessage('order');
+        // ✅ UN SEUL TOAST
         toast.error(msg.description);
         return;
       }
@@ -495,7 +505,7 @@ const CreateOrderPage = () => {
   };
 
   // =============================================
-  // CRÉER LA COMMANDE AVEC ABONNEMENT (DIRECT)
+  // CRÉER LA COMMANDE AVEC ABONNEMENT - UN SEUL TOAST
   // =============================================
   const createOrderWithSubscription = async () => {
     if (!validateOrderData()) return;
@@ -515,6 +525,7 @@ const CreateOrderPage = () => {
 
         if (error) {
           console.error('Upload error:', error);
+          // ✅ UN SEUL TOAST
           toast.error("Erreur lors de l'upload de la prescription");
           return;
         }
@@ -553,10 +564,12 @@ const CreateOrderPage = () => {
         target_name: finalTargetName,
       });
 
+      // ✅ UN SEUL TOAST
       toast.success('Commande créée avec succès (décomptée de votre abonnement)');
       navigate('/app/orders');
     } catch (error) {
-      console.error(error);
+      console.error('❌ Erreur création:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors de la création');
     } finally {
       setIsUploading(false);
