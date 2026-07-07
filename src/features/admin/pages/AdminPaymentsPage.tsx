@@ -1,4 +1,3 @@
-
 // 📁 src/features/admin/pages/AdminPaymentsPage.tsx
 
 import { useEffect, useState } from 'react';
@@ -17,6 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate, formatCurrency } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
+ 
 interface PaymentWithUser {
   id: string;
   user_id: string;
@@ -56,6 +56,7 @@ const AdminPaymentsPage = () => {
     fetchPayments();
   }, []);
 
+  // ✅ fetchPayments - UN SEUL TOAST D'ERREUR (pas de toast de succès pour le chargement)
   const fetchPayments = async () => {
     try {
       setIsLoading(true);
@@ -99,8 +100,11 @@ const AdminPaymentsPage = () => {
         .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
       setStats({ total, pending, validated, failed, revenue });
+      
+      // ✅ SUPPRIMÉ : toast.success('Paiements chargés avec succès'); (pas nécessaire)
     } catch (error: any) {
       console.error('Fetch payments error:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors du chargement des paiements');
     } finally {
       setIsLoading(false);
@@ -148,6 +152,7 @@ const AdminPaymentsPage = () => {
     }
   };
 
+  // ✅ handleViewDetails - UN SEUL TOAST D'INFORMATION
   const handleViewDetails = (payment: PaymentWithUser) => {
     toast.success(
       `Référence: ${payment.reference || payment.id}\n` +
@@ -155,6 +160,12 @@ const AdminPaymentsPage = () => {
       `Statut: ${getStatusLabel(payment.status)}`,
       { duration: 4000 }
     );
+  };
+
+  // ✅ handleRefresh - UN SEUL TOAST DE SUCCÈS
+  const handleRefresh = async () => {
+    await fetchPayments();
+    toast.success('✅ Paiements actualisés');
   };
 
   return (
@@ -174,9 +185,9 @@ const AdminPaymentsPage = () => {
             </p>
           </div>
           <button
-            onClick={fetchPayments}
+            onClick={handleRefresh}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors bg-white hover:bg-gray-50 shrink-0 self-start sm:self-center"
+            className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors bg-white hover:bg-gray-50 shrink-0 self-start sm:self-center flex items-center gap-1.5"
             style={{ borderColor: colors.border, color: colors.text }}
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
