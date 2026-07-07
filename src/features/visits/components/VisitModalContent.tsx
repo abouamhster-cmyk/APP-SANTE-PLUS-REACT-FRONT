@@ -248,25 +248,36 @@ export const VisitModalContent = ({
         wizard_choice: wizardResult.wizardChoice,
         selected_aidant_id: wizardResult.aidantId,
         assignment_type: wizardResult.assignmentType || 'ponctuelle',
+        // ✅ S'assurer que l'aidant est bien passé
+        aidant_id: wizardResult.aidantId,
       };
+
+      console.log('📤 Wizard - Création visite avec aidant:', visitPayload);
 
       // ✅ Créer la visite via le store
       const result = await createVisit(visitPayload);
+
+      console.log('📤 Wizard - Résultat création:', result);
 
       // ✅ Vérifier le résultat
       if (result?.status === 'en_attente_aidant') {
         toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
         onSuccess(result);
       } else if (result?.status === 'brouillon') {
-        // ✅ Paiement requis → on laisse le composant parent gérer
+        toast.success(`💳 Visite créée en brouillon. Paiement requis pour la planifier.`);
+        onSuccess(result);
+      } else if (result?.id) {
+        toast.success('✅ Visite planifiée avec succès !');
         onSuccess(result);
       } else {
-        toast.success('Visite planifiée avec succès !');
+        toast.success('✅ Visite planifiée avec succès !');
         onSuccess(result);
       }
     } catch (error: any) {
       console.error('❌ Erreur création visite avec wizard:', error);
       toast.error(error.message || 'Erreur lors de la création de la visite');
+      // ✅ Réouvrir le wizard en cas d'erreur
+      setShowWizard(true);
     } finally {
       setIsWizardLoading(false);
       setPendingVisitData(null);
@@ -279,7 +290,7 @@ export const VisitModalContent = ({
   };
 
   // ============================================================
-  // ✅ SOUMISSION DU FORMULAIRE - CORRIGÉE
+  // ✅ SOUMISSION DU FORMULAIRE - CORRIGÉE AVEC GESTION DU WIZARD
   // ============================================================
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -353,40 +364,47 @@ export const VisitModalContent = ({
       console.log('📤 Données envoyées:', data);
 
       if (mode === 'create') {
-        // ✅ Tenter de créer la visite
-        const result = await createVisit(data);
+        try {
+          // ✅ Tenter de créer la visite
+          const result = await createVisit(data);
 
-        // ✅ Si le backend demande le wizard
-        if (result && typeof result === 'object' && 'requires_wizard' in result && result.requires_wizard === true) {
-          // ✅ Ouvrir le wizard avec les données
-          const targetTypeForWizard = data.patient_id ? 'patient' : 'personal_account';
-          const targetIdForWizard = data.patient_id || data.target_user_id || user?.id;
-
-          setPendingVisitData(data);
-          setWizardData({
-            targetType: targetTypeForWizard,
-            targetId: targetIdForWizard,
-            targetName: data.target_name || 'Personnel',
-            familyId: data.target_user_id || user?.id,
-            scheduledDate: data.scheduled_date,
-            scheduledTime: data.scheduled_time,
-          });
-          setShowWizard(true);
+          // ✅ Si la visite est en brouillon (paiement requis)
+          if (result?.status === 'brouillon') {
+            const price = getPonctualPrice(formData.duration_minutes || 60);
+            toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
+            onSuccess(result);
+          } else if (result?.status === 'en_attente_aidant') {
+            toast.success('🦸 Visite créée en attente d\'aidant. L\'administration a été notifiée.');
+            onSuccess(result);
+          } else {
+            toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
+            onSuccess(result);
+          }
+        } catch (error: any) {
+          console.error('❌ Erreur création visite:', error);
+          
+          // ✅ Vérifier si c'est une erreur de wizard (422 avec wizard_required)
+          if (error.response?.status === 422 && error.response?.data?.wizard_required) {
+            const wizardDataObj = error.response.data;
+            console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
+            
+            setPendingVisitData(data);
+            setWizardData({
+              targetType: wizardDataObj.targetType || 'personal_account',
+              targetId: wizardDataObj.targetId || user?.id,
+              targetName: wizardDataObj.targetName || 'Personnel',
+              familyId: wizardDataObj.familyId || user?.id,
+              scheduledDate: data.scheduled_date,
+              scheduledTime: data.scheduled_time,
+            });
+            setShowWizard(true);
+            setIsLoading(false);
+            return;
+          }
+          
+          // ✅ Autres erreurs
+          toast.error(error?.message || 'Erreur lors de la création');
           setIsLoading(false);
-          return;
-        }
-
-        // ✅ Si la visite est en brouillon (paiement requis)
-        if (result?.status === 'brouillon') {
-          const price = getPonctualPrice(formData.duration_minutes || 60);
-          toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis pour la planifier.`);
-          onSuccess(result);
-        } else if (result?.status === 'en_attente_aidant') {
-          toast.success('🦸 Visite créée en attente d\'aidant. L\'administration a été notifiée.');
-          onSuccess(result);
-        } else {
-          toast.success(`Visite planifiée pour ${data.target_name || 'le bénéficiaire'}`);
-          onSuccess(result);
         }
       } else if (visit) {
         await updateVisit(visit.id, data);
