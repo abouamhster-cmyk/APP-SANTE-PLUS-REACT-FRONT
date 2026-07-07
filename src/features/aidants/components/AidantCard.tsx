@@ -1,4 +1,5 @@
-// 📁 frontend/src/features/aidants/components/AidantCard.tsx
+// 📁 src/features/aidants/components/AidantCard.tsx
+// ✅ SÉCURITÉ DE DISPONIBILITÉ : BOUTON ET BANDEAU SYNCHRONISÉS À 100%
 
 import { memo, useMemo, useCallback } from 'react';
 import {
@@ -13,7 +14,6 @@ import {
   Users,
   ShoppingBag,
   UserCheck,
-  Zap,
 } from 'lucide-react';
 import { AidantProfile } from '@/types/aidant';
 import { cn } from '@/utils/helpers';
@@ -58,7 +58,7 @@ export const AidantCard = memo(({
 }: AidantCardProps) => {
 
   // ============================================================
-  // CALCULS MEMOISÉS
+  // CALCULS MEMOISÉS (Cohérence BDD + Quota)
   // ============================================================
 
   const status = useMemo(() => {
@@ -70,7 +70,7 @@ export const AidantCard = memo(({
     if (!isAvailable) {
       return { 
         label: 'Indisponible', 
-        icon: <AlertCircle size={12} />, 
+        icon: <AlertCircle size={12} className="text-red-500" />, 
         color: 'text-red-500', 
         bg: 'bg-red-50' 
       };
@@ -78,14 +78,14 @@ export const AidantCard = memo(({
     if (isFull) {
       return { 
         label: 'Complet', 
-        icon: <Clock size={12} />, 
+        icon: <Clock size={12} className="text-orange-500" />, 
         color: 'text-orange-500', 
         bg: 'bg-orange-50' 
       };
     }
     return { 
       label: 'Disponible', 
-      icon: <CheckCircle size={12} />, 
+      icon: <CheckCircle size={12} className="text-green-500" />, 
       color: 'text-green-500', 
       bg: 'bg-green-50' 
     };
@@ -112,7 +112,7 @@ export const AidantCard = memo(({
   // ✅ Quota de commandes
   const orderQuota = useMemo(() => {
     const current = aidant.current_orders || 0;
-    const max = aidant.max_orders || 2;
+    const max = !aidant.max_orders ? 2 : aidant.max_orders;
     const available = aidant.available_order_slots !== undefined ? aidant.available_order_slots : Math.max(0, max - current);
     const isFull = current >= max;
     const canTake = aidant.can_take_orders !== undefined ? aidant.can_take_orders : current < max;
@@ -134,7 +134,7 @@ export const AidantCard = memo(({
   const responseTime = useMemo(() => aidant.average_response_time || '~5', [aidant.average_response_time]);
   const experience = useMemo(() => aidant.experience_years || 0, [aidant.experience_years]);
 
-  // ✅ Déterminer si l'aidant peut être assigné
+  // ✅ Déterminer si l'aidant peut être assigné (Aligné sur le status du haut)
   const canBeAssigned = useMemo(() => {
     return assignmentQuota.isAvailable && !assignmentQuota.isFull;
   }, [assignmentQuota]);
@@ -206,7 +206,7 @@ export const AidantCard = memo(({
               </span>
             </div>
 
-            {/* ✅ Quota d'assignations (compact) */}
+            {/* Quota d'assignations (compact) */}
             {showQuota && (
               <div className="mt-1 flex items-center gap-1.5">
                 <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
@@ -252,9 +252,7 @@ export const AidantCard = memo(({
       )}
       style={{ borderColor: colors.border }}
     >
-      {/* ============================================================
-      HEADER
-      ============================================================ */}
+      {/* HEADER */}
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div
@@ -329,9 +327,7 @@ export const AidantCard = memo(({
         </div>
       </div>
 
-      {/* ============================================================
-      INFOS SECONDAIRES
-      ============================================================ */}
+      {/* INFOS SECONDAIRES */}
       <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-500">
         <div className="flex items-center gap-1.5">
           <MapPin size={14} className="text-gray-400" />
@@ -344,7 +340,7 @@ export const AidantCard = memo(({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <User size={14} className="text-gray-400" />
+          <Users size={14} className="text-gray-400" />
           <span>
             {assignmentQuota.current}/{assignmentQuota.max} missions
             {assignmentQuota.available > 0 && ` (${assignmentQuota.available} places)`}
@@ -352,11 +348,9 @@ export const AidantCard = memo(({
         </div>
       </div>
 
-      {/* ============================================================
-      QUOTAS (Barres de progression)
-      ============================================================ */}
+      {/* QUOTAS (Barres de progression) */}
       <div className="mt-4 space-y-2">
-        {/* ✅ Quota d'assignations */}
+        {/* Quota d'assignations */}
         {showQuota && (
           <div>
             <div className="flex items-center justify-between text-[10px]">
@@ -385,7 +379,7 @@ export const AidantCard = memo(({
           </div>
         )}
 
-        {/* ✅ Quota de commandes */}
+        {/* Quota de commandes */}
         {showOrderQuota && (
           <div>
             <div className="flex items-center justify-between text-[10px]">
@@ -418,18 +412,14 @@ export const AidantCard = memo(({
         )}
       </div>
 
-      {/* ============================================================
-      BIO (si présente)
-      ============================================================ */}
+      {/* BIO */}
       {aidant.bio && (
         <div className="mt-3 p-3 rounded-xl text-xs italic" style={{ background: colors.primary + '05' }}>
           "{aidant.bio}"
         </div>
       )}
 
-      {/* ============================================================
-      ACTIONS
-      ============================================================ */}
+      {/* ACTIONS */}
       {showActions && (
         <div className="mt-4 flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
           <button
@@ -476,9 +466,7 @@ export const AidantCard = memo(({
         </div>
       )}
 
-      {/* ============================================================
-      RÉSUMÉ DES QUOTAS (pied de carte)
-      ============================================================ */}
+      {/* FOOTER */}
       <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-3 text-[10px] text-gray-400" style={{ borderColor: colors.border + '40' }}>
         <span className="flex items-center gap-0.5">
           <Users size={10} />
