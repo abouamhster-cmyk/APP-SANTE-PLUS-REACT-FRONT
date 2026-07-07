@@ -1,5 +1,5 @@
 // 📁 src/components/visits/CompleteVisitModalContent.tsx
-// 📌 Contenu de fin de visite (sans wrapper modal)
+// 📌 Contenu de fin de visite (sans wrapper modal) - Corrigé contre le dossier "undefined"
 
 import { useState, useRef, useEffect } from 'react';
 import { 
@@ -65,6 +65,11 @@ export const CompleteVisitModalContent = ({
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const colors = getThemeColors('senior');
+
+  // ✅ CORRECTIF DE SÉCURITÉ : Récupérer l'ID de visite de manière ultra-robuste
+  const visitId = typeof visit === 'string' 
+    ? visit 
+    : (visit?.id || visit?.visite_id || '');
 
   useEffect(() => {
     // Nettoyer les URLs objets
@@ -169,12 +174,18 @@ export const CompleteVisitModalContent = ({
       return;
     }
 
+    if (!visitId) {
+      toast.error('❌ Identifiant de la visite introuvable. Veuillez réessayer.');
+      return;
+    }
+
     setIsUploading(true);
     try {
       let audioUrlUploaded = undefined;
       if (audioBlob) {
         const fileExt = 'webm';
-        const fileName = `visits/${visit.id}/audio_${Date.now()}.${fileExt}`;
+        // ✅ Utilisation de visitId au lieu de visit.id
+        const fileName = `visits/${visitId}/audio_${Date.now()}.${fileExt}`;
         const { data, error } = await supabase.storage
           .from('visits')
           .upload(fileName, audioBlob);
@@ -190,7 +201,8 @@ export const CompleteVisitModalContent = ({
       const photoUrls: string[] = [];
       for (const photo of photos) {
         const fileExt = photo.name.split('.').pop();
-        const fileName = `visits/${visit.id}/${Date.now()}_${photo.name}`;
+        // ✅ Utilisation de visitId au lieu de visit.id
+        const fileName = `visits/${visitId}/${Date.now()}_${photo.name}`;
         const { data, error } = await supabase.storage
           .from('visits')
           .upload(fileName, photo);
