@@ -1,6 +1,5 @@
 // 📁 src/features/auth/pages/ForgotPasswordPage.tsx
-// 📌 Mot de passe oublié - VERSION CORRIGÉE
-
+ 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -33,6 +32,7 @@ const ForgotPasswordPage = () => {
     const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez saisir votre email');
       return;
     }
@@ -47,9 +47,11 @@ const ForgotPasswordPage = () => {
       if (error) throw error;
 
       setIsSent(true);
+      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success('Email de réinitialisation envoyé');
     } catch (error: any) {
       console.error('❌ Forgot password error:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || "Erreur lors de l'envoi");
     } finally {
       setIsLoading(false);
