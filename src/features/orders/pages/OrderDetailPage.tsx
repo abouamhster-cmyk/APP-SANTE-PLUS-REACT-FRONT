@@ -1,6 +1,5 @@
 // 📁 src/features/orders/pages/OrderDetailPage.tsx
  
-
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -201,7 +200,6 @@ const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
         bg: '#F4433615', 
         label: 'Annulée' 
       },
-      // ✅ NOUVEAU STATUT
       attente_paiement: { 
         icon: <CreditCard size={14} />, 
         color: '#8b5cf6', 
@@ -269,6 +267,7 @@ const OrderDetailPage = () => {
     };
   }, [showProofModal]);
 
+  // ✅ CHANGEMENT STATUT - UN SEUL TOAST
   const handleStatusChange = async (status: string) => {
     if (!id) return;
 
@@ -276,24 +275,30 @@ const OrderDetailPage = () => {
 
     try {
       await updateOrderStatus(id, status as any);
+      // ✅ UN SEUL TOAST
       toast.success(`Commande ${getStatusLabel(status)}`);
       fetchOrderById(id);
     } catch (error: any) {
-      console.error(error);
+      console.error('❌ Erreur mise à jour statut:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la mise à jour');
     } finally {
       setIsUpdating(false);
     }
   };
 
+  // ✅ PRISE DE COMMANDE - UN SEUL TOAST
   const handleTakeOrder = async () => {
     if (!id) return;
     setIsUpdating(true);
     try {
       await takeOrder(id);
+      // ✅ UN SEUL TOAST
       toast.success('Commande prise en charge');
       fetchOrderById(id);
     } catch (error: any) {
+      console.error('❌ Erreur prise commande:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la prise de commande');
     } finally {
       setIsUpdating(false);
@@ -309,23 +314,25 @@ const OrderDetailPage = () => {
       livree: 'Livrée',
       validee: 'Validée',
       annulee: 'Annulée',
-      // ✅ NOUVEAU STATUT
       attente_paiement: 'En attente paiement',
     };
     return map[status] || status;
   };
 
+  // ✅ SÉLECTION IMAGE - UN SEUL TOAST
   const handleProofSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
 
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner une image');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
+      // ✅ UN SEUL TOAST
       toast.error("L'image ne doit pas dépasser 5MB");
       return;
     }
@@ -339,8 +346,10 @@ const OrderDetailPage = () => {
     reader.readAsDataURL(file);
   };
 
+  // ✅ UPLOAD PREUVE - UN SEUL TOAST
   const handleProofUpload = async () => {
     if (!id || !proofFile) {
+      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner une photo');
       return;
     }
@@ -368,6 +377,7 @@ const OrderDetailPage = () => {
         .update({ proof_url: publicUrl })
         .eq('id', id);
 
+      // ✅ UN SEUL TOAST
       toast.success('Livraison confirmée avec preuve');
 
       setShowProofModal(false);
@@ -376,7 +386,8 @@ const OrderDetailPage = () => {
 
       fetchOrderById(id);
     } catch (error: any) {
-      console.error(error);
+      console.error('❌ Erreur upload preuve:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || "Erreur lors de l'upload de la preuve");
     } finally {
       setIsUpdating(false);
@@ -385,6 +396,7 @@ const OrderDetailPage = () => {
 
   const openUrl = (url: string | null) => {
     if (!url) {
+      // ✅ UN SEUL TOAST
       toast.error('URL non disponible');
       return;
     }
@@ -452,7 +464,6 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
-              {/* ✅ AFFICHAGE PAIEMENT */}
               {isPonctual && isPaid && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
@@ -487,7 +498,6 @@ const OrderDetailPage = () => {
 
         {/* ✅ ACTIONS SIMPLIFIÉES AVEC NOUVEAUX STATUTS */}
         <div className="mt-4 flex flex-wrap gap-2">
-          {/* AIDANT : Prendre une commande en attente ou disponible */}
           {canTake && (
             <ActionButton
               label={order.status === 'disponible' ? 'Prendre (Urgent)' : 'Prendre'}
@@ -499,7 +509,6 @@ const OrderDetailPage = () => {
             />
           )}
 
-          {/* AIDANT : Accepter une commande créée */}
           {canAccept && (
             <ActionButton
               label="Accepter"
@@ -511,7 +520,6 @@ const OrderDetailPage = () => {
             />
           )}
 
-          {/* AIDANT : Livrer une commande en cours */}
           {canDeliver && (
             <ActionButton
               label="Livrer"
@@ -523,7 +531,6 @@ const OrderDetailPage = () => {
             />
           )}
 
-          {/* ADMIN : Annuler */}
           {canCancel && (
             <ActionButton
               label="Annuler"
@@ -544,7 +551,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* RÉSUMÉ - Inchangé */}
+      {/* RÉSUMÉ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MiniCard
           icon={<Package size={20} />}
@@ -602,7 +609,6 @@ const OrderDetailPage = () => {
           </div>
           <button
             onClick={() => {
-              // ✅ Rediriger vers la page de paiement
               navigate('/app/billing');
             }}
             className="w-full sm:w-auto px-5 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm text-center shrink-0"
@@ -613,7 +619,7 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* PERSONNES - Inchangé */}
+      {/* PERSONNES */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
@@ -655,7 +661,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* ARTICLES - Inchangé */}
+      {/* ARTICLES */}
       {order.items && order.items.length > 0 && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
           <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
@@ -685,7 +691,7 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* DOCUMENTS - Inchangé */}
+      {/* DOCUMENTS */}
       {(order.prescription_url || order.proof_url) && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
           <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
@@ -805,7 +811,6 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ INFO COMMANDE PONCTUELLE */}
         {isPonctual && isPaid && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
@@ -816,7 +821,6 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ INFO COMMANDE EN ATTENTE PAIEMENT */}
         {isPendingPayment && (
           <div className="mt-3 p-3 rounded-xl bg-purple-50 border border-purple-200 flex items-start gap-2">
             <CreditCard size={18} style={{ color: '#8b5cf6' }} className="mt-0.5" />
@@ -828,7 +832,7 @@ const OrderDetailPage = () => {
         )}
       </div>
 
-      {/* MODAL PREUVE LIVRAISON - Inchangé */}
+      {/* MODAL PREUVE LIVRAISON */}
       {showProofModal && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto"
