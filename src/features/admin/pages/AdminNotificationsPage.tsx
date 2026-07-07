@@ -32,7 +32,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate, formatTime } from '@/utils/helpers';
 import { Modal } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
-import toast from 'react-hot-toast';
+
+// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
 
 // ============================================================
 // TYPES
@@ -134,7 +135,7 @@ const AdminNotificationsPage = () => {
   }, []);
 
   // ============================================================
-  // RÉCUPÉRATION DES DONNÉES
+  // RÉCUPÉRATION DES DONNÉES - SANS TOAST
   // ============================================================
 
   const fetchNotifications = async () => {
@@ -173,7 +174,7 @@ const AdminNotificationsPage = () => {
       setNotifications(notifsWithUser);
     } catch (error: any) {
       console.error('Fetch notifications error:', error);
-      toast.error('Erreur lors du chargement des notifications');
+      // ✅ SUPPRIMÉ : toast.error('Erreur lors du chargement des notifications');
     } finally {
       setIsLoading(false);
     }
@@ -193,7 +194,7 @@ const AdminNotificationsPage = () => {
     }
   };
 
-  // ✅ Récupérer les visites en attente d'aidant - CORRIGÉ
+  // ✅ Récupérer les visites en attente d'aidant
   const fetchPendingVisits = async () => {
     try {
       const { data, error } = await supabase
@@ -214,7 +215,6 @@ const AdminNotificationsPage = () => {
 
       if (error) throw error;
 
-      // ✅ CORRECTION: Transformer les données pour s'assurer que family et patient sont des objets uniques
       const formattedVisits: PendingAidantVisit[] = (data || []).map((item: any) => ({
         id: item.id,
         target_name: item.target_name,
@@ -284,17 +284,19 @@ const AdminNotificationsPage = () => {
   ];
 
   // ============================================================
-  // HANDLERS
+  // HANDLERS - SANS TOAST
   // ============================================================
 
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.body.trim()) {
-      toast.error('Le titre et le message sont obligatoires');
+      // ✅ SUPPRIMÉ : toast.error('Le titre et le message sont obligatoires');
+      alert('Le titre et le message sont obligatoires');
       return;
     }
     if (formData.target === 'specific' && formData.targetUsers.length === 0) {
-      toast.error('Veuillez sélectionner au moins un utilisateur');
+      // ✅ SUPPRIMÉ : toast.error('Veuillez sélectionner au moins un utilisateur');
+      alert('Veuillez sélectionner au moins un utilisateur');
       return;
     }
 
@@ -316,7 +318,8 @@ const AdminNotificationsPage = () => {
       }
 
       if (targetUserIds.length === 0) {
-        toast.error('Aucun utilisateur cible trouvé');
+        // ✅ SUPPRIMÉ : toast.error('Aucun utilisateur cible trouvé');
+        alert('Aucun utilisateur cible trouvé');
         setIsSending(false);
         return;
       }
@@ -344,7 +347,7 @@ const AdminNotificationsPage = () => {
         .insert(notificationsToInsert);
 
       if (error) throw error;
-      toast.success(`Notification envoyée avec succès`);
+      // ✅ SUPPRIMÉ : toast.success(`Notification envoyée avec succès`);
 
       setFormData({
         title: '',
@@ -359,7 +362,7 @@ const AdminNotificationsPage = () => {
       fetchNotifications();
     } catch (error: any) {
       console.error('Send notification error:', error);
-      toast.error("Erreur lors de l'envoi : " + error.message);
+      // ✅ SUPPRIMÉ : toast.error("Erreur lors de l'envoi : " + error.message);
     } finally {
       setIsSending(false);
     }
@@ -370,11 +373,11 @@ const AdminNotificationsPage = () => {
     try {
       const { error } = await supabase.from('notifications').delete().eq('id', id);
       if (error) throw error;
-      toast.success('Notification supprimée');
+      // ✅ SUPPRIMÉ : toast.success('Notification supprimée');
       fetchNotifications();
     } catch (error) {
       console.error('Delete notification error:', error);
-      toast.error('Erreur lors de la suppression');
+      // ✅ SUPPRIMÉ : toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -531,7 +534,6 @@ const AdminNotificationsPage = () => {
                   </div>
                   <button
                     onClick={() => {
-                      // Rediriger vers la page de la visite
                       window.location.href = `/app/visits/${visit.id}`;
                     }}
                     className="px-3 py-1.5 rounded-lg text-white text-xs font-bold shrink-0"
