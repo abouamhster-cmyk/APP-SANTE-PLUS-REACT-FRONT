@@ -23,7 +23,6 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
-// ✅ Importer les modals transformés en pages
 import { RatingModal } from '@/features/journal/components/RatingModal';
 import { VisitDetailsModal } from '@/features/journal/components/VisitDetailsModal';
 import toast from 'react-hot-toast';
@@ -108,13 +107,20 @@ const JournalPage = () => {
     aidants: 'Aidants',
   };
 
-  // ✅ Fonction pour obtenir le nom de l'aidant
+  // ✅ Fonction pour obtenir le nom de l'aidant - CORRIGÉE
   const getAidantName = (entry: any) => {
+    // Vérifier le chemin correct
     if (entry.aidant?.user?.full_name) {
       return entry.aidant.user.full_name;
     }
     if (entry.aidant?.full_name) {
       return entry.aidant.full_name;
+    }
+    if (entry.visit?.aidant?.user?.full_name) {
+      return entry.visit.aidant.user.full_name;
+    }
+    if (entry.visit?.aidant?.full_name) {
+      return entry.visit.aidant.full_name;
     }
     return 'Non assigné';
   };
@@ -323,7 +329,7 @@ const JournalPage = () => {
         </section>
       )}
 
-      {/* ✅ MODALS - Maintenant en plein écran via les wrappers */}
+      {/* MODALS */}
       {showRatingModal && selectedVisit && (
         <RatingModal
           visit={selectedVisit}
@@ -384,13 +390,13 @@ interface JournalEntryCompactProps {
   onViewDetails: () => void;
 }
 
-const JournalEntryCompact = ({ 
-  entry, 
-  colors, 
+const JournalEntryCompact = ({
+  entry,
+  colors,
   getAidantName,
   getPatientName,
-  onRate, 
-  onViewDetails 
+  onRate,
+  onViewDetails,
 }: JournalEntryCompactProps) => {
   const hasPhotos = entry.photos && entry.photos.length > 0;
   const hasAudio = entry.audio_url;
@@ -417,7 +423,7 @@ const JournalEntryCompact = ({
             </div>
           </div>
 
-          {/* ✅ Affichage de l'aidant */}
+          {/* ✅ Affichage de l'aidant - CORRIGÉ */}
           {entry.aidant && (
             <div className="mt-0.5 flex items-center gap-1">
               <User size={10} style={{ color: colors.text + '50' }} />
