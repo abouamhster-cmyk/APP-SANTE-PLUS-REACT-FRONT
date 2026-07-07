@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/RegisterPage.tsx
- 
+// 📌 Inscription - VERSION CORRIGÉE (UN SEUL TOAST PAR ACTION)
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
@@ -37,7 +37,7 @@ import { FAQContent } from '../components/FAQContent';
 import { CGUContent } from '../components/CGUContent';
 import toast from 'react-hot-toast';
 
- import { useOfferStore } from '@/stores/offerStore';
+import { useOfferStore } from '@/stores/offerStore';
 
 type AccountChoice = 'family_with_patient' | 'personal' | 'aidant';
 type PatientCategory = 'senior' | 'maman_bebe';
@@ -311,22 +311,50 @@ const RegisterPage = () => {
     }));
   };
 
+  // ✅ VALIDATION DES ÉTAPES - UN SEUL TOAST PAR ERREUR
   const canGoNext = () => {
     const identityStep = isFamilyWithPatient ? 3 : 2;
     if (step === identityStep) {
-      if (!formData.full_name.trim()) { toast.error('Veuillez saisir votre nom complet'); return false; }
-      if (!formData.phone.trim()) { toast.error('Veuillez saisir votre téléphone'); return false; }
-      if (!formData.email.trim()) { toast.error('Veuillez saisir votre email'); return false; }
-      if (formData.password.length < 6) { toast.error('Le mot de passe doit contenir au moins 6 caractères'); return false; }
+      if (!formData.full_name.trim()) { 
+        toast.error('Veuillez saisir votre nom complet'); 
+        return false; 
+      }
+      if (!formData.phone.trim()) { 
+        toast.error('Veuillez saisir votre téléphone'); 
+        return false; 
+      }
+      if (!formData.email.trim()) { 
+        toast.error('Veuillez saisir votre email'); 
+        return false; 
+      }
+      if (formData.password.length < 6) { 
+        toast.error('Le mot de passe doit contenir au moins 6 caractères'); 
+        return false; 
+      }
     }
     if (isAidant && step === 3) {
-      if (!aidantData.address.trim()) { toast.error('Veuillez renseigner votre adresse ou quartier'); return false; }
-      if (aidantData.specialties.length === 0) { toast.error('Sélectionnez au moins une spécialité'); return false; }
+      if (!aidantData.address.trim()) { 
+        toast.error('Veuillez renseigner votre adresse ou quartier'); 
+        return false; 
+      }
+      if (aidantData.specialties.length === 0) { 
+        toast.error('Sélectionnez au moins une spécialité'); 
+        return false; 
+      }
     }
     if (isFamilyWithPatient && step === 4) {
-      if (!formData.patientData.first_name.trim()) { toast.error('Veuillez renseigner le prénom du proche'); return false; }
-      if (!formData.patientData.last_name.trim()) { toast.error('Veuillez renseigner le nom du proche'); return false; }
-      if (!formData.patientData.address.trim()) { toast.error('Veuillez renseigner l\'adresse ou le quartier'); return false; }
+      if (!formData.patientData.first_name.trim()) { 
+        toast.error('Veuillez renseigner le prénom du proche'); 
+        return false; 
+      }
+      if (!formData.patientData.last_name.trim()) { 
+        toast.error('Veuillez renseigner le nom du proche'); 
+        return false; 
+      }
+      if (!formData.patientData.address.trim()) { 
+        toast.error('Veuillez renseigner l\'adresse ou le quartier'); 
+        return false; 
+      }
     }
     return true;
   };
@@ -346,7 +374,7 @@ const RegisterPage = () => {
     setStep((prev) => Math.max(prev - 1, 1));
   };
 
-  // ✅ HANDLER POUR LE BOUTON "CRÉER MON COMPTE" (SOUMISSION UNIQUEMENT)
+  // ✅ HANDLER POUR LE BOUTON "CRÉER MON COMPTE" - UN SEUL TOAST
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -401,12 +429,17 @@ const RegisterPage = () => {
       }
       const response = await authAPI.register(registerData);
       if (response.data?.success) {
+        // ✅ UN SEUL TOAST DE SUCCÈS
         toast.success(isAidant ? 'Candidature envoyée. Notre équipe vous contactera.' : 'Inscription envoyée. Votre compte est en attente de validation.');
         navigate('/login');
       }
     } catch (error: any) {
+      console.error('❌ Erreur inscription:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.response?.data?.error || "Erreur lors de l'inscription");
-    } finally { setIsLoading(false); }
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   // ✅ renderOfferPreview - VERSION CORRIGÉE AVEC OFFRES DYNAMIQUES
@@ -689,7 +722,7 @@ const RegisterPage = () => {
                 </div>
               </div>
 
-              {/* Contenu dynamique - ATTENTION : PAS DE <form> ICI ! */}
+              {/* Contenu dynamique */}
               <div className="flex-1 flex flex-col justify-between min-h-0">
                 <div 
                   className="flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2 space-y-4"
@@ -841,7 +874,7 @@ const RegisterPage = () => {
                 </div>
 
                 {/* ============================================
-                    BOUTONS DE NAVIGATION (CORRIGÉS)
+                    BOUTONS DE NAVIGATION
                     ============================================ */}
                 <div className="flex gap-3 mt-4">
                   {step > 1 && (
@@ -855,9 +888,7 @@ const RegisterPage = () => {
                     </button>
                   )}
 
-                  {/* ✅ Bouton "Continuer" ou "Créer mon compte" selon l'étape */}
                   {step !== totalSteps ? (
-                    // ✅ BOUTON CONTINUER (étapes 1 à 4) - type="button" pour ne pas soumettre
                     <button
                       type="button"
                       onClick={handleContinue}
@@ -867,7 +898,6 @@ const RegisterPage = () => {
                       Continuer <ArrowRight size={14} />
                     </button>
                   ) : (
-                    // ✅ BOUTON CRÉER MON COMPTE (étape finale) - type="button" + onClick manuel
                     <button
                       type="button"
                       onClick={handleSubmit}
