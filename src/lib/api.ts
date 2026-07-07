@@ -397,4 +397,55 @@ export const settingsAPI = {
 // =============================================
 export const offersAPI = {
   getAll: () => api.get(normalizeApiUrl('/offers')),
-  getById: (id: string) => api.get(normalizeApiUrl(`
+  getById: (id: string) => api.get(normalizeApiUrl(`/offers/${id}`)),
+  create: (data: any) => api.post(normalizeApiUrl('/offers'), data),
+  update: (id: string, data: any) => api.put(normalizeApiUrl(`/offers/${id}`), data),
+  delete: (id: string) => api.delete(normalizeApiUrl(`/offers/${id}`)),
+  sync: () => api.post(normalizeApiUrl('/offers/sync')),
+  // ✅ Récupérer les offres par catégorie
+  getByCategory: (category: string) => api.get(normalizeApiUrl(`/offers/categories?category=${category}`)),
+  // ✅ Récupérer les offres ponctuelles
+  getPonctual: () => api.get(normalizeApiUrl('/offers/ponctual')),
+};
+
+// =============================================
+// SUBSCRIPTIONS API
+// =============================================
+export const subscriptionsAPI = {
+  // ✅ Récupérer les abonnements de l'utilisateur
+  getMy: () => api.get(normalizeApiUrl('/subscriptions/my')),
+  // ✅ Vérifier si l'utilisateur a un abonnement actif
+  getActive: () => api.get(normalizeApiUrl('/subscriptions/active')),
+  // ✅ Créer un abonnement
+  create: (data: { offreId: string; patientId?: string }) => 
+    api.post(normalizeApiUrl('/subscriptions'), data),
+  // ✅ Utiliser une visite (décompter)
+  useVisit: (subscriptionId: string, data: { visitId: string; isPonctual?: boolean; wasPaid?: boolean }) =>
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/use-visit`), data),
+  // ✅ Utiliser une commande (décompter)
+  useOrder: (subscriptionId: string, data: { orderId: string; isPonctual?: boolean; wasPaid?: boolean }) =>
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/use-order`), data),
+  // ✅ Renouveler un abonnement
+  renew: (subscriptionId: string) => 
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/renew`)),
+  // ✅ Annuler l'auto-renouvellement
+  cancelAutoRenew: (subscriptionId: string) =>
+    api.post(normalizeApiUrl(`/subscriptions/${subscriptionId}/cancel-auto-renew`)),
+};
+
+// =============================================
+// ADMIN SETUP API
+// =============================================
+export const adminSetupAPI = {
+  // ✅ Vérifier le PIN
+  verifyPin: (pin: string) => api.post(normalizeApiUrl('/admin-setup/verify-pin'), { pin }),
+  // ✅ Envoyer un OTP
+  sendOTP: (email: string) => api.post(normalizeApiUrl('/admin-setup/send-otp'), { email }),
+  // ✅ Vérifier l'OTP
+  verifyOTP: (email: string, otp: string) => api.post(normalizeApiUrl('/admin-setup/verify-otp'), { email, otp }),
+  // ✅ Créer un compte admin
+  createAdmin: (data: { full_name: string; email: string; password: string; role: string; phone?: string; otp: string }) =>
+    api.post(normalizeApiUrl('/admin-setup/create'), data),
+};
+
+export default api;
