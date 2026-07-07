@@ -1,5 +1,5 @@
 // 📁 src/features/aidants/pages/AidantCatalogPage.tsx
-// ✅ CATALOGUE DE PRODUCTION COMPLET : LIBRE D'ASSIGNATION SANS PROCHE
+// ✅ INTERFACE CATALOGUE DE PRODUCTION : ÉTATS D'ASSIGNATIONS ET DESASSIGNATION D'URGENCE
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -28,9 +28,11 @@ const AidantCatalogPage = () => {
   const { profile, role } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
   
-  // ✅ Nouveau store d'assignation
+  // ✅ Store d'assignation
   const { 
+    assignments,
     fetchAssignments, 
+    revokeAssignment,
     isLoading: assignmentLoading 
   } = useAssignmentStore();
 
@@ -64,7 +66,7 @@ const AidantCatalogPage = () => {
       await Promise.all([
         fetchAidants(),
         fetchPatients(),
-        fetchAssignments(),  // ✅ Charger les assignations
+        fetchAssignments(),  // ✅ Charger les assignations de la famille
       ]);
     };
     
@@ -100,13 +102,29 @@ const AidantCatalogPage = () => {
     setShowAssignModal(false);
     setSelectedAidant(null);
     
-    // ✅ Rafraîchir les données après assignation
+    // Rafraîchir les données
     Promise.all([
       fetchAidants(),
       fetchAssignments(),
     ]);
-    
-    toast.success('Aidant assigné avec succès');
+  };
+
+  // ✅ Libérer un aidant directement depuis le catalogue d'un clic !
+  const handleRevoke = async (assignmentId: string) => {
+    if (!window.confirm("Êtes-vous sûr de vouloir libérer cet aidant ? Il ne sera plus lié à votre compte.")) return;
+
+    try {
+      await revokeAssignment(assignmentId, "Révocation demandée depuis le catalogue d'aidants");
+      toast.success("L'aidant a été libéré avec succès");
+      
+      // Rafraîchir
+      Promise.all([
+        fetchAidants(),
+        fetchAssignments(),
+      ]);
+    } catch (err) {
+      toast.error("Erreur lors de la libération de l'aidant");
+    }
   };
 
   const handleRefresh = useCallback(() => {
@@ -124,10 +142,10 @@ const AidantCatalogPage = () => {
   // RENDU
   // ============================================================
 
-  if (isLoading) {
+  if (isLoading || assignmentLoading) {
     return (
       <div className="flex items-center justify-center min-h-[300px] w-full px-4">
-        <LoadingSpinner size="lg" text="Chargement des aidants..." />
+        <LoadingSpinner size="lg" text="Chargement du catalogue..." />
       </div>
     );
   }
@@ -141,9 +159,7 @@ const AidantCatalogPage = () => {
   return (
     <div className="w-full max-w-6xl mx-auto px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 overflow-x-hidden">
 
-      {/* ============================================================
-      HEADER & TOOLBAR
-      ============================================================ */}
+      {/* HEADER & TOOLBAR */}
       <section className="space-y-4">
         <div className="flex flex-col gap-1">
           <h1
@@ -199,9 +215,7 @@ const AidantCatalogPage = () => {
         </div>
       </section>
 
-      {/* ============================================================
-      FILTRES CONDITIONNELS
-      ============================================================ */}
+      {/* FILTRES */}
       {showFilters && (
         <div className="w-full min-w-0">
           <AidantFilters
@@ -213,13 +227,11 @@ const AidantCatalogPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      MESSAGE SI AUCUN PROCHE
-      ============================================================ */}
+      {/* MESSAGE SI AUCUN PROCHE */}
       {!hasPatients && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
           <p className="text-sm text-amber-700">
-            ⚠️ Vous n'avez pas encore de proche enregistré.
+            ⚠️ Vous n'avez pas encore de proche enregistré. Vous pouvez toujours vous assigner un aidant personnel.
           </p>
           <button
             onClick={() => navigate('/app/patients')}
@@ -230,22 +242,32 @@ const AidantCatalogPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      LISTE DES CARTES
-      ============================================================ */}
+      {/* LISTE DES CARTES */}
       {filteredAidants.length > 0 ? (
         <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full min-w-0">
-          {filteredAidants.map((aidant) => (
-            <div key={aidant.id} className="min-w-0 w-full">
-              <AidantCard
-                aidant={aidant}
-                onClick={() => navigate(`/app/aidants/${aidant.id}`)}
-                onAssign={() => handleAssign(aidant)}
-                colors={colors}
-                showActions={true}  
-              />
-            </div>
-          ))}
+          {filteredAidants.map((aidant) => {
+            // ✅ Trouver si cet aidant est déjà lié à votre compte ou à un proche
+            const targetAidantId = aidant.user_id || aidant.id;
+            const activeAssignment = assignments.find(
+              as => (as.aidant_user_id === targetAidantId || as.aidant?.id === aidant.id) && as.status === 'active'
+            );
+            const isAssigned = !!activeAssignment;
+
+            return (
+              <div key={aidant.id} className="min-w-0 w-full">
+                <AidantCard
+                  aidant={aidant}
+                  onClick={() => navigate(`/app/aidants/${aidant.id}`)}
+                  onAssign={() => handleAssign(aidant)}
+                  onRevoke={isAssigned ? () => handleRevoke(activeAssignment.id) : undefined}
+                  colors={colors}
+                  showActions={true}
+                  isAssigned={isAssigned} // ✅ True s'il est déjà lié
+                  assignedTargetName={activeAssignment?.target_name} // ✅ Nom de la personne assignée
+                />
+              </div>
+            );
+          })}
         </section>
       ) : (
         <section className="text-center py-12 px-4 bg-white rounded-2xl border border-black/5 w-full min-w-0">
@@ -261,15 +283,13 @@ const AidantCatalogPage = () => {
         </section>
       )}
 
-      {/* ============================================================
-      MODAL D'ASSIGNATION
-      ============================================================ */}
+      {/* MODAL D'ASSIGNATION */}
       {showAssignModal && selectedAidant && (
         <AssignAidantModal
           isOpen={showAssignModal}
           onClose={() => {
             setShowAssignModal(false);
-            setSelectedVisit(null);
+            setSelectedAidant(null);
           }}
           aidant={selectedAidant}
           patients={patients}
