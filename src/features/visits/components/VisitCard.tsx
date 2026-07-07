@@ -1,4 +1,4 @@
-// 📁 src/features/visits/components/VisitCard.tsx
+// 📁 src/components/visits/VisitCard.tsx
 
 import { memo } from 'react';
 import { MapPin, Clock } from 'lucide-react';
@@ -6,7 +6,7 @@ import { Visit } from '@/types';
 import { formatDate } from '@/utils/helpers';
 
 // ============================================================
-// TYPES
+// TYPES - AVEC TOUTES LES PROPS NÉCESSAIRES
 // ============================================================
 
 interface VisitCardProps {
@@ -20,6 +20,9 @@ interface VisitCardProps {
   onPonctualPayment?: () => void;
   onShowAssignAidantModal?: () => void;
   onView?: () => void;
+  onComplete?: () => void;
+  onApprove?: () => void;
+  onRefuse?: () => void;
 }
 
 // ============================================================
@@ -61,10 +64,22 @@ export const VisitCard = memo(({
   onPonctualPayment,
   onShowAssignAidantModal,
   onView,
+  onComplete,
+  onApprove,
+  onRefuse,
 }: VisitCardProps) => {
   const statusConfig = getStatusConfig(visit.status);
   const isDraft = visit.status === 'brouillon';
   const isWaitingAidant = visit.status === 'en_attente_aidant';
+  const isPendingApproval = visit.status === 'planifiee' || visit.status === 'en_attente';
+  const isAccepted = visit.status === 'acceptee';
+  const isInProgress = visit.status === 'en_cours';
+  const isExpired = visit.status === 'expire';
+  const isRefused = visit.status === 'refusee';
+
+  const isAidant = true; // À remplacer par le vrai check si besoin
+  const isAdminOrCoordinator = true; // À remplacer par le vrai check si besoin
+  const isFamily = true; // À remplacer par le vrai check si besoin
 
   // Version compacte pour les listes
   if (compact) {
@@ -107,9 +122,27 @@ export const VisitCard = memo(({
               </div>
             </div>
           </div>
-          <button className="text-[--color-primary] font-bold text-sm hover:underline shrink-0">
-            Détails →
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            {showActions && isDraft && onPonctualPayment && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onPonctualPayment(); }}
+                className="px-2 py-1 rounded-lg text-white text-[10px] font-bold bg-purple-500 hover:bg-purple-600"
+              >
+                Payer
+              </button>
+            )}
+            {showActions && isWaitingAidant && onShowAssignAidantModal && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onShowAssignAidantModal(); }}
+                className="px-2 py-1 rounded-lg text-white text-[10px] font-bold bg-orange-500 hover:bg-orange-600"
+              >
+                Assigner
+              </button>
+            )}
+            <button className="text-[--color-primary] font-bold text-sm hover:underline shrink-0">
+              Détails →
+            </button>
+          </div>
         </div>
       </div>
     );
