@@ -32,8 +32,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate, formatTime } from '@/utils/helpers';
 import { Modal } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
+import toast from 'react-hot-toast';
 
-// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
+// ✅ toast CONSERVÉ - C'est une page, c'est ici qu'on affiche les toasts
 
 // ============================================================
 // TYPES
@@ -135,7 +136,7 @@ const AdminNotificationsPage = () => {
   }, []);
 
   // ============================================================
-  // RÉCUPÉRATION DES DONNÉES - SANS TOAST
+  // RÉCUPÉRATION DES DONNÉES - AVEC TOASTS
   // ============================================================
 
   const fetchNotifications = async () => {
@@ -172,9 +173,14 @@ const AdminNotificationsPage = () => {
       }));
 
       setNotifications(notifsWithUser);
+      
+      // ✅ UN SEUL TOAST DE SUCCÈS
+      toast.success('✅ Notifications chargées avec succès');
+      
     } catch (error: any) {
       console.error('Fetch notifications error:', error);
-      // ✅ SUPPRIMÉ : toast.error('Erreur lors du chargement des notifications');
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error('Erreur lors du chargement des notifications');
     } finally {
       setIsLoading(false);
     }
@@ -284,19 +290,17 @@ const AdminNotificationsPage = () => {
   ];
 
   // ============================================================
-  // HANDLERS - SANS TOAST
+  // HANDLERS - AVEC TOASTS (UNIQUEMENT DANS LA PAGE)
   // ============================================================
 
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.body.trim()) {
-      // ✅ SUPPRIMÉ : toast.error('Le titre et le message sont obligatoires');
-      alert('Le titre et le message sont obligatoires');
+      toast.error('Le titre et le message sont obligatoires');
       return;
     }
     if (formData.target === 'specific' && formData.targetUsers.length === 0) {
-      // ✅ SUPPRIMÉ : toast.error('Veuillez sélectionner au moins un utilisateur');
-      alert('Veuillez sélectionner au moins un utilisateur');
+      toast.error('Veuillez sélectionner au moins un utilisateur');
       return;
     }
 
@@ -318,8 +322,7 @@ const AdminNotificationsPage = () => {
       }
 
       if (targetUserIds.length === 0) {
-        // ✅ SUPPRIMÉ : toast.error('Aucun utilisateur cible trouvé');
-        alert('Aucun utilisateur cible trouvé');
+        toast.error('Aucun utilisateur cible trouvé');
         setIsSending(false);
         return;
       }
@@ -347,7 +350,9 @@ const AdminNotificationsPage = () => {
         .insert(notificationsToInsert);
 
       if (error) throw error;
-      // ✅ SUPPRIMÉ : toast.success(`Notification envoyée avec succès`);
+      
+      // ✅ UN SEUL TOAST DE SUCCÈS
+      toast.success(`✅ Notification envoyée avec succès à ${targetUserIds.length} utilisateur${targetUserIds.length > 1 ? 's' : ''}`);
 
       setFormData({
         title: '',
@@ -362,7 +367,8 @@ const AdminNotificationsPage = () => {
       fetchNotifications();
     } catch (error: any) {
       console.error('Send notification error:', error);
-      // ✅ SUPPRIMÉ : toast.error("Erreur lors de l'envoi : " + error.message);
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error("Erreur lors de l'envoi : " + error.message);
     } finally {
       setIsSending(false);
     }
@@ -373,12 +379,20 @@ const AdminNotificationsPage = () => {
     try {
       const { error } = await supabase.from('notifications').delete().eq('id', id);
       if (error) throw error;
-      // ✅ SUPPRIMÉ : toast.success('Notification supprimée');
+      // ✅ UN SEUL TOAST DE SUCCÈS
+      toast.success('Notification supprimée');
       fetchNotifications();
     } catch (error) {
       console.error('Delete notification error:', error);
-      // ✅ SUPPRIMÉ : toast.error('Erreur lors de la suppression');
+      // ✅ UN SEUL TOAST D'ERREUR
+      toast.error('Erreur lors de la suppression');
     }
+  };
+
+  const handleRefresh = async () => {
+    await fetchNotifications();
+    await fetchPendingVisits();
+    toast.success('✅ Données actualisées');
   };
 
   const handleViewDetails = (notification: Notification) => {
@@ -448,10 +462,7 @@ const AdminNotificationsPage = () => {
           </div>
           <div className="flex gap-2.5 shrink-0">
             <button
-              onClick={() => {
-                fetchNotifications();
-                fetchPendingVisits();
-              }}
+              onClick={handleRefresh}
               disabled={isLoading}
               className="px-3.5 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 bg-white hover:bg-gray-50"
               style={{ borderColor: colors.border, color: colors.text }}
