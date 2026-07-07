@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Contract, UserContractAcceptance, ContractStatus } from '@/types';
 import { useAuthStore } from './authStore';
 
+ 
 interface ContractState {
   contract: Contract | null;
   hasAccepted: boolean;
@@ -42,7 +43,7 @@ export const useContractStore = create<ContractState>((set, get) => ({
   isInitialized: false,
 
   // ============================================================
-  // ✅ VÉRIFIER LE STATUT (AVEC CACHE)
+  // ✅ VÉRIFIER LE STATUT (AVEC CACHE) - SANS TOAST
   // ============================================================
   checkContract: async () => {
     // ✅ Vérifier le cache local
@@ -153,7 +154,7 @@ export const useContractStore = create<ContractState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ ACCEPTER LE CONTRAT (UNE FOIS)
+  // ✅ ACCEPTER LE CONTRAT (UNE FOIS) - SANS TOAST
   // ============================================================
   acceptContract: async (contractId: string) => {
     try {
@@ -200,7 +201,7 @@ export const useContractStore = create<ContractState>((set, get) => ({
         isInitialized: true,
       });
 
-      // ✅ Notification
+      // ✅ Notification (pas de toast)
       await supabase.from('notifications').insert({
         user_id: user.id,
         title: '📜 Contrat accepté',
@@ -232,7 +233,7 @@ export const useContractStore = create<ContractState>((set, get) => ({
   },
 
   // ============================================================
-  // RÉCUPÉRER LE CONTRAT ACTIF
+  // RÉCUPÉRER LE CONTRAT ACTIF - SANS TOAST
   // ============================================================
   fetchContract: async () => {
     try {
