@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Offer } from '@/types';
 
+ 
 interface OfferState {
   offers: Offer[];
   isLoading: boolean;
@@ -35,6 +36,7 @@ export const useOfferStore = create<OfferState>((set, get) => ({
   isInitialized: false,
   lastUpdated: null,
 
+  // ✅ fetchOffers - SANS TOAST
   fetchOffers: async () => {
     const { isInitialized, lastUpdated } = get();
 
