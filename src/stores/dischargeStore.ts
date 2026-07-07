@@ -4,8 +4,8 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { HospitalDischarge, DischargeStatus } from '@/types';
 import { useAuthStore } from './authStore';
-import toast from 'react-hot-toast';
 
+ 
 // =============================================
 // HELPERS DE CACHE
 // =============================================
@@ -98,7 +98,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // FETCH DISCHARGES - AVEC CACHE
+  // FETCH DISCHARGES - AVEC CACHE - SANS TOAST
   // =============================================
   fetchDischarges: async (force = false, patientId?: string) => {
     const state = get();
@@ -251,7 +251,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // CREATE DISCHARGE - AVEC INVALIDATION DE CACHE
+  // CREATE DISCHARGE - AVEC INVALIDATION DE CACHE - SANS TOAST
   // =============================================
   createDischarge: async (data: Partial<HospitalDischarge>) => {
     try {
@@ -280,7 +280,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       get().invalidateCache();
       await get().fetchDischarges(true);
 
-      // ✅ Notification aux coordinateurs
+      // ✅ Notification aux coordinateurs (pas de toast)
       const { data: coordinators } = await supabase
         .from('profiles')
         .select('id')
@@ -304,6 +304,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         isLoading: false,
       }));
 
+      // ✅ SUPPRIMÉ : toast.success('Demande de sortie créée');
       return discharge;
     } catch (error: any) {
       console.error('❌ Create discharge error:', error);
@@ -313,7 +314,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE DISCHARGE - AVEC INVALIDATION DE CACHE
+  // UPDATE DISCHARGE - AVEC INVALIDATION DE CACHE - SANS TOAST
   // =============================================
   updateDischarge: async (id: string, data: Partial<HospitalDischarge>) => {
     try {
@@ -346,6 +347,8 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         currentDischarge: discharge,
         isLoading: false,
       }));
+
+      // ✅ SUPPRIMÉ : toast.success('Sortie mise à jour');
     } catch (error: any) {
       console.error('❌ Update discharge error:', error);
       set({ error: error.message, isLoading: false });
@@ -354,7 +357,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // UPDATE STATUS - AVEC INVALIDATION DE CACHE
+  // UPDATE STATUS - AVEC INVALIDATION DE CACHE - SANS TOAST
   // =============================================
   updateStatus: async (id: string, status: DischargeStatus) => {
     try {
@@ -388,7 +391,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         isLoading: false,
       }));
 
-      // ✅ Notification à la famille
+      // ✅ Notification à la famille (pas de toast)
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
@@ -406,7 +409,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // ASSIGN AIDANT - AVEC INVALIDATION DE CACHE
+  // ASSIGN AIDANT - AVEC INVALIDATION DE CACHE - SANS TOAST
   // =============================================
   assignAidant: async (id: string, aidantId: string) => {
     try {
@@ -435,7 +438,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
       get().invalidateCache();
       await get().fetchDischarges(true);
 
-      // ✅ Notification à l'aidant
+      // ✅ Notification à l'aidant (pas de toast)
       if (discharge.aidant?.user_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.aidant.user_id,
@@ -446,7 +449,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         });
       }
 
-      // ✅ Notification à la famille
+      // ✅ Notification à la famille (pas de toast)
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
@@ -462,6 +465,8 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         currentDischarge: discharge,
         isLoading: false,
       }));
+
+      // ✅ SUPPRIMÉ : toast.success('Aidant assigné');
     } catch (error: any) {
       console.error('❌ Assign aidant error:', error);
       set({ error: error.message, isLoading: false });
@@ -470,7 +475,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // COMPLETE DISCHARGE - AVEC INVALIDATION DE CACHE
+  // COMPLETE DISCHARGE - AVEC INVALIDATION DE CACHE - SANS TOAST
   // =============================================
   completeDischarge: async (id: string, data: { 
     installation_notes?: string; 
@@ -511,7 +516,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         isLoading: false,
       }));
 
-      // ✅ Notification à la famille
+      // ✅ Notification à la famille (pas de toast)
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
@@ -522,7 +527,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         });
       }
 
-      // ✅ Notification aux coordinateurs
+      // ✅ Notification aux coordinateurs (pas de toast)
       const { data: coordinators } = await supabase
         .from('profiles')
         .select('id')
@@ -540,7 +545,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      toast.success('✅ Sortie d\'hôpital terminée');
+      // ✅ SUPPRIMÉ : toast.success('✅ Sortie d\'hôpital terminée');
     } catch (error: any) {
       console.error('❌ Complete discharge error:', error);
       set({ error: error.message, isLoading: false });
@@ -549,7 +554,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
   },
 
   // =============================================
-  // CANCEL DISCHARGE - AVEC INVALIDATION DE CACHE
+  // CANCEL DISCHARGE - AVEC INVALIDATION DE CACHE - SANS TOAST
   // =============================================
   cancelDischarge: async (id: string, reason: string) => {
     try {
@@ -582,7 +587,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         isLoading: false,
       }));
 
-      // ✅ Notification à la famille
+      // ✅ Notification à la famille (pas de toast)
       if (discharge.family_id) {
         await supabase.from('notifications').insert({
           user_id: discharge.family_id,
@@ -593,7 +598,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         });
       }
 
-      // ✅ Notification aux coordinateurs
+      // ✅ Notification aux coordinateurs (pas de toast)
       const { data: coordinators } = await supabase
         .from('profiles')
         .select('id')
@@ -611,7 +616,7 @@ export const useDischargeStore = create<DischargeState>((set, get) => ({
         }
       }
 
-      toast.error('Sortie d\'hôpital annulée');
+      // ✅ SUPPRIMÉ : toast.error('Sortie d\'hôpital annulée');
     } catch (error: any) {
       console.error('❌ Cancel discharge error:', error);
       set({ error: error.message, isLoading: false });
