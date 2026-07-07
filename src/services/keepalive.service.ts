@@ -5,6 +5,7 @@
  * Version améliorée avec gestion d'URL robuste
  */
 
+ 
 // ✅ CONSTANTE UNIQUE - Sans /api en double
 // NOTE: VITE_API_URL se termine déjà par /api dans Vercel
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
