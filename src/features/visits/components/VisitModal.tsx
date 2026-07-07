@@ -27,7 +27,7 @@ export const VisitModal = ({
   onSuccess,
 }: VisitModalProps) => {
   const colors = getThemeColors('senior');
-  
+
   // ✅ ÉTATS POUR LE WIZARD
   const [showWizard, setShowWizard] = useState(false);
   const [wizardData, setWizardData] = useState<any>(null);
@@ -45,7 +45,7 @@ export const VisitModal = ({
   const handleWizardSuccess = async (wizardResult: any) => {
     try {
       const { createVisit } = useVisitStore.getState();
-      
+
       const visitPayload = {
         ...pendingVisitData,
         wizard_choice: wizardResult.wizardChoice,
@@ -62,8 +62,6 @@ export const VisitModal = ({
         toast.success('💳 Visite créée en brouillon. Paiement requis pour la planifier.');
       } else if (result?.status === 'en_attente_aidant') {
         toast.success('🦸 Visite créée en attente d\'aidant. Administration notifiée.');
-      } else if (result?.id) {
-        toast.success('✅ Visite planifiée avec succès !');
       } else {
         toast.success('✅ Visite planifiée avec succès !');
       }
@@ -89,7 +87,7 @@ export const VisitModal = ({
 
   return (
     <>
-      {/* Modal de planification */}
+      {/* 1️⃣ Modal principal de planification (masqué si le Wizard est ouvert) */}
       <ModalFullScreen
         isOpen={isOpen && !showWizard}
         onClose={onClose}
@@ -102,11 +100,11 @@ export const VisitModal = ({
           patients={patients}
           onSuccess={onSuccess}
           onCancel={onClose}
-          onOpenWizard={handleOpenWizard}
+          onOpenWizard={handleOpenWizard} // ✅ Transmettre la fonction pour ouvrir le wizard
         />
       </ModalFullScreen>
 
-      {/* ✅ Wizard en dehors du modal (plein écran) */}
+      {/* 2️⃣ Wizard de planification (rendu à l'EXTÉRIEUR du modal de planification) */}
       {showWizard && wizardData && (
         <VisitWizardModal
           isOpen={showWizard}
