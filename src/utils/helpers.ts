@@ -1,5 +1,5 @@
 // 📁 src/utils/helpers.ts
-
+ 
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Visit } from '@/types';
@@ -14,23 +14,75 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // =============================================
-// FORMATAGE DE DATE
+// FORMATAGE DE DATE (SÉCURISÉ MOBILE & SAFARI)
 // =============================================
 export const formatDate = (date: string | Date) => {
-  const d = new Date(date);
-  return d.toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  if (date instanceof Date) {
+    return date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  if (typeof date === 'string') {
+    // ✅ Remplacer les tirets par des slashs pour assurer une compatibilité 100% stable sur Safari iOS
+    const cleanDate = date.replace(/-/g, '/');
+    const d = new Date(cleanDate);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+    
+    // Essayer de parser la chaîne d'origine si le nettoyage a échoué
+    const dRaw = new Date(date);
+    if (!isNaN(dRaw.getTime())) {
+      return dRaw.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+  }
+
+  return 'Date invalide';
 };
 
-export const formatTime = (date: string | Date) => {
-  const d = new Date(date);
-  return d.toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+// =============================================
+// FORMATAGE D'HEURE (SÉCURISÉ CONTRE LES "Invalid Date" SUR MOBILE)
+// =============================================
+export const formatTime = (time: string | Date) => {
+  if (time instanceof Date) {
+    return time.toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+  
+  if (typeof time === 'string') {
+    // ✅ CORRECTIF MOBILE CRUCIAL : Si c'est un format heure brut de type "HH:MM:SS" ou "HH:MM"
+    // On extrait directement les heures/minutes sans passer par "new Date()" qui plante sur mobile
+    if (time.includes(':')) {
+      const parts = time.split(':');
+      if (parts.length >= 2) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+      }
+    }
+    
+    // Essayer de parser comme date complète (si format ISO complet)
+    const d = new Date(time);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+  }
+  
+  return '00:00';
 };
 
 export const formatDateTime = (date: string | Date) => {
@@ -102,7 +154,6 @@ export const formatPhoneNumber = (phone: string) => {
 // =============================================
 // STATUS HELPERS UNIFIÉS
 // =============================================
-
 export const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
     // Visites
