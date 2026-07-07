@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitsPage.tsx
-
+ 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -84,6 +84,7 @@ const VisitsPage = () => {
   } = usePonctualPayment({
     onSuccess: () => {
       fetchVisits();
+      // ✅ UN SEUL TOAST
       toast.success('Visite planifiée après paiement !');
     },
     redirectPath: '/app/visits',
@@ -262,7 +263,7 @@ const VisitsPage = () => {
     setShowWizard(true);
   };
 
-  // ✅ SUCCÈS DU WIZARD
+  // ✅ SUCCÈS DU WIZARD - UN SEUL TOAST PAR CAS
   const handleWizardSuccess = async (data: VisitWizardData) => {
     if (!wizardData) return;
 
@@ -279,6 +280,7 @@ const VisitsPage = () => {
 
       const result = await createVisit(visitPayload);
 
+      // ✅ UN SEUL TOAST PAR CAS
       if (result?.status === 'en_attente_aidant') {
         toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
       } else if (result?.status === 'brouillon') {
@@ -292,6 +294,7 @@ const VisitsPage = () => {
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur création visite:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la création de la visite');
     } finally {
       setIsWizardLoading(false);
@@ -334,10 +337,12 @@ const VisitsPage = () => {
         throw new Error(result.error || 'Erreur lors de la conversion');
       }
 
+      // ✅ UN SEUL TOAST
       toast.success(`Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur conversion:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la conversion');
     } finally {
       setIsConverting(false);
@@ -376,6 +381,7 @@ const VisitsPage = () => {
   const handleAssignAidantSuccess = async () => {
     useVisitStore.getState().invalidateCache();
     await fetchVisits();
+    // ✅ UN SEUL TOAST
     toast.success('Aidant assigné avec succès');
   };
 
@@ -409,10 +415,12 @@ const VisitsPage = () => {
         throw new Error(result.error || 'Erreur lors de l\'assignation');
       }
 
+      // ✅ UN SEUL TOAST
       toast.success(result.message || 'Aidant assigné avec succès');
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'assignation');
     }
   };
@@ -428,7 +436,7 @@ const VisitsPage = () => {
   };
 
   // =============================================
-  // ✅ SUCCÈS DU MODAL (SANS DOUBLE TOAST GENÉRIQUE)
+  // ✅ SUCCÈS DU MODAL (SANS DOUBLE TOAST)
   // =============================================
   const handleModalSuccess = (newVisit?: any) => {
     fetchVisits();
@@ -441,24 +449,32 @@ const VisitsPage = () => {
     // ❌ Supprimé pour éviter les doublons avec les bannières de confirmation des modales précises !
   };
 
+  // ✅ START VISIT - UN SEUL TOAST
   const handleStartVisit = async (visitId: string) => {
     try {
       await startVisit(visitId);
+      // ✅ UN SEUL TOAST
       toast.success('Visite démarrée');
       fetchVisits();
     } catch (error: any) {
+      console.error('❌ Erreur démarrage:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors du démarrage');
     }
   };
 
+  // ✅ CANCEL VISIT - UN SEUL TOAST
   const handleCancelVisit = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
 
     try {
       await cancelVisit(visitId);
+      // ✅ UN SEUL TOAST
       toast.success('Visite annulée');
       fetchVisits();
     } catch (error: any) {
+      console.error('❌ Erreur annulation:', error);
+      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'annulation');
     }
   };
