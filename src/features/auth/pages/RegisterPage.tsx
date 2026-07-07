@@ -1,6 +1,5 @@
 // 📁 src/features/auth/pages/RegisterPage.tsx
-// 📌 Inscription - VERSION CORRIGÉE (UN SEUL TOAST PAR ACTION)
-
+ 
 import { useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
