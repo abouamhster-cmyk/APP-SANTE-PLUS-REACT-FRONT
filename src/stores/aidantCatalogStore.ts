@@ -1,7 +1,8 @@
-// 📁 frontend/src/stores/aidantCatalogStore.ts
- 
+// 📁 src/stores/aidantCatalogStore.ts
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from './authStore';  
 import { 
   AidantProfile, 
   AidantFilters, 
@@ -105,7 +106,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
             current_assignments: quota?.currentAssignments || 0,
             max_assignments: quota?.maxAssignments || 4,
             available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-            // ✅ CORRECTION : Un aidant est disponible s'il est actif en BDD ET sous son quota
             is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
             current_orders: quota?.currentOrders || 0,
             max_orders: quota?.maxOrders || 2,
@@ -157,7 +157,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
             current_assignments: quota?.currentAssignments || 0,
             max_assignments: quota?.maxAssignments || 4,
             available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-             is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
+            is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
             current_orders: quota?.currentOrders || 0,
             max_orders: quota?.maxOrders || 2,
             available_order_slots: Math.max(0, (quota?.maxOrders || 2) - (quota?.currentOrders || 0)),
@@ -207,7 +207,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { count: activeAssignments } = await supabase
         .from('aidant_assignments')
         .select('id', { count: 'exact', head: true })
-        .eq('aidant_user_id', aidant.user_id)
+        .eq('ant_user_id', aidant.user_id)
         .eq('status', 'active');
 
       const { count: activeOrders } = await supabase
@@ -271,8 +271,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
             current_assignments: quota?.currentAssignments || 0,
             max_assignments: quota?.maxAssignments || 4,
             available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-            // ✅ CORRECTION : Cohérence complète disponible BDD + quota
-            is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
+             is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
             current_orders: quota?.currentOrders || 0,
             max_orders: quota?.maxOrders || 2,
             available_order_slots: Math.max(0, (quota?.maxOrders || 2) - (quota?.currentOrders || 0)),
@@ -283,9 +282,8 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       set({
         aidants: enrichedAidants,
-        totalCount: result.count || 0,
-        filters: { ...currentFilters },
         isLoading: false,
+        totalCount: result.count || enrichedAidants.length,
       });
     } catch (error: any) {
       console.error('❌ Fetch aidants error:', error);
@@ -296,22 +294,23 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
   fetchAidantById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
 
-      if (!token) throw new Error('Token manquant');
+      const { data: aidant, error } = await supabase
+        .from('aidants')
+        .select(`
+          *,
+          user:profiles!aidants_user_id_fkey(
+            id,
+            full_name,
+            email,
+            phone,
+            avatar_url
+          )
+        `)
+        .eq('id', id)
+        .single();
 
-      const response = await fetch(`${API_BASE_URL}/aidants/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors du chargement de l\'aidant');
-      }
-
-      const result = await response.json();
-      const aidant = result.data;
+      if (error) throw error;
 
       const quota = await get().getAidantQuotaById(aidant.id);
       const enrichedAidant = {
@@ -319,7 +318,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
         current_assignments: quota?.currentAssignments || 0,
         max_assignments: quota?.maxAssignments || 4,
         available_slots: Math.max(0, (quota?.maxAssignments || 4) - (quota?.currentAssignments || 0)),
-        // ✅ CORRECTION : Cohérence complète disponible BDD + quota
         is_available: aidant.available && (quota?.currentAssignments || 0) < (quota?.maxAssignments || 4),
         current_orders: quota?.currentOrders || 0,
         max_orders: quota?.maxOrders || 2,
@@ -331,18 +329,12 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
         selectedAidant: enrichedAidant,
         isLoading: false,
       });
-
-      return enrichedAidant;
     } catch (error: any) {
       console.error('❌ Fetch aidant by ID error:', error);
       set({ error: error.message, isLoading: false });
-      return null;
     }
   },
 
-  // ============================================================
-  // ✅ UTILISER '/my' POUR LES FAMILLES
-  // ============================================================
   fetchMyAssignments: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -352,11 +344,10 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       if (!token) throw new Error('Token manquant');
 
-      // ✅ DETERMINER LE BON ENDPOINT POUR LES FAMILLES (Évite la 403)
       const { profile } = useAuthStore.getState();
       let endpoint = '/assignments';
       if (profile?.role === 'family') {
-        endpoint = '/assignments/my'; // ✅ Cible la route des familles
+        endpoint = '/assignments/my';
       }
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
