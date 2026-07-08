@@ -1,8 +1,7 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
  
-import { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Users,
   Calendar,
@@ -24,16 +23,14 @@ import {
   Bell,
   Package,
   LayoutDashboard,
-  Handshake,
   FileCheck,
   UserPlus,
-  TrendingUp,
-  Lightbulb,
-  Compass,
   Rocket,
   DollarSign,
   Clock,
   AlertCircle,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -47,16 +44,15 @@ import { getGreeting } from '@/utils/helpers';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
-import { RefreshButton } from '@/components/ui/RefreshButton';
 import { supabase } from '@/lib/supabase';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
-import { PatientCard } from '@/components/patients/PatientCard';
 
 // =============================================
-// DÉFINITION DES TUILES PAR RÔLE
+// TYPES ET INTERFACES INTERNES
 // =============================================
 
 interface Tile {
@@ -67,6 +63,17 @@ interface Tile {
   badge?: number;
 }
 
+interface HeroSlide {
+  title: string;
+  description: string;
+  image: string;
+  actionText: string;
+  actionPath: string;
+}
+
+// =============================================
+// DÉFINITION DES TUILES PAR RÔLE
+// =============================================
 const getTilesForRole = (role: string | null, colors: any, stats: any, patientsCount: number): Tile[] => {
   const tiles: Tile[] = [];
 
@@ -87,7 +94,7 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
 
   if (role === 'aidant') {
     tiles.push(
-      { icon: <Users size={20} />, label: 'Personnes accompagnées', color: colors.primary, path: '/app/patients', badge: patientsCount },
+      { icon: <Users size={20} />, label: 'Bénéficiaires', color: colors.primary, path: '/app/patients', badge: patientsCount },
       { icon: <Calendar size={20} />, label: 'Planning', color: '#10b981', path: '/app/planning' },
       { icon: <Clock size={20} />, label: 'Missions', color: '#8b5cf6', path: '/app/missions', badge: stats.pendingVisits },
       { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
@@ -132,7 +139,7 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { profile, role, user } = useAuthStore();
+  const { profile, role } = useAuthStore();
 
   const {
     isFamily,
@@ -141,37 +148,11 @@ const DashboardPage = () => {
   } = useTerminology();
 
   // ✅ STORES
-  const {
-    patients,
-    fetchPatients,
-    isLoading: patientsLoading,
-  } = usePatientStore();
-
-  const {
-    visits,
-    fetchVisits,
-    isLoading: visitsLoading,
-  } = useVisitStore();
-
-  const {
-    orders,
-    fetchOrders,
-    isLoading: ordersLoading,
-  } = useOrderStore();
-
-  const {
-    aidants,
-    fetchAidants,
-    isLoading: aidantsLoading,
-  } = useAidantCatalogStore();
-
-  const {
-    subscriptions,
-    payments,
-    fetchSubscriptions,
-    fetchPayments,
-    isLoading: paymentsLoading,
-  } = usePaymentStore();
+  const { patients, fetchPatients, isLoading: patientsLoading } = usePatientStore();
+  const { visits, fetchVisits, isLoading: visitsLoading } = useVisitStore();
+  const { orders, fetchOrders, isLoading: ordersLoading } = useOrderStore();
+  const { aidants, fetchAidants, isLoading: aidantsLoading } = useAidantCatalogStore();
+  const { subscriptions, payments, fetchSubscriptions, fetchPayments, isLoading: paymentsLoading } = usePaymentStore();
 
   // ✅ ABONNEMENT GUARD
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
@@ -179,7 +160,17 @@ const DashboardPage = () => {
   const [greeting, setGreeting] = useState('');
   const [isMaman, setIsMaman] = useState(false);
   
-  // ✅ STATS ADMIN
+  // ✅ CARROUSEL INTERACTIF ÉTATS
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [autoplayActive, setAutoplayActive] = useState(true);
+  const [cycleCount, setCycleCount] = useState(0);
+
+  // Pour le contrôle tactile (Swipe)
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
+  // ✅ STATS ADMIN / BENEFICIAIRES
   const [adminStats, setAdminStats] = useState({
     totalUsers: 0,
     pendingRegistrations: 0,
@@ -193,7 +184,6 @@ const DashboardPage = () => {
   });
   const [isLoadingAdminStats, setIsLoadingAdminStats] = useState(false);
 
-  // ✅ STATS BENEFICIAIRES (patients + comptes personnels)
   const [beneficiairesStats, setBeneficiairesStats] = useState({
     patientsCount: 0,
     personalAccountsCount: 0,
@@ -204,21 +194,196 @@ const DashboardPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Compter les brouillons
   const drafts = visits.filter(v => v.status === 'brouillon');
   const hasDrafts = drafts.length > 0;
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
-  // ✅ CHARGER LES STATS BENEFICIAIRES - CORRIGÉ
+  // =============================================
+  // DÉFINITION CARROUSEL DYNAMIQUE PAR RÔLE
+  // =============================================
+  const slides: HeroSlide[] = useMemo(() => {
+    const seniorImg = '/assets/images/banners/senior-banner.png';
+    const mamanImg = '/assets/images/banners/maman-banner.png';
+    const aidantImg = '/assets/images/banners/aidant-banner.png';
+    const coordImg = '/assets/images/banners/coord-banner.png';
+
+    if (isAdminOrCoordinator) {
+      return [
+        {
+          title: '👔 Supervision de la plateforme',
+          description: 'Surveillez les activités en direct, validez les fiches d’inscriptions et supervisez les interventions.',
+          image: coordImg,
+          actionText: 'Espace Admin',
+          actionPath: '/app/admin',
+        },
+        {
+          title: '📋 Inscriptions en attente',
+          description: 'De nouveaux candidats attendent votre validation. Rapprochez les familles de nos aidants qualifiés.',
+          image: coordImg,
+          actionText: 'Inscriptions',
+          actionPath: '/app/registrations',
+        },
+        {
+          title: '💳 Validation des visites',
+          description: 'Consultez les rapports soumis par les intervenants et validez-les pour décompter les abonnements.',
+          image: coordImg,
+          actionText: 'Valider visites',
+          actionPath: '/app/admin/visits/validation',
+        }
+      ];
+    }
+
+    if (isAidant) {
+      return [
+        {
+          title: '🦸 Vos missions du jour',
+          description: 'Accédez en un clic à votre planning d\'interventions, à la carte radar et aux fiches d\'accompagnements.',
+          image: aidantImg,
+          actionText: 'Mon planning',
+          actionPath: '/app/planning',
+        },
+        {
+          title: '📍 Suivi GPS de livraison',
+          description: 'Lancez l\'itinéraire GPS de livraison en direct pour rassurer les familles sur le trajet.',
+          image: aidantImg,
+          actionText: 'Voir la carte',
+          actionPath: '/app/map',
+        },
+        {
+          title: '💬 Messagerie centralisée',
+          description: 'Besoin d\'un conseil ou d\'un rapport à envoyer ? Communiquez directement avec le coordinateur.',
+          image: aidantImg,
+          actionText: 'Mes messages',
+          actionPath: '/app/messages',
+        }
+      ];
+    }
+
+    // Cas Maman & Bébé spécifique (Famille)
+    if (isFamily && isMaman) {
+      return [
+        {
+          title: '👶 Votre espace Maman & Bébé',
+          description: 'Organisez sereinement la garde, les sorties et les commandes de soins pour vous et votre nouveau-né.',
+          image: mamanImg,
+          actionText: 'Planifier une visite',
+          actionPath: '/app/visits',
+        },
+        {
+          title: '🛒 Commandes urgentes Bébé',
+          description: 'Faites livrer des couches, du lait infantile ou des soins en pharmacie en quelques clics.',
+          image: mamanImg,
+          actionText: 'Passer commande',
+          actionPath: '/app/orders/create',
+        },
+        {
+          title: '💬 Discussion en direct',
+          description: 'Échangez à tout moment avec l\'assistante maternelle ou l\'aidant assigné à votre bébé.',
+          image: mamanImg,
+          actionText: 'Contacter l\'aidant',
+          actionPath: '/app/messages',
+        }
+      ];
+    }
+
+    // Famille classique (Senior par défaut)
+    return [
+      {
+        title: '👨‍👩‍👦 Un suivi clair pour votre proche',
+        description: 'Planifiez ses visites d\'accompagnement et supervisez son bien-être à domicile depuis votre mobile.',
+        image: seniorImg,
+        actionText: 'Planifier une visite',
+        actionPath: '/app/visits',
+      },
+      {
+        title: '🛒 Commande de courses & soins',
+        description: 'Livraison de médicaments, de repas équilibrés ou de courses directement chez votre proche.',
+        image: seniorImg,
+        actionText: 'Nouvelle commande',
+        actionPath: '/app/orders/create',
+      },
+      {
+        title: '⭐ Formules d\'abonnements Confort',
+        description: 'Souscrivez à un accompagnement régulier pour bénéficier de tarifs dégressifs et d\'un aidant permanent.',
+        image: seniorImg,
+        actionText: 'Voir les abonnements',
+        actionPath: '/app/billing',
+      }
+    ];
+  }, [isAdminOrCoordinator, isAidant, isFamily, isMaman]);
+
+  // =============================================
+  // AUTOPLAY LIMITÉ À 2 CYCLES COMPLETS SANS TOUCHES
+  // =============================================
+  useEffect(() => {
+    if (!autoplayActive || slides.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCycleCount((prevCount) => {
+        const nextCount = prevCount + 1;
+        // Arrêt de la rotation après 2 cycles complets (ex: 3 slides * 2 = 6 transitions)
+        if (nextCount >= slides.length * 2) {
+          setAutoplayActive(false);
+          clearInterval(interval);
+          return nextCount;
+        }
+        return nextCount;
+      });
+
+      setCurrentSlide((prevIndex) => (prevIndex + 1) % slides.length);
+    }, 4000); // Défilement toutes les 4 secondes
+
+    return () => clearInterval(interval);
+  }, [autoplayActive, slides.length]);
+
+  // =============================================
+  // GESTION DU BALAYAGE TACTILE (SWIPABLE DOCK CARDS)
+  // =============================================
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      handleNextSlide();
+    } else if (isRightSwipe) {
+      handlePrevSlide();
+    }
+  };
+
+  const handleNextSlide = () => {
+    setAutoplayActive(false); // Désactive l'autoplay lors d'une action manuelle
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  const handlePrevSlide = () => {
+    setAutoplayActive(false); // Désactive l'autoplay lors d'une action manuelle
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const handleDotClick = (index: number) => {
+    setAutoplayActive(false); // Désactive l'autoplay
+    setCurrentSlide(index);
+  };
+
+  // ✅ CHARGER LES STATS BENEFICIAIRES
   const fetchBeneficiairesStats = async () => {
     setIsLoadingBeneficiaires(true);
     try {
-      // 1. Compter les patients
       const { count: patientsCount } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true });
 
-      // 2. Récupérer les familles (comptes)
       const { data: familyLinks } = await supabase
         .from('patient_family_links')
         .select('family_id');
@@ -231,25 +396,15 @@ const DashboardPage = () => {
         .eq('role', 'family');
 
       if (familiesError) {
-        console.error('❌ Erreur récupération familles:', familiesError);
+        console.error('❌ Erreur familles:', familiesError);
       }
 
-      //  Compter TOUTES les familles, pas seulement celles sans patient
       const totalFamilies = allFamilies?.length || 0;
       const personalAccountsCount = (allFamilies || []).filter(
         (f: any) => !familyIdsWithPatients.has(f.id)
       ).length;
 
-      //  Total bénéficiaires = TOUS les comptes + TOUS les patients
       const totalBeneficiaires = totalFamilies + (patientsCount || 0);
-
-      console.log('📊 Stats bénéficiaires:', {
-        totalFamilies,
-        patientsCount: patientsCount || 0,
-        personalAccountsCount,
-        totalBeneficiaires,
-        familyIdsWithPatients: familyIdsWithPatients.size,
-      });
 
       setBeneficiairesStats({
         patientsCount: patientsCount || 0,
@@ -257,7 +412,7 @@ const DashboardPage = () => {
         totalBeneficiaires: totalBeneficiaires,
       });
     } catch (error) {
-      console.error('❌ Erreur récupération stats bénéficiaires:', error);
+      console.error('❌ Erreur stats bénéficiaires:', error);
     } finally {
       setIsLoadingBeneficiaires(false);
     }
@@ -308,13 +463,12 @@ const DashboardPage = () => {
         revenue,
       });
     } catch (error) {
-      console.error('❌ Erreur chargement stats admin:', error);
+      console.error('❌ Erreur stats admin:', error);
     } finally {
       setIsLoadingAdminStats(false);
     }
   };
 
-  // ✅ REFRESH - UN SEUL TOAST D'ERREUR
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       await Promise.all([
@@ -330,14 +484,11 @@ const DashboardPage = () => {
         await fetchAdminStats();
       }
     },
-    onError: (error) => {
-      console.error('❌ Erreur rafraîchissement:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
+    onError: () => {
       toast.error('Erreur lors du rafraîchissement');
     },
   });
 
-  // ✅ CHARGEMENT INITIAL
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
@@ -357,13 +508,11 @@ const DashboardPage = () => {
     setGreeting(getGreeting());
   }, []);
 
-  // ✅ Mettre à jour isMaman quand les patients changent
   useEffect(() => {
     const hasMamanPatient = patients.some((p) => p.category === 'maman_bebe');
     setIsMaman(hasMamanPatient);
   }, [patients]);
 
-  // ✅ STATISTIQUES
   const stats = useMemo(() => {
     const pendingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'en_attente').length;
     const upcomingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'acceptee').length;
@@ -397,63 +546,6 @@ const DashboardPage = () => {
   const tiles = getTilesForRole(role, colors, stats, stats.proches);
   const isLoading = patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires;
 
-  // ✅ DÉTERMINER L'IMAGE DE LA BANNIÈRE SELON LE RÔLE ET LA CATÉGORIE
-  const getHeroImage = () => {
-    if (isAdminOrCoordinator) {
-      return '/assets/images/banners/coord-banner.png';
-    }
-    if (isAidant) {
-      return '/assets/images/banners/aidant-banner.png';
-    }
-    if (isFamily) {
-      if (isMaman) {
-        return '/assets/images/banners/maman-banner.png';
-      }
-      return '/assets/images/banners/senior-banner.png';
-    }
-    return '/assets/images/banners/senior-banner.png';
-  };
-
-  const heroImage = getHeroImage();
-
-  const heroTitle = () => {
-    if (isAdminOrCoordinator) {
-      return '👔 Supervision de la plateforme';
-    }
-    if (isAidant) {
-      return '🦸 Vos missions en un coup d\'œil';
-    }
-    if (isMaman) {
-      return '🌸 Votre espace Maman & Bébé';
-    }
-    if (isFamily && stats.proches > 0) {
-      return '👨‍👩‍👦 Un suivi clair pour votre proche';
-    }
-    if (isFamily && stats.proches === 0) {
-      return '🌱 Bienvenue sur Santé Plus Services';
-    }
-    return 'Bienvenue sur Santé Plus.';
-  };
-
-  const heroDescription = () => {
-    if (isAdminOrCoordinator) {
-      return 'Supervisez l\'ensemble des activités et gérez les utilisateurs.';
-    }
-    if (isAidant) {
-      return 'Retrouvez vos missions, planning et communications au même endroit.';
-    }
-    if (isMaman) {
-      return 'Visites, messages et commandes réunis dans un espace simple pour vous et votre bébé.';
-    }
-    if (isFamily && stats.proches > 0) {
-      return 'Gardez une vue rapide sur les visites et commandes de votre proche.';
-    }
-    if (isFamily && stats.proches === 0) {
-      return 'Gérez vos services d\'accompagnement en toute simplicité.';
-    }
-    return 'Gérez vos accompagnements en toute simplicité.';
-  };
-
   const getProchesTitle = () => {
     if (isFamily) return 'Mes proches';
     if (isAidant) return 'Personnes accompagnées';
@@ -479,7 +571,7 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
       
-      {/* ✅ BANNIÈRE D'ALERTE POUR BROUILLONS */}
+      {/* BANNIÈRE BROUILLONS */}
       {isFamily && canConvertDrafts && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm border border-yellow-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -489,110 +581,104 @@ const DashboardPage = () => {
                 <p className="font-bold text-yellow-800">
                   📋 {stats.draftCount} visite{stats.draftCount > 1 ? 's' : ''} en attente de validation
                 </p>
-                <p className="text-sm text-yellow-700">
-                  Vous avez {remainingVisits} visite(s) restante(s) sur votre abonnement.
-                  Validez vos visites en brouillon maintenant !
+                <p className="text-sm text-yellow-700 font-medium mt-0.5">
+                  Une ou plusieurs visites sont sauvegardées. Finalisez-les en un clic avec votre abonnement.
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
-              <Link
-                to="/app/visits"
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
-              >
-                ✅ Valider maintenant
-              </Link>
-              <button
-                onClick={() => {
-                  // ✅ UN SEUL TOAST
-                  toast.success('Les visites en brouillon sont disponibles dans l\'onglet Visites');
-                }}
-                className="bg-white hover:bg-gray-50 text-yellow-700 px-3 py-2 rounded-xl text-sm font-bold border border-yellow-300 transition"
-              >
-                Plus tard
-              </button>
-            </div>
+            <button
+              onClick={() => navigate('/app/visits?filter=brouillon')}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0"
+            >
+              Consulter mes brouillons
+            </button>
           </div>
         </div>
       )}
 
       {/* ============================================================
-      HERO BANNER
-      ============================================================ */}
+          🆕 HERO BANNER : DIAPORAMA DE CARTES PAR RÔLES ET PAR AMBIANCES (GLASSMORPHIC & BOUTONS DIRECTS)
+          ============================================================ */}
       <section 
-        className="relative overflow-hidden rounded-3xl min-h-[180px] sm:min-h-[200px] transition-all shadow-sm hover:shadow-md"
-        style={{
-          backgroundImage: `
-            linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.25) 100%),
-            url('${heroImage}')
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
+        className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 border border-white/10"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 sm:p-6 min-h-[180px] sm:min-h-[200px]">
-          <div className="space-y-1.5 min-w-0">
-            <div
-              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-white/90 backdrop-blur-sm border shrink-0"
+        {/* Rail de translation horizontal fluide */}
+        <div 
+          className="flex transition-transform duration-500 ease-out h-[210px] sm:h-[185px] w-full"
+          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+        >
+          {slides.map((slide, index) => (
+            <div 
+              key={index}
+              className="w-full shrink-0 h-full relative"
               style={{
-                borderColor: colors.primary + '18',
-                color: colors.primary,
+                backgroundImage: `
+                  linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.25) 100%),
+                  url('${slide.image}')
+                `,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
               }}
             >
-              <ActivityIcon role={role} />
-              <span className="text-gray-700">{isAidant ? 'Espace Intervenant' : 'Espace Accompagnement'}</span>
+              <div className="relative z-10 flex flex-col justify-between h-full p-5 sm:p-6 pb-9 sm:pb-7">
+                <div className="space-y-1.5 min-w-0">
+                  <h1 className="text-base sm:text-lg font-black text-white tracking-tight leading-tight uppercase flex items-center gap-1.5 opacity-95">
+                    {slide.title}
+                  </h1>
+                  <p className="text-white/85 text-xs sm:text-sm font-medium leading-relaxed max-w-lg">
+                    {slide.description}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => navigate(slide.actionPath)}
+                    className="inline-flex items-center gap-1.5 text-white text-[11px] sm:text-xs font-black px-4 py-2 rounded-2xl transition-all shadow-lg active:scale-95"
+                    style={{ background: colors.primary }}
+                  >
+                    {slide.actionText}
+                    <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
             </div>
+          ))}
+        </div>
 
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight drop-shadow-md">
-              {heroTitle()}
-            </h1>
-
-            <p className="text-white/85 text-xs sm:text-sm font-semibold leading-relaxed max-w-md drop-shadow">
-              {heroDescription()}
-            </p>
+        {/* ✅ INDICATEURS PAGINATION (PILLS LUMINEUSES) ET CONTRÔLES COMPACTES */}
+        <div className="absolute bottom-3 left-0 right-0 z-20 flex items-center justify-between px-5 pointer-events-none">
+          {/* Points */}
+          <div className="flex gap-1.5 pointer-events-auto">
+            {slides.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => handleDotClick(index)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-300",
+                  currentSlide === index ? "w-6 bg-white" : "w-1.5 bg-white/40"
+                )}
+                aria-label={`Slide ${index + 1}`}
+              />
+            ))}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center mt-2 sm:mt-0">
-            <RefreshButton 
-              size="sm" 
-              showText={false}
-              onRefresh={refreshAll}
-            />
-
-            {isFamily && (
-              <button
-                onClick={() => navigate('/app/visits')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg shadow-black/20"
-                style={{ background: colors.primary }}
-              >
-                Gérer les visites
-                <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-              </button>
-            )}
-            
-            {isAidant && (
-              <button
-                onClick={() => navigate('/app/planning')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg shadow-black/20"
-                style={{ background: colors.primary }}
-              >
-                Mon planning
-                <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-              </button>
-            )}
-
-            {isAdminOrCoordinator && (
-              <button
-                onClick={() => navigate('/app/admin')}
-                className="group inline-flex items-center gap-1.5 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all hover:opacity-95 active:scale-[0.97] shadow-lg shadow-black/20"
-                style={{ background: colors.primary }}
-              >
-                Espace Admin
-                <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-              </button>
-            )}
+          {/* Fleches compactes */}
+          <div className="flex items-center gap-1 pointer-events-auto">
+            <button 
+              onClick={handlePrevSlide}
+              className="w-6 h-6 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-white/80 hover:text-white transition active:scale-90"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button 
+              onClick={handleNextSlide}
+              className="w-6 h-6 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-white/80 hover:text-white transition active:scale-90"
+            >
+              <ChevronRight size={14} />
+            </button>
           </div>
         </div>
       </section>
@@ -875,39 +961,6 @@ const DashboardPage = () => {
               .map((visit) => (
                 <VisitCard key={visit.id} visit={visit} compact onClick={() => navigate(`/app/visits/${visit.id}`)} />
               ))}
-          </div>
-        </section>
-      )}
-
-      {/* EMPTY STATE PROACTIF */}
-      {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
-        <section className="bg-white rounded-3xl p-6 text-center border border-gray-100/50">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
-            <Lightbulb size={22} style={{ color: colors.primary }} />
-          </div>
-          <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
-            Commencez à utiliser Santé Plus
-          </h3>
-          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto leading-relaxed">
-            Planifiez votre première visite ou passez une commande de fournitures de santé pour découvrir nos services.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 mt-4">
-            <button
-              onClick={() => navigate('/app/visits')}
-              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm shadow-purple-50"
-              style={{ background: colors.primary }}
-            >
-              <Calendar size={13} />
-              Planifier une visite
-            </button>
-            <button
-              onClick={() => navigate('/app/orders/create')}
-              className="px-4 py-2 rounded-xl font-bold text-xs border transition-all hover:bg-gray-50 flex items-center gap-1.5"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              <ShoppingBag size={13} />
-              Nouvelle commande
-            </button>
           </div>
         </section>
       )}
