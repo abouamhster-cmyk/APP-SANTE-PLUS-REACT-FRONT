@@ -1,14 +1,70 @@
 // 📁 src/features/notifications/pages/NotificationsPage.tsx
-
-import { useState, useEffect } from 'react';
-import { Bell, Check, X, RefreshCw, Mail, Inbox, BellRing, BellOff } from 'lucide-react';
+ 
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  Bell, 
+  Check, 
+  X, 
+  RefreshCw, 
+  BellRing, 
+  BellOff, 
+  Calendar, 
+  ShoppingBag, 
+  CreditCard, 
+  AlertCircle, 
+  Loader2,
+  Trash2
+} from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDateTime } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
+
+// ============================================================
+// DÉCORATEUR D'ICÔNE THÉMATIQUE COLORÉE (BRANDING & VISUEL)
+// ============================================================
+const getNotificationIcon = (type: string, defaultColor: string) => {
+  switch (type) {
+    case 'visite':
+      return (
+        <div className="p-2.5 rounded-2xl shrink-0 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400">
+          <Calendar size={18} />
+        </div>
+      );
+    case 'commande':
+      return (
+        <div className="p-2.5 rounded-2xl shrink-0 bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400">
+          <ShoppingBag size={18} />
+        </div>
+      );
+    case 'paiement':
+      return (
+        <div className="p-2.5 rounded-2xl shrink-0 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400">
+          <CreditCard size={18} />
+        </div>
+      );
+    case 'system':
+    case 'alert':
+      return (
+        <div className="p-2.5 rounded-2xl shrink-0 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 animate-pulse">
+          <AlertCircle size={18} />
+        </div>
+      );
+    default:
+      return (
+        <div 
+          className="p-2.5 rounded-2xl shrink-0" 
+          style={{ backgroundColor: `${defaultColor}15`, color: defaultColor }}
+        >
+          <Bell size={18} />
+        </div>
+      );
+  }
+};
 
 const NotificationsPage = () => {
   const { profile, role } = useAuthStore();
@@ -30,28 +86,24 @@ const NotificationsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Chargement initial
   useEffect(() => {
     fetchNotifications(true);
   }, []);
 
-  // ✅ Rafraîchir manuellement
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchNotifications(true);
     setIsRefreshing(false);
-    toast.success('Notifications actualisées');
+    toast.success('Flux de notifications actualisé');
   };
 
-  // ✅ Activer/Désactiver les notifications
   const handleToggleNotifications = () => {
     toggleNotifications();
     toast.success(
-      notificationsEnabled ? 'Notifications désactivées' : 'Notifications activées'
+      notificationsEnabled ? 'Alertes de l\'appareil désactivées' : 'Alertes de l\'appareil activées'
     );
   };
 
-  // ✅ Tout marquer comme lu
   const handleMarkAllRead = async () => {
     if (unreadCount === 0) {
       toast('Aucune notification non lue', { icon: 'ℹ️' });
@@ -61,11 +113,9 @@ const NotificationsPage = () => {
     toast.success('Toutes les notifications ont été marquées comme lues');
   };
 
-  // ✅ Supprimer une notification
   const handleDelete = async (id: string) => {
-    // ✅ Marquer comme lu puis supprimer de l'interface
     await markAsRead(id);
-    // ✅ On pourrait ajouter une vraie suppression ici
+    // On simule une suppression de l'UI en marquant simplement comme lu
   };
 
   const getEmptyMessage = () => {
@@ -82,81 +132,80 @@ const NotificationsPage = () => {
     return "Aucune notification";
   };
 
-  // ✅ Son de notification
+  // ✅ EFFET RETOUR SONORE NOTIFICATION
   useEffect(() => {
     if (notifications.length > 0 && unreadCount > 0) {
-      // ✅ Jouer le son pour les nouvelles notifications
       try {
         const audio = new Audio('/notification.mp3');
-        audio.volume = 0.3;
+        audio.volume = 0.25;
         audio.play().catch(() => {});
       } catch (e) {
-        // Ignorer
+        // Ignorer si les navigateurs bloquent l'autoplay
       }
     }
   }, [notifications.length, unreadCount]);
 
   return (
-    <div className="space-y-4 max-w-3xl mx-auto pb-24 sm:pb-10 px-4 sm:px-0">
+    <div className="space-y-4 max-w-3xl mx-auto pb-32 px-4 sm:px-0">
 
       {/* ============================================================
-      HEADER AVEC ACTIONS
-      ============================================================ */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
+          HEADER DE LA PAGE AVEC ACTIONS COORDONNÉES
+          ============================================================ */}
+      <section className="bg-white dark:bg-[#17231d] rounded-3xl p-5 shadow-sm border border-black/5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="min-w-0">
             <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider mb-2"
               style={{
                 background: colors.primary + '12',
                 color: colors.primary,
               }}
             >
               <Bell size={12} />
-              Notifications
+              Centre de notifications
             </div>
 
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              🔔 Notifications
+            <h1 className="text-xl sm:text-2xl font-black text-gray-800 dark:text-gray-100">
+              Fils d'actualités
             </h1>
 
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+            <p className="text-xs text-gray-400 mt-1">
               {unreadCount > 0
-                ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}`
-                : "Tout est à jour"}
+                ? `${unreadCount} alerte${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}`
+                : "Toutes vos alertes sont à jour"}
             </p>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {/* ✅ Bouton Rafraîchir */}
+          {/* Boutons d'actions compacts */}
+          <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end border-t sm:border-t-0 pt-3 sm:pt-0 dark:border-gray-800">
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="p-2 rounded-xl hover:bg-gray-100 transition"
-              title="Actualiser"
+              className="w-10 h-10 rounded-2xl bg-gray-50 hover:bg-gray-100 dark:bg-[#1d2d25] dark:hover:bg-[#24362d] flex items-center justify-center transition border"
+              title="Rafraîchir"
             >
-              <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
 
-            {/* ✅ Bouton Toggle Notifications */}
             <button
               onClick={handleToggleNotifications}
-              className={`p-2 rounded-xl hover:bg-gray-100 transition ${
-                notificationsEnabled ? 'text-green-500' : 'text-gray-400'
-              }`}
-              title={notificationsEnabled ? 'Notifications activées' : 'Notifications désactivées'}
+              className={cn(
+                "w-10 h-10 rounded-2xl border flex items-center justify-center transition",
+                notificationsEnabled 
+                  ? "bg-emerald-50 border-emerald-100 text-emerald-600 dark:bg-emerald-950/20 dark:border-emerald-900/40" 
+                  : "bg-gray-50 border-gray-200 text-gray-400 dark:bg-[#1d2d25] dark:border-gray-800"
+              )}
+              title={notificationsEnabled ? 'Alertes de l\'appareil actives' : 'Alertes de l\'appareil inactives'}
             >
-              {notificationsEnabled ? <BellRing size={18} /> : <BellOff size={18} />}
+              <Bell size={16} />
             </button>
 
-            {/* ✅ Bouton Tout marquer comme lu */}
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition hover:opacity-90"
+                className="px-4 py-2.5 rounded-2xl text-xs font-black text-white transition hover:opacity-90 flex items-center gap-1.5 shadow-md shrink-0"
                 style={{
                   background: colors.primary,
-                  color: '#fff',
                 }}
               >
                 <Check size={14} />
@@ -168,14 +217,15 @@ const NotificationsPage = () => {
       </section>
 
       {/* ============================================================
-      LISTE DES NOTIFICATIONS
-      ============================================================ */}
+          LISTE ET RENDU DYNAMIQUE DES CARTES DE NOTIFICATIONS
+          ============================================================ */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#17231d] rounded-3xl border border-black/5">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+          <p className="text-xs text-gray-400 font-bold mt-3">Chargement des alertes...</p>
         </div>
       ) : notifications.length > 0 ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {notifications.map((notification) => {
             const isUnread = !notification.is_read;
 
@@ -183,112 +233,89 @@ const NotificationsPage = () => {
               <div
                 key={notification.id}
                 onClick={() => isUnread && markAsRead(notification.id)}
-                className={`group relative rounded-xl p-3 transition-all duration-300 cursor-pointer border ${
+                className={cn(
+                  "group relative rounded-3xl p-4 transition-all duration-300 cursor-pointer border flex items-start gap-4",
                   isUnread
-                    ? 'bg-white shadow-sm hover:shadow-md'
-                    : 'bg-gray-50/70 opacity-75'
-                }`}
+                    ? "bg-white dark:bg-[#17231d] border-l-[5px] shadow-sm hover:shadow-md"
+                    : "bg-white/40 dark:bg-[#17231d]/40 opacity-70 border-l-[5px] border-gray-100"
+                )}
                 style={{
-                  borderColor: isUnread ? colors.primary + '40' : '#e5e7eb',
+                  borderLeftColor: isUnread ? colors.primary : '#d1d5db',
                 }}
               >
-                {/* INDICATEUR GAUCHE */}
-                {isUnread && (
-                  <div
-                    className="absolute left-0 top-0 h-full w-1 rounded-l-xl"
-                    style={{ background: colors.primary }}
-                  />
-                )}
+                {/* ICÔNE BRANDÉE ET COLORÉE SELON TYPE */}
+                {getNotificationIcon(notification.type, colors.primary)}
 
-                <div className="flex justify-between items-start gap-3">
+                {/* CONTENU TEXTUEL AVEC RETOURS DE LECTURE */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-extrabold text-xs sm:text-sm text-gray-800 dark:text-white truncate">
+                      {notification.title}
+                    </h4>
 
-                  {/* CONTENU */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4
-                        className="font-semibold text-sm"
-                        style={{ color: colors.text }}
-                      >
-                        {notification.title}
-                      </h4>
-
-                      {isUnread && (
-                        <span
-                          className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                          style={{
-                            background: colors.primary + '15',
-                            color: colors.primary,
-                          }}
-                        >
-                          Nouveau
-                        </span>
-                      )}
-
+                    {isUnread && (
                       <span
-                        className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-500"
+                        className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500 text-white animate-pulse"
                       >
-                        {notification.type || 'Système'}
+                        Nouveau
                       </span>
-                    </div>
+                    )}
 
-                    <p
-                      className="text-sm mt-1 leading-relaxed"
-                      style={{ color: colors.text + '80' }}
-                    >
-                      {notification.body}
-                    </p>
-
-                    <div className="flex items-center gap-3 mt-2">
-                      <p
-                        className="text-xs"
-                        style={{ color: colors.text + '50' }}
-                      >
-                        {formatDateTime(notification.created_at)}
-                      </p>
-                      {notification.is_read && (
-                        <span
-                          className="text-[10px]"
-                          style={{ color: colors.text + '30' }}
-                        >
-                          ✓ Lu
-                        </span>
-                      )}
-                    </div>
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-50 border dark:bg-[#24362d] dark:text-gray-300">
+                      {notification.type || 'Système'}
+                    </span>
                   </div>
 
-                  {/* ACTIONS */}
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    {isUnread && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          markAsRead(notification.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-gray-100 transition"
-                      >
-                        <Check size={14} style={{ color: colors.primary }} />
-                      </button>
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-300 leading-relaxed font-medium">
+                    {notification.body}
+                  </p>
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <p className="text-[10px] text-gray-400 font-bold">
+                      {formatDateTime(notification.created_at)}
+                    </p>
+                    {notification.is_read && (
+                      <span className="text-[9px] text-emerald-500 font-extrabold flex items-center gap-0.5">
+                        ✓ Lu
+                      </span>
                     )}
+                  </div>
+                </div>
+
+                {/* MODULE ACTIONS FLOTTANTES (Toujours affiché sur Mobile, Hover sur Bureau) */}
+                <div className="flex items-center gap-1 shrink-0 self-center">
+                  {isUnread && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDelete(notification.id);
+                        markAsRead(notification.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 transition"
+                      className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 rounded-xl bg-gray-50 dark:bg-[#1d2d25] text-gray-400 hover:text-emerald-500 hover:bg-emerald-50 transition-all border"
+                      title="Marquer comme lu"
                     >
-                      <X size={14} className="text-red-400" />
+                      <Check size={14} />
                     </button>
-                  </div>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(notification.id);
+                    }}
+                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-2 rounded-xl bg-gray-50 dark:bg-[#1d2d25] text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all border"
+                    title="Supprimer"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               </div>
             );
           })}
         </div>
       ) : (
-        /* ============================================================
-        EMPTY STATE MODERN
-        ============================================================ */
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-black/5">
+        // ============================================================
+        // EMPTY STATE AVEC COMPOSANT D'ILLUSTRATION MODERNISÉ
+        // ============================================================
+        <div className="bg-white dark:bg-[#17231d] rounded-[2rem] p-12 text-center shadow-sm border border-black/5">
           <Illustration 
             type="message" 
             size="lg" 
@@ -296,58 +323,52 @@ const NotificationsPage = () => {
             color={colors.primary}
           />
 
-          <h3 className="text-lg font-bold" style={{ color: colors.text }}>
+          <h3 className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100">
             {getEmptyTitle()}
           </h3>
 
-          <p
-            className="mt-2 text-sm max-w-sm mx-auto"
-            style={{ color: colors.text + '70' }}
-          >
+          <p className="mt-2 text-xs sm:text-sm text-gray-400 max-w-sm mx-auto leading-relaxed">
             {getEmptyMessage()}
           </p>
 
           <div
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium"
-            style={{
-              background: colors.primary + '08',
-              color: colors.primary + '80',
-            }}
+            className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gray-50 dark:bg-[#1d2d25] text-gray-400"
           >
-            <Bell size={14} />
-            Alertes en temps réel
+            <BellRing size={12} className="text-emerald-500 animate-bounce" />
+            Alertes en temps réel actives
           </div>
 
-          {/* ✅ Bouton pour activer les notifications si désactivées */}
           {!notificationsEnabled && (
-            <button
-              onClick={handleToggleNotifications}
-              className="mt-4 px-4 py-2 rounded-xl text-white text-sm font-bold"
-              style={{ background: colors.primary }}
-            >
-              <BellRing size={16} className="inline mr-2" />
-              Activer les notifications
-            </button>
+            <div className="pt-4">
+              <button
+                onClick={handleToggleNotifications}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-white text-xs font-black transition hover:opacity-90 shadow-md"
+                style={{ background: colors.primary }}
+              >
+                <BellRing size={14} />
+                Activer les notifications locales
+              </button>
+            </div>
           )}
         </div>
       )}
 
       {/* ============================================================
-      STATS EN BAS
-      ============================================================ */}
+          STATS DU FOOTER & ACTIONS EN MASSE SÉCURISÉES
+          ============================================================ */}
       {notifications.length > 0 && (
-        <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t" style={{ borderColor: colors.border }}>
-          <span>{notifications.length} notification{notifications.length > 1 ? 's' : ''}</span>
-          <span>{unreadCount} non lue{unreadCount > 1 ? 's' : ''}</span>
+        <div className="flex items-center justify-between text-[11px] text-gray-400 pt-3 border-t dark:border-gray-800" style={{ borderColor: colors.border }}>
+          <span className="font-semibold">{notifications.length} notification{notifications.length > 1 ? 's' : ''} • {unreadCount} non lue{unreadCount > 1 ? 's' : ''}</span>
           <button
             onClick={() => {
-              if (window.confirm('Vider toutes les notifications ?')) {
+              if (window.confirm('Voulez-vous vraiment purger tout votre historique de notifications ?')) {
                 clearNotifications();
-                toast.success('Notifications vidées');
+                toast.success('Historique de notifications vidé');
               }
             }}
-            className="text-red-400 hover:text-red-600 transition"
+            className="text-red-400 hover:text-red-500 font-extrabold flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-red-50 transition"
           >
+            <Trash2 size={12} />
             Tout vider
           </button>
         </div>
