@@ -1,4 +1,5 @@
 // 📁 frontend/src/stores/visitStore.ts
+// ✅ STORE VISITES  
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -6,7 +7,7 @@ import { Visit, VisitStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import { assignmentAPI } from '@/lib/api';
 import api from '@/lib/api';
-// ✅ SUPPRIMÉ : import toast from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 // ✅ IMPORTER LES HELPERS
 import { getVisitStatusForCreation, requiresPonctualPayment } from '@/lib/constants';
@@ -83,6 +84,7 @@ interface VisitState {
     target_user_id?: string;
     wizard_choice?: string;
     selected_aidant_id?: string;
+    is_ponctual?: boolean;
   }) => Promise<Visit>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
@@ -159,9 +161,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // FETCH VISITS (Le seul à utiliser isLoading global)
-  // ============================================================
   fetchVisits: async (force = false) => {
     const state = get();
 
@@ -203,7 +202,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         return;
       }
 
-      // ✅ APPEL API UNIQUE : Le serveur renvoie déjà les relations complètes de l'aidant
       const response = await api.get('/visits');
       const visitsData = response.data || [];
 
@@ -306,7 +304,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT - SANS TOAST
+  // ✅ CREATE VISIT (Alignement is_ponctual au premier niveau)
   // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
@@ -314,6 +312,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     target_user_id?: string;
     wizard_choice?: string;
     selected_aidant_id?: string;
+    is_ponctual?: boolean;
   }): Promise<Visit> => {
     try {
       set({ error: null });
@@ -329,7 +328,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
       const targetUserId = data.target_user_id || (data.patient_id ? null : user.id);
 
-      const isPonctual = data.visit_type === 'ponctuelle' || false;
+      const isPonctual = data.visit_type === 'ponctuelle' || data.is_ponctual || false;
       let status: VisitStatus = 'planifiee';
       let requiresPayment = false;
       let paymentAmount = 0;
@@ -416,6 +415,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         duration_minutes: data.duration_minutes || 60,
         status: status,
         is_draft: requiresPayment,
+        is_ponctual: isPonctual, // ✅ ALIGNEMENT CRITIQUE : Envoyé au premier niveau pour le contrôleur d'API !
         requires_payment: requiresPayment,           
         is_urgent: data.is_urgent || false,
         requested_by: user.id,
@@ -499,21 +499,43 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // ✅ ACTIONS - SANS TOAST (les pages gèrent les messages)
-  // ============================================================
+  confirmPayment: async (id: string, transactionId: string): Promise<Visit> => {
+    try {
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      const response = await api.post(`/visits/${id}/confirm-payment`, { transaction_id: transactionId });
+      const result = response.data?.visit || response.data;
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ 
+        currentVisit: result
+      });
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ Erreur confirmation paiement:', error);
+      throw error;
+    }
+  },
 
   approveVisit: async (id: string) => {
     try {
       set({ error: null });
       await api.post(`/visits/${id}/approve`);
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      // ✅ SUPPRIMÉ : toast.success('✅ Mission approuvée avec succès !');
+
+      toast.success('✅ Mission approuvée avec succès !');
     } catch (error: any) {
       console.error('❌ Approve visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message || "Erreur lors de l'approbation");
-      throw error;
+      toast.error(error.message || "Erreur lors de l'approbation");
     }
   },
 
@@ -521,13 +543,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       set({ error: null });
       await api.post(`/visits/${id}/refuse`, { reason });
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      // ✅ SUPPRIMÉ : toast.error('❌ Mission refusée');
+
+      toast.error('❌ Mission refusée');
     } catch (error: any) {
       console.error('❌ Refuse visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors du refus');
-      throw error;
+      toast.error(error.message || 'Erreur lors du refus');
     }
   },
 
@@ -538,13 +561,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         aidant_id: newAidantId, 
         assignment_type: assignmentType 
       });
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      // ✅ SUPPRIMÉ : toast.success('✅ Visite réassignée avec succès !');
+
+      toast.success('✅ Visite réassignée avec succès !');
     } catch (error: any) {
       console.error('❌ Reassign visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la réassignation');
-      throw error;
+      toast.error(error.message || 'Erreur lors de la réassignation');
     }
   },
 
@@ -552,13 +576,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       set({ error: null });
       await api.post(`/visits/${id}/start`);
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      // ✅ SUPPRIMÉ : toast.success('🚀 Visite démarrée avec succès !');
+
+      toast.success('🚀 Visite démarrée avec succès !');
     } catch (error: any) {
       console.error('❌ Start visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors du démarrage');
-      throw error;
+      toast.error(error.message || 'Erreur lors du démarrage');
     }
   },
 
@@ -566,13 +591,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       set({ error: null });
       await api.post(`/visits/${id}/complete`, data);
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      // ✅ SUPPRIMÉ : toast.success('✅ Visite complétée. Rapport envoyé pour validation.');
+
+      toast.success('✅ Visite complétée. Rapport envoyé pour validation.');
     } catch (error: any) {
       console.error('❌ Complete visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la soumission du rapport');
-      throw error;
+      toast.error(error.message || 'Erreur lors de la soumission du rapport');
     }
   },
 
@@ -580,13 +606,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       set({ error: null });
       await api.post(`/visits/${id}/validate`);
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      // ✅ SUPPRIMÉ : toast.success('✅ Visite validée avec succès !');
+
+      toast.success('✅ Visite validée avec succès !');
     } catch (error: any) {
       console.error('❌ Validate visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la validation');
-      throw error;
+      toast.error(error.message || 'Erreur lors de la validation');
     }
   },
 
@@ -594,19 +621,16 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       set({ error: null });
       await api.post(`/visits/${id}/cancel`);
+
       get().invalidateCache();
       await get().fetchVisits(true);
-      // ✅ SUPPRIMÉ : toast.success('✅ Visite annulée avec succès !');
+
+      toast.success('✅ Visite annulée avec succès !');
     } catch (error: any) {
       console.error('❌ Cancel visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message || "Erreur lors de l'annulation");
-      throw error;
+      toast.error(error.message || "Erreur lors de l'annulation");
     }
   },
-
-  // ============================================================
-  // AUTRES SERVICES ET REQUÊTES
-  // ============================================================
 
   assignAidantToVisit: async (visitId: string, aidantId: string, assignmentType: string = 'permanente', force: boolean = false) => {
     try {
@@ -774,11 +798,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         currentVisit: { ...get().currentVisit, ...visit } as Visit
       });
 
-      // ✅ SUPPRIMÉ : toast.success('Visite mise à jour');
+      toast.success('Visite mise à jour');
     } catch (error: any) {
       console.error('❌ Update visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message);
-      throw error;
+      toast.error(error.message);
     }
   },
 
@@ -799,50 +822,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       get().invalidateCache();
       await get().fetchVisits(true);
 
-      // ✅ SUPPRIMÉ : toast.success('Visite supprimée');
+      toast.success('Visite supprimée');
     } catch (error: any) {
       console.error('❌ Delete visit error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message);
-      throw error;
-    }
-  },
-
-  confirmPayment: async (id: string, transactionId: string): Promise<Visit> => {
-    try {
-      const { user } = useAuthStore.getState();
-      if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      const response = await fetch(`${API_URL}/visits/${id}/confirm-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ transaction_id: transactionId }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la confirmation du paiement');
-      }
-
-      const result = await response.json();
-
-      get().invalidateCache();
-      await get().fetchVisits(true);
-
-      set({ 
-        currentVisit: result.visit
-      });
-
-      // ✅ SUPPRIMÉ : toast.success('✅ Visite planifiée après paiement !');
-      return result.visit;
-    } catch (error: any) {
-      console.error('❌ Erreur confirmation paiement:', error);
-      throw error;
+      toast.error(error.message);
     }
   },
 
