@@ -44,12 +44,6 @@ export const CGUContent = () => {
       HEADER
       ============================================================ */}
       <div className="text-center space-y-2 border-b pb-4">
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--color-primary, #1a4a3a)' }}>
-          📄 CONDITIONS GÉNÉRALES D'UTILISATION
-        </h1>
-        <p className="text-lg font-semibold" style={{ color: 'var(--color-primary, #1a4a3a)' }}>
-          SANTÉ PLUS SERVICE
-        </p>
         <p className="text-xs text-gray-400">
           Version 1.0.0 — Dernière mise à jour : {today}
         </p>
