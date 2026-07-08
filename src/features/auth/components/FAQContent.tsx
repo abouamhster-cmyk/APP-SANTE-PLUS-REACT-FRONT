@@ -43,9 +43,7 @@ export const FAQContent = () => {
       HEADER
       ============================================================ */}
       <div className="text-center space-y-2 border-b pb-4">
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--color-primary, #1a4a3a)' }}>
-          ❓ Foire aux questions
-        </h2>
+ 
         <p className="text-xs text-gray-500">
           Tout ce que vous devez savoir sur Santé Plus Service
         </p>
