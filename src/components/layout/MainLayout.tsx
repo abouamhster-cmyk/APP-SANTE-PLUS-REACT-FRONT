@@ -3,8 +3,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
-  Menu,
-  X,
   Bell,
   User,
   LogOut,
@@ -56,9 +54,8 @@ const MainLayout = () => {
   const { visits } = useVisitStore();
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
-  const { isFamily, isAdminOrCoordinator } = useTerminology();
+  const { isFamily } = useTerminology();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -208,15 +205,13 @@ const MainLayout = () => {
     return 'Santé Plus Services';
   }, [location.pathname, role]);
 
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
-
   return (
     <div
       className="min-h-screen w-full overflow-x-hidden"
       style={{ backgroundColor: colors.background }}
     >
       {/* ========================================== */}
-      {/* SIDEBAR DESKTOP */}
+      {/* SIDEBAR DESKTOP UNIQUEMENT */}
       {/* ========================================== */}
       {!isMobile && (
         <aside
@@ -230,60 +225,21 @@ const MainLayout = () => {
             profile={profile}
             role={role}
             logoConfig={logoConfig}
-            onClose={closeSidebar}
             onLogout={() => {
               logout();
               navigate('/login');
             }}
-            showClose={false}
           />
         </aside>
       )}
 
       {/* ========================================== */}
-      {/* SIDEBAR MOBILE */}
-      {/* ========================================== */}
-      {isMobile && (
-        <>
-          <aside
-            className={cn(
-              'md:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white shadow-xl border-r transition-transform duration-300 ease-in-out',
-              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            )}
-            style={{ borderColor: colors.primary + '20' }}
-          >
-            <SidebarContent
-              navItems={navItems}
-              locationPath={location.pathname}
-              colors={colors}
-              profile={profile}
-              role={role}
-              logoConfig={logoConfig}
-              onClose={closeSidebar}
-              onLogout={() => {
-                logout();
-                navigate('/login');
-              }}
-              showClose
-            />
-          </aside>
-
-          {sidebarOpen && (
-            <div
-              className="fixed inset-0 bg-black/45 z-40 md:hidden animate-fadeIn"
-              onClick={closeSidebar}
-            />
-          )}
-        </>
-      )}
-
-      {/* ========================================== */}
-      {/* CONTENU PRINCIPAL (DÉGAGEMENT SÉCURISÉ DU BAS SUR MOBILE) */}
+      {/* PAGE CONTENT */}
       {/* ========================================== */}
       <div className="min-h-screen w-full md:pl-72">
-        {/* HEADER */}
+        {/* HEADER SANS BOUTON HAMBURGER SÉCURISÉ POUR LE CONTENU */}
         <header
-          className="fixed top-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-4 md:px-6 py-3 md:py-4"
+          className="fixed top-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4"
           style={{
             borderColor: colors.primary + '20',
           }}
@@ -291,18 +247,9 @@ const MainLayout = () => {
           <div className="max-w-full mx-auto">
             <div className="flex items-center justify-between gap-3">
               
-              {/* Bouton Menu Burger Mobile */}
-              {isMobile && (
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-[#1d2d25] border flex items-center justify-center text-gray-600 dark:text-gray-200"
-                >
-                  <Menu size={20} />
-                </button>
-              )}
-
+              {/* Le titre de la page s'aligne proprement de bout en bout sur mobile */}
               <h2
-                className="text-sm sm:text-base md:text-lg font-bold truncate flex-1 md:flex-none pl-1 md:pl-0"
+                className="text-base sm:text-lg font-bold truncate pl-1 sm:pl-0"
                 style={{ color: colors.text }}
               >
                 {pageTitle}
@@ -354,8 +301,8 @@ const MainLayout = () => {
           </div>
         </header>
 
-        {/* CONTENEUR ROUTE PRINCIPAL AVEC ESCALIER DE DÉGAGEMENT BAS SUR MOBILE (évite que le menu dock ne bloque le contenu scrollé) */}
-        <main className="w-full max-w-full overflow-x-hidden pt-20 md:pt-24 p-3 sm:p-4 md:p-6 pb-28 md:pb-8">
+        {/* CONTENEUR DE LA ROUTE PRINCIPALE AVEC DÉGAGEMENT SÉCURISÉ AU BAS */}
+        <main className="w-full max-w-full overflow-x-hidden pt-20 md:pt-24 p-3 sm:p-4 md:p-6 pb-32 md:pb-8">
           <div className="max-w-7xl mx-auto">
             <ReminderBanner />
             <Outlet />
@@ -363,14 +310,14 @@ const MainLayout = () => {
         </main>
       </div>
 
-      {/* COMPOSANT TAB BAR MOBILE (DOCK TRANSLUCIDE) */}
+      {/* COMPOSANT TAB BAR MOBILE (DOCK TRANSLUCIDE ET FLOTTANT) */}
       {isMobile && <MobileTabBar colors={colors} />}
     </div>
   );
 };
 
 // =============================================
-// CONTENU DE LA SIDEBAR
+// SIDEBAR CONTENT
 // =============================================
 
 interface SidebarContentProps {
@@ -380,9 +327,7 @@ interface SidebarContentProps {
   profile: any;
   role: any;
   logoConfig: { icon: string; text: string; whiteBg: string };
-  onClose: () => void;
   onLogout: () => void;
-  showClose: boolean;
 }
 
 const SidebarContent = ({
@@ -392,9 +337,7 @@ const SidebarContent = ({
   profile,
   role,
   logoConfig,
-  onClose,
   onLogout,
-  showClose,
 }: SidebarContentProps) => {
   const getRoleIcon = () => {
     if (role === 'aidant') return <Briefcase size={14} />;
@@ -415,7 +358,7 @@ const SidebarContent = ({
   return (
     <div className="flex h-full flex-col bg-white dark:bg-[#17231d]">
       {/* Logo Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]">
+      <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '20' }}>
         <div className="flex items-center gap-2.5">
           <img src={logoConfig.icon} alt="Logo" className="w-8 h-8 object-contain" />
           <div className="min-w-0">
@@ -425,17 +368,9 @@ const SidebarContent = ({
             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Services</p>
           </div>
         </div>
-        {showClose && (
-          <button 
-            onClick={onClose} 
-            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 dark:text-gray-300"
-          >
-            <X size={18} />
-          </button>
-        )}
       </div>
 
-      {/* Navigation - Scrollable de secours si trop long */}
+      {/* Navigation */}
       <div className="flex-1 overflow-y-auto pr-1 py-4 px-3 space-y-1 scrollbar-none">
         {navItems.map((item) => {
           const active = isActivePath(item.path, locationPath);
@@ -444,8 +379,7 @@ const SidebarContent = ({
             <Link
               key={item.path}
               to={item.path}
-              onClick={onClose}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0 font-medium"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0 font-medium hover:bg-gray-50 dark:hover:bg-[#1c2a21]/50"
               style={{
                 color: active ? colors.primary : '#6B7280',
                 backgroundColor: active ? colors.primary + '10' : 'transparent',
@@ -459,10 +393,9 @@ const SidebarContent = ({
       </div>
 
       {/* Utilisateur Infos bas */}
-      <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30">
+      <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30" style={{ borderColor: colors.primary + '20' }}>
         <Link
           to="/app/profile"
-          onClick={onClose}
           className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition min-w-0"
         >
           <div
@@ -492,7 +425,6 @@ const SidebarContent = ({
   );
 };
 
-// Fonction de détection d'état actif
 const isActivePath = (itemPath: string, currentPath: string): boolean => {
   if (itemPath === '/app') {
     return currentPath === '/app' || currentPath === '/app/dashboard';
