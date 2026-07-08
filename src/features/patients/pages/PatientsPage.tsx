@@ -245,7 +245,7 @@ const PatientsPage = () => {
   // DECOUPE DES DONNEES PAR SÉCURITÉ DE RÔLE
   // ============================================================
 
-  const assignmentItems = useMemo(() => {
+const assignmentItems = useMemo(() => {
     if (!isAdmin) return [];
 
     return familyAccounts.flatMap(family => {
@@ -258,17 +258,18 @@ const PatientsPage = () => {
         accountAidantName = aidant?.user?.full_name || 'Aidant';
       }
 
-      const accountItem: AssignmentItem = {
+       const accountItem: AssignmentItem = {
         id: accountKey,
         type: 'account',
         familyId: family.id,
         familyName: family.full_name,
         targetId: family.id,
-        targetName: family.full_name,
+        targetName: `${family.full_name}`,
         targetType: 'personal_account',
         category: 'personal',
+        isPersonal: true, // <--- C'est ici que ça manquait
         priority: 2,
-        assignedAidantUserId: accountAssignment?.aidant_user_id,
+        assignedAidantUserId: accountAssignment?.aidant_user_id || undefined,
         assignedAidantName: accountAidantName,
         assignmentType: accountAssignment?.assignment_type,
         assignmentId: accountAssignment?.id,
@@ -276,30 +277,30 @@ const PatientsPage = () => {
 
       const familyPatients = allPatients.filter(p => p.family_id === family.id);
       const patientItems: AssignmentItem[] = familyPatients.map(p => {
-        const patientKey = `patient_${p.id}`;
-        const patientAssignment = assignmentsMap[`patient_${p.id}`];
+        const key = `patient_${p.id}`;
+        const a = assignmentsMap[key];
 
-        let patientAidantName = '';
-        if (patientAssignment?.aidant_user_id) {
-          const aidant = aidants.find(a => a.user_id === patientAssignment.aidant_user_id);
-          patientAidantName = aidant?.user?.full_name || 'Aidant';
+        let aidantName = '';
+        if (a?.aidant_user_id) {
+          const aidant = aidants.find(ad => ad.user_id === a.aidant_user_id);
+          aidantName = aidant?.user?.full_name || 'Aidant';
         }
 
         return {
-          id: p.id,
-          type: 'patient',
+          id: key,
+          type: 'patient' as const,
           familyId: family.id,
           familyName: family.full_name,
           targetId: p.id,
           targetName: `${p.first_name} ${p.last_name}`,
-          targetType: 'patient',
+          targetType: 'patient' as const,
           category: p.category,
-          isPersonal: false,
+          isPersonal: false,  
           priority: 1,
-          assignedAidantUserId: patientAssignment?.aidant_user_id,
-          assignedAidantName: patientAidantName,
-          assignmentType: patientAssignment?.assignment_type,
-          assignmentId: patientAssignment?.id,
+          assignedAidantUserId: a?.aidant_user_id || undefined,
+          assignedAidantName: aidantName,
+          assignmentType: a?.assignment_type,
+          assignmentId: a?.id,
         };
       });
 
