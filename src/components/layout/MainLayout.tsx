@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-
+ 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -65,7 +65,6 @@ const MainLayout = () => {
   const colors = getThemeColors(themeName);
   const logoConfig = getLogoByRole(role, profile?.patient_category);
 
-  // ✅ Compter les brouillons
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const showDraftBadge = isFamily && draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
@@ -81,7 +80,7 @@ const MainLayout = () => {
   }, []);
 
   // =============================================
-  // NOTIFICATIONS
+  // NOTIFICATIONS TEMPS RÉEL (Canaux)
   // =============================================
   const isSubscribed = useRef(false);
 
@@ -102,14 +101,13 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE - UNIFIÉE
+  // NAVIGATION PAR RÔLE
   // =============================================
   const navItems = useMemo(() => {
     const base = [
       { icon: <LayoutDashboard size={20} />, label: 'Tableau de bord', path: '/app' },
     ];
 
-    // 👨‍👩‍👦 FAMILLE
     if (role === 'family') {
       return [
         ...base,
@@ -126,7 +124,6 @@ const MainLayout = () => {
       ];
     }
 
-    // 🦸 AIDANT
     if (role === 'aidant') {
       return [
         ...base,
@@ -140,14 +137,12 @@ const MainLayout = () => {
       ];
     }
 
-    // 👔 ADMIN / COORDINATEUR - UNIFIÉ
     if (role === 'admin' || role === 'coordinator') {
       return [
         ...base,
         { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', path: '/app/admin' },
         { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
         { icon: <UserCheck size={20} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
-        // ✅ UNIFICATION : Remplacer "Aidants", "Assigner aidant" et "Utilisateurs" par "Bénéficiaires"
         { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients' },
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <FileCheck size={20} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
@@ -215,9 +210,6 @@ const MainLayout = () => {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  // =============================================
-  // RENDU
-  // =============================================
   return (
     <div
       className="min-h-screen w-full overflow-x-hidden"
@@ -278,7 +270,7 @@ const MainLayout = () => {
 
           {sidebarOpen && (
             <div
-              className="fixed inset-0 bg-black/45 z-40 md:hidden"
+              className="fixed inset-0 bg-black/45 z-40 md:hidden animate-fadeIn"
               onClick={closeSidebar}
             />
           )}
@@ -286,21 +278,31 @@ const MainLayout = () => {
       )}
 
       {/* ========================================== */}
-      {/* PAGE CONTENT */}
+      {/* CONTENU PRINCIPAL (DÉGAGEMENT SÉCURISÉ DU BAS SUR MOBILE) */}
       {/* ========================================== */}
       <div className="min-h-screen w-full md:pl-72">
         {/* HEADER */}
         <header
-          className="fixed top-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-lg border-b px-4 md:px-6 py-3 md:py-4"
+          className="fixed top-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-4 md:px-6 py-3 md:py-4"
           style={{
             borderColor: colors.primary + '20',
-            backgroundColor: 'rgba(255,255,255,0.95)',
           }}
         >
           <div className="max-w-full mx-auto">
             <div className="flex items-center justify-between gap-3">
+              
+              {/* Bouton Menu Burger Mobile */}
+              {isMobile && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-[#1d2d25] border flex items-center justify-center text-gray-600 dark:text-gray-200"
+                >
+                  <Menu size={20} />
+                </button>
+              )}
+
               <h2
-                className="text-base md:text-lg font-bold truncate"
+                className="text-sm sm:text-base md:text-lg font-bold truncate flex-1 md:flex-none pl-1 md:pl-0"
                 style={{ color: colors.text }}
               >
                 {pageTitle}
@@ -310,7 +312,7 @@ const MainLayout = () => {
                 {showDraftBadge && (
                   <Link
                     to="/app/visits?filter=brouillon"
-                    className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition shrink-0"
                   >
                     <AlertCircle size={12} />
                     {draftCount}
@@ -318,9 +320,8 @@ const MainLayout = () => {
                 )}
 
                 <span
-                  className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-gray-100/80 dark:bg-[#1d2d25]/80"
                   style={{
-                    background: colors.primary + '15',
                     color: colors.primary,
                   }}
                 >
@@ -336,13 +337,13 @@ const MainLayout = () => {
 
                 <Link
                   to="/app/notifications"
-                  className="relative w-10 h-10 rounded-xl hover:bg-gray-100 transition flex items-center justify-center shrink-0"
+                  className="relative w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition flex items-center justify-center shrink-0 border"
                 >
-                  <Bell size={22} className="text-gray-600" />
+                  <Bell size={20} className="text-gray-500 dark:text-gray-300" />
                   {unreadCount > 0 && (
                     <span
-                      className="absolute -top-1 -right-1 min-w-5 h-5 px-1 text-xs text-white rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: colors.primary }}
+                      className="absolute -top-1 -right-1 min-w-5 h-5 px-1 text-[10px] text-white rounded-full flex items-center justify-center font-black animate-pulse"
+                      style={{ backgroundColor: '#DC2626' }}
                     >
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
@@ -353,8 +354,8 @@ const MainLayout = () => {
           </div>
         </header>
 
-        {/* MAIN */}
-        <main className="w-full max-w-full overflow-x-hidden pt-20 md:pt-24 p-3 sm:p-4 md:p-6">
+        {/* CONTENEUR ROUTE PRINCIPAL AVEC ESCALIER DE DÉGAGEMENT BAS SUR MOBILE (évite que le menu dock ne bloque le contenu scrollé) */}
+        <main className="w-full max-w-full overflow-x-hidden pt-20 md:pt-24 p-3 sm:p-4 md:p-6 pb-28 md:pb-8">
           <div className="max-w-7xl mx-auto">
             <ReminderBanner />
             <Outlet />
@@ -362,14 +363,14 @@ const MainLayout = () => {
         </main>
       </div>
 
-      {/* TAB BAR MOBILE */}
+      {/* COMPOSANT TAB BAR MOBILE (DOCK TRANSLUCIDE) */}
       {isMobile && <MobileTabBar colors={colors} />}
     </div>
   );
 };
 
 // =============================================
-// SIDEBAR CONTENT
+// CONTENU DE LA SIDEBAR
 // =============================================
 
 interface SidebarContentProps {
@@ -412,73 +413,67 @@ const SidebarContent = ({
   };
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Logo */}
-      <div className="p-5 border-b" style={{ borderColor: colors.primary + '20' }}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <img
-              src={logoConfig.icon}
-              alt="Santé Plus Services"
-              className="w-10 h-10 object-contain shrink-0"
-            />
-            <div className="min-w-0">
-              <p className="font-black leading-tight truncate" style={{ color: colors.primary }}>
-                Santé Plus
-              </p>
-              <p className="text-xs text-gray-500 truncate">Services</p>
-            </div>
+    <div className="flex h-full flex-col bg-white dark:bg-[#17231d]">
+      {/* Logo Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]">
+        <div className="flex items-center gap-2.5">
+          <img src={logoConfig.icon} alt="Logo" className="w-8 h-8 object-contain" />
+          <div className="min-w-0">
+            <p className="font-black text-sm leading-tight truncate" style={{ color: colors.primary }}>
+              Santé Plus
+            </p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Services</p>
           </div>
-          {showClose && (
-            <button onClick={onClose} className="w-9 h-9 rounded-xl hover:bg-gray-100">
-              <X size={20} />
-            </button>
-          )}
         </div>
+        {showClose && (
+          <button 
+            onClick={onClose} 
+            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 dark:text-gray-300"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      {/* Navigation - Scrollable de secours si trop long */}
+      <div className="flex-1 overflow-y-auto pr-1 py-4 px-3 space-y-1 scrollbar-none">
         {navItems.map((item) => {
-          const active =
-            item.path === '/app'
-              ? locationPath === '/app' || locationPath === '/app/dashboard'
-              : locationPath.startsWith(item.path);
+          const active = isActivePath(item.path, locationPath);
 
           return (
             <Link
               key={item.path}
               to={item.path}
               onClick={onClose}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0 font-medium"
               style={{
                 color: active ? colors.primary : '#6B7280',
                 backgroundColor: active ? colors.primary + '10' : 'transparent',
               }}
             >
               <span className="shrink-0">{item.icon}</span>
-              <span className="font-medium truncate">{item.label}</span>
+              <span className="text-sm truncate">{item.label}</span>
             </Link>
           );
         })}
-      </nav>
+      </div>
 
-      {/* Utilisateur */}
-      <div className="p-4 border-t space-y-2" style={{ borderColor: colors.primary + '20' }}>
+      {/* Utilisateur Infos bas */}
+      <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30">
         <Link
           to="/app/profile"
           onClick={onClose}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition min-w-0"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition min-w-0"
         >
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm"
             style={{ background: colors.primary }}
           >
             {profile?.full_name?.charAt(0) || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{profile?.full_name || 'Utilisateur'}</p>
-            <p className="text-xs flex items-center gap-1.5" style={{ color: colors.primary }}>
+            <p className="text-xs font-bold truncate text-gray-800 dark:text-gray-100">{profile?.full_name || 'Utilisateur'}</p>
+            <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5" style={{ color: colors.primary }}>
               <span className="shrink-0">{getRoleIcon()}</span>
               <span>{getRoleLabel()}</span>
             </p>
@@ -487,14 +482,22 @@ const SidebarContent = ({
 
         <button
           onClick={onLogout}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 w-full transition text-red-500"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 w-full transition text-red-500 font-bold text-xs"
         >
-          <LogOut size={20} className="shrink-0" />
+          <LogOut size={16} className="shrink-0" />
           <span className="truncate">Déconnexion</span>
         </button>
       </div>
     </div>
   );
+};
+
+// Fonction de détection d'état actif
+const isActivePath = (itemPath: string, currentPath: string): boolean => {
+  if (itemPath === '/app') {
+    return currentPath === '/app' || currentPath === '/app/dashboard';
+  }
+  return currentPath.startsWith(itemPath);
 };
 
 export default MainLayout;
