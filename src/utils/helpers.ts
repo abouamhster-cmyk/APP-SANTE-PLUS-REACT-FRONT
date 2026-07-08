@@ -26,7 +26,6 @@ export const formatDate = (date: string | Date) => {
   }
 
   if (typeof date === 'string') {
-    // ✅ Remplacer les tirets par des slashs pour assurer une compatibilité 100% stable sur Safari iOS
     const cleanDate = date.replace(/-/g, '/');
     const d = new Date(cleanDate);
     if (!isNaN(d.getTime())) {
@@ -37,7 +36,6 @@ export const formatDate = (date: string | Date) => {
       });
     }
     
-    // Essayer de parser la chaîne d'origine si le nettoyage a échoué
     const dRaw = new Date(date);
     if (!isNaN(dRaw.getTime())) {
       return dRaw.toLocaleDateString('fr-FR', {
@@ -51,8 +49,6 @@ export const formatDate = (date: string | Date) => {
   return 'Date invalide';
 };
 
-
-  
 /**
  * Calcule la distance totale parcourue (en kilomètres) à partir de la trajectoire d'une visite
  */
@@ -64,7 +60,6 @@ export const calculateTotalVisitDistance = (locationTrack: any[] | null | undefi
     const p1 = locationTrack[i];
     const p2 = locationTrack[i + 1];
     
-    // Formule d'Haversine pour calculer la distance entre p1 et p2
     const R = 6371; // Rayon de la Terre en km
     const dLat = ((p2.lat - p1.lat) * Math.PI) / 180;
     const dLng = ((p2.lng - p1.lng) * Math.PI) / 180;
@@ -79,8 +74,9 @@ export const calculateTotalVisitDistance = (locationTrack: any[] | null | undefi
     totalDistance += R * c;
   }
 
-  return totalDistance; // Distance en kilomètres (ex: 2.4 km)
+  return totalDistance;
 };
+
 // =============================================
 // FORMATAGE D'HEURE (SÉCURISÉ CONTRE LES "Invalid Date" SUR MOBILE)
 // =============================================
@@ -93,8 +89,6 @@ export const formatTime = (time: string | Date) => {
   }
   
   if (typeof time === 'string') {
-    // ✅ CORRECTIF MOBILE CRUCIAL : Si c'est un format heure brut de type "HH:MM:SS" ou "HH:MM"
-    // On extrait directement les heures/minutes sans passer par "new Date()" qui plante sur mobile
     if (time.includes(':')) {
       const parts = time.split(':');
       if (parts.length >= 2) {
@@ -102,7 +96,6 @@ export const formatTime = (time: string | Date) => {
       }
     }
     
-    // Essayer de parser comme date complète (si format ISO complet)
     const d = new Date(time);
     if (!isNaN(d.getTime())) {
       return d.toLocaleTimeString('fr-FR', {
@@ -186,7 +179,6 @@ export const formatPhoneNumber = (phone: string) => {
 // =============================================
 export const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
-    // Visites
     planifiee: '#4CAF50',
     en_attente: '#FF9800',
     acceptee: '#2196F3',
@@ -200,19 +192,13 @@ export const getStatusColor = (status: string): string => {
     no_show: '#795548',
     brouillon: '#F59E0B',
     attente_paiement: '#8b5cf6',
-    
-    // Commandes
     creee: '#9E9E9E',
     disponible: '#F44336',
     livree: '#2196F3',
-    
-    // Paiements
     valide: '#4CAF50',
     echoue: '#F44336',
     rembourse: '#9E9E9E',
     en_attente_de_confirmation: '#FF9800',
-    
-    // Abonnements
     actif: '#4CAF50',
     suspendu: '#FF9800',
     en_cours_de_renouvellement: '#2196F3',
@@ -224,7 +210,6 @@ export const getStatusColor = (status: string): string => {
 
 export const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
-    // Visites
     planifiee: 'Planifiée',
     en_attente: 'En attente',
     acceptee: 'Acceptée',
@@ -238,19 +223,13 @@ export const getStatusLabel = (status: string): string => {
     no_show: 'Absent',
     brouillon: 'En attente paiement',
     attente_paiement: 'Paiement en attente',
-    
-    // Commandes
     creee: 'Créée',
     disponible: 'Disponible',
     livree: 'Livrée',
-    
-    // Paiements
     valide: 'Validé',
     echoue: 'Échoué',
     rembourse: 'Remboursé',
     en_attente_de_confirmation: 'En attente de confirmation',
-    
-    // Abonnements
     actif: 'Actif',
     suspendu: 'Suspendu',
     en_cours_de_renouvellement: 'En cours de renouvellement',
@@ -542,6 +521,39 @@ export const softDeleteVisit = async (visitId: string): Promise<boolean> => {
   }
 };
 
+// ============================================================
+// ✅ NOUVEAU : DECODEUR GPS GOOGLE MAPS UNIFIÉ (Long / Brut)
+// ============================================================
+export const extractCoordinatesFromGoogleMaps = (text: string): { lat: number; lng: number } | null => {
+  if (!text) return null;
+
+  // Pattern 1: Détecte "@latitude,longitude" (Format classique Google Maps bureau)
+  const regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+  
+  // Pattern 2: Détecte "q=latitude,longitude" (Format classique mobile/recherche)
+  const regexQuery = /[?&](?:q|query|saddr|daddr|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/;
+  
+  // Pattern 3: Détecte deux nombres décimaux séparés par une virgule "latitude, longitude"
+  const regexRaw = /^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/;
+
+  let match = text.match(regexAt);
+  if (match) {
+    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+  }
+
+  match = text.match(regexQuery);
+  if (match) {
+    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+  }
+
+  match = text.match(regexRaw);
+  if (match) {
+    return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+  }
+
+  return null;
+};
+
 // =============================================
 // EXPORT PAR DÉFAUT
 // =============================================
@@ -591,4 +603,5 @@ export default {
   isSubscriptionActive,
   hasAvailableVisits,
   hasAvailableOrders,
+  extractCoordinatesFromGoogleMaps,  
 };
