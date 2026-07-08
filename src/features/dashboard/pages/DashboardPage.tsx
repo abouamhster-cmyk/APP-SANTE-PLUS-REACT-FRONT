@@ -31,9 +31,9 @@ import {
   AlertCircle,
   ChevronRight,
   ChevronLeft,
-  TrendingUp,    
-  Compass,       
-  Lightbulb,   
+  TrendingUp,   // ✅ Correctif imports
+  Compass,      // ✅ Correctif imports
+  Lightbulb,    // ✅ Correctif imports
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -53,7 +53,7 @@ import toast from 'react-hot-toast';
 
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
-import { PatientCard } from '@/components/patients/PatientCard'; 
+import { PatientCard } from '@/components/patients/PatientCard'; // ✅ Correctif import
 
 // =============================================
 // TYPES ET INTERFACES INTERNES
@@ -202,15 +202,16 @@ const DashboardPage = () => {
   const hasDrafts = drafts.length > 0;
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
-  // =============================================
-  // DÉFINITION CARROUSEL DYNAMIQUE PAR RÔLE
-  // =============================================
+  // ============================================================
+  // ✅ DÉFINITION CARROUSEL DYNAMIQUE PAR RÔLE (AFFICHE 5 SLIDES)
+  // ============================================================
   const slides: HeroSlide[] = useMemo(() => {
     const seniorImg = '/assets/images/banners/senior-banner.png';
     const mamanImg = '/assets/images/banners/maman-banner.png';
     const aidantImg = '/assets/images/banners/aidant-banner.png';
     const coordImg = '/assets/images/banners/coord-banner.png';
 
+    // 👔 ADMIN / COORDINATEUR (5 SLIDES)
     if (isAdminOrCoordinator) {
       return [
         {
@@ -221,54 +222,83 @@ const DashboardPage = () => {
           actionPath: '/app/admin',
         },
         {
-          title: '📋 Inscriptions en attente',
+          title: '📋 Inscriptions de familles',
           description: 'De nouveaux candidats attendent votre validation. Rapprochez les familles de nos aidants qualifiés.',
           image: coordImg,
           actionText: 'Inscriptions',
           actionPath: '/app/registrations',
         },
         {
-          title: '💳 Validation des visites',
+          title: '📑 Validation des rapports',
           description: 'Consultez les rapports soumis par les intervenants et validez-les pour décompter les abonnements.',
           image: coordImg,
           actionText: 'Valider visites',
           actionPath: '/app/admin/visits/validation',
+        },
+        {
+          title: 'Package Gestion des offres',
+          description: 'Ajustez les abonnements Confort, créez de nouvelles grilles tarifaires et gérez les options de facturation.',
+          image: coordImg,
+          actionText: 'Gérer les offres',
+          actionPath: '/app/offers',
+        },
+        {
+          title: 'MapPin Radar d’interventions',
+          description: 'Visualisez en temps réel les déplacements des intervenants et l\'état de livraison des commandes.',
+          image: coordImg,
+          actionText: 'Ouvrir la carte',
+          actionPath: '/app/map',
         }
       ];
     }
 
+    // 🦸 AIDANT (5 SLIDES)
     if (isAidant) {
       return [
         {
-          title: '🦸 Vos missions du jour',
-          description: 'Accédez en un clic à votre planning d\'interventions, à la carte radar et aux fiches d\'accompagnements.',
+          title: '🦸 Vos missions d\'accompagnement',
+          description: 'Accédez en un coup d\'œil à votre planning d\'interventions, à la carte radar et aux fiches d\'accompagnements.',
           image: aidantImg,
           actionText: 'Mon planning',
           actionPath: '/app/planning',
         },
         {
-          title: '📍 Suivi GPS de livraison',
-          description: 'Lancez l\'itinéraire GPS de livraison en direct pour rassurer les familles sur le trajet.',
+          title: '📍 Suivi de trajet GPS',
+          description: 'Activez la géolocalisation pour rassurer la famille et tracer votre itinéraire de livraison ou de visite.',
           image: aidantImg,
           actionText: 'Voir la carte',
           actionPath: '/app/map',
         },
         {
-          title: '💬 Messagerie centralisée',
-          description: 'Besoin d\'un conseil ou d\'un rapport à envoyer ? Communiquez directement avec le coordinateur.',
+          title: '🛒 Courses & besoins urgents',
+          description: 'Consultez les commandes à proximité et prenez-les en charge pour aider vos bénéficiaires.',
+          image: aidantImg,
+          actionText: 'Commandes disponibles',
+          actionPath: '/app/orders',
+        },
+        {
+          title: '💬 Échanges en direct',
+          description: 'Discutez en temps réel avec le coordinateur ou la famille pour signaler toute urgence ou question.',
           image: aidantImg,
           actionText: 'Mes messages',
           actionPath: '/app/messages',
+        },
+        {
+          title: 'History Vos missions accomplies',
+          description: 'Retrouvez l\'ensemble de vos rapports validés et l\'historique complet de vos interventions rémunérées.',
+          image: aidantImg,
+          actionText: 'Mon historique',
+          actionPath: '/app/history',
         }
       ];
     }
 
-    // Cas Maman & Bébé spécifique (Famille)
+    // 👶 MAMAN & BÉBÉ (5 SLIDES)
     if (isFamily && isMaman) {
       return [
         {
           title: '👶 Votre espace Maman & Bébé',
-          description: 'Organisez sereinement la garde, les sorties et les commandes de soins pour vous et votre nouveau-né.',
+          description: 'Organisez sereinement la garde, les sorties et l\'accompagnement pédiatrique à domicile.',
           image: mamanImg,
           actionText: 'Planifier une visite',
           actionPath: '/app/visits',
@@ -281,37 +311,65 @@ const DashboardPage = () => {
           actionPath: '/app/orders/create',
         },
         {
+          title: 'BookOpen Journal d\'éveil',
+          description: 'Consultez les comptes-rendus quotidiens, l\'alimentation et les activités d\'éveil saisis par votre aidant.',
+          image: mamanImg,
+          actionText: 'Consulter le journal',
+          actionPath: '/app/journal',
+        },
+        {
           title: '💬 Discussion en direct',
-          description: 'Échangez à tout moment avec l\'assistante maternelle ou l\'aidant assigné à votre bébé.',
+          description: 'Gardez un lien constant et rassurant avec l\'intervenante attitrée à votre bébé.',
           image: mamanImg,
           actionText: 'Contacter l\'aidant',
           actionPath: '/app/messages',
+        },
+        {
+          title: 'MapPin Suivi des balades',
+          description: 'Visualisez les trajets de promenade extérieure de votre bébé en toute transparence sur notre carte radar.',
+          image: mamanImg,
+          actionText: 'Suivre les déplacements',
+          actionPath: '/app/map',
         }
       ];
     }
 
-    // Famille classique (Senior par défaut)
+    // 👴 FAMILLE / SENIOR (5 SLIDES)
     return [
       {
-        title: '👨‍👩‍👦 Un suivi clair pour votre proche',
-        description: 'Planifiez ses visites d\'accompagnement et supervisez son bien-être à domicile depuis votre mobile.',
+        title: '👴 Un suivi clair pour votre proche',
+        description: 'Organisez des visites régulières pour rompre l\'isolement et stimuler le quotidien de votre proche.',
         image: seniorImg,
         actionText: 'Planifier une visite',
         actionPath: '/app/visits',
       },
       {
         title: '🛒 Commande de courses & soins',
-        description: 'Livraison de médicaments, de repas équilibrés ou de courses directement chez votre proche.',
+        description: 'Livraison de médicaments, de repas équilibrés ou de courses de première nécessité directement chez votre proche.',
         image: seniorImg,
         actionText: 'Nouvelle commande',
         actionPath: '/app/orders/create',
       },
       {
-        title: '⭐ Formules d\'abonnements Confort',
-        description: 'Souscrivez à un accompagnement régulier pour bénéficier de tarifs dégressifs et d\'un aidant permanent.',
+        title: 'BookOpen Cahier de liaison',
+        description: 'Suivez la prise des repas, la tension, l\'humeur et les activités de votre proche après chaque visite.',
+        image: seniorImg,
+        actionText: 'Consulter le cahier',
+        actionPath: '/app/journal',
+      },
+      {
+        title: 'CreditCard Formules d’abonnements',
+        description: 'Choisissez la formule mensuelle Confort la plus adaptée pour bénéficier d’un aidant permanent.',
         image: seniorImg,
         actionText: 'Voir les abonnements',
         actionPath: '/app/billing',
+      },
+      {
+        title: 'Hospital Retour d’hospitalisation',
+        description: 'Préparez le retour à la maison de votre proche après un séjour médical en toute sécurité.',
+        image: seniorImg,
+        actionText: 'Organiser une sortie',
+        actionPath: '/app/discharge',
       }
     ];
   }, [isAdminOrCoordinator, isAidant, isFamily, isMaman]);
@@ -325,7 +383,6 @@ const DashboardPage = () => {
     const interval = setInterval(() => {
       setCycleCount((prevCount) => {
         const nextCount = prevCount + 1;
-        // Arrêt de la rotation après 2 cycles complets (ex: 3 slides * 2 = 6 transitions)
         if (nextCount >= slides.length * 2) {
           setAutoplayActive(false);
           clearInterval(interval);
@@ -335,7 +392,7 @@ const DashboardPage = () => {
       });
 
       setCurrentSlide((prevIndex) => (prevIndex + 1) % slides.length);
-    }, 4000); // Défilement toutes les 4 secondes
+    }, 4000); 
 
     return () => clearInterval(interval);
   }, [autoplayActive, slides.length]);
@@ -366,17 +423,17 @@ const DashboardPage = () => {
   };
 
   const handleNextSlide = () => {
-    setAutoplayActive(false); // Désactive l'autoplay lors d'une action manuelle
+    setAutoplayActive(false); 
     setCurrentSlide((prev) => (prev + 1) % slides.length);
   };
 
   const handlePrevSlide = () => {
-    setAutoplayActive(false); // Désactive l'autoplay lors d'une action manuelle
+    setAutoplayActive(false); 
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
   const handleDotClick = (index: number) => {
-    setAutoplayActive(false); // Désactive l'autoplay
+    setAutoplayActive(false); 
     setCurrentSlide(index);
   };
 
@@ -467,7 +524,7 @@ const DashboardPage = () => {
         revenue,
       });
     } catch (error) {
-      console.error('❌ Erreur stats admin:', error);
+      console.error('❌ Erreur chargement stats admin:', error);
     } finally {
       setIsLoadingAdminStats(false);
     }
@@ -601,7 +658,7 @@ const DashboardPage = () => {
       )}
 
       {/* ============================================================
-          🆕 HERO BANNER : DIAPORAMA DE CARTES PAR RÔLES ET PAR AMBIANCES (GLASSMORPHIC & BOUTONS DIRECTS)
+          🆕 HERO BANNER : DIAPORAMA DE CARTES PAR RÔLES ET PAR AMBIANCES (GLASSMORPHIC & BOUTONS DIRECTS - 5 SLIDES EXPLICITES)
           ============================================================ */}
       <section 
         className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 border border-white/10"
@@ -1089,5 +1146,3 @@ const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }
 };
 
 export default DashboardPage;
-
- 
