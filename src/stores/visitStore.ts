@@ -363,14 +363,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       if (selectedAidantId) {
-        // Si c'est un brouillon, on ne le mettra pas dans le champ "aidant_id" physique pour respecter la DB (chk_draft_no_aidant)
+        // Châssis de sécurité Postgres (si brouillon, l'id physique aidant_id doit rester NULL)
         if (status !== 'brouillon') {
           finalAidantId = selectedAidantId;
         }
-        console.log(`✅ Aidant sélectionné via wizard préparé: ${selectedAidantId}`);
+        console.log(`✅ Aidant sélectionné préparé pour l'envoi: ${selectedAidantId}`);
       }
 
-      // ✅ RECHERCHE AIDANT (Désormais actif même pour les brouillons ponctuels !)
+      // ✅ RECHERCHE AIDANT EN AMONT
       if (!finalAidantId && !selectedAidantId && status !== 'en_attente_aidant') {
         const patientId = data.patient_id || undefined;
         const familyId = targetUserId || user.id;
@@ -385,14 +385,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
             finalAidantId = foundActiveId;
             autoAssigned = true;
           } else {
-            // Pour un brouillon, on le stocke de côté pour l'envoyer au backend
+            // Pour un brouillon ponctuel, on le garde de côté pour l'envoi
             selectedAidantId = foundActiveId;
           }
           console.log(`✅ Aidant permanent trouvé: ${foundActiveId}`);
         }
       }
 
-      // ✅ DÉCLENCHER LE WIZARD (Désormais actif même pour les brouillons ponctuels s'il n'y a pas d'aidant lié !)
+      // ✅ DÉCLENCHER LE WIZARD EN CAS D'ABSENCE D'AIDANT (BROUILLONS COMPRIS !)
       if (!finalAidantId && !selectedAidantId && status !== 'en_attente_aidant') {
         console.log('🔄 Aucun aidant trouvé, déclenchement du wizard');
         
@@ -438,6 +438,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         assigned_by_admin: profile?.role === 'admin' || profile?.role === 'coordinator',
         admin_assigned_at: (profile?.role === 'admin' || profile?.role === 'coordinator') ? new Date().toISOString() : null,
         waiting_for_aidant_since: status === 'en_attente_aidant' ? new Date().toISOString() : null,
+        
+        // ✅ CORRECTIF ALIGNEMENT HAUT NIVEAU WIZARD (Permet au backend d'intercepter les choix)
+        wizard_choice: wizardChoice,
+        selected_aidant_id: selectedAidantId,
+
         metadata: {
           created_by: user.id,
           created_at: new Date().toISOString(),
@@ -449,7 +454,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           target_user_id: targetUserId || user.id,
           auto_assigned_aidant: autoAssigned,
           wizard_choice: wizardChoice || null,
-          selected_aidant: selectedAidantId || null, // ✅ Se propage proprement vers la table en metadata !
+          selected_aidant: selectedAidantId || null,
           waiting_for_aidant: status === 'en_attente_aidant',
           is_personal_account: targetType === 'personal' && !data.patient_id,
         }
