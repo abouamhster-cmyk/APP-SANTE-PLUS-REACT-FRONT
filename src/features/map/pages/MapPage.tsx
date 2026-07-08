@@ -21,6 +21,7 @@ import {
   UserCircle,
   Dot,
   Loader2,
+  ShoppingBag,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -53,8 +54,8 @@ const calculateEstimatedTime = (distance: number): number => {
   return Math.max(Math.round((distance / avgSpeed) * 60), 1);
 };
 
-// ✅ Dessin d'un véritable marqueur de carte moderne (Cercle + pointeur vers le bas)
-const makeMarkerIcon = (L: any, color: string, label: string, isPulsing = false, iconType: 'user' | 'patient' | 'aidant' | 'visit' = 'patient') => {
+// ✅ Dessin d'un marqueur moderne avec pointeur
+const makeMarkerIcon = (L: any, color: string, label: string, isPulsing = false) => {
   return L.divIcon({
     className: 'custom-map-marker-wrapper',
     html: `
@@ -71,11 +72,10 @@ const makeMarkerIcon = (L: any, color: string, label: string, isPulsing = false,
           font-weight: 800;
           font-size: 11px;
           border: 2.5px solid white;
-          ${isPulsing ? `animation: pulse-marker 1.6s ease-in-out infinite;` : ''}
+          ${isPulsing ? `animation: pulse-marker-gps 1.6s ease-in-out infinite;` : ''}
         ">
           ${label}
         </div>
-        <!-- Pointeur triangulaire vers les coordonnées -->
         <div style="
           width: 0;
           height: 0;
@@ -87,7 +87,7 @@ const makeMarkerIcon = (L: any, color: string, label: string, isPulsing = false,
       </div>
       ${isPulsing ? `
         <style>
-          @keyframes pulse-marker {
+          @keyframes pulse-marker-gps {
             0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
             70% { box-shadow: 0 0 0 14px rgba(220, 38, 38, 0); }
             100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
@@ -113,11 +113,9 @@ const LegendItem = ({ color, label, icon }: { color: string; label: string; icon
 );
 
 const MapPage = () => {
-  const { profile, role, user } = useAuthStore();
+  const { profile, role } = useAuthStore();
 
   const {
-    singular,
-    plural,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -127,7 +125,7 @@ const MapPage = () => {
   const {
     locations,
     activeVisits,
-    activeOrders, // ✅ Destructurer les commandes actives récupérées par le store unifié
+    activeOrders, 
     fetchActiveVisits,
     subscribeToLocations,
     unsubscribeFromLocations,
@@ -182,7 +180,6 @@ const MapPage = () => {
     loadLeaflet();
   }, []);
 
-  // ✅ Données
   useEffect(() => {
     fetchActiveVisits();
     subscribeToLocations();
@@ -270,9 +267,9 @@ const MapPage = () => {
 
     markersLayer.clearLayers();
 
-    // 1️⃣ Ma Position
+    // 1️⃣ Ma Position (Moi)
     if (userLocation) {
-      const userIcon = makeMarkerIcon(L, colors.primary, '👤', false, 'user');
+      const userIcon = makeMarkerIcon(L, colors.primary, '👤', false);
       L.marker(userLocation, { icon: userIcon })
         .addTo(markersLayer)
         .bindPopup(`
@@ -282,7 +279,7 @@ const MapPage = () => {
         `);
     }
 
-    // 2️⃣ Marqueurs des patients
+    // 2️⃣ Marqueurs des bénéficiaires (patients)
     if (showPatients) {
       const patientsToShow = getPatientsToShow();
       patientsToShow.forEach((patient: any) => {
@@ -291,7 +288,7 @@ const MapPage = () => {
         if (!lat || !lng) return;
 
         const label = patient.first_name?.charAt(0)?.toUpperCase() || 'P';
-        const icon = makeMarkerIcon(L, '#4CAF50', label, false, 'patient');
+        const icon = makeMarkerIcon(L, '#4CAF50', label, false);
         const categoryLabel = getCategoryLabel(patient.category);
 
         L.marker([lat, lng], { icon })
@@ -309,27 +306,27 @@ const MapPage = () => {
       });
     }
 
-    // 3️⃣ Marqueurs des aidants actifs
+    // 3️⃣ Marqueurs des aidants actifs en mission
     if (showAidants && (isAdmin || isFamilyRole)) {
       locations?.aidants?.forEach((aidant: any) => {
         const lat = Number(aidant.latitude || DEFAULT_CENTER[0]);
         const lng = Number(aidant.longitude || DEFAULT_CENTER[1]);
         if (!lat || !lng) return;
 
-        const icon = makeMarkerIcon(L, '#FF9800', '🦸', false, 'aidant');
+        const icon = makeMarkerIcon(L, '#FF9800', '🦸', false);
         L.marker([lat, lng], { icon })
           .addTo(markersLayer)
           .bindPopup(`
             <div style="min-width:140px; font-family: sans-serif;">
               <strong style="color:#FF9800; font-size:13px;">🦸 ${aidant.full_name || 'Aidant'}</strong>
               <br/>
-              <span style="font-size:11px; color:#666;">📍 En mission</span>
+              <span style="font-size:11px; color:#666;">📍 En déplacement</span>
             </div>
           `);
       });
     }
 
-    // 4️⃣ Marqueurs des visites actives ET tracé de trajectoire (Bleu)
+    // 4️⃣ Marqueurs des VISITES ACTIVES + Trajectoires GPS (Bleu)
     if (showActiveVisits) {
       const visitsToShow = getActiveVisitsToShow();
       visitsToShow.forEach((visit: any) => {
@@ -338,15 +335,16 @@ const MapPage = () => {
         const lng = Number(patient?.longitude || DEFAULT_CENTER[1]);
         if (!lat || !lng) return;
 
-        const icon = makeMarkerIcon(L, '#DC2626', '📍', true, 'visit');
+        // ✅ A. Dessiner le point d'arrivée de la Visite (Maison 🏠)
+        const destIcon = makeMarkerIcon(L, '#3B82F6', '🏠', false);
         const aidantName = visit.aidant?.user?.full_name || 'Aidant';
-        const patientName = patient ? `${patient.first_name || ''} ${patient.last_name || ''}` : 'Patient';
+        const patientName = visit.target_name || (patient ? `${patient.first_name || ''} ${patient.last_name || ''}` : 'Patient');
 
-        L.marker([lat, lng], { icon })
+        L.marker([lat, lng], { icon: destIcon })
           .addTo(markersLayer)
           .bindPopup(`
             <div style="min-width:160px; font-family: sans-serif; padding:2px;">
-              <strong style="color:#DC2626; font-size:13px;">🔴 Visite en cours</strong>
+              <strong style="color:#3B82F6; font-size:13px;">🏠 Destination Visite</strong>
               <div style="margin-top:6px; font-size:11px; color:#555; line-height:1.4;">
                 <p style="margin:2px 0;"><strong>Bénéficiaire :</strong> ${patientName}</p>
                 <p style="margin:2px 0;"><strong>Intervenant :</strong> ${aidantName}</p>
@@ -354,65 +352,87 @@ const MapPage = () => {
             </div>
           `);
 
-        // ============================================================
-        // 🔵 TRACER LA TRAJECTOIRE DE LA VISITE EN TEMPS RÉEL (BLEU)
-        // ============================================================
-        if (visit.location_track && Array.isArray(visit.location_track) && visit.location_track.length > 1) {
+        // ✅ B. Tracer le chemin GPS parcouru et placer le marqueur en mouvement (🏃)
+        if (visit.location_track && Array.isArray(visit.location_track) && visit.location_track.length > 0) {
           const latlngs = visit.location_track.map((pt: any) => [pt.lat, pt.lng]);
           
+          // Tracé bleu pointillé
           L.polyline(latlngs, {
-            color: '#3B82F6', // Ligne bleue
+            color: '#3B82F6', 
             weight: 5,
             opacity: 0.85,
             dashArray: '5, 8'
           }).addTo(markersLayer);
           
-          const startPt = visit.location_track[0];
-          L.circleMarker([startPt.lat, startPt.lng], {
-            radius: 6,
-            color: '#10B981',
-            fillColor: '#10B981',
-            fillOpacity: 1,
-            weight: 2
-          }).addTo(markersLayer).bindPopup("🟢 Point de départ de la visite");
+          // Dessiner l'aidant à sa dernière coordonnée en direct
+          const lastPoint = visit.location_track[visit.location_track.length - 1];
+          const helperIcon = makeMarkerIcon(L, '#3B82F6', '🏃', true);
+          L.marker([lastPoint.lat, lastPoint.lng], { icon: helperIcon })
+            .addTo(markersLayer)
+            .bindPopup(`
+              <div style="text-align:center; padding: 2px;">
+                <strong style="color:#3B82F6; font-size:11.5px;">🏃 ${aidantName} est en route</strong>
+              </div>
+            `);
         }
       });
     }
 
-    // 5️⃣ Marqueurs des commandes actives ET tracé de trajectoire (Jaune)
+    // 5️⃣ Marqueurs des LIVRAISONS DE COMMANDES ACTIVES + Trajectoires GPS (Jaune/Orange)
     if (showActiveVisits) {
-      activeOrders.forEach((order: any) => {
-        const patient = order.patient;
-        const lat = Number(patient?.latitude || order.latitude || DEFAULT_CENTER[0]);
-        const lng = Number(patient?.longitude || order.longitude || DEFAULT_CENTER[1]);
+      const ordersToShow = activeOrders || [];
+      ordersToShow.forEach((order: any) => {
+        const lat = Number(order.latitude || order.patient?.latitude || DEFAULT_CENTER[0]);
+        const lng = Number(order.longitude || order.patient?.longitude || DEFAULT_CENTER[1]);
         if (!lat || !lng) return;
 
-        // Si trajectoire de livraison disponible dans le JSON des metadata
-        if (order.metadata?.location_track && Array.isArray(order.metadata.location_track) && order.metadata.location_track.length > 1) {
-          const latlngs = order.metadata.location_track.map((pt: any) => [pt.lat, pt.lng]);
+        // ✅ A. Dessiner le point de livraison de la Commande (Paquet 📦)
+        const destIcon = makeMarkerIcon(L, '#F59E0B', '📦', false);
+        const aidantName = order.aidant?.user?.full_name || 'Livreur';
+        const patientName = order.target_name || (order.patient ? `${order.patient.first_name || ''} ${order.patient.last_name || ''}` : 'Bénéficiaire');
+
+        L.marker([lat, lng], { icon: destIcon })
+          .addTo(markersLayer)
+          .bindPopup(`
+            <div style="min-width:160px; font-family: sans-serif; padding:2px;">
+              <strong style="color:#F59E0B; font-size:13px;">📦 Destination Livraison</strong>
+              <div style="margin-top:6px; font-size:11px; color:#555; line-height:1.4;">
+                <p style="margin:2px 0;"><strong>Destinataire :</strong> ${patientName}</p>
+                <p style="margin:2px 0;"><strong>Livreur :</strong> ${aidantName}</p>
+                <p style="margin:2px 0; font-size:10px; color:#888;"><strong>Adresse :</strong> ${order.address || 'non renseignée'}</p>
+              </div>
+            </div>
+          `);
+
+        // ✅ B. Tracer le chemin GPS du livreur et placer le marqueur de déplacement (🚴)
+        const track = order.metadata?.location_track;
+        if (track && Array.isArray(track) && track.length > 0) {
+          const latlngs = track.map((pt: any) => [pt.lat, pt.lng]);
           
-          // Tracé jaune pointillé pour la livraison de commande
+          // Tracé jaune/orange pointillé
           L.polyline(latlngs, {
-            color: '#EAB308', // Ligne jaune
+            color: '#F59E0B', 
             weight: 5,
             opacity: 0.85,
             dashArray: '5, 8'
           }).addTo(markersLayer);
-          
-          const startPt = order.metadata.location_track[0];
-          L.circleMarker([startPt.lat, startPt.lng], {
-            radius: 6,
-            color: '#EAB308',
-            fillColor: '#EAB308',
-            fillOpacity: 1,
-            weight: 2
-          }).addTo(markersLayer).bindPopup("🟡 Point de départ de la livraison");
+
+          // Dessiner le livreur à son dernier point GPS connu
+          const lastPoint = track[track.length - 1];
+          const driverIcon = makeMarkerIcon(L, '#F59E0B', '🚴', true);
+          L.marker([lastPoint.lat, lastPoint.lng], { icon: driverIcon })
+            .addTo(markersLayer)
+            .bindPopup(`
+              <div style="text-align:center; padding: 2px;">
+                <strong style="color:#F59E0B; font-size:11.5px;">🚴 ${aidantName} est en cours de livraison</strong>
+              </div>
+            `);
         }
       });
     }
+
   }, [leafletLoaded, userLocation, locations, activeVisits, activeOrders, colors.primary, showPatients, showAidants, showActiveVisits]);
 
-  // ✅ Filtrage
   const getPatientsToShow = () => {
     if (isAdmin) return locations?.patients || [];
     if (isFamilyRole) return locations?.patients || [];
@@ -436,7 +456,6 @@ const MapPage = () => {
     return [];
   };
 
-  // ✅ Itinéraire
   useEffect(() => {
     const calculateRoute = async () => {
       if (!selectedPatient || !userLocation) return;
@@ -464,7 +483,6 @@ const MapPage = () => {
     calculateRoute();
   }, [selectedPatient, userLocation]);
 
-  // ✅ Affichage itinéraire
   useEffect(() => {
     const L = leafletRef.current;
     const map = mapInstanceRef.current;
@@ -488,7 +506,6 @@ const MapPage = () => {
     map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
   }, [selectedPatient, userLocation, routeInfo, colors.primary]);
 
-  // ✅ Libellés dynamiques
   const getPatientLabel = () => {
     if (isFamily) return 'Proche';
     if (isAidant) return 'Personne accompagnée';
@@ -529,7 +546,7 @@ const MapPage = () => {
             Localisation et Radar
           </h1>
           <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
-            Suivi en direct de vos {getPatientLabel().toLowerCase()}s et des visites actives.
+            Suivi en direct de vos {getPatientLabel().toLowerCase()}s et des interventions actives.
           </p>
         </div>
 
@@ -564,13 +581,12 @@ const MapPage = () => {
         </div>
       </section>
 
-      {/* DISPOSITION EN GRILLE (MODÈLE DASHBOARD) */}
+      {/* DISPOSITION EN GRILLE */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 w-full min-w-0">
         
-        {/* PANNEAU DE CONTROLE GAUCHE (LETTRES, FILTRES, ITINÉRAIRES) */}
+        {/* PANNEAU DE CONTROLE GAUCHE */}
         <div className="md:col-span-4 space-y-4 flex flex-col justify-start">
           
-          {/* CARTE FILTRES COMPACTS ET LÉGENDE UNIFIÉE */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">👀 Filtres d'affichage</p>
             <div className="flex flex-wrap gap-1.5">
@@ -630,14 +646,13 @@ const MapPage = () => {
                 {showActiveVisits && (
                   <>
                     <LegendItem color="#3B82F6" label="Trajet Visite (Bleu)" icon={<Circle size={8} fill="#3B82F6" />} />
-                    <LegendItem color="#EAB308" label="Trajet Livraison (Jaune)" icon={<Circle size={8} fill="#EAB308" />} />
+                    <LegendItem color="#F59E0B" label="Trajet Livraison (Orange)" icon={<Circle size={8} fill="#F59E0B" />} />
                   </>
                 )}
               </div>
             </div>
           </div>
 
-          {/* DÉTAILS DE L'ITINÉRAIRE SÉLECTIONNÉ */}
           {selectedPatient && routeInfo && (
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 space-y-3">
               <div className="flex items-start justify-between gap-2">
@@ -695,21 +710,20 @@ const MapPage = () => {
                   const lat = selectedPatient?.latitude;
                   const lng = selectedPatient?.longitude;
                   if (lat && lng) {
-                    window.open(`https://www.openstreetmap.org/directions?from=&to=${lat}%2C${lng}`, '_blank');
+                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
                   } else {
                     toast.error('Coordonnées non disponibles');
                   }
                 }}
-                className="w-full py-2.5 rounded-xl text-white text-xs font-black flex items-center justify-center gap-1.5 transition hover:opacity-90 shadow-sm"
+                className="w-full py-2.5 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm flex items-center justify-center gap-1.5"
                 style={{ background: colors.primary }}
               >
                 <Navigation size={14} />
-                Ouvrir dans Google Maps / GPS
+                Lancer le GPS (Google Maps)
               </button>
             </div>
           )}
 
-          {/* BÉNÉFICIAIRES À PROXIMITÉ (Si aucun itinéraire sélectionné) */}
           {userLocation && getPatientsToShow().length > 0 && (
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
               <h3 className="text-xs font-black uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
@@ -776,14 +790,14 @@ const MapPage = () => {
           )}
         </div>
 
-        {/* CONTENEUR DE LA CARTE À DROITE (8 Colonnes) */}
+        {/* CARTOGRAPHIE */}
         <div className="md:col-span-8">
           <div className="map-page-shell bg-white rounded-3xl overflow-hidden shadow-sm h-[480px] relative z-0 border border-black/5">
             {!leafletLoaded && !mapError && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
                 <div className="text-center p-4">
-                  <MapPin size={32} className="mx-auto mb-2 opacity-30 animate-bounce" style={{ color: colors.primary }} />
-                  <p className="text-xs text-gray-400 font-bold">Initialisation de la carte en cours...</p>
+                  <Loader2 size={32} className="mx-auto mb-2 opacity-30 animate-spin" style={{ color: colors.primary }} />
+                  <p className="text-xs text-gray-400 font-bold">Chargement cartographique en cours...</p>
                 </div>
               </div>
             )}
@@ -793,7 +807,7 @@ const MapPage = () => {
                 <div className="text-center p-4">
                   <AlertCircle size={32} className="mx-auto mb-2 opacity-30 text-red-500 animate-pulse" />
                   <p className="text-sm font-bold text-gray-800">{mapError}</p>
-                  <p className="text-xs text-gray-400 mt-1">Vérifiez votre connexion internet ou vos permissions GPS.</p>
+                  <p className="text-xs text-gray-400 mt-1">Activez vos services de localisation.</p>
                 </div>
               </div>
             )}
