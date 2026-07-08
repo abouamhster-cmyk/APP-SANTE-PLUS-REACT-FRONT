@@ -37,7 +37,7 @@ import { assignmentAPI } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// TYPES & LOGIQUES STATIQUES
+// TYPES & HELPERS
 // ============================================================
 
 interface Aidant {
@@ -70,7 +70,7 @@ interface Patient {
 interface Assignment {
   id: string;
   aidant_user_id: string;
-  target_type: 'patient' | 'personal_account' | 'family' | 'personal';
+  target_type: 'patient' | 'personal' | 'family';
   target_id: string;
   assignment_type: string;
   status: string;
@@ -175,7 +175,7 @@ const PatientsPage = () => {
   const isAdmin = isAdminOrCoordinator;
 
   // ============================================================
-  // CHARGEMENT SYNCHRONE ET ALIGNÉ DES DONNÉES DE L'ADMIN
+  // CHARGEMENT SYNCHRONE DES DONNÉES DE L'ADMIN (Rôle sécurisé)
   // ============================================================
 
   const fetchAllData = useCallback(async () => {
@@ -187,18 +187,18 @@ const PatientsPage = () => {
     setIsLoadingAssignments(true);
     try {
       await fetchPatients(true);
-
-      // ✅ 1. CHARGER EXPLICITEMENT LES COMPTES FAMILLES
-      const { data: profilesData, error: profilesError } = await supabase
+      
+      // 1️⃣ Charger les comptes familles (Profiles.role = 'family') qui manquaient !
+      const { data: familiesData, error: familiesError } = await supabase
         .from('profiles')
         .select('id, full_name, email, patient_category')
         .eq('role', 'family')
         .order('full_name');
 
-      if (profilesError) throw profilesError;
-      setFamilyAccounts(profilesData || []);
-      
-      // ✅ 2. CHARGER LES AIDANTS SÉLECTIONNABLES
+      if (familiesError) throw familiesError;
+      setFamilyAccounts(familiesData || []);
+
+      // 2️⃣ Charger les aidants qualifiés
       const { data: aidantsData } = await supabase
         .from('aidants')
         .select('*')
@@ -221,7 +221,7 @@ const PatientsPage = () => {
         }))
       );
 
-      // ✅ 3. CHARGER TOUS LES PATIENTS ET LEURS LIENS
+      // 3️⃣ Charger tous les proches rattachés
       const { data: patientsData } = await supabase
         .from('patients')
         .select('id, first_name, last_name, category, patient_family_links(family_id)');
@@ -236,16 +236,15 @@ const PatientsPage = () => {
         }))
       );
 
-      // ✅ 4. CHARGER ET MAPPER LES ASSIGNATIONS ACTIVES UNIQUEMENT
+      // 4️⃣ Charger les assignations de la vue et bâtir la map avec clé unique active
       const response = await assignmentAPI.adminGetAll();
       const assignmentsData = response.data?.data || [];
       const mapAssign: any = {};
       
       assignmentsData?.forEach((a: any) => {
-        const key = `${a.target_type}_${a.target_id}`;
-        
-        // ✅ FILTRE STRUCTURÉ : On ne mappe que les assignations physiquement actives
+        // Seules les assignations actives sont retenues pour éviter les écrasements par historique inactif
         if (a.status === 'active') {
+          const key = `${a.target_type}_${a.target_id}`;
           mapAssign[key] = a;
         }
       });
@@ -253,21 +252,21 @@ const PatientsPage = () => {
 
     } catch (error) {
       console.error('❌ Erreur fetchAllData:', error);
-      toast.error('Erreur lors du chargement des données');
+      toast.error('Erreur lors du chargement des données d\'administration');
     } finally {
       setIsLoadingAssignments(false);
     }
   }, [isAdmin, fetchPatients]);
 
   // ============================================================
-  // CONSTITUTION DES ITEMS D'AFFICHAGE ET RACCORDEMENT DES CLEFS
+  // DECOUPE DES DONNEES PAR SECURITE DE RÔLE (MÉMOÏSATION)
   // ============================================================
 
   const assignmentItems = useMemo(() => {
     if (!isAdmin) return [];
 
     return familyAccounts.flatMap(family => {
-      // ✅ ALIGNEMENT CLÉ DE RECHERCHE : 'personal_FAMILY_ID' pour correspondre au retour de l'API
+      // ✅ CORRECTIF DE CLÉ : 'personal' au lieu de 'personal_account' car aligné sur la vue API
       const accountKey = `personal_${family.id}`;
       const accountAssignment = assignmentsMap[accountKey];
 
@@ -286,7 +285,7 @@ const PatientsPage = () => {
         targetName: `${family.full_name}`,
         targetType: 'personal_account',
         category: 'personal',
-        isPersonal: true, 
+        isPersonal: true,
         priority: 2,
         assignedAidantUserId: accountAssignment?.aidant_user_id || undefined,
         assignedAidantName: accountAidantName,
@@ -314,7 +313,7 @@ const PatientsPage = () => {
           targetName: `${p.first_name} ${p.last_name}`,
           targetType: 'patient' as const,
           category: p.category,
-          isPersonal: false,  
+          isPersonal: false,
           priority: 1,
           assignedAidantUserId: a?.aidant_user_id || undefined,
           assignedAidantName: aidantName,
@@ -636,9 +635,7 @@ const PatientsPage = () => {
         .select('*')
         .in('id', patientIds);
       
-      if (patientsError) {
-        throw patientsError;
-      }
+      if (patientsError) throw patientsError;
 
       if (directPatients && directPatients.length > 0) {
         usePatientStore.setState({ patients: directPatients });
@@ -674,7 +671,7 @@ const PatientsPage = () => {
   return (
     <div className="w-full max-w-5xl mx-auto space-y-5 pb-32 px-4 sm:px-6">
       
-      {/* HEADER */}
+      {/* HEADER DE LA PAGE */}
       <section className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="min-w-0">
           <div
@@ -736,7 +733,7 @@ const PatientsPage = () => {
         </div>
       </section>
 
-      {/* METRICS CARDS (ADMIN) */}
+      {/* METRICS CARDS */}
       {isAdmin && (
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
           <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5 flex items-center gap-3">
@@ -770,7 +767,7 @@ const PatientsPage = () => {
         </section>
       )}
 
-      {/* RECHERCHE ET FILTRAGE COMPACT */}
+      {/* RECHERCHE ET FILTRAGE */}
       <section className="bg-white rounded-[2rem] p-3 shadow-sm border border-black/5 flex flex-col md:flex-row gap-3 w-full min-w-0">
         <div className="relative flex-1 min-w-0 w-full">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -796,7 +793,7 @@ const PatientsPage = () => {
         </select>
       </section>
 
-      {/* BARRE D'ATTRIBUTION ADMINISTRATIVE (ADMIN) */}
+      {/* RATTACHEMENT D'AIDANTS EN MASSE */}
       {isAdmin && stats.totalBeneficiaires > 0 && (
         <section className="bg-white rounded-[2rem] p-4 shadow-sm border border-black/5 space-y-3">
           <div className="flex items-center gap-2 mb-1 border-b pb-2 dark:border-gray-100">
@@ -848,13 +845,13 @@ const PatientsPage = () => {
         </section>
       )}
 
-      {/* PANNEAU SYNCHRONISATION AIDANTS */}
+      {/* SYNCHRONISATION AIDANTS */}
       {isAidant && (
         <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
           <div className="min-w-0">
             <p className="text-xs font-bold text-amber-900">Mise à jour de vos attributions d'accès</p>
             <p className="text-[10px] text-amber-600 mt-0.5">
-              Si vous venez d\'être rattaché à un nouveau patient par le coordinateur, cliquez pour synchroniser.
+              Si vous venez d'être rattaché à un nouveau patient par le coordinateur, cliquez pour synchroniser.
             </p>
           </div>
           
@@ -870,8 +867,11 @@ const PatientsPage = () => {
         </div>
       )}
 
-      {/* AFFICHAGE DU CONTENU CENTRAL */}
+      {/* RENDER LISTES */}
       {isAdmin ? (
+        // ==========================================
+        // 👔 VUE ADMINISTRATEUR ACCORDÉON
+        // ==========================================
         Object.keys(grouped).length === 0 ? (
           <section className="bg-white rounded-[2rem] py-16 px-4 text-center border border-black/5">
             <Illustration 
@@ -914,75 +914,108 @@ const PatientsPage = () => {
                           <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border">
                             {familyItems.filter((i: AssignmentItem) => i.type === 'patient').length} proche(s)
                           </span>
+                          {hasUnassigned && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-bold border border-amber-100 flex items-center gap-1 animate-pulse">
+                              <AlertCircle size={10} />
+                              {familyItems.filter((i: AssignmentItem) => !i.assignedAidantUserId).length} en attente
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
+                    <span className="text-[10px] text-gray-400 font-black shrink-0 hidden sm:inline-block">
+                      {familyItems.filter((i: AssignmentItem) => i.assignedAidantUserId).length} / {familyItems.length} Rattaché(s)
+                    </span>
                   </div>
 
-                  {/* CORPS DE L'ACCORDÉON */}
+                  {/* LISTE INTÉRIEURE DYNAMIQUE */}
                   {isExpanded && (
-                    <div className="border-t divide-y dark:divide-[#2c3f35]" style={{ borderColor: colors.border + '30' }}>
+                    <div className="px-5 pb-4 space-y-3 relative">
+                      <div className="absolute left-[33px] top-0 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-800/60 z-0" />
+                      
                       {familyItems.map((item: AssignmentItem) => {
                         const isAssigned = !!item.assignedAidantUserId;
+                        const isAccount = item.type === 'account';
+                        const categoryColor = getCategoryColor(item.category);
+                        const categoryLabel = getCategoryLabel(item.category);
+                        const isProcessingItem = processingId === item.id;
 
                         return (
-                          <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3 bg-white dark:bg-[#17231d]/30">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={cn(
-                                  "text-[10px] font-bold px-2 py-0.5 rounded border",
-                                  item.isPersonal 
-                                    ? "text-blue-600 bg-blue-50/50 border-blue-100" 
-                                    : "text-emerald-600 bg-emerald-50/50 border-emerald-100"
-                                )}>
-                                  {item.isPersonal ? '👤 TITULAIRE' : '👶 PROCHE'}
-                                </span>
-                                <p className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
-                                  {item.targetName}
+                          <div 
+                            key={item.id} 
+                            className="pl-8 relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gray-50/50 hover:bg-gray-50 rounded-2xl border border-transparent hover:border-gray-100 transition-all"
+                          >
+                            <div className="absolute left-[13.5px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-gray-200 bg-white dark:bg-gray-800 z-10" />
+
+                            <div className="flex items-start gap-2.5 min-w-0">
+                              <div className="shrink-0 mt-0.5">
+                                {item.priority === 1 ? (
+                                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">PROCHE</span>
+                                ) : (
+                                  <span className="text-[9px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">COMPTE</span>
+                                )}
+                              </div>
+
+                              <div className="min-w-0 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-extrabold text-xs sm:text-sm text-gray-800 truncate" style={{ color: colors.text }}>
+                                    {item.targetName}
+                                  </span>
+                                  <span 
+                                    className="text-[9px] px-1.5 py-0.5 rounded-full font-bold tracking-wide uppercase shrink-0"
+                                    style={{ background: categoryColor + '15', color: categoryColor }}
+                                  >
+                                    {categoryLabel}
+                                  </span>
+                                  {isAssigned && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 shrink-0 flex items-center gap-0.5">
+                                      <CheckCircle size={10} />
+                                      🦸 Rattaché à {item.assignedAidantName}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-medium truncate">
+                                  {isAccount ? 'Compte principal de facturation' : `Proche associé de la Famille ${item.familyName}`}
+                                  {item.assignmentType && (
+                                    <span className="ml-1 opacity-80">
+                                      ({ASSIGNMENT_TYPES.find(t => t.value === item.assignmentType)?.label || item.assignmentType})
+                                    </span>
+                                  )}
                                 </p>
                               </div>
-                              
-                              <p className="text-[10px] text-gray-400 mt-0.5">
-                                {item.isPersonal ? 'Compte de facturation' : `Proche — ${getCategoryLabel(item.category)}`}
-                              </p>
-
-                              {/* Affichage de l'aidant assigné */}
-                              {isAssigned && (
-                                <p className="text-xs text-emerald-600 font-bold mt-1.5 flex items-center gap-1.5">
-                                  <CheckCircle size={14} className="text-emerald-500" />
-                                  <span>Rattaché à : <strong>{item.assignedAidantName}</strong> ({item.assignmentType === 'primary' ? 'Permanent' : 'Temporaire'})</span>
-                                </p>
-                              )}
                             </div>
 
-                            {/* Actions d'assignation */}
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                               {isAssigned ? (
                                 <button
-                                  onClick={(e) => handleRevoke(item)}
-                                  disabled={isProcessing}
-                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-red-500 font-bold text-xs bg-red-50 hover:bg-red-100 transition border border-red-100"
+                                  onClick={() => handleRevoke(item)}
+                                  disabled={isProcessingItem || isProcessing}
+                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-red-500 bg-white border border-red-100 shadow-sm hover:bg-red-50 hover:text-red-600 transition disabled:opacity-50"
                                 >
-                                  {processingId === item.id ? (
-                                    <Loader2 className="animate-spin" size={14} />
+                                  {isProcessingItem ? (
+                                    <Loader2 size={13} className="animate-spin" />
                                   ) : (
-                                    <UserMinus size={14} />
+                                    <UserMinus size={13} />
                                   )}
-                                  <span>Dérattacher</span>
+                                  {isProcessingItem ? 'Traitement...' : 'Désassigner'}
                                 </button>
                               ) : (
                                 <button
-                                  onClick={(e) => handleAssign(item)}
-                                  disabled={!selectedAidant || isProcessing}
-                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 disabled:opacity-55 disabled:cursor-not-allowed shadow-md"
-                                  style={{ background: (!selectedAidant || isProcessing) ? '#cbd5e1' : colors.primary }}
+                                  onClick={() => handleAssign(item)}
+                                  disabled={!selectedAidant || isProcessingItem || isProcessing}
+                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition hover:opacity-85 disabled:opacity-50 shadow-sm"
+                                  style={{ 
+                                    background: (!selectedAidant || isProcessingItem || isProcessing) 
+                                      ? '#cbd5e1' 
+                                      : colors.primary 
+                                  }}
                                 >
-                                  {processingId === item.id ? (
-                                    <Loader2 className="animate-spin" size={14} />
+                                  {isProcessingItem ? (
+                                    <Loader2 size={13} className="animate-spin" />
                                   ) : (
-                                    <UserPlus size={14} />
+                                    <UserPlus size={13} />
                                   )}
-                                  <span>Rattacher l'aidant</span>
+                                  {isProcessingItem ? 'Traitement...' : 'Assigner'}
                                 </button>
                               )}
                             </div>
@@ -997,7 +1030,9 @@ const PatientsPage = () => {
           </div>
         )
       ) : (
-        // 👨‍👩‍👦 VUE COMPTE FAMILLE / AIDANT
+        // ==========================================
+        // 👨‍👩‍👦 VUE FAMILLE / AIDANT (GRILLE DE CARTES)
+        // ==========================================
         filteredPatients.length > 0 ? (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full min-w-0">
             {filteredPatients.map((patient: any) => (
@@ -1056,21 +1091,22 @@ const PatientsPage = () => {
         )
       )}
 
-      {/* LÉGENDE DE PRIORISATION */}
+      {/* LÉGENDE DE PRIORITÉ (ADMIN) */}
       {isAdmin && Object.keys(grouped).length > 0 && (
         <div className="bg-white rounded-2xl p-3 border border-black/5 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex flex-wrap items-center gap-3 text-[10px]">
-            <span className="font-bold text-gray-400 uppercase tracking-wider">Légende :</span>
-            <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100"><Circle size={7} fill="#10b981" /> P1 - Patient Proche</span>
-            <span className="flex items-center gap-1 text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100"><Circle size={7} fill="#3b82f6" /> P2 - Compte Principal</span>
+            <span className="font-bold text-gray-400 uppercase tracking-wider">Priorité d'attribution :</span>
+            <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100"><Circle size={7} fill="#10b981" /> P1 - Proche rattaché</span>
+            <span className="flex items-center gap-1 text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100"><Circle size={7} fill="#3b82f6" /> P2 - Titulaire principal</span>
           </div>
           <span className="text-[10px] text-gray-400 font-semibold ml-auto flex items-center gap-1.5">
             {isProcessing && <Loader2 size={12} className="animate-spin text-emerald-600" />}
-            {isProcessing ? 'Traitement réseau...' : '🟢 Prêt'}
+            {isProcessing ? 'Traitement réseau...' : '🟢 Système synchronisé'}
           </span>
         </div>
       )}
 
+      {/* BOUTON FLOTTANT MOBILE (FAMILLES S'IL Y A DÉJÀ AU MOINS UN PROCHE) */}
       {canManage && !isAdmin && patients.length > 0 && (
         <button
           onClick={handleAdd}
@@ -1082,6 +1118,7 @@ const PatientsPage = () => {
         </button>
       )}
 
+      {/* MODAL PATIENT */}
       <PatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -1094,3 +1131,4 @@ const PatientsPage = () => {
 };
 
 export default PatientsPage;
+ 
