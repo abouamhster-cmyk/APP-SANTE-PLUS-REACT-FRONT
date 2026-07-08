@@ -7,7 +7,8 @@ import { getThemeColors } from '@/lib/permissions';
 import { useVisitStore } from '@/stores/visitStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useNotificationStore } from '@/stores/notificationStore';
- 
+import { supabase } from '@/lib/supabase';
+
 const PaymentConfirmPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -17,10 +18,11 @@ const PaymentConfirmPage = () => {
   const [redirectCountdown, setRedirectCountdown] = useState(5);
   const [visitId, setVisitId] = useState<string | null>(null);
   const [isVisit, setIsVisit] = useState(false);
+  const [targetId, setTargetId] = useState<string | null>(null);
 
   const colors = getThemeColors('senior');
 
-  // ✅ Forcer le rafraîchissement des données
+  // ✅ Rafraîchir les stores locaux
   const refreshData = async () => {
     try {
       await Promise.all([
@@ -36,7 +38,6 @@ const PaymentConfirmPage = () => {
 
   useEffect(() => {
     const checkPaymentStatus = async () => {
-      // ✅ Récupérer les paramètres de l'URL
       const paymentStatus = searchParams.get('status');
       const transactionId = searchParams.get('transaction_id');
       const reference = searchParams.get('reference');
@@ -52,53 +53,67 @@ const PaymentConfirmPage = () => {
       console.log('🔍 searchParams:', searchParams.toString());
       console.log('🔍 ===========================');
 
-      // ✅ Déterminer si c'est une visite
       const isVisitPayment = type === 'visit' || !!visitIdParam;
       if (visitIdParam) {
         setVisitId(visitIdParam);
         setIsVisit(true);
       }
 
-      // ✅ Si le paiement est approuvé
+      // ✅ CAS 1 : PAIEMENT EXPLICITEMENT APPROUVÉ OU VALIDÉ
       if (paymentStatus === 'approved' || paymentStatus === 'success' || paymentStatus === 'paid') {
         console.log('✅ Paiement approuvé !');
         setStatus('success');
         
-        // ✅ Message personnalisé selon le type
-        if (isVisitPayment) {
-          setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est en cours de planification.');
+        let redirectUrl = '/app';
+
+        if (isVisitPayment && visitIdParam) {
+          setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est planifiée.');
+          redirectUrl = `/app/visits/${visitIdParam}`;
         } else {
-          setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+          // Rechercher l'ID de commande créé par le webhook avec transactionId
+          let orderId = null;
+          if (transactionId) {
+            const { data: orderData } = await supabase
+              .from('commandes')
+              .select('id')
+              .eq('metadata->>transaction_id', transactionId)
+              .maybeSingle();
+
+            if (orderData) {
+              orderId = orderData.id;
+            }
+          }
+
+          if (orderId) {
+            setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est validée.');
+            redirectUrl = `/app/orders/${orderId}`;
+            setTargetId(orderId);
+          } else {
+            setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+            redirectUrl = '/app/orders';
+          }
         }
 
-        // ✅ Nettoyer les données en attente
         sessionStorage.removeItem('pending_ponctual_order');
         sessionStorage.removeItem('pending_visit_payment');
         localStorage.removeItem('pending_ponctual_order');
         
-        // ✅ Forcer le rafraîchissement des données
         await refreshData();
 
-        // ✅ Démarrer le compte à rebours
         let countdown = 5;
         const interval = setInterval(() => {
           countdown -= 1;
           setRedirectCountdown(countdown);
           if (countdown <= 0) {
             clearInterval(interval);
-            // ✅ Rediriger vers la bonne page
-            if (isVisitPayment && visitIdParam) {
-              navigate(`/app/visits/${visitIdParam}`);
-            } else {
-              navigate('/app/orders');
-            }
+            navigate(redirectUrl);
           }
         }, 1000);
 
         return () => clearInterval(interval);
       }
 
-      // ❌ Si le paiement a échoué
+      // ❌ CAS 2 : PAIEMENT ÉCHOUÉ OU ANNULÉ
       if (paymentStatus === 'cancel' || paymentStatus === 'cancelled' || paymentStatus === 'failed') {
         console.log('❌ Paiement annulé ou échoué');
         setStatus('error');
@@ -110,14 +125,13 @@ const PaymentConfirmPage = () => {
         return;
       }
 
-      // ⏳ Si le statut est pending, attendre et vérifier
+      // ⏳ CAS 3 : PAIEMENT EN TRAITEMENT
       if (paymentStatus === 'pending') {
         console.log('⏳ Paiement en attente...');
         setStatus('loading');
         setMessage('⏳ Votre paiement est en cours de traitement...');
         setIsChecking(true);
 
-        // ✅ Vérifier après 5 secondes via l'API
         setTimeout(async () => {
           try {
             const checkId = transactionId || reference;
@@ -129,10 +143,33 @@ const PaymentConfirmPage = () => {
                 console.log('✅ Paiement vérifié avec succès !');
                 setStatus('success');
                 
+                let redirectUrl = '/app';
                 if (isVisitPayment) {
-                  setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est en cours de planification.');
+                  setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est planifiée.');
+                  redirectUrl = visitIdParam ? `/app/visits/${visitIdParam}` : '/app/visits';
                 } else {
-                  setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+                  // Chercher l'ID de la commande
+                  let orderId = null;
+                  if (transactionId) {
+                    const { data: orderData } = await supabase
+                      .from('commandes')
+                      .select('id')
+                      .eq('metadata->>transaction_id', transactionId)
+                      .maybeSingle();
+
+                    if (orderData) {
+                      orderId = orderData.id;
+                    }
+                  }
+
+                  if (orderId) {
+                    setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est validée.');
+                    redirectUrl = `/app/orders/${orderId}`;
+                    setTargetId(orderId);
+                  } else {
+                    setMessage('✅ Votre paiement a été confirmé avec succès !');
+                    redirectUrl = '/app/orders';
+                  }
                 }
                 
                 sessionStorage.removeItem('pending_ponctual_order');
@@ -140,15 +177,10 @@ const PaymentConfirmPage = () => {
                 localStorage.removeItem('pending_ponctual_order');
                 setIsChecking(false);
                 
-                // ✅ Forcer le rafraîchissement des données
                 await refreshData();
                 
                 setTimeout(() => {
-                  if (isVisitPayment && visitIdParam) {
-                    navigate(`/app/visits/${visitIdParam}`);
-                  } else {
-                    navigate('/app/orders');
-                  }
+                  navigate(redirectUrl);
                 }, 3000);
               } else {
                 console.log('⏳ Paiement toujours en attente...');
@@ -167,7 +199,7 @@ const PaymentConfirmPage = () => {
         return;
       }
 
-      // ⚠️ Aucun paramètre, mais on vérifie si des données sont en attente
+      // ⚠️ CAS 4 : AUCUN PARAMÈTRE MAIS OBJETS EN ATTENTE (RESTOCKAGE SANS SIGNAL)
       const savedVisit = sessionStorage.getItem('pending_visit_payment');
       const savedOrder = sessionStorage.getItem('pending_ponctual_order') || localStorage.getItem('pending_ponctual_order');
       
@@ -175,16 +207,14 @@ const PaymentConfirmPage = () => {
         console.log('📦 Données de visite en attente trouvées...');
         try {
           const visitData = JSON.parse(savedVisit);
-          const vId = visitData.visit_id;
+          const vId = visitData.visit_id || visitData.id;
           if (vId) {
             setVisitId(vId);
             setIsVisit(true);
             
-            // ✅ Récupérer le currentVisit du store après fetch
             await useVisitStore.getState().fetchVisitById(vId);
             const currentVisit = useVisitStore.getState().currentVisit;
             
-            // ✅ Vérifier si la visite n'est plus en brouillon
             if (currentVisit && currentVisit.status !== 'brouillon') {
               setStatus('success');
               setMessage('✅ Votre visite a été planifiée avec succès !');
@@ -219,27 +249,36 @@ const PaymentConfirmPage = () => {
             if (data.success) {
               console.log('✅ Paiement vérifié avec succès !');
               setStatus('success');
-              setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
-              sessionStorage.removeItem('pending_ponctual_order');
-              localStorage.removeItem('pending_ponctual_order');
-              setIsChecking(false);
-              await refreshData();
               
-              setTimeout(() => {
-                navigate('/app/orders');
-              }, 3000);
-              return;
+              // Chercher ID de commande
+              let orderId = null;
+              const { data: ord } = await supabase
+                .from('commandes')
+                .select('id')
+                .eq('metadata->>transaction_id', txnId)
+                .maybeSingle();
+              if (ord) orderId = ord.id;
+
+              if (orderId) {
+                setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est validée.');
+                sessionStorage.removeItem('pending_ponctual_order');
+                localStorage.removeItem('pending_ponctual_order');
+                setIsChecking(false);
+                await refreshData();
+                setTimeout(() => {
+                  navigate(`/app/orders/${orderId}`);
+                }, 3000);
+                return;
+              }
             }
           }
         } catch (error) {
           console.error('❌ Erreur vérification des données en attente:', error);
         }
         
-        // Si pas de transaction_id ou paiement non trouvé, attendre le webhook
         setStatus('loading');
-        setMessage('⏳ Votre paiement est en cours de confirmation par notre système...');
+        setMessage('⏳ Votre paiement est en cours de traitement par notre système...');
         
-        // Nettoyer après 10 secondes
         setTimeout(() => {
           sessionStorage.removeItem('pending_ponctual_order');
           localStorage.removeItem('pending_ponctual_order');
@@ -255,20 +294,14 @@ const PaymentConfirmPage = () => {
         return;
       }
 
-      // ❌ Si on arrive sur la page sans aucune information
       console.log('⚠️ Aucune information de paiement trouvée');
       setStatus('error');
       setMessage('❌ Aucune information de paiement trouvée. Veuillez contacter le support.');
-      
-      sessionStorage.removeItem('pending_ponctual_order');
-      sessionStorage.removeItem('pending_visit_payment');
-      localStorage.removeItem('pending_ponctual_order');
     };
 
     checkPaymentStatus();
   }, [searchParams, navigate]);
 
-  // ✅ Rendu : État de chargement
   if (status === 'loading' || isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 animate-fadeIn" style={{ background: colors.background }}>
@@ -288,7 +321,6 @@ const PaymentConfirmPage = () => {
     );
   }
 
-  // ✅ Rendu : Succès (Paiement Validé)
   if (status === 'success') {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 animate-fadeIn" style={{ background: colors.background }}>
@@ -325,6 +357,8 @@ const PaymentConfirmPage = () => {
               onClick={() => {
                 if (isVisit && visitId) {
                   navigate(`/app/visits/${visitId}`);
+                } else if (!isVisit && targetId) {
+                  navigate(`/app/orders/${targetId}`);
                 } else {
                   navigate('/app/orders');
                 }
@@ -341,7 +375,7 @@ const PaymentConfirmPage = () => {
               ) : (
                 <>
                   <ShoppingBag size={14} />
-                  Voir mes commandes
+                  Voir ma commande
                   <ArrowRight size={14} />
                 </>
               )}
@@ -363,7 +397,6 @@ const PaymentConfirmPage = () => {
     );
   }
 
-  // ❌ Rendu : Échec du Paiement
   return (
     <div className="min-h-screen flex items-center justify-center p-4 animate-fadeIn" style={{ background: colors.background }}>
       <div className="bg-white rounded-2xl p-6 sm:p-8 max-w-md w-full text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-5">
