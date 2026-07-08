@@ -1,4 +1,5 @@
-// 📁 frontend/src/components/visits/VisitCard.tsx
+// 📁 src/components/visits/VisitCard.tsx
+// ✅ COMPOSANT CARTE DE VISITE COMPLET : ALIGNEMENT DES MÉTADONNÉES, DU RECHARGEMENT EN DIRECT ET DES ACTIONS DE FACTURATION
 
 import { memo, useMemo, useCallback } from 'react';
 import {
@@ -33,7 +34,7 @@ import { formatDate, formatTime, cn } from '@/utils/helpers';
 // TYPES
 // ============================================================
 
-// ✅ Interface étendue pour gérer metadata et les champs optionnels - CORRIGÉE
+// ✅ Interface étendue pour gérer metadata et les champs optionnels
 interface ExtendedVisit extends Visit {
   metadata?: {
     is_ponctual?: boolean;
@@ -44,7 +45,7 @@ interface ExtendedVisit extends Visit {
     [key: string]: any;
   };
   payment_amount?: number;
-  visit_type?: 'permanente' | 'ponctuelle' | 'intervalle';  // ✅ Type exact
+  visit_type?: 'permanente' | 'ponctuelle' | 'intervalle';
   is_recurring?: boolean;
   subscription_id?: string | null;
   draft_expires_at?: string | null;
@@ -204,10 +205,6 @@ const getStatusConfig = (status: string) => {
   return STATUS_CONFIG[status] || STATUS_CONFIG['planifiee'];
 };
 
-// ============================================================
-// COMPOSANT PRINCIPAL
-// ============================================================
-
 export const VisitCard = memo(({
   visit: visitProp,
   onClick,
@@ -265,7 +262,6 @@ export const VisitCard = memo(({
     return isDraft && visit.metadata?.requires_payment === true;
   }, [isDraft, visit]);
 
-  // ✅ Nom du patient
   const patientName = useMemo(() => {
     if (visit.patient) {
       return `${visit.patient.first_name} ${visit.patient.last_name}`;
@@ -273,25 +269,20 @@ export const VisitCard = memo(({
     return visit.target_name || 'Patient';
   }, [visit]);
 
-  // ✅ Nom de l'aidant - CORRIGÉ avec vérification sécurisée
   const aidantName = useMemo(() => {
-    // ✅ Vérifier la structure aidant.user.full_name
     if (visit.aidant?.user?.full_name) {
       return visit.aidant.user.full_name;
     }
-    // ✅ Vérifier si aidant a directement full_name (structure alternative)
     if (visit.aidant && typeof visit.aidant === 'object' && 'full_name' in visit.aidant) {
       return (visit.aidant as any).full_name;
     }
     return 'Non assigné';
   }, [visit]);
 
-  // ✅ Adresse
   const address = useMemo(() => {
     return visit.patient?.address || 'Adresse non renseignée';
   }, [visit]);
 
-  // ✅ Catégorie
   const category = useMemo(() => {
     if (visit.patient?.category === 'maman_bebe') return '👶 Maman & Bébé';
     if (visit.patient?.category === 'senior') return '👴 Senior';
@@ -299,12 +290,10 @@ export const VisitCard = memo(({
     return 'Non spécifié';
   }, [visit]);
 
-  // ✅ Durée
   const duration = useMemo(() => {
     return visit.duration_minutes || 60;
   }, [visit]);
 
-  // ✅ Expiration du brouillon
   const draftExpiry = useMemo(() => {
     if (!isDraft || !visit.draft_expires_at) return null;
     const expiry = new Date(visit.draft_expires_at);
@@ -317,19 +306,16 @@ export const VisitCard = memo(({
     return `${minutes}min`;
   }, [isDraft, visit]);
 
-  // ✅ Montant du paiement
   const paymentAmount = useMemo(() => {
     if (visit.metadata?.payment_amount) return visit.metadata.payment_amount;
     if (visit.payment_amount) return visit.payment_amount;
     return 7500;
   }, [visit]);
 
-  // ✅ Barre de progression
   const progress = useMemo(() => {
     return statusConfig.progress || 0;
   }, [statusConfig]);
 
-  // ✅ Actions disponibles
   const canStart = useMemo(() => {
     return isAccepted && (isAidant || isAdminOrCoordinator);
   }, [isAccepted, isAidant, isAdminOrCoordinator]);
@@ -485,7 +471,7 @@ export const VisitCard = memo(({
                 <Clock size={11} />
                 {visit.scheduled_time} ({duration} min)
               </span>
-              {visit.aidant && (
+              {visit.aidant_id && (
                 <>
                   <span>•</span>
                   <span className="flex items-center gap-0.5">
@@ -569,8 +555,7 @@ export const VisitCard = memo(({
                 {canPay && (
                   <button
                     onClick={handlePonctualPayment}
-                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                    style={{ background: '#8b5cf6' }}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80 bg-amber-500"
                     title={`Payer ${paymentAmount.toLocaleString()} FCFA`}
                   >
                     <CreditCard size={12} />
@@ -581,8 +566,7 @@ export const VisitCard = memo(({
                 {canConvertToSubscription && (
                   <button
                     onClick={handleConvertToSubscription}
-                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                    style={{ background: '#10B981' }}
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80 bg-green-500"
                     title="Utiliser mon abonnement"
                   >
                     <Package size={12} />
@@ -896,8 +880,7 @@ export const VisitCard = memo(({
           {canPay && (
             <button
               onClick={handlePonctualPayment}
-              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
-              style={{ background: '#8b5cf6' }}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1 bg-amber-500"
             >
               <CreditCard size={12} />
               Payer {paymentAmount.toLocaleString()} FCFA
@@ -908,8 +891,7 @@ export const VisitCard = memo(({
           {canConvertToSubscription && (
             <button
               onClick={handleConvertToSubscription}
-              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
-              style={{ background: '#10B981' }}
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1 bg-green-500"
             >
               <Package size={12} />
               Utiliser abonnement
