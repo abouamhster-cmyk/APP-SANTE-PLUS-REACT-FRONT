@@ -912,12 +912,6 @@ const DashboardPage = () => {
         </section>
       )}
 
-      <footer className="text-center py-4">
-         <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1 font-medium">
-          <Heart size={10} className="text-red-400 fill-red-400" />
-          Santé Plus Services — Votre accompagnement de confiance
-         </p>
-      </footer>
     </div>
   );
 };
