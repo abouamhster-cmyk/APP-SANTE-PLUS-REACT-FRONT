@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
-// ✅ FORMULAIRE DE CRÉATION DE COMMANDE COMPLET : DOUBLE DESTINATAIRE ET RECONSTRUCTION DES MÉTADONNÉES SÉCURISÉES
+// ✅ FORMULAIRE DE CRÉATION DE COMMANDE COMPLET : DOUBLE DESTINATAIRE, RECONSTRUCTION DES MÉTADONNÉES ET GESTION DES NOTIFICATIONS SÉCURISÉES
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +42,10 @@ import { supabase } from '@/lib/supabase';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
 
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
+
 const CreateOrderPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
@@ -60,7 +64,6 @@ const CreateOrderPage = () => {
   const {
     hasActiveSubscription,
     remainingOrders,
-    can,
     getActionMessage,
     isLoading: subLoading,
   } = useSubscriptionGuard();
@@ -75,6 +78,8 @@ const CreateOrderPage = () => {
     isLoading: isPaymentLoading,
   } = usePonctualPayment({
     onSuccess: () => {
+      isRedirecting.current = true;
+      sessionStorage.removeItem('create_order_form');
       navigate('/app/orders');
       toast.success('Commande créée après paiement !');
     },
@@ -85,10 +90,13 @@ const CreateOrderPage = () => {
   const isRedirecting = useRef(false);
 
   const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
+
+  // Choix du destinataire
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
   const [targetPatientId, setTargetPatientId] = useState<string>('');
 
   const [formData, setFormData] = useState({
+    patient_id: '',
     type: 'medicaments',
     description: '',
     address: '',
@@ -103,10 +111,12 @@ const CreateOrderPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ Vérifier si l'utilisateur peut utiliser l'abonnement
   const canUseSubscription = (): boolean => {
     return hasActiveSubscription && remainingOrders > 0;
   };
 
+  // ✅ Vérifier le quota de commandes en cours
   const [aidantQuota, setAidantQuota] = useState<{
     current: number;
     max: number;
@@ -114,6 +124,7 @@ const CreateOrderPage = () => {
     canTake: boolean;
   } | null>(null);
 
+  // ✅ Charger le quota de l'aidant si c'est un aidant
   useEffect(() => {
     if (isAidant && user) {
       fetchAidantQuota();
@@ -148,6 +159,7 @@ const CreateOrderPage = () => {
     }
   };
 
+  // ✅ Message d'information sur l'abonnement
   const subscriptionInfo = (() => {
     if (isAidant || isAdminOrCoordinator) return null;
     
@@ -177,26 +189,26 @@ const CreateOrderPage = () => {
     };
   })();
 
+  // ✅ Calcul du prix ponctuel
   const getPonctualPrice = (): number => {
     return getPonctualOrderPriceByType(formData.type, formData.items);
   };
 
+  // ✅ Vérifier si l'aidant peut prendre une commande
   const canTakeOrder = (): boolean => {
     if (!isAidant) return true;
     if (!aidantQuota) return true;
     return aidantQuota.canTake;
   };
 
+  // =============================================
+  // EFFETS : CHARGEMENT ET SAUVEGARDE
+  // =============================================
   useEffect(() => {
     fetchPatients();
   }, []);
 
-  useEffect(() => {
-    if (patients.length > 0 && !targetPatientId) {
-      setTargetPatientId(patients[0].id);
-    }
-  }, [patients]);
-
+  // ✅ EMPÊCHER LE RECHARGEMENT AUTOMATIQUE
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -208,6 +220,7 @@ const CreateOrderPage = () => {
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isRedirecting.current) return;
+      
       if (formData.description.trim() || formData.items.some(item => item.name.trim())) {
         e.preventDefault();
         e.returnValue = 'Vous avez des données non sauvegardées. Voulez-vous vraiment quitter ?';
@@ -224,6 +237,7 @@ const CreateOrderPage = () => {
     };
   }, [formData]);
 
+  // ✅ SAUVEGARDE AUTOMATIQUE EN SESSIONSTORAGE
   useEffect(() => {
     const saveFormData = () => {
       try {
@@ -254,6 +268,7 @@ const CreateOrderPage = () => {
             setOrderType(parsed.orderType || (canUseSubscription() ? 'subscription' : 'ponctual'));
             setTargetType(parsed.targetType || 'personal');
             setTargetPatientId(parsed.targetPatientId || '');
+            console.log('📦 Formulaire restauré depuis sessionStorage');
           } else {
             sessionStorage.removeItem('create_order_form');
           }
@@ -271,6 +286,9 @@ const CreateOrderPage = () => {
     };
   }, []);
 
+  // =============================================
+  // GESTION DES FICHIERS
+  // =============================================
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -298,6 +316,9 @@ const CreateOrderPage = () => {
     }
   };
 
+  // =============================================
+  // GESTION DES ARTICLES
+  // =============================================
   const addItem = () => {
     setFormData({
       ...formData,
@@ -329,23 +350,32 @@ const CreateOrderPage = () => {
     });
   };
 
+  // =============================================
+  // VALIDATION DES DONNÉES
+  // =============================================
   const validateOrderData = (): boolean => {
     if (!formData.description || formData.description.trim() === '') {
       toast.error('Veuillez ajouter une description');
       return false;
     }
+
     if (!formData.address || formData.address.trim() === '') {
       toast.error('Veuillez ajouter une adresse de livraison');
       return false;
     }
+
     const hasValidItems = formData.items.some(item => item.name.trim() !== '');
     if (!hasValidItems) {
       toast.error('Veuillez ajouter au moins un article');
       return false;
     }
+
     return true;
   };
 
+  // =============================================
+  // PRÉPARER LES DONNÉES DE LA COMMANDE
+  // =============================================
   const prepareOrderData = async () => {
     if (!validateOrderData()) return null;
 
@@ -366,7 +396,10 @@ const CreateOrderPage = () => {
         return null;
       }
 
-      const { data: { publicUrl } } = supabase.storage.from('orders').getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('orders').getPublicUrl(filePath);
+
       prescriptionUrl = publicUrl;
     }
 
@@ -383,8 +416,10 @@ const CreateOrderPage = () => {
       ? profile?.full_name || 'Personnel'
       : selectedPatientObj ? `${selectedPatientObj.first_name} ${selectedPatientObj.last_name}` : 'Patient';
 
+    const finalPatientId = targetType === 'patient' ? targetPatientId : null;
+
     return {
-      patient_id: targetType === 'patient' ? targetPatientId : null,
+      patient_id: finalPatientId,
       type: formData.type as any,
       description: formData.description.trim(),
       address: formData.address.trim(),
@@ -419,7 +454,7 @@ const CreateOrderPage = () => {
     e.preventDefault();
 
     if (isAidant && !canTakeOrder()) {
-      toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours`);
+      toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours (maximum ${aidantQuota?.max || 2})`);
       return;
     }
 
@@ -503,7 +538,7 @@ const CreateOrderPage = () => {
   };
 
   const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
-  const selectedPatientObj = patients.find((p) => p.id === targetPatientId);
+  const selectedPatientObj = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
   const itemsTotal = formData.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
   const finalEstimatedAmount = formData.estimated_amount ? parseFloat(formData.estimated_amount) : itemsTotal;
   const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
@@ -716,6 +751,112 @@ const CreateOrderPage = () => {
       {isPaymentModalOpen && pendingPaymentData && (
         <PonctualPaymentModal isOpen={isPaymentModalOpen} onClose={handlePaymentCancel} onSuccess={handlePaymentSuccess} paymentData={pendingPaymentData} redirectPath="/app/orders" />
       )}
+    </div>
+  );
+};
+
+// =============================================
+// SOUS-COMPOSANTS LOGIQUES INTERNES SÉCURISÉS (RÉGULATION DES RE-RENDUS)
+// =============================================
+
+interface ModernPanelProps {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  color: string;
+  children: React.ReactNode;
+}
+
+const ModernPanel = ({ icon, title, subtitle, color, children }: ModernPanelProps) => {
+  return (
+    <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+      <div className="flex items-start gap-3 mb-5">
+        <div
+          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+          style={{
+            background: color + '14',
+            color,
+          }}
+        >
+          {icon}
+        </div>
+
+        <div>
+          <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">
+            {title}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+            {subtitle}
+          </p>
+        </div>
+      </div>
+
+      {children}
+    </section>
+  );
+};
+
+interface FieldProps {
+  label: string;
+  required?: boolean;
+  optional?: boolean;
+  color: string;
+  children: React.ReactNode;
+}
+
+const Field = ({ label, required, optional, color, children }: FieldProps) => {
+  return (
+    <div className="block">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-sm font-semibold" style={{ color }}>
+          {label}
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </span>
+
+        {optional && (
+          <span className="text-[11px] uppercase tracking-wide text-gray-400">
+            Optionnel
+          </span>
+        )}
+      </div>
+
+      {children}
+    </div>
+  );
+};
+
+interface CompactHeaderStatProps {
+  label: string;
+  value: string | number;
+  color: string;
+}
+
+const CompactHeaderStat = ({ label, value, color }: CompactHeaderStatProps) => {
+  return (
+    <div className="rounded-2xl bg-gray-50 border border-black/5 px-3 py-2.5 text-center">
+      <p className="text-[11px] text-gray-500 leading-tight">
+        {label}
+      </p>
+      <p className="text-sm font-bold mt-0.5 truncate" style={{ color }}>
+        {value}
+      </p>
+    </div>
+  );
+};
+
+interface SummaryLineProps {
+  label: string;
+  value: string;
+  color?: string;
+}
+
+const SummaryLine = ({ label, value, color }: SummaryLineProps) => {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
+      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm font-semibold text-gray-900 text-right" style={{ color }}>
+        {value}
+      </span>
     </div>
   );
 };
