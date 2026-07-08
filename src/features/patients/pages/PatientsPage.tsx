@@ -162,7 +162,7 @@ const PatientsPage = () => {
   const [selectedType, setSelectedType] = useState('primary');
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [searchTerm, setSearchTerm] = useState('');
-  const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -210,18 +210,9 @@ const PatientsPage = () => {
         }))
       );
 
-      const { data: families } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'family');
-      setFamilyAccounts(families || []);
-
       const { data: patientsData } = await supabase
         .from('patients')
-        .select(`
-          id, first_name, last_name, category,
-          patient_family_links!inner(family_id)
-        `);
+        .select('id, first_name, last_name, category, patient_family_links(family_id)');
 
       setAllPatients(
         (patientsData || []).map(p => ({
@@ -229,33 +220,29 @@ const PatientsPage = () => {
           first_name: p.first_name,
           last_name: p.last_name,
           category: p.category,
-          family_id: p.patient_family_links?.[0]?.family_id,
+          family_id: p.patient_family_links?.[0]?.family_id || '',
         }))
       );
 
-      try {
-        const response = await assignmentAPI.adminGetAll();
-        const assignmentsData = response.data?.data || [];
-        const mapAssign: any = {};
-        assignmentsData?.forEach((a: any) => {
-          const key = `${a.target_type}_${a.target_id}`;
-          mapAssign[key] = a;
-        });
-        setAssignmentsMap(mapAssign);
-      } catch (apiError) {
-        console.error('❌ Erreur récupération assignations:', apiError);
-        setAssignmentsMap({});
-      }
+      const response = await assignmentAPI.adminGetAll();
+      const assignmentsData = response.data?.data || [];
+      const mapAssign: any = {};
+      assignmentsData?.forEach((a: any) => {
+        const key = `${a.target_type}_${a.target_id}`;
+        mapAssign[key] = a;
+      });
+      setAssignmentsMap(mapAssign);
+
     } catch (error) {
       console.error('❌ Erreur fetchAllData:', error);
-      toast.error('Erreur lors du chargement des données d\'administration');
+      toast.error('Erreur lors du chargement des données');
     } finally {
       setIsLoadingAssignments(false);
     }
   }, [isAdmin, fetchPatients]);
 
   // ============================================================
-  // ACCORDÉONS HIERARCHIQUES DE COMPTES & PATIENTS
+  // DECOUPE DES DONNEES PAR SÉCURITÉ DE RÔLE
   // ============================================================
 
   const assignmentItems = useMemo(() => {
@@ -272,58 +259,53 @@ const PatientsPage = () => {
       }
 
       const accountItem: AssignmentItem = {
-        id: `account_${family.id}`,
+        id: accountKey,
         type: 'account',
         familyId: family.id,
         familyName: family.full_name,
         targetId: family.id,
-        targetName: `${family.full_name}`,
+        targetName: family.full_name,
         targetType: 'personal_account',
         category: 'personal',
-        isPersonal: true,
         priority: 2,
-        assignedAidantUserId: accountAssignment?.aidant_user_id || undefined,
+        assignedAidantUserId: accountAssignment?.aidant_user_id,
         assignedAidantName: accountAidantName,
         assignmentType: accountAssignment?.assignment_type,
         assignmentId: accountAssignment?.id,
       };
 
       const familyPatients = allPatients.filter(p => p.family_id === family.id);
-      const patientItems = familyPatients.map(p => {
-        const key = `patient_${p.id}`;
-        const a = assignmentsMap[key];
+      const patientItems: AssignmentItem[] = familyPatients.map(p => {
+        const patientKey = `patient_${p.id}`;
+        const patientAssignment = assignmentsMap[`patient_${p.id}`];
 
-        let aidantName = '';
-        if (a?.aidant_user_id) {
-          const aidant = aidants.find(ad => ad.user_id === a.aidant_user_id);
-          aidantName = aidant?.user?.full_name || 'Aidant';
+        let patientAidantName = '';
+        if (patientAssignment?.aidant_user_id) {
+          const aidant = aidants.find(a => a.user_id === patientAssignment.aidant_user_id);
+          patientAidantName = aidant?.user?.full_name || 'Aidant';
         }
 
         return {
-          id: key,
-          type: 'patient' as const,
+          id: p.id,
+          type: 'patient',
           familyId: family.id,
           familyName: family.full_name,
           targetId: p.id,
           targetName: `${p.first_name} ${p.last_name}`,
-          targetType: 'patient' as const,
+          targetType: 'patient',
           category: p.category,
           isPersonal: false,
           priority: 1,
-          assignedAidantUserId: a?.aidant_user_id || undefined,
-          assignedAidantName: aidantName,
-          assignmentType: a?.assignment_type,
-          assignmentId: a?.id,
+          assignedAidantUserId: patientAssignment?.aidant_user_id,
+          assignedAidantName: patientAidantName,
+          assignmentType: patientAssignment?.assignment_type,
+          assignmentId: patientAssignment?.id,
         };
       });
 
       return [accountItem, ...patientItems];
     });
   }, [isAdmin, familyAccounts, allPatients, assignmentsMap, aidants]);
-
-  // ============================================================
-  // FILTRES & RECHERCHES
-  // ============================================================
 
   const filteredItems = useMemo(() => {
     if (!isAdmin) return [];
@@ -414,7 +396,7 @@ const PatientsPage = () => {
   };
 
   // ============================================================
-  // GESTION DES APPELS API D'ASSIGNATION
+  // ACTIONS D'ASSIGNATIONS (ADMIN)
   // ============================================================
 
   const handleAssign = async (item: AssignmentItem) => {
@@ -423,7 +405,7 @@ const PatientsPage = () => {
       return;
     }
 
-    setProcessingItems(prev => new Set(prev).add(item.id));
+    setProcessingId(item.id);
     setIsProcessing(true);
 
     try {
@@ -432,7 +414,7 @@ const PatientsPage = () => {
         targetType: item.targetType,
         targetId: item.targetId,
         assignmentType: selectedType,
-        reason: `Assignation d'un bénéficiaire depuis le Dashboard`,
+        reason: `Assignation d'un bénéficiaire depuis l'administration`,
         expiresAt: null,
       });
 
@@ -443,11 +425,7 @@ const PatientsPage = () => {
       toast.error(error.message || 'Erreur lors de l\'assignation de l\'aidant');
     } finally {
       setIsProcessing(false);
-      setProcessingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(item.id);
-        return newSet;
-      });
+      setProcessingId(null);
     }
   };
 
@@ -459,7 +437,7 @@ const PatientsPage = () => {
 
     if (!window.confirm(`Retirer l'assignation de ${item.targetName} ?`)) return;
 
-    setProcessingItems(prev => new Set(prev).add(item.id));
+    setProcessingId(item.id);
     setIsProcessing(true);
 
     try {
@@ -471,11 +449,7 @@ const PatientsPage = () => {
       toast.error(error.message || 'Erreur lors du retrait de l\'aidant');
     } finally {
       setIsProcessing(false);
-      setProcessingItems(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(item.id);
-        return newSet;
-      });
+      setProcessingId(null);
     }
   };
 
@@ -493,8 +467,6 @@ const PatientsPage = () => {
 
     if (!window.confirm(`Voulez-vous assigner l'ensemble des ${unassigned.length} bénéficiaires non attribués à cet aidant ?`)) return;
 
-    const itemIds = unassigned.map(item => item.id);
-    setProcessingItems(prev => new Set([...prev, ...itemIds]));
     setIsProcessing(true);
 
     try {
@@ -516,7 +488,6 @@ const PatientsPage = () => {
       toast.error('Erreur lors du rattachement groupé');
     } finally {
       setIsProcessing(false);
-      setProcessingItems(new Set());
     }
   };
 
@@ -651,7 +622,7 @@ const PatientsPage = () => {
 
       if (directPatients && directPatients.length > 0) {
         usePatientStore.setState({ patients: directPatients });
-        toast.success(`${directPatients.length} bénéficiaire(s) synchronisé(s) en direct !`);
+        toast.success(`${directPatients.length} patient(s) synchronisé(s) en direct !`);
       } else {
         toast('Aucune donnée active à synchroniser.', { icon: 'ℹ️' });
         usePatientStore.setState({ patients: [] });
@@ -684,7 +655,7 @@ const PatientsPage = () => {
     <div className="w-full max-w-5xl mx-auto space-y-5 pb-32 px-4 sm:px-6">
       
       {/* ============================================================
-          EN-TÊTE DE SECTION PREMIUM
+          EN-TÊTE DE SECTION PREMIUM SANS BOUTON REDONDANT S'IL N'Y A AUCUN PROCHE
           ============================================================ */}
       <section className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="min-w-0">
@@ -717,7 +688,7 @@ const PatientsPage = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-end">
+        <div className="flex items-center gap-2 shrink-0 justify-end">
           <button
             onClick={refreshAll}
             disabled={isLoading || isSyncing || isRefreshing}
@@ -727,10 +698,11 @@ const PatientsPage = () => {
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
 
-          {canManage && !isAdmin && (
+          {/* ✅ COHÉRENCE UX 1 : LE BOUTON D'EN-TÊTE S'AFFICHE UNIQUEMENT SUR DESKTOP ET S'IL Y A DÉJÀ AU MOINS UN PROCHE */}
+          {canManage && !isAdmin && patients.length > 0 && (
             <button
               onClick={handleAdd}
-              className="px-4 py-2.5 rounded-2xl text-xs font-black text-white transition hover:opacity-90 shrink-0 flex items-center gap-2 shadow-md"
+              className="hidden sm:inline-flex px-4 py-2.5 rounded-2xl text-xs font-black text-white transition hover:opacity-90 shrink-0 items-center gap-2 shadow-md"
               style={{ background: colors.primary }}
             >
               <Plus size={15} />
@@ -953,10 +925,9 @@ const PatientsPage = () => {
                     </span>
                   </div>
 
-                  {/* LISTE INTÉRIEURE SÉCURISÉE (Fil conducteur stylisé à gauche) */}
+                  {/* LISTE INTÉRIEURE SÉCURISÉE */}
                   {isExpanded && (
                     <div className="px-5 pb-4 space-y-3 relative">
-                      {/* Ligne conductrice */}
                       <div className="absolute left-[33px] top-0 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-800/60 z-0" />
                       
                       {familyItems.map((item: AssignmentItem) => {
@@ -964,14 +935,13 @@ const PatientsPage = () => {
                         const isAccount = item.type === 'account';
                         const categoryColor = getCategoryColor(item.category);
                         const categoryLabel = getCategoryLabel(item.category);
-                        const isProcessingItem = processingItems.has(item.id);
+                        const isProcessingItem = processingId === item.id;
 
                         return (
                           <div 
                             key={item.id} 
                             className="pl-8 relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gray-50/50 hover:bg-gray-50 rounded-2xl border border-transparent hover:border-gray-100 transition-all"
                           >
-                            {/* Point de connexion */}
                             <div className="absolute left-[13.5px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-gray-200 bg-white dark:bg-gray-800 z-10" />
 
                             <div className="flex items-start gap-2.5 min-w-0">
@@ -1012,7 +982,6 @@ const PatientsPage = () => {
                               </div>
                             </div>
 
-                            {/* MODULE ACTION ATTRIBUTION */}
                             <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                               {isAssigned ? (
                                 <button
@@ -1043,7 +1012,7 @@ const PatientsPage = () => {
                                   ) : (
                                     <UserPlus size={13} />
                                   )}
-                                  {isProcessingItem ? 'Traitement...' : 'Assigner l\'aidant'}
+                                  {isProcessingItem ? 'Traitement...' : 'Assigner'}
                                 </button>
                               )}
                             </div>
@@ -1092,15 +1061,30 @@ const PatientsPage = () => {
               {searchTerm || categoryFilter !== 'all' ? 'Essayez d\'ajuster vos mots-clés ou de réinitialiser le filtre.' : emptyAction}
             </p>
 
-            {!searchTerm && categoryFilter === 'all' && canManage && (
+            {/* ✅ COHÉRENCE EXPLICITE DES BOUTONS DE CRÉATION POUR LES COMPTES FAMILLES */}
+            {searchTerm || categoryFilter !== 'all' ? (
               <button
-                onClick={handleAdd}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-white font-black text-xs transition hover:opacity-90 shadow-md"
-                style={{ background: colors.primary }}
+                onClick={() => {
+                  setSearchTerm('');
+                  setCategoryFilter('all');
+                }}
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-black text-xs transition border border-gray-200 hover:bg-gray-50"
+                style={{ color: colors.text }}
               >
-                <Plus size={14} />
-                {add}
+                Réinitialiser la recherche
               </button>
+            ) : (
+              // ✅ COHÉRENCE UX 2 : LE BOUTON D'AJOUT SEULEMENT S'IL N'Y A AUCUN PROCHE
+              canManage && (
+                <button
+                  onClick={handleAdd}
+                  className="mt-4 inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-2xl text-white font-black text-xs transition hover:opacity-90 shadow-md"
+                  style={{ background: colors.primary }}
+                >
+                  <Plus size={14} />
+                  {add}
+                </button>
+              )
             )}
           </section>
         )
@@ -1124,9 +1108,9 @@ const PatientsPage = () => {
       )}
 
       {/* ============================================================
-          ACCÈS RAPIDE FLOTTANT MOBILE (FAMILLES)
+          ACCÈS RAPIDE FLOTTANT MOBILE (FAMILLES) S'IL Y A AU MOINS UN PROCHE
           ============================================================ */}
-      {canManage && !isAdmin && (
+      {canManage && !isAdmin && patients.length > 0 && (
         <button
           onClick={handleAdd}
           className="sm:hidden fixed bottom-24 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-xl flex items-center justify-center active:scale-95 transition-transform"
