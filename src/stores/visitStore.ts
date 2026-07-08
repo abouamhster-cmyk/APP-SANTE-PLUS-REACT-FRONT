@@ -1,6 +1,5 @@
 // 📁 frontend/src/stores/visitStore.ts
-// ✅ STORE VISITES  
-
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
@@ -277,7 +276,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           .single();
         
         if (aidantData) {
-          const { data: userData } = await supabase
+          const { data: userData = null } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', aidantData.user_id)
@@ -285,7 +284,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           
           aidant = {
             ...aidantData,
-            user: userData || null,
+            user: userData,
           };
         }
       }
@@ -304,7 +303,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT (Alignement is_ponctual au premier niveau)
+  // ✅ CREATE VISIT
   // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
@@ -364,26 +363,37 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       if (selectedAidantId) {
-        finalAidantId = selectedAidantId;
-        console.log(`✅ Aidant sélectionné via wizard: ${finalAidantId}`);
+        // Si c'est un brouillon, on ne le mettra pas dans le champ "aidant_id" physique pour respecter la DB (chk_draft_no_aidant)
+        if (status !== 'brouillon') {
+          finalAidantId = selectedAidantId;
+        }
+        console.log(`✅ Aidant sélectionné via wizard préparé: ${selectedAidantId}`);
       }
 
-      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
+      // ✅ RECHERCHE AIDANT (Désormais actif même pour les brouillons ponctuels !)
+      if (!finalAidantId && !selectedAidantId && status !== 'en_attente_aidant') {
         const patientId = data.patient_id || undefined;
         const familyId = targetUserId || user.id;
         
-        finalAidantId = await get().getActiveAidantForVisit(
+        const foundActiveId = await get().getActiveAidantForVisit(
           patientId ?? undefined, 
           familyId ?? undefined
         );
-        autoAssigned = !!finalAidantId;
         
-        if (finalAidantId) {
-          console.log(`✅ Aidant automatique trouvé pour la visite: ${finalAidantId}`);
+        if (foundActiveId) {
+          if (status !== 'brouillon') {
+            finalAidantId = foundActiveId;
+            autoAssigned = true;
+          } else {
+            // Pour un brouillon, on le stocke de côté pour l'envoyer au backend
+            selectedAidantId = foundActiveId;
+          }
+          console.log(`✅ Aidant permanent trouvé: ${foundActiveId}`);
         }
       }
 
-      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
+      // ✅ DÉCLENCHER LE WIZARD (Désormais actif même pour les brouillons ponctuels s'il n'y a pas d'aidant lié !)
+      if (!finalAidantId && !selectedAidantId && status !== 'en_attente_aidant') {
         console.log('🔄 Aucun aidant trouvé, déclenchement du wizard');
         
         const wizardError: any = new Error('Aucun aidant disponible');
@@ -415,7 +425,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         duration_minutes: data.duration_minutes || 60,
         status: status,
         is_draft: requiresPayment,
-        is_ponctual: isPonctual, // ✅ ALIGNEMENT CRITIQUE : Envoyé au premier niveau pour le contrôleur d'API !
+        is_ponctual: isPonctual, 
         requires_payment: requiresPayment,           
         is_urgent: data.is_urgent || false,
         requested_by: user.id,
@@ -439,7 +449,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           target_user_id: targetUserId || user.id,
           auto_assigned_aidant: autoAssigned,
           wizard_choice: wizardChoice || null,
-          selected_aidant: selectedAidantId || null,
+          selected_aidant: selectedAidantId || null, // ✅ Se propage proprement vers la table en metadata !
           waiting_for_aidant: status === 'en_attente_aidant',
           is_personal_account: targetType === 'personal' && !data.patient_id,
         }
@@ -503,9 +513,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     try {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
 
       const response = await api.post(`/visits/${id}/confirm-payment`, { transaction_id: transactionId });
       const result = response.data?.visit || response.data;
