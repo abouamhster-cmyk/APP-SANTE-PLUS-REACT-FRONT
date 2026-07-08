@@ -1,6 +1,5 @@
 // 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
-// ✅ FORMULAIRE DE CRÉATION DE COMMANDE COMPLET : DOUBLE DESTINATAIRE, RECONSTRUCTION DES MÉTADONNÉES ET GESTION DES NOTIFICATIONS SÉCURISÉES
-
+ 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -42,10 +41,6 @@ import { supabase } from '@/lib/supabase';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
 
-// =============================================
-// COMPOSANT PRINCIPAL
-// =============================================
-
 const CreateOrderPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
@@ -60,7 +55,6 @@ const CreateOrderPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ✅ Utiliser le guard d'abonnement
   const {
     hasActiveSubscription,
     remainingOrders,
@@ -68,7 +62,6 @@ const CreateOrderPage = () => {
     isLoading: subLoading,
   } = useSubscriptionGuard();
 
-  // ✅ Utiliser le hook de paiement ponctuel
   const {
     isPaymentModalOpen,
     pendingPaymentData,
@@ -81,7 +74,7 @@ const CreateOrderPage = () => {
       isRedirecting.current = true;
       sessionStorage.removeItem('create_order_form');
       navigate('/app/orders');
-      toast.success('Commande créée après paiement !');
+      toast.success('Commande créée avec succès !');
     },
     redirectPath: '/app/orders',
   });
@@ -90,8 +83,6 @@ const CreateOrderPage = () => {
   const isRedirecting = useRef(false);
 
   const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
-
-  // Choix du destinataire
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
   const [targetPatientId, setTargetPatientId] = useState<string>('');
 
@@ -111,12 +102,10 @@ const CreateOrderPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Vérifier si l'utilisateur peut utiliser l'abonnement
   const canUseSubscription = (): boolean => {
     return hasActiveSubscription && remainingOrders > 0;
   };
 
-  // ✅ Vérifier le quota de commandes en cours
   const [aidantQuota, setAidantQuota] = useState<{
     current: number;
     max: number;
@@ -124,7 +113,6 @@ const CreateOrderPage = () => {
     canTake: boolean;
   } | null>(null);
 
-  // ✅ Charger le quota de l'aidant si c'est un aidant
   useEffect(() => {
     if (isAidant && user) {
       fetchAidantQuota();
@@ -159,7 +147,6 @@ const CreateOrderPage = () => {
     }
   };
 
-  // ✅ Message d'information sur l'abonnement
   const subscriptionInfo = (() => {
     if (isAidant || isAdminOrCoordinator) return null;
     
@@ -189,26 +176,20 @@ const CreateOrderPage = () => {
     };
   })();
 
-  // ✅ Calcul du prix ponctuel
   const getPonctualPrice = (): number => {
     return getPonctualOrderPriceByType(formData.type, formData.items);
   };
 
-  // ✅ Vérifier si l'aidant peut prendre une commande
   const canTakeOrder = (): boolean => {
     if (!isAidant) return true;
     if (!aidantQuota) return true;
     return aidantQuota.canTake;
   };
 
-  // =============================================
-  // EFFETS : CHARGEMENT ET SAUVEGARDE
-  // =============================================
   useEffect(() => {
     fetchPatients();
   }, []);
 
-  // ✅ EMPÊCHER LE RECHARGEMENT AUTOMATIQUE
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -237,7 +218,6 @@ const CreateOrderPage = () => {
     };
   }, [formData]);
 
-  // ✅ SAUVEGARDE AUTOMATIQUE EN SESSIONSTORAGE
   useEffect(() => {
     const saveFormData = () => {
       try {
@@ -286,9 +266,6 @@ const CreateOrderPage = () => {
     };
   }, []);
 
-  // =============================================
-  // GESTION DES FICHIERS
-  // =============================================
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -316,9 +293,6 @@ const CreateOrderPage = () => {
     }
   };
 
-  // =============================================
-  // GESTION DES ARTICLES
-  // =============================================
   const addItem = () => {
     setFormData({
       ...formData,
@@ -350,9 +324,6 @@ const CreateOrderPage = () => {
     });
   };
 
-  // =============================================
-  // VALIDATION DES DONNÉES
-  // =============================================
   const validateOrderData = (): boolean => {
     if (!formData.description || formData.description.trim() === '') {
       toast.error('Veuillez ajouter une description');
@@ -373,9 +344,6 @@ const CreateOrderPage = () => {
     return true;
   };
 
-  // =============================================
-  // PRÉPARER LES DONNÉES DE LA COMMANDE
-  // =============================================
   const prepareOrderData = async () => {
     if (!validateOrderData()) return null;
 
@@ -511,7 +479,7 @@ const CreateOrderPage = () => {
         ? profile?.full_name || 'Personnel'
         : selectedPatientObj ? `${selectedPatientObj.first_name} ${selectedPatientObj.last_name}` : 'Patient';
 
-      await createOrder({
+      const result = await createOrder({
         patient_id: targetType === 'patient' ? targetPatientId : null,
         type: formData.type as any,
         description: formData.description.trim(),
@@ -528,10 +496,16 @@ const CreateOrderPage = () => {
       toast.success('Commande créée avec succès (décomptée de votre abonnement)');
       sessionStorage.removeItem('create_order_form');
       isRedirecting.current = true;
-      navigate('/app/orders');
+
+      // ✅ REDIRECTION SMART DIRECTEMENT VERS LA FICHE DÉTAILLÉE DE LA COMMANDE
+      if (result?.id) {
+        navigate(`/app/orders/${result.id}`);
+      } else {
+        navigate('/app/orders');
+      }
     } catch (error) {
       console.error('❌ Erreur création:', error);
-      toast.error('Erreur lors de la création');
+      toast.error('Erreur lors de la création de la commande');
     } finally {
       setIsUploading(false);
     }
