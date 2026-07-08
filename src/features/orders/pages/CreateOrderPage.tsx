@@ -7,13 +7,11 @@ import {
   ShoppingBag,
   User,
   MapPin,
-  Package,
   Camera,
   X,
   Trash2,
   Plus,
   FileImage,
-  ShieldCheck,
   ClipboardList,
   ArrowRight,
   CreditCard,
@@ -22,8 +20,6 @@ import {
   Loader2,
   AlertCircle,
   Users,
-  Clock,
-  UserCheck,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -38,8 +34,10 @@ import { ORDER_TYPES, getPonctualOrderPriceByType } from '@/lib/constants';
 
 import { OrderItem } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { Illustration } from '@/components/ui/Illustration';
+import { extractCoordinatesFromGoogleMaps } from '@/utils/helpers';
 import toast from 'react-hot-toast';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
@@ -74,7 +72,7 @@ const CreateOrderPage = () => {
       isRedirecting.current = true;
       sessionStorage.removeItem('create_order_form');
       navigate('/app/orders');
-      toast.success('Commande créée avec succès !');
+      toast.success('Commande créée après paiement !');
     },
     redirectPath: '/app/orders',
   });
@@ -91,6 +89,8 @@ const CreateOrderPage = () => {
     type: 'medicaments',
     description: '',
     address: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     estimated_amount: '',
     items: [{ name: '', quantity: 1, price: 0, total: 0 }] as OrderItem[],
   });
@@ -98,6 +98,7 @@ const CreateOrderPage = () => {
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
   const [prescriptionPreview, setPrescriptionPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isResolvingGps, setIsResolvingGps] = useState(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -191,17 +192,8 @@ const CreateOrderPage = () => {
   }, []);
 
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        console.log('👀 Onglet caché');
-      } else {
-        console.log('👀 Onglet visible - pas de rechargement');
-      }
-    };
-
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isRedirecting.current) return;
-      
       if (formData.description.trim() || formData.items.some(item => item.name.trim())) {
         e.preventDefault();
         e.returnValue = 'Vous avez des données non sauvegardées. Voulez-vous vraiment quitter ?';
@@ -209,62 +201,61 @@ const CreateOrderPage = () => {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [formData]);
 
-  useEffect(() => {
-    const saveFormData = () => {
-      try {
-        sessionStorage.setItem('create_order_form', JSON.stringify({
-          formData,
-          prescriptionPreview,
-          orderType,
-          targetType,
-          targetPatientId,
-          timestamp: Date.now(),
-        }));
-      } catch (e) {
-        console.warn('Erreur sauvegarde formulaire:', e);
-      }
-    };
+  // ✅ ANALYSER ET LIRE LES LIENS GOOGLE MAPS LORS DE LA SAISIE DE L'ADRESSE
+  const handleAddressChange = async (value: string) => {
+    setFormData(prev => ({ ...prev, address: value, latitude: null, longitude: null }));
 
-    const interval = setInterval(saveFormData, 5000);
-    window.addEventListener('beforeunload', saveFormData);
+    // 1️⃣ Cas A: Lien Google Maps classique (long) ou coordonnées brutes
+    const coords = extractCoordinatesFromGoogleMaps(value);
+    if (coords) {
+      setFormData(prev => ({
+        ...prev,
+        latitude: coords.lat,
+        longitude: coords.lng
+      }));
+      toast.success(`📍 Position GPS synchronisée : ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+      return;
+    }
 
-    const restoreFormData = () => {
+    // 2️⃣ Cas B: Lien Google Maps mobile raccourci (maps.app.goo.gl)
+    if (value.includes('maps.app.goo.gl')) {
+      setIsResolvingGps(true);
       try {
-        const saved = sessionStorage.getItem('create_order_form');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Date.now() - parsed.timestamp < 30 * 60 * 1000) {
-            setFormData(parsed.formData);
-            setPrescriptionPreview(parsed.prescriptionPreview || null);
-            setOrderType(parsed.orderType || (canUseSubscription() ? 'subscription' : 'ponctual'));
-            setTargetType(parsed.targetType || 'personal');
-            setTargetPatientId(parsed.targetPatientId || '');
-            console.log('📦 Formulaire restauré depuis sessionStorage');
-          } else {
-            sessionStorage.removeItem('create_order_form');
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        const response = await fetch(`${API_URL}/billing/resolve-maps`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ url: value.trim() })
+        });
+
+        const result = await response.json();
+        if (result.success && result.finalUrl) {
+          const resolvedCoords = extractCoordinatesFromGoogleMaps(result.finalUrl);
+          if (resolvedCoords) {
+            setFormData(prev => ({
+              ...prev,
+              latitude: resolvedCoords.lat,
+              longitude: resolvedCoords.lng
+            }));
+            toast.success(`📍 Position GPS synchronisée : ${resolvedCoords.lat.toFixed(4)}, ${resolvedCoords.lng.toFixed(4)}`);
           }
         }
-      } catch (e) {
-        console.warn('Erreur restauration formulaire:', e);
+      } catch (err) {
+        console.warn('Impossible de résoudre le lien court en direct:', err);
+      } finally {
+        setIsResolvingGps(false);
       }
-    };
-
-    restoreFormData();
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('beforeunload', saveFormData);
-    };
-  }, []);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -364,10 +355,7 @@ const CreateOrderPage = () => {
         return null;
       }
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('orders').getPublicUrl(filePath);
-
+      const { data: { publicUrl } } = supabase.storage.from('orders').getPublicUrl(filePath);
       prescriptionUrl = publicUrl;
     }
 
@@ -391,6 +379,8 @@ const CreateOrderPage = () => {
       type: formData.type as any,
       description: formData.description.trim(),
       address: formData.address.trim(),
+      latitude: formData.latitude, // ✅ TRANSMISSION DE LA POSITION GPS DÉCODÉE
+      longitude: formData.longitude, // ✅ TRANSMISSION DE LA POSITION GPS DÉCODÉE
       estimated_amount: finalEstimatedAmount || null,
       items: validItems,
       prescription_url: prescriptionUrl,
@@ -422,7 +412,7 @@ const CreateOrderPage = () => {
     e.preventDefault();
 
     if (isAidant && !canTakeOrder()) {
-      toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours (maximum ${aidantQuota?.max || 2})`);
+      toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours`);
       return;
     }
 
@@ -484,6 +474,8 @@ const CreateOrderPage = () => {
         type: formData.type as any,
         description: formData.description.trim(),
         address: formData.address.trim(),
+        latitude: formData.latitude, // ✅ TRANSMISSION GPS
+        longitude: formData.longitude, // ✅ TRANSMISSION GPS
         estimated_amount: finalEstimatedAmount || null,
         items: validItems,
         prescription_url: prescriptionUrl,
@@ -493,11 +485,10 @@ const CreateOrderPage = () => {
         target_name: finalTargetName,
       });
 
-      toast.success('Commande créée avec succès (décomptée de votre abonnement)');
+      toast.success('Commande créée avec succès !');
       sessionStorage.removeItem('create_order_form');
       isRedirecting.current = true;
 
-      // ✅ REDIRECTION SMART DIRECTEMENT VERS LA FICHE DÉTAILLÉE DE LA COMMANDE
       if (result?.id) {
         navigate(`/app/orders/${result.id}`);
       } else {
@@ -511,11 +502,10 @@ const CreateOrderPage = () => {
     }
   };
 
-  const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
+  const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading || isResolvingGps;
   const selectedPatientObj = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
   const itemsTotal = formData.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
   const finalEstimatedAmount = formData.estimated_amount ? parseFloat(formData.estimated_amount) : itemsTotal;
-  const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
   const hasPatients = patients.length > 0;
 
   return (
@@ -647,17 +637,35 @@ const CreateOrderPage = () => {
           </section>
 
           {/* INFOS COMPLEMENTAIRES */}
-          <ModernPanel icon={<ClipboardList size={20} />} title="Informations complémentaires" subtitle="Renseignez l'adresse de livraison et la description." color={colors.primary}>
+          <ModernPanel icon={<ClipboardList size={20} />} title="Informations complémentaires" subtitle="Renseignez l'adresse de livraison (ou lien Google Maps) et la description." color={colors.primary}>
             <div className="space-y-4">
               <Field label="Description" required color={colors.text}>
                 <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50 resize-none" style={{ borderColor: colors.border || '#e5e0d8' }} rows={3} placeholder="Détaillez votre commande..." required />
               </Field>
 
-              <Field label="Adresse de livraison" required color={colors.text}>
+              <Field label="Adresse de livraison ou Lien Google Maps" required color={colors.text}>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
-                  <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full pl-10 pr-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50" style={{ borderColor: colors.border || '#e5e0d8' }} placeholder="Adresse complète..." required />
+                  <input 
+                    type="text" 
+                    value={formData.address} 
+                    onChange={(e) => handleAddressChange(e.target.value)} 
+                    className="w-full pl-10 pr-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50" 
+                    style={{ borderColor: colors.border || '#e5e0d8' }} 
+                    placeholder="Adresse ou collez un lien Google Maps..." 
+                    required 
+                  />
+                  {isResolvingGps && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="animate-spin text-gray-400" size={16} />
+                    </div>
+                  )}
                 </div>
+                {formData.latitude && formData.longitude && (
+                  <p className="text-[10px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
+                    ✓ Coordonnées GPS synchronisées : {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                  </p>
+                )}
               </Field>
             </div>
           </ModernPanel>
