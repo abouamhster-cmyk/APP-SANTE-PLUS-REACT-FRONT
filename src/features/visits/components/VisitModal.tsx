@@ -1,6 +1,7 @@
-// 📁 src/features/visits/components/VisitModal.tsx
-
+// 📁 frontend/src/features/visits/components/VisitModal.tsx
+ 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Visit, Patient } from '@/types';
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { VisitModalContent } from './VisitModalContent';
@@ -15,7 +16,7 @@ interface VisitModalProps {
   mode: 'create' | 'edit';
   visit: Visit | null;
   patients: Patient[];
-  onSuccess: (result?: any) => void; // ✅ Acceptation du paramètre optionnel result
+  onSuccess: (result?: any) => void; 
 }
 
 export const VisitModal = ({
@@ -26,6 +27,7 @@ export const VisitModal = ({
   patients,
   onSuccess,
 }: VisitModalProps) => {
+  const navigate = useNavigate();
   const colors = getThemeColors('senior');
 
   // ✅ ÉTATS POUR LE WIZARD
@@ -41,7 +43,7 @@ export const VisitModal = ({
     setShowWizard(true);
   };
 
-  // ✅ SUCCÈS DU WIZARD
+  // ✅ SUCCÈS DU WIZARD AVEC REDIRECTION ET FEEDBACK UTILISATEUR CIBLÉ SANS DOUBLE TOAST
   const handleWizardSuccess = async (wizardResult: any) => {
     try {
       const { createVisit } = useVisitStore.getState();
@@ -58,7 +60,6 @@ export const VisitModal = ({
       
       const result = await createVisit(visitPayload);
       
-      // ✅ TOAST DE CONFIRMATION UNIQUE ET PRÉCIS (Le parent n'en affichera pas de doublon)
       if (result?.status === 'brouillon') {
         toast.success('💳 Visite créée en brouillon. Redirection vers le paiement...');
       } else if (result?.status === 'en_attente_aidant') {
@@ -71,8 +72,12 @@ export const VisitModal = ({
       setWizardData(null);
       setPendingVisitData(null);
 
-      // ✅ TRANSMETTRE LE RÉSULTAT AU PARENT (pour déclencher le paiement ou fermer proprement)
-      onSuccess(result);
+      // Si la visite est planifiée, on redirige directement vers sa fiche détaillée
+      if (result && result.status !== 'brouillon' && result.id) {
+        navigate(`/app/visits/${result.id}`);
+      }
+
+      onSuccess(result); 
     } catch (error: any) {
       console.error('❌ Erreur création visite avec wizard:', error);
       toast.error(error.message || 'Erreur lors de la création');
@@ -80,12 +85,19 @@ export const VisitModal = ({
     }
   };
 
-  // ✅ FERMETURE DU WIZARD
   const handleWizardClose = () => {
-    console.log('🔄 [VisitModal] Fermeture du wizard');
     setShowWizard(false);
     setWizardData(null);
     setPendingVisitData(null);
+  };
+
+  // ✅ REDIRECTION INTELLIGENTE CIBLÉE SUR LA FICHE DÉTAILLÉE DE LA VISITE APRÈS VALIDATION DU FORMULAIRE STANDARD
+  const handleSuccess = (result?: any) => {
+    onClose();
+    if (result && result.status !== 'brouillon' && result.id) {
+      navigate(`/app/visits/${result.id}`);
+    }
+    onSuccess(result);
   };
 
   return (
@@ -101,9 +113,9 @@ export const VisitModal = ({
           mode={mode}
           visit={visit}
           patients={patients}
-          onSuccess={onSuccess} // ✅ Transmet le résultat de création
+          onSuccess={handleSuccess} 
           onCancel={onClose}
-          onOpenWizard={handleOpenWizard} // ✅ Transmettre la fonction pour ouvrir le wizard
+          onOpenWizard={handleOpenWizard} 
         />
       </ModalFullScreen>
 
