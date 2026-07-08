@@ -69,7 +69,6 @@ export const VisitModalContent = ({
   const { createVisit, updateVisit } = useVisitStore();
   const { profile, role, user } = useAuthStore();
 
-  // ✅ Utiliser le guard d'abonnement
   const {
     hasActiveSubscription,
     remainingVisits,
@@ -88,7 +87,6 @@ export const VisitModalContent = ({
     getCategoryLabel,
   } = useTerminology();
 
-  // ✅ ÉTATS POUR LA GESTION DES COMPTES
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showAccountSelector, setShowAccountSelector] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,7 +108,6 @@ export const VisitModalContent = ({
   const isFamilyUser = isFamily;
   const isAidant = isAidantRole;
 
-  // ✅ Message d'information sur l'abonnement
   const subscriptionMessage = (() => {
     if (isAidant || isAdmin) return null;
 
@@ -137,10 +134,8 @@ export const VisitModalContent = ({
     };
   })();
 
-  // ✅ Prix ponctuel selon la durée
   const ponctualPrice = getPonctualPrice(formData.duration_minutes || 60);
 
-  // ✅ Charger les comptes pour l'admin
   useEffect(() => {
     if (isAdmin) {
       fetchAccounts();
@@ -226,10 +221,6 @@ export const VisitModalContent = ({
     account.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ============================================================
-  // ✅ SOUMISSION DU FORMULAIRE
-  // ============================================================
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -252,7 +243,6 @@ export const VisitModalContent = ({
         requested_by: profile?.id,
       };
 
-      // ✅ CAS 1: Visite pour un proche (patient)
       if (targetType === 'patient' && formData.patient_id) {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -274,9 +264,7 @@ export const VisitModalContent = ({
         data.target_user_id = accountId;
         data.target_type = 'patient';
         data.target_name = null;
-      }
-      // ✅ CAS 2: Visite pour le compte lui-même (personnel) - AUCUN BLOCAGE RESTRICTIF
-      else {
+      } else {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
           toast.error('Compte utilisateur introuvable');
@@ -291,7 +279,6 @@ export const VisitModalContent = ({
         data.patient_id = null;
       }
 
-      // ✅ Déterminer si un paiement ponctuel est nécessaire
       if (isFamilyUser && !can('visit')) {
         data.is_ponctual = true;
         data.requires_payment = true;
@@ -304,6 +291,7 @@ export const VisitModalContent = ({
         try {
           const result = await createVisit(data);
           
+          // ✅ ENREGISTRER DES TOASTS EXPLICITES AVANT DE PASSER LA MAIN AU MODAL PARENT
           if (result?.status === 'brouillon') {
             const price = getPonctualPrice(formData.duration_minutes || 60);
             toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis.`);
@@ -317,7 +305,6 @@ export const VisitModalContent = ({
         } catch (error: any) {
           console.error('❌ Erreur création visite (catch interne):', error);
           
-          // ✅ CORRECTIF DE SÉCURITÉ DE PLANIFICATION WIZARD (Intercepte le 422 Client ET le 400 Serveur)
           const errorData = error.response?.data;
           const isWizardRequired = 
             (error.response?.status === 422 && errorData?.wizard_required) ||
@@ -347,7 +334,7 @@ export const VisitModalContent = ({
         }
       } else if (visit) {
         await updateVisit(visit.id, data);
-        toast.success('Visite mise à jour');
+        toast.success('Visite mise à jour avec succès !');
         onSuccess();
       }
     } catch (error: any) {
@@ -357,10 +344,6 @@ export const VisitModalContent = ({
       setIsLoading(false);
     }
   };
-
-  // ============================================================
-  // RENDU DES SÉLECTEURS
-  // ============================================================
 
   const renderAccountSelector = () => {
     if (!isAdmin) return null;
@@ -432,7 +415,7 @@ export const VisitModalContent = ({
                       </p>
                       <p className="text-[10px] text-gray-400 truncate mt-0.5">
                         {account.has_patient
-                          ? `👨‍👩‍👦 ${account.patients.length} proche(s)`
+                          ? `👨‍👩‍ ${account.patients.length} proche(s)`
                           : '👤 Compte personnel'}
                       </p>
                     </div>
@@ -677,31 +660,14 @@ export const VisitModalContent = ({
     );
   };
 
-  // ============================================================
-  // RENDU PRINCIPAL
-  // ============================================================
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full overflow-hidden">
-
-      {/* 🔹 ADMIN : Sélection de compte */}
       {isAdmin && renderAccountSelector()}
-
-      {/* 🔹 ADMIN : Sélecteur de type d'allocation */}
       {isAdmin && renderTargetTypeSelector()}
-
-      {/* 🔹 FAMILLE/AIDANT : Sélection standard */}
       {!isAdmin && renderFamilyContent()}
-
-      {/* 🔹 Sélection proche (si "patient" sélectionné) */}
       {renderPatientSelector()}
-
-      {/* 🔹 Résumé destinataire de la visite */}
       {renderTargetSummary()}
 
-      {/* ============================================================
-      ✅ BANDEAU D'INFORMATION ABONNEMENT (FAMILLE UNIQUEMENT)
-      ============================================================ */}
       {isFamilyUser && subscriptionMessage && (
         <div
           className={`p-3 rounded-xl flex items-start gap-2.5 border ${
@@ -739,9 +705,6 @@ export const VisitModalContent = ({
         </div>
       )}
 
-      {/* ============================================================
-      BANDEAU POUR AIDANT
-      ============================================================ */}
       {isAidant && (
         <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
           <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
@@ -752,7 +715,6 @@ export const VisitModalContent = ({
         </div>
       )}
 
-      {/* 🔹 Grille Date et Heure */}
       <div className="grid grid-cols-2 gap-3 w-full min-w-0">
         <div className="space-y-1 min-w-0">
           <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Date *</label>
@@ -794,7 +756,6 @@ export const VisitModalContent = ({
         </div>
       </div>
 
-      {/* 🔹 Durée */}
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Durée estimée</label>
         <select
@@ -815,7 +776,6 @@ export const VisitModalContent = ({
         </select>
       </div>
 
-      {/* 🔹 Notes */}
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Notes de préparation</label>
         <textarea
@@ -832,7 +792,6 @@ export const VisitModalContent = ({
         />
       </div>
 
-      {/* 🔹 Urgence */}
       <div className="flex items-center gap-2 pt-1">
         <input
           type="checkbox"
@@ -847,7 +806,6 @@ export const VisitModalContent = ({
         </label>
       </div>
 
-      {/* 🔹 Boutons actions */}
       <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
         <button
           type="button"
