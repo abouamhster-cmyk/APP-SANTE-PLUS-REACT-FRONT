@@ -31,6 +31,9 @@ import {
   AlertCircle,
   ChevronRight,
   ChevronLeft,
+  TrendingUp,    
+  Compass,       
+  Lightbulb,   
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -50,6 +53,7 @@ import toast from 'react-hot-toast';
 
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
+import { PatientCard } from '@/components/patients/PatientCard'; 
 
 // =============================================
 // TYPES ET INTERFACES INTERNES
@@ -965,6 +969,39 @@ const DashboardPage = () => {
         </section>
       )}
 
+      {/* EMPTY STATE PROACTIF */}
+      {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
+        <section className="bg-white rounded-3xl p-6 text-center border border-gray-100/50">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
+            <Lightbulb size={22} style={{ color: colors.primary }} />
+          </div>
+          <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
+            Commencez à utiliser Santé Plus
+          </h3>
+          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto leading-relaxed">
+            Planifiez votre première visite ou passez une commande de fournitures de santé pour découvrir nos services.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3 mt-4">
+            <button
+              onClick={() => navigate('/app/visits')}
+              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm shadow-purple-50"
+              style={{ background: colors.primary }}
+            >
+              <Calendar size={13} />
+              Planifier une visite
+            </button>
+            <button
+              onClick={() => navigate('/app/orders/create')}
+              className="px-4 py-2 rounded-xl font-bold text-xs border transition-all hover:bg-gray-50 flex items-center gap-1.5"
+              style={{ borderColor: colors.border, color: colors.text }}
+            >
+              <ShoppingBag size={13} />
+              Nouvelle commande
+            </button>
+          </div>
+        </section>
+      )}
+
     </div>
   );
 };
@@ -1052,3 +1089,5 @@ const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }
 };
 
 export default DashboardPage;
+
+ 
