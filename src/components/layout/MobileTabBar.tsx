@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
   Users,
+  FileText,
   Calendar,
   User,
   Settings,
