@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/components/VisitModalContent.tsx
-
+ 
 import { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -74,7 +74,6 @@ export const VisitModalContent = ({
     hasActiveSubscription,
     remainingVisits,
     can,
-    getActionMessage,
     isFamily,
     isAidant: isAidantRole,
     isAdminOrCoordinator,
@@ -86,7 +85,6 @@ export const VisitModalContent = ({
 
   const {
     singular,
-    plural,
     getCategoryLabel,
   } = useTerminology();
 
@@ -229,7 +227,7 @@ export const VisitModalContent = ({
   );
 
   // ============================================================
-  // ✅ SOUMISSION DU FORMULAIRE - CORRIGÉE
+  // ✅ SOUMISSION DU FORMULAIRE
   // ============================================================
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -254,7 +252,7 @@ export const VisitModalContent = ({
         requested_by: profile?.id,
       };
 
-      // ✅ CAS 1: Visite pour un patient
+      // ✅ CAS 1: Visite pour un proche (patient)
       if (targetType === 'patient' && formData.patient_id) {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -266,7 +264,7 @@ export const VisitModalContent = ({
         if (isAdmin && selectedAccount) {
           const patientBelongsToAccount = selectedAccount.patients.some(p => p.id === formData.patient_id);
           if (!patientBelongsToAccount) {
-            toast.error('Ce patient n\'appartient pas au compte sélectionné');
+            toast.error('Ce proche n\'appartient pas au compte sélectionné');
             setIsLoading(false);
             return;
           }
@@ -277,7 +275,7 @@ export const VisitModalContent = ({
         data.target_type = 'patient';
         data.target_name = null;
       }
-      // ✅ CAS 2: Visite pour le compte lui-même (personnel)
+      // ✅ CAS 2: Visite pour le compte lui-même (personnel) - AUCUN BLOCAGE RESTRICTIF
       else {
         const accountId = isAdmin ? selectedAccountId : profile?.id;
         if (!accountId) {
@@ -293,7 +291,7 @@ export const VisitModalContent = ({
         data.patient_id = null;
       }
 
-      // ✅ DÉTERMINER SI PAIEMENT REQUIS (BACKEND LE FERA AUSSI)
+      // ✅ Déterminer si un paiement ponctuel est nécessaire
       if (isFamilyUser && !can('visit')) {
         data.is_ponctual = true;
         data.requires_payment = true;
@@ -306,7 +304,6 @@ export const VisitModalContent = ({
         try {
           const result = await createVisit(data);
           
-          // ✅ Un seul toast de confirmation unique géré ici (pour éviter les chevauchements)
           if (result?.status === 'brouillon') {
             const price = getPonctualPrice(formData.duration_minutes || 60);
             toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis.`);
@@ -318,20 +315,24 @@ export const VisitModalContent = ({
           
           onSuccess(result);
         } catch (error: any) {
-          console.error('❌ Erreur création visite:', error);
+          console.error('❌ Erreur création visite (catch interne):', error);
           
-          // ✅ Vérifier si c'est une erreur de wizard (422 avec wizard_required)
-          if (error.response?.status === 422 && error.response?.data?.wizard_required) {
-            const wizardDataObj = error.response.data;
-            console.log('🔄 Ouverture du wizard avec les données:', wizardDataObj);
+          // ✅ CORRECTIF DE SÉCURITÉ DE PLANIFICATION WIZARD (Intercepte le 422 Client ET le 400 Serveur)
+          const errorData = error.response?.data;
+          const isWizardRequired = 
+            (error.response?.status === 422 && errorData?.wizard_required) ||
+            (error.response?.status === 400 && errorData?.code === 'WIZARD_REQUIRED');
+
+          if (isWizardRequired) {
+            const wizardObj = errorData?.wizard || errorData;
+            console.log('🔄 Ouverture du wizard avec les données complétées:', wizardObj);
             
-            // ✅ Appeler la fonction du parent pour ouvrir le wizard
             if (onOpenWizard) {
               onOpenWizard(data, {
-                targetType: wizardDataObj.targetType || 'personal_account',
-                targetId: wizardDataObj.targetId || user?.id,
-                targetName: wizardDataObj.targetName || 'Personnel',
-                familyId: wizardDataObj.familyId || user?.id,
+                targetType: wizardObj.targetType || (targetType === 'patient' ? 'patient' : 'personal_account'),
+                targetId: wizardObj.targetId || (targetType === 'patient' ? formData.patient_id : selectedAccountId),
+                targetName: wizardObj.targetName || (targetType === 'patient' ? selectedAccount?.patients.find(p => p.id === formData.patient_id)?.first_name : selectedAccount?.full_name),
+                familyId: wizardObj.familyId || selectedAccountId,
                 scheduledDate: data.scheduled_date,
                 scheduledTime: data.scheduled_time,
               });
@@ -341,7 +342,7 @@ export const VisitModalContent = ({
             return;
           }
           
-          toast.error(error?.message || 'Erreur lors de la création');
+          toast.error(errorData?.error || error?.message || 'Erreur lors de la création');
           setIsLoading(false);
         }
       } else if (visit) {
@@ -350,7 +351,7 @@ export const VisitModalContent = ({
         onSuccess();
       }
     } catch (error: any) {
-      console.error('❌ Erreur visite:', error);
+      console.error('❌ Erreur externe visite:', error);
       toast.error(error?.message || 'Erreur lors de l\'enregistrement');
     } finally {
       setIsLoading(false);
@@ -433,7 +434,6 @@ export const VisitModalContent = ({
                         {account.has_patient
                           ? `👨‍👩‍👦 ${account.patients.length} proche(s)`
                           : '👤 Compte personnel'}
-                        {account.patient_category === 'maman_bebe' && ' 👶'}
                       </p>
                     </div>
                     {selectedAccountId === account.id && (
@@ -505,7 +505,7 @@ export const VisitModalContent = ({
               <span>Un proche</span>
             </div>
             <span className="text-[9px] opacity-75 truncate">
-              {selectedAccount.patients.length} proche{selectedAccount.patients.length > 1 ? 's' : ''} associé{selectedAccount.patients.length > 1 ? 's' : ''}
+              {selectedAccount.patients.length} proche(s) associé(s)
             </span>
           </button>
         </div>
@@ -537,7 +537,7 @@ export const VisitModalContent = ({
     return (
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
-          {isFamilyUser ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire'} *
+          Proche associé *
         </label>
         <div className="relative">
           <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
@@ -552,18 +552,14 @@ export const VisitModalContent = ({
             }}
             required={targetType === 'patient'}
           >
-            <option value="">Sélectionner un{singular.startsWith('béné') ? ' ' : 'e '}{singular}</option>
+            <option value="">Sélectionner un proche</option>
             {patientList.map((patient) => (
               <option key={patient.id} value={patient.id}>
                 {patient.first_name} {patient.last_name} - {getCategoryLabel(patient.category)}
-                {patient.status === 'active' ? '' : ' (inactif)'}
               </option>
             ))}
           </select>
         </div>
-        <p className="text-[9px] text-gray-400 mt-0.5">
-          {patientList.length} {singular}{patientList.length > 1 ? 's' : ''} disponible{patientList.length > 1 ? 's' : ''}
-        </p>
       </div>
     );
   };
@@ -587,7 +583,7 @@ export const VisitModalContent = ({
               {targetName}
             </p>
             <p className="text-[10px] text-gray-400 mt-0.5">
-              {isAccount ? '👤 Planification pour votre propre compte.' : `👨‍👩‍👦 Planification d'une visite pour votre proche.`}
+              {isAccount ? '👤 Planification pour votre propre compte personnel.' : `👨‍👩‍👦 Planification d'une visite pour votre proche.`}
             </p>
           </div>
         </div>
@@ -613,13 +609,8 @@ export const VisitModalContent = ({
           <p className="text-[10px] text-gray-400 mt-0.5">
             {isAccount
               ? `👤 Planification pour le titulaire principal de ${selectedAccount.full_name}.`
-              : `👨‍👩‍👦 Planification pour un membre du compte de ${selectedAccount.full_name}.`}
+              : `👨‍👩‍👦 Planification pour un proche lié au compte de ${selectedAccount.full_name}.`}
           </p>
-          {!isAccount && accountPatients.length > 0 && (
-            <p className="text-[8px] text-gray-400 mt-0.5">
-              {accountPatients.length} proche{accountPatients.length > 1 ? 's' : ''} disponible{accountPatients.length > 1 ? 's' : ''}
-            </p>
-          )}
         </div>
       </div>
     );
@@ -673,20 +664,13 @@ export const VisitModalContent = ({
             }}
           >
             <Users size={14} />
-            <span className="truncate">
-              {isFamilyUser ? 'Proche' : isAidant ? 'Bénéficiaire' : 'Bénéficiaire'}
-            </span>
+            <span className="truncate">Un proche</span>
           </button>
         </div>
         {!hasPatients && (
           <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
             <UserCircle size={11} className="shrink-0" />
-            Aucun proche enregistré. Option personnelle active par défaut.
-          </p>
-        )}
-        {hasPatients && (
-          <p className="text-[9px] text-gray-400 mt-1">
-            {patients.length} {singular}{patients.length > 1 ? 's' : ''} disponible{patients.length > 1 ? 's' : ''}
+            Aucun proche enregistré. Choix personnel actif par défaut.
           </p>
         )}
       </div>
@@ -709,10 +693,10 @@ export const VisitModalContent = ({
       {/* 🔹 FAMILLE/AIDANT : Sélection standard */}
       {!isAdmin && renderFamilyContent()}
 
-      {/* 🔹 Sélection patient (si "proche" sélectionné) */}
+      {/* 🔹 Sélection proche (si "patient" sélectionné) */}
       {renderPatientSelector()}
 
-      {/* 🔹 Résumé destinataire de la visite (Unifié) */}
+      {/* 🔹 Résumé destinataire de la visite */}
       {renderTargetSummary()}
 
       {/* ============================================================
@@ -743,12 +727,12 @@ export const VisitModalContent = ({
             </p>
             {!hasActiveSubscription && (
               <p className="text-[10px] text-blue-600 mt-0.5">
-                💳 Prix ponctuel : {ponctualPrice.toLocaleString()} FCFA pour {formData.duration_minutes} min
+                💳 Tarif ponctuel : {ponctualPrice.toLocaleString()} FCFA
               </p>
             )}
             {hasActiveSubscription && remainingVisits === 0 && (
               <p className="text-[10px] text-yellow-600 mt-0.5">
-                💳 Prix ponctuel : {ponctualPrice.toLocaleString()} FCFA pour {formData.duration_minutes} min
+                💳 Tarif ponctuel : {ponctualPrice.toLocaleString()} FCFA
               </p>
             )}
           </div>
@@ -756,14 +740,14 @@ export const VisitModalContent = ({
       )}
 
       {/* ============================================================
-      BANDEAU POUR AIDANT (info sur la notification)
+      BANDEAU POUR AIDANT
       ============================================================ */}
       {isAidant && (
         <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
           <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
           <div>
             <p className="text-xs font-medium text-blue-700">En tant qu'aidant, vous serez notifié de cette visite</p>
-            <p className="text-[10px] text-blue-600">Une fois la visite approuvée, elle apparaîtra dans votre planning.</p>
+            <p className="text-[10px] text-blue-600">Une fois approuvée, elle s'ajoutera à votre planning de missions.</p>
           </div>
         </div>
       )}
@@ -829,16 +813,11 @@ export const VisitModalContent = ({
           <option value="90">1h30</option>
           <option value="120">2 heures</option>
         </select>
-        {isFamilyUser && !hasActiveSubscription && (
-          <p className="text-[10px] text-gray-400 mt-1">
-            💳 Prix ponctuel : {ponctualPrice.toLocaleString()} FCFA
-          </p>
-        )}
       </div>
 
       {/* 🔹 Notes */}
       <div className="space-y-1">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Notes complémentaires</label>
+        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Notes de préparation</label>
         <textarea
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
