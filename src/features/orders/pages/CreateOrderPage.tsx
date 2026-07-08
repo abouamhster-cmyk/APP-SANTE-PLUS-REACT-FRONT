@@ -9,6 +9,7 @@ import {
   MapPin,
   Camera,
   X,
+  Package, 
   Trash2,
   Plus,
   FileImage,
