@@ -70,7 +70,7 @@ interface Patient {
 interface Assignment {
   id: string;
   aidant_user_id: string;
-  target_type: 'patient' | 'personal_account' | 'family';
+  target_type: 'patient' | 'personal_account' | 'family' | 'personal';
   target_id: string;
   assignment_type: string;
   status: string;
@@ -175,7 +175,7 @@ const PatientsPage = () => {
   const isAdmin = isAdminOrCoordinator;
 
   // ============================================================
-  // CHARGEMENT SYNCHRONE DES DONNÉES DE L'ADMIN
+  // CHARGEMENT SYNCHRONE ET ALIGNÉ DES DONNÉES DE L'ADMIN
   // ============================================================
 
   const fetchAllData = useCallback(async () => {
@@ -187,7 +187,18 @@ const PatientsPage = () => {
     setIsLoadingAssignments(true);
     try {
       await fetchPatients(true);
+
+      // ✅ 1. CHARGER EXPLICITEMENT LES COMPTES FAMILLES
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, patient_category')
+        .eq('role', 'family')
+        .order('full_name');
+
+      if (profilesError) throw profilesError;
+      setFamilyAccounts(profilesData || []);
       
+      // ✅ 2. CHARGER LES AIDANTS SÉLECTIONNABLES
       const { data: aidantsData } = await supabase
         .from('aidants')
         .select('*')
@@ -210,6 +221,7 @@ const PatientsPage = () => {
         }))
       );
 
+      // ✅ 3. CHARGER TOUS LES PATIENTS ET LEURS LIENS
       const { data: patientsData } = await supabase
         .from('patients')
         .select('id, first_name, last_name, category, patient_family_links(family_id)');
@@ -224,12 +236,18 @@ const PatientsPage = () => {
         }))
       );
 
+      // ✅ 4. CHARGER ET MAPPER LES ASSIGNATIONS ACTIVES UNIQUEMENT
       const response = await assignmentAPI.adminGetAll();
       const assignmentsData = response.data?.data || [];
       const mapAssign: any = {};
+      
       assignmentsData?.forEach((a: any) => {
         const key = `${a.target_type}_${a.target_id}`;
-        mapAssign[key] = a;
+        
+        // ✅ FILTRE STRUCTURÉ : On ne mappe que les assignations physiquement actives
+        if (a.status === 'active') {
+          mapAssign[key] = a;
+        }
       });
       setAssignmentsMap(mapAssign);
 
@@ -242,14 +260,15 @@ const PatientsPage = () => {
   }, [isAdmin, fetchPatients]);
 
   // ============================================================
-  // DECOUPE DES DONNEES PAR SÉCURITÉ DE RÔLE
+  // CONSTITUTION DES ITEMS D'AFFICHAGE ET RACCORDEMENT DES CLEFS
   // ============================================================
 
-const assignmentItems = useMemo(() => {
+  const assignmentItems = useMemo(() => {
     if (!isAdmin) return [];
 
     return familyAccounts.flatMap(family => {
-      const accountKey = `personal_account_${family.id}`;
+      // ✅ ALIGNEMENT CLÉ DE RECHERCHE : 'personal_FAMILY_ID' pour correspondre au retour de l'API
+      const accountKey = `personal_${family.id}`;
       const accountAssignment = assignmentsMap[accountKey];
 
       let accountAidantName = '';
@@ -258,7 +277,7 @@ const assignmentItems = useMemo(() => {
         accountAidantName = aidant?.user?.full_name || 'Aidant';
       }
 
-       const accountItem: AssignmentItem = {
+      const accountItem: AssignmentItem = {
         id: accountKey,
         type: 'account',
         familyId: family.id,
@@ -267,7 +286,7 @@ const assignmentItems = useMemo(() => {
         targetName: `${family.full_name}`,
         targetType: 'personal_account',
         category: 'personal',
-        isPersonal: true, // <--- C'est ici que ça manquait
+        isPersonal: true, 
         priority: 2,
         assignedAidantUserId: accountAssignment?.aidant_user_id || undefined,
         assignedAidantName: accountAidantName,
@@ -655,9 +674,7 @@ const assignmentItems = useMemo(() => {
   return (
     <div className="w-full max-w-5xl mx-auto space-y-5 pb-32 px-4 sm:px-6">
       
-      {/* ============================================================
-          EN-TÊTE DE SECTION PREMIUM SANS BOUTON REDONDANT S'IL N'Y A AUCUN PROCHE
-          ============================================================ */}
+      {/* HEADER */}
       <section className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="min-w-0">
           <div
@@ -699,7 +716,6 @@ const assignmentItems = useMemo(() => {
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
 
-          {/* ✅ COHÉRENCE UX 1 : LE BOUTON D'EN-TÊTE S'AFFICHE UNIQUEMENT SUR DESKTOP ET S'IL Y A DÉJÀ AU MOINS UN PROCHE */}
           {canManage && !isAdmin && patients.length > 0 && (
             <button
               onClick={handleAdd}
@@ -720,9 +736,7 @@ const assignmentItems = useMemo(() => {
         </div>
       </section>
 
-      {/* ============================================================
-          METRICS CARDS (ADMIN)
-          ============================================================ */}
+      {/* METRICS CARDS (ADMIN) */}
       {isAdmin && (
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
           <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5 flex items-center gap-3">
@@ -756,9 +770,7 @@ const assignmentItems = useMemo(() => {
         </section>
       )}
 
-      {/* ============================================================
-          RECHERCHE ET FILTRAGE COMPACT
-          ============================================================ */}
+      {/* RECHERCHE ET FILTRAGE COMPACT */}
       <section className="bg-white rounded-[2rem] p-3 shadow-sm border border-black/5 flex flex-col md:flex-row gap-3 w-full min-w-0">
         <div className="relative flex-1 min-w-0 w-full">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -784,9 +796,7 @@ const assignmentItems = useMemo(() => {
         </select>
       </section>
 
-      {/* ============================================================
-          BARRE D'ATTRIBUTION ADMINISTRATIVE (ADMIN)
-          ============================================================ */}
+      {/* BARRE D'ATTRIBUTION ADMINISTRATIVE (ADMIN) */}
       {isAdmin && stats.totalBeneficiaires > 0 && (
         <section className="bg-white rounded-[2rem] p-4 shadow-sm border border-black/5 space-y-3">
           <div className="flex items-center gap-2 mb-1 border-b pb-2 dark:border-gray-100">
@@ -838,15 +848,13 @@ const assignmentItems = useMemo(() => {
         </section>
       )}
 
-      {/* ============================================================
-          PANNEAU SYNCHRONISATION AIDANTS
-          ============================================================ */}
+      {/* PANNEAU SYNCHRONISATION AIDANTS */}
       {isAidant && (
         <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
           <div className="min-w-0">
             <p className="text-xs font-bold text-amber-900">Mise à jour de vos attributions d'accès</p>
             <p className="text-[10px] text-amber-600 mt-0.5">
-              Si vous venez d'être rattaché à un nouveau patient par le coordinateur, cliquez pour synchroniser.
+              Si vous venez d\'être rattaché à un nouveau patient par le coordinateur, cliquez pour synchroniser.
             </p>
           </div>
           
@@ -862,14 +870,8 @@ const assignmentItems = useMemo(() => {
         </div>
       )}
 
-      {/* ============================================================
-          AFFICHAGE DU CONTENU CENTRAL RESPONSIVE
-          ============================================================ */}
-
+      {/* AFFICHAGE DU CONTENU CENTRAL */}
       {isAdmin ? (
-        // ==========================================
-        // 👔 VUE ADMINISTRATEUR COMPACTE & ACCORDÉON
-        // ==========================================
         Object.keys(grouped).length === 0 ? (
           <section className="bg-white rounded-[2rem] py-16 px-4 text-center border border-black/5">
             <Illustration 
@@ -912,108 +914,75 @@ const assignmentItems = useMemo(() => {
                           <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border">
                             {familyItems.filter((i: AssignmentItem) => i.type === 'patient').length} proche(s)
                           </span>
-                          {hasUnassigned && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-bold border border-amber-100 flex items-center gap-1 animate-pulse">
-                              <AlertCircle size={10} />
-                              {familyItems.filter((i: AssignmentItem) => !i.assignedAidantUserId).length} en attente
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
-                    <span className="text-[10px] text-gray-400 font-black shrink-0 hidden sm:inline-block">
-                      {familyItems.filter((i: AssignmentItem) => i.assignedAidantUserId).length} / {familyItems.length} Rattaché(s)
-                    </span>
                   </div>
 
-                  {/* LISTE INTÉRIEURE SÉCURISÉE */}
+                  {/* CORPS DE L'ACCORDÉON */}
                   {isExpanded && (
-                    <div className="px-5 pb-4 space-y-3 relative">
-                      <div className="absolute left-[33px] top-0 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-800/60 z-0" />
-                      
+                    <div className="border-t divide-y dark:divide-[#2c3f35]" style={{ borderColor: colors.border + '30' }}>
                       {familyItems.map((item: AssignmentItem) => {
                         const isAssigned = !!item.assignedAidantUserId;
-                        const isAccount = item.type === 'account';
-                        const categoryColor = getCategoryColor(item.category);
-                        const categoryLabel = getCategoryLabel(item.category);
-                        const isProcessingItem = processingId === item.id;
 
                         return (
-                          <div 
-                            key={item.id} 
-                            className="pl-8 relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gray-50/50 hover:bg-gray-50 rounded-2xl border border-transparent hover:border-gray-100 transition-all"
-                          >
-                            <div className="absolute left-[13.5px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-gray-200 bg-white dark:bg-gray-800 z-10" />
-
-                            <div className="flex items-start gap-2.5 min-w-0">
-                              <div className="shrink-0 mt-0.5">
-                                {item.priority === 1 ? (
-                                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">PATIENT</span>
-                                ) : (
-                                  <span className="text-[9px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">TITULAIRE</span>
-                                )}
-                              </div>
-
-                              <div className="min-w-0 space-y-1">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-extrabold text-xs sm:text-sm text-gray-800 truncate" style={{ color: colors.text }}>
-                                    {item.targetName}
-                                  </span>
-                                  <span 
-                                    className="text-[9px] px-1.5 py-0.5 rounded-full font-bold tracking-wide uppercase shrink-0"
-                                    style={{ background: categoryColor + '15', color: categoryColor }}
-                                  >
-                                    {categoryLabel}
-                                  </span>
-                                  {isAssigned && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 shrink-0 flex items-center gap-0.5">
-                                      <CheckCircle size={10} />
-                                      🦸 Rattaché à {item.assignedAidantName}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[10px] text-gray-400 font-medium truncate">
-                                  {isAccount ? 'Compte principal de facturation' : `Proche de ${item.familyName}`}
-                                  {item.assignmentType && (
-                                    <span className="ml-1 opacity-80">
-                                      ({ASSIGNMENT_TYPES.find(t => t.value === item.assignmentType)?.label || item.assignmentType})
-                                    </span>
-                                  )}
+                          <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3 bg-white dark:bg-[#17231d]/30">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={cn(
+                                  "text-[10px] font-bold px-2 py-0.5 rounded border",
+                                  item.isPersonal 
+                                    ? "text-blue-600 bg-blue-50/50 border-blue-100" 
+                                    : "text-emerald-600 bg-emerald-50/50 border-emerald-100"
+                                )}>
+                                  {item.isPersonal ? '👤 TITULAIRE' : '👶 PROCHE'}
+                                </span>
+                                <p className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
+                                  {item.targetName}
                                 </p>
                               </div>
+                              
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {item.isPersonal ? 'Compte de facturation' : `Proche — ${getCategoryLabel(item.category)}`}
+                              </p>
+
+                              {/* Affichage de l'aidant assigné */}
+                              {isAssigned && (
+                                <p className="text-xs text-emerald-600 font-bold mt-1.5 flex items-center gap-1.5">
+                                  <CheckCircle size={14} className="text-emerald-500" />
+                                  <span>Rattaché à : <strong>{item.assignedAidantName}</strong> ({item.assignmentType === 'primary' ? 'Permanent' : 'Temporaire'})</span>
+                                </p>
+                              )}
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                            {/* Actions d'assignation */}
+                            <div className="flex items-center gap-2 shrink-0">
                               {isAssigned ? (
                                 <button
-                                  onClick={() => handleRevoke(item)}
-                                  disabled={isProcessingItem || isProcessing}
-                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-red-500 bg-white border border-red-100 shadow-sm hover:bg-red-50 hover:text-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                  onClick={(e) => handleRevoke(item)}
+                                  disabled={isProcessing}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-red-500 font-bold text-xs bg-red-50 hover:bg-red-100 transition border border-red-100"
                                 >
-                                  {isProcessingItem ? (
-                                    <Loader2 size={13} className="animate-spin" />
+                                  {processingId === item.id ? (
+                                    <Loader2 className="animate-spin" size={14} />
                                   ) : (
-                                    <UserMinus size={13} />
+                                    <UserMinus size={14} />
                                   )}
-                                  {isProcessingItem ? 'Traitement...' : 'Désassigner'}
+                                  <span>Dérattacher</span>
                                 </button>
                               ) : (
                                 <button
-                                  onClick={() => handleAssign(item)}
-                                  disabled={!selectedAidant || isProcessingItem || isProcessing}
-                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition hover:opacity-85 disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-                                  style={{ 
-                                    background: (!selectedAidant || isProcessingItem || isProcessing) 
-                                      ? '#cbd5e1' 
-                                      : colors.primary 
-                                  }}
+                                  onClick={(e) => handleAssign(item)}
+                                  disabled={!selectedAidant || isProcessing}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 disabled:opacity-55 disabled:cursor-not-allowed shadow-md"
+                                  style={{ background: (!selectedAidant || isProcessing) ? '#cbd5e1' : colors.primary }}
                                 >
-                                  {isProcessingItem ? (
-                                    <Loader2 size={13} className="animate-spin" />
+                                  {processingId === item.id ? (
+                                    <Loader2 className="animate-spin" size={14} />
                                   ) : (
-                                    <UserPlus size={13} />
+                                    <UserPlus size={14} />
                                   )}
-                                  {isProcessingItem ? 'Traitement...' : 'Assigner'}
+                                  <span>Rattacher l'aidant</span>
                                 </button>
                               )}
                             </div>
@@ -1028,9 +997,7 @@ const assignmentItems = useMemo(() => {
           </div>
         )
       ) : (
-        // ==========================================
-        // 👨‍👩‍👦 VUE COMPTE FAMILLE / AIDANT (GRILLE DE CARTES)
-        // ==========================================
+        // 👨‍👩‍👦 VUE COMPTE FAMILLE / AIDANT
         filteredPatients.length > 0 ? (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full min-w-0">
             {filteredPatients.map((patient: any) => (
@@ -1062,7 +1029,6 @@ const assignmentItems = useMemo(() => {
               {searchTerm || categoryFilter !== 'all' ? 'Essayez d\'ajuster vos mots-clés ou de réinitialiser le filtre.' : emptyAction}
             </p>
 
-            {/* ✅ COHÉRENCE EXPLICITE DES BOUTONS DE CRÉATION POUR LES COMPTES FAMILLES */}
             {searchTerm || categoryFilter !== 'all' ? (
               <button
                 onClick={() => {
@@ -1075,7 +1041,6 @@ const assignmentItems = useMemo(() => {
                 Réinitialiser la recherche
               </button>
             ) : (
-              // ✅ COHÉRENCE UX 2 : LE BOUTON D'AJOUT SEULEMENT S'IL N'Y A AUCUN PROCHE
               canManage && (
                 <button
                   onClick={handleAdd}
@@ -1091,9 +1056,7 @@ const assignmentItems = useMemo(() => {
         )
       )}
 
-      {/* ============================================================
-          LÉGENDE COMPACTE DE PRIORISATION (ADMIN)
-          ============================================================ */}
+      {/* LÉGENDE DE PRIORISATION */}
       {isAdmin && Object.keys(grouped).length > 0 && (
         <div className="bg-white rounded-2xl p-3 border border-black/5 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex flex-wrap items-center gap-3 text-[10px]">
@@ -1108,9 +1071,6 @@ const assignmentItems = useMemo(() => {
         </div>
       )}
 
-      {/* ============================================================
-          ACCÈS RAPIDE FLOTTANT MOBILE (FAMILLES) S'IL Y A AU MOINS UN PROCHE
-          ============================================================ */}
       {canManage && !isAdmin && patients.length > 0 && (
         <button
           onClick={handleAdd}
@@ -1122,7 +1082,6 @@ const assignmentItems = useMemo(() => {
         </button>
       )}
 
-      {/* MODAL AJOUT/EDITION PATIENT */}
       <PatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
