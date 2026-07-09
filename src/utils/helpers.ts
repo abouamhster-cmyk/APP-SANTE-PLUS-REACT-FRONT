@@ -35,7 +35,7 @@ export const formatDate = (date: string | Date) => {
         year: 'numeric',
       });
     }
-    
+
     const dRaw = new Date(date);
     if (!isNaN(dRaw.getTime())) {
       return dRaw.toLocaleDateString('fr-FR', {
@@ -169,7 +169,7 @@ export const formatPhoneNumber = (phone: string) => {
     return cleaned.replace(/(\d{2})(\d{2})(\d{2})(\d{2})/, '+229 $1 $2 $3 $4');
   }
   if (cleaned.length === 10) {
-    return cleaned.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '+$1 $2 $3 $4 $5');
+    return cleaned.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '+1 $2 $3 $4 $5');
   }
   return phone;
 };
@@ -242,7 +242,6 @@ export const getStatusLabel = (status: string): string => {
 // =============================================
 // VISITE DISPLAY HELPERS
 // =============================================
-
 export const getVisitDisplayName = (visit: Visit | null | undefined): string => {
   if (!visit) return 'Visite';
   if (visit.patient) {
@@ -304,7 +303,6 @@ export const getVisitDisplayAidant = (visit: Visit | null | undefined): string =
 // =============================================
 // BROUILLON HELPERS (VISITES PONCTUELLES)
 // =============================================
-
 export const isVisitDraft = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'brouillon';
@@ -380,7 +378,6 @@ export const canPayVisitPonctual = (
 // =============================================
 // COMMANDE HELPERS
 // =============================================
-
 export const isOrderPendingPayment = (order: any | null | undefined): boolean => {
   if (!order) return false;
   return order.status === 'attente_paiement';
@@ -420,7 +417,6 @@ export const getOrderPaymentAmount = (order: any | null | undefined): number => 
 // =============================================
 // VISITE STATUS HELPERS
 // =============================================
-
 export const isVisitCompleted = (visit: Visit | null | undefined): boolean => {
   if (!visit) return false;
   return visit.status === 'terminee';
@@ -467,11 +463,10 @@ export const isVisitPonctualMode = (visit: Visit | null | undefined): boolean =>
 // =============================================
 // ABONNEMENT HELPERS
 // =============================================
-
 export const isSubscriptionActive = (subscription: any | null | undefined): boolean => {
   if (!subscription) return false;
   if (subscription.status !== 'actif') return false;
-  
+
   const today = new Date();
   const endDate = new Date(subscription.end_date);
   return endDate >= today;
@@ -492,7 +487,6 @@ export const hasAvailableOrders = (subscription: any | null | undefined): boolea
 // =============================================
 // SOFT DELETE
 // =============================================
-
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const softDeleteVisit = async (visitId: string): Promise<boolean> => {
@@ -522,7 +516,7 @@ export const softDeleteVisit = async (visitId: string): Promise<boolean> => {
 };
 
 // ============================================================
-// ✅ NOUVEAU : DECODEUR GPS GOOGLE MAPS UNIFIÉ (Long / Brut)
+// ✅ UNIQUE : DECODEUR GPS GOOGLE MAPS CORRIGÉ & ENCAPSULÉ
 // ============================================================
 export const extractCoordinatesFromGoogleMaps = (text: string): { lat: number; lng: number } | null => {
   if (!text) return null;
@@ -530,7 +524,7 @@ export const extractCoordinatesFromGoogleMaps = (text: string): { lat: number; l
   // Pattern 1: Détecte "@latitude,longitude" (Format classique Google Maps bureau)
   const regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
   
-  // Pattern 2: Détecte "q=latitude,longitude" (Format classique mobile/recherche)
+  // Pattern 2: Détecte "q=latitude,longitude" ou daddr/saddr/ll (Format mobile/recherche)
   const regexQuery = /[?&](?:q|query|saddr|daddr|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/;
   
   // Pattern 3: Détecte deux nombres décimaux séparés par une virgule "latitude, longitude"
@@ -557,7 +551,6 @@ export const extractCoordinatesFromGoogleMaps = (text: string): { lat: number; l
 // =============================================
 // EXPORT PAR DÉFAUT
 // =============================================
-
 export default {
   cn,
   formatDate,
