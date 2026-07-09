@@ -146,7 +146,6 @@ const MissionsPage = () => {
           return;
         }
 
-        // ✅ CORRECTION: Vérification de sécurité unifiée et sécurisée
         const isVerified = profileData?.is_active === true &&
           profileData?.role === 'aidant' &&
           aidant?.is_verified === true &&
@@ -328,18 +327,18 @@ const MissionsPage = () => {
 
   const getStatusColor = (status: string) => {
     const map: Record<string, string> = {
-      planifiee: '#4CAF50',
-      en_attente: '#FF9800',
-      acceptee: '#2196F3',
-      en_cours: '#2196F3',
-      terminee: '#9C27B0',
-      validee: '#4CAF50',
-      annulee: '#F44336',
-      refusee: '#F44336',
-      expire: '#795548',
-      creee: '#9E9E9E',
-      disponible: '#F44336',
-      livree: '#2196F3',
+      planifiee: '#10B981',
+      en_attente: '#F59E0B',
+      acceptee: '#3B82F6',
+      en_cours: '#3B82F6',
+      terminee: '#8B5CF6',
+      validee: '#10B981',
+      annulee: '#EF4444',
+      refusee: '#EF4444',
+      expire: '#6B7280',
+      creee: '#6B7280',
+      disponible: '#EF4444',
+      livree: '#3B82F6',
       attente_paiement: '#8b5cf6',
     };
     return map[status] || '#9E9E9E';
@@ -373,7 +372,7 @@ const MissionsPage = () => {
       <div className="flex items-center justify-center min-h-[300px]">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm" style={{ color: colors.text }}>Vérification...</p>
+          <p className="text-sm font-semibold" style={{ color: colors.text }}>Vérification des droits...</p>
         </div>
       </div>
     );
@@ -382,21 +381,21 @@ const MissionsPage = () => {
   if (!isVerified) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] text-center p-4">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: colors.primary + '15' }}>
-          <ShieldAlert size={32} style={{ color: colors.primary }} />
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-100">
+          <ShieldAlert size={30} className="text-amber-600" />
         </div>
-        <h2 className="text-lg font-bold" style={{ color: colors.text }}>
-          ⏳ Compte en attente de validation
+        <h2 className="text-base font-black text-gray-800 dark:text-gray-100">
+          ⏳ Compte en cours d'homologation
         </h2>
-        <p className="text-xs max-w-sm" style={{ color: colors.text + '70' }}>
-          Votre compte aidant est en cours de vérification. Vous recevrez une notification sous 48h.
+        <p className="text-xs text-gray-500 max-w-sm mt-1 leading-relaxed">
+          Votre dossier d'intervenant est actuellement examiné par nos coordinateurs. Vous serez alerté dès sa validation.
         </p>
         <button
           onClick={() => navigate('/app/profile')}
-          className="mt-4 px-4 py-2 rounded-xl text-white text-sm font-medium"
+          className="mt-4 px-5 py-2.5 rounded-xl text-white text-xs font-bold transition shadow-sm hover:opacity-95"
           style={{ background: colors.primary }}
         >
-          Voir mon profil
+          Consulter mon profil
         </button>
       </div>
     );
@@ -405,7 +404,7 @@ const MissionsPage = () => {
   if (isLoading_) {
     return (
       <div className="space-y-6">
-        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
+        <div className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
@@ -473,18 +472,18 @@ const MissionsPage = () => {
       </section>
 
       {/* ============================================================
-          🆕 COMPACT BENTO ACTIVITY PANEL (MÊME LIGNE D'ACTIVITÉ MODERNE GRID-3)
+          WIDGET BENTO D'ACTIVITÉ MODERNE DE L'INTERVENANT
           ============================================================ */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
         {/* Bento Card 1 : Accompagnements */}
         <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Visites</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Visites</span>
             <Calendar size={13} className="text-emerald-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none truncate">
-              {stats.missions.total} planifiés
+              {stats.missions.total} planifiées
             </p>
             <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
               {stats.missions.pending} à valider
@@ -493,9 +492,9 @@ const MissionsPage = () => {
         </div>
 
         {/* Bento Card 2 : Livraisons rattachées */}
-        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
+        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100/80 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Courses</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Courses</span>
             <ShoppingBag size={13} className="text-blue-500 shrink-0" />
           </div>
           <div className="min-w-0">
@@ -511,11 +510,11 @@ const MissionsPage = () => {
         {/* Bento Card 3 : Courses urgentes disponibles */}
         <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Dispos</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Dispos</span>
             <AlertCircle size={13} className="text-amber-500 shrink-0 animate-pulse" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black text-gray-900 dark:text-white leading-none truncate">
+            <p className="text-sm font-black text-gray-950 dark:text-white leading-none truncate">
               {stats.canTakeCount} urgentes
             </p>
             <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
@@ -710,22 +709,28 @@ const MissionItemCompact = ({
   if (isMission) {
     return (
       <div
-        className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 cursor-pointer hover:shadow-md transition-all duration-200"
+        className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 cursor-pointer hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
         onClick={onView}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-3.5 min-w-0">
+          {/* Liseré vertical dynamique épuré au lieu d'une bordure brute */}
+          <div 
+            className="w-1 h-10 rounded-full shrink-0" 
+            style={{ backgroundColor: getStatusColor(item.status) }} 
+          />
+
+          <div className="min-w-0 space-y-0.5">
             <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Accompagnement d'aide</span>
-            <p className="font-extrabold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
+            <p className="font-extrabold text-sm text-gray-900 dark:text-gray-100 truncate">
               {item.patient?.first_name} {item.patient?.last_name}
             </p>
-            <div className="flex items-center gap-1.5 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
               <span className="flex items-center gap-0.5">
-                <Calendar size={11} /> {formatDate(item.scheduled_date)}
+                <Calendar size={11} className="text-gray-400" /> {formatDate(item.scheduled_date)}
               </span>
               <span>•</span>
               <span className="flex items-center gap-0.5">
-                <Clock size={11} /> {formatTime(item.scheduled_time)}
+                <Clock size={11} className="text-gray-400" /> {formatTime(item.scheduled_time)}
               </span>
               <span
                 className="px-1.5 py-0.5 rounded text-[10px] font-bold"
@@ -737,53 +742,51 @@ const MissionItemCompact = ({
                 {getStatusLabel(item.status)}
               </span>
               {item.is_urgent && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-100/35">
                   ⚠️ Urgent
                 </span>
               )}
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            {isPending && (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onApprove(); }}
-                  className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm hover:opacity-90"
-                  style={{ background: '#4CAF50' }}
-                  title="Approuver"
-                >
-                  <CheckCircle size={14} />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onRefuse(); }}
-                  className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm hover:opacity-90"
-                  style={{ background: '#F44336' }}
-                  title="Refuser"
-                >
-                  <XCircle size={14} />
-                </button>
-              </>
-            )}
-
-            {isAccepted && (
+        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+          {isPending && (
+            <>
               <button
-                onClick={(e) => { e.stopPropagation(); onStart(); }}
-                className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm hover:opacity-90"
-                style={{ background: '#4CAF50' }}
-                title="Démarrer l'itinéraire"
+                onClick={(e) => { e.stopPropagation(); onApprove(); }}
+                className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm hover:opacity-90 transition-all bg-emerald-500"
+                title="Approuver"
               >
-                <Play size={14} fill="#ffffff" />
+                <CheckCircle size={14} />
               </button>
-            )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onRefuse(); }}
+                className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm hover:opacity-90 transition-all bg-red-500"
+                title="Refuser"
+              >
+                <XCircle size={14} />
+              </button>
+            </>
+          )}
 
+          {isAccepted && (
             <button
-              onClick={(e) => { e.stopPropagation(); onView(); }}
-              className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/20 text-gray-400 hover:text-gray-800 flex items-center justify-center"
+              onClick={(e) => { e.stopPropagation(); onStart(); }}
+              className="px-3.5 h-8 rounded-xl text-white flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm hover:opacity-90 transition-all bg-emerald-500"
+              title="Démarrer l'itinéraire"
             >
-              <Eye size={13} />
+              <Play size={12} fill="#ffffff" />
+              <span>Démarrer</span>
             </button>
-          </div>
+          )}
+
+          <button
+            onClick={(e) => { e.stopPropagation(); onView(); }}
+            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-850 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center transition-all"
+          >
+            <Eye size={13} />
+          </button>
         </div>
       </div>
     );
@@ -808,33 +811,41 @@ const MissionItemCompact = ({
       onClick={onView}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Livraison active</span>
-          <p className="font-extrabold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
-            📦 {item.description || 'Commande'}
-          </p>
-          <div className="flex items-center gap-1.5 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
-            <span className="flex items-center gap-0.5">
-              <User size={11} /> {getPatientName()}
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-0.5">
-              <Package size={11} /> {formatCurrency(item.estimated_amount || 0)}
-            </span>
-            <span
-              className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-              style={{
-                background: getStatusColor(item.status) + '12',
-                color: getStatusColor(item.status),
-              }}
-            >
-              {getStatusLabel(item.status)}
-            </span>
-            {item.status === 'disponible' && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 animate-pulse">
-                🚨 Urgent
+        <div className="flex items-center gap-3.5 min-w-0">
+          {/* Liseré vertical dynamique épuré */}
+          <div 
+            className="w-1 h-10 rounded-full shrink-0" 
+            style={{ backgroundColor: getStatusColor(item.status) }} 
+          />
+
+          <div className="min-w-0 space-y-0.5">
+            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Livraison active</span>
+            <p className="font-extrabold text-sm text-gray-900 dark:text-gray-100 truncate">
+              📦 {item.description || 'Commande'}
+            </p>
+            <div className="flex items-center gap-2 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-0.5">
+                <User size={11} className="text-gray-400" /> {getPatientName()}
               </span>
-            )}
+              <span>•</span>
+              <span className="flex items-center gap-0.5">
+                <Package size={11} className="text-gray-400" /> {formatCurrency(item.estimated_amount || 0)}
+              </span>
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                style={{
+                  background: getStatusColor(item.status) + '12',
+                  color: getStatusColor(item.status),
+                }}
+              >
+                {getStatusLabel(item.status)}
+              </span>
+              {item.status === 'disponible' && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 animate-pulse">
+                  🚨 Urgent
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -842,8 +853,8 @@ const MissionItemCompact = ({
           {isAvailable && (
             <button
               onClick={(e) => { e.stopPropagation(); onTakeOrder(); }}
-              className="px-3 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center justify-center gap-1 shadow-sm hover:opacity-90"
-              style={{ background: item.status === 'disponible' ? '#F44336' : '#FF9800' }}
+              className="px-3.5 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm hover:opacity-90 transition-all"
+              style={{ background: item.status === 'disponible' ? '#EF4444' : '#F59E0B' }}
             >
               <Package size={12} />
               <span>Prendre</span>
@@ -853,8 +864,7 @@ const MissionItemCompact = ({
           {isAcceptedOrder && (
             <button
               onClick={(e) => { e.stopPropagation(); onDeliver(); }}
-              className="px-3 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase flex items-center justify-center gap-1 shadow-sm hover:opacity-90"
-              style={{ background: '#2196F3' }}
+              className="px-3.5 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm hover:opacity-90 transition-all bg-blue-500"
             >
               <Truck size={12} />
               <span>Livrer</span>
@@ -863,7 +873,7 @@ const MissionItemCompact = ({
 
           <button
             onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/20 text-gray-400 hover:text-gray-800 flex items-center justify-center"
+            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-850 text-gray-400 hover:text-gray-800 flex items-center justify-center transition-all"
           >
             <Eye size={13} />
           </button>
@@ -872,7 +882,7 @@ const MissionItemCompact = ({
 
       {/* Barre de progression simplifiée */}
       {item.status !== 'annulee' && item.status !== 'validee' && item.status !== 'attente_paiement' && (
-        <div className="mt-3 flex items-center gap-1">
+        <div className="mt-4 flex items-center gap-2 pl-4">
           {['creee', 'en_cours', 'livree'].map((status, index) => {
             const statusIndex = ['creee', 'en_cours', 'livree'].indexOf(status);
             const currentIndex = ['creee', 'en_cours', 'livree'].indexOf(item.status);
@@ -882,7 +892,7 @@ const MissionItemCompact = ({
               <div key={status} className="flex items-center flex-1">
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
-                    isDone ? 'text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+                    isDone ? "text-white" : "bg-gray-100 text-gray-400 dark:bg-gray-800"
                   }`}
                   style={{ background: isDone ? colors.primary : undefined }}
                 >
@@ -890,8 +900,8 @@ const MissionItemCompact = ({
                 </div>
                 {index < 2 && (
                   <div
-                    className={`flex-1 h-0.5 mx-0.5 transition-all ${
-                      isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-100 dark:bg-[#1c2a21]'
+                    className={`flex-1 h-0.5 mx-1 transition-all ${
+                      isDone && currentIndex > statusIndex ? "bg-green-500" : "bg-gray-100 dark:bg-gray-800"
                     }`}
                   />
                 )}
