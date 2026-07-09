@@ -51,6 +51,38 @@ import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
+// ============================================================
+// ✅ HELPERS LOCAUX PLACÉS EN HAUT DE PAGE POUR ÉVITER TS2304 (HOISTING)
+// ============================================================
+
+const getStatusLabel = (status: string): string => {
+  const map: Record<string, string> = {
+    creee: 'Créée',
+    en_attente: 'En attente',
+    disponible: 'Disponible (urgent)',
+    en_cours: 'En cours',
+    livree: 'Livrée',
+    validee: 'Validée',
+    annulee: 'Annulée',
+    attente_paiement: 'En attente paiement',
+  };
+  return map[status] || status;
+};
+
+const getStatusColor = (status: string): string => {
+  const colors: Record<string, string> = {
+    creee: '#9E9E9E',
+    en_attente: '#FF9800',
+    disponible: '#F44336',
+    en_cours: '#2196F3',
+    livree: '#2196F3',
+    validee: '#4CAF50',
+    annulee: '#9E9E9E',
+    attente_paiement: '#8b5cf6',
+  };
+  return colors[status] || '#9E9E9E';
+};
+
 // =============================================
 // SOUS-COMPOSANTS
 // =============================================
@@ -255,7 +287,7 @@ const OrderDetailPage = () => {
   const modalRef = useRef<HTMLDivElement>(null);
 
   // ============================================================
-  // ✅ SUIVI GPS & CARTE DE LIVRAISON EN DIRECT
+  // ✅ SUIVI GPS & CARTE DE LIVRAISON EN DIRECT (CORRIGÉ DU TYPAGE METADATA)
   // ============================================================
   const { startOrderTracking, stopOrderTracking, trackingActive, route } = useOrderTracking(id);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
@@ -345,8 +377,8 @@ const OrderDetailPage = () => {
     });
     L.marker([destLat, destLng], { icon: destIcon }).addTo(routeLayer).bindPopup("<b>Lieu de livraison de la commande</b>");
 
-    // Trajectoire en direct
-    const trackPoints = currentOrder.metadata?.location_track || route || [];
+    // Trajectoire en direct (Résolution de TS2339 en convertissant en any pour l'accès à metadata)
+    const trackPoints = (currentOrder as any).metadata?.location_track || route || [];
     if (trackPoints.length > 0) {
       const coords = trackPoints.map((p: any) => [p.lat, p.lng]);
       
@@ -728,7 +760,7 @@ const OrderDetailPage = () => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold" style={{ color: colors.text }}>
-                💳 Paiement requis pour finaliser la commande
+                💳 Paiement requis pour valiser la commande
               </p>
               <p className="text-[11px] font-medium mt-0.5" style={{ color: colors.text + '70' }}>
                 Montant : <strong style={{ color: colors.primary }}>{formatCurrency(order.estimated_amount || 0)}</strong>
