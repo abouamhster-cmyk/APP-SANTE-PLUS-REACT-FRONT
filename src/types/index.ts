@@ -279,6 +279,10 @@ export interface Visit {
   admin_assigned_at?: string | null;
   waiting_for_aidant_since?: string | null;
   subscription_id?: string | null;
+  // ✅ CHAMPS ADRESSE / GPS
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export type VisitWithPatient = Visit;
