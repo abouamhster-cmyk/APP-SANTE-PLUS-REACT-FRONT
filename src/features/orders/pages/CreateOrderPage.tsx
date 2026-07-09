@@ -380,8 +380,8 @@ const CreateOrderPage = () => {
       type: formData.type as any,
       description: formData.description.trim(),
       address: formData.address.trim(),
-      latitude: formData.latitude, // ✅ TRANSMISSION DE LA POSITION GPS DÉCODÉE
-      longitude: formData.longitude, // ✅ TRANSMISSION DE LA POSITION GPS DÉCODÉE
+      latitude: formData.latitude,  
+      longitude: formData.longitude, 
       estimated_amount: finalEstimatedAmount || null,
       items: validItems,
       prescription_url: prescriptionUrl,
@@ -475,8 +475,8 @@ const CreateOrderPage = () => {
         type: formData.type as any,
         description: formData.description.trim(),
         address: formData.address.trim(),
-        latitude: formData.latitude, // ✅ TRANSMISSION GPS
-        longitude: formData.longitude, // ✅ TRANSMISSION GPS
+        latitude: formData.latitude, 
+        longitude: formData.longitude, 
         estimated_amount: finalEstimatedAmount || null,
         items: validItems,
         prescription_url: prescriptionUrl,
@@ -739,7 +739,7 @@ const CreateOrderPage = () => {
 };
 
 // =============================================
-// SOUS-COMPOSANTS LOGIQUES INTERNES SÉCURISÉS (RÉGULATION DES RE-RENDUS)
+// SOUS-COMPOSANTS LOGIQUES INTERNES SÉCURISÉS
 // =============================================
 
 interface ModernPanelProps {
