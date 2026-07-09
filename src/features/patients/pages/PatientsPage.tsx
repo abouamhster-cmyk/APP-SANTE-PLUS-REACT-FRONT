@@ -1,6 +1,6 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
  
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
@@ -179,6 +179,11 @@ export const PatientsPage = () => {
   const [modalType, setModalType] = useState('primary');
   const [modalForce, setModalForce] = useState(false);
 
+  // ÉTATS DE PULL-TO-REFRESH MOBILE
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const startTouchY = useRef(0);
+
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
   const canManage = canManagePatients();
   const isAdmin = isAdminOrCoordinator;
@@ -189,7 +194,7 @@ export const PatientsPage = () => {
 
   const fetchAllData = useCallback(async () => {
     if (!isAdmin) {
-      await fetchPatients();
+      await fetchPatients(true); // Force reload
       return;
     }
 
@@ -414,6 +419,50 @@ export const PatientsPage = () => {
   };
 
   // ============================================================
+  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  // ============================================================
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startTouchY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return;
+    const currentY = e.touches[0].clientY;
+    const diffY = currentY - startTouchY.current;
+
+    if (diffY > 0 && window.scrollY === 0) {
+      const resistance = Math.min(diffY * 0.38, 72);
+      setPullY(resistance);
+      if (e.cancelable) e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    setIsPulling(false);
+    if (pullY >= 50) {
+      toast.promise(
+        (async () => {
+          if (isAidant) {
+            await syncAidantPatients();
+          } else {
+            await fetchAllData();
+          }
+        })(),
+        {
+          loading: 'Actualisation des profils...',
+          success: 'Fiches synchronisées à jour !',
+          error: 'Échec de synchronisation.',
+        }
+      );
+    }
+    setPullY(0);
+  };
+
+  // ============================================================
   // GESTION DU MODAL D'ASSIGNATION CONTEXTUEL INDIVIDUEL
   // ============================================================
 
@@ -561,83 +610,12 @@ export const PatientsPage = () => {
     loadData();
   }, [role, user?.id]);
 
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      const { data: aidant, error: aidantError } = await supabase
-        .from('aidants')
-        .select('id, user_id, is_verified, status')
-        .eq('user_id', user?.id)
-        .single();
-      
-      if (aidantError || !aidant) {
-        toast.error('Fiche aidant introuvable.');
-        setIsSyncing(false);
-        return;
-      }
-
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('aidant_assignments')
-        .select('target_id, target_type')
-        .eq('aidant_user_id', aidant.user_id)
-        .eq('status', 'active')
-        .eq('target_type', 'patient');
-
-      if (assignmentsError) console.error(assignmentsError);
-
-      const patientIds = assignmentsData?.map(a => a.target_id).filter(Boolean) || [];
-
-      if (patientIds.length === 0) {
-        const { data: links, error: linksError } = await supabase
-          .from('patient_family_links')
-          .select('patient_id')
-          .eq('family_id', aidant.user_id);
-
-        if (!linksError && links) {
-          const ids = links.map(l => l.patient_id).filter(Boolean);
-          patientIds.push(...ids);
-        }
-      }
-
-      if (patientIds.length === 0) {
-        toast('Aucun bénéficiaire rattaché à votre compte.', { icon: '🦸' });
-        usePatientStore.setState({ patients: [] });
-        setIsSyncing(false);
-        return;
-      }
-
-      const { data: directPatients, error: patientsError } = await supabase
-        .from('patients')
-        .select('*')
-        .in('id', patientIds);
-      
-      if (patientsError) throw patientsError;
-
-      if (directPatients && directPatients.length > 0) {
-        usePatientStore.setState({ patients: directPatients });
-        toast.success(`${directPatients.length} patient(s) synchronisé(s) en direct !`);
-      } else {
-        toast('Aucune donnée active à synchroniser.', { icon: 'ℹ️' });
-        usePatientStore.setState({ patients: [] });
-      }
-    } catch (error) {
-      console.error('❌ Erreur synchronisation:', error);
-      toast.error('Erreur de synchronisation réseau');
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   const isLoading = patientsLoading || isLoadingAssignments;
 
   if (isLoading) {
     return (
       <div className="w-full max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#2c3f35]">
-          <div className="h-6 w-1/4 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse" />
-          <div className="h-10 w-24 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse" />
-        </div>
-        <div className="h-36 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
+        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[1, 2].map((i) => (
             <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800/30 rounded-2xl animate-pulse" />
@@ -651,55 +629,68 @@ export const PatientsPage = () => {
   const isSelectedAidantFull = modalSelectedAidantObj && (modalSelectedAidantObj.current_assignments >= modalSelectedAidantObj.max_assignments);
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6 pb-24 px-1 sm:px-0">
+    <div 
+      className="w-full max-w-5xl mx-auto space-y-6 pb-24 px-1 sm:px-0"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
       {/* ============================================================
-          HEADER ÉDITORIAL MODERNE ET APURAIL
+          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
           ============================================================ */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-[#2c3f35]">
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">
-            <Heart size={14} className="animate-pulse" />
-            <span>Portail d'accompagnement</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight" style={{ color: colors.text }}>
-            {isAdmin ? 'Membres & Attributions' : list}
+      <div 
+        className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
+        style={{ 
+          height: pullY > 0 ? `${pullY}px` : '0px',
+          opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
+        }}
+      >
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+          <RefreshCw 
+            size={13} 
+            className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
+            style={{ transform: pullY < 50 ? `rotate(${pullY * 3.6}deg)` : undefined }}
+          />
+          <span className="text-[10px] font-black uppercase tracking-wider">
+            {pullY >= 50 ? 'Relâcher pour actualiser' : 'Tirer pour rafraîchir'}
+          </span>
+        </div>
+      </div>
+
+      {/* ============================================================
+          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC (CENTRE UNIQUE)
+          ============================================================ */}
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+        <div className="space-y-1.5 relative z-10">
+          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+            {isAdmin ? 'Membres & Attributions' : 'Mes proches'}
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xl">
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
             {isAdmin 
-              ? 'Dossiers d’interventions, validation des proches et supervision des charges des aidants.' 
-              : 'Retrouvez les fiches de suivi de vos proches accompagnés.'}
+              ? 'Supervision complète des fiches d’interventions et charges des aidants.' 
+              : 'Retrouvez les fiches d’identité et de suivi de vos proches accompagnés.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+        {/* Bouton Plus d'intervenant pour ordinateurs de bureau */}
+        {canManage && !isAdmin && patients.length > 0 && (
           <button
-            onClick={refreshAll}
-            disabled={isRefreshing}
-            className="w-10 h-10 rounded-xl bg-white dark:bg-[#17231d] border border-gray-100 dark:border-[#2c3f35] flex items-center justify-center hover:bg-gray-50 dark:hover:bg-[#24362d] transition text-gray-500 shadow-sm"
+            onClick={handleAdd}
+            className="absolute top-4 right-4 h-8 px-3.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-white transition hover:opacity-90 flex items-center gap-1 shadow-sm"
+            style={{ background: colors.primary }}
           >
-            <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+            <Plus size={12} strokeWidth={2.5} />
+            {add}
           </button>
-
-          {canManage && !isAdmin && patients.length > 0 && (
-            <button
-              onClick={handleAdd}
-              className="inline-flex items-center justify-center gap-2 px-4 h-10 rounded-xl text-xs font-bold text-white hover:opacity-90 transition shadow-sm"
-              style={{ background: colors.primary }}
-            >
-              <Plus size={14} strokeWidth={2.5} />
-              {add}
-            </button>
-          )}
-        </div>
+        )}
       </section>
 
       {/* ============================================================
-          WIDGET BENTO D'ACTIVITÉ COHÉRENT (MÊMES FORMATS, MÊMES ESPACES)
+          WIDGET BENTO D'ACTIVITÉ MODERNE (ADMIN ONLY)
           ============================================================ */}
       {isAdmin && (
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Bento Card 1 */}
           <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Activité active</span>
@@ -711,7 +702,6 @@ export const PatientsPage = () => {
             </div>
           </div>
 
-          {/* Bento Card 2 */}
           <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Suivi d'attributions</span>
@@ -731,7 +721,6 @@ export const PatientsPage = () => {
             </div>
           </div>
 
-          {/* Bento Card 3 */}
           <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Foyers enregistrés</span>
@@ -773,25 +762,6 @@ export const PatientsPage = () => {
         </select>
       </section>
 
-      {/* SYNCHRONISATION AIDANTS */}
-      {isAidant && (
-        <div className="bg-amber-50/30 dark:bg-amber-950/10 rounded-xl p-4 border border-amber-100/60 dark:border-amber-900/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
-          <div className="space-y-0.5">
-            <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Mise à jour de vos attributions d'accès</p>
-            <p className="text-[10px] text-amber-600 dark:text-amber-400">Pour actualiser la liste des bénéficiaires rattachés à votre planning.</p>
-          </div>
-          
-          <button
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="px-4 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 bg-white dark:bg-[#1d2d25] text-amber-800 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/30 shadow-sm"
-          >
-            <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
-            Synchroniser
-          </button>
-        </div>
-      )}
-
       {/* ============================================================
           RENDU DES DOSSIERS EN GRILLE CARREE COHERENTE (ADMIN)
           ============================================================ */}
@@ -815,7 +785,6 @@ export const PatientsPage = () => {
                   key={familyId} 
                   className="bg-white dark:bg-[#17231d] rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm p-6 space-y-4 transition-all duration-300 hover:shadow-md"
                 >
-                  {/* Header du dossier */}
                   <div className="flex items-start justify-between gap-3 border-b border-gray-100/50 dark:border-gray-800/30 pb-4">
                     <div className="min-w-0">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Dossier de suivi</span>
@@ -834,7 +803,6 @@ export const PatientsPage = () => {
                     )}
                   </div>
 
-                  {/* Liste des membres */}
                   <div className="divide-y divide-gray-100/50 dark:divide-gray-800/30">
                     {familyItems.map((item: AssignmentItem, idx: number) => {
                       const isAssigned = !!item.assignedAidantUserId;
@@ -848,7 +816,6 @@ export const PatientsPage = () => {
                           className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            {/* Avatar initiales */}
                             <div 
                               className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-inner"
                               style={{ 
@@ -913,7 +880,9 @@ export const PatientsPage = () => {
           </div>
         )
       ) : (
-        /* VUE BÉNÉFICIAIRE / AIDANT EN GRILLE DE CARTES */
+        /* ============================================================
+            👨‍👩‍👦 VUE BÉNÉFICIAIRE / GRILLE POUR COMPTES FAMILLES
+            ============================================================ */
         filteredPatients.length > 0 ? (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPatients.map((patient: any) => (
@@ -930,21 +899,26 @@ export const PatientsPage = () => {
             ))}
           </section>
         ) : (
-          <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
-            <Illustration type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} size="md" className="mx-auto opacity-35" />
+          /* ============================================================
+              CADRE D'ÉCRAN VIDE PARFAITEMENT CENTRÉ
+              ============================================================ */
+          <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
+            <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400">
+              <Users size={20} />
+            </div>
             
             <div className="space-y-1">
-              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">{empty}</h3>
-              <p className="text-xs text-gray-400 dark:text-gray-400">{emptyAction}</p>
+              <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">{empty}</h3>
+              <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">{emptyAction}</p>
             </div>
 
             {canManage && (
               <button
                 onClick={handleAdd}
-                className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl text-white font-black text-xs transition hover:opacity-90 shadow-md"
+                className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
                 style={{ background: colors.primary }}
               >
-                <Plus size={14} />
+                <Plus size={13} strokeWidth={2.5} />
                 {add}
               </button>
             )}
@@ -952,14 +926,14 @@ export const PatientsPage = () => {
         )
       )}
 
-      {/* FOOTER SYNC STATUS */}
+      {/* FOOTER DISCRET */}
       {isAdmin && Object.keys(grouped).length > 0 && (
         <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold text-center pt-4 tracking-wide uppercase">
           🟢 Système d'attributions d'intervenants Santé Plus Services — Synchronisé
         </div>
       )}
 
-      {/* ACCÈS RAPIDE MOBILES */}
+      {/* BOUTON ACCÈS RAPIDE FLOTTANT (MOBILES UNIQUEMENT) */}
       {canManage && !isAdmin && patients.length > 0 && (
         <button
           onClick={handleAdd}
@@ -983,12 +957,11 @@ export const PatientsPage = () => {
           onClick={(e) => { if (e.target === e.currentTarget) setShowRowAssignModal(false); }}
         >
           <div className="bg-white dark:bg-[#17231d] rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 border border-gray-100 dark:border-gray-800/60 animate-fadeIn">
-            {/* Header */}
             <div className="flex items-start justify-between border-b border-gray-100 dark:border-gray-800/40 pb-4">
               <div className="space-y-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Rattachement administratif</span>
                 <h3 className="text-sm font-extrabold text-gray-800 dark:text-gray-100">Intervenant d'accompagnement</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Dossier : <strong className="text-gray-700 dark:text-gray-300 font-bold">{selectedItemToAssign.targetName}</strong></p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Dossier : <strong className="text-gray-700 dark:text-gray-300 font-bold">{selectedItemToAssign.targetName}</strong></p>
               </div>
               <button 
                 onClick={() => setShowRowAssignModal(false)}
@@ -998,10 +971,7 @@ export const PatientsPage = () => {
               </button>
             </div>
 
-            {/* Formulaire */}
             <div className="space-y-4">
-              
-              {/* Sélection */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Sélectionner un aidant qualifié</label>
                 <select
@@ -1022,7 +992,6 @@ export const PatientsPage = () => {
                 </select>
               </div>
 
-              {/* Statut de quota */}
               {modalSelectedAidantObj && (
                 <div className={cn(
                   "p-3 rounded-xl flex items-center justify-between border text-[11px] font-semibold transition-all",
@@ -1033,7 +1002,6 @@ export const PatientsPage = () => {
                 </div>
               )}
 
-              {/* Contrat */}
               <div className="space-y-1.5">
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Type de contrat d'accompagnement</label>
                 <select
@@ -1048,7 +1016,6 @@ export const PatientsPage = () => {
                 </select>
               </div>
 
-              {/* Option Forçage de quota */}
               {isSelectedAidantFull && (
                 <div className="p-4 bg-amber-50/40 dark:bg-amber-950/10 rounded-xl border border-amber-100/50 dark:border-amber-900/30 space-y-3">
                   <div className="flex items-start gap-2.5">
@@ -1071,10 +1038,8 @@ export const PatientsPage = () => {
                   </div>
                 </div>
               )}
-
             </div>
 
-            {/* Actions */}
             <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 dark:border-gray-800/40">
               <button
                 type="button"
