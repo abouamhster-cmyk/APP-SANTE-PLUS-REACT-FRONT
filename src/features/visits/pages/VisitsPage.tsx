@@ -1,6 +1,6 @@
 // 📁 frontend/src/features/visits/pages/VisitsPage.tsx
  
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
@@ -10,6 +10,8 @@ import {
   CheckCircle,
   Sparkles,
   Users,
+  RefreshCw,
+  X,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -26,6 +28,7 @@ import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 import { getPonctualPrice } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 // ✅ URL UNIQUE
@@ -79,7 +82,6 @@ const VisitsPage = () => {
   } = usePonctualPayment({
     onSuccess: () => {
       fetchVisits();
-      // ✅ UN SEUL TOAST
       toast.success('Visite planifiée après paiement !');
     },
     redirectPath: '/app/visits',
@@ -109,6 +111,11 @@ const VisitsPage = () => {
   // ✅ États pour l'assignation d'aidant
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedVisitForAssign, setSelectedVisitForAssign] = useState<any>(null);
+
+  // ÉTATS DE PULL-TO-REFRESH MOBILE
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const startTouchY = useRef(0);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -199,7 +206,6 @@ const VisitsPage = () => {
         value: hasActiveSubscription ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''}` : 'Mode Ponctuel',
         subtext: hasActiveSubscription ? 'Crédits d\'intervention actifs' : 'Accompagnement à l\'acte',
         icon: <Sparkles size={16} className="text-emerald-500" />,
-        bgColor: 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-200',
         onClick: () => navigate('/app/billing')
       });
 
@@ -210,7 +216,6 @@ const VisitsPage = () => {
           value: `${draftCount} à valider`,
           subtext: canConvertDrafts ? 'Valider via votre forfait' : 'Régler par carte',
           icon: <CreditCard size={16} className="text-amber-500 animate-pulse" />,
-          bgColor: 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-100/50 dark:border-amber-900/30 text-amber-800 dark:text-amber-200',
           onClick: () => setFilterStatus('brouillon')
         });
       }
@@ -223,7 +228,6 @@ const VisitsPage = () => {
         value: `${visits.length} intervention${visits.length > 1 ? 's' : ''}`,
         subtext: 'Toutes périodes confondues',
         icon: <Calendar size={16} className="text-blue-500" />,
-        bgColor: 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-100/50 dark:border-blue-900/30 text-blue-800 dark:text-blue-200',
       });
 
       if (waitingForAidantCount > 0) {
@@ -233,7 +237,6 @@ const VisitsPage = () => {
           value: `${waitingForAidantCount} sans aidant`,
           subtext: 'Assignation manuelle requise',
           icon: <AlertCircle size={16} className="text-orange-500 animate-pulse" />,
-          bgColor: 'bg-orange-50/50 dark:bg-orange-950/20 border-orange-100/50 dark:border-orange-900/30 text-orange-800 dark:text-orange-200',
           onClick: () => setFilterStatus('en_attente_aidant')
         });
       }
@@ -247,7 +250,6 @@ const VisitsPage = () => {
         value: `${upcoming} mission${upcoming > 1 ? 's' : ''}`,
         subtext: 'Sur votre planning actif',
         icon: <CheckCircle size={16} className="text-emerald-500" />,
-        bgColor: 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-200',
       });
     }
 
@@ -255,7 +257,48 @@ const VisitsPage = () => {
   }, [isFamily, isAdminOrCoordinator, isAidantRole, hasActiveSubscription, remainingVisits, draftCount, canConvertDrafts, visits.length, waitingForAidantCount]);
 
   // =============================================
-  // ✅ GESTION DU WIZARD - CRÉATION DE VISITE
+  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  // =============================================
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startTouchY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return;
+    const currentY = e.touches[0].clientY;
+    const diffY = currentY - startTouchY.current;
+
+    if (diffY > 0 && window.scrollY === 0) {
+      const resistance = Math.min(diffY * 0.38, 72);
+      setPullY(resistance);
+      if (e.cancelable) e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    setIsPulling(false);
+    if (pullY >= 50) {
+      toast.promise(
+        (async () => {
+          await fetchVisits();
+          await fetchPatients();
+        })(),
+        {
+          loading: 'Actualisation des visites...',
+          success: 'Planning synchronisé !',
+          error: 'Échec de synchronisation.',
+        }
+      );
+    }
+    setPullY(0);
+  };
+
+  // =============================================
+  // GESTION DU WIZARD - CRÉATION DE VISITE
   // =============================================
 
   const handleCreateVisitWithWizard = async (visitData: any) => {
@@ -304,7 +347,6 @@ const VisitsPage = () => {
 
       const result = await createVisit(visitPayload);
 
-      // ✅ UN SEUL TOAST PAR CAS
       if (result?.status === 'en_attente_aidant') {
         toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
       } else if (result?.status === 'brouillon') {
@@ -318,7 +360,6 @@ const VisitsPage = () => {
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur création visite:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la création de la visite');
     } finally {
       setIsWizardLoading(false);
@@ -361,12 +402,10 @@ const VisitsPage = () => {
         throw new Error(result.error || 'Erreur lors de la conversion');
       }
 
-      // ✅ UN SEUL TOAST
       toast.success(`Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur conversion:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la conversion');
     } finally {
       setIsConverting(false);
@@ -405,7 +444,6 @@ const VisitsPage = () => {
   const handleAssignAidantSuccess = async () => {
     useVisitStore.getState().invalidateCache();
     await fetchVisits();
-    // ✅ UN SEUL TOAST
     toast.success('Aidant assigné avec succès');
   };
 
@@ -439,12 +477,10 @@ const VisitsPage = () => {
         throw new Error(result.error || 'Erreur lors de l\'assignation');
       }
 
-      // ✅ UN SEUL TOAST
       toast.success(result.message || 'Aidant assigné avec succès');
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'assignation');
     }
   };
@@ -503,15 +539,10 @@ const VisitsPage = () => {
   if (isLoading || subLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-16 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
+        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="h-20 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
-          <div className="h-20 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
-        </div>
-        <div className="h-10 bg-white dark:bg-[#17231d] rounded-full animate-pulse w-2/3" />
-        <div className="space-y-3">
-          {[1, 2].map((item) => (
-            <div key={item} className="h-28 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
+          {[1, 2].map((i) => (
+            <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800/30 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -519,61 +550,117 @@ const VisitsPage = () => {
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden space-y-6 pb-24 sm:pb-10">
+    <div 
+      className="w-full max-w-5xl mx-auto space-y-6 pb-24 px-1 sm:px-0"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      
+      {/* ============================================================
+          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
+          ============================================================ */}
+      <div 
+        className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
+        style={{ 
+          height: pullY > 0 ? `${pullY}px` : '0px',
+          opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
+        }}
+      >
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+          <RefreshCw 
+            size={13} 
+            className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
+            style={{ transform: pullY < 50 ? `rotate(${pullY * 3.6}deg)` : undefined }}
+          />
+          <span className="text-[10px] font-black uppercase tracking-wider">
+            {pullY >= 50 ? 'Relâcher pour actualiser' : 'Tirer pour rafraîchir'}
+          </span>
+        </div>
+      </div>
 
       {/* ============================================================
-      EN-TÊTE ÉPURÉ SANS LOGOS DE COMPTABILITÉ
-      ============================================================ */}
-      <section className="flex items-center justify-between gap-4 pb-3 border-b border-gray-100 dark:border-[#2c3f35]">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC (CENTRE UNIQUE)
+          ============================================================ */}
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+        <div className="space-y-1.5 relative z-10">
+          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
             {isAidantRole ? 'Mes missions d\'accompagnement' : 'Planning des visites'}
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
             {isAidantRole 
               ? 'Consultez et validez vos interventions programmées à domicile.' 
               : 'Planification simplifiée de l\'accompagnement de vos proches.'}
           </p>
         </div>
 
+        {/* Bouton manuel d'actualisation en haut à droite du cadre */}
+        <button
+          onClick={async () => {
+            toast.promise(
+              (async () => {
+                await fetchVisits();
+                await fetchPatients();
+              })(),
+              {
+                loading: 'Mise à jour...',
+                success: 'Planning actualisé !',
+                error: 'Échec de la mise à jour',
+              }
+            );
+          }}
+          disabled={isLoading}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          title="Rafraîchir"
+        >
+          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+        </button>
+
+        {/* Bouton de planification desktop à gauche */}
         {canPlanify && (
           <button
             onClick={handleAdd}
-            className="hidden sm:inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
+            className="absolute top-4 left-4 h-8 px-3.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-white transition hover:opacity-90 flex items-center gap-1 shadow-sm"
             style={{ background: colors.primary }}
           >
-            <Plus size={14} strokeWidth={2.5} />
-            Planifier une visite
+            <Plus size={12} strokeWidth={2.5} />
+            Planifier
           </button>
         )}
       </section>
 
       {/* ============================================================
-      SYNTHÈSE ET METRICS (Pas d'alertes géantes, intégration naturelle)
-      ============================================================ */}
+          WIDGET BENTO D'ACTIVITÉ COHÉRENT (MÊMES FORMATS, MÊMES ESPACES)
+          ============================================================ */}
       {statsOverview.length > 0 && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {statsOverview.map((item) => (
             <div
               key={item.id}
               onClick={item.onClick}
-              className={`flex items-start gap-3 p-4 rounded-2xl border transition-all ${
-                item.onClick ? 'cursor-pointer hover:scale-[1.01] active:scale-[0.99]' : ''
-              } ${item.bgColor}`}
+              className={cn(
+                "p-6 rounded-2xl border shadow-sm flex flex-col justify-between h-36 transition-all duration-300",
+                item.onClick ? "cursor-pointer hover:shadow-md hover:scale-[1.01]" : "",
+                item.id === 'sub' 
+                  ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-200" 
+                  : "bg-amber-50/50 dark:bg-amber-950/20 border-amber-100/50 dark:border-amber-900/30 text-amber-800 dark:text-amber-200"
+              )}
             >
-              <div className="p-2 rounded-xl bg-white/70 dark:bg-black/20 shrink-0">
-                {item.icon}
-              </div>
-              <div className="min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">
                   {item.label}
                 </span>
-                <span className="text-base font-extrabold block tracking-tight mt-0.5">
+                <div className="p-1.5 rounded-lg bg-white/70 dark:bg-black/25 shrink-0">
+                  {item.icon}
+                </div>
+              </div>
+              <div>
+                <p className="text-xl font-black tracking-tight leading-none">
                   {item.value}
-                </span>
-                <span className="text-[11px] opacity-80 block mt-0.5">
+                </p>
+                <p className="text-xs opacity-80 mt-1.5 font-medium">
                   {item.subtext}
-                </span>
+                </p>
               </div>
             </div>
           ))}
@@ -581,8 +668,8 @@ const VisitsPage = () => {
       )}
 
       {/* ============================================================
-      CONTRÔLEUR DE FILTRES SEGMENTÉ (SANS ACCUMULATION DE BOUTONS)
-      ============================================================ */}
+          CONTRÔLEUR DE FILTRES SEGMENTÉ COHÉRENT (CONSERVATION DES BADGES)
+          ============================================================ */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
           {statusFilterOptions.map((option) => {
@@ -594,21 +681,22 @@ const VisitsPage = () => {
               <button
                 key={option.value}
                 onClick={() => setFilterStatus(option.value)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5 ${
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
                   isActive
-                    ? 'bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
+                    ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                )}
                 style={isActive ? { color: colors.primary } : undefined}
               >
                 <span>{option.label}</span>
                 {hasDraftBadge && (
-                  <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold">
+                  <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none">
                     {draftCount}
                   </span>
                 )}
                 {hasWaitingBadge && (
-                  <span className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold">
+                  <span className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none">
                     {waitingForAidantCount}
                   </span>
                 )}
@@ -619,8 +707,8 @@ const VisitsPage = () => {
       </section>
 
       {/* ============================================================
-      LISTE DE VISITES
-      ============================================================ */}
+          LISTE DES ACCOMPAGNEMENTS (SANS DOUBLE BORDURE)
+          ============================================================ */}
       {sortedVisits.length > 0 ? (
         <section className="space-y-3.5 visits-list">
           {sortedVisits.map((visit) => (
@@ -660,24 +748,18 @@ const VisitsPage = () => {
         </section>
       ) : (
         /* ============================================================
-        ÉCRAN VIDE DESIGN ET ÉPURÉ
-        ============================================================ */
-        <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
-          <div
-            className="w-11 h-11 rounded-2xl mx-auto flex items-center justify-center"
-            style={{
-              background: colors.primary + '10',
-              color: colors.primary,
-            }}
-          >
-            <Calendar size={18} />
+            CADRE D'ÉCRAN VIDE PARFAITEMENT CENTRÉ
+            ============================================================ */
+        <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400">
+            <Calendar size={20} />
           </div>
 
           <div className="space-y-1">
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
+            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
               Aucun accompagnement trouvé
             </h3>
-            <p className="text-xs text-gray-400 dark:text-gray-400 max-w-xs mx-auto">
+            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
               {filterStatus !== 'all' 
                 ? 'Essayez de changer les filtres pour afficher d\'autres status.'
                 : 'Planifiez vos interventions d\'aide et d\'accompagnement à domicile.'}
@@ -687,36 +769,34 @@ const VisitsPage = () => {
           {canPlanify && filterStatus === 'all' && (
             <button
               onClick={handleAdd}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90"
+              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
               style={{ background: colors.primary }}
             >
-              <Plus size={14} />
+              <Plus size={13} strokeWidth={2.5} />
               Planifier une visite
             </button>
           )}
         </section>
       )}
 
-      {/* ============================================================
-      ACCÈS RAPIDE MOBILES (PLACEMENT PRÉCIS ET TACTILE)
-      ============================================================ */}
+      {/* BOUTON D'ACCÈS RAPIDE FLOTTANT (TACTILE MOBILE) */}
       {canPlanify && (
         <button
           onClick={handleAdd}
-          className="sm:hidden fixed bottom-24 right-5 z-40 w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+          className="sm:hidden fixed bottom-24 right-5 z-40 w-12 h-12 rounded-full text-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
           style={{ 
             background: colors.primary,
             boxShadow: `0 8px 24px -6px ${colors.primary}`
           }}
-          aria-label="Planifier une visite d'accompagnement"
+          aria-label="Planifier un nouvel accompagnement"
         >
           <Plus size={20} strokeWidth={2.5} />
         </button>
       )}
 
       {/* ============================================================
-      MODALES ET INTERFACES SECONDAIRES
-      ============================================================ */}
+          MODALES ET WIZARDS DE L'APPLICATION
+          ============================================================ */}
       <VisitModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
