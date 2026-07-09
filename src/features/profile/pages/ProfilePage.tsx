@@ -28,6 +28,7 @@ import {
   Settings,
   Key,
   Volume2,
+ Loader2,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
