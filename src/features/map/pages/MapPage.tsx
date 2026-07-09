@@ -528,7 +528,7 @@ const MapPage = () => {
   };
 
   return (
-    <div className="w-full max-w-full overflow-hidden pb-24 sm:pb-10 animate-fadeIn">
+    <div className="w-full max-w-full overflow-hidden pb-6 animate-fadeIn">
       
       {/* ============================================================
           WIDGET CARTOGRAPHIQUE INTÉGRAL SANS DOUBLE BANDEAU
