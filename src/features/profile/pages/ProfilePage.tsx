@@ -1,13 +1,11 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
-
+ 
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Mail,
   Phone,
-  Edit2,
-  Save,
   Camera,
   LogOut,
   ChevronRight,
@@ -38,7 +36,6 @@ import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
-import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
 import { NotificationSoundSelector } from '@/components/settings/NotificationSoundSelector';
 import toast from 'react-hot-toast';
@@ -111,6 +108,13 @@ const getSavedPreferences = (): Preferences => {
 const getInitials = (name: string) => 
   name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
+const sanitizeFileName = (name: string): string => {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9.-]/g, '_');
+};
+
 // =============================================
 // COMPOSANT PRINCIPAL
 // =============================================
@@ -153,10 +157,6 @@ const ProfilePage = () => {
     confirmPassword: '',
   });
 
-  // =============================================
-  // THEME & RÔLE
-  // =============================================
-
   const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
   const getRoleLabel = () => {
@@ -171,10 +171,6 @@ const ProfilePage = () => {
     if (role === 'aidant') return <UserCircle size={14} />;
     return <Users size={14} />;
   };
-
-  // =============================================
-  // EFFETS
-  // =============================================
 
   useEffect(() => {
     const prefs = getSavedPreferences();
@@ -199,10 +195,6 @@ const ProfilePage = () => {
     fetchOrders();
   }, [fetchPatients, fetchVisits, fetchOrders]);
 
-  // =============================================
-  // FONCTIONS - PRÉFÉRENCES
-  // =============================================
-
   const savePreferences = (prefs: Preferences, message?: string) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
     setFormData(prev => ({ ...prev, preferences: prefs }));
@@ -213,9 +205,8 @@ const ProfilePage = () => {
   };
 
   // =============================================
-  // FONCTIONS - PROFIL
+  // SAUVEGARDE DU PROFIL CORRIGÉE
   // =============================================
-
   const handleSaveProfile = async () => {
     if (!formData.full_name.trim()) return toast.error('Le nom est obligatoire');
     if (!profile?.id) return toast.error('Profil introuvable');
@@ -225,14 +216,19 @@ const ProfilePage = () => {
       let avatarUrl = profile.avatar_url || null;
       
       if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop() || 'png';
+        const cleanName = sanitizeFileName(avatarFile.name);
+        const fileExt = cleanName.split('.').pop() || 'png';
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
+        
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile, { upsert: true });
         
         if (uploadError) throw new Error(uploadError.message);
-        avatarUrl = supabase.storage.from('avatars').getPublicUrl(uploadData.path).data.publicUrl + `?v=${Date.now()}`;
+        
+        // ✅ CORRECTIF DE SÉCURITÉ DE LIEN : Utilisation de fileName à la place de uploadData.path
+        // afin d'empêcher les adresses en double du type .../avatars/avatars/image.png
+        avatarUrl = supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl + `?v=${Date.now()}`;
       }
       
       await updateProfile({ 
@@ -263,10 +259,6 @@ const ProfilePage = () => {
     reader.readAsDataURL(file);
   };
 
-  // =============================================
-  // FONCTIONS - MOT DE PASSE
-  // =============================================
-
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     if (!passwordData.currentPassword) return toast.error('Mot de passe actuel requis');
@@ -295,10 +287,6 @@ const ProfilePage = () => {
       toast.error(error?.message || 'Erreur');
     } finally { setIsLoading(false); }
   };
-
-  // =============================================
-  // FONCTIONS - SUPPRESSION COMPTE
-  // =============================================
 
   const handleDeleteAccount = async () => {
     if (!window.confirm('⚠️ Cette action supprimera définitivement votre compte ET tous vos proches.')) return;
@@ -343,10 +331,6 @@ const ProfilePage = () => {
     } finally { setIsLoading(false); }
   };
 
-  // =============================================
-  // FONCTIONS - PRÉFÉRENCES UI
-  // =============================================
-
   const handleToggleNotifications = () => {
     const nextValue = !formData.preferences.notifications;
     savePreferences(
@@ -373,18 +357,10 @@ const ProfilePage = () => {
     setShowLanguageModal(false);
   };
 
-  // =============================================
-  // FONCTIONS - DÉCONNEXION
-  // =============================================
-
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
-
-  // =============================================
-  // STATS
-  // =============================================
 
   const quickStats = [
     { label: 'Proches', value: patients.length, icon: <Users size={16} /> },
@@ -392,32 +368,20 @@ const ProfilePage = () => {
     { label: 'Commandes', value: orders.length, icon: <ShoppingBag size={16} /> },
   ];
 
-  // =============================================
-  // RENDU
-  // =============================================
-
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
-      
-      {/* ========================================== */}
-      {/* MESSAGE DE PRÉFÉRENCE */}
-      {/* ========================================== */}
       {preferenceMessage && (
         <div 
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[80] px-4 py-2 rounded-2xl shadow-lg text-white text-sm font-bold"
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-[80] px-4 py-2 rounded-2xl shadow-lg text-white text-sm font-bold animate-fadeIn"
           style={{ background: colors.primary }}
         >
           {preferenceMessage}
         </div>
       )}
 
-      {/* ========================================== */}
       {/* HEADER - CARTE PROFIL */}
-      {/* ========================================== */}
       <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-          
-          {/* Avatar */}
           <div className="relative mx-auto sm:mx-0">
             <div 
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm"
@@ -440,7 +404,6 @@ const ProfilePage = () => {
             )}
           </div>
 
-          {/* Infos utilisateur */}
           <div className="flex-1 text-center sm:text-left min-w-0">
             <h1 className="text-xl sm:text-2xl font-extrabold truncate" style={{ color: colors.text }}>
               {profile?.full_name || 'Utilisateur'}
@@ -461,7 +424,6 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Bouton Modifier */}
           <button 
             onClick={() => setIsEditing(!isEditing)} 
             className="px-4 py-2 rounded-2xl text-xs font-bold transition hover:bg-gray-50 border border-gray-100 shrink-0"
@@ -470,7 +432,6 @@ const ProfilePage = () => {
           </button>
         </div>
 
-        {/* Stats rapides */}
         <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t" style={{ borderColor: colors.border }}>
           {quickStats.map((item) => (
             <div key={item.label} className="text-center">
@@ -484,9 +445,7 @@ const ProfilePage = () => {
         </div>
       </section>
 
-      {/* ========================================== */}
-      {/* ÉDITION (si active) */}
-      {/* ========================================== */}
+      {/* ÉDITION */}
       {isEditing && (
         <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
           <h3 className="text-sm font-bold mb-4" style={{ color: colors.text }}>Modifier mes informations</h3>
@@ -494,46 +453,44 @@ const ProfilePage = () => {
             <input 
               value={formData.full_name} 
               onChange={e => setFormData({...formData, full_name: e.target.value})} 
-              className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm"
+              className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm border"
               placeholder="Nom complet"
             />
             <input 
               value={formData.phone} 
               onChange={e => setFormData({...formData, phone: e.target.value})} 
-              className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm"
+              className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm border"
               placeholder="Téléphone"
             />
             <div className="sm:col-span-2">
               <input 
                 value={formData.email} 
                 disabled 
-                className="w-full p-3 rounded-2xl bg-gray-100 outline-none text-sm text-gray-400 cursor-not-allowed"
+                className="w-full p-3 rounded-2xl bg-gray-100 outline-none text-sm text-gray-400 cursor-not-allowed border"
                 placeholder="Email (non modifiable)"
               />
-              <p className="text-[9px] text-gray-400 mt-1">L'email ne peut pas être modifié ici.</p>
             </div>
           </div>
           <button 
             onClick={handleSaveProfile} 
             disabled={isLoading}
-            className="w-full mt-4 py-3 rounded-2xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60"
+            className="w-full mt-4 py-3 rounded-2xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
             style={{ background: colors.primary }}
           >
+            {isLoading && <Loader2 className="animate-spin" size={16} />}
             {isLoading ? 'Enregistrement...' : 'Enregistrer'}
           </button>
         </section>
       )}
 
-      {/* ========================================== */}
       {/* TABS */}
-      {/* ========================================== */}
       <div className="flex bg-gray-50 p-1 rounded-2xl w-fit mx-auto sm:mx-0">
         {(['profile', 'settings', 'security'] as const).map((tab) => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
             className={`px-4 py-2 rounded-xl text-[10px] font-bold capitalize transition-all flex items-center gap-1.5 ${
-              activeTab === tab ? 'bg-white shadow-sm' : 'text-gray-400'
+              activeTab === tab ? 'bg-white shadow-sm font-black' : 'text-gray-400'
             }`}
             style={{ color: activeTab === tab ? colors.primary : undefined }}
           >
@@ -547,12 +504,8 @@ const ProfilePage = () => {
         ))}
       </div>
 
-      {/* ========================================== */}
       {/* CONTENU DES TABS */}
-      {/* ========================================== */}
       <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
-        
-        {/* TAB PROFIL */}
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InfoField label="Nom complet" value={profile?.full_name || '-'} />
@@ -564,7 +517,6 @@ const ProfilePage = () => {
           </div>
         )}
 
-        {/* TAB PRÉFÉRENCES */}
         {activeTab === 'settings' && (
           <div className="space-y-3">
             <SettingToggle 
@@ -584,7 +536,6 @@ const ProfilePage = () => {
               colors={colors} 
             />
             
-            {/* ✅ SÉLECTEUR DE SON DE NOTIFICATION */}
             <div className="border-t pt-4 mt-2">
               <div className="flex items-center gap-2 mb-3">
                 <Volume2 size={16} style={{ color: colors.primary }} />
@@ -612,7 +563,6 @@ const ProfilePage = () => {
           </div>
         )}
 
-        {/* TAB SÉCURITÉ */}
         {activeTab === 'security' && (
           <div className="space-y-3">
             <ActionRow 
@@ -651,9 +601,6 @@ const ProfilePage = () => {
         )}
       </section>
 
-      {/* ========================================== */}
-      {/* DÉCONNEXION */}
-      {/* ========================================== */}
       <button 
         onClick={handleLogout} 
         className="w-full flex items-center justify-center gap-2 text-xs font-bold text-red-500 p-4 rounded-3xl border border-red-100 hover:bg-red-50 transition"
@@ -662,14 +609,10 @@ const ProfilePage = () => {
         Se déconnecter
       </button>
 
-      {/* ========================================== */}
       {/* MODALS */}
-      {/* ========================================== */}
-
-      {/* Modal Changer mot de passe */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 my-8 shadow-xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Key size={20} style={{ color: colors.primary }} />
@@ -683,33 +626,35 @@ const ProfilePage = () => {
             <input 
               type="password" 
               placeholder="Mot de passe actuel" 
-              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none"
+              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
               onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})} 
             />
             <input 
               type="password" 
               placeholder="Nouveau mot de passe" 
-              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none"
+              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
               onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})} 
             />
             <input 
               type="password" 
               placeholder="Confirmer" 
-              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none"
+              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
               onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} 
             />
             <div className="flex gap-2 pt-2">
               <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-2 rounded-xl font-bold text-sm border" style={{ borderColor: colors.border, color: colors.text }}>Annuler</button>
-              <button onClick={handleChangePassword} className="flex-1 py-2 rounded-xl font-bold text-sm text-white" style={{ background: colors.primary }}>Valider</button>
+              <button onClick={handleChangePassword} disabled={isLoading} className="flex-1 py-2 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-1.5" style={{ background: colors.primary }}>
+                {isLoading && <Loader2 className="animate-spin" size={14} />}
+                Valider
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Langue */}
       {showLanguageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Globe size={20} style={{ color: colors.primary }} />
@@ -733,10 +678,9 @@ const ProfilePage = () => {
         </div>
       )}
 
-      {/* Modal Suppression */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8 shadow-xl">
             <div className="text-center">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#FEF2F2' }}>
                 <AlertCircle size={28} style={{ color: '#EF4444' }} />
@@ -751,7 +695,10 @@ const ProfilePage = () => {
             </div>
             <div className="flex gap-2 mt-6">
               <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm border" style={{ borderColor: colors.border, color: colors.text }}>Annuler</button>
-              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-white" style={{ background: '#EF4444' }}>Supprimer</button>
+              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-1.5" style={{ background: '#EF4444' }}>
+                {isLoading && <Loader2 className="animate-spin" size={14} />}
+                Supprimer
+              </button>
             </div>
           </div>
         </div>
@@ -760,24 +707,12 @@ const ProfilePage = () => {
   );
 };
 
-// =============================================
-// COMPOSANTS
-// =============================================
-
-// =============================================
-// INFO FIELD
-// =============================================
-
 const InfoField = ({ label, value }: { label: string; value: string }) => (
   <div className="p-4 rounded-2xl bg-gray-50">
     <p className="text-[10px] font-bold uppercase text-gray-400">{label}</p>
     <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text, #2d2d2d)' }}>{value}</p>
   </div>
 );
-
-// =============================================
-// SETTING TOGGLE
-// =============================================
 
 const SettingToggle = ({ 
   icon, title, description, active, onClick, colors 
@@ -817,10 +752,6 @@ const SettingToggle = ({
     </div>
   </button>
 );
-
-// =============================================
-// ACTION ROW
-// =============================================
 
 const ActionRow = ({ 
   icon, title, description, onClick, colors, danger 
