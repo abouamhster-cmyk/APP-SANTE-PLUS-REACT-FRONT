@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/components/VisitModalContent.tsx
-// ✅ CONTENU DU MODAL DE PLANIFICATION SIMPLIFIÉ (SANS TRACKING INTÉGRÉ)
+// ✅ CONTENU DU MODAL DE PLANIFICATION SIMPLIFIÉ (RÉSOLUTION DE L'ERREUR D'HOISTING TS2448 VERCEL)
 
 import { useState, useEffect } from 'react';
 import {
@@ -100,8 +100,18 @@ export const VisitModalContent = ({
     duration_minutes: 60,
     notes: '',
     is_urgent: false,
-    address: '',                      // ✅ ADRESSE TEXTUELLE SIMPLE
+    address: '',                      
   });
+
+  // ============================================================
+  // ✅ DÉCLARÉ ICI : DÉPLACEMENT HAUT DE PAGE POUR RÉSOUDRE TS2448 (HOISTING AVANT USEEFFECT)
+  // ============================================================
+  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+  const accountPatients = selectedAccount?.patients || [];
+  const filteredAccounts = accounts.filter(account =>
+    account.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    account.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const isAdmin = isAdminOrCoordinator;
   const isFamilyUser = isFamily;
@@ -170,7 +180,7 @@ export const VisitModalContent = ({
     }
   };
 
-  // ✅ AUTO-REMPLISSAGE INTELLIGENT DE L'ADRESSE ET DU TÉLÉPHONE
+  // ✅ AUTO-REMPLISSAGE INTELLIGENT DE L'ADRESSE ET DU TÉLÉPHONE (COMPILATION CORRECTE)
   useEffect(() => {
     if (targetType === 'patient' && formData.patient_id) {
       const patientList = isAdmin && selectedAccount?.has_patient ? accountPatients : patients;
@@ -193,7 +203,7 @@ export const VisitModalContent = ({
         address: phoneSuffix ? `Mon adresse ${phoneSuffix}`.trim() : '',
       }));
     }
-  }, [formData.patient_id, targetType, selectedAccountId, profile, selectedAccount]);
+  }, [formData.patient_id, targetType, selectedAccountId, profile, selectedAccount, accountPatients, isAdmin, patients]);
 
   useEffect(() => {
     if (visit && mode === 'edit') {
@@ -239,13 +249,6 @@ export const VisitModalContent = ({
     }
   }, [visit, mode, isAdmin, accounts, profile]);
 
-  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
-  const accountPatients = selectedAccount?.patients || [];
-  const filteredAccounts = accounts.filter(account =>
-    account.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    account.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const handleAddressChange = (value: string) => {
     setFormData(prev => ({ ...prev, address: value }));
   };
@@ -276,9 +279,9 @@ export const VisitModalContent = ({
         is_urgent: formData.is_urgent,
         actions: [],
         requested_by: profile?.id,
-        address: formData.address.trim(),       // ✅ ADRESSE SIMPLE ENVOYÉE
-        latitude: null,                          // ✅ VALEUR NULLE SANS GÉOLOCALISATION
-        longitude: null,                         // ✅ VALEUR NULLE SANS GÉOLOCALISATION
+        address: formData.address.trim(),       
+        latitude: null,                          
+        longitude: null,                         
       };
 
       if (targetType === 'patient' && formData.patient_id) {
