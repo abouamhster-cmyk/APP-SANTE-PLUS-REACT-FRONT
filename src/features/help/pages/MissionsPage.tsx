@@ -1,6 +1,6 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
  
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
@@ -25,7 +25,7 @@ import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime, formatCurrency } from '@/utils/helpers';
+import { formatDate, formatTime, formatCurrency, cn } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -45,6 +45,11 @@ const MissionsPage = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
+
+  // ÉTATS DE PULL-TO-REFRESH MOBILE
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const startTouchY = useRef(0);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -134,6 +139,41 @@ const MissionsPage = () => {
     }
   }, [isVerified, fetchVisits, fetchOrders]);
 
+  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startTouchY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return;
+    const currentY = e.touches[0].clientY;
+    const diffY = currentY - startTouchY.current;
+
+    if (diffY > 0 && window.scrollY === 0) {
+      const resistance = Math.min(diffY * 0.38, 72);
+      setPullY(resistance);
+      if (e.cancelable) e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    setIsPulling(false);
+    if (pullY >= 50) {
+      toast.promise(
+        Promise.all([fetchVisits(), fetchOrders()]),
+        {
+          loading: 'Actualisation des plannings...',
+          success: 'Missions à jour !',
+          error: 'Échec de synchronisation.',
+        }
+      );
+    }
+    setPullY(0);
+  };
+
   if (isChecking) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -205,6 +245,7 @@ const MissionsPage = () => {
       completed: assignedOrders.filter(o => o.status === 'validee').length,
     },
     available: availableOrders.length,
+    canTakeCount: availableOrders.length, // Unification pour le badge bento
   };
 
   const handleApprove = async (id: string) => {
@@ -308,17 +349,11 @@ const MissionsPage = () => {
 
   if (isLoading_) {
     return (
-      <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
-          ))}
-        </div>
-        <div className="h-12 bg-white rounded-xl animate-pulse" />
-        <div className="space-y-2">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-20 bg-white rounded-xl animate-pulse" />
+      <div className="space-y-6">
+        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-36 bg-gray-100 dark:bg-gray-800/30 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -338,112 +373,146 @@ const MissionsPage = () => {
   ];
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <ClipboardList size={12} />
-              Espace aidant
-            </div>
+    <div 
+      className="space-y-6 pb-6"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      
+      {/* ============================================================
+          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
+          ============================================================ */}
+      <div 
+        className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
+        style={{ 
+          height: pullY > 0 ? `${pullY}px` : '0px',
+          opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
+        }}
+      >
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+          <RefreshCw 
+            size={13} 
+            className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
+            style={{ transform: pullY < 50 ? `rotate(${pullY * 3.6}deg)` : undefined }}
+          />
+          <span className="text-[10px] font-black uppercase tracking-wider">
+            {pullY >= 50 ? 'Relâcher pour actualiser' : 'Tirer pour rafraîchir'}
+          </span>
+        </div>
+      </div>
 
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              🦸 Missions & Livraisons
-            </h1>
+      {/* ============================================================
+          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC UNIQUE CENTRÉ
+          ============================================================ */}
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+        <div className="space-y-1.5 relative z-10">
+          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+            Espace Intervenant à domicile
+          </h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+            Consultez votre planning d’interventions et gérez vos courses de livraisons d'urgence auprès de vos bénéficiaires.
+          </p>
+        </div>
 
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
-              {stats.missions.total} missions • {stats.deliveries.total} livraisons
-              {stats.missions.pending > 0 && (
-                <span className="ml-2 text-yellow-500">⏳ {stats.missions.pending} à valider</span>
-              )}
-              {stats.available > 0 && (
-                <span className="ml-2 text-red-500">🚨 {stats.available} commandes urgentes</span>
-              )}
-            </p>
+        {/* Bouton manuel d'actualisation en haut à droite du cadre */}
+        <button
+          onClick={async () => {
+            toast.promise(
+              Promise.all([fetchVisits(), fetchOrders()]),
+              {
+                loading: 'Mise à jour...',
+                success: 'Planning actualisé !',
+                error: 'Échec de la mise à jour',
+              }
+            );
+          }}
+          disabled={isRefreshing}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          title="Actualiser"
+        >
+          <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+        </button>
+      </section>
+
+      {/* ============================================================
+          WIDGET BENTO D'ACTIVITÉ DE L'INTERVENANT
+          ============================================================ */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Bento Card 1 : Accompagnements */}
+        <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Accompagnements</span>
+            <Calendar size={16} className="text-emerald-500" />
           </div>
+          <div>
+            <p className="text-2xl font-black text-gray-800 dark:text-gray-100 leading-none">{stats.missions.total} planifiés</p>
+            <p className="text-xs text-gray-500 mt-1.5">{stats.missions.pending} en attente de votre approbation</p>
+          </div>
+        </div>
 
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"
-            style={{ background: colors.primary + '12', color: colors.primary }}
-          >
-            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-          </button>
+        {/* Bento Card 2 : Livraisons rattachées */}
+        <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Livraisons</span>
+            <ShoppingBag size={16} className="text-blue-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-black text-gray-800 dark:text-gray-100 leading-none">{stats.deliveries.inProgress} en cours</p>
+            <p className="text-xs text-gray-500 mt-1.5">{stats.deliveries.completed} livraisons finalisées</p>
+          </div>
+        </div>
+
+        {/* Bento Card 3 : Missions d'urgences libres */}
+        <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Courses d'urgence</span>
+            <AlertCircle size={16} className="text-amber-500 animate-pulse" />
+          </div>
+          <div>
+            <p className="text-3xl font-black text-gray-900 dark:text-white leading-none">{stats.canTakeCount}</p>
+            <p className="text-xs text-gray-500 mt-1.5 font-medium">Disponibles à pourvoir en direct</p>
+          </div>
         </div>
       </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <CompactStat
-          icon={<ClipboardList size={14} />}
-          label="Missions"
-          value={stats.missions.total}
-          color={colors.primary}
-          sub={`${stats.missions.pending} à valider`}
-        />
-        <CompactStat
-          icon={<Truck size={14} />}
-          label="Livraisons"
-          value={stats.deliveries.total}
-          color="#FF5722"
-          sub={`${stats.deliveries.inProgress} en cours`}
-        />
-        <CompactStat
-          icon={stats.available > 0 ? <AlertCircle size={14} /> : <Package size={14} />}
-          label="Disponibles"
-          value={stats.available}
-          color={stats.available > 0 ? '#F44336' : '#4CAF50'}
-          sub={stats.available > 0 ? '🚨 Urgentes' : 'à prendre'}
-        />
-        <CompactStat
-          icon={<CheckCircle size={14} />}
-          label="Terminées"
-          value={stats.missions.completed + stats.deliveries.completed}
-          color="#2196F3"
-          sub="terminées"
-        />
+      {/* ============================================================
+          CONTRÔLEUR DE FILTRES SEGMENTÉ COHÉRENT (TABS PRINCIPAUX)
+          ============================================================ */}
+      <section className="w-full overflow-x-auto scrollbar-none py-1">
+        <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
+          {[
+            { key: 'missions', label: `📋 Missions (${stats.missions.total})` },
+            { key: 'deliveries', label: `🚚 Livraisons (${stats.deliveries.total})` },
+            { key: 'available', label: `📦 Disponibles (${stats.available})` },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as TabType)}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
+                activeTab === tab.key
+                  ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              )}
+              style={activeTab === tab.key ? { color: colors.primary } : undefined}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </section>
 
-      {/* TABS */}
-      <section className="bg-white rounded-2xl p-1 shadow-sm border border-black/5 flex">
-        {[
-          { key: 'missions', label: `📋 Missions (${stats.missions.total})` },
-          { key: 'deliveries', label: `🚚 Livraisons (${stats.deliveries.total})` },
-          { key: 'available', label: `📦 Disponibles (${stats.available})` },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as TabType)}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition ${
-              activeTab === tab.key ? 'text-white' : 'text-gray-600'
-            }`}
-            style={{
-              background: activeTab === tab.key ? colors.primary : 'transparent',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </section>
-
-      {/* FILTRE (pour missions uniquement) */}
+      {/* FILTRE SECONDAIRE PAR STATUT (POUR MISSIONS UNIQUEMENT) */}
       {activeTab === 'missions' && (
-        <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5">
+        <section className="bg-white dark:bg-[#17231d] rounded-2xl p-2.5 shadow-sm border border-gray-100 dark:border-[#2c3f35] max-w-sm">
           <div className="flex items-center gap-2">
-            <Filter size={14} className="text-gray-400" />
+            <Filter size={14} className="text-gray-400 shrink-0" />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="flex-1 px-2 py-1.5 text-xs rounded-xl border bg-gray-50 outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
+              className="flex-1 px-3 py-1.5 text-xs rounded-xl border bg-gray-50 dark:bg-[#1d2d25] outline-none border-gray-100 dark:border-[#2c3f35]"
+              style={{ color: colors.text }}
             >
               {filterOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -455,9 +524,11 @@ const MissionsPage = () => {
         </section>
       )}
 
-      {/* LISTE */}
+      {/* ============================================================
+          LISTE DES MISSIONS ET COMMANDE EN CARTE DE HAUTE PRÉCISION
+          ============================================================ */}
       {filteredItems.length > 0 ? (
-        <section className="space-y-2">
+        <section className="space-y-3">
           {filteredItems.map((item) => (
             <MissionItemCompact
               key={item.id}
@@ -486,27 +557,30 @@ const MissionsPage = () => {
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
+        /* ============================================================
+            CADRE D'ÉCRAN VIDE PARFAITEMENT CENTRÉ
+            ============================================================ */
+        <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
           <div
-            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
-            style={{ background: colors.primary + '10' }}
+            className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400"
           >
-            {activeTab === 'missions' ? <ClipboardList size={24} style={{ color: colors.primary }} /> :
-             activeTab === 'deliveries' ? <Truck size={24} style={{ color: colors.primary }} /> :
-             <Package size={24} style={{ color: colors.primary }} />}
+            {activeTab === 'missions' ? <ClipboardList size={20} /> :
+             activeTab === 'deliveries' ? <Truck size={20} /> :
+             <Package size={20} />}
           </div>
 
-          <h3 className="text-sm font-bold" style={{ color: colors.text }}>
-            {activeTab === 'missions' && 'Aucune mission'}
-            {activeTab === 'deliveries' && 'Aucune livraison en cours'}
-            {activeTab === 'available' && 'Aucune commande disponible'}
-          </h3>
-
-          <p className="text-xs text-gray-400 mt-1">
-            {activeTab === 'missions' && 'Revenez plus tard pour de nouvelles missions'}
-            {activeTab === 'deliveries' && 'Les livraisons apparaîtront ici quand vous en aurez'}
-            {activeTab === 'available' && 'Les commandes disponibles apparaîtront ici'}
-          </p>
+          <div className="space-y-1">
+            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
+              {activeTab === 'missions' && 'Aucune mission planifiée'}
+              {activeTab === 'deliveries' && 'Aucune livraison en cours'}
+              {activeTab === 'available' && 'Aucune commande disponible'}
+            </h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+              {activeTab === 'missions' && 'Revenez plus tard ou contactez la coordination pour de nouveaux accompagnements.'}
+              {activeTab === 'deliveries' && 'Vos livraisons en cours s\'afficheront ici pour un suivi GPS réactif.'}
+              {activeTab === 'available' && 'Toutes les courses d\'urgences ont été pourvues par nos équipes de confiance.'}
+            </p>
+          </div>
         </section>
       )}
     </div>
@@ -514,7 +588,7 @@ const MissionsPage = () => {
 };
 
 // =============================================
-// COMPACT STAT
+// COMPACT STAT (INUTILISÉ CAR TOUTES STATS RECENTREES DANS LE BENTO CI-DESSUS)
 // =============================================
 
 interface CompactStatProps {
@@ -527,23 +601,21 @@ interface CompactStatProps {
 
 const CompactStat = ({ icon, label, value, color, sub }: CompactStatProps) => {
   return (
-    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between gap-1">
-        <div>
-          <p className="text-[9px] font-medium text-gray-400">{label}</p>
-          <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
-          {sub && <p className="text-[8px] text-gray-400">{sub}</p>}
-        </div>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '15', color }}>
-          {icon}
-        </div>
+    <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 flex items-center justify-between">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
+        <p className="text-base font-extrabold mt-0.5" style={{ color }}>{value}</p>
+        {sub && <p className="text-[10px] text-gray-500 mt-1">{sub}</p>}
+      </div>
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '15', color }}>
+        {icon}
       </div>
     </div>
   );
 };
 
 // =============================================
-// MISSION ITEM COMPACT
+// MISSION ITEM COMPACT (RESTRUCTURE ET ÉPURÉ)
 // =============================================
 
 interface MissionItemCompactProps {
@@ -584,9 +656,7 @@ const MissionItemCompact = ({
   const isMission = type === 'missions';
   const isPending = item.status === 'planifiee' || item.status === 'en_attente';
   const isAccepted = item.status === 'acceptee';
-  const isInProgress = item.status === 'en_cours';
 
-  // ✅ Fonction pour obtenir le nom de l'aidant
   const getAidantName = () => {
     if (item.aidant?.user?.full_name) {
       return item.aidant.user.full_name;
@@ -597,16 +667,16 @@ const MissionItemCompact = ({
   if (isMission) {
     return (
       <div
-        className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
-        style={{ borderLeftColor: getStatusColor(item.status) }}
+        className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 cursor-pointer hover:shadow-md transition-all duration-200"
         onClick={onView}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Accompagnement d'aide</span>
+            <p className="font-extrabold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
               {item.patient?.first_name} {item.patient?.last_name}
             </p>
-            <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: colors.text + '60' }}>
+            <div className="flex items-center gap-1.5 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
               <span className="flex items-center gap-0.5">
                 <Calendar size={11} /> {formatDate(item.scheduled_date)}
               </span>
@@ -615,66 +685,60 @@ const MissionItemCompact = ({
                 <Clock size={11} /> {formatTime(item.scheduled_time)}
               </span>
               <span
-                className="px-1.5 py-0.5 rounded-full text-[9px] font-medium"
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
                 style={{
-                  background: getStatusColor(item.status) + '20',
+                  background: getStatusColor(item.status) + '12',
                   color: getStatusColor(item.status),
                 }}
               >
                 {getStatusLabel(item.status)}
               </span>
               {item.is_urgent && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ background: '#F44336' + '20', color: '#F44336' }}>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600">
                   ⚠️ Urgent
                 </span>
               )}
             </div>
-            {item.aidant && (
-              <div className="text-[10px] text-gray-500 flex items-center gap-0.5">
-                <User size={10} />
-                Aidant: <span className="font-medium">{getAidantName()}</span>
-              </div>
-            )}
           </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            {/* ✅ AIDANT : Approuver/Refuser */}
+          <div className="flex items-center gap-1.5 shrink-0">
             {isPending && (
               <>
                 <button
                   onClick={(e) => { e.stopPropagation(); onApprove(); }}
-                  className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                  className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm"
                   style={{ background: '#4CAF50' }}
+                  title="Approuver"
                 >
-                  <CheckCircle size={12} />
+                  <CheckCircle size={14} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onRefuse(); }}
-                  className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                  className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm"
                   style={{ background: '#F44336' }}
+                  title="Refuser"
                 >
-                  <XCircle size={12} />
+                  <XCircle size={14} />
                 </button>
               </>
             )}
 
-            {/* ✅ AIDANT : Démarrer une visite acceptée */}
             {isAccepted && (
               <button
                 onClick={(e) => { e.stopPropagation(); onStart(); }}
-                className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+                className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm"
                 style={{ background: '#4CAF50' }}
+                title="Démarrer l'itinéraire"
               >
-                <Play size={12} />
+                <Play size={14} fill="#ffffff" />
               </button>
             )}
 
             <button
               onClick={(e) => { e.stopPropagation(); onView(); }}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-              style={{ color: colors.primary }}
+              className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/20 text-gray-400 hover:text-gray-800 flex items-center justify-center"
             >
-              <Eye size={14} />
+              <Eye size={13} />
             </button>
           </div>
         </div>
@@ -682,12 +746,9 @@ const MissionItemCompact = ({
     );
   }
 
-  // ✅ Pour les commandes
   const isAvailable = item.status === 'en_attente' || item.status === 'disponible';
   const isAcceptedOrder = item.status === 'en_cours';
-  const isDelivered = item.status === 'livree' || item.status === 'validee';
 
-  // ✅ Fonction pour obtenir le nom du client
   const getPatientName = () => {
     if (item.patient) {
       return `${item.patient.first_name} ${item.patient.last_name}`;
@@ -700,16 +761,16 @@ const MissionItemCompact = ({
 
   return (
     <div
-      className="bg-white rounded-xl p-3 shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
-      style={{ borderLeftColor: getStatusColor(item.status) }}
+      className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 cursor-pointer hover:shadow-md transition-all duration-200"
       onClick={onView}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-semibold text-sm truncate" style={{ color: colors.text }}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Livraison active</span>
+          <p className="font-extrabold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
             📦 {item.description || 'Commande'}
           </p>
-          <div className="flex items-center gap-1.5 text-xs flex-wrap" style={{ color: colors.text + '60' }}>
+          <div className="flex items-center gap-1.5 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-0.5">
               <User size={11} /> {getPatientName()}
             </span>
@@ -718,60 +779,57 @@ const MissionItemCompact = ({
               <Package size={11} /> {formatCurrency(item.estimated_amount || 0)}
             </span>
             <span
-              className="px-1.5 py-0.5 rounded-full text-[9px] font-medium"
+              className="px-1.5 py-0.5 rounded text-[10px] font-bold"
               style={{
-                background: getStatusColor(item.status) + '20',
+                background: getStatusColor(item.status) + '12',
                 color: getStatusColor(item.status),
               }}
             >
               {getStatusLabel(item.status)}
             </span>
             {item.status === 'disponible' && (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-red-100 text-red-600">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 animate-pulse">
                 🚨 Urgent
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          {/* ✅ AIDANT : Prendre une commande disponible */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {isAvailable && (
             <button
               onClick={(e) => { e.stopPropagation(); onTakeOrder(); }}
-              className={`px-2 py-1 rounded-lg text-white text-xs font-medium ${
-                item.status === 'disponible' ? 'animate-pulse' : ''
-              }`}
+              className="px-3 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center justify-center gap-1 shadow-sm"
               style={{ background: item.status === 'disponible' ? '#F44336' : '#FF9800' }}
             >
               <Package size={12} />
+              <span>Prendre</span>
             </button>
           )}
 
-          {/* ✅ AIDANT : Livrer une commande en cours */}
           {isAcceptedOrder && (
             <button
               onClick={(e) => { e.stopPropagation(); onDeliver(); }}
-              className="px-2 py-1 rounded-lg text-white text-xs font-medium"
+              className="px-3 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center justify-center gap-1 shadow-sm"
               style={{ background: '#2196F3' }}
             >
               <Truck size={12} />
+              <span>Livrer</span>
             </button>
           )}
 
           <button
             onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-            style={{ color: colors.primary }}
+            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/20 text-gray-400 hover:text-gray-800 flex items-center justify-center"
           >
-            <Eye size={14} />
+            <Eye size={13} />
           </button>
         </div>
       </div>
 
-      {/* ✅ Barre de progression simplifiée */}
+      {/* Barre de progression simplifiée */}
       {item.status !== 'annulee' && item.status !== 'validee' && item.status !== 'attente_paiement' && (
-        <div className="mt-2 flex items-center gap-1">
+        <div className="mt-3 flex items-center gap-1">
           {['creee', 'en_cours', 'livree'].map((status, index) => {
             const statusIndex = ['creee', 'en_cours', 'livree'].indexOf(status);
             const currentIndex = ['creee', 'en_cours', 'livree'].indexOf(item.status);
@@ -780,24 +838,24 @@ const MissionItemCompact = ({
             return (
               <div key={status} className="flex items-center flex-1">
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] transition-all ${
-                    isDone ? 'text-white' : 'bg-gray-200 text-gray-400'
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
+                    isDone ? 'text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'
                   }`}
-                  style={{ background: isDone ? colors.primary : '#e5e7eb' }}
+                  style={{ background: isDone ? colors.primary : undefined }}
                 >
                   {isDone ? <CheckCircle size={10} /> : index + 1}
                 </div>
                 {index < 2 && (
                   <div
                     className={`flex-1 h-0.5 mx-0.5 transition-all ${
-                      isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-200'
+                      isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-100 dark:bg-gray-800'
                     }`}
                   />
                 )}
               </div>
             );
           })}
-          <span className="text-[8px] ml-1 text-gray-400">
+          <span className="text-[10px] ml-1.5 text-gray-400 font-bold shrink-0">
             {Math.round((['creee', 'en_cours', 'livree'].indexOf(item.status) + 1) / 3 * 100)}%
           </span>
         </div>
