@@ -1,9 +1,8 @@
 // 📁 src/features/help/pages/HistoryPage.tsx
-// ✅ PAGE HISTORIQUE COMPLET : ALIGNEMENT DES IDENTITÉS BÉNÉFICIAIRES DYNAMIQUES ET MODERNISATION VISUELLE
-
-import { useEffect, useState, useMemo, useCallback } from 'react';
+ 
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, CheckCircle, XCircle, Clock, Eye, Filter, Search } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, Eye, Filter, Search, RefreshCw } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -28,6 +27,11 @@ const HistoryPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
+  // ÉTATS DE PULL-TO-REFRESH MOBILE
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const startTouchY = useRef(0);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
@@ -48,6 +52,41 @@ const HistoryPage = () => {
     fetchVisits();
     fetchOrders();
   }, []);
+
+  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startTouchY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return;
+    const currentY = e.touches[0].clientY;
+    const diffY = currentY - startTouchY.current;
+
+    if (diffY > 0 && window.scrollY === 0) {
+      const resistance = Math.min(diffY * 0.38, 72);
+      setPullY(resistance);
+      if (e.cancelable) e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    setIsPulling(false);
+    if (pullY >= 50) {
+      toast.promise(
+        Promise.all([fetchVisits(), fetchOrders()]),
+        {
+          loading: 'Actualisation de l\'historique...',
+          success: 'Historique synchronisé !',
+          error: 'Échec de synchronisation.',
+        }
+      );
+    }
+    setPullY(0);
+  };
 
   const myMissions = useMemo(() => {
     return visits.filter(v =>
@@ -135,23 +174,22 @@ const HistoryPage = () => {
     return labels[status] || status;
   };
 
-  const getPageTitle = () => '📋 Mon historique';
+  const getPageTitle = () => 'Mon historique d\'interventions';
 
   const isLoading = visitsLoading || ordersLoading;
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-3 gap-2">
+      <div className="space-y-6">
+        <div className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+            <div key={item} className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="h-12 bg-white rounded-xl animate-pulse" />
-        <div className="space-y-2">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+        <div className="space-y-3">
+          {[1, 2].map((item) => (
+            <div key={item} className="h-20 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -165,106 +203,130 @@ const HistoryPage = () => {
   };
 
   const filterOptions = [
-    { value: 'all', label: 'Tous' },
-    { value: 'terminee', label: '✅ Terminée / Livrée' },
-    { value: 'validee', label: '💜 Validée' },
-    { value: 'annulee', label: '❌ Annulée' },
+    { value: 'all', label: 'Tous les statuts' },
+    { value: 'terminee', label: '✅ Terminées' },
+    { value: 'validee', label: '✔️ Validées' },
+    { value: 'annulee', label: '❌ Annulées' },
   ];
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10 animate-fadeIn">
-      {/* HEADER */}
-      <section className="bg-white dark:bg-[#17231d] rounded-2xl p-5 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold mb-2"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <Calendar size={12} />
-              Historique
-            </div>
-
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              {getPageTitle()}
-            </h1>
-
-            <p className="text-xs mt-0.5 text-gray-400">
-              {stats.total} élément(s) archivé(s) dans vos dossiers
-            </p>
-          </div>
+    <div 
+      className="space-y-6 pb-6 animate-fadeIn"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      
+      {/* ============================================================
+          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
+          ============================================================ */}
+      <div 
+        className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
+        style={{ 
+          height: pullY > 0 ? `${pullY}px` : '0px',
+          opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
+        }}
+      >
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+          <RefreshCw 
+            size={13} 
+            className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
+            style={{ transform: pullY < 50 ? `rotate(${pullY * 3.6}deg)` : undefined }}
+          />
+          <span className="text-[10px] font-black uppercase tracking-wider">
+            {pullY >= 50 ? 'Relâcher pour actualiser' : 'Tirer pour rafraîchir'}
+          </span>
         </div>
+      </div>
+
+      {/* ============================================================
+          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC UNIQUE ET CENTRÉ
+          ============================================================ */}
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+        <div className="space-y-1.5 relative z-10">
+          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+            {getPageTitle()}
+          </h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+            Consultez l'historique archivé de vos accompagnements d'aide et livraisons validés par l'administration.
+          </p>
+        </div>
+
+        {/* Bouton de rafraîchissement manuel en haut à droite du cadre */}
+        <button
+          onClick={async () => {
+            toast.promise(
+              Promise.all([fetchVisits(), fetchOrders()]),
+              {
+                loading: 'Mise à jour...',
+                success: 'Historique actualisé !',
+                error: 'Échec de la mise à jour',
+              }
+            );
+          }}
+          disabled={isLoading}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          title="Actualiser"
+        >
+          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+        </button>
       </section>
 
-      {/* STATS */}
-      <section className="grid grid-cols-3 gap-2.5">
+      {/* ============================================================
+          WIDGET BENTO D'ACTIVITÉ (SANS COMPACT STATS SACCADÉS ET CHEVAUCHÉS)
+          ============================================================ */}
+      <section className="grid grid-cols-3 gap-2.5 w-full">
         <CompactStat label="Total" value={stats.total} color={colors.primary} icon={<Calendar size={14} />} />
         <CompactStat label="Missions" value={stats.missions} color="#10B981" icon={<CheckCircle size={14} />} />
-        <CompactStat label="Livraisons" value={stats.deliveries} color="#FF9800" icon={<Clock size={14} />} />
+        <CompactStat label="Courses" value={stats.deliveries} color="#FF9800" icon={<Clock size={14} />} />
       </section>
 
-      {/* TABS + FILTRES */}
-      <section className="bg-white dark:bg-[#17231d] rounded-2xl p-3 shadow-sm border border-black/5 space-y-3">
-        <div className="p-0.5 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1 flex">
-          <button
-            onClick={() => setActiveType('all')}
-            className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
-              activeType === 'all'
-                ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-            )}
-            style={activeType === 'all' ? { color: colors.primary } : undefined}
-          >
-            Tous ({stats.total})
-          </button>
-          <button
-            onClick={() => setActiveType('missions')}
-            className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
-              activeType === 'missions'
-                ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-            )}
-            style={activeType === 'missions' ? { color: colors.primary } : undefined}
-          >
-            📋 Missions ({stats.missions})
-          </button>
-          <button
-            onClick={() => setActiveType('deliveries')}
-            className={cn(
-              "flex-1 py-1.5 rounded-lg text-xs font-bold transition-all",
-              activeType === 'deliveries'
-                ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-            )}
-            style={activeType === 'deliveries' ? { color: colors.primary } : undefined}
-          >
-            🚚 Livraisons ({stats.deliveries})
-          </button>
+      {/* TABS + RECHERCHES FILTRES */}
+      <section className="bg-white dark:bg-[#17231d] rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-gray-800/40 space-y-3">
+        
+        {/* Sélecteur de segments de premier niveau */}
+        <div className="p-1 bg-gray-150/70 dark:bg-[#1c2a21]/50 rounded-xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1 flex overflow-x-auto scrollbar-none">
+          {[
+            { key: 'all', label: `Tout (${stats.total})` },
+            { key: 'missions', label: `📋 Missions (${stats.missions})` },
+            { key: 'deliveries', label: `🚚 Livraisons (${stats.deliveries})` },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveType(tab.key as HistoryType)}
+              className={cn(
+                "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
+                activeType === tab.key
+                  ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+              )}
+              style={activeType === tab.key ? { color: colors.primary } : undefined}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Moteur de recherche et filtre harmonisés à hauteur H-11 */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher par bénéficiaire ou adresse..."
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border bg-gray-50 dark:bg-[#1d2d25] outline-none border-transparent focus:border-gray-200"
+              className="w-full h-11 pl-10 pr-4 text-xs rounded-xl border outline-none bg-gray-50/50 dark:bg-[#1d2d25]/50 border-gray-100 dark:border-gray-800/60 font-medium"
               style={{ color: colors.text }}
             />
           </div>
-          <div className="relative min-w-[120px]">
-            <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+
+          <div className="relative sm:w-48 shrink-0">
+            <Filter size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full pl-8 pr-2 py-2 text-xs rounded-xl border bg-gray-50 dark:bg-[#1d2d25] outline-none appearance-none border-transparent"
+              className="w-full h-11 pl-9 pr-8 text-xs rounded-xl border outline-none bg-gray-50/50 dark:bg-[#1d2d25] border-gray-100 dark:border-gray-800/60 font-semibold cursor-pointer appearance-none"
               style={{ color: colors.text }}
             >
               {filterOptions.map((opt) => (
@@ -277,13 +339,13 @@ const HistoryPage = () => {
         </div>
       </section>
 
-      {/* LISTE D'HISTORIQUE ULTRA-PROPRE */}
+      {/* LISTE D'HISTORIQUE DE HAUTE PRÉCISION */}
       {filteredItems.length > 0 ? (
         <section className="space-y-3">
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 cursor-pointer hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-[#2c3f35]/50 cursor-pointer hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               onClick={() => {
                 if (item.type === 'mission') {
                   navigate(`/app/visits/${item.id}`);
@@ -293,7 +355,7 @@ const HistoryPage = () => {
               }}
             >
               <div className="flex items-center gap-3.5 min-w-0">
-                {/* Liseré vertical dynamique */}
+                {/* Liseré vertical dynamique épuré */}
                 <div 
                   className="w-1 h-10 rounded-full shrink-0" 
                   style={{ backgroundColor: getStatusColor(item.status) }} 
@@ -337,7 +399,7 @@ const HistoryPage = () => {
                       navigate(`/app/orders/${item.id}`);
                     }
                   }}
-                  className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-850 text-gray-400 hover:text-gray-750 dark:hover:text-gray-200 flex items-center justify-center transition-all"
+                  className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800/20 text-gray-400 hover:text-gray-800 flex items-center justify-center transition-all"
                 >
                   <Eye size={13} />
                 </button>
@@ -346,8 +408,9 @@ const HistoryPage = () => {
           ))}
         </section>
       ) : (
+        /* Écran vide chic & moderne */
         <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
-          <Calendar size={32} className="text-gray-400 dark:text-gray-500 opacity-60" />
+          <Calendar size={32} className="text-gray-400 dark:text-gray-500 opacity-60 animate-pulse" />
           <div className="space-y-1">
             <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
               {searchTerm ? 'Aucun résultat correspondant' : 'Historique vierge'}
@@ -365,7 +428,7 @@ const HistoryPage = () => {
 };
 
 // =============================================
-// COMPACT STAT
+// COMPACT STAT (REFAÇONNÉ POUR SUPPRIMER TOUT CHEVAUCHEMENT)
 // =============================================
 
 interface CompactStatProps {
@@ -377,14 +440,18 @@ interface CompactStatProps {
 
 const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
   return (
-    <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 flex items-center justify-between gap-3 h-20">
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">{label}</p>
-        <p className="text-base font-black text-gray-800 dark:text-gray-100 mt-1" style={{ color }}>{value}</p>
+    <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28 min-w-0">
+      <div className="flex items-center justify-between gap-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">
+          {label}
+        </span>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-inner" style={{ background: color + '12', color }}>
+          {icon}
+        </div>
       </div>
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-inner" style={{ background: color + '12', color }}>
-        {icon}
-      </div>
+      <p className="text-sm sm:text-base font-black leading-none" style={{ color }}>
+        {value}
+      </p>
     </div>
   );
 };
