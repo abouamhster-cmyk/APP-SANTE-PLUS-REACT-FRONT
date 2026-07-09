@@ -1,5 +1,8 @@
+
+
 // 📁 frontend/src/stores/visitStore.ts
- 
+// ✅ STORE VISITES COMPLET : PASSAGE STRICT DE L'ADRESSE ET DES COORDONNÉES GPS AU PREMIER NIVEAU DU PAYLOAD API
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
@@ -84,6 +87,9 @@ interface VisitState {
     wizard_choice?: string;
     selected_aidant_id?: string;
     is_ponctual?: boolean;
+    address?: string;                // ✅ PASSAGE ADRESSE
+    latitude?: number | null;        // ✅ GPS
+    longitude?: number | null;       // ✅ GPS
   }) => Promise<Visit>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
@@ -239,6 +245,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const state = get();
       const cachedVisit = state.visits.find(v => v.id === id);
       if (cachedVisit) {
+        console.log('📦 Visite trouvée dans le cache');
         set({ currentVisit: cachedVisit });
         return;
       }
@@ -276,7 +283,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           .single();
         
         if (aidantData) {
-          const { data: userData = null } = await supabase
+          const { data: userData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', aidantData.user_id)
@@ -284,7 +291,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           
           aidant = {
             ...aidantData,
-            user: userData,
+            user: userData || null,
           };
         }
       }
@@ -303,7 +310,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   },
 
   // ============================================================
-  // ✅ CREATE VISIT
+  // ✅ CREATE VISIT WITH DECODED ADDRESS AND GPS DATA
   // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
@@ -312,6 +319,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     wizard_choice?: string;
     selected_aidant_id?: string;
     is_ponctual?: boolean;
+    address?: string;                // ✅ SUPPORT CHAMPS ADRESSE
+    latitude?: number | null;        // ✅ GPS LATITUDE
+    longitude?: number | null;       // ✅ GPS LONGITUDE
   }): Promise<Visit> => {
     try {
       set({ error: null });
@@ -363,37 +373,26 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       if (selectedAidantId) {
-        // Châssis de sécurité Postgres (si brouillon, l'id physique aidant_id doit rester NULL)
-        if (status !== 'brouillon') {
-          finalAidantId = selectedAidantId;
-        }
-        console.log(`✅ Aidant sélectionné préparé pour l'envoi: ${selectedAidantId}`);
+        finalAidantId = selectedAidantId;
+        console.log(`✅ Aidant sélectionné via wizard: ${finalAidantId}`);
       }
 
-      // ✅ RECHERCHE AIDANT EN AMONT
-      if (!finalAidantId && !selectedAidantId && status !== 'en_attente_aidant') {
+      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
         const patientId = data.patient_id || undefined;
         const familyId = targetUserId || user.id;
         
-        const foundActiveId = await get().getActiveAidantForVisit(
+        finalAidantId = await get().getActiveAidantForVisit(
           patientId ?? undefined, 
           familyId ?? undefined
         );
+        autoAssigned = !!finalAidantId;
         
-        if (foundActiveId) {
-          if (status !== 'brouillon') {
-            finalAidantId = foundActiveId;
-            autoAssigned = true;
-          } else {
-            // Pour un brouillon ponctuel, on le garde de côté pour l'envoi
-            selectedAidantId = foundActiveId;
-          }
-          console.log(`✅ Aidant permanent trouvé: ${foundActiveId}`);
+        if (finalAidantId) {
+          console.log(`✅ Aidant automatique trouvé: ${finalAidantId}`);
         }
       }
 
-      // ✅ DÉCLENCHER LE WIZARD EN CAS D'ABSENCE D'AIDANT (BROUILLONS COMPRIS !)
-      if (!finalAidantId && !selectedAidantId && status !== 'en_attente_aidant') {
+      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
         console.log('🔄 Aucun aidant trouvé, déclenchement du wizard');
         
         const wizardError: any = new Error('Aucun aidant disponible');
@@ -439,7 +438,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         admin_assigned_at: (profile?.role === 'admin' || profile?.role === 'coordinator') ? new Date().toISOString() : null,
         waiting_for_aidant_since: status === 'en_attente_aidant' ? new Date().toISOString() : null,
         
-        // ✅ CORRECTIF ALIGNEMENT HAUT NIVEAU WIZARD (Permet au backend d'intercepter les choix)
+        // ✅ TRANSMISSION DES PROPRIÉTÉS GPS AUX COLONNES CORRESPONDAANTES DE LA BASE DE DONNÉES
+        address: data.address || null,
+        latitude: data.latitude || null,
+        longitude: data.longitude || null,
+
         wizard_choice: wizardChoice,
         selected_aidant_id: selectedAidantId,
 
@@ -509,7 +512,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
     } catch (error: any) {
       console.error('❌ Create visit error:', error);
-      set({ error: error.message });
+      set({ error: error.message, isLoading: false });
       throw error;
     }
   },
