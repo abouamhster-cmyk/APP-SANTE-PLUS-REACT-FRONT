@@ -1,5 +1,7 @@
+
 // 📁 frontend/src/features/visits/components/VisitModalContent.tsx
- 
+// ✅ CONTENU DU MODAL DE PLANIFICATION : INTÉGRATION COMPLÈTE DU CHAMP ADRESSE AVEC AUTO-REPLISSAGE DE PATIENT ET DÉCODEUR GPS MAPS
+
 import { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -13,8 +15,7 @@ import {
   Sparkles,
   CheckCircle,
   Loader2,
-  Zap,
-  UserPlus,
+  MapPin,
 } from 'lucide-react';
 
 import { Visit, Patient } from '@/types';
@@ -25,6 +26,7 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { getThemeColors } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
+import { extractCoordinatesFromGoogleMaps } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 // ============================================================
@@ -54,6 +56,8 @@ interface Account {
   type: 'account_with_patients' | 'personal_account';
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
 // ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
@@ -79,13 +83,12 @@ export const VisitModalContent = ({
     isLoading: subLoading,
   } = useSubscriptionGuard();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const colors = getThemeColors('senior');
-
   const {
-    singular,
     getCategoryLabel,
   } = useTerminology();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const colors = getThemeColors('senior');
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showAccountSelector, setShowAccountSelector] = useState(false);
@@ -102,7 +105,12 @@ export const VisitModalContent = ({
     duration_minutes: 60,
     notes: '',
     is_urgent: false,
+    address: '',                      // ✅ AJOUT CHAPEAU ADRESSE
+    latitude: null as number | null,  // ✅ COORDONNEES GPS
+    longitude: null as number | null, // ✅ COORDONNEES GPS
   });
+
+  const [isResolvingGps, setIsResolvingGps] = useState(false);
 
   const isAdmin = isAdminOrCoordinator;
   const isFamilyUser = isFamily;
@@ -115,7 +123,7 @@ export const VisitModalContent = ({
       return {
         type: 'success',
         icon: <CheckCircle size={14} />,
-        text: `✅ ${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} disponible${remainingVisits > 1 ? 's' : ''} sur votre abonnement`,
+        text: `✅ {remainingVisits} visite(s) disponible(s) sur votre abonnement`,
       };
     }
 
@@ -136,6 +144,7 @@ export const VisitModalContent = ({
 
   const ponctualPrice = getPonctualPrice(formData.duration_minutes || 60);
 
+  // Charger les comptes pour l'admin
   useEffect(() => {
     if (isAdmin) {
       fetchAccounts();
@@ -170,6 +179,32 @@ export const VisitModalContent = ({
     }
   };
 
+  // ✅ CHANGER AUTOMATIQUEMENT L'ADRESSE ET LE GPS LORS DE LA SÉLECTION D'UN PROCHE (PATIENT)
+  useEffect(() => {
+    if (targetType === 'patient' && formData.patient_id) {
+      const patientList = isAdmin && selectedAccount?.has_patient ? accountPatients : patients;
+      const selectedPatientObj = patientList.find(p => p.id === formData.patient_id);
+      
+      if (selectedPatientObj) {
+        setFormData(prev => ({
+          ...prev,
+          address: selectedPatientObj.address || '',
+          latitude: selectedPatientObj.latitude || null,
+          longitude: selectedPatientObj.longitude || null,
+        }));
+        console.log(`📍 Adresse de proche injectée: ${selectedPatientObj.address}`);
+      }
+    } else {
+      // Si compte principal / personnel
+      setFormData(prev => ({
+        ...prev,
+        address: '',
+        latitude: null,
+        longitude: null,
+      }));
+    }
+  }, [formData.patient_id, targetType, selectedAccountId]);
+
   useEffect(() => {
     if (visit && mode === 'edit') {
       setFormData({
@@ -179,12 +214,13 @@ export const VisitModalContent = ({
         duration_minutes: visit.duration_minutes || 60,
         notes: visit.notes || '',
         is_urgent: visit.is_urgent || false,
+        address: visit.address || '',
+        latitude: visit.latitude || null,
+        longitude: visit.longitude || null,
       });
       if (visit.patient_id) {
         setTargetType('patient');
-        if (visit.user_id) {
-          setSelectedAccountId(visit.user_id);
-        }
+        if (visit.user_id) setSelectedAccountId(visit.user_id);
       } else if (visit.user_id) {
         setTargetType('account');
         setSelectedAccountId(visit.user_id);
@@ -199,6 +235,9 @@ export const VisitModalContent = ({
         duration_minutes: 60,
         notes: '',
         is_urgent: false,
+        address: '',
+        latitude: null,
+        longitude: null,
       });
 
       if (isAdmin && accounts.length > 0) {
@@ -221,9 +260,65 @@ export const VisitModalContent = ({
     account.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // ✅ DECODEUR ADRESSE AVEC COMPORTEMENT SANS COORDONNEES EN OPTION
+  const handleAddressChange = async (value: string) => {
+    setFormData(prev => ({ ...prev, address: value, latitude: null, longitude: null }));
+
+    const coords = extractCoordinatesFromGoogleMaps(value);
+    if (coords) {
+      setFormData(prev => ({
+        ...prev,
+        latitude: coords.lat,
+        longitude: coords.lng
+      }));
+      toast.success(`📍 Position GPS synchronisée : ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+      return;
+    }
+
+    if (value.includes('maps.app.goo.gl')) {
+      setIsResolvingGps(true);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+
+        const response = await fetch(`${API_URL}/billing/resolve-maps`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ url: value.trim() })
+        });
+
+        const result = await response.json();
+        if (result.success && result.finalUrl) {
+          const resolvedCoords = extractCoordinatesFromGoogleMaps(result.finalUrl);
+          if (resolvedCoords) {
+            setFormData(prev => ({
+              ...prev,
+              latitude: resolvedCoords.lat,
+              longitude: resolvedCoords.lng
+            }));
+            toast.success(`📍 Position GPS synchronisée : ${resolvedCoords.lat.toFixed(4)}, ${resolvedCoords.lng.toFixed(4)}`);
+          }
+        }
+      } catch (err) {
+        console.warn('Impossible de résoudre le lien court en direct:', err);
+      } finally {
+        setIsResolvingGps(false);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    if (!formData.address.trim()) {
+      toast.error('Veuillez renseigner l’adresse de l’intervention');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -241,6 +336,9 @@ export const VisitModalContent = ({
         is_urgent: formData.is_urgent,
         actions: [],
         requested_by: profile?.id,
+        address: formData.address.trim(),       // ✅ TRANSMISSION ADRESSE
+        latitude: formData.latitude,             // ✅ TRANSMISSION LATITUDE
+        longitude: formData.longitude,           // ✅ TRANSMISSION LONGITUDE
       };
 
       if (targetType === 'patient' && formData.patient_id) {
@@ -249,15 +347,6 @@ export const VisitModalContent = ({
           toast.error('Compte utilisateur introuvable');
           setIsLoading(false);
           return;
-        }
-
-        if (isAdmin && selectedAccount) {
-          const patientBelongsToAccount = selectedAccount.patients.some(p => p.id === formData.patient_id);
-          if (!patientBelongsToAccount) {
-            toast.error('Ce proche n\'appartient pas au compte sélectionné');
-            setIsLoading(false);
-            return;
-          }
         }
 
         data.patient_id = formData.patient_id;
@@ -285,13 +374,10 @@ export const VisitModalContent = ({
         console.log('💳 Mode ponctuel activé pour cette visite');
       }
 
-      console.log('📤 Données envoyées:', data);
-
       if (mode === 'create') {
         try {
           const result = await createVisit(data);
           
-          // ✅ ENREGISTRER DES TOASTS EXPLICITES AVANT DE PASSER LA MAIN AU MODAL PARENT
           if (result?.status === 'brouillon') {
             const price = getPonctualPrice(formData.duration_minutes || 60);
             toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis.`);
@@ -303,8 +389,6 @@ export const VisitModalContent = ({
           
           onSuccess(result);
         } catch (error: any) {
-          console.error('❌ Erreur création visite (catch interne):', error);
-          
           const errorData = error.response?.data;
           const isWizardRequired = 
             (error.response?.status === 422 && errorData?.wizard_required) ||
@@ -312,7 +396,6 @@ export const VisitModalContent = ({
 
           if (isWizardRequired) {
             const wizardObj = errorData?.wizard || errorData;
-            console.log('🔄 Ouverture du wizard avec les données complétées:', wizardObj);
             
             if (onOpenWizard) {
               onOpenWizard(data, {
@@ -415,7 +498,7 @@ export const VisitModalContent = ({
                       </p>
                       <p className="text-[10px] text-gray-400 truncate mt-0.5">
                         {account.has_patient
-                          ? `👨‍👩‍ ${account.patients.length} proche(s)`
+                          ? `👨‍👩‍👦 ${account.patients.length} proche(s)`
                           : '👤 Compte personnel'}
                       </p>
                     </div>
@@ -662,11 +745,55 @@ export const VisitModalContent = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full overflow-hidden">
+
+      {/* 🔹 ADMIN : Sélection de compte */}
       {isAdmin && renderAccountSelector()}
+
+      {/* 🔹 ADMIN : Sélecteur de type d'allocation */}
       {isAdmin && renderTargetTypeSelector()}
+
+      {/* 🔹 FAMILLE/AIDANT : Sélection standard */}
       {!isAdmin && renderFamilyContent()}
+
+      {/* 🔹 Sélection proche */}
       {renderPatientSelector()}
+
+      {/* 🔹 Résumé destinataire de la visite */}
       {renderTargetSummary()}
+
+      {/* ============================================================
+          ✅ NOUVEAU : CHAMP ADRESSE DE LA VISITE AVEC PARSING GOOGLE MAPS GPS
+          ============================================================ */}
+      <div className="space-y-1">
+        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+          Adresse de l'intervention ou Lien Google Maps *
+        </label>
+        <div className="relative">
+          <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400 animate-pulse" />
+          <input
+            type="text"
+            value={formData.address}
+            onChange={(e) => handleAddressChange(e.target.value)}
+            required
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1 bg-gray-50/50"
+            style={{
+              borderColor: colors.border,
+              color: colors.text,
+            }}
+            placeholder="Ex: Cotonou Cadjehoun ou collez un lien Google Maps..."
+          />
+          {isResolvingGps && (
+            <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+              <Loader2 className="animate-spin text-gray-400" size={14} />
+            </div>
+          )}
+        </div>
+        {formData.latitude && formData.longitude && (
+          <p className="text-[10px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
+            ✓ Destination GPS validée : {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+          </p>
+        )}
+      </div>
 
       {isFamilyUser && subscriptionMessage && (
         <div
@@ -715,6 +842,7 @@ export const VisitModalContent = ({
         </div>
       )}
 
+      {/* Date et Heure */}
       <div className="grid grid-cols-2 gap-3 w-full min-w-0">
         <div className="space-y-1 min-w-0">
           <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Date *</label>
