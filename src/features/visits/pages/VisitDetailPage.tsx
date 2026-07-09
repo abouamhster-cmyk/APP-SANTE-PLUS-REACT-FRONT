@@ -1,6 +1,6 @@
 // 📁 src/features/visits/pages/VisitDetailPage.tsx
  
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -23,6 +23,8 @@ import {
   Bell,
   UserCheck,
   Briefcase,
+  Compass,
+  Navigation as NavIcon,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -36,6 +38,9 @@ import {
   getVisitDisplayAddress,
   getVisitDisplayAidant
 } from '@/utils/helpers';
+
+// ✅ IMPORTER LES UTILS DE TRACKING GPS EN DIRECT
+import { useVisitTracking } from '@/hooks/useVisitTracking';
 
 // ✅ IMPORTER LES HELPERS DEPUIS CONSTANTS
 import {
@@ -85,6 +90,16 @@ const VisitDetailPage = () => {
   const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [assignmentType, setAssignmentType] = useState<'permanente' | 'temporaire' | 'ponctuelle'>('ponctuelle');
 
+  // ============================================================
+  // ✅ ÉTATS & HOOKS DE GÉOLOCALISATION ET CARTOGRAPHIE
+  // ============================================================
+  const { startVisitTracking, stopVisitTracking, trackingActive, route } = useVisitTracking(id);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const routeLayerRef = useRef<any>(null);
+  const leafletRef = useRef<any>(null);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
@@ -111,6 +126,105 @@ const VisitDetailPage = () => {
       fetchAidants({ onlyAvailable: true });
     }
   }, [showAssignModal, fetchAidants]);
+
+  // ============================================================
+  // ✅ CHARGEMENT DYNAMIQUE DE LEAFLET (SANS ERREUR SSR/BUILD)
+  // ============================================================
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      try {
+        const L = await import('leaflet');
+        await import('leaflet/dist/leaflet.css');
+        leafletRef.current = L;
+        setLeafletLoaded(true);
+      } catch (error) {
+        console.error('Erreur de chargement de Leaflet:', error);
+      }
+    };
+    loadLeaflet();
+  }, []);
+
+  // ============================================================
+  // ✅ AUTO-REPRISE DU SUIVI GPS SI L'AIDANT RAFRAÎCHIT LA PAGE
+  // ============================================================
+  useEffect(() => {
+    if (currentVisit && currentVisit.status === 'en_cours' && isAidant && currentVisit.aidant_id) {
+      console.log('🔄 [Suivi GPS] Visite active détectée, réinitialisation du Wake Lock et tracking...');
+      startVisitTracking();
+    }
+    return () => {
+      stopVisitTracking();
+    };
+  }, [currentVisit?.status]);
+
+  // ============================================================
+  // ✅ RENDU CARTOGRAPHIQUE EN DIRECT (TRAJECTOIRES ET POINTS)
+  // ============================================================
+  useEffect(() => {
+    if (!leafletLoaded || !mapContainerRef.current || !currentVisit) return;
+    const L = leafletRef.current;
+    if (!L) return;
+
+    const destLat = Number(currentVisit.latitude || currentVisit.patient?.latitude);
+    const destLng = Number(currentVisit.longitude || currentVisit.patient?.longitude);
+
+    if (!destLat || !destLng) return;
+
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [destLat, destLng],
+        zoom: 14,
+        zoomControl: true,
+        attributionControl: false,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      routeLayerRef.current = L.layerGroup().addTo(map);
+      mapInstanceRef.current = map;
+    }
+
+    const map = mapInstanceRef.current;
+    const routeLayer = routeLayerRef.current;
+    routeLayer.clearLayers();
+
+    // Marqueur de Domicile Cible (Maison 🏠)
+    const destIcon = L.divIcon({
+      className: 'custom-dest-icon',
+      html: `<div style="background:#3B82F6; color:white; width:30px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏠</div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    L.marker([destLat, destLng], { icon: destIcon }).addTo(routeLayer).bindPopup("<b>Lieu de l'intervention</b>");
+
+    // Trajectoire en direct
+    const trackPoints = currentVisit.location_track || route || [];
+    if (trackPoints.length > 0) {
+      const coords = trackPoints.map((p: any) => [p.lat, p.lng]);
+      
+      // Ligne de tracé pointillée bleue
+      L.polyline(coords, {
+        color: '#3B82F6',
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '5, 8'
+      }).addTo(routeLayer);
+
+      // Marqueur live de l'intervenant (🏃)
+      const currentPos = coords[coords.length - 1];
+      const helperIcon = L.divIcon({
+        className: 'custom-helper-icon',
+        html: `<div style="background:#4CAF50; color:white; width:30px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏃</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+      L.marker(currentPos, { icon: helperIcon }).addTo(routeLayer).bindPopup("<b>Position en direct</b>");
+
+      // Auto-zoom adaptatif contenant le trajet
+      map.fitBounds(L.polyline([currentPos, [destLat, destLng]]).getBounds(), { padding: [40, 40] });
+    } else {
+      map.setView([destLat, destLng], 14);
+    }
+  }, [leafletLoaded, currentVisit, route]);
 
   // =============================================
   // ✅ OUVERTURE DU MODAL DE PAIEMENT
@@ -179,13 +293,14 @@ const VisitDetailPage = () => {
   };
 
   // =============================================
-  // ✅ DÉMARRER UNE VISITE - UN SEUL TOAST
+  // ✅ DÉMARRER UNE VISITE - UN SEUL TOAST & TRACKING ACQUISITION
   // =============================================
   const handleStart = async () => {
     setIsUpdating(true);
     try {
       await startVisit(id!);
-      toast.success('🚀 Visite démarrée');
+      await startVisitTracking(); // ✅ Déclenchement de l'écriture GPS et Wake Lock
+      toast.success('🚀 Visite démarrée et liaison GPS activée !');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
       await fetchVisits();
@@ -198,7 +313,7 @@ const VisitDetailPage = () => {
   };
 
   // =============================================
-  // ✅ TERMINER UNE VISITE - UN SEUL TOAST
+  // ✅ TERMINER UNE VISITE - UN SEUL TOAST & ARRÊT GPS
   // =============================================
   const handleComplete = async (data: {
     actions: string[];
@@ -238,6 +353,7 @@ const VisitDetailPage = () => {
           .eq('id', id);
       }
 
+      await stopVisitTracking(); // ✅ Arrêt propre du Wake Lock et tracking
       toast.success('✅ Visite terminée avec succès !');
       setShowCompleteModal(false);
       useVisitStore.getState().invalidateCache();
@@ -356,9 +472,6 @@ const VisitDetailPage = () => {
     }
   };
 
-  // =============================================
-  // ✅ EXPIRATION DU BROUILLON
-  // =============================================
   const getDraftExpiryText = () => {
     if (!currentVisit?.draft_expires_at) return null;
     const expiry = new Date(currentVisit.draft_expires_at);
@@ -371,9 +484,6 @@ const VisitDetailPage = () => {
     return `${minutes}min`;
   };
 
-  // =============================================
-  // ✅ DÉTERMINER LE STATUT D'AFFICHAGE DE L'AIDANT
-  // =============================================
   const getAidantDisplayStatus = () => {
     const aidantName = currentVisit?.aidant?.user?.full_name || 'Non assigné';
     
@@ -412,9 +522,6 @@ const VisitDetailPage = () => {
     };
   };
 
-  // =============================================
-  // ✅ VÉRIFICATIONS D'ÉTAT
-  // =============================================
   const isDraft = currentVisit?.status === 'brouillon';
   const isPendingApproval = currentVisit?.status === 'planifiee' || currentVisit?.status === 'en_attente';
   const isAccepted = currentVisit?.status === 'acceptee';
@@ -424,20 +531,14 @@ const VisitDetailPage = () => {
   const isRefused = currentVisit?.status === 'refusee';
   const hasNoAidant = !currentVisit?.aidant_id;
   
-  // ✅ SEUL le propriétaire de la visite peut payer (pas l'admin)
   const isOwner = currentVisit?.user_id === profile?.id;
   const requiresPayment = isDraft && currentVisit?.metadata?.requires_payment && isOwner;
-
-  // ✅ L'admin peut assigner un aidant si la visite n'en a pas ou si elle est expirée/refusée
   const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused);
 
   const aidantStatus = getAidantDisplayStatus();
   const draftExpiry = getDraftExpiryText();
   const paymentAmount = currentVisit?.metadata?.payment_amount || getPonctualPrice(currentVisit?.duration_minutes || 60);
 
-  // =============================================
-  // ✅ CHARGEMENT
-  // =============================================
   if (isLoading || !currentVisit) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -451,9 +552,6 @@ const VisitDetailPage = () => {
 
   const visit = currentVisit;
 
-  // =============================================
-  // ✅ RENDU PRINCIPAL
-  // =============================================
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
       
@@ -499,9 +597,7 @@ const VisitDetailPage = () => {
           </div>
         </div>
 
-        {/* ============================================================
-        ACTIONS STATUTS - UN SEUL TOAST PAR ACTION
-        ============================================================ */}
+        {/* ACTIONS STATUTS */}
         <div className="flex flex-wrap gap-1.5">
           {isPendingApproval && isAidant && (
             <>
@@ -612,9 +708,7 @@ const VisitDetailPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-      BANDEAU D'INFORMATION AIDANT
-      ============================================================ */}
+      {/* BANDEAU D'INFORMATION AIDANT */}
       {isAidant && visit.aidant_id && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl">
           <div className="flex items-center gap-3">
@@ -627,7 +721,7 @@ const VisitDetailPage = () => {
                 {visit.status === 'planifiee' 
                   ? '👆 Approuvez cette visite pour confirmer votre présence.' 
                   : visit.status === 'acceptee' 
-                    ? '✅ La visite is confirmée. Préparez-vous à intervenir.' 
+                    ? '✅ La visite est confirmée. Préparez-vous à intervenir.' 
                     : visit.status === 'en_cours'
                       ? '🔄 Vous êtes actuellement en visite.'
                       : '📋 Visite en cours de traitement.'}
@@ -637,9 +731,7 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      ✅ BANDEAU DE PAIEMENT - UNIQUEMENT POUR LE PROPRIÉTAIRE
-      ============================================================ */}
+      {/* BANDEAU DE PAIEMENT */}
       {requiresPayment && (
         <div 
           className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
@@ -676,6 +768,53 @@ const VisitDetailPage = () => {
           >
             Payer maintenant
           </button>
+        </div>
+      )}
+
+      {/* ============================================================
+      ✅ NEW : BANDEAU CARTO DE TÉLÉSUIVI EN DIRECT (SI VISITE EN COURS)
+      ============================================================ */}
+      {visit.status === 'en_cours' && (
+        <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="md:col-span-1 flex flex-col justify-between space-y-4">
+            <div>
+              <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Suivi GPS Actif
+              </span>
+              <h3 className="text-base font-black text-gray-800 mt-1">Intervenant en déplacement</h3>
+              <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                {isAidant 
+                  ? '🔒 Gardez votre écran allumé. Votre itinéraire est partagé en direct avec la famille.' 
+                  : '📍 Suivez la progression de l’auxiliaire vers le domicile du proche.'}
+              </p>
+            </div>
+
+            <div className="bg-blue-50/50 p-3.5 rounded-2xl border border-blue-100/50 text-center">
+              <Compass size={18} className="mx-auto text-blue-500 animate-spin" style={{ animationDuration: '8s' }} />
+              <p className="text-xs text-blue-600 font-extrabold mt-1.5">Liaison Satellite Sécurisée</p>
+            </div>
+
+            <button
+              onClick={() => {
+                const lat = visit.latitude || visit.patient?.latitude;
+                const lng = visit.longitude || visit.patient?.longitude;
+                if (lat && lng) {
+                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+                } else {
+                  toast.error('Coordonnées non disponibles');
+                }
+              }}
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shadow-blue-900/10"
+            >
+              <NavIcon size={14} />
+              Ouvrir l'itinéraire GPS
+            </button>
+          </div>
+
+          <div className="md:col-span-2 relative h-[250px] md:h-full min-h-[220px] rounded-2xl overflow-hidden border border-gray-100">
+            <div ref={mapContainerRef} className="w-full h-full" />
+          </div>
         </div>
       )}
 
@@ -873,7 +1012,7 @@ const VisitDetailPage = () => {
               </div>
             )}
 
-            {/* ✅ Informations complémentaires pour l'aidant */}
+            {/* Informations complémentaires pour l'aidant */}
             {isAidant && visit.aidant_id && (
               <div className="pt-2 border-t border-gray-50">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Informations</p>
