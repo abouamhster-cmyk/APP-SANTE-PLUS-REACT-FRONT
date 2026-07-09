@@ -55,8 +55,7 @@ const MissionsPage = () => {
   const colors = getThemeColors(themeName);
 
   // ============================================================
-  // 🔥 DÉFINITION INCONDITIONNELLE DES HOOKS AU SOMMET DU COMPOSANT
-  // (Résout définitivement l'erreur Minified React Error #310)
+  // 🔥 DÉFINITIONS INCONDITIONNELLES DES HOOKS AU SOMMET
   // ============================================================
   const myMissions = useMemo(() => visits.filter(v => v.aidant_id === aidantId), [visits, aidantId]);
   const assignedOrders = useMemo(() => orders.filter(o => o.aidant_id === aidantId), [orders, aidantId]);
@@ -89,6 +88,9 @@ const MissionsPage = () => {
       canTakeCount: availableOrders.length,
     };
   }, [myMissions, assignedOrders, availableOrders]);
+
+  // COMBINAISON DES CHARGEMENTS POUR SÉCURISER L'ÉTAT CONTEXTUEL
+  const isLoading_ = isLoading || ordersLoading;
 
   // FILTRES SECONDAIRES DYNAMIQUES EN HARMONIE AVEC LE CYCLE DE VIE
   const missionSubFilters = useMemo(() => [
@@ -147,7 +149,7 @@ const MissionsPage = () => {
         const isVerified = profileData?.is_active === true &&
           profileData?.role === 'aidant' &&
           aidant?.is_verified === true &&
-          aidant?.status === 'approved';
+          ant?.status === 'approved';
 
         setIsVerified(isVerified);
       } catch (error) {
@@ -360,10 +362,6 @@ const MissionsPage = () => {
     };
     return map[status] || status;
   };
-
-  // ============================================================
-  // AFFICHAGE DU RESTE DU RENDER SÉCURISÉ
-  // ============================================================
 
   if (isChecking) {
     return (
