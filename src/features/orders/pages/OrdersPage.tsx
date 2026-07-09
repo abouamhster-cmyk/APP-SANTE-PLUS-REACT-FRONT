@@ -1,6 +1,6 @@
 // 📁 frontend/src/features/orders/pages/OrdersPage.tsx
-
-import { useEffect, useMemo, useState } from 'react';
+ 
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -20,6 +20,7 @@ import {
   Sparkles,
   UserCheck,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -36,25 +37,25 @@ import {
   isOrderPendingPayment,
   isOrderPonctual,
   requiresOrderPayment,
+  cn,
 } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// ✅ FILTRES AVEC MODE PONCTUEL ET DISPONIBLE
+// ✅ FILTRES MODERNES AVEC MODE PONCTUEL ET DISPONIBLE
 const statusFilters = [
   { key: 'all', label: 'Toutes', icon: <List size={12} /> },
   { key: 'creee', label: '📝 Créées', icon: <Package size={12} /> },
-  { key: 'en_attente', label: '⏳ En attente (30min)', icon: <Clock size={12} /> },
-  { key: 'disponible', label: '🚨 Disponibles (urgent)', icon: <AlertCircle size={12} /> },
+  { key: 'en_attente', label: '⏳ En attente', icon: <Clock size={12} /> },
+  { key: 'disponible', label: '🚨 Disponibles', icon: <AlertCircle size={12} /> },
   { key: 'en_cours', label: '🔄 En cours', icon: <Clock size={12} /> },
   { key: 'livree', label: '📦 Livrées', icon: <Truck size={12} /> },
   { key: 'validee', label: '✅ Validées', icon: <CheckCircle size={12} /> },
   { key: 'annulee', label: '❌ Annulées', icon: <X size={12} /> },
-  { key: 'attente_paiement', label: '💳 En attente paiement', icon: <CreditCard size={12} /> },
+  { key: 'attente_paiement', label: '💳 En attente', icon: <CreditCard size={12} /> },
   { key: 'ponctual', label: '⚡ Ponctuelles', icon: <Sparkles size={12} /> },
 ];
 
-// ✅ Interface pour le quota
 interface AidantQuota {
   current: number;
   max: number;
@@ -75,7 +76,6 @@ const OrdersPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ✅ Utiliser le guard d'abonnement
   const {
     hasActiveSubscription,
     remainingOrders,
@@ -89,9 +89,13 @@ const OrdersPage = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedOrderForAssign, setSelectedOrderForAssign] = useState<any>(null);
 
-  // ✅ État pour le quota de l'aidant
   const [aidantQuota, setAidantQuota] = useState<AidantQuota | null>(null);
   const [isLoadingQuota, setIsLoadingQuota] = useState(false);
+
+  // ÉTATS DE PULL-TO-REFRESH MOBILE
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const startTouchY = useRef(0);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -144,16 +148,48 @@ const OrdersPage = () => {
     completed: orders.filter((order) => order.status === 'validee').length,
     pendingPayment: orders.filter((order) => order.status === 'attente_paiement').length,
     ponctual: orders.filter((order) => isOrderPonctual(order)).length,
-    // ✅ Nouveau : commandes que l'aidant peut prendre
     canTakeCount: orders.filter((order) => 
       ['creee', 'en_attente', 'disponible'].includes(order.status)
     ).length,
   }), [orders]);
 
-  const { refreshAll, isRefreshing } = useRefreshableData({
-    onRefresh: fetchOrders,
-    onError: (error) => toast.error('Erreur lors du rafraîchissement des commandes'),
-  });
+  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startTouchY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return;
+    const currentY = e.touches[0].clientY;
+    const diffY = currentY - startTouchY.current;
+
+    if (diffY > 0 && window.scrollY === 0) {
+      const resistance = Math.min(diffY * 0.38, 72);
+      setPullY(resistance);
+      if (e.cancelable) e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    setIsPulling(false);
+    if (pullY >= 50) {
+      toast.promise(
+        (async () => {
+          await fetchOrders();
+          if (isAidant) await fetchAidantQuota();
+        })(),
+        {
+          loading: 'Actualisation des commandes...',
+          success: 'Commandes à jour !',
+          error: 'Échec de synchronisation.',
+        }
+      );
+    }
+    setPullY(0);
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -162,7 +198,6 @@ const OrdersPage = () => {
   useEffect(() => {
     const saved = sessionStorage.getItem('pending_ponctual_order');
     if (saved) {
-      console.warn('⚠️ Données de commande en attente trouvées, nettoyage...');
       sessionStorage.removeItem('pending_ponctual_order');
       localStorage.removeItem('pending_ponctual_order');
     }
@@ -212,7 +247,7 @@ const OrdersPage = () => {
     try {
       const validStatuses = ['creee', 'en_attente', 'en_cours', 'livree', 'validee', 'annulee', 'disponible', 'attente_paiement'];
       if (!validStatuses.includes(status)) {
-        toast.error(`Statut "${status}" invalide pour une commande`);
+        toast.error(`Statut "${status}" invalide`);
         setIsProcessing(false);
         return;
       }
@@ -229,7 +264,6 @@ const OrdersPage = () => {
 
       toast.success(statusMessages[status] || `Commande ${status}`);
       
-      // ✅ Rafraîchir le quota après action
       if (isAidant) {
         await fetchAidantQuota();
       }
@@ -251,7 +285,6 @@ const OrdersPage = () => {
       await takeOrder(id);
       toast.success('Commande prise en charge');
       
-      // ✅ Rafraîchir le quota après prise
       if (isAidant) {
         await fetchAidantQuota();
       }
@@ -266,7 +299,7 @@ const OrdersPage = () => {
   };
 
   const getPageTitle = () => {
-    if (isFamily) return 'Mes commandes';
+    if (isFamily) return 'Mes commandes & courses';
     if (isAidant) return 'Commandes à livrer';
     if (isAdminOrCoordinator) return 'Gestion des commandes';
     return 'Commandes';
@@ -281,17 +314,17 @@ const OrdersPage = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-2 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse" />
+      <div className="space-y-6">
+        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-3 gap-2">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="h-12 bg-white rounded-xl animate-pulse" />
+        <div className="h-11 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
         <div className="space-y-2">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-20 bg-white rounded-xl animate-pulse" />
+          {[1, 2].map((item) => (
+            <div key={item} className="h-20 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -299,272 +332,266 @@ const OrdersPage = () => {
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
-      <section className="w-full bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <ShoppingBag size={12} />
-              {isAdminOrCoordinator ? 'Gestion' : 'Mes commandes'}
-            </div>
+    <div 
+      className="space-y-6 pb-6 animate-fadeIn"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      
+      {/* ============================================================
+          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
+          ============================================================ */}
+      <div 
+        className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
+        style={{ 
+          height: pullY > 0 ? `${pullY}px` : '0px',
+          opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
+        }}
+      >
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+          <RefreshCw 
+            size={13} 
+            className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
+            style={{ transform: pullY < 50 ? `rotate(${pullY * 3.6}deg)` : undefined }}
+          />
+          <span className="text-[10px] font-black uppercase tracking-wider">
+            {pullY >= 50 ? 'Relâcher pour actualiser' : 'Tirer pour rafraîchir'}
+          </span>
+        </div>
+      </div>
 
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
-              {getPageTitle()}
-            </h1>
-
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
-              {orders.length} commande{orders.length > 1 ? 's' : ''}
-              {stats.available > 0 && (
-                <span className="ml-2 text-red-500">🚨 {stats.available} urgente(s)</span>
-              )}
-              {stats.pendingPayment > 0 && (
-                <span className="ml-2 text-purple-500">💳 {stats.pendingPayment} en attente paiement</span>
-              )}
-              {stats.ponctual > 0 && (
-                <span className="ml-2 text-orange-500">⚡ {stats.ponctual} ponctuelle(s)</span>
-              )}
-              {isAidant && aidantQuota && (
-                <span className={`ml-2 ${aidantQuota.canTake ? 'text-green-600' : 'text-red-500'}`}>
-                  📊 {aidantQuota.current}/{aidantQuota.max} en cours
-                </span>
-              )}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <RefreshButton 
-              size="sm" 
-              showText={false}
-              onRefresh={() => {
-                fetchOrders();
-                if (isAidant) fetchAidantQuota();
-                toast.success('Commandes actualisées');
-              }}
-            />
-
-            {isFamily && (
-              <button
-                onClick={() => navigate('/app/orders/create')}
-                className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold text-sm"
-                style={{ background: colors.primary }}
-              >
-                <Plus size={16} />
-                Nouvelle
-              </button>
-            )}
-          </div>
+      {/* ============================================================
+          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC UNIQUE ET CENTRÉ
+          ============================================================ */}
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md flex flex-col items-center gap-4">
+        
+        {/* A. Titre et description centré */}
+        <div className="space-y-1 relative z-10">
+          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+            {getPageTitle()}
+          </h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+            Planifiez, payez vos commissions ou suivez la livraison des médicaments et courses de vos proches.
+          </p>
         </div>
 
-        {/* ✅ BANDEAU QUOTA AIDANT */}
+        {/* B. Quota Aidant / Commandes libres (Intégré proprement s'il y en a) */}
         {isAidant && aidantQuota && (
-          <div className={`mt-3 p-2.5 rounded-xl flex items-center justify-between border ${
-            aidantQuota.canTake ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-          }`}>
-            <div className="flex items-center gap-2">
-              <UserCheck size={15} className={aidantQuota.canTake ? 'text-green-600' : 'text-red-600'} />
-              <span className={`text-xs font-medium ${aidantQuota.canTake ? 'text-green-700' : 'text-red-700'}`}>
-                Commandes en cours : {aidantQuota.current}/{aidantQuota.max}
-              </span>
-            </div>
-            <span className={`text-[10px] font-bold ${aidantQuota.canTake ? 'text-green-600' : 'text-red-600'}`}>
-              {aidantQuota.canTake 
-                ? `✅ ${aidantQuota.available} place${aidantQuota.available > 1 ? 's' : ''} disponible${aidantQuota.available > 1 ? 's' : ''}` 
-                : '❌ Quota atteint'}
-            </span>
-          </div>
-        )}
-
-        {/* ✅ BANDEAU COMMANDES DISPONIBLES (AIDANT) */}
-        {isAidant && stats.canTakeCount > 0 && aidantQuota?.canTake && (
-          <div className="mt-2 p-2 rounded-xl bg-blue-50 border border-blue-200 flex items-center gap-2">
-            <AlertCircle size={14} className="text-blue-500" />
-            <p className="text-xs text-blue-700">
-              📦 {stats.canTakeCount} commande{stats.canTakeCount > 1 ? 's' : ''} disponible{stats.canTakeCount > 1 ? 's' : ''} à prendre
+          <div className="px-5 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Disponibilité Livraisons
             </p>
-            <button
-              onClick={() => setActiveStatus('disponible')}
-              className="ml-auto text-xs font-bold text-blue-600 hover:underline"
-            >
-              Voir
-            </button>
+            <p className="text-sm font-black text-emerald-800 dark:text-emerald-100 mt-0.5 leading-none">
+              {aidantQuota.current} / {aidantQuota.max} en charge
+            </p>
+            <p className="text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-1">
+              {aidantQuota.canTake ? `${aidantQuota.available} place(s) libre(s)` : 'Quota maximum atteint'}
+            </p>
           </div>
         )}
-      </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <CompactStat
-          icon={<Package size={14} />}
-          label="Total"
-          value={stats.total}
-          color={colors.primary}
-        />
-        <CompactStat
-          icon={<Clock size={14} />}
-          label="En attente"
-          value={stats.pending}
-          color="#FF9800"
-        />
-        <CompactStat
-          icon={<AlertCircle size={14} />}
-          label="Urgentes"
-          value={stats.available}
-          color="#F44336"
-        />
-        <CompactStat
-          icon={<Truck size={14} />}
-          label="Livrées"
-          value={stats.delivery}
-          color="#2196F3"
-        />
-        <CompactStat
-          icon={<Sparkles size={14} />}
-          label="Ponctuelles"
-          value={stats.ponctual}
-          color="#F59E0B"
-        />
-      </section>
+        {/* C. Alerte Commandes en attente de paiement (Intégré de manière chic s'il y en a) */}
+        {stats.pendingPayment > 0 && isFamily && (
+          <button
+            onClick={() => setActiveStatus('attente_paiement')}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50/50 dark:bg-[#20112c] border border-purple-100/50 dark:border-purple-900/30 text-[10px] font-extrabold text-purple-800 dark:text-purple-300 transition hover:bg-purple-100/40 relative z-10"
+          >
+            <CreditCard size={12} className="text-purple-500 animate-pulse" />
+            <span>{stats.pendingPayment} commande{stats.pendingPayment > 1 ? 's' : ''} en attente de paiement</span>
+          </button>
+        )}
 
-      {/* ✅ BANDEAU COMMANDES EN ATTENTE DE PAIEMENT */}
-      {stats.pendingPayment > 0 && isFamily && (
-        <div className="bg-purple-50 border-l-4 border-purple-400 p-3 rounded-xl shadow-sm border border-purple-200">
-          <div className="flex items-center gap-3">
-            <CreditCard className="text-purple-500" size={20} />
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-purple-800 text-sm">
-                💳 {stats.pendingPayment} commande{stats.pendingPayment > 1 ? 's' : ''} en attente de paiement
-              </p>
-              <p className="text-xs text-purple-700">
-                Effectuez le paiement pour finaliser votre commande.
-              </p>
-            </div>
-            <button
-              onClick={() => setActiveStatus('attente_paiement')}
-              className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition"
-            >
-              Voir
-            </button>
-          </div>
-        </div>
-      )}
+        {/* D. Bouton central de Planification (En bas des textes, au milieu) */}
+        {isFamily && (
+          <button
+            onClick={() => navigate('/app/orders/create')}
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl text-xs font-bold text-white transition hover:opacity-90 shadow-sm relative z-10"
+            style={{ background: colors.primary }}
+          >
+            <Plus size={13} strokeWidth={2.5} />
+            <span>Nouvelle commande</span>
+          </button>
+        )}
 
-      {/* RECHERCHE + FILTRE */}
-      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher une commande..."
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            />
-          </div>
-
-          <div className="relative min-w-[140px]">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <select
-              value={activeStatus}
-              onChange={(e) => setActiveStatus(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              {statusFilters.map((filter) => (
-                <option key={filter.key} value={filter.key}>
-                  {filter.icon} {filter.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      {/* LISTE */}
-      {filteredOrders.length > 0 ? (
-        <section className="space-y-2">
-          {filteredOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onClick={() => navigate(`/app/orders/${order.id}`)}
-              onStatusChange={(status) => handleStatusChange(order.id, status)}
-              onTakeOrder={isAidant || isAdminOrCoordinator ? () => handleTakeOrder(order.id) : undefined}
-              onShowAssignAidantModal={
-                isAdminOrCoordinator ? () => handleShowAssignAidantModal(order) : undefined
+        {/* Bouton de rafraîchissement manuel en haut à droite du cadre */}
+        <button
+          onClick={async () => {
+            toast.promise(
+              (async () => {
+                await fetchOrders();
+                if (isAidant) await fetchAidantQuota();
+              })(),
+              {
+                loading: 'Mise à jour...',
+                success: 'Données synchronisées !',
+                error: 'Échec de la mise à jour',
               }
-              showActions={true}
-              compact
-            />
+            );
+          }}
+          disabled={isLoading}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
+          title="Rafraîchir"
+        >
+          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+        </button>
+
+      </section>
+
+      {/* ============================================================
+          WIDGET BENTO D'ACTIVITÉ COHÉRENT (FORMAT ET ESPACES STANDARDISÉS)
+          ============================================================ */}
+      <section className="grid grid-cols-3 gap-2.5 w-full">
+        {/* Bento 1: Commandes Totales */}
+        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Demandes</span>
+            <ShoppingBag size={13} className="text-emerald-500 shrink-0" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none">{stats.total} enregistrées</p>
+            <p className="text-[10px] text-gray-500 mt-1 leading-tight">{stats.pending} en attente</p>
+          </div>
+        </div>
+
+        {/* Bento 2: Livraisons en cours */}
+        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Livraisons</span>
+            <Truck size={13} className="text-blue-500 shrink-0" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none">{stats.inProgress} en cours</p>
+            <p className="text-[10px] text-gray-500 mt-1 leading-tight">{stats.delivery} livrées</p>
+          </div>
+        </div>
+
+        {/* Bento 3: Commandes libres ou Urgences */}
+        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Disponibles</span>
+            <AlertCircle size={13} className="text-amber-500 shrink-0" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none">{stats.available} urgentes</p>
+            <p className="text-[10px] text-gray-500 mt-1 leading-tight">{stats.ponctual} à l'acte</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          CONTRÔLEUR DE FILTRES SEGMENTÉ COHÉRENT (TABS PRINCIPAUX)
+          ============================================================ */}
+      <section className="w-full overflow-x-auto scrollbar-none py-1">
+        <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
+          {statusFilters.map((filter) => {
+            const isActive = activeStatus === filter.key;
+            return (
+              <button
+                key={filter.key}
+                onClick={() => setActiveStatus(filter.key)}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
+                  isActive
+                    ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                )}
+                style={isActive ? { color: colors.primary } : undefined}
+              >
+                <span>{filter.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ============================================================
+          BARRE DE RECHERCHE HARMONISÉE À HAUTEUR H-11
+          ============================================================ */}
+      <section className="w-full">
+        <div className="relative">
+          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher par article, adresse, patient..."
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white dark:bg-[#17231d] border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            style={{ color: colors.text }}
+          />
+        </div>
+      </section>
+
+      {/* ============================================================
+          LISTE DES COMMANDES CHRONOLOGIQUES ET PROPRES
+          ============================================================ */}
+      {filteredOrders.length > 0 ? (
+        <section className="space-y-3">
+          {filteredOrders.map((order) => (
+            <div key={order.id} className="transition-all duration-200 hover:translate-y-[-1px]">
+              <OrderCard
+                order={order}
+                onClick={() => navigate(`/app/orders/${order.id}`)}
+                onStatusChange={(status) => handleStatusChange(order.id, status)}
+                onTakeOrder={isAidant || isAdminOrCoordinator ? () => handleTakeOrder(order.id) : undefined}
+                onShowAssignAidantModal={
+                  isAdminOrCoordinator ? () => handleShowAssignAidantModal(order) : undefined
+                }
+                showActions={true}
+                compact
+              />
+            </div>
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+        /* ============================================================
+            CADRE D'ÉCRAN VIDE PARFAITEMENT CENTRÉ
+            ============================================================ */
+        <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
           <Illustration 
             type={orders.length > 0 ? 'search' : 'order'} 
-            size="lg" 
-            className="mx-auto mb-4 opacity-30" 
+            size="md" 
+            className="mx-auto opacity-35" 
           />
-          <h3 className="text-base font-bold" style={{ color: colors.text }}>
-            {orders.length > 0 ? 'Aucun résultat' : 'Aucune commande'}
-          </h3>
-          <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto">
-            {orders.length > 0
-              ? 'Aucune commande ne correspond à votre recherche.'
-              : getEmptyMessage()}
-          </p>
+          <div className="space-y-1">
+            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
+              {orders.length > 0 ? 'Aucun résultat' : 'Aucune commande'}
+            </h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+              {orders.length > 0
+                ? 'Aucune commande ne correspond à votre recherche.'
+                : getEmptyMessage()}
+            </p>
+          </div>
 
-          {isFamily && orders.length === 0 && (
+          {isFamily && (
             <button
               onClick={() => navigate('/app/orders/create')}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white font-bold text-sm"
+              className="inline-flex items-center gap-1.5 px-4 h-9 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
               style={{ background: colors.primary }}
             >
-              <Plus size={16} />
-              Nouvelle commande
+              <Plus size={13} strokeWidth={2.5} />
+              Créer une commande
             </button>
-          )}
-
-          {isFamily && orders.length > 0 && (
-            <button
-              onClick={() => setSearch('')}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm border transition hover:bg-gray-50"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              <Search size={16} />
-              Réinitialiser la recherche
-            </button>
-          )}
-
-          {/* ✅ Message si l'aidant n'a pas de commandes disponibles */}
-          {isAidant && orders.length === 0 && (
-            <p className="text-xs text-gray-400 mt-2">
-              💡 Les nouvelles commandes apparaîtront ici automatiquement.
-            </p>
           )}
         </section>
       )}
 
-      {/* BOUTON MOBILE */}
+      {/* BOUTON FLOTTANT D'ACCÈS RAPIDE SUR MOBILE */}
       {isFamily && (
         <button
           onClick={() => navigate('/app/orders/create')}
-          className="sm:hidden fixed bottom-20 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-lg flex items-center justify-center active:scale-95 transition"
-          style={{ background: colors.primary }}
-          aria-label="Nouvelle commande"
+          className="sm:hidden fixed bottom-24 right-5 z-40 w-12 h-12 rounded-full text-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+          style={{ 
+            background: colors.primary,
+            boxShadow: `0 8px 24px -6px ${colors.primary}`
+          }}
+          aria-label="Créer une commande"
         >
-          <Plus size={22} />
+          <Plus size={20} strokeWidth={2.5} />
         </button>
       )}
 
-      {/* MODAL D'ASSIGNATION D'AIDANT */}
+      {/* MODAL D'ASSIGNATION D'AIDANT (ADMIN) */}
       {showAssignModal && selectedOrderForAssign && (
         <AssignAidantModal
           isOpen={showAssignModal}
@@ -581,40 +608,6 @@ const OrdersPage = () => {
           colors={colors} 
         />
       )}
-    </div>
-  );
-};
-
-// =============================================
-// COMPACT STAT
-// =============================================
-
-interface CompactStatProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-}
-
-const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
-  return (
-    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
-      <div className="flex items-center justify-between gap-1">
-        <div>
-          <p className="text-[9px] font-medium uppercase tracking-wider text-gray-400">
-            {label}
-          </p>
-          <p className="text-lg font-bold mt-0.5" style={{ color }}>
-            {value}
-          </p>
-        </div>
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: color + '14', color }}
-        >
-          {icon}
-        </div>
-      </div>
     </div>
   );
 };
