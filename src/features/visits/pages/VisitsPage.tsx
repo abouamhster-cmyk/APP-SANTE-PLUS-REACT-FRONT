@@ -484,12 +484,12 @@ const VisitsPage = () => {
   }
 
   return (
-    <div 
-      className="w-full max-w-5xl mx-auto space-y-6 pb-24 px-1 sm:px-0"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+  <div 
+    className="w-full max-w-5xl mx-auto space-y-6 pb-6 px-1 sm:px-0" 
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    onTouchEnd={handleTouchEnd}
+  >
       
       {/* ============================================================
           🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
