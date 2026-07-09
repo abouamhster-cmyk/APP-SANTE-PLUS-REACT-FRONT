@@ -20,7 +20,6 @@ import {
   Sparkles,
   UserCheck,
   RefreshCw,
-  Loader2,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -439,42 +438,42 @@ const OrdersPage = () => {
       </section>
 
       {/* ============================================================
-          WIDGET BENTO D'ACTIVITÉ COHÉRENT (FORMAT ET ESPACES STANDARDISÉS)
+          🆕 WIDGET BENTO D'ACTIVITÉ MODERNE ET ULTRA-RESPONSIVE (ZÉRO TEXTE COUPÉ)
           ============================================================ */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
         {/* Bento 1: Commandes Totales */}
-        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Demandes</span>
+        <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Demandes</span>
             <ShoppingBag size={13} className="text-emerald-500 shrink-0" />
           </div>
           <div>
-            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none">{stats.total} enregistrées</p>
-            <p className="text-[10px] text-gray-500 mt-1 leading-tight">{stats.pending} en attente</p>
+            <p className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100 leading-none">{stats.total}</p>
+            <p className="text-[9px] sm:text-[10px] text-gray-500 mt-1 leading-none truncate">{stats.pending} en attente</p>
           </div>
         </div>
 
         {/* Bento 2: Livraisons en cours */}
-        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Livraisons</span>
+        <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Livraisons</span>
             <Truck size={13} className="text-blue-500 shrink-0" />
           </div>
           <div>
-            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none">{stats.inProgress} en cours</p>
-            <p className="text-[10px] text-gray-500 mt-1 leading-tight">{stats.delivery} livrées</p>
+            <p className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100 leading-none">{stats.inProgress}</p>
+            <p className="text-[9px] sm:text-[10px] text-gray-500 mt-1 leading-none truncate">{stats.delivery} livrées</p>
           </div>
         </div>
 
         {/* Bento 3: Commandes libres ou Urgences */}
-        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Disponibles</span>
+        <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Urgentes</span>
             <AlertCircle size={13} className="text-amber-500 shrink-0" />
           </div>
           <div>
-            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none">{stats.available} urgentes</p>
-            <p className="text-[10px] text-gray-500 mt-1 leading-tight">{stats.ponctual} à l'acte</p>
+            <p className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100 leading-none">{stats.available}</p>
+            <p className="text-[9px] sm:text-[10px] text-gray-500 mt-1 leading-none truncate">{stats.ponctual} à l'acte</p>
           </div>
         </div>
       </section>
@@ -494,7 +493,7 @@ const OrdersPage = () => {
                   "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
                   isActive
                     ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
                 )}
                 style={isActive ? { color: colors.primary } : undefined}
               >
