@@ -127,7 +127,6 @@ const VisitDetailPage = () => {
   // =============================================
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
-    // ✅ UN SEUL TOAST
     toast.success('✅ Visite planifiée après paiement !');
     if (id) {
       useVisitStore.getState().invalidateCache();
@@ -144,14 +143,12 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await approveVisit(id);
-      // ✅ UN SEUL TOAST
       toast.success('✅ Visite approuvée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id);
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur approbation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'approbation');
     } finally {
       setIsUpdating(false);
@@ -169,14 +166,12 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await refuseVisit(id, reason);
-      // ✅ UN SEUL TOAST
       toast.error('❌ Visite refusée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id);
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur refus:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors du refus');
     } finally {
       setIsUpdating(false);
@@ -190,14 +185,12 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await startVisit(id!);
-      // ✅ UN SEUL TOAST
       toast.success('🚀 Visite démarrée');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur démarrage:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors du démarrage');
     } finally {
       setIsUpdating(false);
@@ -245,7 +238,6 @@ const VisitDetailPage = () => {
           .eq('id', id);
       }
 
-      // ✅ UN SEUL TOAST
       toast.success('✅ Visite terminée avec succès !');
       setShowCompleteModal(false);
       useVisitStore.getState().invalidateCache();
@@ -253,7 +245,6 @@ const VisitDetailPage = () => {
       await fetchVisits();
     } catch (error) {
       console.error('❌ Erreur finalisation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors de la finalisation');
     } finally {
       setIsUploading(false);
@@ -268,14 +259,12 @@ const VisitDetailPage = () => {
       setIsUpdating(true);
       try {
         await cancelVisit(id!);
-        // ✅ UN SEUL TOAST
         toast.success('Visite annulée');
         useVisitStore.getState().invalidateCache();
         await fetchVisitById(id!);
         await fetchVisits();
       } catch (error: any) {
         console.error('❌ Erreur annulation:', error);
-        // ✅ UN SEUL TOAST D'ERREUR
         toast.error(error.message || 'Erreur lors de l\'annulation');
       } finally {
         setIsUpdating(false);
@@ -295,7 +284,6 @@ const VisitDetailPage = () => {
     setIsUpdating(true);
     try {
       await reassignVisit(id!, selectedAidantId, assignmentType);
-      // ✅ UN SEUL TOAST
       toast.success(`✅ Aidant assigné avec succès (${assignmentType})`);
       setShowAssignModal(false);
       setSelectedAidantId('');
@@ -304,7 +292,6 @@ const VisitDetailPage = () => {
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsUpdating(false);
@@ -580,14 +567,12 @@ const VisitDetailPage = () => {
               onClick={async () => {
                 try {
                   await supabase.from('visites').update({ status: 'validee' }).eq('id', id);
-                  // ✅ UN SEUL TOAST
                   toast.success('✅ Visite validée');
                   useVisitStore.getState().invalidateCache();
                   await fetchVisitById(id!);
                   await fetchVisits();
                 } catch (error: any) {
                   console.error('❌ Erreur validation:', error);
-                  // ✅ UN SEUL TOAST D'ERREUR
                   toast.error(error.message || 'Erreur lors de la validation');
                 }
               }}
@@ -615,7 +600,6 @@ const VisitDetailPage = () => {
               onClick={() => {
                 const newAidantId = prompt('ID du nouvel aidant :');
                 if (!newAidantId) return;
-                // ✅ UN SEUL TOAST INFORMATIF
                 toast('Réassignation à implémenter', { icon: 'ℹ️' });
               }}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
@@ -643,7 +627,7 @@ const VisitDetailPage = () => {
                 {visit.status === 'planifiee' 
                   ? '👆 Approuvez cette visite pour confirmer votre présence.' 
                   : visit.status === 'acceptee' 
-                    ? '✅ La visite est confirmée. Préparez-vous à intervenir.' 
+                    ? '✅ La visite is confirmée. Préparez-vous à intervenir.' 
                     : visit.status === 'en_cours'
                       ? '🔄 Vous êtes actuellement en visite.'
                       : '📋 Visite en cours de traitement.'}
@@ -924,11 +908,12 @@ const VisitDetailPage = () => {
         />
       )}
 
-      {showCompleteModal && (
+       {showCompleteModal && (
         <CompleteVisitModal
           isOpen={true}
           onClose={() => setShowCompleteModal(false)}
           visit={{ patient: visit.patient }}
+          visitId={visit.id}
           patientCategory={visit.patient?.category || 'senior'}
           onSubmit={handleComplete}
           isLoading={isUploading}
