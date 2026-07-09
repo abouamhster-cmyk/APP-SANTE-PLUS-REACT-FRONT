@@ -146,10 +146,11 @@ const MissionsPage = () => {
           return;
         }
 
+        // ✅ CORRECTION: Vérification de sécurité unifiée et sécurisée
         const isVerified = profileData?.is_active === true &&
           profileData?.role === 'aidant' &&
           aidant?.is_verified === true &&
-          ant?.status === 'approved';
+          aidant?.status === 'approved';
 
         setIsVerified(isVerified);
       } catch (error) {
@@ -362,6 +363,10 @@ const MissionsPage = () => {
     };
     return map[status] || status;
   };
+
+  // ============================================================
+  // AFFICHAGE DU RESTE DU RENDER SÉCURISÉ
+  // ============================================================
 
   if (isChecking) {
     return (
