@@ -734,6 +734,7 @@ const PatientDetailPage = () => {
         onSuccess={handleVisitModalSuccess}
       />
 
+ 
       {showCompleteModal && activeVisitId && (
         <CompleteVisitModal
           isOpen={true}
@@ -741,6 +742,7 @@ const PatientDetailPage = () => {
             setShowCompleteModal(false);
             setActiveVisitId(null);
           }}
+          visitId={activeVisitId} // ✅ AJOUTE CECI : Passez l'ID explicitement
           visit={{ patient: person }}
           patientCategory={person.category || 'senior'}
           onSubmit={handleComplete}
