@@ -1,7 +1,5 @@
-
 // 📁 frontend/src/features/visits/components/VisitModalContent.tsx
-// ✅ CONTENU DU MODAL DE PLANIFICATION : INTÉGRATION COMPLÈTE DU CHAMP ADRESSE AVEC AUTO-REPLISSAGE DE PATIENT ET DÉCODEUR GPS MAPS
-
+ 
 import { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -105,9 +103,9 @@ export const VisitModalContent = ({
     duration_minutes: 60,
     notes: '',
     is_urgent: false,
-    address: '',                      // ✅ AJOUT CHAPEAU ADRESSE
-    latitude: null as number | null,  // ✅ COORDONNEES GPS
-    longitude: null as number | null, // ✅ COORDONNEES GPS
+    address: '',                      
+    latitude: null as number | null,  
+    longitude: null as number | null,  
   });
 
   const [isResolvingGps, setIsResolvingGps] = useState(false);
@@ -123,7 +121,7 @@ export const VisitModalContent = ({
       return {
         type: 'success',
         icon: <CheckCircle size={14} />,
-        text: `✅ {remainingVisits} visite(s) disponible(s) sur votre abonnement`,
+        text: `✅ ${remainingVisits} visite(s) disponible(s) sur votre abonnement`, 
       };
     }
 
@@ -336,9 +334,9 @@ export const VisitModalContent = ({
         is_urgent: formData.is_urgent,
         actions: [],
         requested_by: profile?.id,
-        address: formData.address.trim(),       // ✅ TRANSMISSION ADRESSE
-        latitude: formData.latitude,             // ✅ TRANSMISSION LATITUDE
-        longitude: formData.longitude,           // ✅ TRANSMISSION LONGITUDE
+        address: formData.address.trim(),       
+        latitude: formData.latitude,             
+        longitude: formData.longitude,         
       };
 
       if (targetType === 'patient' && formData.patient_id) {
