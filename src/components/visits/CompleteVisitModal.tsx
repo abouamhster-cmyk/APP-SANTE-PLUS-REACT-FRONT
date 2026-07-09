@@ -1,5 +1,4 @@
 // 📁 src/components/visits/CompleteVisitModal.tsx
-// 📌 Wrapper pour compatibilité
 
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { CompleteVisitModalContent } from './CompleteVisitModalContent';
@@ -8,6 +7,7 @@ interface CompleteVisitModalProps {
   isOpen: boolean;
   onClose: () => void;
   visit: any;
+  visitId: string;  
   patientCategory: 'senior' | 'maman_bebe';
   onSubmit: (data: {
     actions: string[];
@@ -22,6 +22,7 @@ export const CompleteVisitModal = ({
   isOpen,
   onClose,
   visit,
+  visitId,  
   patientCategory,
   onSubmit,
   isLoading,
@@ -35,6 +36,7 @@ export const CompleteVisitModal = ({
     >
       <CompleteVisitModalContent
         visit={visit}
+        visitId={visitId}  
         patientCategory={patientCategory}
         onSubmit={onSubmit}
         onCancel={onClose}
@@ -43,5 +45,3 @@ export const CompleteVisitModal = ({
     </ModalFullScreen>
   );
 };
-
-export default CompleteVisitModal;
