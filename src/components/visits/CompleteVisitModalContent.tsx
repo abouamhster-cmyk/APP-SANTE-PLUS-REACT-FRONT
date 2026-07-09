@@ -32,6 +32,20 @@ interface CompleteVisitModalContentProps {
   isLoading: boolean;
 }
 
+// ============================================================
+// UTILITAIRE DE NETTOYAGE DES NOMS DE FICHIERS (Anti-caractères spéciaux)
+// ============================================================
+const sanitizeFileName = (name: string): string => {
+  return name
+    .normalize('NFD') // Supprime les accents
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9.-]/g, '_'); // Remplace les espaces, parenthèses et caractères spéciaux par des underscores
+};
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
+
 export const CompleteVisitModalContent = ({
   visit,
   visitId,
@@ -40,7 +54,10 @@ export const CompleteVisitModalContent = ({
   onCancel,
   isLoading: externalLoading,
 }: CompleteVisitModalContentProps) => {
-  const { isFamily, isAidant } = useTerminology();
+  const {
+    isFamily,
+    isAidant,
+  } = useTerminology();
 
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
@@ -51,7 +68,7 @@ export const CompleteVisitModalContent = ({
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  // ✅ VARIABLE DE CHARGEMENT UNIFIÉE
+  // ✅ VARIABLE DE CHARGEMENT UNIFIÉE CONTRE LES ERREURS DE COMPILATION
   const isLoadingState = externalLoading || isUploading;
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -154,22 +171,27 @@ export const CompleteVisitModalContent = ({
     try {
       let audioUrlUploaded = undefined;
       if (audioBlob) {
+        // ✅ CORRECTIF : Cible le bucket correct 'visites' au lieu de 'visits'
         const fileName = `visits/${visitId}/audio_${Date.now()}.webm`;
-        const { data, error } = await supabase.storage.from('visits').upload(fileName, audioBlob);
+        const { data, error } = await supabase.storage.from('visites').upload(fileName, audioBlob);
 
         if (!error && data) {
-          const { data: { publicUrl } } = supabase.storage.from('visits').getPublicUrl(fileName);
+          const { data: { publicUrl } } = supabase.storage.from('visites').getPublicUrl(fileName);
           audioUrlUploaded = publicUrl;
         }
       }
 
       const photoUrls: string[] = [];
       for (const photo of photos) {
-        const fileName = `visits/${visitId}/${Date.now()}_${photo.name}`;
-        const { data, error } = await supabase.storage.from('visits').upload(fileName, photo);
+        // ✅ NETTOYAGE DU NOM DE FICHIER (Anti-caractères spéciaux / espaces / parenthèses)
+        const cleanName = sanitizeFileName(photo.name);
+        const fileName = `visits/${visitId}/${Date.now()}_${cleanName}`;
+
+        // ✅ Cible le bucket correct 'visites' au lieu de 'visits'
+        const { data, error } = await supabase.storage.from('visites').upload(fileName, photo);
 
         if (!error && data) {
-          const { data: { publicUrl } } = supabase.storage.from('visits').getPublicUrl(fileName);
+          const { data: { publicUrl } } = supabase.storage.from('visites').getPublicUrl(fileName);
           photoUrls.push(publicUrl);
         }
       }
@@ -181,6 +203,12 @@ export const CompleteVisitModalContent = ({
         photos: photoUrls,
       });
 
+      setSelectedActions([]);
+      setNotes('');
+      setAudioUrl(null);
+      setAudioBlob(null);
+      setPhotos([]);
+      setPhotoPreviews([]);
     } catch (error) {
       console.error('Erreur soumission:', error);
       toast.error('Erreur lors de l\'envoi du rapport');
@@ -193,35 +221,16 @@ export const CompleteVisitModalContent = ({
     <div className="space-y-5 pb-4">
       {/* 1. ACTIONS */}
       <div>
-        <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
-          Actions réalisées *
-        </label>
+        <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>Actions réalisées *</label>
         <div className="grid grid-cols-2 gap-2">
           {availableActions.map((action) => (
-            <label
-              key={action.id}
-              className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all duration-200 ${
-                selectedActions.includes(action.id)
-                  ? 'border-[--color-primary] bg-[--color-primary]10'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedActions.includes(action.id)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedActions([...selectedActions, action.id]);
-                  } else {
-                    setSelectedActions(selectedActions.filter(a => a !== action.id));
-                  }
-                }}
-                className="hidden"
-              />
+            <label key={action.id} className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition ${selectedActions.includes(action.id) ? 'border-[--color-primary] bg-[--color-primary]10' : 'border-gray-200'}`}>
+              <input type="checkbox" checked={selectedActions.includes(action.id)} onChange={(e) => {
+                if (e.target.checked) setSelectedActions([...selectedActions, action.id]);
+                else setSelectedActions(selectedActions.filter(a => a !== action.id));
+              }} className="hidden" />
               <span className="text-xl">{action.icon}</span>
-              <span className="text-sm" style={{ color: colors.text }}>
-                {action.label}
-              </span>
+              <span className="text-sm" style={{ color: colors.text }}>{action.label}</span>
             </label>
           ))}
         </div>
@@ -229,54 +238,34 @@ export const CompleteVisitModalContent = ({
 
       {/* 2. NOTES */}
       <div>
-        <label className="block text-sm font-bold mb-1.5" style={{ color: colors.text }}>
-          Notes
-        </label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full px-4 py-3 rounded-2xl border outline-none transition focus:ring-2 resize-none text-sm"
-          style={{
-            borderColor: colors.border || '#e5e0d8',
-            background: 'var(--color-background, #f5f0e8)',
-            color: colors.text,
-          }}
-          rows={3}
-          placeholder="Informations complémentaires sur la visite..."
-        />
+        <label className="block text-sm font-bold mb-1.5" style={{ color: colors.text }}>Notes</label>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full px-4 py-3 rounded-2xl border text-sm" rows={3} placeholder="Informations complémentaires sur la visite..." />
       </div>
 
       {/* 3. AUDIO */}
       <div>
-        <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
-          Enregistrement audio
-          <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>(optionnel)</span>
-        </label>
+        <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>Enregistrement audio <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>(optionnel)</span></label>
         <div className="p-4 rounded-2xl border" style={{ borderColor: colors.border }}>
           {!audioUrl ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
-                    isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-100'
-                  }`}
-                >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-100'}`}>
                   {isRecording ? <div className="w-4 h-4 bg-white rounded-full" /> : <Mic size={24} className="text-gray-500" />}
                 </div>
                 <div>
                   <p className="font-medium" style={{ color: colors.text }}>{isRecording ? 'Enregistrement...' : 'Cliquez pour enregistrer'}</p>
                 </div>
               </div>
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                className={`px-4 py-2 rounded-xl text-white font-medium transition ${isRecording ? 'bg-red-500' : 'bg-[--color-primary]'}`}
-              >
+              <button onClick={isRecording ? stopRecording : startRecording} className={`px-4 py-2 rounded-xl text-white font-medium transition ${isRecording ? 'bg-red-500' : 'bg-[--color-primary]'}`}>
                 {isRecording ? 'Arrêter' : 'Enregistrer'}
               </button>
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <audio ref={audioRef} controls src={audioUrl} className="h-10" />
+              <div className="flex items-center gap-3 flex-1">
+                <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle size={24} className="text-green-500" /></div>
+                <div className="flex-1"><audio ref={audioRef} controls src={audioUrl} className="h-10" /></div>
+              </div>
               <button onClick={deleteRecording} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={20} /></button>
             </div>
           )}
@@ -285,20 +274,19 @@ export const CompleteVisitModalContent = ({
 
       {/* 4. PHOTOS */}
       <div>
-        <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>
-          Photos (Max 5)
-        </label>
+        <label className="block text-sm font-bold mb-2" style={{ color: colors.text }}>Photos <span className="text-xs ml-2" style={{ color: colors.text + '40' }}>(optionnel - {photos.length}/5)</span></label>
         <div className="flex flex-wrap gap-3">
           {photoPreviews.map((preview, index) => (
             <div key={index} className="relative w-20 h-20 rounded-xl overflow-hidden border">
-              <img src={preview} alt="Preuve" className="w-full h-full object-cover" />
+              <img src={preview} alt="Aperçu" className="w-full h-full object-cover" />
               <button onClick={() => removePhoto(index)} className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"><X size={14} /></button>
             </div>
           ))}
           {photos.length < 5 && (
             <label className="w-20 h-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50">
               <Camera size={24} className="text-gray-400" />
-              <input type="file" accept="image/*" multiple onChange={handlePhotoSelect} className="hidden" />
+              <span className="text-[10px] text-gray-400 mt-1">Ajouter</span>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotoSelect} className="hidden" />
             </label>
           )}
         </div>
