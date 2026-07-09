@@ -23,6 +23,8 @@ import {
   Briefcase,
   Shield,
   X,
+  Heart,
+  Info,
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
@@ -196,7 +198,6 @@ export const PatientsPage = () => {
     try {
       await fetchPatients(true);
       
-      // 1. Charger les comptes familles
       const { data: familiesData, error: familiesError } = await supabase
         .from('profiles')
         .select('id, full_name, email, patient_category')
@@ -206,7 +207,6 @@ export const PatientsPage = () => {
       if (familiesError) throw familiesError;
       setFamilyAccounts(familiesData || []);
 
-      // 2. Charger les aidants actifs approuvés
       const { data: aidantsData } = await supabase
         .from('aidants')
         .select('*')
@@ -229,7 +229,6 @@ export const PatientsPage = () => {
         }))
       );
 
-      // 3. Charger tous les proches
       const { data: patientsData } = await supabase
         .from('patients')
         .select('id, first_name, last_name, category, patient_family_links(family_id)');
@@ -244,7 +243,6 @@ export const PatientsPage = () => {
         }))
       );
 
-      // 4. Charger les assignations depuis la vue
       const response = await assignmentAPI.adminGetAll();
       const assignmentsData = response.data?.data || [];
       const mapAssign: any = {};
@@ -417,7 +415,7 @@ export const PatientsPage = () => {
   };
 
   // ============================================================
-  // GESTION DU MODAL DE SÉLECTION D'AIDANT INDIVIDUEL (CONTEXTUEL)
+  // GESTION DU MODAL D'ASSIGNATION CONTEXTUEL INDIVIDUEL
   // ============================================================
 
   const handleOpenRowAssignModal = (item: AssignmentItem) => {
@@ -438,7 +436,6 @@ export const PatientsPage = () => {
     setIsProcessing(true);
 
     try {
-      // ✅ APPEL DE L'API D'ASSIGNATION FORCÉE OU STANDARDISEE UNIFIÉE
       await assignmentAPI.adminForceAssign({
         aidantUserId: modalAidant,
         targetType: selectedItemToAssign.targetType,
@@ -636,63 +633,57 @@ export const PatientsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-5xl mx-auto space-y-4 p-4">
-        <div className="h-20 bg-white rounded-3xl animate-pulse shadow-sm" />
-        <div className="h-10 bg-white rounded-2xl animate-pulse w-2/3" />
+      <div className="w-full max-w-5xl mx-auto space-y-6 p-4">
+        <div className="h-20 bg-white dark:bg-[#17231d] rounded-3xl animate-pulse flex items-center justify-between px-6">
+          <div className="space-y-2 w-1/3">
+            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded-full w-3/4"></div>
+            <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full w-1/2"></div>
+          </div>
+          <div className="h-10 w-24 bg-gray-200 dark:bg-gray-800 rounded-2xl"></div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-16 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
+          ))}
+        </div>
         <div className="space-y-3">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-24 bg-white rounded-3xl animate-pulse" />
+            <div key={item} className="h-28 bg-white dark:bg-[#17231d] rounded-3xl animate-pulse border border-gray-100 dark:border-[#2c3f35] p-5" />
           ))}
         </div>
       </div>
     );
   }
 
-  // Calculer l'aidant sélectionné pour prévisualiser ses infos dans le modal d'assignation
   const modalSelectedAidantObj = aidants.find(a => a.user_id === modalAidant);
   const isSelectedAidantFull = modalSelectedAidantObj && (modalSelectedAidantObj.current_assignments >= modalSelectedAidantObj.max_assignments);
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-5 pb-32 px-4 sm:px-6">
+    <div className="w-full max-w-5xl mx-auto space-y-6 pb-28 px-4 sm:px-6">
       
-      {/* HEADER DE LA PAGE */}
-      <section className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase mb-2 tracking-wider"
-            style={{
-              background: colors.primary + '12',
-              color: colors.primary,
-            }}
-          >
-            <Users size={12} />
-            {isAdmin ? 'Espace Administration' : 'Mes Accompagnements'}
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-gray-800" style={{ color: colors.text }}>
-            {isAdmin ? 'Bénéficiaires & Familles' : list}
-          </h1>
-          <p className="text-xs text-gray-400 mt-1 flex flex-wrap items-center gap-1">
-            <span>
-              {isAdmin 
-                ? `${stats.totalBeneficiaires} profils listés • ${stats.totalFamilies} comptes familles`
-                : getCountLabel(patients.length)
-              }
+      {/* HEADER DE LA PAGE ÉPURÉ */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-[#2c3f35]">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400">
+              <Users size={18} />
             </span>
-            {isAidant && <span className="text-amber-600 font-semibold">• Profils attribués uniquement</span>}
-            {isAdmin && stats.unassignedCount > 0 && (
-              <span className="text-red-500 font-extrabold flex items-center gap-1">
-                • ⚠️ {stats.unassignedCount} profil(s) en attente d'intervenant
-              </span>
-            )}
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+              {isAdmin ? 'Bénéficiaires & Familles' : list}
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+            {isAdmin 
+              ? 'Supervision des dossiers d\'accompagnement et suivi des rattachements d\'aidants.' 
+              : 'Consultez les fiches de vos proches pris en charge par nos équipes.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 justify-end">
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
           <button
             onClick={refreshAll}
             disabled={isLoading || isSyncing || isRefreshing}
-            className="w-10 h-10 rounded-2xl border bg-white flex items-center justify-center hover:bg-gray-50 transition text-gray-500 shrink-0"
-            style={{ borderColor: colors.border }}
+            className="w-10 h-10 rounded-2xl border bg-white dark:bg-[#17231d] border-gray-100 dark:border-[#2c3f35] flex items-center justify-center hover:bg-gray-50 dark:hover:bg-[#24362d] transition text-gray-500"
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
@@ -700,7 +691,7 @@ export const PatientsPage = () => {
           {canManage && !isAdmin && patients.length > 0 && (
             <button
               onClick={handleAdd}
-              className="hidden sm:inline-flex px-4 py-2.5 rounded-2xl text-xs font-black text-white transition hover:opacity-90 shrink-0 items-center gap-2 shadow-md"
+              className="inline-flex px-4 py-2.5 rounded-2xl text-xs font-black text-white transition hover:opacity-90 shrink-0 items-center gap-2 shadow-md"
               style={{ background: colors.primary }}
             >
               <Plus size={15} />
@@ -709,113 +700,115 @@ export const PatientsPage = () => {
           )}
 
           {isAidant && !canManage && (
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-amber-50 border border-amber-100/60 shadow-sm shrink-0">
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100/60 dark:border-amber-900/30 shadow-sm shrink-0">
               <ShieldAlert size={14} className="text-amber-500" />
-              <span className="text-[10px] font-black text-amber-700 uppercase tracking-wide">Lecture Seule</span>
+              <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-wide">Lecture Seule</span>
             </div>
           )}
         </div>
       </section>
 
-      {/* METRICS CARDS */}
+      {/* METRICS CARDS (SYNTHÉTIQUES & MODERNES) */}
       {isAdmin && (
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-          <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-gray-50 text-gray-500"><Users size={20} /></div>
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-[#2c3f35] flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-50 dark:bg-[#24362d] text-gray-500 dark:text-gray-300 shrink-0"><Users size={16} /></div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Bénéficiaires</p>
-              <p className="text-lg font-black text-gray-800 mt-0.5">{stats.totalBeneficiaires}</p>
+              <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider">Total Profils</p>
+              <p className="text-base font-extrabold text-gray-800 dark:text-gray-100 mt-0.5">{stats.totalBeneficiaires}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-emerald-50 text-emerald-600"><CheckCircle size={20} /></div>
+          <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-[#2c3f35] flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-50 dark:bg-[#1d2d25] text-emerald-600 dark:text-emerald-400 shrink-0"><CheckCircle size={16} /></div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Profils Assignés</p>
-              <p className="text-lg font-black text-emerald-600 mt-0.5">{stats.assignedCount}</p>
+              <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider">Profils Assignés</p>
+              <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.assignedCount}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-amber-50 text-amber-600"><AlertCircle size={20} /></div>
+          <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-[#2c3f35] flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-50 dark:bg-[#2c322c] text-amber-600 dark:text-amber-400 shrink-0"><AlertCircle size={16} /></div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Non Assignés</p>
-              <p className="text-lg font-black text-amber-600 mt-0.5">{stats.unassignedCount}</p>
+              <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider">Non Assignés</p>
+              <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">{stats.unassignedCount}</p>
             </div>
           </div>
-          <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-blue-50 text-blue-600"><Home size={20} /></div>
+          <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-[#2c3f35] flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-50 dark:bg-[#1a2620] text-blue-600 dark:text-blue-400 shrink-0"><Home size={16} /></div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Comptes Familles</p>
-              <p className="text-lg font-black text-blue-600 mt-0.5">{stats.totalFamilies}</p>
+              <p className="text-[10px] font-bold uppercase text-gray-400 dark:text-gray-500 tracking-wider">Familles</p>
+              <p className="text-base font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{stats.totalFamilies}</p>
             </div>
           </div>
         </section>
       )}
 
-      {/* RECHERCHE ET FILTRAGE */}
-      <section className="bg-white rounded-[2rem] p-3 shadow-sm border border-black/5 flex flex-col md:flex-row gap-3 w-full min-w-0">
-        <div className="relative flex-1 min-w-0 w-full">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* RECHERCHE ET FILTRAGE SEGMENTÉ */}
+      <section className="bg-white dark:bg-[#17231d] rounded-2xl p-3 shadow-sm border border-gray-100 dark:border-[#2c3f35] flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={isAdmin ? "Rechercher une famille, un proche ou un aidant..." : "Rechercher par nom, adresse..."}
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border text-xs outline-none transition focus:ring-1 bg-gray-50/50"
-            style={{ borderColor: colors.border, color: colors.text }}
+            placeholder={isAdmin ? "Rechercher par nom, famille, aidant..." : "Rechercher par nom, adresse..."}
+            className="w-full pl-10 pr-4 py-2 rounded-xl border text-xs outline-none transition focus:ring-1 bg-gray-50/50 dark:bg-[#1d2d25]/50 border-gray-100 dark:border-[#2c3f35]"
+            style={{ color: colors.text }}
           />
         </div>
         
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-4 py-2.5 text-xs rounded-2xl border bg-gray-50 outline-none focus:ring-1 shrink-0 md:w-52"
-          style={{ borderColor: colors.border, color: colors.text }}
+          className="px-4 py-2 text-xs rounded-xl border bg-gray-50 dark:bg-[#1d2d25] outline-none focus:ring-1 shrink-0 sm:w-48 border-gray-100 dark:border-[#2c3f35]"
+          style={{ color: colors.text }}
         >
-          <option value="all">Tous les profils</option>
+          <option value="all">Toutes les catégories</option>
           <option value="senior">👴 Seniors</option>
           <option value="maman_bebe">👶 Mamans & Bébés</option>
-          {isAdmin && <option value="personal">👤 Comptes personnels uniquement</option>}
+          {isAdmin && <option value="personal">👤 Comptes personnels</option>}
         </select>
       </section>
 
-      {/* SYNCHRONISATION AIDANTS */}
+      {/* BANNIÈRE DE SYNCHRONISATION (AIDANTS) */}
       {isAidant && (
-        <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-amber-900">Mise à jour de vos attributions d'accès</p>
-            <p className="text-[10px] text-amber-600 mt-0.5">
-              Si vous venez d'être rattaché à un nouveau patient par le coordinateur, cliquez pour synchroniser.
+        <div className="bg-amber-50/40 dark:bg-amber-950/15 rounded-2xl p-4 border border-amber-100 dark:border-amber-900/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+          <div className="space-y-0.5">
+            <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Mise à jour de vos attributions d'accès</p>
+            <p className="text-[10px] text-amber-600 dark:text-amber-400">
+              Si un coordinateur vient de vous affecter un nouveau bénéficiaire, synchronisez votre planning local.
             </p>
           </div>
           
           <button
             onClick={handleSync}
             disabled={isSyncing}
-            className="w-full sm:w-auto px-4 py-2 rounded-2xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm border bg-white"
-            style={{ borderColor: colors.primary + '25', color: colors.primary }}
+            className="w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm border bg-white dark:bg-[#17231d] border-amber-100 dark:border-amber-900/30 text-amber-700 dark:text-amber-400"
           >
             <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
-            {isSyncing ? 'Synchronisation...' : 'Mettre à jour'}
+            {isSyncing ? 'Chargement...' : 'Mettre à jour'}
           </button>
         </div>
       )}
 
-      {/* RENDER LISTES ACCORDEONS */}
+      {/* ZONE PRINCIPALE DE CONTENU */}
       {isAdmin ? (
         Object.keys(grouped).length === 0 ? (
-          <section className="bg-white rounded-[2rem] py-16 px-4 text-center border border-black/5">
+          <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
             <Illustration 
               type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} 
               size="md" 
-              className="mx-auto mb-4 opacity-35"
+              className="mx-auto opacity-35"
             />
-            <h3 className="font-bold text-sm" style={{ color: colors.text }}>
-              {searchTerm || categoryFilter !== 'all' ? 'Aucun résultat correspondant' : 'Aucune fiche bénéficiaire enregistrée'}
-            </h3>
-            <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
-              {searchTerm || categoryFilter !== 'all' ? 'Veuillez modifier ou réinitialiser vos termes de recherche.' : 'Les fiches d’inscriptions complétées apparaîtront ici.'}
-            </p>
+            <div className="space-y-1">
+              <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">
+                {searchTerm || categoryFilter !== 'all' ? 'Aucun dossier correspondant' : 'Aucune fiche bénéficiaire'}
+              </h3>
+              <p className="text-xs text-gray-400 dark:text-gray-400">
+                {searchTerm || categoryFilter !== 'all' ? 'Essayez de réinitialiser la recherche.' : 'Les fiches d’inscriptions apparaîtront ici.'}
+              </p>
+            </div>
           </section>
         ) : (
+          /* DOSSIERS FAMILIAUX (ADMIN COLLAPSIBLE) */
           <div className="space-y-4">
             {Object.entries(grouped).map(([familyId, group]: any) => {
               const isExpanded = expanded[familyId] !== false;
@@ -823,44 +816,45 @@ export const PatientsPage = () => {
               const hasUnassigned = familyItems.some((i: AssignmentItem) => !i.assignedAidantUserId);
 
               return (
-                <div key={familyId} className="bg-white rounded-3xl border overflow-hidden shadow-sm hover:shadow-md transition-all duration-200" style={{ borderColor: colors.border }}>
-                  
-                  {/* EN-TÊTE COMPTE FAMILLE */}
+                <div 
+                  key={familyId} 
+                  className="bg-white dark:bg-[#17231d] rounded-2xl border border-gray-100 dark:border-[#2c3f35] overflow-hidden shadow-sm transition-all"
+                >
+                  {/* EN-TÊTE DU DOSSIER FAMILIAL */}
                   <div
-                    className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50/50 transition-colors"
+                    className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-50/30 dark:hover:bg-[#24362d]/25 transition"
                     onClick={() => toggleExpand(familyId)}
                     style={{ background: hasUnassigned ? colors.primary + '04' : 'transparent' }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="p-1 rounded-xl bg-gray-100/60 text-gray-400 shrink-0">
-                        {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-1 rounded-lg bg-gray-100/50 dark:bg-[#1d2d25] text-gray-400 shrink-0">
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                       </div>
                       <div className="min-w-0">
-                        <span className="font-extrabold text-sm block sm:inline text-gray-800" style={{ color: colors.text }}>
+                        <span className="font-extrabold text-xs sm:text-sm text-gray-800 dark:text-gray-200">
                           👨‍👩‍👦 Famille {group.name}
                         </span>
-                        <div className="flex flex-wrap items-center gap-2 mt-1 sm:mt-0 sm:inline-flex sm:ml-2">
-                          <span className="text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-md border">
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold bg-gray-50 dark:bg-[#1d2d25] px-1.5 py-0.5 rounded border border-gray-100 dark:border-[#2c3f35]">
                             {familyItems.filter((i: AssignmentItem) => i.type === 'patient').length} proche(s)
                           </span>
                           {hasUnassigned && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-bold border border-amber-100 flex items-center gap-1 animate-pulse">
-                              <AlertCircle size={10} />
-                              {familyItems.filter((i: AssignmentItem) => !i.assignedAidantUserId).length} en attente
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 font-bold border border-amber-100/40 dark:border-amber-900/20 flex items-center gap-1">
+                              • En attente d'aidant
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <span className="text-[10px] text-gray-400 font-black shrink-0 hidden sm:inline-block">
-                      {familyItems.filter((i: AssignmentItem) => i.assignedAidantUserId).length} / {familyItems.length} Rattaché(s)
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold shrink-0 hidden sm:inline-block">
+                      {familyItems.filter((i: AssignmentItem) => i.assignedAidantUserId).length} / {familyItems.length} Rattachés
                     </span>
                   </div>
 
-                  {/* LISTE INTÉRIEURE DYNAMIQUE */}
+                  {/* LISTE DES MEMBRES DU DOSSIER */}
                   {isExpanded && (
                     <div className="px-5 pb-4 space-y-3 relative">
-                      <div className="absolute left-[33px] top-0 bottom-4 w-0.5 bg-gray-100 dark:bg-gray-800/60 z-0" />
+                      <div className="absolute left-[31px] top-0 bottom-4 w-px bg-gray-100 dark:bg-[#2c3f35] z-0" />
                       
                       {familyItems.map((item: AssignmentItem) => {
                         const isAssigned = !!item.assignedAidantUserId;
@@ -872,41 +866,41 @@ export const PatientsPage = () => {
                         return (
                           <div 
                             key={item.id} 
-                            className="pl-8 relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gray-50/50 hover:bg-gray-50 rounded-2xl border border-transparent hover:border-gray-100 transition-all"
+                            className="pl-7 relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gray-50/30 hover:bg-gray-50 dark:bg-[#111a15]/10 dark:hover:bg-[#1d2d25]/20 rounded-2xl border border-transparent hover:border-gray-100/50 dark:hover:border-[#2c3f35]/50 transition-all"
                           >
-                            <div className="absolute left-[13.5px] top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border border-gray-200 bg-white dark:bg-gray-800 z-10" />
+                            <div className="absolute left-[12px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full border border-gray-200 dark:border-[#2c3f35] bg-white dark:bg-[#17231d] z-10" />
 
                             <div className="flex items-start gap-2.5 min-w-0">
                               <div className="shrink-0 mt-0.5">
                                 {item.priority === 1 ? (
-                                  <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">PROCHE</span>
+                                  <span className="text-[8px] font-black text-emerald-700 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-900/20 px-1.5 py-0.5 rounded">PROCHE</span>
                                 ) : (
-                                  <span className="text-[9px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">COMPTE</span>
+                                  <span className="text-[8px] font-black text-blue-700 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-100/50 dark:border-blue-900/20 px-1.5 py-0.5 rounded">TITULAIRE</span>
                                 )}
                               </div>
 
-                              <div className="min-w-0 space-y-1">
+                              <div className="min-w-0 space-y-0.5">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-extrabold text-xs sm:text-sm text-gray-800 truncate" style={{ color: colors.text }}>
+                                  <span className="font-extrabold text-xs sm:text-sm text-gray-800 dark:text-gray-100 truncate">
                                     {item.targetName}
                                   </span>
                                   <span 
-                                    className="text-[9px] px-1.5 py-0.5 rounded-full font-medium flex items-center gap-1"
-                                    style={{ background: categoryColor + '15', color: categoryColor }}
+                                    className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                                    style={{ background: categoryColor + '12', color: categoryColor }}
                                   >
                                     {categoryLabel}
                                   </span>
                                   {isAssigned && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 shrink-0 flex items-center gap-0.5">
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-100/40 dark:border-emerald-900/20 shrink-0 flex items-center gap-1">
                                       <CheckCircle size={10} />
                                       {item.assignedAidantName}
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-[10px] text-gray-400 font-medium truncate">
-                                  {isAccount ? 'Compte principal de facturation' : `Proche associé de la Famille ${item.familyName}`}
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                                  {isAccount ? 'Compte de facturation' : 'Bénéficiaire d\'accompagnement'}
                                   {item.assignmentType && (
-                                    <span className="ml-1 opacity-80">
+                                    <span className="ml-1 opacity-70">
                                       ({ASSIGNMENT_TYPES.find(t => t.value === item.assignmentType)?.label || item.assignmentType})
                                     </span>
                                   )}
@@ -919,24 +913,23 @@ export const PatientsPage = () => {
                                 <button
                                   onClick={() => handleRevoke(item)}
                                   disabled={isProcessingItem || isProcessing}
-                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-red-500 bg-white border border-red-100 shadow-sm hover:bg-red-50 hover:text-red-600 transition disabled:opacity-50"
+                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold text-red-500 bg-white dark:bg-red-950/10 border border-red-100 dark:border-red-900/30 shadow-sm hover:bg-red-50 dark:hover:bg-red-950/20 transition disabled:opacity-50"
                                 >
                                   {isProcessingItem ? (
-                                    <Loader2 size={13} className="animate-spin" />
+                                    <Loader2 size={12} className="animate-spin" />
                                   ) : (
-                                    <UserMinus size={13} />
+                                    <UserMinus size={12} />
                                   )}
-                                  {isProcessingItem ? 'Retrait...' : 'Désassigner'}
+                                  Désassigner
                                 </button>
                               ) : (
-                                // ✅ ACCORDÉON RÉ-ALIGNÉ : CLIQUE SUR ASSIGNER DÉCLENCHE DIRECTEMENT LA RECHERCHE ET LE MODAL CONTEXTUEL !
                                 <button
                                   onClick={() => handleOpenRowAssignModal(item)}
                                   disabled={isProcessingItem || isProcessing}
-                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-85 shadow-sm"
+                                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-[10px] font-bold transition hover:opacity-85 shadow-sm"
                                   style={{ background: colors.primary }}
                                 >
-                                  <UserPlus size={13} />
+                                  <UserPlus size={12} />
                                   Assigner l'aidant
                                 </button>
                               )}
@@ -952,11 +945,9 @@ export const PatientsPage = () => {
           </div>
         )
       ) : (
-        // ==========================================
-        // 👨‍👩‍👦 VUE FAMILLE / AIDANT (GRILLE DE CARTES)
-        // ==========================================
+        /* VUE BÉNÉFICIAIRE / AIDANT EN GRILLE DE CARTES */
         filteredPatients.length > 0 ? (
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full min-w-0">
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPatients.map((patient: any) => (
               <div key={patient.id} className="min-w-0 max-w-full overflow-hidden">
                 <PatientCard
@@ -971,20 +962,21 @@ export const PatientsPage = () => {
             ))}
           </section>
         ) : (
-          <section className="bg-white rounded-3xl py-14 px-4 text-center border border-black/5">
+          <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
             <Illustration 
               type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} 
               size="md" 
-              className="mx-auto mb-4 opacity-35"
+              className="mx-auto opacity-35"
             />
-
-            <h3 className="font-bold text-gray-700 text-sm">
-              {searchTerm || categoryFilter !== 'all' ? 'Aucun résultat trouvé' : empty}
-            </h3>
-
-            <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto leading-relaxed">
-              {searchTerm || categoryFilter !== 'all' ? 'Essayez d\'ajuster vos mots-clés ou de réinitialiser le filtre.' : emptyAction}
-            </p>
+            
+            <div className="space-y-1">
+              <h3 className="font-bold text-gray-700 dark:text-gray-200 text-sm">
+                {searchTerm || categoryFilter !== 'all' ? 'Aucun résultat trouvé' : empty}
+              </h3>
+              <p className="text-xs text-gray-400 dark:text-gray-400">
+                {searchTerm || categoryFilter !== 'all' ? 'Essayez de modifier votre filtre de recherche.' : emptyAction}
+              </p>
+            </div>
 
             {searchTerm || categoryFilter !== 'all' ? (
               <button
@@ -992,16 +984,16 @@ export const PatientsPage = () => {
                   setSearchTerm('');
                   setCategoryFilter('all');
                 }}
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-black text-xs transition border border-gray-200 hover:bg-gray-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-gray-100 dark:border-[#2c3f35] hover:bg-gray-50 dark:hover:bg-[#24362d]"
                 style={{ color: colors.text }}
               >
-                Réinitialiser la recherche
+                Réinitialiser les filtres
               </button>
             ) : (
               canManage && (
                 <button
                   onClick={handleAdd}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-2xl text-white font-black text-xs transition hover:opacity-90 shadow-md"
+                  className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl text-white font-black text-xs transition hover:opacity-90 shadow-md"
                   style={{ background: colors.primary }}
                 >
                   <Plus size={14} />
@@ -1013,99 +1005,102 @@ export const PatientsPage = () => {
         )
       )}
 
-      {/* LÉGENDE DE PRIORITÉ (ADMIN) */}
+      {/* LÉGENDE DE RÔLES DISCRÈTE (FOOTER) */}
       {isAdmin && Object.keys(grouped).length > 0 && (
-        <div className="bg-white rounded-2xl p-3 border border-black/5 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex flex-wrap items-center gap-3 text-[10px]">
-            <span className="font-bold text-gray-400 uppercase tracking-wider">Priorité d'attribution :</span>
-            <span className="flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100"><Circle size={7} fill="#10b981" /> P1 - Proche rattaché</span>
-            <span className="flex items-center gap-1 text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100"><Circle size={7} fill="#3b82f6" /> P2 - Titulaire principal</span>
+        <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 border border-gray-100 dark:border-[#2c3f35] flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex flex-wrap items-center gap-4 text-[10px]">
+            <span className="font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Légende :</span>
+            <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded"><Circle size={6} fill="#10b981" /> Proche rattaché</span>
+            <span className="flex items-center gap-1 text-blue-700 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/20 px-2 py-0.5 rounded"><Circle size={6} fill="#3b82f6" /> Titulaire principal</span>
           </div>
-          <span className="text-[10px] text-gray-400 font-semibold ml-auto flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold flex items-center gap-1.5">
             {isProcessing && <Loader2 size={12} className="animate-spin text-emerald-600" />}
-            {isProcessing ? 'Traitement réseau...' : '🟢 Système synchronisé'}
+            {isProcessing ? 'Synchronisation...' : '🟢 Système synchronisé'}
           </span>
         </div>
       )}
 
-      {/* BOUTON FLOTTANT MOBILE (FAMILLES) */}
+      {/* ACCÈS RAPIDE FLOUTÉ MOBILE */}
       {canManage && !isAdmin && patients.length > 0 && (
         <button
           onClick={handleAdd}
-          className="sm:hidden fixed bottom-24 right-4 z-40 w-12 h-12 rounded-2xl text-white shadow-xl flex items-center justify-center active:scale-95 transition-transform"
-          style={{ background: colors.primary }}
+          className="sm:hidden fixed bottom-24 right-5 z-40 w-12 h-12 rounded-full text-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
+          style={{ 
+            background: colors.primary,
+            boxShadow: `0 8px 24px -6px ${colors.primary}`
+          }}
           aria-label={add}
         >
-          <Plus size={22} />
+          <Plus size={20} strokeWidth={2.5} />
         </button>
       )}
 
       {/* ============================================================
-          🆕 COMPOSANT MODAL D'ASSIGNATION CONTEXTUEL (DYNAMIQUE & ROBUSTE)
+          🆕 ASSIGNATION CONTEXTUELLE INDIVIDUELLE (MODAL PREMIUM)
           ============================================================ */}
       {showRowAssignModal && selectedItemToAssign && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget) setShowRowAssignModal(false); }}
         >
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-6 shadow-2xl space-y-4 my-8 border border-gray-100">
+          <div className="bg-white dark:bg-[#17231d] rounded-3xl w-full max-w-md p-6 shadow-2xl space-y-4 border border-gray-100 dark:border-[#2c3f35]">
             {/* Header */}
-            <div className="flex items-start justify-between border-b pb-3.5">
-              <div className="space-y-0.5">
-                <h3 className="text-base font-extrabold text-gray-800">Attribuer un aidant</h3>
-                <p className="text-xs text-gray-400 font-medium">Bénéficiaire : <strong className="text-gray-700">{selectedItemToAssign.targetName}</strong></p>
+            <div className="flex items-start justify-between border-b dark:border-[#2c3f35] pb-3.5">
+              <div className="space-y-1">
+                <h3 className="text-base font-extrabold text-gray-800 dark:text-gray-100">Attribuer un intervenant</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Bénéficiaire : <strong className="text-gray-700 dark:text-gray-300">{selectedItemToAssign.targetName}</strong></p>
               </div>
               <button 
                 onClick={() => setShowRowAssignModal(false)}
-                className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
+                className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition border dark:border-[#2c3f35]"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
 
-            {/* Formulaire interne */}
+            {/* Formulaire */}
             <div className="space-y-4">
               
-              {/* 1. Sélection de l'aidant */}
+              {/* Sélection */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Choisir l'intervenant</label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Intervenant qualifié</label>
                 <select
                   value={modalAidant}
                   onChange={(e) => setModalAidant(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border outline-none text-xs sm:text-sm font-semibold focus:ring-2"
-                  style={{ borderColor: colors.border }}
+                  className="w-full px-4 py-2.5 rounded-xl border outline-none text-xs font-semibold focus:ring-1 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-[#2c3f35]"
+                  style={{ color: colors.text }}
                 >
-                  <option value="">Sélectionner un aidant qualifié</option>
+                  <option value="">Choisir un aidant dans la liste</option>
                   {aidants.map(a => {
                     const isFull = a.current_assignments >= a.max_assignments;
                     return (
                       <option key={a.id} value={a.user_id}>
-                        {isFull ? '🔴 ' : '🟢 '} {a.user?.full_name || 'Aidant'} — Quota ({a.current_assignments}/{a.max_assignments})
+                        {isFull ? '🔴 ' : '🟢 '} {a.user?.full_name || 'Aidant'} — Charge ({a.current_assignments}/{a.max_assignments})
                       </option>
                     );
                   })}
                 </select>
               </div>
 
-              {/* 2. Visualisation rapide des quotas si aidant sélectionné */}
+              {/* Status de quota */}
               {modalSelectedAidantObj && (
                 <div className={cn(
-                  "p-3 rounded-2xl flex items-center justify-between border text-xs font-semibold",
-                  isSelectedAidantFull ? "bg-red-50 border-red-200 text-red-700 animate-pulse" : "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  "p-3 rounded-xl flex items-center justify-between border text-[11px] font-semibold",
+                  isSelectedAidantFull ? "bg-red-50/50 border-red-200/50 text-red-700 dark:text-red-400 dark:bg-red-950/20" : "bg-emerald-50/50 border-emerald-200/50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-950/20"
                 )}>
-                  <span>Quota de travail : {modalSelectedAidantObj.current_assignments}/{modalSelectedAidantObj.max_assignments} assignations</span>
-                  <span>{isSelectedAidantFull ? '❌ Quota maximum atteint' : '🟢 Disponible'}</span>
+                  <span>Quota assignations : {modalSelectedAidantObj.current_assignments}/{modalSelectedAidantObj.max_assignments}</span>
+                  <span>{isSelectedAidantFull ? 'Quota max atteint' : 'Disponible'}</span>
                 </div>
               )}
 
-              {/* 3. Type de contrat */}
+              {/* Contrat */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Type de contrat d'accompagnement</label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Contrat d'accompagnement</label>
                 <select
                   value={modalType}
                   onChange={(e) => setModalType(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border outline-none text-xs sm:text-sm font-semibold focus:ring-2"
-                  style={{ borderColor: colors.border }}
+                  className="w-full px-4 py-2.5 rounded-xl border outline-none text-xs font-semibold focus:ring-1 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-[#2c3f35]"
+                  style={{ color: colors.text }}
                 >
                   {ASSIGNMENT_TYPES.map(t => (
                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -1113,25 +1108,25 @@ export const PatientsPage = () => {
                 </select>
               </div>
 
-              {/* 4. Alerte & Case de forçage de quota (Bypass administratif) */}
+              {/* Option Forçage de quota */}
               {isSelectedAidantFull && (
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
+                <div className="p-4 bg-amber-50/40 dark:bg-amber-950/15 rounded-xl border border-amber-100/50 dark:border-amber-900/30 space-y-3">
                   <div className="flex items-start gap-2.5">
-                    <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                      Cet aidant a déjà atteint son quota maximal de travail (4/4). Souhaitez-vous outrepasser le quota ?
+                    <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                      Cet aidant a déjà atteint sa limite d'heures ou d'accompagnements (4/4). Souhaitez-vous forcer l'assignation ?
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 pt-1 border-t border-amber-200">
+                  <div className="flex items-center gap-2 pt-2 border-t border-amber-100/50 dark:border-amber-900/20">
                     <input
                       type="checkbox"
                       id="force_checkbox"
                       checked={modalForce}
                       onChange={(e) => setModalForce(e.target.checked)}
-                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-[#2c3f35]"
                     />
-                    <label htmlFor="force_checkbox" className="text-xs font-black text-amber-900 cursor-pointer select-none">
-                      Forcer le rattachement (Outrepasser le quota)
+                    <label htmlFor="force_checkbox" className="text-xs font-black text-amber-950 dark:text-amber-200 cursor-pointer select-none">
+                      Forcer le rattachement
                     </label>
                   </div>
                 </div>
@@ -1139,13 +1134,13 @@ export const PatientsPage = () => {
 
             </div>
 
-            {/* Actions Buttons */}
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t">
+            {/* Actions */}
+            <div className="grid grid-cols-2 gap-3 pt-4 border-t dark:border-[#2c3f35]">
               <button
                 type="button"
                 onClick={() => setShowRowAssignModal(false)}
-                className="py-3 rounded-2xl font-bold border transition hover:bg-gray-50 text-xs sm:text-sm text-center"
-                style={{ borderColor: colors.border, color: colors.text }}
+                className="py-2.5 rounded-xl font-bold border border-gray-100 dark:border-[#2c3f35] bg-white dark:bg-[#17231d] hover:bg-gray-50 dark:hover:bg-[#24362d] transition text-xs sm:text-sm text-center"
+                style={{ color: colors.text }}
               >
                 Annuler
               </button>
@@ -1153,22 +1148,22 @@ export const PatientsPage = () => {
                 type="button"
                 onClick={handleConfirmRowAssign}
                 disabled={isProcessing || (!modalForce && isSelectedAidantFull)}
-                className="py-3 rounded-2xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                className="py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-55 disabled:cursor-not-allowed shadow-md"
                 style={{ background: colors.primary }}
               >
                 {isProcessing ? (
-                  <Loader2 size={16} className="animate-spin" />
+                  <Loader2 size={14} className="animate-spin" />
                 ) : (
-                  <CheckCircle size={16} />
+                  <CheckCircle size={14} />
                 )}
-                {isProcessing ? 'Rattachement...' : 'Confirmer'}
+                Confirmer
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL PATIENT (Ajout / Édition d'identité) */}
+      {/* MODAL AJOUT / ÉDITION DE PATIENT */}
       <PatientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
