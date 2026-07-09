@@ -193,73 +193,7 @@ const VisitsPage = () => {
   const waitingForAidantCount = visits.filter(v => v.status === 'en_attente_aidant').length;
   const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
-  // =============================================
-  // ✅ METRICS ET STATS DE SYNTHÈSE (Suppression des alertes redondantes)
-  // =============================================
-  const statsOverview = useMemo(() => {
-    const list = [];
-    
-    if (isFamily) {
-      list.push({
-        id: 'sub',
-        label: hasActiveSubscription ? 'Forfait disponible' : 'Tarification',
-        value: hasActiveSubscription ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''}` : 'Mode Ponctuel',
-        subtext: hasActiveSubscription ? 'Crédits d\'intervention actifs' : 'Accompagnement à l\'acte',
-        icon: <Sparkles size={16} className="text-emerald-500" />,
-        onClick: () => navigate('/app/billing')
-      });
-
-      if (draftCount > 0) {
-        list.push({
-          id: 'drafts',
-          label: 'Interventions en attente',
-          value: `${draftCount} à valider`,
-          subtext: canConvertDrafts ? 'Valider via votre forfait' : 'Régler par carte',
-          icon: <CreditCard size={16} className="text-amber-500 animate-pulse" />,
-          onClick: () => setFilterStatus('brouillon')
-        });
-      }
-    }
-
-    if (isAdminOrCoordinator) {
-      list.push({
-        id: 'total_visits',
-        label: 'Visites enregistrées',
-        value: `${visits.length} intervention${visits.length > 1 ? 's' : ''}`,
-        subtext: 'Toutes périodes confondues',
-        icon: <Calendar size={16} className="text-blue-500" />,
-      });
-
-      if (waitingForAidantCount > 0) {
-        list.push({
-          id: 'waiting_aidant',
-          label: 'Attributions requises',
-          value: `${waitingForAidantCount} sans aidant`,
-          subtext: 'Assignation manuelle requise',
-          icon: <AlertCircle size={16} className="text-orange-500 animate-pulse" />,
-          onClick: () => setFilterStatus('en_attente_aidant')
-        });
-      }
-    }
-
-    if (isAidantRole) {
-      const upcoming = visits.filter(v => v.status === 'acceptee' || v.status === 'planifiee').length;
-      list.push({
-        id: 'missions',
-        label: 'Accompagnements à venir',
-        value: `${upcoming} mission${upcoming > 1 ? 's' : ''}`,
-        subtext: 'Sur votre planning actif',
-        icon: <CheckCircle size={16} className="text-emerald-500" />,
-      });
-    }
-
-    return list;
-  }, [isFamily, isAdminOrCoordinator, isAidantRole, hasActiveSubscription, remainingVisits, draftCount, canConvertDrafts, visits.length, waitingForAidantCount]);
-
-  // =============================================
   // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
-  // =============================================
-
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -580,10 +514,12 @@ const VisitsPage = () => {
       </div>
 
       {/* ============================================================
-          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC (CENTRE UNIQUE)
+          🆕 CADRE UNIQUE ÉPURÉ (TITRES, CREDITS & BOUTON CENTRALISÉS)
           ============================================================ */}
-      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
-        <div className="space-y-1.5 relative z-10">
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 flex flex-col items-center text-center gap-4 shadow-sm backdrop-blur-md">
+        
+        {/* A. Titre et description centré */}
+        <div className="space-y-1 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
             {isAidantRole ? 'Mes missions d\'accompagnement' : 'Planning des visites'}
           </h1>
@@ -593,6 +529,55 @@ const VisitsPage = () => {
               : 'Planification simplifiée de l\'accompagnement de vos proches.'}
           </p>
         </div>
+
+        {/* B. Forfait disponible (Unifié proprement dans le même cadre) */}
+        {isFamily && (
+          <div className="px-5 py-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
+            <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 leading-none">
+              {hasActiveSubscription ? 'Forfait disponible' : 'Tarification'}
+            </p>
+            <p className="text-base font-black text-emerald-800 dark:text-emerald-100 mt-1 leading-none">
+              {hasActiveSubscription ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''}` : 'Mode Ponctuel'}
+            </p>
+            <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-1 leading-none">
+              {hasActiveSubscription ? 'Crédits d\'interventions actifs' : 'Accompagnement à l\'acte'}
+            </p>
+          </div>
+        )}
+
+        {/* C. Alerte Brouillons en attente (Intégré de manière chic s'il y en a) */}
+        {isFamily && draftCount > 0 && (
+          <button
+            onClick={() => setFilterStatus('brouillon')}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50/50 dark:bg-[#2c2211] border border-amber-100/50 dark:border-amber-900/30 text-[10px] font-extrabold text-amber-800 dark:text-amber-300 transition hover:bg-amber-100/40 relative z-10"
+          >
+            <AlertCircle size={12} className="text-amber-500 animate-pulse" />
+            <span>{draftCount} intervention{draftCount > 1 ? 's' : ''} en attente de paiement</span>
+          </button>
+        )}
+
+        {/* D. Alerte Admin assignation (Intégré de manière chic s'il y en a) */}
+        {isAdminOrCoordinator && waitingForAidantCount > 0 && (
+          <button
+            onClick={() => setFilterStatus('en_attente_aidant')}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-50/50 dark:bg-[#2c1d11] border border-orange-100/50 dark:border-orange-900/30 text-[10px] font-extrabold text-orange-800 dark:text-orange-300 transition hover:bg-orange-100/40 relative z-10"
+          >
+            <AlertCircle size={12} className="text-orange-500 animate-pulse" />
+            <span>{waitingForAidantCount} visite{waitingForAidantCount > 1 ? 's' : ''} sans auxiliaire rattaché</span>
+          </button>
+        )}
+
+        {/* E. Bouton central de Planification (En bas des textes, au milieu) */}
+        {canPlanify && (
+          <button
+            onClick={handleAdd}
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl text-xs font-bold text-white transition hover:opacity-90 shadow-sm relative z-10"
+            style={{ background: colors.primary }}
+          >
+            <Plus size={13} strokeWidth={2.5} />
+            <span>Planifier une visite</span>
+          </button>
+        )}
 
         {/* Bouton manuel d'actualisation en haut à droite du cadre */}
         <button
@@ -610,65 +595,16 @@ const VisitsPage = () => {
             );
           }}
           disabled={isLoading}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
           title="Rafraîchir"
         >
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
         </button>
 
-        {/* Bouton de planification desktop à gauche */}
-        {canPlanify && (
-          <button
-            onClick={handleAdd}
-            className="absolute top-4 left-4 h-8 px-3.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-white transition hover:opacity-90 flex items-center gap-1 shadow-sm"
-            style={{ background: colors.primary }}
-          >
-            <Plus size={12} strokeWidth={2.5} />
-            Planifier
-          </button>
-        )}
       </section>
 
       {/* ============================================================
-          WIDGET BENTO D'ACTIVITÉ COHÉRENT (MÊMES FORMATS, MÊMES ESPACES)
-          ============================================================ */}
-      {statsOverview.length > 0 && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {statsOverview.map((item) => (
-            <div
-              key={item.id}
-              onClick={item.onClick}
-              className={cn(
-                "p-6 rounded-2xl border shadow-sm flex flex-col justify-between h-36 transition-all duration-300",
-                item.onClick ? "cursor-pointer hover:shadow-md hover:scale-[1.01]" : "",
-                item.id === 'sub' 
-                  ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-200" 
-                  : "bg-amber-50/50 dark:bg-amber-950/20 border-amber-100/50 dark:border-amber-900/30 text-amber-800 dark:text-amber-200"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">
-                  {item.label}
-                </span>
-                <div className="p-1.5 rounded-lg bg-white/70 dark:bg-black/25 shrink-0">
-                  {item.icon}
-                </div>
-              </div>
-              <div>
-                <p className="text-xl font-black tracking-tight leading-none">
-                  {item.value}
-                </p>
-                <p className="text-xs opacity-80 mt-1.5 font-medium">
-                  {item.subtext}
-                </p>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* ============================================================
-          CONTRÔLEUR DE FILTRES SEGMENTÉ COHÉRENT (CONSERVATION DES BADGES)
+          CONTRÔLEUR DE FILTRES SEGMENTÉ (SANS SOUCI DE BADGES CHEVAUCHÉS)
           ============================================================ */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
@@ -707,7 +643,7 @@ const VisitsPage = () => {
       </section>
 
       {/* ============================================================
-          LISTE DES ACCOMPAGNEMENTS (SANS DOUBLE BORDURE)
+          LISTE DES VISITES CHRONOLOGIQUES ET PROPRES
           ============================================================ */}
       {sortedVisits.length > 0 ? (
         <section className="space-y-3.5 visits-list">
@@ -779,7 +715,7 @@ const VisitsPage = () => {
         </section>
       )}
 
-      {/* BOUTON D'ACCÈS RAPIDE FLOTTANT (TACTILE MOBILE) */}
+      {/* BOUTON ACCÈS RAPIDE FLOUTÉ MOBILE */}
       {canPlanify && (
         <button
           onClick={handleAdd}
