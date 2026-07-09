@@ -633,14 +633,14 @@ export const PatientsPage = () => {
   if (isLoading) {
     return (
       <div className="w-full max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-[#2c3f35]">
+        <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-[#2c3f35]">
           <div className="h-6 w-1/4 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse" />
           <div className="h-10 w-24 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse" />
         </div>
-        <div className="h-32 bg-gray-100 dark:bg-gray-800/50 rounded-3xl animate-pulse" />
+        <div className="h-36 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[1, 2].map((i) => (
-            <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800/30 rounded-3xl animate-pulse" />
+            <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800/30 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -651,14 +651,14 @@ export const PatientsPage = () => {
   const isSelectedAidantFull = modalSelectedAidantObj && (modalSelectedAidantObj.current_assignments >= modalSelectedAidantObj.max_assignments);
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-7 pb-24 px-1 sm:px-0">
+    <div className="w-full max-w-5xl mx-auto space-y-6 pb-24 px-1 sm:px-0">
       
       {/* ============================================================
-          HEADER ÉDITORIAL ULTRA-MODERNE
+          HEADER ÉDITORIAL MODERNE ET APURAIL
           ============================================================ */}
       <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-[#2c3f35]">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">
+          <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">
             <Heart size={14} className="animate-pulse" />
             <span>Portail d'accompagnement</span>
           </div>
@@ -668,7 +668,7 @@ export const PatientsPage = () => {
           <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xl">
             {isAdmin 
               ? 'Dossiers d’interventions, validation des proches et supervision des charges des aidants.' 
-              : 'Retrouvez les fiches d’identité et de suivi médical de vos proches accompagnés.'}
+              : 'Retrouvez les fiches de suivi de vos proches accompagnés.'}
           </p>
         </div>
 
@@ -676,7 +676,7 @@ export const PatientsPage = () => {
           <button
             onClick={refreshAll}
             disabled={isRefreshing}
-            className="w-10 h-10 rounded-2xl bg-white dark:bg-[#17231d] border border-gray-100 dark:border-[#2c3f35] flex items-center justify-center hover:bg-gray-50 dark:hover:bg-[#24362d] transition text-gray-500 shadow-sm"
+            className="w-10 h-10 rounded-xl bg-white dark:bg-[#17231d] border border-gray-100 dark:border-[#2c3f35] flex items-center justify-center hover:bg-gray-50 dark:hover:bg-[#24362d] transition text-gray-500 shadow-sm"
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
@@ -684,7 +684,7 @@ export const PatientsPage = () => {
           {canManage && !isAdmin && patients.length > 0 && (
             <button
               onClick={handleAdd}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black text-white hover:scale-[1.01] active:scale-[0.99] transition shadow-md"
+              className="inline-flex items-center justify-center gap-2 px-4 h-10 rounded-xl text-xs font-bold text-white hover:opacity-90 transition shadow-sm"
               style={{ background: colors.primary }}
             >
               <Plus size={14} strokeWidth={2.5} />
@@ -695,65 +695,67 @@ export const PatientsPage = () => {
       </section>
 
       {/* ============================================================
-          WIDGET BENTO D'ACTIVITÉ GLOBAL (ADMIN ONLY)
+          WIDGET BENTO D'ACTIVITÉ COHÉRENT (MÊMES FORMATS, MÊMES ESPACES)
           ============================================================ */}
       {isAdmin && (
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-          {/* Module 1 : Compteurs */}
-          <div className="bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent dark:from-emerald-950/20 rounded-[2rem] p-6 border border-emerald-100/40 dark:border-emerald-900/10 shadow-sm flex flex-col justify-between h-36">
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">Activité active</span>
-              <Sparkles size={16} className="text-emerald-500" />
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Bento Card 1 */}
+          <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Activité active</span>
+              <Users size={16} className="text-emerald-500" />
             </div>
             <div>
-              <p className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">{stats.totalBeneficiaires}</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">Bénéficiaires & comptes rattachés</p>
+              <p className="text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-none">{stats.totalBeneficiaires}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1.5">Bénéficiaires & comptes enregistrés</p>
             </div>
           </div>
 
-          {/* Module 2 : Suivi d'Attribution */}
-          <div className="bg-white dark:bg-[#17231d] rounded-[2rem] p-6 border border-gray-100 dark:border-[#2c3f35] shadow-sm flex flex-col justify-between h-36">
-            <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Taux d'attribution</span>
+          {/* Bento Card 2 */}
+          <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Suivi d'attributions</span>
+              <UserCheck size={16} className="text-blue-500" />
+            </div>
             <div>
-              <div className="flex justify-between items-baseline mb-1">
-                <span className="text-2xl font-black text-gray-800 dark:text-gray-100">{stats.assignedCount} rattachés</span>
-                <span className="text-xs font-bold text-amber-500">{stats.unassignedCount} en attente</span>
+              <div className="flex items-baseline justify-between mb-2">
+                <p className="text-xl font-black text-gray-800 dark:text-gray-100 leading-none">{stats.assignedCount} rattachés</p>
+                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-none">{stats.unassignedCount} libres</p>
               </div>
-              {/* Sleek progress bar */}
-              <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex">
+              <div className="w-full h-1.5 bg-gray-50 dark:bg-gray-800 rounded-full overflow-hidden flex">
                 <div 
-                  className="h-full bg-emerald-500 transition-all duration-500" 
+                  className="h-full bg-emerald-500 transition-all duration-500 rounded-full" 
                   style={{ width: `${(stats.assignedCount / (stats.totalBeneficiaires || 1)) * 100}%` }} 
                 />
               </div>
             </div>
           </div>
 
-          {/* Module 3 : Structures familiales */}
-          <div className="bg-white dark:bg-[#17231d] rounded-[2rem] p-6 border border-gray-100 dark:border-[#2c3f35] shadow-sm flex flex-col justify-between h-36">
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider">Unités familiales</span>
-              <Home size={16} className="text-blue-500" />
+          {/* Bento Card 3 */}
+          <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Foyers enregistrés</span>
+              <Home size={16} className="text-emerald-500" />
             </div>
             <div>
-              <p className="text-3xl font-black tracking-tight text-gray-800 dark:text-gray-100">{stats.totalFamilies}</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 font-medium">Foyers enregistrés actifs</p>
+              <p className="text-3xl font-black tracking-tight text-gray-800 dark:text-gray-100 leading-none">{stats.totalFamilies}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1.5">Foyers familiaux sous contrat</p>
             </div>
           </div>
         </section>
       )}
 
       {/* ============================================================
-          BLOC RECHERCHE & CONTRÔLEUR FILTRE SEGMENTÉ
+          BARRE DE CONTRÔLES (ALIGNEMENT COHÉRENT HAUTEUR H-11)
           ============================================================ */}
-      <section className="bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-md rounded-2xl p-2.5 shadow-sm border border-gray-100 dark:border-[#2c3f35] flex flex-col sm:flex-row gap-2">
+      <section className="flex flex-col sm:flex-row gap-3 w-full">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder={isAdmin ? "Rechercher par nom, famille, aidant..." : "Rechercher un proche..."}
-            className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border outline-none bg-gray-50/50 dark:bg-[#1d2d25]/50 border-gray-100/50 dark:border-[#2c3f35]"
+            placeholder={isAdmin ? "Rechercher par nom de famille, proche, aidant..." : "Rechercher un membre..."}
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white dark:bg-[#17231d] border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
             style={{ color: colors.text }}
           />
         </div>
@@ -761,19 +763,19 @@ export const PatientsPage = () => {
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3.5 py-2 text-xs rounded-xl border bg-white dark:bg-[#1d2d25] outline-none focus:ring-1 shrink-0 sm:w-48 border-gray-100 dark:border-[#2c3f35]"
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white dark:bg-[#17231d] border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-48 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
           style={{ color: colors.text }}
         >
           <option value="all">Tous les profils</option>
-          <option value="senior">👴 Seniors uniquement</option>
+          <option value="senior">👴 Seniors</option>
           <option value="maman_bebe">👶 Mamans & Bébés</option>
           {isAdmin && <option value="personal">👤 Comptes personnels</option>}
         </select>
       </section>
 
-      {/* SYNCHRONISATION AIDANTS (DISCRET & CHIC) */}
+      {/* SYNCHRONISATION AIDANTS */}
       {isAidant && (
-        <div className="bg-amber-50/30 dark:bg-amber-950/10 rounded-2xl p-4 border border-amber-100/60 dark:border-amber-900/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
+        <div className="bg-amber-50/30 dark:bg-amber-950/10 rounded-xl p-4 border border-amber-100/60 dark:border-amber-900/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm">
           <div className="space-y-0.5">
             <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Mise à jour de vos attributions d'accès</p>
             <p className="text-[10px] text-amber-600 dark:text-amber-400">Pour actualiser la liste des bénéficiaires rattachés à votre planning.</p>
@@ -791,52 +793,49 @@ export const PatientsPage = () => {
       )}
 
       {/* ============================================================
-          RENDU DES DOSSIERS (ADMIN) OU DE LA GRILLE (FAMILLE/AIDANT)
+          RENDU DES DOSSIERS EN GRILLE CARREE COHERENTE (ADMIN)
           ============================================================ */}
       {isAdmin ? (
         Object.keys(grouped).length === 0 ? (
-          <section className="bg-white dark:bg-[#17231d] rounded-[2rem] py-16 px-4 text-center border border-gray-100 dark:border-[#2c3f35]">
-            <Illustration type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} size="md" className="mx-auto opacity-35 mb-4" />
-            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">Aucun dossier correspondant</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Ajustez vos termes ou réinitialisez le filtre de recherche.</p>
+          <section className="bg-white dark:bg-[#17231d] rounded-2xl py-16 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
+            <Illustration type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} size="md" className="mx-auto opacity-35" />
+            <div className="space-y-1">
+              <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">Aucun dossier correspondant</h3>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Veuillez modifier ou réinitialiser vos filtres de recherche.</p>
+            </div>
           </section>
         ) : (
-          /* DOSSIERS FAMILIAUX (PREMIUM BEN TO FEED) */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {Object.entries(grouped).map(([familyId, group]: any) => {
-              const isExpanded = expanded[familyId] !== false;
               const familyItems = group.items;
               const hasUnassigned = familyItems.some((i: AssignmentItem) => !i.assignedAidantUserId);
 
               return (
                 <div 
                   key={familyId} 
-                  className={cn(
-                    "bg-white dark:bg-[#17231d] rounded-3xl border shadow-sm transition-all flex flex-col justify-between overflow-hidden",
-                    hasUnassigned ? "border-amber-100 dark:border-amber-950/30 bg-amber-50/[0.02]" : "border-gray-100 dark:border-[#2c3f35]"
-                  )}
+                  className="bg-white dark:bg-[#17231d] rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm p-6 space-y-4 transition-all duration-300 hover:shadow-md"
                 >
-                  {/* EN-TÊTE DU DOSSIER */}
-                  <div className="p-5 border-b border-gray-100/60 dark:border-[#2c3f35]/50 flex items-start justify-between gap-3">
+                  {/* Header du dossier */}
+                  <div className="flex items-start justify-between gap-3 border-b border-gray-100/50 dark:border-gray-800/30 pb-4">
                     <div className="min-w-0">
-                      <span className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Fiche Foyer</span>
-                      <h3 className="font-black text-sm text-gray-800 dark:text-gray-100 truncate mt-0.5">
-                        Famille {group.name}
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Dossier de suivi</span>
+                      <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100 truncate mt-1">
+                        Foyer {group.name}
                       </h3>
                     </div>
                     {hasUnassigned ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/40 dark:border-amber-900/20 animate-pulse">
-                        Attribution requise
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
+                        Rattachement requis
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-900/20">
-                        Complet ({familyItems.length})
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
+                        Attributions complètes ({familyItems.length})
                       </span>
                     )}
                   </div>
 
-                  {/* LISTE DES MEMBRES INTERNES (SANS ACCORDÉONS COMPLEXES) */}
-                  <div className="p-4 space-y-3 flex-1 divide-y divide-gray-50 dark:divide-[#2c3f35]/40">
+                  {/* Liste des membres */}
+                  <div className="divide-y divide-gray-100/50 dark:divide-gray-800/30">
                     {familyItems.map((item: AssignmentItem, idx: number) => {
                       const isAssigned = !!item.assignedAidantUserId;
                       const isAccount = item.type === 'account';
@@ -846,18 +845,15 @@ export const PatientsPage = () => {
                       return (
                         <div 
                           key={item.id} 
-                          className={cn(
-                            "flex items-center justify-between gap-3 pt-3",
-                            idx === 0 ? "pt-0 border-t-0" : ""
-                          )}
+                          className="flex items-center justify-between gap-4 py-3.5 first:pt-0 last:pb-0"
                         >
-                          <div className="min-w-0 flex items-center gap-2.5">
-                            {/* Chic Initials Avatar Circle */}
+                          <div className="flex items-center gap-3 min-w-0">
+                            {/* Avatar initiales */}
                             <div 
-                              className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0"
+                              className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-inner"
                               style={{ 
-                                background: isAccount ? '#e0f2fe' : categoryColor + '12', 
-                                color: isAccount ? '#0369a1' : categoryColor 
+                                background: isAccount ? '#f0f9ff' : categoryColor + '10', 
+                                color: isAccount ? '#0284c7' : categoryColor 
                               }}
                             >
                               {item.targetName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
@@ -865,17 +861,18 @@ export const PatientsPage = () => {
 
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-extrabold text-xs text-gray-800 dark:text-gray-100 truncate">
+                                <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
                                   {item.targetName}
                                 </span>
                                 {isAssigned && (
-                                  <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-1 py-0.5 rounded">
+                                  <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                     {item.assignedAidantName}
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold block mt-0.5 uppercase tracking-wide">
-                                {isAccount ? 'Titulaire principal' : 'Bénéficiaire d\'aide'}
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold block mt-1 uppercase tracking-wide">
+                                {isAccount ? 'Responsable légal' : 'Proche accompagné'}
                               </span>
                             </div>
                           </div>
@@ -885,20 +882,24 @@ export const PatientsPage = () => {
                               <button
                                 onClick={() => handleRevoke(item)}
                                 disabled={isProcessingItem || isProcessing}
-                                className="w-7 h-7 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 flex items-center justify-center transition border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
-                                title="Rétirer l'intervenant"
+                                className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-red-50 dark:bg-gray-800/40 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 dark:hover:text-red-400 flex items-center justify-center transition-all border border-gray-100 dark:border-gray-800/30"
+                                title="Désassigner l'aidant"
                               >
-                                {isProcessingItem ? <Loader2 size={12} className="animate-spin" /> : <UserMinus size={12} />}
+                                {isProcessingItem ? (
+                                  <Loader2 size={13} className="animate-spin text-gray-400" />
+                                ) : (
+                                  <UserMinus size={13} />
+                                )}
                               </button>
                             ) : (
                               <button
                                 onClick={() => handleOpenRowAssignModal(item)}
                                 disabled={isProcessingItem || isProcessing}
-                                className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider text-white transition hover:opacity-90 flex items-center gap-1"
+                                className="h-8 px-3 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-white transition-all duration-200 hover:opacity-90 flex items-center gap-1 shadow-sm"
                                 style={{ background: colors.primary }}
                               >
-                                <UserPlus size={10} />
-                                Assigner
+                                <UserPlus size={11} strokeWidth={2.5} />
+                                Rattacher
                               </button>
                             )}
                           </div>
@@ -912,7 +913,7 @@ export const PatientsPage = () => {
           </div>
         )
       ) : (
-        /* VUE CLASSIQUE DE GRILLE POUR COMPTES FAMILLES */
+        /* VUE BÉNÉFICIAIRE / AIDANT EN GRILLE DE CARTES */
         filteredPatients.length > 0 ? (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPatients.map((patient: any) => (
@@ -929,7 +930,7 @@ export const PatientsPage = () => {
             ))}
           </section>
         ) : (
-          <section className="bg-white dark:bg-[#17231d] rounded-3xl py-14 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
+          <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
             <Illustration type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} size="md" className="mx-auto opacity-35" />
             
             <div className="space-y-1">
@@ -940,7 +941,7 @@ export const PatientsPage = () => {
             {canManage && (
               <button
                 onClick={handleAdd}
-                className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl text-white font-black text-xs transition hover:opacity-90 shadow-md"
+                className="inline-flex items-center gap-1.5 px-4 h-10 rounded-xl text-white font-black text-xs transition hover:opacity-90 shadow-md"
                 style={{ background: colors.primary }}
               >
                 <Plus size={14} />
@@ -951,7 +952,14 @@ export const PatientsPage = () => {
         )
       )}
 
-      {/* BOUTON FLOTTANT MOBILE (TACTILE & ERGONOMIQUE) */}
+      {/* FOOTER SYNC STATUS */}
+      {isAdmin && Object.keys(grouped).length > 0 && (
+        <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold text-center pt-4 tracking-wide uppercase">
+          🟢 Système d'attributions d'intervenants Santé Plus Services — Synchronisé
+        </div>
+      )}
+
+      {/* ACCÈS RAPIDE MOBILES */}
       {canManage && !isAdmin && patients.length > 0 && (
         <button
           onClick={handleAdd}
@@ -967,24 +975,24 @@ export const PatientsPage = () => {
       )}
 
       {/* ============================================================
-          🆕 ASSIGNATION CONTEXTUELLE INDIVIDUELLE (BOTTOM SHEET / MODAL)
+          🆕 ASSIGNATION CONTEXTUELLE INDIVIDUELLE (MODAL PREMIUM COMPLET)
           ============================================================ */}
       {showRowAssignModal && selectedItemToAssign && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowRowAssignModal(false); }}
         >
-          <div className="bg-white dark:bg-[#17231d] rounded-[2rem] w-full max-w-md p-6 shadow-2xl space-y-4 border border-gray-100 dark:border-[#2c3f35] animate-slideUp">
+          <div className="bg-white dark:bg-[#17231d] rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 border border-gray-100 dark:border-gray-800/60 animate-fadeIn">
             {/* Header */}
-            <div className="flex items-start justify-between border-b dark:border-[#2c3f35] pb-3.5">
+            <div className="flex items-start justify-between border-b border-gray-100 dark:border-gray-800/40 pb-4">
               <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 tracking-wider">Rattachement</span>
-                <h3 className="text-base font-extrabold text-gray-800 dark:text-gray-100">Intervenant à domicile</h3>
-                <p className="text-xs text-gray-400 dark:text-gray-500">Pour : <strong className="text-gray-700 dark:text-gray-300">{selectedItemToAssign.targetName}</strong></p>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Rattachement administratif</span>
+                <h3 className="text-sm font-extrabold text-gray-800 dark:text-gray-100">Intervenant d'accompagnement</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Dossier : <strong className="text-gray-700 dark:text-gray-300 font-bold">{selectedItemToAssign.targetName}</strong></p>
               </div>
               <button 
                 onClick={() => setShowRowAssignModal(false)}
-                className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition border dark:border-[#2c3f35]"
+                className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-all border border-gray-100 dark:border-gray-800/30"
               >
                 <X size={15} />
               </button>
@@ -995,14 +1003,14 @@ export const PatientsPage = () => {
               
               {/* Sélection */}
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Sélection de l'aidant</label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Sélectionner un aidant qualifié</label>
                 <select
                   value={modalAidant}
                   onChange={(e) => setModalAidant(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border outline-none text-xs font-semibold focus:ring-1 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-[#2c3f35]"
+                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50 dark:bg-[#1d2d25] border-gray-100 dark:border-gray-800/60"
                   style={{ color: colors.text }}
                 >
-                  <option value="">Choisir un aidant qualifié</option>
+                  <option value="">Sélectionner un aidant</option>
                   {aidants.map(a => {
                     const isFull = a.current_assignments >= a.max_assignments;
                     return (
@@ -1014,24 +1022,24 @@ export const PatientsPage = () => {
                 </select>
               </div>
 
-              {/* Status de quota */}
+              {/* Statut de quota */}
               {modalSelectedAidantObj && (
                 <div className={cn(
-                  "p-3 rounded-xl flex items-center justify-between border text-[11px] font-semibold",
-                  isSelectedAidantFull ? "bg-red-50/50 border-red-200/50 text-red-700 dark:text-red-400 dark:bg-red-950/20 animate-pulse" : "bg-emerald-50/50 border-emerald-200/50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-950/20"
+                  "p-3 rounded-xl flex items-center justify-between border text-[11px] font-semibold transition-all",
+                  isSelectedAidantFull ? "bg-red-50/50 border-red-200/50 text-red-700 dark:text-red-400 dark:bg-red-950/20" : "bg-emerald-50/50 border-emerald-200/50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-950/20"
                 )}>
-                  <span>Quota assignations : {modalSelectedAidantObj.current_assignments}/{modalSelectedAidantObj.max_assignments}</span>
+                  <span>Quota de l'intervenant : {modalSelectedAidantObj.current_assignments}/{modalSelectedAidantObj.max_assignments}</span>
                   <span>{isSelectedAidantFull ? 'Quota max atteint' : 'Disponible'}</span>
                 </div>
               )}
 
               {/* Contrat */}
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Type d'engagement</label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Type de contrat d'accompagnement</label>
                 <select
                   value={modalType}
                   onChange={(e) => setModalType(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border outline-none text-xs font-semibold focus:ring-1 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-[#2c3f35]"
+                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50 dark:bg-[#1d2d25] border-gray-100 dark:border-gray-800/60"
                   style={{ color: colors.text }}
                 >
                   {ASSIGNMENT_TYPES.map(t => (
@@ -1040,9 +1048,9 @@ export const PatientsPage = () => {
                 </select>
               </div>
 
-              {/* Option Forçage */}
+              {/* Option Forçage de quota */}
               {isSelectedAidantFull && (
-                <div className="p-4 bg-amber-50/40 dark:bg-amber-950/15 rounded-xl border border-amber-100/50 dark:border-amber-900/30 space-y-3">
+                <div className="p-4 bg-amber-50/40 dark:bg-amber-950/10 rounded-xl border border-amber-100/50 dark:border-amber-900/30 space-y-3">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
@@ -1055,9 +1063,9 @@ export const PatientsPage = () => {
                       id="force_checkbox"
                       checked={modalForce}
                       onChange={(e) => setModalForce(e.target.checked)}
-                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-[#2c3f35]"
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-gray-800/60"
                     />
-                    <label htmlFor="force_checkbox" className="text-xs font-black text-amber-950 dark:text-amber-200 cursor-pointer select-none">
+                    <label htmlFor="force_checkbox" className="text-xs font-bold text-amber-950 dark:text-amber-200 cursor-pointer select-none">
                       Forcer le rattachement
                     </label>
                   </div>
@@ -1067,11 +1075,11 @@ export const PatientsPage = () => {
             </div>
 
             {/* Actions */}
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t dark:border-[#2c3f35]">
+            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 dark:border-gray-800/40">
               <button
                 type="button"
                 onClick={() => setShowRowAssignModal(false)}
-                className="py-2.5 rounded-xl font-bold border border-gray-100 dark:border-[#2c3f35] bg-white dark:bg-[#17231d] hover:bg-gray-50 dark:hover:bg-[#24362d] transition text-xs sm:text-sm text-center"
+                className="h-11 rounded-xl font-bold border border-gray-100 dark:border-gray-800/60 bg-white dark:bg-[#17231d] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-xs sm:text-sm text-center"
                 style={{ color: colors.text }}
               >
                 Annuler
@@ -1080,7 +1088,7 @@ export const PatientsPage = () => {
                 type="button"
                 onClick={handleConfirmRowAssign}
                 disabled={isProcessing || (!modalForce && isSelectedAidantFull)}
-                className="py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-55 disabled:cursor-not-allowed shadow-md"
+                className="h-11 rounded-xl text-white font-bold transition-all hover:opacity-90 flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                 style={{ background: colors.primary }}
               >
                 {isProcessing ? (
