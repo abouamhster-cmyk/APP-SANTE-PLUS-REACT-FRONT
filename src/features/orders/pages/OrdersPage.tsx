@@ -1,5 +1,6 @@
 // 📁 frontend/src/features/orders/pages/OrdersPage.tsx
- 
+// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA TERMINOLOGIE DYNAMIQUE "DESTINATAIRE" ET RÉACTIVITÉ DES QUOTAS TEMPS RÉEL
+
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -13,9 +14,7 @@ import {
   X,
   Filter,
   List,
-  ClipboardList,
   AlertCircle,
-  UserPlus,
   CreditCard,
   Sparkles,
   UserCheck,
@@ -30,12 +29,9 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
-import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import {
-  isOrderPendingPayment,
   isOrderPonctual,
-  requiresOrderPayment,
   cn,
 } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
@@ -67,19 +63,8 @@ const OrdersPage = () => {
   const { profile, role, user } = useAuthStore();
   const { orders, isLoading, fetchOrders, updateOrderStatus, takeOrder } = useOrderStore();
 
-  const {
-    singular,
-    plural,
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
-  } = useTerminology();
-
-  const {
-    hasActiveSubscription,
-    remainingOrders,
-    can,
-  } = useSubscriptionGuard();
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+  const { hasActiveSubscription, remainingOrders } = useSubscriptionGuard();
 
   const [search, setSearch] = useState('');
   const [activeStatus, setActiveStatus] = useState('all');
@@ -104,32 +89,13 @@ const OrdersPage = () => {
     if (isAidant && user) {
       fetchAidantQuota();
     }
-  }, [isAidant, user, orders]);
+  }, [isAidant, user, orders]); // Se redéclenche instantanément dès que Supabase Realtime met à jour les commandes !
 
   const fetchAidantQuota = async () => {
     setIsLoadingQuota(true);
     try {
-      const { data: aidant, error } = await supabase
-        .from('aidants')
-        .select('current_orders, max_orders')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error) {
-        console.error('❌ Erreur récupération quota:', error);
-        return;
-      }
-
-      const current = aidant?.current_orders || 0;
-      const max = aidant?.max_orders || 2;
-      const available = max - current;
-
-      setAidantQuota({
-        current,
-        max,
-        available,
-        canTake: current < max,
-      });
+      const result = await useOrderStore.getState().checkOrderQuota();
+      setAidantQuota(result);
     } catch (error) {
       console.error('❌ fetchAidantQuota error:', error);
     } finally {
@@ -152,7 +118,7 @@ const OrdersPage = () => {
     ).length,
   }), [orders]);
 
-  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  // GESTION DU PULL-TO-REFRESH TACTILE
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -282,7 +248,7 @@ const OrdersPage = () => {
 
     try {
       await takeOrder(id);
-      toast.success('Commande prise en charge');
+      toast.success('Commande prise en charge ✅');
       
       if (isAidant) {
         await fetchAidantQuota();
@@ -320,7 +286,6 @@ const OrdersPage = () => {
             <div key={item} className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="h-11 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
         <div className="space-y-2">
           {[1, 2].map((item) => (
             <div key={item} className="h-20 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
@@ -330,6 +295,9 @@ const OrdersPage = () => {
     );
   }
 
+  // ✅ TERMINOLOGIE HARMONISÉE POUR TOUT INTERVENANT PONCTUEL OU PERMANENT
+  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
+
   return (
     <div 
       className="space-y-6 pb-6 animate-fadeIn"
@@ -337,10 +305,7 @@ const OrdersPage = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      
-      {/* ============================================================
-          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
-          ============================================================ */}
+      {/* PULL TO REFRESH */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -360,48 +325,43 @@ const OrdersPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC UNIQUE ET CENTRÉ
-          ============================================================ */}
+      {/* HEADER COHÉRENT ET ASSIGNÉ */}
       <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md flex flex-col items-center gap-4">
-        
-        {/* A. Titre et description centré */}
         <div className="space-y-1 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
             {getPageTitle()}
           </h1>
           <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
-            Planifiez, payez vos commissions ou suivez la livraison des médicaments et courses de vos proches.
+            Gérez, payez vos commissions ou suivez en direct l'intervenant en cours de livraison.
           </p>
         </div>
 
-        {/* B. Quota Aidant / Commandes libres (Intégré proprement s'il y en a) */}
+        {/* Quota dynamique et fluide de l'intervenant connecté */}
         {isAidant && aidantQuota && (
           <div className="px-5 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Disponibilité Livraisons
+              Mon Activité Livraisons
             </p>
             <p className="text-sm font-black text-emerald-800 dark:text-emerald-100 mt-0.5 leading-none">
-              {aidantQuota.current} / {aidantQuota.max} en charge
+              {aidantQuota.current} / {aidantQuota.max} en cours
             </p>
             <p className="text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-1">
-              {aidantQuota.canTake ? `${aidantQuota.available} place(s) libre(s)` : 'Quota maximum atteint'}
+              {aidantQuota.canTake ? `${aidantQuota.available} créneau(x) libre(s)` : 'Quota maximum en cours atteint'}
             </p>
           </div>
         )}
 
-        {/* C. Alerte Commandes en attente de paiement (Intégré de manière chic s'il y en a) */}
+        {/* Commandes Familles en attente de validation */}
         {stats.pendingPayment > 0 && isFamily && (
           <button
             onClick={() => setActiveStatus('attente_paiement')}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50/50 dark:bg-[#20112c] border border-purple-100/50 dark:border-purple-900/30 text-[10px] font-extrabold text-purple-800 dark:text-purple-300 transition hover:bg-purple-100/40 relative z-10"
           >
             <CreditCard size={12} className="text-purple-500 animate-pulse" />
-            <span>{stats.pendingPayment} commande{stats.pendingPayment > 1 ? 's' : ''} en attente de paiement</span>
+            <span>{stats.pendingPayment} commande(s) en attente de paiement</span>
           </button>
         )}
 
-        {/* D. Bouton central de Planification (En bas des textes, au milieu) */}
         {isFamily && (
           <button
             onClick={() => navigate('/app/orders/create')}
@@ -409,11 +369,10 @@ const OrdersPage = () => {
             style={{ background: colors.primary }}
           >
             <Plus size={13} strokeWidth={2.5} />
-            <span>Nouvelle commande</span>
+            <span>Créer une commande</span>
           </button>
         )}
 
-        {/* Bouton de rafraîchissement manuel en haut à droite du cadre */}
         <button
           onClick={async () => {
             toast.promise(
@@ -434,14 +393,10 @@ const OrdersPage = () => {
         >
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
         </button>
-
       </section>
 
-      {/* ============================================================
-          🆕 WIDGET BENTO D'ACTIVITÉ MODERNE ET ULTRA-RESPONSIVE (ZÉRO TEXTE COUPÉ)
-          ============================================================ */}
+      {/* BENTO D'ACTIVITÉ */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
-        {/* Bento 1: Commandes Totales */}
         <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
           <div className="flex items-center justify-between gap-1">
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Demandes</span>
@@ -453,7 +408,6 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        {/* Bento 2: Livraisons en cours */}
         <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
           <div className="flex items-center justify-between gap-1">
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Livraisons</span>
@@ -465,7 +419,6 @@ const OrdersPage = () => {
           </div>
         </div>
 
-        {/* Bento 3: Commandes libres ou Urgences */}
         <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
           <div className="flex items-center justify-between gap-1">
             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Urgentes</span>
@@ -478,9 +431,7 @@ const OrdersPage = () => {
         </div>
       </section>
 
-      {/* ============================================================
-          CONTRÔLEUR DE FILTRES SEGMENTÉ COHÉRENT (TABS PRINCIPAUX)
-          ============================================================ */}
+      {/* FILTRES PAR TABS */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
           {statusFilters.map((filter) => {
@@ -504,25 +455,21 @@ const OrdersPage = () => {
         </div>
       </section>
 
-      {/* ============================================================
-          BARRE DE RECHERCHE HARMONISÉE À HAUTEUR H-11
-          ============================================================ */}
+      {/* RECHERCHE */}
       <section className="w-full">
         <div className="relative">
           <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par article, adresse, patient..."
+            placeholder="Rechercher par article, adresse, bénéficiaire..."
             className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white dark:bg-[#17231d] border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
             style={{ color: colors.text }}
           />
         </div>
       </section>
 
-      {/* ============================================================
-          LISTE DES COMMANDES CHRONOLOGIQUES ET PROPRES
-          ============================================================ */}
+      {/* LISTE DES COMMANDES */}
       {filteredOrders.length > 0 ? (
         <section className="space-y-3">
           {filteredOrders.map((order) => (
@@ -542,9 +489,7 @@ const OrdersPage = () => {
           ))}
         </section>
       ) : (
-        /* ============================================================
-            CADRE D'ÉCRAN VIDE PARFAITEMENT CENTRÉ
-            ============================================================ */
+        /* ÉCRAN VIDE */
         <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
           <Illustration 
             type={orders.length > 0 ? 'search' : 'order'} 
@@ -575,7 +520,7 @@ const OrdersPage = () => {
         </section>
       )}
 
-      {/* BOUTON FLOTTANT D'ACCÈS RAPIDE SUR MOBILE */}
+      {/* BOUTON FLOTTANT MOBILE */}
       {isFamily && (
         <button
           onClick={() => navigate('/app/orders/create')}
