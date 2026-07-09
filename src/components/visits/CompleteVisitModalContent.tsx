@@ -171,8 +171,8 @@ export const CompleteVisitModalContent = ({
     try {
       let audioUrlUploaded = undefined;
       if (audioBlob) {
-        // ✅ CORRECTIF : Cible le bucket correct 'visites' au lieu de 'visits'
-        const fileName = `visits/${visitId}/audio_${Date.now()}.webm`;
+        // ✅ CORRECTIF CHEMIN : Enregistrement direct sous le dossier de l'ID de visite [visitId]
+        const fileName = `${visitId}/audio_${Date.now()}.webm`;
         const { data, error } = await supabase.storage.from('visites').upload(fileName, audioBlob);
 
         if (!error && data) {
@@ -183,11 +183,10 @@ export const CompleteVisitModalContent = ({
 
       const photoUrls: string[] = [];
       for (const photo of photos) {
-        // ✅ NETTOYAGE DU NOM DE FICHIER (Anti-caractères spéciaux / espaces / parenthèses)
         const cleanName = sanitizeFileName(photo.name);
-        const fileName = `visits/${visitId}/${Date.now()}_${cleanName}`;
+        // ✅ CORRECTIF CHEMIN : Enregistrement direct sous le dossier [visitId]
+        const fileName = `${visitId}/${Date.now()}_${cleanName}`;
 
-        // ✅ Cible le bucket correct 'visites' au lieu de 'visits'
         const { data, error } = await supabase.storage.from('visites').upload(fileName, photo);
 
         if (!error && data) {
@@ -203,12 +202,6 @@ export const CompleteVisitModalContent = ({
         photos: photoUrls,
       });
 
-      setSelectedActions([]);
-      setNotes('');
-      setAudioUrl(null);
-      setAudioBlob(null);
-      setPhotos([]);
-      setPhotoPreviews([]);
     } catch (error) {
       console.error('Erreur soumission:', error);
       toast.error('Erreur lors de l\'envoi du rapport');
