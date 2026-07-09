@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
- 
+
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -257,11 +257,30 @@ const MainLayout = () => {
               
               {isMobile ? (
                 <div className="flex items-center gap-2 min-w-0">
+                  {/* ✅ Avatar mobile avec image */}
                   <div 
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-sm shrink-0"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-sm shrink-0 overflow-hidden"
                     style={{ background: colors.primary }}
                   >
-                    {profile?.full_name?.charAt(0) || 'U'}
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const parent = (e.target as HTMLImageElement).parentElement;
+                          if (parent) {
+                            parent.textContent = profile?.full_name?.charAt(0) || 'U';
+                            parent.style.display = 'flex';
+                            parent.style.alignItems = 'center';
+                            parent.style.justifyContent = 'center';
+                          }
+                        }}
+                      />
+                    ) : (
+                      profile?.full_name?.charAt(0) || 'U'
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">Bonjour,</p>
@@ -387,6 +406,17 @@ const SidebarContent = ({
     return 'Utilisateur';
   };
 
+  // ✅ Fonction pour obtenir l'URL de l'avatar avec timestamp
+  const getAvatarUrl = (avatarUrl: string | null | undefined): string => {
+    if (!avatarUrl) return '';
+    // ✅ Ajouter un timestamp pour éviter le cache si nécessaire
+    if (avatarUrl.includes('?v=')) {
+      return avatarUrl;
+    }
+    const separator = avatarUrl.includes('?') ? '&' : '?';
+    return `${avatarUrl}${separator}v=${Date.now()}`;
+  };
+
   return (
     <div className="flex h-full flex-col bg-white dark:bg-[#17231d]">
       <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '20' }}>
@@ -422,19 +452,43 @@ const SidebarContent = ({
         })}
       </div>
 
+      {/* ✅ Profil utilisateur avec AVATAR ET FALLBACK */}
       <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30" style={{ borderColor: colors.primary + '20' }}>
         <Link
           to="/app/profile"
           className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition min-w-0"
         >
+          {/* ✅ Avatar avec image ET fallback sur les initiales */}
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm overflow-hidden"
             style={{ background: colors.primary }}
           >
-            {profile?.full_name?.charAt(0) || 'U'}
+            {profile?.avatar_url ? (
+              <img
+                src={getAvatarUrl(profile.avatar_url)}
+                alt="Avatar"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  console.warn('⚠️ Erreur chargement avatar, fallback sur initiales');
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  const parent = (e.target as HTMLImageElement).parentElement;
+                  if (parent) {
+                    parent.textContent = profile?.full_name?.charAt(0) || 'U';
+                    parent.style.display = 'flex';
+                    parent.style.alignItems = 'center';
+                    parent.style.justifyContent = 'center';
+                  }
+                }}
+              />
+            ) : (
+              profile?.full_name?.charAt(0) || 'U'
+            )}
           </div>
+          
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold truncate text-gray-800 dark:text-gray-100">{profile?.full_name || 'Utilisateur'}</p>
+            <p className="text-xs font-bold truncate text-gray-800 dark:text-gray-100">
+              {profile?.full_name || 'Utilisateur'}
+            </p>
             <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5" style={{ color: colors.primary }}>
               <span className="shrink-0">{getRoleIcon()}</span>
               <span>{getRoleLabel()}</span>
