@@ -5,17 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Plus,
-  XCircle,
   AlertCircle,
   CreditCard,
   CheckCircle,
-  UserPlus,
   Sparkles,
   Users,
-  User,
-  Clock,
-  Eye,
-  Heart,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -149,13 +143,13 @@ const VisitsPage = () => {
     }
     return [
       { value: 'all', label: 'Toutes les visites' },
-      { value: 'planifiee', label: '📅 Planifiées' },
-      { value: 'acceptee', label: '✅ Confirmées' },
-      { value: 'en_cours', label: '🔄 En cours' },
-      { value: 'terminee', label: '📋 Terminées' },
-      { value: 'brouillon', label: '💳 En attente paiement' },
-      { value: 'ponctuel', label: '⚡ Mode ponctuel' },
-      { value: 'en_attente_aidant', label: '🦸 En attente d\'aidant' },
+      { value: 'planifiee', label: 'Planifiées' },
+      { value: 'acceptee', label: 'Confirmées' },
+      { value: 'en_cours', label: 'En cours' },
+      { value: 'terminee', label: 'Terminées' },
+      { value: 'brouillon', label: 'En attente' },
+      { value: 'ponctuel', label: 'Mode ponctuel' },
+      { value: 'en_attente_aidant', label: 'Attente d\'aidant' },
     ];
   }, [isAidantRole]);
 
@@ -192,44 +186,73 @@ const VisitsPage = () => {
   const waitingForAidantCount = visits.filter(v => v.status === 'en_attente_aidant').length;
   const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
-  // ✅ Message d'information sur l'abonnement
-  const subscriptionInfo = useMemo(() => {
-    if (isAidantRole || isAdminOrCoordinator) return null;
+  // =============================================
+  // ✅ METRICS ET STATS DE SYNTHÈSE (Suppression des alertes redondantes)
+  // =============================================
+  const statsOverview = useMemo(() => {
+    const list = [];
     
-    if (!hasActiveSubscription) {
-      return {
-        type: 'info',
-        icon: <Sparkles size={18} />,
-        title: '💡 Option Mode Ponctuel disponible',
-        description: 'Planifiez vos visites à l\'acte ou souscrivez à un forfait pour des tarifs d\'accompagnement préférentiels.',
-        action: 'Découvrir nos offres',
-        actionLink: '/app/billing',
-        color: colors.primary,
-      };
+    if (isFamily) {
+      list.push({
+        id: 'sub',
+        label: hasActiveSubscription ? 'Forfait disponible' : 'Tarification',
+        value: hasActiveSubscription ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''}` : 'Mode Ponctuel',
+        subtext: hasActiveSubscription ? 'Crédits d\'intervention actifs' : 'Accompagnement à l\'acte',
+        icon: <Sparkles size={16} className="text-emerald-500" />,
+        bgColor: 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-200',
+        onClick: () => navigate('/app/billing')
+      });
+
+      if (draftCount > 0) {
+        list.push({
+          id: 'drafts',
+          label: 'Interventions en attente',
+          value: `${draftCount} à valider`,
+          subtext: canConvertDrafts ? 'Valider via votre forfait' : 'Régler par carte',
+          icon: <CreditCard size={16} className="text-amber-500 animate-pulse" />,
+          bgColor: 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-100/50 dark:border-amber-900/30 text-amber-800 dark:text-amber-200',
+          onClick: () => setFilterStatus('brouillon')
+        });
+      }
     }
-    
-    if (remainingVisits === 0) {
-      return {
-        type: 'warning',
-        icon: <AlertCircle size={18} />,
-        title: '⚠️ Votre forfait d\'heures est épuisé',
-        description: 'Vous pouvez continuer à réserver vos visites au tarif ponctuel ou recharger votre abonnement.',
-        action: 'Recharger',
-        actionLink: '/app/billing',
-        color: '#F59E0B',
-      };
+
+    if (isAdminOrCoordinator) {
+      list.push({
+        id: 'total_visits',
+        label: 'Visites enregistrées',
+        value: `${visits.length} intervention${visits.length > 1 ? 's' : ''}`,
+        subtext: 'Toutes périodes confondues',
+        icon: <Calendar size={16} className="text-blue-500" />,
+        bgColor: 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-100/50 dark:border-blue-900/30 text-blue-800 dark:text-blue-200',
+      });
+
+      if (waitingForAidantCount > 0) {
+        list.push({
+          id: 'waiting_aidant',
+          label: 'Attributions requises',
+          value: `${waitingForAidantCount} sans aidant`,
+          subtext: 'Assignation manuelle requise',
+          icon: <AlertCircle size={16} className="text-orange-500 animate-pulse" />,
+          bgColor: 'bg-orange-50/50 dark:bg-orange-950/20 border-orange-100/50 dark:border-orange-900/30 text-orange-800 dark:text-orange-200',
+          onClick: () => setFilterStatus('en_attente_aidant')
+        });
+      }
     }
-    
-    return {
-      type: 'success',
-      icon: <CheckCircle size={18} />,
-      title: `✅ Solde actif : ${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} disponible${remainingVisits > 1 ? 's' : ''}`,
-      description: `Vous disposez de ${remainingVisits} crédit${remainingVisits > 1 ? 's' : ''} pour planifier l'accompagnement de vos proches.`,
-      action: null,
-      actionLink: null,
-      color: '#10B981',
-    };
-  }, [hasActiveSubscription, remainingVisits, isAidantRole, isAdminOrCoordinator, colors.primary]);
+
+    if (isAidantRole) {
+      const upcoming = visits.filter(v => v.status === 'acceptee' || v.status === 'planifiee').length;
+      list.push({
+        id: 'missions',
+        label: 'Accompagnements à venir',
+        value: `${upcoming} mission${upcoming > 1 ? 's' : ''}`,
+        subtext: 'Sur votre planning actif',
+        icon: <CheckCircle size={16} className="text-emerald-500" />,
+        bgColor: 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-200',
+      });
+    }
+
+    return list;
+  }, [isFamily, isAdminOrCoordinator, isAidantRole, hasActiveSubscription, remainingVisits, draftCount, canConvertDrafts, visits.length, waitingForAidantCount]);
 
   // =============================================
   // ✅ GESTION DU WIZARD - CRÉATION DE VISITE
@@ -444,7 +467,6 @@ const VisitsPage = () => {
     setIsModalOpen(false);
 
     if (newVisit && newVisit.metadata?.requires_payment) {
-      // ✅ Redirection vers FedaPay si paiement ponctuel requis
       handlePonctualPayment(newVisit);
     }
   };
@@ -453,12 +475,10 @@ const VisitsPage = () => {
   const handleStartVisit = async (visitId: string) => {
     try {
       await startVisit(visitId);
-      // ✅ UN SEUL TOAST
       toast.success('Visite démarrée');
       fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur démarrage:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors du démarrage');
     }
   };
@@ -469,40 +489,29 @@ const VisitsPage = () => {
 
     try {
       await cancelVisit(visitId);
-      // ✅ UN SEUL TOAST
       toast.success('Visite annulée');
       fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur annulation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'annulation');
     }
   };
 
   // =============================================
-  // SKELETON / LOADING STATE ÉLÉGANT
+  // ÉCRAN DE CHARGEMENT SQUELETTE
   // =============================================
   if (isLoading || subLoading) {
     return (
-      <div className="space-y-6 max-w-full overflow-hidden">
-        {/* Header Skeleton */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-[#2c3f35]">
-          <div className="space-y-2 w-full sm:w-2/3">
-            <div className="h-6 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse w-3/4 shimmer" />
-            <div className="h-4 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse w-1/2 shimmer" />
-          </div>
-          <div className="h-10 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse w-32 shrink-0 shimmer" />
+      <div className="space-y-6">
+        <div className="h-16 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="h-20 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
+          <div className="h-20 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
         </div>
-        {/* Pills Skeleton */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-8 w-24 shrink-0 bg-white dark:bg-[#17231d] rounded-full animate-pulse shimmer" />
-          ))}
-        </div>
-        {/* Cards Skeleton */}
-        <div className="space-y-4">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-32 bg-white dark:bg-[#17231d] rounded-3xl animate-pulse border border-gray-100 dark:border-[#2c3f35] p-5 shimmer" />
+        <div className="h-10 bg-white dark:bg-[#17231d] rounded-full animate-pulse w-2/3" />
+        <div className="space-y-3">
+          {[1, 2].map((item) => (
+            <div key={item} className="h-28 bg-white dark:bg-[#17231d] rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -510,221 +519,99 @@ const VisitsPage = () => {
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden space-y-6 pb-28 sm:pb-12 px-1 sm:px-0">
+    <div className="w-full max-w-full overflow-hidden space-y-6 pb-24 sm:pb-10">
 
       {/* ============================================================
-      EN-TÊTE ÉDITORIAL & HUMAIN
+      EN-TÊTE ÉPURÉ SANS LOGOS DE COMPTABILITÉ
       ============================================================ */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-[#2c3f35]">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400">
-              <Calendar size={18} className="animate-pulse" />
-            </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
-              {isAidantRole ? 'Mes missions d\'accompagnement' : 'Planning des visites'}
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+      <section className="flex items-center justify-between gap-4 pb-3 border-b border-gray-100 dark:border-[#2c3f35]">
+        <div>
+          <h1 className="text-xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+            {isAidantRole ? 'Mes missions d\'accompagnement' : 'Planning des visites'}
+          </h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
             {isAidantRole 
-              ? 'Retrouvez vos accompagnements programmés et passés auprès de nos bénéficiaires.' 
-              : 'Suivez et planifiez en toute sérénité la venue d\'un auxiliaire de vie qualifié.'}
-            {isFamily && (
-              <span className="inline-flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
-                {hasActiveSubscription ? (
-                  <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    {remainingVisits} crédit(s) restants
-                  </>
-                ) : (
-                  '💡 Mode ponctuel actif'
-                )}
-              </span>
-            )}
-            {isAdminOrCoordinator && waitingForAidantCount > 0 && (
-              <span className="inline-flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/20 text-[11px] font-bold text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
-                ⚠️ {waitingForAidantCount} visites sans aidant
-              </span>
-            )}
+              ? 'Consultez et validez vos interventions programmées à domicile.' 
+              : 'Planification simplifiée de l\'accompagnement de vos proches.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
-          {canPlanify && (
-            <button
-              onClick={handleAdd}
-              className="hidden sm:inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl text-white font-black text-xs transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md hover:opacity-95"
-              style={{ background: colors.primary }}
-            >
-              <Plus size={16} strokeWidth={2.5} />
-              {isFamily && !canCreateWithSubscription ? 'Visite ponctuelle' : 'Planifier un accompagnement'}
-            </button>
-          )}
-        </div>
+        {canPlanify && (
+          <button
+            onClick={handleAdd}
+            className="hidden sm:inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm"
+            style={{ background: colors.primary }}
+          >
+            <Plus size={14} strokeWidth={2.5} />
+            Planifier une visite
+          </button>
+        )}
       </section>
 
       {/* ============================================================
-      ✅ WIDGET D'INFORMATION ET FORFAITS (ABONNEMENT)
+      SYNTHÈSE ET METRICS (Pas d'alertes géantes, intégration naturelle)
       ============================================================ */}
-      {isFamily && subscriptionInfo && (
-        <div 
-          className={`relative overflow-hidden rounded-3xl p-5 border transition-all duration-300 shadow-sm ${
-            subscriptionInfo.type === 'success' 
-              ? 'bg-gradient-to-r from-emerald-50/50 to-teal-50/20 border-emerald-100/80 dark:from-emerald-950/10 dark:to-teal-950/5 dark:border-emerald-900/30' :
-            subscriptionInfo.type === 'warning' 
-              ? 'bg-gradient-to-r from-amber-50/50 to-orange-50/20 border-amber-100/80 dark:from-amber-950/10 dark:to-orange-950/5 dark:border-amber-900/30' :
-              'bg-gradient-to-r from-blue-50/50 to-indigo-50/20 border-blue-100/80 dark:from-blue-950/10 dark:to-indigo-950/5 dark:border-blue-900/30'
-          }`}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-            <div className="flex items-start gap-4">
-              <div className={`p-2.5 rounded-2xl shrink-0 ${
-                subscriptionInfo.type === 'success' ? 'bg-emerald-100/50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400' :
-                subscriptionInfo.type === 'warning' ? 'bg-amber-100/50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400' :
-                'bg-blue-100/50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400'
-              }`}>
-                {subscriptionInfo.icon}
-              </div>
-              <div className="space-y-1">
-                <p className={`text-sm font-extrabold tracking-tight ${
-                  subscriptionInfo.type === 'success' ? 'text-emerald-950 dark:text-emerald-50' :
-                  subscriptionInfo.type === 'warning' ? 'text-amber-950 dark:text-amber-50' :
-                  'text-blue-950 dark:text-blue-50'
-                }`}>
-                  {subscriptionInfo.title}
-                </p>
-                <p className={`text-xs leading-relaxed font-medium ${
-                  subscriptionInfo.type === 'success' ? 'text-emerald-700/95 dark:text-emerald-300' :
-                  subscriptionInfo.type === 'warning' ? 'text-amber-700/95 dark:text-amber-300' :
-                  'text-blue-700/95 dark:text-blue-300'
-                }`}>
-                  {subscriptionInfo.description}
-                </p>
-              </div>
-            </div>
-            {subscriptionInfo.action && subscriptionInfo.actionLink && (
-              <button
-                onClick={() => navigate(subscriptionInfo.actionLink!)}
-                className="px-5 py-2.5 rounded-xl text-white text-xs font-black transition-all hover:scale-[1.02] active:scale-[0.98] shrink-0 shadow-sm"
-                style={{ background: subscriptionInfo.color }}
-              >
-                {subscriptionInfo.action}
-              </button>
-            )}
-          </div>
-          <div className="absolute right-0 top-0 w-32 h-32 rounded-full opacity-[0.03] pointer-events-none transform translate-x-12 -translate-y-12 border-4 border-current" />
-        </div>
-      )}
-
-      {/* ============================================================
-      ✅ ASSISTANT : VALIDER LES BROUILLONS EXISTANTS
-      ============================================================ */}
-      {isFamily && canConvertDrafts && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-amber-50/70 to-yellow-50/30 dark:from-amber-950/10 dark:to-yellow-950/5 border border-amber-100/80 dark:border-amber-900/30 p-5 rounded-3xl shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded-2xl bg-amber-100/50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 shrink-0">
-                <AlertCircle size={22} className="animate-bounce" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-extrabold text-sm tracking-tight text-amber-950 dark:text-amber-50">
-                  📋 {draftCount} visite{draftCount > 1 ? 's' : ''} en attente de validation
-                </p>
-                <p className="text-xs text-amber-700/95 dark:text-amber-300 leading-relaxed font-medium">
-                  Vous disposez de {remainingVisits} visite(s) sur votre forfait d'heures. 
-                  Débloquez et confirmez ces interventions immédiatement.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <button
-                onClick={() => {
-                  setFilterStatus('brouillon');
-                  document.querySelector('.visits-list')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm shadow-amber-500/10"
-              >
-                ✅ Confirmer maintenant
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================
-      ✅ ASSISTANT : VISITES EN ATTENTE D'AIDANTS (ADMIN & COORD)
-      ============================================================ */}
-      {isAdminOrCoordinator && waitingForAidantCount > 0 && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-orange-50/70 to-red-50/30 dark:from-orange-950/10 dark:to-red-950/5 border border-orange-100/80 dark:border-orange-900/30 p-5 rounded-3xl shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-            <div className="flex items-start gap-4">
-              <div className="p-2.5 rounded-2xl bg-orange-100/50 text-orange-600 dark:bg-orange-950/50 dark:text-orange-400 shrink-0">
-                <Users size={22} />
-              </div>
-              <div className="space-y-1">
-                <p className="font-extrabold text-sm tracking-tight text-orange-950 dark:text-orange-50">
-                  🦸 {waitingForAidantCount} visite{waitingForAidantCount > 1 ? 's' : ''} sans auxiliaire assigné
-                </p>
-                <p className="text-xs text-orange-700/95 dark:text-orange-300 leading-relaxed font-medium">
-                  Aucun aidant n'est actuellement rattaché à ces créneaux. Assignez rapidement un professionnel qualifié.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setFilterStatus('en_attente_aidant');
-                document.querySelector('.visits-list')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
+      {statsOverview.length > 0 && (
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {statsOverview.map((item) => (
+            <div
+              key={item.id}
+              onClick={item.onClick}
+              className={`flex items-start gap-3 p-4 rounded-2xl border transition-all ${
+                item.onClick ? 'cursor-pointer hover:scale-[1.01] active:scale-[0.99]' : ''
+              } ${item.bgColor}`}
             >
-              👔 Choisir les aidants
-            </button>
-          </div>
-        </div>
+              <div className="p-2 rounded-xl bg-white/70 dark:bg-black/20 shrink-0">
+                {item.icon}
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-70 block">
+                  {item.label}
+                </span>
+                <span className="text-base font-extrabold block tracking-tight mt-0.5">
+                  {item.value}
+                </span>
+                <span className="text-[11px] opacity-80 block mt-0.5">
+                  {item.subtext}
+                </span>
+              </div>
+            </div>
+          ))}
+        </section>
       )}
 
       {/* ============================================================
-      BARRE DE FILTRES PILLS ÉLÉGANTE (TABS HORIZONTALES)
+      CONTRÔLEUR DE FILTRES SEGMENTÉ (SANS ACCUMULATION DE BOUTONS)
       ============================================================ */}
-      <section className="w-full overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0 py-1">
-        <div className="flex items-center gap-2">
+      <section className="w-full overflow-x-auto scrollbar-none py-1">
+        <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
           {statusFilterOptions.map((option) => {
             const isActive = filterStatus === option.value;
-            const hasBadge = option.value === 'brouillon' && draftCount > 0;
-            const hasPonctualBadge = option.value === 'ponctuel' && ponctualCount > 0;
+            const hasDraftBadge = option.value === 'brouillon' && draftCount > 0;
             const hasWaitingBadge = option.value === 'en_attente_aidant' && waitingForAidantCount > 0;
 
             return (
               <button
                 key={option.value}
                 onClick={() => setFilterStatus(option.value)}
-                className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-200 select-none ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5 ${
                   isActive
-                    ? 'text-white shadow-sm shadow-emerald-950/10 scale-[1.02]'
-                    : 'bg-white hover:bg-gray-50 dark:bg-[#17231d] dark:hover:bg-[#24362d] text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-[#2c3f35]'
-                } ${hasBadge || hasPonctualBadge || hasWaitingBadge ? 'relative' : ''}`}
-                style={{
-                  backgroundColor: isActive ? colors.primary : undefined,
-                }}
+                    ? 'bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+                style={isActive ? { color: colors.primary } : undefined}
               >
-                <span className="flex items-center gap-1.5">
-                  {option.label}
-                  {hasBadge && (
-                    <span className="bg-amber-400 text-amber-950 px-2 py-0.5 rounded-full text-[9px] font-black leading-none shrink-0 animate-pulse">
-                      {draftCount}
-                    </span>
-                  )}
-                  {hasPonctualBadge && option.value === 'ponctuel' && (
-                    <span className="bg-blue-400 text-white px-2 py-0.5 rounded-full text-[9px] font-black leading-none shrink-0">
-                      {ponctualCount}
-                    </span>
-                  )}
-                  {hasWaitingBadge && option.value === 'en_attente_aidant' && (
-                    <span className="bg-orange-400 text-white px-2 py-0.5 rounded-full text-[9px] font-black leading-none shrink-0">
-                      {waitingForAidantCount}
-                    </span>
-                  )}
-                </span>
+                <span>{option.label}</span>
+                {hasDraftBadge && (
+                  <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold">
+                    {draftCount}
+                  </span>
+                )}
+                {hasWaitingBadge && (
+                  <span className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold">
+                    {waitingForAidantCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -732,128 +619,103 @@ const VisitsPage = () => {
       </section>
 
       {/* ============================================================
-      LISTE DE VISITES CHRONOLOGIQUES ET STYLISÉES
+      LISTE DE VISITES
       ============================================================ */}
       {sortedVisits.length > 0 ? (
-        <section className="space-y-4 min-w-0 max-w-full visits-list">
+        <section className="space-y-3.5 visits-list">
           {sortedVisits.map((visit) => (
-            <div 
-              key={visit.id} 
-              className="group relative min-w-0 max-w-full overflow-hidden rounded-3xl transition-all duration-300 hover:shadow-lg hover:shadow-gray-100/40 dark:hover:shadow-none border border-gray-100 dark:border-[#2c3f35] bg-white dark:bg-[#17231d]"
-            >
-              {/* Liseré dynamique en fonction du statut de l'intervention */}
-              <div 
-                className="absolute left-0 top-0 bottom-0 w-1.5 z-10"
-                style={{ 
-                  background: visit.status === 'en_cours' ? '#3B82F6' : 
-                              visit.status === 'terminee' ? '#10B981' : 
-                              visit.status === 'brouillon' ? '#F59E0B' :
-                              visit.status === 'en_attente_aidant' ? '#F97316' : colors.primary 
-                }}
+            <div key={visit.id} className="transition-all duration-200 hover:translate-y-[-1px]">
+              <VisitCard
+                visit={visit}
+                onClick={() => navigate(`/app/visits/${visit.id}`)}
+                showActions={true}
+                onStart={
+                  canStartVisit && (visit.status === 'acceptee' || visit.status === 'planifiee')
+                    ? () => handleStartVisit(visit.id)
+                    : undefined
+                }
+                onCancel={
+                  canCancelVisit && (visit.status === 'planifiee' || visit.status === 'en_attente' || visit.status === 'brouillon')
+                    ? () => handleCancelVisit(visit.id)
+                    : undefined
+                }
+                onConvertToSubscription={
+                  visit.status === 'brouillon' && hasActiveSubscription && remainingVisits > 0
+                    ? () => handleConvertToSubscription(visit.id)
+                    : undefined
+                }
+                onPonctualPayment={
+                  visit.status === 'brouillon'
+                    ? () => handlePonctualPayment(visit)
+                    : undefined
+                }
+                onShowAssignAidantModal={
+                  isAdminOrCoordinator ? () => handleShowAssignAidantModal(visit) : undefined
+                }
+                onView={() => navigate(`/app/visits/${visit.id}`)}
+                compact
               />
-              <div className="pl-1.5">
-                <VisitCard
-                  visit={visit}
-                  onClick={() => navigate(`/app/visits/${visit.id}`)}
-                  showActions={true}
-                  onStart={
-                    canStartVisit && (visit.status === 'acceptee' || visit.status === 'planifiee')
-                      ? () => handleStartVisit(visit.id)
-                      : undefined
-                  }
-                  onCancel={
-                    canCancelVisit && (visit.status === 'planifiee' || visit.status === 'en_attente' || visit.status === 'brouillon')
-                      ? () => handleCancelVisit(visit.id)
-                      : undefined
-                  }
-                  onConvertToSubscription={
-                    visit.status === 'brouillon' && hasActiveSubscription && remainingVisits > 0
-                      ? () => handleConvertToSubscription(visit.id)
-                      : undefined
-                  }
-                  onPonctualPayment={
-                    visit.status === 'brouillon'
-                      ? () => handlePonctualPayment(visit)
-                      : undefined
-                  }
-                  onShowAssignAidantModal={
-                    isAdminOrCoordinator ? () => handleShowAssignAidantModal(visit) : undefined
-                  }
-                  onView={() => navigate(`/app/visits/${visit.id}`)}
-                  compact
-                />
-              </div>
             </div>
           ))}
         </section>
       ) : (
         /* ============================================================
-        ÉCRAN VIDE CHALEUREUX ET ENGAGEANT
+        ÉCRAN VIDE DESIGN ET ÉPURÉ
         ============================================================ */
-        <section className="bg-gradient-to-br from-white to-gray-50/50 dark:from-[#17231d] dark:to-[#17231d]/60 rounded-3xl py-14 px-6 text-center border border-gray-100 dark:border-[#2c3f35] shadow-sm max-w-2xl mx-auto space-y-5">
+        <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
           <div
-            className="w-16 h-16 rounded-3xl mx-auto flex items-center justify-center shadow-inner transition-transform duration-300 hover:rotate-6"
+            className="w-11 h-11 rounded-2xl mx-auto flex items-center justify-center"
             style={{
-              background: colors.primary + '12',
+              background: colors.primary + '10',
               color: colors.primary,
             }}
           >
-            {filterStatus === 'brouillon' ? <CreditCard size={28} className="animate-pulse" /> : 
-             filterStatus === 'ponctuel' ? <Sparkles size={28} /> :
-             filterStatus === 'en_attente_aidant' ? <Users size={28} /> :
-             <Calendar size={28} />}
+            <Calendar size={18} />
           </div>
 
-          <div className="space-y-2">
-            <h3 className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100">
-              {filterStatus !== 'all' ? 'Aucun accompagnement trouvé' : 'Aucun accompagnement planifié'}
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
+              Aucun accompagnement trouvé
             </h3>
-
-            <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-400 max-w-md mx-auto leading-relaxed">
-              {filterStatus === 'ponctuel' 
-                ? 'Vous n\'avez pas encore réservé de visite en mode ponctuel. Idéal pour répondre à un besoin d\'accompagnement ponctuel ou d\'urgence.'
-                : filterStatus === 'en_attente_aidant'
-                  ? 'Toutes les visites d\'accompagnement ont été pourvues par un aidant qualifié.'
-                  : filterStatus !== 'all' 
-                    ? 'Aucune intervention ne correspond à ce filtre pour le moment.' 
-                    : 'Planifiez la venue d\'un auxiliaire de vie qualifié pour l\'aide au repas, à la promenade ou à la toilette.'}
+            <p className="text-xs text-gray-400 dark:text-gray-400 max-w-xs mx-auto">
+              {filterStatus !== 'all' 
+                ? 'Essayez de changer les filtres pour afficher d\'autres status.'
+                : 'Planifiez vos interventions d\'aide et d\'accompagnement à domicile.'}
             </p>
           </div>
 
           {canPlanify && filterStatus === 'all' && (
-            <div className="pt-2">
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-white font-black text-xs transition-all hover:scale-[1.02] active:scale-[0.98] shadow-md hover:opacity-95"
-                style={{ background: colors.primary }}
-              >
-                <Plus size={16} strokeWidth={2.5} />
-                {isFamily && !canCreateWithSubscription ? 'Réserver une visite ponctuelle' : 'Planifier une première intervention'}
-              </button>
-            </div>
+            <button
+              onClick={handleAdd}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90"
+              style={{ background: colors.primary }}
+            >
+              <Plus size={14} />
+              Planifier une visite
+            </button>
           )}
         </section>
       )}
 
       {/* ============================================================
-      ACCÈS RAPIDE FLOUTÉ (TACTILE & ERGONOMIQUE SUR MOBILE)
+      ACCÈS RAPIDE MOBILES (PLACEMENT PRÉCIS ET TACTILE)
       ============================================================ */}
       {canPlanify && (
         <button
           onClick={handleAdd}
-          className="sm:hidden fixed bottom-24 right-5 z-40 w-14 h-14 rounded-full text-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200"
+          className="sm:hidden fixed bottom-24 right-5 z-40 w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all"
           style={{ 
             background: colors.primary,
-            boxShadow: `0 10px 25px -5px ${colors.primary}60`
+            boxShadow: `0 8px 24px -6px ${colors.primary}`
           }}
-          aria-label="Planifier un nouvel accompagnement"
+          aria-label="Planifier une visite d'accompagnement"
         >
-          <Plus size={24} strokeWidth={2.5} />
+          <Plus size={20} strokeWidth={2.5} />
         </button>
       )}
 
       {/* ============================================================
-      MODALES ET WIZARDS DE L'APPLICATION
+      MODALES ET INTERFACES SECONDAIRES
       ============================================================ */}
       <VisitModal
         isOpen={isModalOpen}
@@ -866,7 +728,6 @@ const VisitsPage = () => {
         }}
       />
 
-      {/* ✅ MODAL WIZARD */}
       {showWizard && wizardData && (
         <VisitWizardModal
           isOpen={showWizard}
@@ -882,7 +743,6 @@ const VisitsPage = () => {
         />
       )}
 
-      {/* MODAL DE PAIEMENT PONCTUEL UNIFIÉ */}
       {isPaymentModalOpen && pendingPaymentData && (
         <PonctualPaymentModal
           isOpen={isPaymentModalOpen}
@@ -893,7 +753,6 @@ const VisitsPage = () => {
         />
       )}
 
-      {/* MODAL D'ASSIGNATION D'AIDANT (ADMIN) */}
       {showAssignModal && selectedVisitForAssign && (
         <AssignAidantModal
           isOpen={showAssignModal}
