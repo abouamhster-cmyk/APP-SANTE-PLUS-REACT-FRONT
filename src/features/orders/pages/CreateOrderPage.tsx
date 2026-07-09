@@ -1,5 +1,6 @@
 // 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
- 
+// ✅ CRÉATION DE COMMANDE SIMPLIFIÉE (SANS TRACKING INTÉGRÉ)
+
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -30,15 +31,11 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
-import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
-import { ORDER_TYPES, getPonctualOrderPriceByType } from '@/lib/constants';
+import { getPonctualOrderPriceByType } from '@/lib/constants';
 
 import { OrderItem } from '@/types';
-import { supabase } from '@/lib/supabase';
-import { extractCoordinatesFromGoogleMaps } from '@/utils/helpers';
+import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
@@ -99,7 +96,6 @@ const CreateOrderPage = () => {
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
   const [prescriptionPreview, setPrescriptionPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isResolvingGps, setIsResolvingGps] = useState(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -123,27 +119,8 @@ const CreateOrderPage = () => {
 
   const fetchAidantQuota = async () => {
     try {
-      const { data: aidant, error } = await supabase
-        .from('aidants')
-        .select('current_orders, max_orders')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error) {
-        console.error('❌ Erreur récupération quota:', error);
-        return;
-      }
-
-      const current = aidant?.current_orders || 0;
-      const max = aidant?.max_orders || 2;
-      const available = max - current;
-
-      setAidantQuota({
-        current,
-        max,
-        available,
-        canTake: current < max,
-      });
+      const result = await useOrderStore.getState().checkOrderQuota();
+      setAidantQuota(result);
     } catch (error) {
       console.error('❌ fetchAidantQuota error:', error);
     }
@@ -192,6 +169,27 @@ const CreateOrderPage = () => {
     fetchPatients();
   }, []);
 
+  // ✅ AUTO-REMPLISSAGE INTELLIGENT DE L'ADRESSE ET DU TÉLÉPHONE
+  useEffect(() => {
+    if (targetType === 'patient' && targetPatientId) {
+      const selectedPatient = patients.find(p => p.id === targetPatientId);
+      if (selectedPatient) {
+        const phoneSuffix = selectedPatient.phone ? ` (Tél: ${selectedPatient.phone})` : '';
+        setFormData(prev => ({
+          ...prev,
+          address: `${selectedPatient.address || ''}${phoneSuffix}`.trim(),
+        }));
+      }
+    } else {
+      const currentPhone = profile?.phone;
+      const phoneSuffix = currentPhone ? ` (Tél: ${currentPhone})` : '';
+      setFormData(prev => ({
+        ...prev,
+        address: phoneSuffix ? `Mon adresse ${phoneSuffix}`.trim() : '',
+      }));
+    }
+  }, [targetPatientId, targetType, patients, profile]);
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isRedirecting.current) return;
@@ -206,56 +204,8 @@ const CreateOrderPage = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [formData]);
 
-  // ✅ ANALYSER ET LIRE LES LIENS GOOGLE MAPS LORS DE LA SAISIE DE L'ADRESSE
-  const handleAddressChange = async (value: string) => {
-    setFormData(prev => ({ ...prev, address: value, latitude: null, longitude: null }));
-
-    // 1️⃣ Cas A: Lien Google Maps classique (long) ou coordonnées brutes
-    const coords = extractCoordinatesFromGoogleMaps(value);
-    if (coords) {
-      setFormData(prev => ({
-        ...prev,
-        latitude: coords.lat,
-        longitude: coords.lng
-      }));
-      toast.success(`📍 Position GPS synchronisée : ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
-      return;
-    }
-
-    // 2️⃣ Cas B: Lien Google Maps mobile raccourci (maps.app.goo.gl)
-    if (value.includes('maps.app.goo.gl')) {
-      setIsResolvingGps(true);
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-
-        const response = await fetch(`${API_URL}/billing/resolve-maps`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ url: value.trim() })
-        });
-
-        const result = await response.json();
-        if (result.success && result.finalUrl) {
-          const resolvedCoords = extractCoordinatesFromGoogleMaps(result.finalUrl);
-          if (resolvedCoords) {
-            setFormData(prev => ({
-              ...prev,
-              latitude: resolvedCoords.lat,
-              longitude: resolvedCoords.lng
-            }));
-            toast.success(`📍 Position GPS synchronisée : ${resolvedCoords.lat.toFixed(4)}, ${resolvedCoords.lng.toFixed(4)}`);
-          }
-        }
-      } catch (err) {
-        console.warn('Impossible de résoudre le lien court en direct:', err);
-      } finally {
-        setIsResolvingGps(false);
-      }
-    }
+  const handleAddressChange = (value: string) => {
+    setFormData(prev => ({ ...prev, address: value }));
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -380,8 +330,8 @@ const CreateOrderPage = () => {
       type: formData.type as any,
       description: formData.description.trim(),
       address: formData.address.trim(),
-      latitude: formData.latitude,  
-      longitude: formData.longitude, 
+      latitude: null,  // ✅ RETRAIT DU SUIVI GPS DÉDIÉ
+      longitude: null, // ✅ RETRAIT DU SUIVI GPS DÉDIÉ
       estimated_amount: finalEstimatedAmount || null,
       items: validItems,
       prescription_url: prescriptionUrl,
@@ -475,8 +425,8 @@ const CreateOrderPage = () => {
         type: formData.type as any,
         description: formData.description.trim(),
         address: formData.address.trim(),
-        latitude: formData.latitude, 
-        longitude: formData.longitude, 
+        latitude: null,  // ✅ SANS GÉOLOCALISATION
+        longitude: null, // ✅ SANS GÉOLOCALISATION
         estimated_amount: finalEstimatedAmount || null,
         items: validItems,
         prescription_url: prescriptionUrl,
@@ -503,7 +453,7 @@ const CreateOrderPage = () => {
     }
   };
 
-  const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading || isResolvingGps;
+  const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
   const selectedPatientObj = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
   const itemsTotal = formData.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
   const finalEstimatedAmount = formData.estimated_amount ? parseFloat(formData.estimated_amount) : itemsTotal;
@@ -638,13 +588,13 @@ const CreateOrderPage = () => {
           </section>
 
           {/* INFOS COMPLEMENTAIRES */}
-          <ModernPanel icon={<ClipboardList size={20} />} title="Informations complémentaires" subtitle="Renseignez l'adresse de livraison (ou lien Google Maps) et la description." color={colors.primary}>
+          <ModernPanel icon={<ClipboardList size={20} />} title="Informations complémentaires" subtitle="Renseignez l'adresse de livraison et la description." color={colors.primary}>
             <div className="space-y-4">
               <Field label="Description" required color={colors.text}>
                 <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50 resize-none" style={{ borderColor: colors.border || '#e5e0d8' }} rows={3} placeholder="Détaillez votre commande..." required />
               </Field>
 
-              <Field label="Adresse de livraison ou Lien Google Maps" required color={colors.text}>
+              <Field label="Adresse de livraison" required color={colors.text}>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
                   <input 
@@ -653,20 +603,10 @@ const CreateOrderPage = () => {
                     onChange={(e) => handleAddressChange(e.target.value)} 
                     className="w-full pl-10 pr-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50" 
                     style={{ borderColor: colors.border || '#e5e0d8' }} 
-                    placeholder="Adresse ou collez un lien Google Maps..." 
+                    placeholder="Quartier, indications de rue pour le livreur..." 
                     required 
                   />
-                  {isResolvingGps && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 className="animate-spin text-gray-400" size={16} />
-                    </div>
-                  )}
                 </div>
-                {formData.latitude && formData.longitude && (
-                  <p className="text-[10px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
-                    ✓ Coordonnées GPS synchronisées : {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
-                  </p>
-                )}
               </Field>
             </div>
           </ModernPanel>
