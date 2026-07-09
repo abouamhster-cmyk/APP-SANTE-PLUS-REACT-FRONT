@@ -245,7 +245,7 @@ const MainLayout = () => {
           className={cn(
             "fixed top-0 left-0 right-0 z-30 transition-all duration-300",
             isMobile 
-              ? "bg-transparent border-none px-4 py-3" // Immersif & Sans Opaque Box
+              ? "bg-transparent border-none px-4 py-3" 
               : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4"
           )}
           style={{
@@ -256,7 +256,6 @@ const MainLayout = () => {
             <div className="flex items-center justify-between gap-3">
               
               {isMobile ? (
-                /* Salutation fluide et intégrée */
                 <div className="flex items-center gap-2 min-w-0">
                   <div 
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-sm shrink-0"
@@ -272,7 +271,6 @@ const MainLayout = () => {
                   </div>
                 </div>
               ) : (
-                /* Titre classique desktop */
                 <h2
                   className="text-base sm:text-lg font-bold truncate pl-1 sm:pl-0"
                   style={{ color: colors.text }}
@@ -332,8 +330,11 @@ const MainLayout = () => {
           </div>
         </header>
 
-        {/* CONTENEUR ROUTE PRINCIPALE (AÉRÉ ET CONFORME AUX MOCKUPS) */}
-        <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-32 md:pb-8 animate-fadeIn">
+        {/* ============================================================
+            MODIFICATION CRITIQUE : pb-24 AU LIEU DE pb-32 SUR MOBILE 
+            (Défilement fluide, arrêt parfait sans vide abyssal)
+            ============================================================ */}
+        <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-24 md:pb-8 animate-fadeIn">
           <div className="max-w-7xl mx-auto">
             <ReminderBanner />
             <Outlet />
