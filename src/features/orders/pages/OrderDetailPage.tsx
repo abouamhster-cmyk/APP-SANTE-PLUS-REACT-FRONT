@@ -1,5 +1,6 @@
 // 📁 src/features/orders/pages/OrderDetailPage.tsx
- 
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CORRECTION DE LA TERMINOLOGIE DYNAMIQUE "DESTINATAIRE" ET RETRAIT DU TRACAGE CONTINU ENCOMBRANT
+
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -23,7 +24,6 @@ import {
   Phone,
   Mail,
   Star,
-  Award,
   AlertCircle,
   Loader2,
   CreditCard,
@@ -43,12 +43,11 @@ import {
   requiresOrderPayment,
 } from '@/utils/helpers';
 
-import { Illustration } from '@/components/ui/Illustration';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// ✅ HELPERS LOCAUX EN HAUT DE PAGE (RÉSOUT LES ERREURS TS2304 HOISTING VERCEL)
+// ✅ HELPERS LOCAUX EN HAUT DE PAGE
 // ============================================================
 
 const getStatusLabel = (status: string): string => {
@@ -268,8 +267,6 @@ const OrderDetailPage = () => {
   const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, isLoading } = useOrderStore();
 
   const {
-    singular,
-    getCategoryLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
@@ -323,7 +320,7 @@ const OrderDetailPage = () => {
     setIsUpdating(true);
     try {
       await takeOrder(id);
-      toast.success('Commande prise en charge');
+      toast.success('Commande prise en charge ✅');
       fetchOrderById(id);
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
@@ -431,7 +428,9 @@ const OrderDetailPage = () => {
 
   // Transtypage en any pour contourner TS2339 au niveau du typage optionnel de l'interface d'origine
   const order = currentOrder as any;
-  const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
+
+  // ✅ TERMINOLOGIE HARMONISÉE SUR LES CARTES DE DÉTAIL DES COMMANDES COURSES : "DESTINATAIRE"
+  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
   const canTake = (order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
   const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
@@ -557,9 +556,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-      ✅ REPOSITIONNÉ : WIDGET DE NAVIGATION DE LIVRAISON SANS CARTE INTERNE
-      ============================================================ */}
+      {/* WIDGET DE NAVIGATION DE LIVRAISON SANS CARTE INTERNE */}
       {order.status === 'en_cours' && (
         <div className="bg-white rounded-3xl p-5 border border-amber-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="min-w-0">
@@ -642,7 +639,7 @@ const OrderDetailPage = () => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold" style={{ color: colors.text }}>
-                💳 Paiement requis pour valider la commande
+                💳 Paiement requis pour finaliser la commande
               </p>
               <p className="text-[11px] font-medium mt-0.5" style={{ color: colors.text + '70' }}>
                 Montant : <strong style={{ color: colors.primary }}>{formatCurrency(order.estimated_amount || 0)}</strong>
