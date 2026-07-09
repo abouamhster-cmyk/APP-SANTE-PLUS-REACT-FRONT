@@ -175,16 +175,15 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
           boxShadow: '0 -10px 40px -15px rgba(0, 0, 0, 0.12), 0 15px 40px rgba(0,0,0,0.08)',
         }}
       >
-        <div className="flex items-center justify-between mb-5 border-b pb-3.5 dark:border-[#2c3f35]">
+        <div className="flex items-center justify-between mb-5 border-b pb-3 dark:border-[#2c3f35]">
           <div className="space-y-0.5">
             <h3 className="text-sm font-extrabold text-gray-800 dark:text-gray-100">Plus d'outils</h3>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Services et utilitaires</p>
-          </div>
+           </div>
           <button
             onClick={() => setShowMore(false)}
             className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition shadow-sm"
           >
-            <X size={15} />
+            <X size={14} />
           </button>
         </div>
 
