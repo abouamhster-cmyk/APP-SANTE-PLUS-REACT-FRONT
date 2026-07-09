@@ -1,6 +1,6 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
  
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
   CheckCircle,
@@ -9,6 +9,8 @@ import {
   Package,
   User,
   Sparkles,
+  RefreshCw,
+  X,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -21,13 +23,13 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { PaymentModal } from '../components/PaymentModal';
 import { VisitDaysPicker } from '@/components/subscriptions/VisitDaysPicker';
 import { Offer } from '@/types';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 // =============================================
 // TYPES
 // =============================================
 
-// ✅ SUPPRIMER 'ponctuelle' des tabs - ce n'est PAS un abonnement
 type TabType = 'all' | 'senior' | 'maman_bebe' | 'pack_confort';
 
 // =============================================
@@ -53,7 +55,6 @@ const BillingPage = () => {
     cancelSubscription,
   } = usePaymentStore();
 
-  // ✅ OFFRES DYNAMIQUES DEPUIS LA BASE DE DONNÉES
   const {
     offers,
     isLoading: offersLoading,
@@ -68,6 +69,11 @@ const BillingPage = () => {
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+
+  // ÉTATS DE PULL-TO-REFRESH MOBILE
+  const [pullY, setPullY] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const startTouchY = useRef(0);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -96,7 +102,7 @@ const BillingPage = () => {
   }, []);
 
   // =============================================
-  // ✅ FILTRAGE DES OFFRES - CORRIGÉ
+  // FILTRAGE DES OFFRES
   // =============================================
   useEffect(() => {
     if (offers.length === 0) {
@@ -106,13 +112,11 @@ const BillingPage = () => {
 
     let filtered: Offer[] = [];
 
-    // 🦸 AIDANT → Pas d'abonnement visible
     if (isAidantRole) {
       setFilteredOffers([]);
       return;
     }
 
-    // 👔 ADMIN / COORDINATEUR → Toutes les offres (sauf ponctuelles)
     if (role === 'admin' || role === 'coordinator') {
       filtered = offers.filter((o: Offer) => 
         o.type !== 'ponctuelle' && o.is_active === true
@@ -121,7 +125,6 @@ const BillingPage = () => {
       return;
     }
 
-    // 👤 COMPTE PERSONNEL (sans patient) → Senior + Maman + Pack Confort
     if (isPersonalAccount) {
       filtered = offers.filter((o: Offer) => 
         (o.category === 'senior' || o.category === 'maman_bebe' || o.category === 'pack_confort') &&
@@ -132,7 +135,6 @@ const BillingPage = () => {
       return;
     }
 
-    // 👴 SENIOR → Senior + Pack Confort
     if (patientCategory === 'senior') {
       filtered = offers.filter((o: Offer) => 
         (o.category === 'senior' || o.category === 'pack_confort') &&
@@ -143,7 +145,6 @@ const BillingPage = () => {
       return;
     }
 
-    // 👶 MAMAN & BÉBÉ → Maman + Pack Confort
     if (patientCategory === 'maman_bebe') {
       filtered = offers.filter((o: Offer) => 
         (o.category === 'maman_bebe' || o.category === 'pack_confort') &&
@@ -154,7 +155,6 @@ const BillingPage = () => {
       return;
     }
 
-    // 🔄 FALLBACK
     filtered = offers.filter((o: Offer) => 
       o.type !== 'ponctuelle' && o.is_active === true
     );
@@ -162,9 +162,41 @@ const BillingPage = () => {
 
   }, [offers, patientCategory, role, isAidantRole, isPersonalAccount]);
 
-  // =============================================
-  // ✅ ONGLETS DISPONIBLES - PLUS DE PONCTUELLE
-  // =============================================
+  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      startTouchY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPulling) return;
+    const currentY = e.touches[0].clientY;
+    const diffY = currentY - startTouchY.current;
+
+    if (diffY > 0 && window.scrollY === 0) {
+      const resistance = Math.min(diffY * 0.38, 72);
+      setPullY(resistance);
+      if (e.cancelable) e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    setIsPulling(false);
+    if (pullY >= 50) {
+      toast.promise(
+        Promise.all([fetchSubscriptions(), fetchPayments(), fetchOffers()]),
+        {
+          loading: 'Actualisation de votre dossier...',
+          success: 'Abonnements à jour !',
+          error: 'Échec de synchronisation.',
+        }
+      );
+    }
+    setPullY(0);
+  };
+
   const getVisibleTabs = (): TabType[] => {
     if (isAidantRole) return [];
     if (isPersonalAccount) return ['all'];
@@ -175,9 +207,6 @@ const BillingPage = () => {
 
   const visibleTabs = getVisibleTabs();
 
-  // =============================================
-  // ✅ STATUTS
-  // =============================================
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
   const hasActiveSub = subscriptions.some((sub) => sub.status === 'actif');
 
@@ -185,18 +214,12 @@ const BillingPage = () => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif');
   };
 
-  // =============================================
-  // ✅ OUVERTURE DU MODAL DE PAIEMENT - UN SEUL TOAST
-  // =============================================
   const openPayment = (offer: Offer) => {
-    // ✅ Récupérer le premier patient de la famille (ou null)
     const activePatient = patients.length > 0 ? patients[0] : null;
     const patientId = activePatient?.id || null;
 
-    // ✅ Vérifier si l'utilisateur a déjà un abonnement actif
     if (hasActiveSub) {
-      // ✅ UN SEUL TOAST
-      toast.error('Vous avez déjà un abonnement actif');
+      toast.error('Vous disposez déjà d\'un forfait actif');
       return;
     }
 
@@ -205,21 +228,14 @@ const BillingPage = () => {
     setIsPaymentOpen(true);
   };
 
-  // =============================================
-  // ✅ SUCCÈS DU PAIEMENT - UN SEUL TOAST
-  // =============================================
   const handlePaymentSuccess = async () => {
     await fetchSubscriptions();
     await fetchPayments();
     await fetchOffers();
     setIsPaymentOpen(false);
-    // ✅ UN SEUL TOAST
     toast.success('Paiement effectué avec succès !');
   };
 
-  // =============================================
-  // ✅ STATISTIQUES
-  // =============================================
   const stats = {
     total: filteredOffers.length,
     senior: filteredOffers.filter((o: Offer) => o.category === 'senior').length,
@@ -227,134 +243,142 @@ const BillingPage = () => {
     pack: filteredOffers.filter((o: Offer) => o.category === 'pack_confort').length,
   };
 
-  // =============================================
-  // ✅ CHARGEMENT
-  // =============================================
   const isLoading = storeLoading || offersLoading;
 
   if (isLoading) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto pb-8">
-        <div className="h-28 bg-white rounded-3xl animate-pulse shadow-sm" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="space-y-6 max-w-5xl mx-auto pb-6">
+        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-44 bg-white rounded-2xl animate-pulse shadow-sm" />
+            <div key={item} className="h-44 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="h-32 bg-white rounded-3xl animate-pulse shadow-sm" />
       </div>
     );
   }
 
-  // =============================================
-  // 🦸 VUE AIDANT
-  // =============================================
+  // 🦸 VUE AIDANT ÉPURÉE
   if (isAidantRole) {
     return (
-      <div className="max-w-5xl mx-auto pb-8">
-        <section className="bg-white rounded-3xl p-8 text-center shadow-sm border border-black/5">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.primary + '15' }}>
-            <ShieldCheck size={32} style={{ color: colors.primary }} />
+      <div className="max-w-5xl mx-auto pb-6">
+        <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-6 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 mx-auto">
+            <ShieldCheck size={22} style={{ color: colors.primary }} />
           </div>
-          <h2 className="text-xl font-bold" style={{ color: colors.text }}>
-            🦸 Espace Aidant
-          </h2>
-          <p className="text-sm mt-2 max-w-md mx-auto" style={{ color: colors.text + '70' }}>
-            En tant qu'aidant, vous n'avez pas besoin de souscrire d'abonnement. 
-            Les visites et commandes vous sont assignées par l'administration.
-          </p>
-          <p className="text-xs mt-4" style={{ color: colors.text + '50' }}>
-            Vous pouvez consulter vos missions dans l'onglet "Missions" et "Commandes".
-          </p>
+          <div className="space-y-1">
+            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">Espace Intervenant homologué</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+              En tant qu'auxiliaire de vie qualifié, vous n'avez pas d'abonnement ou de facturation d'heures à gérer sur cette interface.
+            </p>
+          </div>
         </section>
       </div>
     );
   }
 
-  // =============================================
-  // ✅ RENDU PRINCIPAL
-  // =============================================
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 sm:pb-8">
-
+    <div 
+      className="space-y-6 max-w-5xl mx-auto pb-6"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      
       {/* ============================================================
-      HEADER
-      ============================================================ */}
-      <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
-        style={{
-          background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)`,
+          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
+          ============================================================ */}
+      <div 
+        className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
+        style={{ 
+          height: pullY > 0 ? `${pullY}px` : '0px',
+          opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
         }}
       >
-        <div className="relative z-10 flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase"
-              style={{
-                background: colors.primary + '12',
-                color: colors.primary,
-              }}
-            >
-              <CreditCard size={11} />
-              {isPersonalAccount ? 'Abonnement Confort' : isFamily ? 'Abonnement Proches' : 'Facturation'}
-            </div>
-
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
-              Paiements & Abonnements
-            </h1>
-
-            <p className="text-xs" style={{ color: colors.textLight }}>
-              {subscriptions.length} formule{subscriptions.length > 1 ? 's' : ''} souscrite{subscriptions.length > 1 ? 's' : ''}
-            </p>
-          </div>
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+          <RefreshCw 
+            size={13} 
+            className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
+            style={{ transform: pullY < 50 ? `rotate(${pullY * 3.6}deg)` : undefined }}
+          />
+          <span className="text-[10px] font-black uppercase tracking-wider">
+            {pullY >= 50 ? 'Relâcher pour actualiser' : 'Tirer pour rafraîchir'}
+          </span>
         </div>
+      </div>
+
+      {/* ============================================================
+          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC UNIQUE CENTRÉ
+          ============================================================ */}
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+        <div className="space-y-1.5 relative z-10">
+          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+            Forfaits & Abonnements
+          </h1>
+          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+            Consultez votre crédit d'accompagnement mensuel, vos formules de visites et l'historique complet de vos règlements.
+          </p>
+        </div>
+
+        {/* Bouton de rafraîchissement manuel en haut à droite du cadre */}
+        <button
+          onClick={async () => {
+            toast.promise(
+              Promise.all([fetchSubscriptions(), fetchPayments(), fetchOffers()]),
+              {
+                loading: 'Mise à jour...',
+                success: 'Crédits et dossiers synchronisés !',
+                error: 'Échec de la mise à jour',
+              }
+            );
+          }}
+          disabled={isLoading}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          title="Actualiser"
+        >
+          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+        </button>
       </section>
 
       {/* ============================================================
-      ABONNEMENT ACTIF
-      ============================================================ */}
+          🆕 MEMBRES / ABONNEMENT ACTIF (CARTE DE MEMBRE PRÉCISION SOMBRE)
+          ============================================================ */}
       {activeSubscription && (
-        <section
-          className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border-l-4 transition-all"
-          style={{ borderLeftColor: '#10b981' }}
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: '#10b9810f', color: '#10b981' }}
-              >
-                <ShieldCheck size={18} />
-              </div>
-              <div className="min-w-0 space-y-0.5">
-                <span className="text-[10px] font-bold tracking-wider text-emerald-600 uppercase">Actif</span>
-                <h2 className="text-sm font-extrabold truncate" style={{ color: colors.text }}>
-                  {activeSubscription.offre?.name || 'Abonnement actif'}
-                </h2>
-                <p className="text-[10px] text-gray-400 truncate">
-                  Renouvellement le {new Date(activeSubscription.end_date).toLocaleDateString('fr-FR')}
-                  {activeSubscription.auto_renew && ' • 🔄 Reconductible'}
-                </p>
-              </div>
+        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6 shadow-md border border-gray-800">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                Formule active
+              </span>
+              <h2 className="text-base font-black tracking-tight">
+                {activeSubscription.offre?.name || 'Abonnement actif'}
+              </h2>
+              <p className="text-xs text-gray-300 font-medium leading-relaxed">
+                Renouvellement le {new Date(activeSubscription.end_date).toLocaleDateString('fr-FR')}
+                {activeSubscription.auto_renew && ' • Recondution automatique active'}
+              </p>
             </div>
-            <div className="text-right shrink-0 space-y-0.5">
-              <p className="text-base font-extrabold" style={{ color: colors.primary }}>
+            <div className="sm:text-right shrink-0 space-y-1">
+              <p className="text-lg font-black tracking-tight">
                 {(activeSubscription.offre?.price || 0).toLocaleString()} FCFA
               </p>
-              <p className="text-[10px] text-gray-400 font-medium">
-                📅 {activeSubscription.remaining_visits} visites restantes
-              </p>
+              <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {activeSubscription.remaining_visits} visite(s) restantes
+              </span>
             </div>
           </div>
+          {/* Onde abstraite de décoration */}
+          <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
         </section>
       )}
 
       {/* ============================================================
-      FILTRES PAR CATÉGORIES
-      ============================================================ */}
+          CONTRÔLEUR DE FILTRES SEGMENTÉ DE CATÉGORIES (SANS CHIPS ISOLÉS)
+          ============================================================ */}
       {visibleTabs.length > 0 && (
-        <section className="bg-white rounded-2xl p-2 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+        <section className="w-full overflow-x-auto scrollbar-none py-1">
+          <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
             {visibleTabs.map((tabId) => {
               const counts = {
                 'all': filteredOffers.length,
@@ -364,24 +388,27 @@ const BillingPage = () => {
               };
 
               const label = {
-                'all': `Toutes (${counts.all})`,
+                'all': `Toutes`,
                 'senior': `👴 Senior (${counts.senior})`,
                 'maman_bebe': `👶 Maman (${counts.maman_bebe})`,
                 'pack_confort': `⭐ Pack Confort (${counts.pack_confort})`,
               }[tabId] || tabId;
 
-              // ✅ Ne pas afficher l'onglet si aucun résultat
               if (counts[tabId as keyof typeof counts] === 0) return null;
+
+              const isActive = activeTab === tabId;
 
               return (
                 <button
                   key={tabId}
                   onClick={() => setActiveTab(tabId as any)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap`}
-                  style={{
-                    background: activeTab === tabId ? colors.primary : 'transparent',
-                    color: activeTab === tabId ? '#ffffff' : '#64748b',
-                  }}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
+                    isActive
+                      ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                  )}
+                  style={isActive ? { color: colors.primary } : undefined}
                 >
                   {label}
                 </button>
@@ -392,8 +419,8 @@ const BillingPage = () => {
       )}
 
       {/* ============================================================
-      GRILLE DES OFFRES D'ABONNEMENT UNIQUEMENT
-      ============================================================ */}
+          GRILLE D'OFFRES D'ABONNEMENTS UNIQUEMENT (SANS LES ENCOMBRANTS)
+          ============================================================ */}
       {filteredOffers.length > 0 ? (
         <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredOffers.map((offer: Offer) => (
@@ -409,50 +436,39 @@ const BillingPage = () => {
           ))}
         </section>
       ) : (
-        <div className="col-span-full bg-white rounded-3xl p-8 text-center shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
-          <Package size={28} className="mx-auto mb-3 text-gray-300" />
-          <p className="text-xs font-bold" style={{ color: colors.text }}>
-            Aucune offre disponible
-          </p>
-          <p className="text-[11px] text-gray-400 mt-1">
-            {isPersonalAccount
-              ? 'Aucune offre disponible pour votre compte personnel.'
-              : 'Aucune offre disponible pour votre type de compte.'}
-          </p>
+        <div className="col-span-full bg-white dark:bg-[#17231d] rounded-2xl py-12 px-4 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-3">
+          <Package size={24} className="text-gray-400 dark:text-gray-500" />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Aucun forfait d'abonnement</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Aucune offre active n'est proposée pour ce type de dossier.</p>
+          </div>
         </div>
       )}
 
       {/* ============================================================
-      💡 INFO : MODE PONCTUEL DISPONIBLE DANS VISITES/COMMANDES
-      ============================================================ */}
-      {!hasActiveSub && !isAidantRole && (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-          <Sparkles size={18} className="text-blue-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-blue-700">
-              💡 Pas d'abonnement ? Pas de problème !
-            </p>
-            <p className="text-xs text-blue-600 mt-0.5">
-              Vous pouvez utiliser le <strong>mode ponctuel</strong> dans les pages 
-              <strong> Visites</strong> et <strong>Commandes</strong> pour payer à l'acte.
-              <br />
-              <span className="text-[10px] text-blue-400">
-                Une visite ponctuelle à partir de 5 000 FCFA • Une commande à partir de 2 500 FCFA
-              </span>
+          💡 DISCRET RAPPEL : MODE PONCTUEL DISPONIBLE (SANS GRAND BANDEAU BLEU)
+          ============================================================ */}
+      {!hasActiveSub && (
+        <div className="bg-white/40 dark:bg-[#17231d]/40 rounded-xl p-4 border border-gray-100 dark:border-gray-800/30 flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto">
+          <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
+          <div className="space-y-0.5">
+            <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200">Mode ponctuel disponible</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-normal">
+              Vous pouvez régler directement à l'acte chaque course d'urgence (à partir de 2 500 FCFA) ou visites de soutien.
             </p>
           </div>
         </div>
       )}
 
       {/* ============================================================
-      HISTORIQUE DES TRANSACTIONS
-      ============================================================ */}
-      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.025)]">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+          HISTORIQUE DE TRANSACTIONS (SANS SURCHARGE COMPTABILITÉ)
+          ============================================================ */}
+      <section className="bg-white dark:bg-[#17231d] rounded-2xl p-5 border border-gray-100 dark:border-gray-800/50 shadow-sm">
+        <div className="flex items-center justify-between border-b dark:border-gray-800/40 pb-3 mb-4">
+          <h2 className="text-xs font-black tracking-wider uppercase text-gray-400">
             Historique des paiements
           </h2>
-          <span className="text-[10px] font-bold text-gray-400 px-2 py-0.5 rounded-full bg-gray-50">{payments.length} transaction(s)</span>
+          <span className="text-[10px] font-black text-gray-400 px-2 py-0.5 rounded-md bg-gray-50 dark:bg-gray-800">{payments.length} txn</span>
         </div>
 
         {payments.length > 0 ? (
@@ -463,15 +479,15 @@ const BillingPage = () => {
           </div>
         ) : (
           <div className="text-center py-6">
-            <CreditCard size={24} className="mx-auto mb-2 text-gray-300" />
-            <p className="text-[11px] text-gray-400">Aucun historique de paiement</p>
+            <CreditCard size={20} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+            <p className="text-[10px] text-gray-400">Aucune transaction enregistrée</p>
           </div>
         )}
       </section>
 
       {/* ============================================================
-      MODALS
-      ============================================================ */}
+          MODALS ET PICKERS
+          ============================================================ */}
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => {
@@ -486,7 +502,7 @@ const BillingPage = () => {
       />
 
       {showDayPicker && selectedSubscription && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
           <VisitDaysPicker
             subscriptionId={selectedSubscription.id}
             patientId={selectedSubscription.patient_id}
@@ -509,7 +525,7 @@ const BillingPage = () => {
 };
 
 // =============================================
-// COMPOSANT CARTE OFFRE (ABONNEMENT UNIQUEMENT)
+// COMPOSANT COMPACT CARTE OFFRES
 // =============================================
 
 interface OfferCardCompactProps {
@@ -529,8 +545,6 @@ const OfferCardCompact = ({
   hasActiveSubscription,
   onChoose,
 }: OfferCardCompactProps) => {
-  // ✅ TOUJOURS FALSE - Plus d'offres ponctuelles ici
-  const isPonctuelle = false;
   const isDisabled = isSubscribed || hasActiveSubscription;
 
   const getIcon = () => {
@@ -549,7 +563,7 @@ const OfferCardCompact = ({
 
   return (
     <div
-      className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.035)] flex flex-col justify-between"
+      className="bg-white dark:bg-[#17231d] rounded-2xl p-5 shadow-sm border flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:translate-y-[-1px]"
       style={{
         borderColor: offer.badge ? badgeColor : 'transparent',
         borderWidth: offer.badge ? '1.5px' : '1px',
@@ -558,7 +572,7 @@ const OfferCardCompact = ({
       <div>
         {offer.badge && (
           <span
-            className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold text-white mb-2.5"
+            className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider text-white mb-3"
             style={{ background: badgeColor }}
           >
             {offer.badge}
@@ -568,40 +582,40 @@ const OfferCardCompact = ({
         <div className="flex items-start gap-2.5">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center text-sm shrink-0"
-            style={{ background: badgeColor + '0f' }}
+            style={{ background: badgeColor + '12' }}
           >
             {getIcon()}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-extrabold text-sm truncate" style={{ color: textColor }}>
+            <h3 className="font-extrabold text-sm truncate text-gray-900 dark:text-gray-100">
               {offer.name}
             </h3>
-            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider mt-0.5">
-              {offer.category === 'maman_bebe' ? '👶 Accompagnement Maman' : 
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider mt-0.5">
+              {offer.category === 'maman_bebe' ? '👶 Maman & Bébé' : 
                offer.category === 'pack_confort' ? '⭐ Pack Confort' : 
-               '👴 Accompagnement Senior'}
+               '👴 Senior'}
             </p>
           </div>
         </div>
 
-        <div className="mt-3 flex items-baseline gap-1">
-          <span className="text-xl font-black" style={{ color: badgeColor }}>
+        <div className="mt-4 flex items-baseline gap-1">
+          <span className="text-xl font-black text-gray-900 dark:text-white">
             {offer.price.toLocaleString()}
           </span>
           <span className="text-xs text-gray-400 font-bold">FCFA</span>
-          {offer.period && <span className="text-xs text-gray-400 font-medium ml-0.5">/ {offer.period}</span>}
+          {offer.period && <span className="text-xs text-gray-400 font-medium ml-1">/ {offer.period}</span>}
         </div>
 
         {offer.features && offer.features.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-gray-50 space-y-1.5">
+          <div className="mt-4 pt-3 border-t border-gray-100/60 dark:border-gray-800/40 space-y-1.5">
             {offer.features.slice(0, 2).map((feature: string, index: number) => (
-              <div key={index} className="flex items-start gap-2 text-xs text-gray-500">
+              <div key={index} className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <CheckCircle size={12} style={{ color: badgeColor }} className="shrink-0 mt-0.5" />
-                <span className="truncate leading-tight">{feature}</span>
+                <span className="truncate leading-tight font-medium">{feature}</span>
               </div>
             ))}
             {offer.features.length > 2 && (
-              <span className="text-[9px] text-gray-400 font-semibold block pt-0.5">+{offer.features.length - 2} autres prestations</span>
+              <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold block pt-1">+{offer.features.length - 2} prestations incluses</span>
             )}
           </div>
         )}
@@ -610,19 +624,19 @@ const OfferCardCompact = ({
       <button
         onClick={onChoose}
         disabled={isDisabled}
-        className="mt-4 w-full py-2.5 rounded-xl text-white font-bold text-xs transition-all hover:opacity-95 disabled:opacity-75"
-        style={{ background: isDisabled ? '#cbd5e1' : badgeColor }}
+        className="mt-5 w-full py-2.5 rounded-xl text-white font-extrabold text-[11px] uppercase tracking-wider transition-all hover:opacity-95 disabled:opacity-55"
+        style={{ background: isDisabled ? '#64748b' : badgeColor }}
       >
-        {isSubscribed ? '✅ Formule active' : 
-         hasActiveSubscription ? 'Abonnement en cours' : 
-         'S\'abonner'}
+        {isSubscribed ? '✅ Forfait actif' : 
+         hasActiveSubscription ? 'Forfait en cours' : 
+         'Choisir ce forfait'}
       </button>
     </div>
   );
 };
 
 // =============================================
-// COMPOSANT LIGNE DE TRANSACTIONS
+// COMPOSANT COMPACT TRANSACTIONS
 // =============================================
 
 interface PaymentItemProps {
@@ -634,10 +648,10 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
   const isValid = payment.status === 'valide';
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50/50 p-3 transition-colors hover:bg-gray-50">
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50/50 dark:bg-gray-800/20 p-3 transition-colors hover:bg-gray-50">
       <div className="flex items-center gap-3 min-w-0">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 animate-fadeIn"
           style={{
             background: isValid ? '#10b9810a' : '#f59e0b0a',
             color: isValid ? '#10b981' : '#f59e0b',
@@ -646,7 +660,7 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
           {isValid ? <CheckCircle size={15} /> : <Clock size={15} />}
         </div>
         <div className="min-w-0 space-y-0.5">
-          <p className="font-extrabold text-xs" style={{ color: colors.text }}>
+          <p className="font-extrabold text-xs text-gray-900 dark:text-gray-100">
             {Number(payment.amount || 0).toLocaleString()} FCFA
           </p>
           <p className="text-[10px] text-gray-400 font-medium">
@@ -655,13 +669,13 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
         </div>
       </div>
       <span
-        className="shrink-0 px-2.5 py-1 rounded-full text-[9px] font-bold"
+        className="shrink-0 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider"
         style={{
           background: isValid ? '#10b98112' : '#f59e0b12',
           color: isValid ? '#10b981' : '#f59e0b',
         }}
       >
-        {isValid ? 'Payé' : payment.status === 'en_attente' ? 'En traitement' : payment.status}
+        {isValid ? 'Payé' : payment.status === 'en_attente' ? 'En cours' : payment.status}
       </span>
     </div>
   );
