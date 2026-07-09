@@ -2,7 +2,7 @@
 // ✅ LOGIQUE DE MODAL INTERACTIF RESTUCTURÉE : TRANSITIONS FLUIDES, BOUTONS UNIFIÉS ET SCROLL ACCÈS MOBILE SÉCURISÉ
 
 import { ReactNode, useEffect, useRef } from 'react';
-import { X, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Loader2  } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/utils/helpers';
 
