@@ -37,33 +37,33 @@ interface MobileTabBarProps {
 
 const getMainItems = (role: string | null) => {
   const base = [
-    { icon: <Home size={22} />, label: 'Accueil', path: '/app' },
+    { icon: <Home size={20} />, label: 'Accueil', path: '/app' },
   ];
 
   if (role === 'family') {
     return [
       ...base,
-      { icon: <Users size={22} />, label: 'Proches', path: '/app/patients' },
-      { icon: <Calendar size={22} />, label: 'Visites', path: '/app/visits' },
-      { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
+      { icon: <Users size={20} />, label: 'Proches', path: '/app/patients' },
+      { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
+      { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
   if (role === 'aidant') {
     return [
       ...base,
-      { icon: <Briefcase size={22} />, label: 'Missions', path: '/app/missions' },
-      { icon: <Calendar size={22} />, label: 'Planning', path: '/app/planning' },
-      { icon: <User size={22} />, label: 'Profil', path: '/app/profile' },
+      { icon: <Briefcase size={20} />, label: 'Missions', path: '/app/missions' },
+      { icon: <Calendar size={20} />, label: 'Planning', path: '/app/planning' },
+      { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
   if (role === 'admin' || role === 'coordinator') {
     return [
       ...base,
-      { icon: <ClipboardList size={22} />, label: 'Inscriptions', path: '/app/registrations' },
-      { icon: <Users size={22} />, label: 'Bénéficiaires', path: '/app/patients' },
-      { icon: <Settings size={22} />, label: 'Paramètres', path: '/app/settings' },
+      { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
+      { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients' },
+      { icon: <Settings size={20} />, label: 'Paramètres', path: '/app/settings' },
     ];
   }
 
@@ -156,21 +156,23 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
       {/* Fond flouté sombre derrière le BottomSheet */}
       {showMore && (
         <div
-          className="fixed inset-0 z-[45] bg-black/30 backdrop-blur-md transition-opacity duration-300 animate-fadeIn"
+          className="fixed inset-0 z-[45] bg-black/25 backdrop-blur-sm transition-opacity duration-300 ease-out"
           onClick={() => setShowMore(false)}
         />
       )}
 
       {/* ============================================================
-          BOTTOM SHEET PLUS (Totalement arrondi, scrollable, avec icônes colorées)
+          BOTTOM SHEET PLUS (Mise à l'échelle élastique et floutée)
           ============================================================ */}
       <div
         className={cn(
-          "fixed left-4 right-4 z-[48] bg-white/95 dark:bg-[#121c16]/95 backdrop-blur-xl rounded-[2.5rem] border border-gray-100/50 dark:border-[#2c3f35]/50 shadow-2xl transition-all duration-300 ease-out p-6",
-          showMore ? "bottom-24 translate-y-0 opacity-100" : "bottom-[-100%] translate-y-full opacity-0 pointer-events-none"
+          "fixed left-4 right-4 z-[48] bg-white/95 dark:bg-[#121c16]/95 backdrop-blur-xl rounded-[2.5rem] border border-gray-100/50 dark:border-[#2c3f35]/50 shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
+          showMore 
+            ? "scale-100 opacity-100 translate-y-0 blur-none pointer-events-auto" 
+            : "scale-90 opacity-0 translate-y-4 blur-sm pointer-events-none"
         )}
         style={{
-          boxShadow: '0 -10px 40px -15px rgba(0, 0, 0, 0.15), 0 15px 40px rgba(0,0,0,0.1)',
+          boxShadow: '0 -10px 40px -15px rgba(0, 0, 0, 0.12), 0 15px 40px rgba(0,0,0,0.08)',
         }}
       >
         <div className="flex items-center justify-between mb-5 border-b pb-3.5 dark:border-[#2c3f35]">
@@ -180,9 +182,9 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
           </div>
           <button
             onClick={() => setShowMore(false)}
-            className="w-8 h-8 rounded-full bg-gray-100 dark:bg-[#24362d] flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition shadow-sm"
+            className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition shadow-sm"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
@@ -206,7 +208,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                   borderColor: active ? colors.primary : undefined,
                 }}
               >
-                {/* Icône avec couleur branding et rond de fond translucide */}
                 <div
                   className="w-10 h-10 rounded-2xl flex items-center justify-center mb-2 transition-transform duration-200"
                   style={{ 
@@ -231,16 +232,16 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
       </div>
 
       {/* ============================================================
-          DOCK GLOBAL "FLOATING ISLAND" GLASSMORPHISM (Arrondi, flottant, transparent)
+          FLOATING DOCK "FLOATING ISLAND" TACTILE (CERCLES ACTIFS DE RÔLE)
           ============================================================ */}
       <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
         <div
-          className="w-full max-w-lg bg-white/75 dark:bg-[#121c16]/75 backdrop-blur-xl border border-white/20 dark:border-[#2c3f35]/20 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.15)] rounded-[2rem] flex justify-around items-center py-2.5 px-3 pointer-events-auto"
+          className="w-full max-w-lg bg-white/80 dark:bg-[#121c16]/80 backdrop-blur-xl border border-white/20 dark:border-[#2c3f35]/20 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
           style={{
-            boxShadow: '0 20px 40px -15px rgba(15,31,25,0.2), 0 0 1px 1px rgba(255,255,255,0.2) inset',
+            boxShadow: '0 20px 40px -15px rgba(15,31,25,0.15), 0 0 1px 1px rgba(255,255,255,0.15) inset',
           }}
         >
-          {/* BOUTONS PRINCIPAUX */}
+          {/* BOUTONS PRINCIPAUX AVEC CERCLES TACTILES D'ACTIVATION */}
           {mainItems.map((item) => {
             const active = isActive(item.path);
 
@@ -249,41 +250,38 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                 key={item.path}
                 to={item.path}
                 onClick={handleLinkClick}
-                className="flex flex-col items-center justify-center min-w-[56px] transition-all relative py-1 px-1"
+                className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
               >
-                {/* Petite capsule lumineuse dynamique active */}
-                <div 
-                  className={cn(
-                    "absolute -top-1 w-5 h-1 rounded-full bg-emerald-500 scale-x-0 transition-transform duration-300 ease-out",
-                    active ? "scale-x-100" : ""
-                  )}
-                  style={{ backgroundColor: colors.primary }}
-                />
-
+                {/* Icône enveloppée dans un cercle actif de couleur du rôle */}
                 <div
                   className={cn(
-                    "transition-all duration-300 ease-in-out py-0.5",
-                    active ? "scale-110 -translate-y-0.5" : "scale-100 text-gray-400"
+                    "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
+                    active 
+                      ? "text-white scale-105 shadow-md shadow-black/10" 
+                      : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
                   )}
-                  style={{ color: active ? colors.primary : '#9CA3AF' }}
+                  style={{
+                    backgroundColor: active ? colors.primary : 'transparent',
+                  }}
                 >
-                  {item.icon}
+                  <div className="transition-transform duration-200">
+                    {item.icon}
+                  </div>
                 </div>
                 
                 <span
                   className={cn(
-                    "text-[9px] font-black tracking-tight transition-all duration-200 mt-0.5",
-                    active ? "opacity-100 font-extrabold" : "opacity-55"
+                    "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
+                    active ? "opacity-100 font-extrabold" : "opacity-60"
                   )}
                   style={{ color: active ? colors.primary : '#9CA3AF' }}
                 >
                   {item.label}
                 </span>
 
-                {/* Indicateur de notifications rouge */}
                 {item.path === '/app' && unreadCount > 0 && (
                   <span
-                    className="absolute top-0 right-1.5 min-w-4.5 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse"
+                    className="absolute top-1 right-3 min-w-4 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse shadow-sm"
                     style={{ background: '#DC2626' }}
                   >
                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -293,44 +291,42 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
             );
           })}
 
-          {/* CONTROLLER DU MENU PLUS */}
+          {/* BOUTON PLUS AVEC FLUIDITÉ CERCLE TACTILE DE COULEUR */}
           {moreItems.length > 0 && (
             <div className="relative">
               <button
                 onClick={() => setShowMore(!showMore)}
-                className="flex flex-col items-center justify-center min-w-[56px] transition-all relative py-1 px-1"
+                className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
               >
                 <div 
                   className={cn(
-                    "absolute -top-1 w-5 h-1 rounded-full bg-emerald-500 scale-x-0 transition-transform duration-300 ease-out",
-                    showMore || isMoreActive ? "scale-x-100" : ""
+                    "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
+                    showMore || isMoreActive
+                      ? "text-white scale-105 shadow-md shadow-black/10"
+                      : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
                   )}
-                  style={{ backgroundColor: colors.primary }}
-                />
-
-                <div 
-                  className={cn(
-                    "transition-all duration-300 ease-in-out py-0.5",
-                    showMore || isMoreActive ? "scale-110 -translate-y-0.5 rotate-180" : "scale-100 text-gray-400"
-                  )}
-                  style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
+                  style={{
+                    backgroundColor: showMore || isMoreActive ? colors.primary : 'transparent',
+                  }}
                 >
-                  {showMore ? <X size={20} /> : <Menu size={20} />}
+                  <div className={cn("transition-transform duration-300", showMore ? "rotate-90" : "")}>
+                    {showMore ? <X size={18} /> : <Menu size={18} />}
+                  </div>
                 </div>
+                
                 <span
                   className={cn(
-                    "text-[9px] font-black tracking-tight transition-all duration-200 mt-0.5",
-                    showMore || isMoreActive ? "opacity-100 font-extrabold" : "opacity-55"
+                    "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
+                    showMore || isMoreActive ? "opacity-100 font-extrabold" : "opacity-60"
                   )}
                   style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
                 >
                   {showMore ? 'Fermer' : 'Plus'}
                 </span>
 
-                {/* Bulle de notifications sur le "Plus" */}
                 {hasUnreadNotifications && !showMore && (
                   <span
-                    className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-red-500"
+                    className="absolute top-1.5 right-4.5 w-1.5 h-1.5 rounded-full bg-red-500"
                     style={{ background: '#DC2626' }}
                   />
                 )}
