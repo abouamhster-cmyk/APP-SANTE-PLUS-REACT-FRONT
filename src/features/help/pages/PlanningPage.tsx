@@ -230,10 +230,60 @@ const PlanningPage = () => {
       </div>
 
       {/* ============================================================
-          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC UNIQUE ET CENTRÉ
+          HEADER ÉDITORIAL SÉCURISÉ (ALIGNEMENT FLUIDE SANS CHEVAUCHEMENT)
           ============================================================ */}
-      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
-        <div className="space-y-1.5 relative z-10">
+      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-5 sm:p-6 shadow-sm backdrop-blur-md flex flex-col items-center gap-4">
+        
+        {/* Ligne 1 : Sélecteur Segmenté & Actualisation (Flux naturel) */}
+        <div className="w-full flex items-center justify-between gap-2 border-b border-gray-100/50 dark:border-gray-800/20 pb-3">
+          <div className="p-0.5 bg-gray-100/85 dark:bg-[#1c2a21]/50 rounded-xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-0.5 flex">
+            <button
+              onClick={() => setView('day')}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
+                view === 'day'
+                  ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+              )}
+              style={view === 'day' ? { color: colors.primary } : undefined}
+            >
+              Jour
+            </button>
+            <button
+              onClick={() => setView('week')}
+              className={cn(
+                "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
+                view === 'week'
+                  ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+              )}
+              style={view === 'week' ? { color: colors.primary } : undefined}
+            >
+              Semaine
+            </button>
+          </div>
+
+          <button
+            onClick={async () => {
+              toast.promise(
+                fetchVisits(),
+                {
+                  loading: 'Mise à jour...',
+                  success: 'Planning actualisé !',
+                  error: 'Échec de la mise à jour',
+                }
+              );
+            }}
+            disabled={isLoading}
+            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner shrink-0"
+            title="Rafraîchir"
+          >
+            <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {/* Ligne 2 : Titres & Descriptions */}
+        <div className="space-y-1 mt-1">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
             {getPageTitle()}
           </h1>
@@ -241,53 +291,6 @@ const PlanningPage = () => {
             Consultez et organisez vos interventions d'aide et d'assistance à la journée ou à la semaine.
           </p>
         </div>
-
-        {/* Sélecteur de vue moderne en haut à gauche (Jour / Semaine) */}
-        <div className="absolute top-4 left-4 p-0.5 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-0.5 flex">
-          <button
-            onClick={() => setView('day')}
-            className={cn(
-              "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all select-none",
-              view === 'day'
-                ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-            )}
-            style={view === 'day' ? { color: colors.primary } : undefined}
-          >
-            Jour
-          </button>
-          <button
-            onClick={() => setView('week')}
-            className={cn(
-              "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all select-none",
-              view === 'week'
-                ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-            )}
-            style={view === 'week' ? { color: colors.primary } : undefined}
-          >
-            Semaine
-          </button>
-        </div>
-
-        {/* Bouton de rafraîchissement manuel en haut à droite du cadre */}
-        <button
-          onClick={async () => {
-            toast.promise(
-              fetchVisits(),
-              {
-                loading: 'Mise à jour...',
-                success: 'Planning actualisé !',
-                error: 'Échec de la mise à jour',
-              }
-            );
-          }}
-          disabled={isLoading}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
-          title="Rafraîchir"
-        >
-          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
-        </button>
       </section>
 
       {/* ============================================================
@@ -296,7 +299,7 @@ const PlanningPage = () => {
       <section className="bg-white/80 dark:bg-[#17231d]/80 rounded-2xl p-3 border border-gray-100 dark:border-[#2c3f35]/30 shadow-sm flex items-center justify-between gap-3">
         <button
           onClick={() => changeDate(view === 'day' ? -1 : -7)}
-          className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 transition"
+          className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
         >
           <ChevronLeft size={16} />
         </button>
@@ -318,7 +321,7 @@ const PlanningPage = () => {
 
         <button
           onClick={() => changeDate(view === 'day' ? 1 : 7)}
-          className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 transition"
+          className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
         >
           <ChevronRight size={16} />
         </button>
