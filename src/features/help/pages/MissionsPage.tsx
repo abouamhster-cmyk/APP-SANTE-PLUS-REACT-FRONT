@@ -365,7 +365,7 @@ const MissionsPage = () => {
   };
 
   // ============================================================
-  // AFFICHAGE DU RESTE DU RENDER SÉCURISÉ
+  // RENDUS SÉCURISÉS
   // ============================================================
 
   if (isChecking) {
@@ -406,9 +406,9 @@ const MissionsPage = () => {
     return (
       <div className="space-y-6">
         <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-36 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
+            <div key={i} className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -422,7 +422,7 @@ const MissionsPage = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* 🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE */}
+      {/* 🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE) */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -472,38 +472,55 @@ const MissionsPage = () => {
         </button>
       </section>
 
-      {/* WIDGET BENTO D'ACTIVITÉ */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+      {/* ============================================================
+          🆕 COMPACT BENTO ACTIVITY PANEL (MÊME LIGNE D'ACTIVITÉ MODERNE GRID-3)
+          ============================================================ */}
+      <section className="grid grid-cols-3 gap-2.5 w-full">
+        {/* Bento Card 1 : Accompagnements */}
+        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Accompagnements</span>
-            <Calendar size={16} className="text-emerald-500" />
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Visites</span>
+            <Calendar size={13} className="text-emerald-500 shrink-0" />
           </div>
-          <div>
-            <p className="text-2xl font-black text-gray-800 dark:text-gray-100 leading-none">{stats.missions.total} planifiés</p>
-            <p className="text-xs text-gray-500 mt-1.5">{stats.missions.pending} en attente de votre approbation</p>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none truncate">
+              {stats.missions.total} planifiés
+            </p>
+            <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
+              {stats.missions.pending} à valider
+            </p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+        {/* Bento Card 2 : Livraisons rattachées */}
+        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Livraisons</span>
-            <ShoppingBag size={16} className="text-blue-500" />
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Courses</span>
+            <ShoppingBag size={13} className="text-blue-500 shrink-0" />
           </div>
-          <div>
-            <p className="text-2xl font-black text-gray-800 dark:text-gray-100 leading-none">{stats.deliveries.inProgress} en cours</p>
-            <p className="text-xs text-gray-500 mt-1.5">{stats.deliveries.completed} livraisons finalisées</p>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none truncate">
+              {stats.deliveries.inProgress} en cours
+            </p>
+            <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
+              {stats.deliveries.completed} livrées
+            </p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+        {/* Bento Card 3 : Courses urgentes disponibles */}
+        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Courses d'urgence</span>
-            <AlertCircle size={16} className="text-amber-500 animate-pulse" />
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Dispos</span>
+            <AlertCircle size={13} className="text-amber-500 shrink-0 animate-pulse" />
           </div>
-          <div>
-            <p className="text-3xl font-black text-gray-900 dark:text-white leading-none">{stats.canTakeCount}</p>
-            <p className="text-xs text-gray-500 mt-1.5 font-medium">Disponibles à pourvoir en direct</p>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-gray-900 dark:text-white leading-none truncate">
+              {stats.canTakeCount} urgentes
+            </p>
+            <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
+              À prendre
+            </p>
           </div>
         </div>
       </section>
