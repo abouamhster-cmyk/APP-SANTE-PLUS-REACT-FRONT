@@ -1,6 +1,6 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
  
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
@@ -216,11 +216,32 @@ const MissionsPage = () => {
   const pendingVisits = myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
   const acceptedVisits = myMissions.filter(v => v.status === 'acceptee');
 
+  // ============================================================
+  // GESTION DU CYCLE DE VIE DES ETATS (FIN DES DROP-DOWNS BRUTS)
+  // ============================================================
   const getFilteredItems = () => {
     if (activeTab === 'missions') {
-      return myMissions.filter(v => filterStatus === 'all' || v.status === filterStatus);
+      if (filterStatus === 'all') return myMissions;
+      if (filterStatus === 'pending') {
+        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
+      }
+      if (filterStatus === 'upcoming') {
+        return myMissions.filter(v => v.status === 'acceptee');
+      }
+      if (filterStatus === 'en_cours') {
+        return myMissions.filter(v => v.status === 'en_cours');
+      }
+      if (filterStatus === 'history') {
+        return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
+      }
     }
     if (activeTab === 'deliveries') {
+      if (filterStatus === 'active') {
+        return deliveryOrders.filter(o => o.status === 'en_cours');
+      }
+      if (filterStatus === 'history') {
+        return assignedOrders.filter(o => ['livree', 'validee', 'annulee'].includes(o.status));
+      }
       return deliveryOrders;
     }
     if (activeTab === 'available') {
@@ -231,22 +252,32 @@ const MissionsPage = () => {
 
   const filteredItems = getFilteredItems();
 
-  const stats = {
-    missions: {
-      total: myMissions.length,
-      pending: pendingVisits.length,
-      accepted: acceptedVisits.length,
-      inProgress: myMissions.filter(v => v.status === 'en_cours').length,
-      completed: myMissions.filter(v => v.status === 'terminee' || v.status === 'validee').length,
-    },
-    deliveries: {
-      total: assignedOrders.length,
-      inProgress: assignedOrders.filter(o => o.status === 'en_cours').length,
-      completed: assignedOrders.filter(o => o.status === 'validee').length,
-    },
-    available: availableOrders.length,
-    canTakeCount: availableOrders.length, // Unification pour le badge bento
-  };
+  const stats = useMemo(() => {
+    const pendingMissionsCount = myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente').length;
+    const acceptedMissionsCount = myMissions.filter(v => v.status === 'acceptee').length;
+    const inProgressMissionsCount = myMissions.filter(v => v.status === 'en_cours').length;
+    const completedMissionsCount = myMissions.filter(v => ['terminee', 'validee'].includes(v.status)).length;
+
+    const inProgressDeliveriesCount = assignedOrders.filter(o => o.status === 'en_cours').length;
+    const completedDeliveriesCount = assignedOrders.filter(o => ['livree', 'validee'].includes(o.status)).length;
+
+    return {
+      missions: {
+        total: myMissions.length,
+        pending: pendingMissionsCount,
+        accepted: acceptedMissionsCount,
+        inProgress: inProgressMissionsCount,
+        completed: completedMissionsCount,
+      },
+      deliveries: {
+        total: assignedOrders.length,
+        inProgress: inProgressDeliveriesCount,
+        completed: completedDeliveriesCount,
+      },
+      available: availableOrders.length,
+      canTakeCount: availableOrders.length,
+    };
+  }, [myMissions, assignedOrders, availableOrders]);
 
   const handleApprove = async (id: string) => {
     try {
@@ -307,6 +338,18 @@ const MissionsPage = () => {
     setIsRefreshing(false);
   };
 
+  // ✅ Mutation de l'onglet et réalignement du statut par défaut
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (tab === 'missions') {
+      setFilterStatus('all');
+    } else if (tab === 'deliveries') {
+      setFilterStatus('active');
+    } else {
+      setFilterStatus('all');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const map: Record<string, string> = {
       planifiee: '#4CAF50',
@@ -353,23 +396,25 @@ const MissionsPage = () => {
         <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-36 bg-gray-100 dark:bg-gray-800/30 rounded-2xl animate-pulse" />
+            <div key={i} className="h-36 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
     );
   }
 
-  const filterOptions = [
-    { value: 'all', label: 'Toutes' },
-    { value: 'planifiee', label: '📋 À valider' },
-    { value: 'en_attente', label: '⏳ En attente' },
-    { value: 'acceptee', label: '✅ Acceptées' },
-    { value: 'en_cours', label: '🔄 En cours' },
-    { value: 'terminee', label: '📝 Terminées' },
-    { value: 'validee', label: '✔️ Validées' },
-    { value: 'annulee', label: '❌ Annulées' },
-    { value: 'refusee', label: '🚫 Refusées' },
+  // ✅ FILTRES SECONDAIRES DYNAMIQUES EN HARMONIE AVEC LE CYCLE DE VIE
+  const missionSubFilters = [
+    { key: 'all', label: 'Toutes' },
+    { key: 'pending', label: `⏳ À valider (${stats.missions.pending})` },
+    { key: 'upcoming', label: `📅 Confirmées (${stats.missions.accepted})` },
+    { key: 'en_cours', label: `🔄 En cours (${stats.missions.inProgress})` },
+    { key: 'history', label: `📝 Historique (${stats.missions.completed})` }
+  ];
+
+  const deliverySubFilters = [
+    { key: 'active', label: `🔄 En cours (${stats.deliveries.inProgress})` },
+    { key: 'history', label: `📦 Livrées (${stats.deliveries.completed})` }
   ];
 
   return (
@@ -415,7 +460,6 @@ const MissionsPage = () => {
           </p>
         </div>
 
-        {/* Bouton manuel d'actualisation en haut à droite du cadre */}
         <button
           onClick={async () => {
             toast.promise(
@@ -439,7 +483,6 @@ const MissionsPage = () => {
           WIDGET BENTO D'ACTIVITÉ DE L'INTERVENANT
           ============================================================ */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Bento Card 1 : Accompagnements */}
         <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Accompagnements</span>
@@ -451,7 +494,6 @@ const MissionsPage = () => {
           </div>
         </div>
 
-        {/* Bento Card 2 : Livraisons rattachées */}
         <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Livraisons</span>
@@ -463,7 +505,6 @@ const MissionsPage = () => {
           </div>
         </div>
 
-        {/* Bento Card 3 : Missions d'urgences libres */}
         <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Courses d'urgence</span>
@@ -477,7 +518,7 @@ const MissionsPage = () => {
       </section>
 
       {/* ============================================================
-          CONTRÔLEUR DE FILTRES SEGMENTÉ COHÉRENT (TABS PRINCIPAUX)
+          TABS PRINCIPALES (CONTRÔLEUR DE SEGMENTATION PREMIER NIVEAU)
           ============================================================ */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
@@ -488,7 +529,7 @@ const MissionsPage = () => {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key as TabType)}
+              onClick={() => handleTabChange(tab.key as TabType)}
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
                 activeTab === tab.key
@@ -503,23 +544,55 @@ const MissionsPage = () => {
         </div>
       </section>
 
-      {/* FILTRE SECONDAIRE PAR STATUT (POUR MISSIONS UNIQUEMENT) */}
+      {/* ============================================================
+          🆕 FILTRES SECONDAIRES DYNAMIQUES (EN HARMONIE AVEC CHAQUE CYCLE DE VIE)
+          ============================================================ */}
       {activeTab === 'missions' && (
-        <section className="bg-white dark:bg-[#17231d] rounded-2xl p-2.5 shadow-sm border border-gray-100 dark:border-[#2c3f35] max-w-sm">
-          <div className="flex items-center gap-2">
-            <Filter size={14} className="text-gray-400 shrink-0" />
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="flex-1 px-3 py-1.5 text-xs rounded-xl border bg-gray-50 dark:bg-[#1d2d25] outline-none border-gray-100 dark:border-[#2c3f35]"
-              style={{ color: colors.text }}
-            >
-              {filterOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} ({myMissions.filter(v => opt.value === 'all' || v.status === opt.value).length})
-                </option>
-              ))}
-            </select>
+        <section className="w-full overflow-x-auto scrollbar-none py-1">
+          <div className="inline-flex p-0.5 bg-gray-100/40 dark:bg-[#111a15]/30 rounded-xl border border-gray-200/5 dark:border-[#2c3f35]/15 gap-1">
+            {missionSubFilters.map((sub) => {
+              const isActive = filterStatus === sub.key;
+              return (
+                <button
+                  key={sub.key}
+                  onClick={() => setFilterStatus(sub.key)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
+                    isActive
+                      ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm"
+                      : "text-gray-400 dark:text-gray-500 hover:text-gray-600"
+                  )}
+                  style={isActive ? { color: colors.primary } : undefined}
+                >
+                  {sub.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'deliveries' && (
+        <section className="w-full overflow-x-auto scrollbar-none py-1">
+          <div className="inline-flex p-0.5 bg-gray-100/40 dark:bg-[#111a15]/30 rounded-xl border border-gray-200/5 dark:border-[#2c3f35]/15 gap-1">
+            {deliverySubFilters.map((sub) => {
+              const isActive = filterStatus === sub.key;
+              return (
+                <button
+                  key={sub.key}
+                  onClick={() => setFilterStatus(sub.key)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
+                    isActive
+                      ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm"
+                      : "text-gray-400 dark:text-gray-500 hover:text-gray-600"
+                  )}
+                  style={isActive ? { color: colors.primary } : undefined}
+                >
+                  {sub.label}
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
@@ -583,33 +656,6 @@ const MissionsPage = () => {
           </div>
         </section>
       )}
-    </div>
-  );
-};
-
-// =============================================
-// COMPACT STAT (INUTILISÉ CAR TOUTES STATS RECENTREES DANS LE BENTO CI-DESSUS)
-// =============================================
-
-interface CompactStatProps {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  color: string;
-  sub?: string;
-}
-
-const CompactStat = ({ icon, label, value, color, sub }: CompactStatProps) => {
-  return (
-    <div className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 flex items-center justify-between">
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
-        <p className="text-base font-extrabold mt-0.5" style={{ color }}>{value}</p>
-        {sub && <p className="text-[10px] text-gray-500 mt-1">{sub}</p>}
-      </div>
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '15', color }}>
-        {icon}
-      </div>
     </div>
   );
 };
@@ -810,7 +856,7 @@ const MissionItemCompact = ({
           {isAcceptedOrder && (
             <button
               onClick={(e) => { e.stopPropagation(); onDeliver(); }}
-              className="px-3 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center justify-center gap-1 shadow-sm"
+              className="px-3 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase flex items-center justify-center gap-1 shadow-sm"
               style={{ background: '#2196F3' }}
             >
               <Truck size={12} />
@@ -839,7 +885,7 @@ const MissionItemCompact = ({
               <div key={status} className="flex items-center flex-1">
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
-                    isDone ? 'text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'
+                    isDone ? 'text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-850'
                   }`}
                   style={{ background: isDone ? colors.primary : undefined }}
                 >
@@ -848,7 +894,7 @@ const MissionItemCompact = ({
                 {index < 2 && (
                   <div
                     className={`flex-1 h-0.5 mx-0.5 transition-all ${
-                      isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-100 dark:bg-gray-800'
+                      isDone && currentIndex > statusIndex ? 'bg-green-500' : 'bg-gray-100 dark:bg-[#1c2a21]'
                     }`}
                   />
                 )}
