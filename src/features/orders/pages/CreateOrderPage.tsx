@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
-// ✅ CRÉATION DE COMMANDE SIMPLIFIÉE (SANS TRACKING INTÉGRÉ)
+// ✅ CRÉATION DE COMMANDE SIMPLIFIÉE SANS TRACAGE CONTINU (CORRIGÉ DES IMPORTS SUPABASE)
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -34,6 +34,7 @@ import { usePonctualPayment } from '@/hooks/usePonctualPayment';
 import { getPonctualOrderPriceByType } from '@/lib/constants';
 
 import { OrderItem } from '@/types';
+import { supabase } from '@/lib/supabase'; // ✅ RE-AJOUTÉ : Requis pour les prescriptions upload
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
 
@@ -330,8 +331,8 @@ const CreateOrderPage = () => {
       type: formData.type as any,
       description: formData.description.trim(),
       address: formData.address.trim(),
-      latitude: null,  // ✅ RETRAIT DU SUIVI GPS DÉDIÉ
-      longitude: null, // ✅ RETRAIT DU SUIVI GPS DÉDIÉ
+      latitude: null,  
+      longitude: null, 
       estimated_amount: finalEstimatedAmount || null,
       items: validItems,
       prescription_url: prescriptionUrl,
@@ -425,8 +426,8 @@ const CreateOrderPage = () => {
         type: formData.type as any,
         description: formData.description.trim(),
         address: formData.address.trim(),
-        latitude: null,  // ✅ SANS GÉOLOCALISATION
-        longitude: null, // ✅ SANS GÉOLOCALISATION
+        latitude: null, 
+        longitude: null, 
         estimated_amount: finalEstimatedAmount || null,
         items: validItems,
         prescription_url: prescriptionUrl,
