@@ -628,13 +628,13 @@ export const PatientsPage = () => {
   const modalSelectedAidantObj = aidants.find(a => a.user_id === modalAidant);
   const isSelectedAidantFull = modalSelectedAidantObj && (modalSelectedAidantObj.current_assignments >= modalSelectedAidantObj.max_assignments);
 
-  return (
-    <div 
-      className="w-full max-w-5xl mx-auto space-y-6 pb-24 px-1 sm:px-0"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+return (
+  <div 
+    className="w-full max-w-5xl mx-auto space-y-6 pb-6 px-1 sm:px-0"  
+    onTouchStart={handleTouchStart}
+    onTouchMove={handleTouchMove}
+    onTouchEnd={handleTouchEnd}
+  >
       
       {/* ============================================================
           🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
