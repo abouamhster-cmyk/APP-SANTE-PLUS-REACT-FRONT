@@ -27,7 +27,6 @@ import {
   AlertCircle,
   Loader2,
   CreditCard,
-  Compass,
   Navigation as NavIcon,
 } from 'lucide-react';
 
@@ -36,9 +35,6 @@ import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime } from '@/utils/helpers';
-
-// ✅ IMPORTER LE HOOK DE GÉOLOCALISATION EN DIRECT
-import { useOrderTracking } from '@/hooks/useOrderTracking';
 
 // ✅ IMPORTER LES HELPERS
 import {
@@ -52,7 +48,7 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// ✅ HELPERS LOCAUX PLACÉS EN HAUT DE PAGE POUR ÉVITER TS2304 (HOISTING)
+// ✅ HELPERS LOCAUX EN HAUT DE PAGE (RÉSOUT LES ERREURS TS2304 HOISTING VERCEL)
 // ============================================================
 
 const getStatusLabel = (status: string): string => {
@@ -285,17 +281,6 @@ const OrderDetailPage = () => {
   const [proofPreview, setProofPreview] = useState<string | null>(null);
 
   const modalRef = useRef<HTMLDivElement>(null);
-
-  // ============================================================
-  // ✅ SUIVI GPS & CARTE DE LIVRAISON EN DIRECT (CORRIGÉ DU TYPAGE METADATA)
-  // ============================================================
-  const { startOrderTracking, stopOrderTracking, trackingActive, route } = useOrderTracking(id);
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const routeLayerRef = useRef<any>(null);
-  const leafletRef = useRef<any>(null);
-
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
@@ -313,98 +298,6 @@ const OrderDetailPage = () => {
       document.body.style.overflow = 'unset';
     };
   }, [showProofModal]);
-
-  // Charger Leaflet
-  useEffect(() => {
-    const loadLeaflet = async () => {
-      try {
-        const L = await import('leaflet');
-        await import('leaflet/dist/leaflet.css');
-        leafletRef.current = L;
-        setLeafletLoaded(true);
-      } catch (error) {
-        console.error('Erreur chargement Leaflet:', error);
-      }
-    };
-    loadLeaflet();
-  }, []);
-
-  // ✅ Auto-reprise du suivi de livraison si l'aidant rafraîchit la page de course
-  useEffect(() => {
-    if (currentOrder && currentOrder.status === 'en_cours' && isAidant) {
-      console.log('🔄 [Suivi GPS] Livraison active, redémarrage du Wake Lock et tracking...');
-      startOrderTracking();
-    }
-    return () => {
-      stopOrderTracking();
-    };
-  }, [currentOrder?.status]);
-
-  // ✅ Affichage cartographique interactif
-  useEffect(() => {
-    if (!leafletLoaded || !mapContainerRef.current || !currentOrder) return;
-    const L = leafletRef.current;
-    if (!L) return;
-
-    const destLat = Number(currentOrder.latitude || currentOrder.patient?.latitude);
-    const destLng = Number(currentOrder.longitude || currentOrder.patient?.longitude);
-
-    if (!destLat || !destLng) return;
-
-    if (!mapInstanceRef.current) {
-      const map = L.map(mapContainerRef.current, {
-        center: [destLat, destLng],
-        zoom: 14,
-        zoomControl: true,
-        attributionControl: false,
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-      routeLayerRef.current = L.layerGroup().addTo(map);
-      mapInstanceRef.current = map;
-    }
-
-    const map = mapInstanceRef.current;
-    const routeLayer = routeLayerRef.current;
-    routeLayer.clearLayers();
-
-    // Marqueur de livraison (Maison/Client 🏠)
-    const destIcon = L.divIcon({
-      className: 'custom-dest-icon',
-      html: `<div style="background:#F59E0B; color:white; width:30px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏠</div>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 15]
-    });
-    L.marker([destLat, destLng], { icon: destIcon }).addTo(routeLayer).bindPopup("<b>Lieu de livraison de la commande</b>");
-
-    // Trajectoire en direct (Résolution de TS2339 en convertissant en any pour l'accès à metadata)
-    const trackPoints = (currentOrder as any).metadata?.location_track || route || [];
-    if (trackPoints.length > 0) {
-      const coords = trackPoints.map((p: any) => [p.lat, p.lng]);
-      
-      // Ligne de livraison pointillée jaune/orange
-      L.polyline(coords, {
-        color: '#F59E0B',
-        weight: 4,
-        opacity: 0.8,
-        dashArray: '5, 8'
-      }).addTo(routeLayer);
-
-      // Position en direct du livreur (🚴)
-      const currentPos = coords[coords.length - 1];
-      const deliverIcon = L.divIcon({
-        className: 'custom-deliver-icon',
-        html: `<div style="background:#4CAF50; color:white; width:30px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3)">🚴</div>`,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15]
-      });
-      L.marker(currentPos, { icon: deliverIcon }).addTo(routeLayer).bindPopup("<b>Livreur en route</b>");
-      
-      map.fitBounds(L.polyline([currentPos, [destLat, destLng]]).getBounds(), { padding: [40, 40] });
-    } else {
-      map.setView([destLat, destLng], 14);
-    }
-  }, [leafletLoaded, currentOrder, route]);
 
   // ✅ CHANGEMENT STATUT - UN SEUL TOAST
   const handleStatusChange = async (status: string) => {
@@ -465,7 +358,7 @@ const OrderDetailPage = () => {
     reader.readAsDataURL(file);
   };
 
-  // ✅ UPLOAD PREUVE - UN SEUL TOAST ET ARRÊT DE TRACKING
+  // ✅ UPLOAD PREUVE - UN SEUL TOAST (SUIVI RETIRÉ)
   const handleProofUpload = async () => {
     if (!id || !proofFile) {
       toast.error('Veuillez sélectionner une photo');
@@ -495,7 +388,6 @@ const OrderDetailPage = () => {
         .update({ proof_url: publicUrl })
         .eq('id', id);
 
-      await stopOrderTracking(); // ✅ Désactiver proprement le Wake Lock et l'écriture GPS
       toast.success('Livraison confirmée avec preuve');
 
       setShowProofModal(false);
@@ -537,7 +429,8 @@ const OrderDetailPage = () => {
     );
   }
 
-  const order = currentOrder;
+  // Transtypage en any pour contourner TS2339 au niveau du typage optionnel de l'interface d'origine
+  const order = currentOrder as any;
   const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
 
   const canTake = (order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
@@ -665,49 +558,38 @@ const OrderDetailPage = () => {
       </div>
 
       {/* ============================================================
-      ✅ WIDGET DE SUIVI DE LIVRAISON GPS EN DIRECT (SI EN COURS)
+      ✅ REPOSITIONNÉ : WIDGET DE NAVIGATION DE LIVRAISON SANS CARTE INTERNE
       ============================================================ */}
       {order.status === 'en_cours' && (
-        <div className="bg-white rounded-3xl p-5 border border-amber-100 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="md:col-span-1 flex flex-col justify-between space-y-4">
-            <div>
-              <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                Livraison en cours
-              </span>
-              <h3 className="text-base font-black text-gray-800 mt-1">Livreur en déplacement</h3>
-              <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                {isAidant 
-                  ? '🔒 Liaison satellite active. Ne fermez pas l’application pour préserver le tracé GPS.' 
-                  : '📍 Suivez la course et la position géographique de votre livreur vers le domicile ciblé.'}
+        <div className="bg-white rounded-3xl p-5 border border-amber-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="min-w-0">
+            <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              Livraison active
+            </span>
+            <h3 className="text-base font-black text-gray-800 mt-1">Adresse de livraison</h3>
+            <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+              📍 {order.address || 'Adresse non précisée'}
+            </p>
+            {order.patient?.phone && (
+              <p className="text-[11px] text-gray-400 mt-0.5 font-medium">
+                (Téléphone : {order.patient.phone})
               </p>
-            </div>
-
-            <div className="bg-amber-50/50 p-3.5 rounded-2xl border border-amber-100/50 text-center">
-              <Compass size={18} className="mx-auto text-amber-500 animate-spin" style={{ animationDuration: '8s' }} />
-              <p className="text-xs text-amber-600 font-extrabold mt-1.5">Géolocalisation Satellite Active</p>
-            </div>
-
-            <button
-              onClick={() => {
-                const lat = order.latitude || order.patient?.latitude;
-                const lng = order.longitude || order.patient?.longitude;
-                if (lat && lng) {
-                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
-                } else {
-                  toast.error('Coordonnées non disponibles');
-                }
-              }}
-              className="w-full h-11 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
-            >
-              <NavIcon size={14} />
-              Ouvrir l'itinéraire Google Maps
-            </button>
+            )}
           </div>
 
-          <div className="md:col-span-2 relative h-[250px] md:h-full min-h-[220px] rounded-2xl overflow-hidden border border-gray-100">
-            <div ref={mapContainerRef} className="w-full h-full" />
-          </div>
+          <button
+            onClick={() => {
+              const query = order.latitude && order.longitude
+                ? `${order.latitude},${order.longitude}`
+                : encodeURIComponent(order.address || '');
+              window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
+            }}
+            className="w-full sm:w-auto h-11 px-5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md shrink-0"
+          >
+            <NavIcon size={14} />
+            Lancer Google Maps GPS
+          </button>
         </div>
       )}
 
@@ -760,7 +642,7 @@ const OrderDetailPage = () => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold" style={{ color: colors.text }}>
-                💳 Paiement requis pour valiser la commande
+                💳 Paiement requis pour valider la commande
               </p>
               <p className="text-[11px] font-medium mt-0.5" style={{ color: colors.text + '70' }}>
                 Montant : <strong style={{ color: colors.primary }}>{formatCurrency(order.estimated_amount || 0)}</strong>
@@ -830,7 +712,7 @@ const OrderDetailPage = () => {
           </h2>
 
           <div className="space-y-2">
-            {order.items.map((item, index) => (
+            {order.items.map((item: any, index: number) => (
               <div
                 key={index}
                 className="flex items-center justify-between gap-3 rounded-2xl bg-gray-50 p-3"
