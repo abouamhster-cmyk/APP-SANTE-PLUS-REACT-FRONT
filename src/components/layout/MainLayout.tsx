@@ -237,32 +237,58 @@ const MainLayout = () => {
       {/* PAGE CONTENT */}
       {/* ========================================== */}
       <div className="min-h-screen w-full md:pl-72">
-        {/* HEADER SANS BOUTON HAMBURGER SÉCURISÉ POUR LE CONTENU */}
+        
+        {/* ========================================== */}
+        {/* HEADER IMMERSIF (FLOTTANT SUR MOBILE) */}
+        {/* ========================================== */}
         <header
-          className="fixed top-0 left-0 right-0 z-30 bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4"
+          className={cn(
+            "fixed top-0 left-0 right-0 z-30 transition-all duration-300",
+            isMobile 
+              ? "bg-transparent border-none px-4 py-3" // Immersif & Sans Opaque Box
+              : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4"
+          )}
           style={{
-            borderColor: colors.primary + '20',
+            borderColor: isMobile ? 'transparent' : colors.primary + '20',
           }}
         >
           <div className="max-w-full mx-auto">
             <div className="flex items-center justify-between gap-3">
               
-              {/* Le titre de la page s'aligne proprement de bout en bout sur mobile */}
-              <h2
-                className="text-base sm:text-lg font-bold truncate pl-1 sm:pl-0"
-                style={{ color: colors.text }}
-              >
-                {pageTitle}
-              </h2>
+              {isMobile ? (
+                /* Salutation fluide et intégrée */
+                <div className="flex items-center gap-2 min-w-0">
+                  <div 
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-sm shrink-0"
+                    style={{ background: colors.primary }}
+                  >
+                    {profile?.full_name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">Bonjour,</p>
+                    <p className="text-xs font-black truncate leading-tight mt-0.5" style={{ color: colors.text }}>
+                      {profile?.full_name || 'Utilisateur'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                /* Titre classique desktop */
+                <h2
+                  className="text-base sm:text-lg font-bold truncate pl-1 sm:pl-0"
+                  style={{ color: colors.text }}
+                >
+                  {pageTitle}
+                </h2>
+              )}
 
               <div className="flex items-center gap-2">
                 {showDraftBadge && (
                   <Link
                     to="/app/visits?filter=brouillon"
-                    className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition shrink-0"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition shrink-0 shadow-sm"
                   >
-                    <AlertCircle size={12} />
-                    {draftCount}
+                    <AlertCircle size={11} />
+                    <span>{draftCount}</span>
                   </Link>
                 )}
 
@@ -284,12 +310,17 @@ const MainLayout = () => {
 
                 <Link
                   to="/app/notifications"
-                  className="relative w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition flex items-center justify-center shrink-0 border"
+                  className={cn(
+                    "relative transition flex items-center justify-center shrink-0",
+                    isMobile 
+                      ? "w-9 h-9 rounded-full bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-md border border-gray-100 dark:border-gray-800/40 shadow-sm"
+                      : "w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] border"
+                  )}
                 >
-                  <Bell size={20} className="text-gray-500 dark:text-gray-300" />
+                  <Bell size={18} className="text-gray-500 dark:text-gray-300" />
                   {unreadCount > 0 && (
                     <span
-                      className="absolute -top-1 -right-1 min-w-5 h-5 px-1 text-[10px] text-white rounded-full flex items-center justify-center font-black animate-pulse"
+                      className="absolute top-0 right-0 min-w-4 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse"
                       style={{ backgroundColor: '#DC2626' }}
                     >
                       {unreadCount > 99 ? '99+' : unreadCount}
@@ -301,8 +332,8 @@ const MainLayout = () => {
           </div>
         </header>
 
-        {/* CONTENEUR DE LA ROUTE PRINCIPALE AVEC DÉGAGEMENT SÉCURISÉ AU BAS */}
-        <main className="w-full max-w-full overflow-x-hidden pt-20 md:pt-24 p-3 sm:p-4 md:p-6 pb-32 md:pb-8">
+        {/* CONTENEUR ROUTE PRINCIPALE (AÉRÉ ET CONFORME AUX MOCKUPS) */}
+        <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-32 md:pb-8 animate-fadeIn">
           <div className="max-w-7xl mx-auto">
             <ReminderBanner />
             <Outlet />
@@ -310,7 +341,7 @@ const MainLayout = () => {
         </main>
       </div>
 
-      {/* COMPOSANT TAB BAR MOBILE (DOCK TRANSLUCIDE ET FLOTTANT) */}
+      {/* TABS MOBILE COMPACT & TRANSLUCIDE */}
       {isMobile && <MobileTabBar colors={colors} />}
     </div>
   );
@@ -357,7 +388,6 @@ const SidebarContent = ({
 
   return (
     <div className="flex h-full flex-col bg-white dark:bg-[#17231d]">
-      {/* Logo Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '20' }}>
         <div className="flex items-center gap-2.5">
           <img src={logoConfig.icon} alt="Logo" className="w-8 h-8 object-contain" />
@@ -370,7 +400,6 @@ const SidebarContent = ({
         </div>
       </div>
 
-      {/* Navigation */}
       <div className="flex-1 overflow-y-auto pr-1 py-4 px-3 space-y-1 scrollbar-none">
         {navItems.map((item) => {
           const active = isActivePath(item.path, locationPath);
@@ -392,7 +421,6 @@ const SidebarContent = ({
         })}
       </div>
 
-      {/* Utilisateur Infos bas */}
       <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30" style={{ borderColor: colors.primary + '20' }}>
         <Link
           to="/app/profile"
