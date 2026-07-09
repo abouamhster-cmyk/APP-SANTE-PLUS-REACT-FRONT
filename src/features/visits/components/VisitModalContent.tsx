@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/components/VisitModalContent.tsx
-// ✅ CONTENU DU MODAL DE PLANIFICATION SIMPLIFIÉ (RÉSOLUTION DE L'ERREUR D'HOISTING TS2448 VERCEL)
+// ✅ CONTENU DU MODAL DE PLANIFICATION : AUTO-REMPLISSAGE MAIS ENTIÈREMENT MODIFIABLE SANS BOUCLE DE BLOCAGE
 
 import { useState, useEffect } from 'react';
 import {
@@ -103,9 +103,6 @@ export const VisitModalContent = ({
     address: '',                      
   });
 
-  // ============================================================
-  // ✅ DÉCLARÉ ICI : DÉPLACEMENT HAUT DE PAGE POUR RÉSOUDRE TS2448 (HOISTING AVANT USEEFFECT)
-  // ============================================================
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
   const accountPatients = selectedAccount?.patients || [];
   const filteredAccounts = accounts.filter(account =>
@@ -180,31 +177,7 @@ export const VisitModalContent = ({
     }
   };
 
-  // ✅ AUTO-REMPLISSAGE INTELLIGENT DE L'ADRESSE ET DU TÉLÉPHONE (COMPILATION CORRECTE)
-  useEffect(() => {
-    if (targetType === 'patient' && formData.patient_id) {
-      const patientList = isAdmin && selectedAccount?.has_patient ? accountPatients : patients;
-      const selectedPatientObj = patientList.find(p => p.id === formData.patient_id);
-      
-      if (selectedPatientObj) {
-        const phoneSuffix = selectedPatientObj.phone ? ` (Tél: ${selectedPatientObj.phone})` : '';
-        setFormData(prev => ({
-          ...prev,
-          address: `${selectedPatientObj.address || ''}${phoneSuffix}`.trim(),
-        }));
-      }
-    } else {
-      // Pour le compte personnel principal
-      const currentPhone = isAdmin ? selectedAccount?.phone : profile?.phone;
-      const phoneSuffix = currentPhone ? ` (Tél: ${currentPhone})` : '';
-      
-      setFormData(prev => ({
-        ...prev,
-        address: phoneSuffix ? `Mon adresse ${phoneSuffix}`.trim() : '',
-      }));
-    }
-  }, [formData.patient_id, targetType, selectedAccountId, profile, selectedAccount, accountPatients, isAdmin, patients]);
-
+  // ✅ INITIALISATION DE CHARGEMENT SUR EDIT / CREATE
   useEffect(() => {
     if (visit && mode === 'edit') {
       setFormData({
@@ -248,6 +221,55 @@ export const VisitModalContent = ({
       }
     }
   }, [visit, mode, isAdmin, accounts, profile]);
+
+  // ============================================================
+  // ✅ GESTIONNAIRES D'ÉVÉNEMENTS EXPLICITES (ÉVITE TOUTE BOUCLE D'OVERWRITE DE L'ADRESSE)
+  // ============================================================
+
+  // 1️⃣ Sélection de l'option "Personnel" (Mon compte)
+  const selectPersonnel = () => {
+    setTargetType('account');
+    const currentPhone = isAdmin ? selectedAccount?.phone : profile?.phone;
+    const phoneSuffix = currentPhone ? ` (Tél: ${currentPhone})` : '';
+    
+    setFormData(prev => ({
+      ...prev,
+      patient_id: '',
+      address: phoneSuffix ? `Mon adresse ${phoneSuffix}`.trim() : '',
+    }));
+  };
+
+  // 2️⃣ Sélection de l'option "Un proche" (Patient)
+  const selectPatientType = () => {
+    setTargetType('patient');
+    // On vide l'adresse jusqu'à ce qu'un proche soit explicitement sélectionné dans le menu déroulant
+    setFormData(prev => ({
+      ...prev,
+      patient_id: '',
+      address: '',
+    }));
+  };
+
+  // 3️⃣ Choix d'un proche spécifique dans le menu déroulant
+  const handlePatientSelect = (patientId: string) => {
+    const patientList = isAdmin && selectedAccount?.has_patient ? accountPatients : patients;
+    const selectedPatientObj = patientList.find(p => p.id === patientId);
+    
+    if (selectedPatientObj) {
+      const phoneSuffix = selectedPatientObj.phone ? ` (Tél: ${selectedPatientObj.phone})` : '';
+      setFormData(prev => ({
+        ...prev,
+        patient_id: patientId,
+        address: `${selectedPatientObj.address || ''}${phoneSuffix}`.trim(),
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        patient_id: patientId,
+        address: '',
+      }));
+    }
+  };
 
   const handleAddressChange = (value: string) => {
     setFormData(prev => ({ ...prev, address: value }));
@@ -473,10 +495,7 @@ export const VisitModalContent = ({
         <div className="grid grid-cols-2 gap-2 w-full min-w-0">
           <button
             type="button"
-            onClick={() => {
-              setTargetType('account');
-              setFormData(prev => ({ ...prev, patient_id: '' }));
-            }}
+            onClick={selectPersonnel}
             className={`p-2.5 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border min-w-0 w-full ${
               targetType === 'account'
                 ? 'text-white shadow-sm'
@@ -498,7 +517,7 @@ export const VisitModalContent = ({
 
           <button
             type="button"
-            onClick={() => setTargetType('patient')}
+            onClick={selectPatientType}
             className={`p-2.5 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-1 border min-w-0 w-full ${
               targetType === 'patient'
                 ? 'text-white shadow-sm'
@@ -552,7 +571,7 @@ export const VisitModalContent = ({
           <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
           <select
             value={formData.patient_id}
-            onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+            onChange={(e) => handlePatientSelect(e.target.value)}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1"
             style={{
               borderColor: colors.border,
@@ -638,10 +657,7 @@ export const VisitModalContent = ({
         <div className="grid grid-cols-2 gap-2 w-full min-w-0">
           <button
             type="button"
-            onClick={() => {
-              setTargetType('account');
-              setFormData(prev => ({ ...prev, patient_id: '' }));
-            }}
+            onClick={selectPersonnel}
             className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
               targetType === 'account'
                 ? 'text-white shadow-sm'
@@ -658,7 +674,7 @@ export const VisitModalContent = ({
 
           <button
             type="button"
-            onClick={() => setTargetType('patient')}
+            onClick={selectPatientType}
             disabled={!hasPatients}
             className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
               targetType === 'patient'
@@ -705,7 +721,7 @@ export const VisitModalContent = ({
       {renderTargetSummary()}
 
       {/* ============================================================
-          ✅ CHAMP ADRESSE DE LA VISITE SIMPLE (SANS CALCUL GPS COMPLEXE)
+          ✅ CHAMP ADRESSE DE LA VISITE SIMPLE ET ENTIÈREMENT EFFACABLE
           ============================================================ */}
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
