@@ -1,5 +1,6 @@
 // 📁 frontend/src/features/visits/components/VisitModalContent.tsx
- 
+// ✅ CONTENU DU MODAL DE PLANIFICATION SIMPLIFIÉ (SANS TRACKING INTÉGRÉ)
+
 import { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -10,7 +11,6 @@ import {
   Search,
   AlertCircle,
   CreditCard,
-  Sparkles,
   CheckCircle,
   Loader2,
   MapPin,
@@ -24,7 +24,6 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { getThemeColors } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
-import { extractCoordinatesFromGoogleMaps } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 // ============================================================
@@ -53,8 +52,6 @@ interface Account {
   display_name: string;
   type: 'account_with_patients' | 'personal_account';
 }
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ============================================================
 // COMPOSANT PRINCIPAL
@@ -103,12 +100,8 @@ export const VisitModalContent = ({
     duration_minutes: 60,
     notes: '',
     is_urgent: false,
-    address: '',                      
-    latitude: null as number | null,  
-    longitude: null as number | null,  
+    address: '',                      // ✅ ADRESSE TEXTUELLE SIMPLE
   });
-
-  const [isResolvingGps, setIsResolvingGps] = useState(false);
 
   const isAdmin = isAdminOrCoordinator;
   const isFamilyUser = isFamily;
@@ -177,31 +170,30 @@ export const VisitModalContent = ({
     }
   };
 
-  // ✅ CHANGER AUTOMATIQUEMENT L'ADRESSE ET LE GPS LORS DE LA SÉLECTION D'UN PROCHE (PATIENT)
+  // ✅ AUTO-REMPLISSAGE INTELLIGENT DE L'ADRESSE ET DU TÉLÉPHONE
   useEffect(() => {
     if (targetType === 'patient' && formData.patient_id) {
       const patientList = isAdmin && selectedAccount?.has_patient ? accountPatients : patients;
       const selectedPatientObj = patientList.find(p => p.id === formData.patient_id);
       
       if (selectedPatientObj) {
+        const phoneSuffix = selectedPatientObj.phone ? ` (Tél: ${selectedPatientObj.phone})` : '';
         setFormData(prev => ({
           ...prev,
-          address: selectedPatientObj.address || '',
-          latitude: selectedPatientObj.latitude || null,
-          longitude: selectedPatientObj.longitude || null,
+          address: `${selectedPatientObj.address || ''}${phoneSuffix}`.trim(),
         }));
-        console.log(`📍 Adresse de proche injectée: ${selectedPatientObj.address}`);
       }
     } else {
-      // Si compte principal / personnel
+      // Pour le compte personnel principal
+      const currentPhone = isAdmin ? selectedAccount?.phone : profile?.phone;
+      const phoneSuffix = currentPhone ? ` (Tél: ${currentPhone})` : '';
+      
       setFormData(prev => ({
         ...prev,
-        address: '',
-        latitude: null,
-        longitude: null,
+        address: phoneSuffix ? `Mon adresse ${phoneSuffix}`.trim() : '',
       }));
     }
-  }, [formData.patient_id, targetType, selectedAccountId]);
+  }, [formData.patient_id, targetType, selectedAccountId, profile, selectedAccount]);
 
   useEffect(() => {
     if (visit && mode === 'edit') {
@@ -213,8 +205,6 @@ export const VisitModalContent = ({
         notes: visit.notes || '',
         is_urgent: visit.is_urgent || false,
         address: visit.address || '',
-        latitude: visit.latitude || null,
-        longitude: visit.longitude || null,
       });
       if (visit.patient_id) {
         setTargetType('patient');
@@ -234,8 +224,6 @@ export const VisitModalContent = ({
         notes: '',
         is_urgent: false,
         address: '',
-        latitude: null,
-        longitude: null,
       });
 
       if (isAdmin && accounts.length > 0) {
@@ -258,54 +246,8 @@ export const VisitModalContent = ({
     account.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // ✅ DECODEUR ADRESSE AVEC COMPORTEMENT SANS COORDONNEES EN OPTION
-  const handleAddressChange = async (value: string) => {
-    setFormData(prev => ({ ...prev, address: value, latitude: null, longitude: null }));
-
-    const coords = extractCoordinatesFromGoogleMaps(value);
-    if (coords) {
-      setFormData(prev => ({
-        ...prev,
-        latitude: coords.lat,
-        longitude: coords.lng
-      }));
-      toast.success(`📍 Position GPS synchronisée : ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
-      return;
-    }
-
-    if (value.includes('maps.app.goo.gl')) {
-      setIsResolvingGps(true);
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-
-        const response = await fetch(`${API_URL}/billing/resolve-maps`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ url: value.trim() })
-        });
-
-        const result = await response.json();
-        if (result.success && result.finalUrl) {
-          const resolvedCoords = extractCoordinatesFromGoogleMaps(result.finalUrl);
-          if (resolvedCoords) {
-            setFormData(prev => ({
-              ...prev,
-              latitude: resolvedCoords.lat,
-              longitude: resolvedCoords.lng
-            }));
-            toast.success(`📍 Position GPS synchronisée : ${resolvedCoords.lat.toFixed(4)}, ${resolvedCoords.lng.toFixed(4)}`);
-          }
-        }
-      } catch (err) {
-        console.warn('Impossible de résoudre le lien court en direct:', err);
-      } finally {
-        setIsResolvingGps(false);
-      }
-    }
+  const handleAddressChange = (value: string) => {
+    setFormData(prev => ({ ...prev, address: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -334,9 +276,9 @@ export const VisitModalContent = ({
         is_urgent: formData.is_urgent,
         actions: [],
         requested_by: profile?.id,
-        address: formData.address.trim(),       
-        latitude: formData.latitude,             
-        longitude: formData.longitude,         
+        address: formData.address.trim(),       // ✅ ADRESSE SIMPLE ENVOYÉE
+        latitude: null,                          // ✅ VALEUR NULLE SANS GÉOLOCALISATION
+        longitude: null,                         // ✅ VALEUR NULLE SANS GÉOLOCALISATION
       };
 
       if (targetType === 'patient' && formData.patient_id) {
@@ -760,37 +702,27 @@ export const VisitModalContent = ({
       {renderTargetSummary()}
 
       {/* ============================================================
-          ✅ NOUVEAU : CHAMP ADRESSE DE LA VISITE AVEC PARSING GOOGLE MAPS GPS
+          ✅ CHAMP ADRESSE DE LA VISITE SIMPLE (SANS CALCUL GPS COMPLEXE)
           ============================================================ */}
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
-          Adresse de l'intervention ou Lien Google Maps *
+          Adresse de l'intervention ou indications de quartier *
         </label>
         <div className="relative">
-          <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400 animate-pulse" />
+          <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
           <input
             type="text"
             value={formData.address}
             onChange={(e) => handleAddressChange(e.target.value)}
             required
-            className="w-full pl-10 pr-10 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1 bg-gray-50/50"
+            className="w-full pl-10 pr-3 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1 bg-gray-50/50"
             style={{
               borderColor: colors.border,
               color: colors.text,
             }}
-            placeholder="Ex: Cotonou Cadjehoun ou collez un lien Google Maps..."
+            placeholder="Ex: Cotonou Cadjehoun, maison juste à côté de la pharmacie"
           />
-          {isResolvingGps && (
-            <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
-              <Loader2 className="animate-spin text-gray-400" size={14} />
-            </div>
-          )}
         </div>
-        {formData.latitude && formData.longitude && (
-          <p className="text-[10px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
-            ✓ Destination GPS validée : {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
-          </p>
-        )}
       </div>
 
       {isFamilyUser && subscriptionMessage && (
