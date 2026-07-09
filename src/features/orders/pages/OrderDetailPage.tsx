@@ -27,6 +27,8 @@ import {
   AlertCircle,
   Loader2,
   CreditCard,
+  Compass,
+  Navigation as NavIcon,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -34,6 +36,9 @@ import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime } from '@/utils/helpers';
+
+// ✅ IMPORTER LE HOOK DE GÉOLOCALISATION EN DIRECT
+import { useOrderTracking } from '@/hooks/useOrderTracking';
 
 // ✅ IMPORTER LES HELPERS
 import {
@@ -249,6 +254,16 @@ const OrderDetailPage = () => {
 
   const modalRef = useRef<HTMLDivElement>(null);
 
+  // ============================================================
+  // ✅ SUIVI GPS & CARTE DE LIVRAISON EN DIRECT
+  // ============================================================
+  const { startOrderTracking, stopOrderTracking, trackingActive, route } = useOrderTracking(id);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const routeLayerRef = useRef<any>(null);
+  const leafletRef = useRef<any>(null);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
@@ -267,6 +282,98 @@ const OrderDetailPage = () => {
     };
   }, [showProofModal]);
 
+  // Charger Leaflet
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      try {
+        const L = await import('leaflet');
+        await import('leaflet/dist/leaflet.css');
+        leafletRef.current = L;
+        setLeafletLoaded(true);
+      } catch (error) {
+        console.error('Erreur chargement Leaflet:', error);
+      }
+    };
+    loadLeaflet();
+  }, []);
+
+  // ✅ Auto-reprise du suivi de livraison si l'aidant rafraîchit la page de course
+  useEffect(() => {
+    if (currentOrder && currentOrder.status === 'en_cours' && isAidant) {
+      console.log('🔄 [Suivi GPS] Livraison active, redémarrage du Wake Lock et tracking...');
+      startOrderTracking();
+    }
+    return () => {
+      stopOrderTracking();
+    };
+  }, [currentOrder?.status]);
+
+  // ✅ Affichage cartographique interactif
+  useEffect(() => {
+    if (!leafletLoaded || !mapContainerRef.current || !currentOrder) return;
+    const L = leafletRef.current;
+    if (!L) return;
+
+    const destLat = Number(currentOrder.latitude || currentOrder.patient?.latitude);
+    const destLng = Number(currentOrder.longitude || currentOrder.patient?.longitude);
+
+    if (!destLat || !destLng) return;
+
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [destLat, destLng],
+        zoom: 14,
+        zoomControl: true,
+        attributionControl: false,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      routeLayerRef.current = L.layerGroup().addTo(map);
+      mapInstanceRef.current = map;
+    }
+
+    const map = mapInstanceRef.current;
+    const routeLayer = routeLayerRef.current;
+    routeLayer.clearLayers();
+
+    // Marqueur de livraison (Maison/Client 🏠)
+    const destIcon = L.divIcon({
+      className: 'custom-dest-icon',
+      html: `<div style="background:#F59E0B; color:white; width:30px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3)">🏠</div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    L.marker([destLat, destLng], { icon: destIcon }).addTo(routeLayer).bindPopup("<b>Lieu de livraison de la commande</b>");
+
+    // Trajectoire en direct
+    const trackPoints = currentOrder.metadata?.location_track || route || [];
+    if (trackPoints.length > 0) {
+      const coords = trackPoints.map((p: any) => [p.lat, p.lng]);
+      
+      // Ligne de livraison pointillée jaune/orange
+      L.polyline(coords, {
+        color: '#F59E0B',
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '5, 8'
+      }).addTo(routeLayer);
+
+      // Position en direct du livreur (🚴)
+      const currentPos = coords[coords.length - 1];
+      const deliverIcon = L.divIcon({
+        className: 'custom-deliver-icon',
+        html: `<div style="background:#4CAF50; color:white; width:30px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3)">🚴</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+      L.marker(currentPos, { icon: deliverIcon }).addTo(routeLayer).bindPopup("<b>Livreur en route</b>");
+      
+      map.fitBounds(L.polyline([currentPos, [destLat, destLng]]).getBounds(), { padding: [40, 40] });
+    } else {
+      map.setView([destLat, destLng], 14);
+    }
+  }, [leafletLoaded, currentOrder, route]);
+
   // ✅ CHANGEMENT STATUT - UN SEUL TOAST
   const handleStatusChange = async (status: string) => {
     if (!id) return;
@@ -275,12 +382,10 @@ const OrderDetailPage = () => {
 
     try {
       await updateOrderStatus(id, status as any);
-      // ✅ UN SEUL TOAST
       toast.success(`Commande ${getStatusLabel(status)}`);
       fetchOrderById(id);
     } catch (error: any) {
       console.error('❌ Erreur mise à jour statut:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la mise à jour');
     } finally {
       setIsUpdating(false);
@@ -293,30 +398,14 @@ const OrderDetailPage = () => {
     setIsUpdating(true);
     try {
       await takeOrder(id);
-      // ✅ UN SEUL TOAST
       toast.success('Commande prise en charge');
       fetchOrderById(id);
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de la prise de commande');
     } finally {
       setIsUpdating(false);
     }
-  };
-
-  const getStatusLabel = (status: string) => {
-    const map: Record<string, string> = {
-      creee: 'Créée',
-      en_attente: 'En attente',
-      disponible: 'Disponible (urgent)',
-      en_cours: 'En cours',
-      livree: 'Livrée',
-      validee: 'Validée',
-      annulee: 'Annulée',
-      attente_paiement: 'En attente paiement',
-    };
-    return map[status] || status;
   };
 
   // ✅ SÉLECTION IMAGE - UN SEUL TOAST
@@ -326,13 +415,11 @@ const OrderDetailPage = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner une image');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      // ✅ UN SEUL TOAST
       toast.error("L'image ne doit pas dépasser 5MB");
       return;
     }
@@ -346,10 +433,9 @@ const OrderDetailPage = () => {
     reader.readAsDataURL(file);
   };
 
-  // ✅ UPLOAD PREUVE - UN SEUL TOAST
+  // ✅ UPLOAD PREUVE - UN SEUL TOAST ET ARRÊT DE TRACKING
   const handleProofUpload = async () => {
     if (!id || !proofFile) {
-      // ✅ UN SEUL TOAST
       toast.error('Veuillez sélectionner une photo');
       return;
     }
@@ -377,7 +463,7 @@ const OrderDetailPage = () => {
         .update({ proof_url: publicUrl })
         .eq('id', id);
 
-      // ✅ UN SEUL TOAST
+      await stopOrderTracking(); // ✅ Désactiver proprement le Wake Lock et l'écriture GPS
       toast.success('Livraison confirmée avec preuve');
 
       setShowProofModal(false);
@@ -387,7 +473,6 @@ const OrderDetailPage = () => {
       fetchOrderById(id);
     } catch (error: any) {
       console.error('❌ Erreur upload preuve:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || "Erreur lors de l'upload de la preuve");
     } finally {
       setIsUpdating(false);
@@ -396,14 +481,12 @@ const OrderDetailPage = () => {
 
   const openUrl = (url: string | null) => {
     if (!url) {
-      // ✅ UN SEUL TOAST
       toast.error('URL non disponible');
       return;
     }
     window.open(url, '_blank');
   };
 
-  // ✅ Vérifier si la commande est en attente de paiement
   const isPendingPayment = currentOrder?.status === 'attente_paiement';
   const isPonctual = isOrderPonctual(currentOrder);
   const isPaid = currentOrder?.is_paid === true;
@@ -423,10 +506,8 @@ const OrderDetailPage = () => {
   }
 
   const order = currentOrder;
-
   const beneficiaryLabel = isFamily ? 'Proche' : isAidant ? 'Personne accompagnée' : 'Bénéficiaire';
 
-  // ✅ Vérifier si l'utilisateur peut agir
   const canTake = (order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
   const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
@@ -496,7 +577,7 @@ const OrderDetailPage = () => {
           </div>
         </div>
 
-        {/* ✅ ACTIONS SIMPLIFIÉES AVEC NOUVEAUX STATUTS */}
+        {/* ACTIONS STATUTS */}
         <div className="mt-4 flex flex-wrap gap-2">
           {canTake && (
             <ActionButton
@@ -550,6 +631,53 @@ const OrderDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* ============================================================
+      ✅ WIDGET DE SUIVI DE LIVRAISON GPS EN DIRECT (SI EN COURS)
+      ============================================================ */}
+      {order.status === 'en_cours' && (
+        <div className="bg-white rounded-3xl p-5 border border-amber-100 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="md:col-span-1 flex flex-col justify-between space-y-4">
+            <div>
+              <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                Livraison en cours
+              </span>
+              <h3 className="text-base font-black text-gray-800 mt-1">Livreur en déplacement</h3>
+              <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                {isAidant 
+                  ? '🔒 Liaison satellite active. Ne fermez pas l’application pour préserver le tracé GPS.' 
+                  : '📍 Suivez la course et la position géographique de votre livreur vers le domicile ciblé.'}
+              </p>
+            </div>
+
+            <div className="bg-amber-50/50 p-3.5 rounded-2xl border border-amber-100/50 text-center">
+              <Compass size={18} className="mx-auto text-amber-500 animate-spin" style={{ animationDuration: '8s' }} />
+              <p className="text-xs text-amber-600 font-extrabold mt-1.5">Géolocalisation Satellite Active</p>
+            </div>
+
+            <button
+              onClick={() => {
+                const lat = order.latitude || order.patient?.latitude;
+                const lng = order.longitude || order.patient?.longitude;
+                if (lat && lng) {
+                  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+                } else {
+                  toast.error('Coordonnées non disponibles');
+                }
+              }}
+              className="w-full h-11 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md"
+            >
+              <NavIcon size={14} />
+              Ouvrir l'itinéraire Google Maps
+            </button>
+          </div>
+
+          <div className="md:col-span-2 relative h-[250px] md:h-full min-h-[220px] rounded-2xl overflow-hidden border border-gray-100">
+            <div ref={mapContainerRef} className="w-full h-full" />
+          </div>
+        </div>
+      )}
 
       {/* RÉSUMÉ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -721,7 +849,7 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* ✅ SUIVI - AVEC NOUVEAUX STATUTS */}
+      {/* SUIVI */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Clock size={18} style={{ color: colors.primary }} />
@@ -852,7 +980,7 @@ const OrderDetailPage = () => {
                 onClick={() => setShowProofModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-xl transition"
               >
-                <XCircle size={20} style={{ color: colors.text }} />
+                <XCircle size={20} />
               </button>
             </div>
 
@@ -929,21 +1057,6 @@ const OrderDetailPage = () => {
       )}
     </div>
   );
-};
-
-// ✅ Helper pour la couleur du statut
-const getStatusColor = (status: string): string => {
-  const colors: Record<string, string> = {
-    creee: '#9E9E9E',
-    en_attente: '#FF9800',
-    disponible: '#F44336',
-    en_cours: '#2196F3',
-    livree: '#2196F3',
-    validee: '#4CAF50',
-    annulee: '#9E9E9E',
-    attente_paiement: '#8b5cf6',
-  };
-  return colors[status] || '#9E9E9E';
 };
 
 export default OrderDetailPage;
