@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrdersPage.tsx
-// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA TERMINOLOGIE DYNAMIQUE "DESTINATAIRE" ET RÉACTIVITÉ DES QUOTAS TEMPS RÉEL
+// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA SÉCURITÉ DE FILTRAGE AIDANT (POUR NE PAS CACHER LES COMMANDES EN COURS)
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +37,6 @@ import {
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// ✅ FILTRES MODERNES AVEC MODE PONCTUEL ET DISPONIBLE
 const statusFilters = [
   { key: 'all', label: 'Toutes', icon: <List size={12} /> },
   { key: 'creee', label: '📝 Créées', icon: <Package size={12} /> },
@@ -76,7 +75,6 @@ const OrdersPage = () => {
   const [aidantQuota, setAidantQuota] = useState<AidantQuota | null>(null);
   const [isLoadingQuota, setIsLoadingQuota] = useState(false);
 
-  // ÉTATS DE PULL-TO-REFRESH MOBILE
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
@@ -84,12 +82,11 @@ const OrdersPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Charger le quota de l'aidant
   useEffect(() => {
     if (isAidant && user) {
       fetchAidantQuota();
     }
-  }, [isAidant, user, orders]); // Se redéclenche instantanément dès que Supabase Realtime met à jour les commandes !
+  }, [isAidant, user, orders]);
 
   const fetchAidantQuota = async () => {
     setIsLoadingQuota(true);
@@ -103,7 +100,6 @@ const OrdersPage = () => {
     }
   };
 
-  // ✅ STATISTIQUES
   const stats = useMemo(() => ({
     total: orders.length,
     pending: orders.filter((order) => order.status === 'en_attente').length,
@@ -118,7 +114,6 @@ const OrdersPage = () => {
     ).length,
   }), [orders]);
 
-  // GESTION DU PULL-TO-REFRESH TACTILE
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -168,7 +163,6 @@ const OrdersPage = () => {
     }
   }, []);
 
-  // HANDLER D'ASSIGNATION
   const handleShowAssignAidantModal = (order: any) => {
     setSelectedOrderForAssign(order);
     setShowAssignModal(true);
@@ -180,15 +174,34 @@ const OrdersPage = () => {
     toast.success('Aidant assigné avec succès');
   };
 
-  // ✅ FILTRAGE
+  // ✅ FILTRAGE CORRIGÉ : Protège l'aidant pour qu'il ne perde jamais de vue ses commandes actives
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       let matchStatus = true;
       
+      // ✅ Si l'aidant gère cette commande et qu'il est sur l'onglet "Toutes" ou "Ponctuelles", forcer l'affichage
+      const isMyActiveOrder = isAidant && order.aidant_id === user?.id;
+
       if (activeStatus === 'ponctual') {
         matchStatus = isOrderPonctual(order);
       } else if (activeStatus !== 'all') {
         matchStatus = order.status === activeStatus;
+      } else {
+        // En mode 'all', on affiche tout
+        matchStatus = true;
+      }
+
+      // 🔐 Sécurité absolue : Si la commande appartient à l'aidant connecté, on l'affiche s'il est sur All, Ponctuelles, En Cours ou Livrées.
+      if (isMyActiveOrder && ['all', 'ponctual', 'en_cours', 'livree'].includes(activeStatus)) {
+        if (activeStatus === 'ponctual') {
+          matchStatus = isOrderPonctual(order);
+        } else if (activeStatus === 'en_cours') {
+          matchStatus = order.status === 'en_cours';
+        } else if (activeStatus === 'livree') {
+          matchStatus = order.status === 'livree';
+        } else {
+          matchStatus = true;
+        }
       }
 
       const query = search.trim().toLowerCase();
@@ -202,9 +215,8 @@ const OrdersPage = () => {
 
       return matchStatus && matchSearch;
     });
-  }, [orders, search, activeStatus]);
+  }, [orders, search, activeStatus, isAidant, user?.id]);
 
-  // ✅ HANDLER STATUT
   const handleStatusChange = async (id: string, status: string) => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -232,8 +244,6 @@ const OrdersPage = () => {
       if (isAidant) {
         await fetchAidantQuota();
       }
-      
-      await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur mise à jour:', error);
       toast.error(error?.message || 'Erreur lors de la mise à jour');
@@ -253,8 +263,6 @@ const OrdersPage = () => {
       if (isAidant) {
         await fetchAidantQuota();
       }
-      
-      await fetchOrders();
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
       toast.error(error?.message || 'Erreur lors de la prise de commande');
@@ -277,7 +285,7 @@ const OrdersPage = () => {
     return 'Aucune commande.';
   };
 
-  if (isLoading) {
+  if (isLoading && orders.length === 0) {
     return (
       <div className="space-y-6">
         <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
@@ -295,9 +303,6 @@ const OrdersPage = () => {
     );
   }
 
-  // ✅ TERMINOLOGIE HARMONISÉE POUR TOUT INTERVENANT PONCTUEL OU PERMANENT
-  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
-
   return (
     <div 
       className="space-y-6 pb-6 animate-fadeIn"
@@ -305,7 +310,6 @@ const OrdersPage = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* PULL TO REFRESH */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -325,7 +329,6 @@ const OrdersPage = () => {
         </div>
       </div>
 
-      {/* HEADER COHÉRENT ET ASSIGNÉ */}
       <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md flex flex-col items-center gap-4">
         <div className="space-y-1 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
@@ -336,7 +339,6 @@ const OrdersPage = () => {
           </p>
         </div>
 
-        {/* Quota dynamique et fluide de l'intervenant connecté */}
         {isAidant && aidantQuota && (
           <div className="px-5 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
@@ -351,7 +353,6 @@ const OrdersPage = () => {
           </div>
         )}
 
-        {/* Commandes Familles en attente de validation */}
         {stats.pendingPayment > 0 && isFamily && (
           <button
             onClick={() => setActiveStatus('attente_paiement')}
@@ -395,7 +396,6 @@ const OrdersPage = () => {
         </button>
       </section>
 
-      {/* BENTO D'ACTIVITÉ */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
         <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
           <div className="flex items-center justify-between gap-1">
@@ -431,7 +431,6 @@ const OrdersPage = () => {
         </div>
       </section>
 
-      {/* FILTRES PAR TABS */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
           {statusFilters.map((filter) => {
@@ -455,7 +454,6 @@ const OrdersPage = () => {
         </div>
       </section>
 
-      {/* RECHERCHE */}
       <section className="w-full">
         <div className="relative">
           <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -469,7 +467,6 @@ const OrdersPage = () => {
         </div>
       </section>
 
-      {/* LISTE DES COMMANDES */}
       {filteredOrders.length > 0 ? (
         <section className="space-y-3">
           {filteredOrders.map((order) => (
@@ -489,7 +486,6 @@ const OrdersPage = () => {
           ))}
         </section>
       ) : (
-        /* ÉCRAN VIDE */
         <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
           <Illustration 
             type={orders.length > 0 ? 'search' : 'order'} 
@@ -520,7 +516,6 @@ const OrdersPage = () => {
         </section>
       )}
 
-      {/* BOUTON FLOTTANT MOBILE */}
       {isFamily && (
         <button
           onClick={() => navigate('/app/orders/create')}
@@ -535,7 +530,6 @@ const OrdersPage = () => {
         </button>
       )}
 
-      {/* MODAL D'ASSIGNATION D'AIDANT (ADMIN) */}
       {showAssignModal && selectedOrderForAssign && (
         <AssignAidantModal
           isOpen={showAssignModal}
