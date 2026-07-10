@@ -29,11 +29,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { Illustration } from '@/components/ui/Illustration';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
-import { RefreshButton } from '@/components/ui/RefreshButton';
-import {
-  isOrderPonctual,
-  cn,
-} from '@/utils/helpers';
+import { isOrderPonctual, cn } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -179,8 +175,9 @@ const OrdersPage = () => {
     return orders.filter((order) => {
       let matchStatus = true;
       
-      // ✅ Si l'aidant gère cette commande et qu'il est sur l'onglet "Toutes" ou "Ponctuelles", forcer l'affichage
-      const isMyActiveOrder = isAidant && order.aidant_id === user?.id;
+      // ✅ FIX MAJEUR: On cible l'ID utilisateur (user_id) lié à l'aidant plutot que l'ID de la table aidant.
+      // Cela évite la disparition instantanée des commandes ponctuelles lors de l'acceptation.
+      const isMyActiveOrder = isAidant && order.aidant?.user_id === user?.id;
 
       if (activeStatus === 'ponctual') {
         matchStatus = isOrderPonctual(order);
@@ -303,6 +300,9 @@ const OrdersPage = () => {
     );
   }
 
+  // ✅ TERMINOLOGIE HARMONISÉE POUR TOUT INTERVENANT PONCTUEL OU PERMANENT
+  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
+
   return (
     <div 
       className="space-y-6 pb-6 animate-fadeIn"
@@ -329,6 +329,7 @@ const OrdersPage = () => {
         </div>
       </div>
 
+      {/* HEADER COHÉRENT ET ASSIGNÉ */}
       <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md flex flex-col items-center gap-4">
         <div className="space-y-1 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
@@ -339,6 +340,7 @@ const OrdersPage = () => {
           </p>
         </div>
 
+        {/* Quota dynamique et fluide de l'intervenant connecté */}
         {isAidant && aidantQuota && (
           <div className="px-5 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
@@ -353,6 +355,7 @@ const OrdersPage = () => {
           </div>
         )}
 
+        {/* Commandes Familles en attente de validation */}
         {stats.pendingPayment > 0 && isFamily && (
           <button
             onClick={() => setActiveStatus('attente_paiement')}
@@ -396,43 +399,45 @@ const OrdersPage = () => {
         </button>
       </section>
 
+      {/* BENTO D'ACTIVITÉ */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
-        <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between h-24">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Demandes</span>
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 truncate">Demandes</span>
             <ShoppingBag size={13} className="text-emerald-500 shrink-0" />
           </div>
           <div>
-            <p className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100 leading-none">{stats.total}</p>
+            <p className="text-base sm:text-lg font-black text-gray-800 leading-none">{stats.total}</p>
             <p className="text-[9px] sm:text-[10px] text-gray-500 mt-1 leading-none truncate">{stats.pending} en attente</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between h-24">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Livraisons</span>
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 truncate">Livraisons</span>
             <Truck size={13} className="text-blue-500 shrink-0" />
           </div>
           <div>
-            <p className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100 leading-none">{stats.inProgress}</p>
+            <p className="text-base sm:text-lg font-black text-gray-800 leading-none">{stats.inProgress}</p>
             <p className="text-[9px] sm:text-[10px] text-gray-500 mt-1 leading-none truncate">{stats.delivery} livrées</p>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#17231d] p-3 sm:p-4 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-24">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between h-24">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate">Urgentes</span>
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-gray-400 truncate">Urgentes</span>
             <AlertCircle size={13} className="text-amber-500 shrink-0" />
           </div>
           <div>
-            <p className="text-base sm:text-lg font-black text-gray-800 dark:text-gray-100 leading-none">{stats.available}</p>
+            <p className="text-base sm:text-lg font-black text-gray-800 leading-none">{stats.available}</p>
             <p className="text-[9px] sm:text-[10px] text-gray-500 mt-1 leading-none truncate">{stats.ponctual} à l'acte</p>
           </div>
         </div>
       </section>
 
+      {/* FILTRES PAR TABS */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
-        <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
+        <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border border-gray-200/10 gap-1">
           {statusFilters.map((filter) => {
             const isActive = activeStatus === filter.key;
             return (
@@ -442,8 +447,8 @@ const OrdersPage = () => {
                 className={cn(
                   "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
                   isActive
-                    ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                    ? "bg-white text-gray-900 shadow-sm font-extrabold"
+                    : "text-gray-500 hover:text-gray-700"
                 )}
                 style={isActive ? { color: colors.primary } : undefined}
               >
@@ -454,6 +459,7 @@ const OrdersPage = () => {
         </div>
       </section>
 
+      {/* RECHERCHE */}
       <section className="w-full">
         <div className="relative">
           <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -461,12 +467,13 @@ const OrdersPage = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher par article, adresse, bénéficiaire..."
-            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white dark:bg-[#17231d] border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white border-gray-100 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
             style={{ color: colors.text }}
           />
         </div>
       </section>
 
+      {/* LISTE DES COMMANDES */}
       {filteredOrders.length > 0 ? (
         <section className="space-y-3">
           {filteredOrders.map((order) => (
@@ -486,17 +493,17 @@ const OrdersPage = () => {
           ))}
         </section>
       ) : (
-        <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
+        <section className="bg-white/40 rounded-2xl py-16 px-6 text-center border border-gray-100 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
           <Illustration 
             type={orders.length > 0 ? 'search' : 'order'} 
             size="md" 
             className="mx-auto opacity-35" 
           />
           <div className="space-y-1">
-            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
+            <h3 className="font-extrabold text-sm text-gray-800">
               {orders.length > 0 ? 'Aucun résultat' : 'Aucune commande'}
             </h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+            <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
               {orders.length > 0
                 ? 'Aucune commande ne correspond à votre recherche.'
                 : getEmptyMessage()}
@@ -516,6 +523,7 @@ const OrdersPage = () => {
         </section>
       )}
 
+      {/* BOUTON FLOTTANT MOBILE */}
       {isFamily && (
         <button
           onClick={() => navigate('/app/orders/create')}
