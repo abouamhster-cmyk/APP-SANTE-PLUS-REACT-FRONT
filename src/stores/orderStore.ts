@@ -1,5 +1,5 @@
 // 📁 frontend/src/stores/orderStore.ts
-// ✅ STORE COMMANDES COMPLET : CORRECTION DU VERROU DE CACHE ET AJOUT DES MISES À JOUR OPTIMISTES
+// ✅ STORE COMMANDES COMPLET : OPTIMISTIC UPDATES ET BY-PASS DU VERROU DE CACHE SUR FORCE-REFRESH
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -8,13 +8,17 @@ import { useAuthStore } from './authStore';
 import api from '@/lib/api';
 import toast from 'react-hot-toast'; 
 
+// ✅ IMPORTER LES HELPERS
 import {
   getPonctualOrderPrice,
-  getOrderStatusForCreation,
-  requiresPonctualPayment,
 } from '@/lib/constants';
 
+// ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+// =============================================
+// CONSTANTES
+// =============================================
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   creee: 'Créée',
@@ -38,7 +42,13 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   attente_paiement: '#8b5cf6',
 };
 
+// ✅ QUOTA MAX DE COMMANDES EN COURS PAR AIDANT
 const MAX_ORDERS_IN_PROGRESS = 2;
+
+// =============================================
+// HELPERS DE CACHE
+// =============================================
+
 const CACHE_KEY = 'sante_plus_orders_cache';
 const CACHE_DURATION = 60000;
 
@@ -65,9 +75,9 @@ const clearCachedOrders = () => {
   } catch { /* ignore */ }
 };
 
-const getStatusLabel = (status: string): string => {
-  return STATUS_LABELS[status as OrderStatus] || status;
-};
+// =============================================
+// ORDER STORE
+// =============================================
 
 interface OrderState {
   orders: Order[];
@@ -137,6 +147,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     await get().fetchOrders(true);
   },
 
+  // ============================================================
+  // VÉRIFICATION DU QUOTA DE COMMANDES
+  // ============================================================
   checkOrderQuota: async () => {
     try {
       const { user } = useAuthStore.getState();
@@ -173,9 +186,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   getQuotaInfo: () => {
     const state = get();
     const { user } = useAuthStore.getState();
+    
     const inProgressOrders = state.orders.filter(
       o => o.status === 'en_cours' && o.aidant_id === user?.id
     );
+    
     const current = inProgressOrders.length;
     const max = MAX_ORDERS_IN_PROGRESS;
     const available = max - current;
@@ -189,12 +204,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // FETCH ORDERS
+  // FETCH ORDERS (Version réactive avec forçage de bypass)
   // ============================================================
   fetchOrders: async (force = false) => {
     const state = get();
     
-    // ✅ CORRECTIF MAJEUR : Si 'force' est true, on contourne le verrou isLoading
+    // ✅ CORRECTIF DU VERROU : Si force = true, on ignore totalement le lock 'isLoading'
     if (state.isLoading && !force) {
       console.log('ℹ️ Déjà en cours de chargement, skip...');
       return;
@@ -301,8 +316,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const { user, profile } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
+      if (profile?.role === 'aidant') {
+        throw new Error('Les aidants ne peuvent pas créer de commandes');
+      }
+
       const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
       const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
+
       const isPonctual = data.order_type === 'ponctual' || false;
       let status: OrderStatus = 'creee';
       let requiresPayment = false;
@@ -357,7 +377,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           created_by: user.id,
           created_at: new Date().toISOString(),
           payment_amount: requiresPayment ? paymentAmount : null,
-          ponctual_mode: requiresPayment ? true : false,
         }
       };
 
@@ -368,6 +387,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
 
       set({ isLoading: false });
+
       return newOrder;
     } catch (error: any) {
       console.error('❌ Create order error:', error);
@@ -383,7 +403,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const response = await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
       const order = response.data?.order || response.data;
 
-      // ✅ Mise à jour optimiste (Interface fluide)
+      // ✅ OPTIMISTIC UPDATE
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? order : o),
         currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
@@ -401,7 +421,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // PRENDRE UNE COMMANDE
+  // PRENDRE UNE COMMANDE (PRISE DE COMMANDE OPTIMISTE)
   // ============================================================
   takeOrder: async (id: string) => {
     try {
@@ -413,13 +433,18 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const response = await api.post(`/orders/${id}/take`);
       const order = response.data?.order || response.data;
 
-      // ✅ Mise à jour optimiste (Affiche "En cours" instantanément)
+      if (!order) {
+        throw new Error('Erreur lors de la prise de commande');
+      }
+
+      // ✅ OPTIMISTIC UPDATE : Injecter directement l'aidant et le nouveau statut dans le state local
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? order : o),
         currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
       }));
 
-      get().invalidateCache();
+      // Vider radicalement le cache local pour forcer l'actualisation
+      clearCachedOrders();
       await get().fetchOrders(true);
 
       set({ isLoading: false });
@@ -443,10 +468,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       
       set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
 
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Prepare order error:', error);
       toast.error(error.message);
       set({ isLoading: false });
     }
@@ -460,10 +486,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       
       set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
 
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Mark ready error:', error);
       toast.error(error.message);
       set({ isLoading: false });
     }
@@ -477,10 +504,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       
       set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
 
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Start delivery error:', error);
       toast.error(error.message);
       set({ isLoading: false });
     }
@@ -494,7 +522,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       
       set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
 
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
@@ -523,10 +551,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       
       set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
 
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Auto-validate error:', error);
       toast.error(error.message);
       set({ error: error.message, isLoading: false });
     }
@@ -538,13 +567,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const response = await api.post(`/orders/${id}/status`, { status });
       const order = response.data?.order || response.data;
 
-      // ✅ Mise à jour optimiste
+      // ✅ OPTIMISTIC UPDATE
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? order : o),
         currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
       }));
 
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
@@ -559,10 +588,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: true, error: null });
       await api.put(`/orders/${id}`, data);
       
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Update order error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -573,10 +603,11 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: true, error: null });
       await api.delete(`/orders/${id}`);
 
-      get().invalidateCache();
+      clearCachedOrders();
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Delete order error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -593,6 +624,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const result = await response.json();
       return result.data || [];
     } catch (error: any) {
+      console.error('❌ Get available orders error:', error);
       return [];
     }
   },
