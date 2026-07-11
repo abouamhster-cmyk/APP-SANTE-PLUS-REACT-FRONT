@@ -142,7 +142,8 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const { initialize, isAuthLoading, isAuthenticated, isInitialized: isAuthInitialized } = useAuthStore();
+  // ✅ CORRECTION TS : Renommer explicitement la propriété isLoading en isAuthLoading via destructuring
+  const { initialize, isLoading: isAuthLoading, isAuthenticated, isInitialized: isAuthInitialized } = useAuthStore();
   const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
   const { fetchOffers, isInitialized: isOffersInitialized } = useOfferStore();
   const { checkContract } = useContractStore();
@@ -174,7 +175,7 @@ function App() {
   }, []);
 
   // ============================================================
-  // ✅ CANAL TEMPS RÉEL UNIFIÉ ET OPTIMISÉ (SANS DOUBLONS RÉSEAU)
+  // REALTIME AUTO-REFRESH DE SÉCURITÉ UNIFIÉ (SANS DOUBLONS RÉSEAU)
   // ============================================================
   useEffect(() => {
     if (!isAuthenticated || !isAuthInitialized) return;
