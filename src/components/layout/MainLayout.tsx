@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-// ✅ MAQUETTE DE NAVIGATION PRINCIPALE : GREETING DYNAMIQUE SELON L'HEURE ET COULEURS EXPLICITES CONTEXTUELLES PAR RÔLE
+// ✅ MAQUETTE DE NAVIGATION PRINCIPALE : GREETING DYNAMIQUE SELON L'HEURE ET COULEURS CONTEXTUELLES RÉACTIVES PAR RÔLE
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -21,10 +21,6 @@ import { cn, getGreeting, getInitials } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 
-// =============================================
-// COMPOSANT PRINCIPAL
-// =============================================
-
 const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,7 +37,7 @@ const MainLayout = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   // ============================================================
-  // ✅ ADAPTATION DYNAMIQUE ET CONTEXTUELLE DE LA COULEUR DE RÔLE (Résout définitivement le vert résiduel)
+  // ✅ ADAPTATION CONTEXTUELLE DU THÈME SELON LE PROCHE ACTIF (Résout définitivement le vert résiduel)
   // ============================================================
   const themeName = useMemo(() => {
     if (role !== 'family') {
@@ -50,31 +46,42 @@ const MainLayout = () => {
 
     const path = location.pathname;
 
-    // 1️⃣ Si l'on consulte la fiche d'un proche spécifique, on adopte ses couleurs
+    // 1️⃣ Si l'on consulte la fiche d'un proche spécifique, on l'adopte et le mémorise
     if (path.startsWith('/app/patients/')) {
       const patientId = path.split('/').pop();
       const patient = patients.find(p => p.id === patientId);
-      if (patient?.category === 'maman_bebe') return 'maman';
-      if (patient?.category === 'senior') return 'senior';
+      if (patient) {
+        localStorage.setItem('sante_plus_active_category', patient.category);
+        return patient.category === 'maman_bebe' ? 'maman' : 'senior';
+      }
     }
 
-    // 2️⃣ Si l'on consulte une visite spécifique, on l'adapte
+    // 2️⃣ Si l'on consulte une visite spécifique, on l'adopte et le mémorise
     if (path.startsWith('/app/visits/')) {
       const visitId = path.split('/').pop();
       const visit = visits.find(v => v.id === visitId);
-      if (visit?.patient?.category === 'maman_bebe') return 'maman';
-      if (visit?.patient?.category === 'senior') return 'senior';
+      if (visit?.patient?.category) {
+        localStorage.setItem('sante_plus_active_category', visit.patient.category);
+        return visit.patient.category === 'maman_bebe' ? 'maman' : 'senior';
+      }
     }
 
-    // 3️⃣ Si l'on consulte une commande spécifique, on l'adapte
+    // 3️⃣ Si l'on consulte une commande spécifique, on l'adopte et le mémorise
     if (path.startsWith('/app/orders/')) {
       const orderId = path.split('/').pop();
       const order = orders.find(o => o.id === orderId);
-      if (order?.patient?.category === 'maman_bebe') return 'maman';
-      if (order?.patient?.category === 'senior') return 'senior';
+      if (order?.patient?.category) {
+        localStorage.setItem('sante_plus_active_category', order.patient.category);
+        return order.patient.category === 'maman_bebe' ? 'maman' : 'senior';
+      }
     }
 
-    // 4️⃣ Si l'utilisateur a uniquement des proches maternité, on passe l'application en Rose
+    // 4️⃣ Vérifier s'il y a un historique de catégorie active mémorisée en local
+    const savedCategory = localStorage.getItem('sante_plus_active_category');
+    if (savedCategory === 'maman_bebe') return 'maman';
+    if (savedCategory === 'senior') return 'senior';
+
+    // 5️⃣ Si l'utilisateur a uniquement des proches maternité, on passe l'application en Rose
     const hasMamanBebe = patients.some(p => p.category === 'maman_bebe');
     const hasSenior = patients.some(p => p.category === 'senior');
 
@@ -85,14 +92,14 @@ const MainLayout = () => {
       return 'senior';
     }
 
-    // 5️⃣ Repli par défaut sur la catégorie du profil enregistré
+    // 6️⃣ Repli par défaut sur la catégorie du profil enregistré
     return getThemeByRole(role, profile?.patient_category as any);
   }, [role, profile?.patient_category, location.pathname, patients, visits, orders]);
 
   const colors = getThemeColors(themeName);
   const logoConfig = getLogoByRole(role, profile?.patient_category);
 
-  // ✅ MISE À JOUR DE LA RACINE DU DOCUMENT POUR APPLIQUER LA COULEUR DE RÔLE GLOBALE
+  // ✅ SYNCHRONISATION DU THÈME SUR LA RACINE DU DOCUMENT (Élément HTML)
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('theme-senior', 'theme-maman', 'theme-aidant', 'theme-coordinator');
@@ -135,7 +142,7 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE ET ICÔNES SÉCURISÉES RESTAURÉES
+  // NAVIGATION PAR RÔLE
   // =============================================
   const navItems = useMemo(() => {
     const base = [{ icon: <LayoutDashboard size={18} />, label: 'Tableau de bord', path: '/app' }];
@@ -306,7 +313,7 @@ const MainLayout = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  {/* SALUTATION DYNAMIQUE SELON L'HEURE */}
+                  {/* SALUTATION DYNAMIQUE SELON L'HEURE (BONSOIR / BONJOUR) */}
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">
                     {getGreeting()},
                   </p>
