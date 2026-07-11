@@ -1,5 +1,5 @@
 // 📁 src/lib/permissions.ts
-
+ 
 import { UserRole } from '@/types';
 
 // =============================================
@@ -43,7 +43,7 @@ export const PERMISSIONS = {
     canManageSettings: false,
     canViewLogs: false,
   },
-
+  
   aidant: {
     canViewPatients: true,
     canCreatePatients: false,
@@ -81,7 +81,7 @@ export const PERMISSIONS = {
     canManageSettings: false,
     canViewLogs: false,
   },
-
+  
   coordinator: {
     canViewPatients: true,
     canCreatePatients: true,
@@ -119,7 +119,7 @@ export const PERMISSIONS = {
     canManageSettings: false,
     canViewLogs: false,
   },
-
+  
   admin: {
     canViewPatients: true,
     canCreatePatients: true,
@@ -228,14 +228,14 @@ export const getThemeByRole = (
   patientCategory?: 'senior' | 'maman_bebe' | null
 ): ThemeType => {
   if (!role) return 'senior';
-
+  
   if (role === 'admin' || role === 'coordinator') return 'coordinator';
   if (role === 'aidant') return 'aidant';
-
+  
   if (role === 'family') {
     return patientCategory === 'maman_bebe' ? 'maman' : 'senior';
   }
-
+  
   return 'senior';
 };
 
@@ -247,12 +247,12 @@ export const getThemeColors = (theme: ThemeType | string) => {
   switch (theme) {
     case 'maman':
       return {
-        primary: '#e8436a', // Rose principal
+        primary: '#e8436a',
         primaryDark: '#c62850',
         primaryLight: '#f06292',
-        secondary: '#c9a84c', // Doré secondaire
+        secondary: '#fce4ec',
         secondaryLight: '#fdf0f3',
-        background: '#fff5f7', // Fond gris-rose doux
+        background: '#fff5f7',
         surface: '#ffffff',
         surfaceSoft: '#fff8f9',
         text: '#4a2c2c',
@@ -268,15 +268,15 @@ export const getThemeColors = (theme: ThemeType | string) => {
         banner: '/assets/images/banners/maman-banner.png',
         visitImage: '/assets/images/banners/maman-visit.png',
       };
-
+      
     case 'aidant':
       return {
-        primary: '#2c6e5c', // Vert sauge
+        primary: '#2c6e5c',
         primaryDark: '#1a4a3a',
         primaryLight: '#3a8a72',
-        secondary: '#c9a84c', // Doré
+        secondary: '#e8f0ed',
         secondaryLight: '#f0f5f2',
-        background: '#f5faf8', // Gris vert-beige clair
+        background: '#f5faf8',
         surface: '#ffffff',
         surfaceSoft: '#f0f7f4',
         text: '#1a3a2e',
@@ -292,15 +292,15 @@ export const getThemeColors = (theme: ThemeType | string) => {
         banner: '/assets/images/banners/aidant-banner.png',
         visitImage: '/assets/images/banners/aidant-visit.png',
       };
-
+      
     case 'coordinator':
       return {
-        primary: '#1a4a3a', // Vert sapin
+        primary: '#1a4a3a',
         primaryDark: '#0d2a22',
         primaryLight: '#2a6a4a',
-        secondary: '#c9a84c', // Doré
+        secondary: '#c9a84c',
         secondaryLight: '#dcc07a',
-        background: '#faf6f0', // Beige-gris doux
+        background: '#f0f4f8',
         surface: '#ffffff',
         surfaceSoft: '#f5f8fb',
         text: '#1a2a3a',
@@ -316,15 +316,15 @@ export const getThemeColors = (theme: ThemeType | string) => {
         banner: '/assets/images/banners/coord-banner.png',
         visitImage: '/assets/images/banners/coord-visit.png',
       };
-
+      
     default: // senior
       return {
-        primary: '#1a4a3a', // Vert principal
+        primary: '#1a4a3a',
         primaryDark: '#0d2a22',
         primaryLight: '#2a6a4a',
-        secondary: '#c9a84c', // Doré secondaire
+        secondary: '#c9a84c',
         secondaryLight: '#dcc07a',
-        background: '#f5f0e8', // Beige
+        background: '#f5f0e8',
         surface: '#ffffff',
         surfaceSoft: '#faf7f1',
         text: '#2d2d2d',
@@ -421,9 +421,12 @@ export const getRoleLabel = (role: string): string => {
   return labels[role] || role;
 };
 
-// ✅ OBTENIR LA COULEUR DE RÔLE DYNAMIQUE (Désormais alignée sur le thème de profil)
-export const getRoleColor = (role: string, patientCategory?: 'senior' | 'maman_bebe' | null): string => {
-  const theme = getThemeByRole(role as any, patientCategory);
-  const colors = getThemeColors(theme);
-  return colors.primary;
+export const getRoleColor = (role: string): string => {
+  const colors: Record<string, string> = {
+    family: '#1a4a3a',
+    aidant: '#2c6e5c',
+    coordinator: '#1a4a3a',
+    admin: '#1a4a3a',
+  };
+  return colors[role] || '#9E9E9E';
 };
