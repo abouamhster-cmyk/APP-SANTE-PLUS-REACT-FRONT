@@ -21,6 +21,10 @@ import { cn, getGreeting, getInitials } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
+
 const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -131,7 +135,7 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE
+  // NAVIGATION PAR RÔLE ET ICÔNES SÉCURISÉES RESTAURÉES
   // =============================================
   const navItems = useMemo(() => {
     const base = [{ icon: <LayoutDashboard size={18} />, label: 'Tableau de bord', path: '/app' }];
