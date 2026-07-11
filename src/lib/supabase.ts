@@ -1,4 +1,5 @@
 // 📁 src/lib/supabase.ts
+// ✅ CLIENT SUPABASE CORRECTEMENT CONFIGURÉ SANS EN-TÊTE GLOBAL CONTRAIGNANT POUR L'UPLOAD
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -23,7 +24,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'Accept': 'application/json', 
-     },
+      // 🟢 'Content-Type': 'application/json' a été retiré d'ici pour permettre le téléversement de fichiers multimédias
+    },
   },
 });
 
@@ -36,7 +38,7 @@ export const getCurrentUser = async () => {
   return user;
 };
 
- export const getCurrentProfile = async () => {
+export const getCurrentProfile = async () => {
   const user = await getCurrentUser();
   if (!user) return null;
 
@@ -54,7 +56,6 @@ export const getCurrentUser = async () => {
   return data;
 };
 
-// ✅ CORRIGÉ : Utiliser maybeSingle() au lieu de single()
 export const getProfileById = async (userId: string) => {
   if (!userId) return null;
 
@@ -72,7 +73,6 @@ export const getProfileById = async (userId: string) => {
   return data;
 };
 
-// Utiliser maybeSingle() pour éviter les erreurs
 export const getProfileByRole = async (role: string) => {
   const { data, error } = await supabase
     .from('profiles')
@@ -150,12 +150,9 @@ export const unsubscribeFromChannel = (channel: any) => {
 };
 
 // =============================================
-// ✅ NOTIFICATIONS REALTIME (POUR LA CONSOLE)
+// REALTIME NOTIFICATIONS
 // =============================================
 
-/**
- * S'abonne aux notifications en temps réel pour un utilisateur
- */
 export const subscribeToNotifications = (
   userId: string,
   onInsert: (payload: any) => void
@@ -187,9 +184,6 @@ export const subscribeToNotifications = (
   return channel;
 };
 
-/**
- * Se désabonne du canal de notifications
- */
 export const unsubscribeFromNotifications = (channel: any) => {
   if (channel) {
     supabase.removeChannel(channel);
@@ -198,21 +192,16 @@ export const unsubscribeFromNotifications = (channel: any) => {
 };
 
 // =============================================
-// ✅ GESTION DES TOKENS PUSH
+// GESTION DES TOKENS PUSH
 // =============================================
 
-/**
- * Enregistre un token push pour un utilisateur
- */
 export const registerPushToken = async (userId: string, token: string, deviceInfo?: string) => {
   try {
-    // Supprimer l'ancien token
     await supabase
       .from('push_tokens')
       .delete()
       .eq('user_id', userId);
 
-    // Insérer le nouveau token
     const { error } = await supabase
       .from('push_tokens')
       .insert({
@@ -232,9 +221,6 @@ export const registerPushToken = async (userId: string, token: string, deviceInf
   }
 };
 
-/**
- * Supprime un token push
- */
 export const removePushToken = async (userId: string, token?: string) => {
   try {
     let query = supabase
@@ -257,12 +243,9 @@ export const removePushToken = async (userId: string, token?: string) => {
 };
 
 // =============================================
-// ✅ NOTIFICATIONS EN BASE
+// NOTIFICATIONS EN BASE
 // =============================================
 
-/**
- * Récupère les notifications d'un utilisateur
- */
 export const getNotifications = async (userId: string, limit: number = 50) => {
   try {
     const { data, error } = await supabase
@@ -280,9 +263,6 @@ export const getNotifications = async (userId: string, limit: number = 50) => {
   }
 };
 
-/**
- * Marque une notification comme lue
- */
 export const markNotificationAsRead = async (notificationId: string) => {
   try {
     const { error } = await supabase
@@ -301,9 +281,6 @@ export const markNotificationAsRead = async (notificationId: string) => {
   }
 };
 
-/**
- * Marque toutes les notifications comme lues
- */
 export const markAllNotificationsAsRead = async (userId: string) => {
   try {
     const { error } = await supabase
@@ -323,9 +300,6 @@ export const markAllNotificationsAsRead = async (userId: string) => {
   }
 };
 
-/**
- * Crée une notification
- */
 export const createNotification = async (data: {
   user_id: string;
   title: string;
