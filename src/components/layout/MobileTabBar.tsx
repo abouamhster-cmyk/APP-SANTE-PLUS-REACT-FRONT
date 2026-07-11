@@ -1,31 +1,8 @@
 // 📁 src/components/layout/MobileTabBar.tsx
- 
+// ✅ BARRE D'ONGLETS MOBILE COMPACTE AVEC TOUTES LES ICÔNES DU MENU RESTAURÉES ET COLORIÉES
+
 import { Link, useLocation } from 'react-router-dom';
-import {
-  Home,
-  Users,
-  FileText,
-  Calendar,
-  User,
-  Settings,
-  ClipboardList,
-  UserCheck,
-  Briefcase,
-  CreditCard,
-  Bell,
-  MessageCircle,
-  MapPin,
-  History,
-  Award,
-  Package,
-  Menu,
-  BookOpen,
-  Hospital,
-  X,
-  ChevronUp,
-  LayoutDashboard,
-  ShoppingBag,
-} from 'lucide-react';
+import { Home, Users, FileText, Calendar, User, Settings, ClipboardList, UserCheck, Briefcase, CreditCard, Bell, MessageCircle, MapPin, History, Award, Package, Menu, BookOpen, Hospital, X, ChevronUp, LayoutDashboard, ShoppingBag, } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useState, useEffect } from 'react';
@@ -37,33 +14,33 @@ interface MobileTabBarProps {
 
 const getMainItems = (role: string | null) => {
   const base = [
-    { icon: <Home size={20} />, label: 'Accueil', path: '/app' },
+    { icon: <Home size={18} />, label: 'Accueil', path: '/app' },
   ];
 
   if (role === 'family') {
     return [
       ...base,
-      { icon: <Users size={20} />, label: 'Proches', path: '/app/patients' },
-      { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
-      { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
+      { icon: <Users size={18} />, label: 'Proches', path: '/app/patients' },
+      { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits' },
+      { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
   if (role === 'aidant') {
     return [
       ...base,
-      { icon: <Briefcase size={20} />, label: 'Missions', path: '/app/missions' },
-      { icon: <Calendar size={20} />, label: 'Planning', path: '/app/planning' },
-      { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
+      { icon: <Briefcase size={18} />, label: 'Missions', path: '/app/missions' },
+      { icon: <Calendar size={18} />, label: 'Planning', path: '/app/planning' },
+      { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
     ];
   }
 
   if (role === 'admin' || role === 'coordinator') {
     return [
       ...base,
-      { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
-      { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients' },
-      { icon: <Settings size={20} />, label: 'Paramètres', path: '/app/settings' },
+      { icon: <ClipboardList size={18} />, label: 'Inscriptions', path: '/app/registrations' },
+      { icon: <Users size={18} />, label: 'Bénéficiaires', path: '/app/patients' },
+      { icon: <Settings size={18} />, label: 'Paramètres', path: '/app/settings' },
     ];
   }
 
@@ -78,39 +55,39 @@ const getMoreItems = (role: string | null, colors: any) => {
 
   if (role === 'family') {
     return [
-      { icon: <UserCheck size={18} />, label: 'Aidants', path: '/app/aidants', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing', color: '#10B981', bg: '#10B98112' },
-      { icon: <BookOpen size={18} />, label: 'Journal', path: '/app/journal', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
-      { icon: <Hospital size={18} />, label: 'Sortie', path: '/app/discharge', color: '#EC4899', bg: '#EC489912' },
-      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <UserCheck size={16} />, label: 'Aidants', path: '/app/aidants', color: primaryColor, bg: `${primaryColor}12` },
+      { icon: <MessageCircle size={16} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
+      { icon: <CreditCard size={16} />, label: 'Abonnement', path: '/app/billing', color: '#10B981', bg: '#10B98112' },
+      { icon: <ClipboardList size={16} />, label: 'Journal', path: '/app/journal', color: '#8B5CF6', bg: '#8B5CF612' },
+      { icon: <MapPin size={16} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
+      { icon: <Hospital size={16} />, label: 'Sortie', path: '/app/discharge', color: '#EC4899', bg: '#EC489912' },
+      { icon: <Bell size={16} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
     ];
   }
 
   if (role === 'aidant') {
     return [
-      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <History size={18} />, label: 'Historique', path: '/app/history', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
-      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <ShoppingBag size={16} />, label: 'Commandes', path: '/app/orders', color: primaryColor, bg: `${primaryColor}12` },
+      { icon: <MessageCircle size={16} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
+      { icon: <History size={16} />, label: 'Historique', path: '/app/history', color: '#8B5CF6', bg: '#8B5CF612' },
+      { icon: <MapPin size={16} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
+      { icon: <Bell size={16} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
     ];
   }
 
   if (role === 'admin' || role === 'coordinator') {
     return [
-      { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/app/admin', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <UserCheck size={18} />, label: 'Candidatures', path: '/app/aidant-candidates', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits', color: '#10B981', bg: '#10B98112' },
-      { icon: <FileText size={18} />, label: 'Rapports', path: '/app/admin/visits/validation', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders', color: '#F59E0B', bg: '#F59E0B12' },
-      { icon: <CreditCard size={18} />, label: 'Paiements', path: '/app/admin-payments', color: '#EC4899', bg: '#EC489912' },
-      { icon: <Award size={18} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: '#6366F1', bg: '#6366F112' },
-      { icon: <Package size={18} />, label: 'Offres', path: '/app/offers', color: '#14B8A6', bg: '#14B8A612' },
-      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/admin-notifications', color: '#EF4444', bg: '#EF444412' },
-      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map', color: '#06B6D4', bg: '#06B6D412' },
-      { icon: <User size={18} />, label: 'Profil', path: '/app/profile', color: '#84CC16', bg: '#84CC1612' },
+      { icon: <LayoutDashboard size={16} />, label: 'Dashboard', path: '/app/admin', color: primaryColor, bg: `${primaryColor}12` },
+      { icon: <UserCheck size={16} />, label: 'Candidatures', path: '/app/aidant-candidates', color: '#3B82F6', bg: '#3B82F612' },
+      { icon: <Calendar size={16} />, label: 'Visites', path: '/app/visits', color: '#10B981', bg: '#10B98112' },
+      { icon: <FileText size={16} />, label: 'Rapports', path: '/app/admin/visits/validation', color: '#8B5CF6', bg: '#8B5CF612' },
+      { icon: <ShoppingBag size={16} />, label: 'Commandes', path: '/app/orders', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <CreditCard size={16} />, label: 'Paiements', path: '/app/admin-payments', color: '#EC4899', bg: '#EC489912' },
+      { icon: <Package size={16} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: '#6366F1', bg: '#6366F112' },
+      { icon: <BookOpen size={16} />, label: 'Offres', path: '/app/offers', color: '#14B8A6', bg: '#14B8A612' },
+      { icon: <Bell size={16} />, label: 'Notifications', path: '/app/admin-notifications', color: '#EF4444', bg: '#EF444412' },
+      { icon: <MapPin size={16} />, label: 'Carte', path: '/app/map', color: '#06B6D4', bg: '#06B6D412' },
+      { icon: <User size={16} />, label: 'Profil', path: '/app/profile', color: '#84CC16', bg: '#84CC1612' },
     ];
   }
 
@@ -155,38 +132,22 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
     <>
       {/* Fond flouté sombre derrière le BottomSheet */}
       {showMore && (
-        <div
-          className="fixed inset-0 z-[45] bg-black/25 backdrop-blur-sm transition-opacity duration-300 ease-out"
+        <div 
+          className="fixed inset-0 bg-black/30 backdrop-blur-md z-40 animate-fadeIn"
           onClick={() => setShowMore(false)}
         />
       )}
 
-      {/* ============================================================
-          BOTTOM SHEET PLUS (Mise à l'échelle élastique et floutée)
-          ============================================================ */}
-      <div
+      {/* BOTTOM SHEET PLUS */}
+      <div 
         className={cn(
-          "fixed left-4 right-4 z-[48] bg-white/95 dark:bg-[#121c16]/95 backdrop-blur-xl rounded-[2.5rem] border border-gray-100/50 dark:border-[#2c3f35]/50 shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
-          showMore 
-            ? "scale-100 opacity-100 translate-y-0 blur-none pointer-events-auto" 
-            : "scale-90 opacity-0 translate-y-4 blur-sm pointer-events-none"
+          "fixed left-0 right-0 bg-white/95 dark:bg-[#111a15]/95 backdrop-blur-xl border-t z-50 px-5 pt-6 pb-10 rounded-t-[2.5rem] transition-all duration-300 ease-out shadow-[0_-12px_40px_rgba(0,0,0,0.12)]",
+          showMore ? "bottom-0" : "-bottom-full"
         )}
-        style={{
-          boxShadow: '0 -10px 40px -15px rgba(0, 0, 0, 0.12), 0 15px 40px rgba(0,0,0,0.08)',
-        }}
+        style={{ borderColor: colors.primary + '15' }}
       >
-        <div className="flex items-center justify-between mb-5 border-b pb-3 dark:border-[#2c3f35]">
-          <div className="space-y-0.5">
-            <h3 className="text-sm font-extrabold text-gray-800 dark:text-gray-100">Plus d'outils</h3>
-           </div>
-          <button
-            onClick={() => setShowMore(false)}
-            className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition shadow-sm"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
+        <div className="w-12 h-1 bg-gray-200 dark:bg-[#2c3f35] rounded-full mx-auto mb-6 shrink-0" />
+        
         {/* Grille scrollable sécurisée et colorée */}
         <div className="grid grid-cols-3 gap-3.5 max-h-[42vh] overflow-y-auto pr-1 py-1 scrollbar-none">
           {moreItems.map((item) => {
@@ -230,109 +191,102 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         </div>
       </div>
 
-      {/* ============================================================
-          FLOATING DOCK "FLOATING ISLAND" TACTILE (CERCLES ACTIFS DE RÔLE)
-          ============================================================ */}
-      <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
-        <div
-          className="w-full max-w-lg bg-white/80 dark:bg-[#121c16]/80 backdrop-blur-xl border border-white/20 dark:border-[#2c3f35]/20 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
-          style={{
-            boxShadow: '0 20px 40px -15px rgba(15,31,25,0.15), 0 0 1px 1px rgba(255,255,255,0.15) inset',
-          }}
-        >
-          {/* BOUTONS PRINCIPAUX AVEC CERCLES TACTILES D'ACTIVATION */}
-          {mainItems.map((item) => {
-            const active = isActive(item.path);
+      {/* FLOATING DOCK TACTILE */}
+      <div 
+        className="fixed bottom-4 left-4 right-4 z-40 bg-white/70 dark:bg-[#111a15]/70 backdrop-blur-xl rounded-full px-3.5 py-2.5 flex items-center justify-around border border-gray-100/50 dark:border-gray-800/40 shadow-[0_12px_32px_rgba(0,0,0,0.08)] max-w-md mx-auto"
+        style={{ borderColor: colors.primary + '10' }}
+      >
+        {mainItems.map((item) => {
+          const active = isActive(item.path);
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={handleLinkClick}
-                className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
-              >
-                {/* Icône enveloppée dans un cercle actif de couleur du rôle */}
-                <div
-                  className={cn(
-                    "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
-                    active 
-                      ? "text-white scale-105 shadow-md shadow-black/10" 
-                      : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
-                  )}
-                  style={{
-                    backgroundColor: active ? colors.primary : 'transparent',
-                  }}
-                >
-                  <div className="transition-transform duration-200">
-                    {item.icon}
-                  </div>
-                </div>
-                
-                <span
-                  className={cn(
-                    "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
-                    active ? "opacity-100 font-extrabold" : "opacity-60"
-                  )}
-                  style={{ color: active ? colors.primary : '#9CA3AF' }}
-                >
-                  {item.label}
-                </span>
-
-                {item.path === '/app' && unreadCount > 0 && (
-                  <span
-                    className="absolute top-1 right-3 min-w-4 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse shadow-sm"
-                    style={{ background: '#DC2626' }}
-                  >
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={handleLinkClick}
+              className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
+            >
+              {/* Icône enveloppée dans un cercle actif de couleur du rôle */}
+              <div
+                className={cn(
+                  "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
+                  active 
+                    ? "text-white scale-105 shadow-md shadow-black/10" 
+                    : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
                 )}
-              </Link>
-            );
-          })}
-
-          {/* BOUTON PLUS AVEC FLUIDITÉ CERCLE TACTILE DE COULEUR */}
-          {moreItems.length > 0 && (
-            <div className="relative">
-              <button
-                onClick={() => setShowMore(!showMore)}
-                className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
+                style={{
+                  backgroundColor: active ? colors.primary : 'transparent',
+                }}
               >
-                <div 
-                  className={cn(
-                    "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
-                    showMore || isMoreActive
-                      ? "text-white scale-105 shadow-md shadow-black/10"
-                      : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
-                  )}
-                  style={{
-                    backgroundColor: showMore || isMoreActive ? colors.primary : 'transparent',
-                  }}
-                >
-                  <div className={cn("transition-transform duration-300", showMore ? "rotate-90" : "")}>
-                    {showMore ? <X size={18} /> : <Menu size={18} />}
-                  </div>
+                <div className="transition-transform duration-200">
+                  {item.icon}
                 </div>
-                
-                <span
-                  className={cn(
-                    "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
-                    showMore || isMoreActive ? "opacity-100 font-extrabold" : "opacity-60"
-                  )}
-                  style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
-                >
-                  {showMore ? 'Fermer' : 'Plus'}
-                </span>
-
-                {hasUnreadNotifications && !showMore && (
-                  <span
-                    className="absolute top-1.5 right-4.5 w-1.5 h-1.5 rounded-full bg-red-500"
-                    style={{ background: '#DC2626' }}
-                  />
+              </div>
+              
+              <span
+                className={cn(
+                  "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
+                  active ? "opacity-100 font-extrabold" : "opacity-60"
                 )}
-              </button>
-            </div>
-          )}
-        </div>
+                style={{ color: active ? colors.primary : '#9CA3AF' }}
+              >
+                {item.label}
+              </span>
+
+              {item.path === '/app' && unreadCount > 0 && (
+                <span
+                  className="absolute top-1 right-3 min-w-4 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse shadow-sm"
+                  style={{ background: '#DC2626' }}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+
+        {/* BOUTON PLUS */}
+        {moreItems.length > 0 && (
+          <div className="relative">
+            <button
+              onClick={() => setShowMore(!showMore)}
+              className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
+            >
+              <div 
+                className={cn(
+                  "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
+                  showMore || isMoreActive
+                    ? "text-white scale-105 shadow-md shadow-black/10"
+                    : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
+                )}
+                style={{
+                  backgroundColor: showMore || isMoreActive ? colors.primary : 'transparent',
+                }}
+              >
+                <div className={cn("transition-transform duration-300", showMore ? "rotate-90" : "")}>
+                  {showMore ? <X size={18} /> : <Menu size={18} />}
+                </div>
+              </div>
+              
+              <span
+                className={cn(
+                  "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
+                  showMore || isMoreActive ? "opacity-100 font-extrabold" : "opacity-60"
+                )}
+                style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
+              >
+                {showMore ? 'Fermer' : 'Plus'}
+              </span>
+
+              {hasUnreadNotifications && !showMore && (
+                <span
+                  className="absolute top-1.5 right-4.5 w-1.5 h-1.5 rounded-full bg-red-500"
+                  style={{ background: '#DC2626' }}
+                />
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
