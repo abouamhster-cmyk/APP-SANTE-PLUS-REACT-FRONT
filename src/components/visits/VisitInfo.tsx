@@ -261,7 +261,6 @@ export const getVisitPaymentAmount = (visit: Visit): number => {
   if (visit.metadata?.payment_amount) {
     return visit.metadata.payment_amount;
   }
-  // Prix par défaut selon la durée
   const duration = visit.duration_minutes || 60;
   const prices: Record<number, number> = {
     30: 5000,
@@ -292,10 +291,6 @@ export const getDraftExpiryTime = (visit: Visit): string | null => {
   if (hours > 0) return `${hours}h ${minutes}min`;
   return `${minutes}min`;
 };
-
-// =============================================
-// COMPOSANT VISUAL (Optionnel)
-// =============================================
 
 interface VisitInfoDisplayProps {
   visit: Visit;
