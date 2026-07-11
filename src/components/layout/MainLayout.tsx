@@ -2,10 +2,32 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { Bell, User, LogOut, Settings, Users, Calendar, ShoppingBag,
-MessageCircle, LayoutDashboard, Briefcase, MapPin, ClipboardList, UserCheck,
-CreditCard, Award, History as HistoryIcon, Hospital, BookOpen, FileCheck,
-Package, Home, Shield, UserCog, AlertCircle, } from 'lucide-react';
+import {
+  Bell,
+  User,
+  LogOut,
+  Settings,
+  Users,
+  Calendar,
+  ShoppingBag,
+  MessageCircle,
+  LayoutDashboard,
+  Briefcase,
+  MapPin,
+  ClipboardList,
+  UserCheck,
+  CreditCard,
+  Award,
+  History as HistoryIcon,
+  Hospital,
+  BookOpen,
+  FileCheck,
+  Package,
+  Home,
+  Shield,
+  UserCog,
+  AlertCircle,
+} from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -14,7 +36,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
-import { cn, getGreeting } from '@/utils/helpers'; // ✅ Import de getGreeting
+import { cn } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 
@@ -27,7 +49,8 @@ const MainLayout = () => {
   const location = useLocation();
 
   const { profile, role, logout } = useAuthStore();
-  const { unreadCount, fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
+  const { unreadCount, fetchNotifications, subscribe, unsubscribe } =
+    useNotificationStore();
   const { visits } = useVisitStore();
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
@@ -78,54 +101,56 @@ const MainLayout = () => {
   // NAVIGATION PAR RÔLE
   // =============================================
   const navItems = useMemo(() => {
-    const base = [{ icon: <LayoutDashboard size={18} />, label: 'Tableau de bord', path: '/app' }];
+    const base = [
+      { icon: <LayoutDashboard size={20} />, label: 'Tableau de bord', path: '/app' },
+    ];
 
     if (role === 'family') {
       return [
         ...base,
-        { icon: <Users size={18} />, label: 'Proches', path: '/app/patients' },
-        { icon: <UserCheck size={18} />, label: 'Aidants', path: '/app/aidants' },
-        { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits' },
-        { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
-        { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing' },
-        { icon: <ClipboardList size={18} />, label: 'Journal', path: '/app/journal' },
-        { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
-        { icon: <Hospital size={18} />, label: 'Sortie hôpital', path: '/app/discharge' },
-        { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
+        { icon: <Users size={20} />, label: 'Proches', path: '/app/patients' },
+        { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants' },
+        { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
+        { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
+        { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
+        { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing' },
+        { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal' },
+        { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
+        { icon: <Hospital size={20} />, label: 'Sortie hôpital', path: '/app/discharge' },
+        { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
     }
 
     if (role === 'aidant') {
       return [
         ...base,
-        { icon: <Briefcase size={18} />, label: 'Missions', path: '/app/missions' },
-        { icon: <Calendar size={18} />, label: 'Planning', path: '/app/planning' },
-        { icon: <HistoryIcon size={18} />, label: 'Historique', path: '/app/history' },
-        { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages' },
-        { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
-        { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
+        { icon: <Briefcase size={20} />, label: 'Missions', path: '/app/missions' },
+        { icon: <Calendar size={20} />, label: 'Planning', path: '/app/planning' },
+        { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history' },
+        { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
+        { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
+        { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
+        { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
     }
 
     if (role === 'admin' || role === 'coordinator') {
       return [
         ...base,
-        { icon: <LayoutDashboard size={18} />, label: 'Dashboard Admin', path: '/app/admin' },
-        { icon: <ClipboardList size={18} />, label: 'Inscriptions', path: '/app/registrations' },
-        { icon: <UserCheck size={18} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
-        { icon: <Users size={18} />, label: 'Bénéficiaires', path: '/app/patients' },
-        { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits' },
-        { icon: <FileCheck size={18} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
-        { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <CreditCard size={18} />, label: 'Paiements', path: '/app/admin-payments' },
-        { icon: <Package size={18} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
-        { icon: <BookOpen size={18} />, label: 'Offres', path: '/app/offers' },
-        { icon: <Settings size={18} />, label: 'Paramètres', path: '/app/settings' },
-        { icon: <Bell size={18} />, label: 'Notifications Admin', path: '/app/admin-notifications' },
-        { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map' },
-        { icon: <User size={18} />, label: 'Profil', path: '/app/profile' },
+        { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', path: '/app/admin' },
+        { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
+        { icon: <UserCheck size={20} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
+        { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients' },
+        { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
+        { icon: <FileCheck size={20} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
+        { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
+        { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments' },
+        { icon: <Award size={20} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
+        { icon: <Package size={20} />, label: 'Offres', path: '/app/offers' },
+        { icon: <Settings size={20} />, label: 'Paramètres', path: '/app/settings' },
+        { icon: <Bell size={20} />, label: 'Notifications Admin', path: '/app/admin-notifications' },
+        { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
+        { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
     }
 
@@ -181,8 +206,13 @@ const MainLayout = () => {
   }, [location.pathname, role]);
 
   return (
-    <div className={cn("min-h-screen w-full overflow-x-hidden", `theme-${themeName}`)} style={{ backgroundColor: colors.background }}>
+    <div
+      className="min-h-screen w-full overflow-x-hidden"
+      style={{ backgroundColor: colors.background }}
+    >
+      {/* ========================================== */}
       {/* SIDEBAR DESKTOP UNIQUEMENT */}
+      {/* ========================================== */}
       {!isMobile && (
         <aside
           className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col"
@@ -203,127 +233,135 @@ const MainLayout = () => {
         </aside>
       )}
 
-      {/* HEADER IMMERSIF */}
-      <header
-        className={cn(
-          "fixed top-0 left-0 right-0 z-30 transition-all duration-300",
-          isMobile 
-            ? "bg-transparent border-none px-4 py-3" 
-            : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4"
-        )}
-        style={{
-          borderColor: isMobile ? 'transparent' : colors.primary + '20',
-        }}
-      >
-        <div className="max-w-full mx-auto">
-          <div className="flex items-center justify-between gap-3">
-            
-            {isMobile ? (
-              <div className="flex items-center gap-2 min-w-0">
-                {/* Avatar mobile */}
-                <div 
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-sm shrink-0 overflow-hidden"
-                  style={{ background: colors.primary }}
-                >
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        const parent = (e.target as HTMLImageElement).parentElement;
-                        if (parent) {
-                          parent.textContent = profile?.full_name?.charAt(0) || 'U';
-                          parent.style.display = 'flex';
-                          parent.style.alignItems = 'center';
-                          parent.style.justifyContent = 'center';
-                        }
-                      }}
-                    />
-                  ) : (
-                    profile?.full_name?.charAt(0) || 'U'
-                  )}
+      {/* ========================================== */}
+      {/* PAGE CONTENT */}
+      {/* ========================================== */}
+      <div className="min-h-screen w-full md:pl-72">
+        
+        {/* ========================================== */}
+        {/* HEADER IMMERSIF (FLOTTANT SUR MOBILE) */}
+        {/* ========================================== */}
+        <header
+          className={cn(
+            "fixed top-0 left-0 right-0 z-30 transition-all duration-300",
+            isMobile 
+              ? "bg-transparent border-none px-4 py-3" 
+              : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4"
+          )}
+          style={{
+            borderColor: isMobile ? 'transparent' : colors.primary + '20',
+          }}
+        >
+          <div className="max-w-full mx-auto">
+            <div className="flex items-center justify-between gap-3">
+              
+              {isMobile ? (
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* ✅ Avatar mobile avec image */}
+                  <div 
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-sm shrink-0 overflow-hidden"
+                    style={{ background: colors.primary }}
+                  >
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="Avatar"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const parent = (e.target as HTMLImageElement).parentElement;
+                          if (parent) {
+                            parent.textContent = profile?.full_name?.charAt(0) || 'U';
+                            parent.style.display = 'flex';
+                            parent.style.alignItems = 'center';
+                            parent.style.justifyContent = 'center';
+                          }
+                        }}
+                      />
+                    ) : (
+                      profile?.full_name?.charAt(0) || 'U'
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">Bonjour,</p>
+                    <p className="text-xs font-black truncate leading-tight mt-0.5" style={{ color: colors.text }}>
+                      {profile?.full_name || 'Utilisateur'}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  {/* ✅ GREETING DYNAMIQUE SELON L'HEURE */}
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">
-                    {getGreeting()},
-                  </p>
-                  <p className="text-xs font-black truncate leading-tight mt-0.5" style={{ color: colors.text }}>
-                    {profile?.full_name || 'Utilisateur'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <h2
-                className="text-base sm:text-lg font-bold truncate pl-1 sm:pl-0"
-                style={{ color: colors.text }}
-              >
-                {pageTitle}
-              </h2>
-            )}
-
-            <div className="flex items-center gap-2">
-              {showDraftBadge && (
-                <Link
-                  to="/app/visits?filter=brouillon"
-                  className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition shrink-0 shadow-sm"
+              ) : (
+                <h2
+                  className="text-base sm:text-lg font-bold truncate pl-1 sm:pl-0"
+                  style={{ color: colors.text }}
                 >
-                  <AlertCircle size={11} />
-                  <span>{draftCount}</span>
-                </Link>
+                  {pageTitle}
+                </h2>
               )}
 
-              <span
-                className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-gray-100/80 dark:bg-[#1d2d25]/80"
-                style={{
-                  color: colors.primary,
-                }}
-              >
-                {role === 'aidant' && <Briefcase size={12} />}
-                {role === 'family' && <Users size={12} />}
-                {role === 'coordinator' && <UserCog size={12} />}
-                {role === 'admin' && <Shield size={12} />}
-                {role === 'aidant' ? ' Aidant' :
-                 role === 'family' ? ' Famille' :
-                 role === 'coordinator' ? ' Coord' :
-                 role === 'admin' ? ' Admin' : ''}
-              </span>
-
-              <Link
-                to="/app/notifications"
-                className={cn(
-                  "relative transition flex items-center justify-center shrink-0",
-                  isMobile 
-                    ? "w-9 h-9 rounded-full bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-md border border-gray-100 dark:border-gray-800/40 shadow-sm"
-                    : "w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] border"
-                )}
-              >
-                <Bell size={18} className="text-gray-500 dark:text-gray-300" />
-                {unreadCount > 0 && (
-                  <span
-                    className="absolute top-0 right-0 min-w-4 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse"
-                    style={{ backgroundColor: '#DC2626' }}
+              <div className="flex items-center gap-2">
+                {showDraftBadge && (
+                  <Link
+                    to="/app/visits?filter=brouillon"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition shrink-0 shadow-sm"
                   >
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
+                    <AlertCircle size={11} />
+                    <span>{draftCount}</span>
+                  </Link>
                 )}
-              </Link>
+
+                <span
+                  className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-gray-100/80 dark:bg-[#1d2d25]/80"
+                  style={{
+                    color: colors.primary,
+                  }}
+                >
+                  {role === 'aidant' && <Briefcase size={12} />}
+                  {role === 'family' && <Users size={12} />}
+                  {role === 'coordinator' && <UserCog size={12} />}
+                  {role === 'admin' && <Shield size={12} />}
+                  {role === 'aidant' ? ' Aidant' :
+                   role === 'family' ? ' Famille' :
+                   role === 'coordinator' ? ' Coord' :
+                   role === 'admin' ? ' Admin' : ''}
+                </span>
+
+                <Link
+                  to="/app/notifications"
+                  className={cn(
+                    "relative transition flex items-center justify-center shrink-0",
+                    isMobile 
+                      ? "w-9 h-9 rounded-full bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-md border border-gray-100 dark:border-gray-800/40 shadow-sm"
+                      : "w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] border"
+                  )}
+                >
+                  <Bell size={18} className="text-gray-500 dark:text-gray-300" />
+                  {unreadCount > 0 && (
+                    <span
+                      className="absolute top-0 right-0 min-w-4 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse"
+                      style={{ backgroundColor: '#DC2626' }}
+                    >
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* CONTENU PRINCIPAL */}
-      <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-24 md:pb-8 animate-fadeIn">
-        <div className="max-w-7xl mx-auto">
-          <ReminderBanner />
-          <Outlet />
-        </div>
-      </main>
+        {/* ============================================================
+            MODIFICATION CRITIQUE : pb-24 AU LIEU DE pb-32 SUR MOBILE 
+            (Défilement fluide, arrêt parfait sans vide abyssal)
+            ============================================================ */}
+        <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-24 md:pb-8 animate-fadeIn">
+          <div className="max-w-7xl mx-auto">
+            <ReminderBanner />
+            <Outlet />
+          </div>
+        </main>
+      </div>
 
-      {/* TABS MOBILE COMPACT */}
+      {/* TABS MOBILE COMPACT & TRANSLUCIDE */}
       {isMobile && <MobileTabBar colors={colors} />}
     </div>
   );
@@ -368,8 +406,10 @@ const SidebarContent = ({
     return 'Utilisateur';
   };
 
+  // ✅ Fonction pour obtenir l'URL de l'avatar avec timestamp
   const getAvatarUrl = (avatarUrl: string | null | undefined): string => {
     if (!avatarUrl) return '';
+    // ✅ Ajouter un timestamp pour éviter le cache si nécessaire
     if (avatarUrl.includes('?v=')) {
       return avatarUrl;
     }
@@ -378,19 +418,23 @@ const SidebarContent = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div
-        className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]"
-        style={{ borderColor: colors.primary + '20' }}
-      >
-        <p className="font-black text-sm leading-tight truncate" style={{ color: colors.primary }}>
-          Santé Plus Services
-        </p>
+    <div className="flex h-full flex-col bg-white dark:bg-[#17231d]">
+      <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '20' }}>
+        <div className="flex items-center gap-2.5">
+          <img src={logoConfig.icon} alt="Logo" className="w-8 h-8 object-contain" />
+          <div className="min-w-0">
+            <p className="font-black text-sm leading-tight truncate" style={{ color: colors.primary }}>
+              Santé Plus
+            </p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Services</p>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+      <div className="flex-1 overflow-y-auto pr-1 py-4 px-3 space-y-1 scrollbar-none">
         {navItems.map((item) => {
           const active = isActivePath(item.path, locationPath);
+
           return (
             <Link
               key={item.path}
@@ -408,26 +452,28 @@ const SidebarContent = ({
         })}
       </div>
 
-      {/* Profil de bas de page */}
-      <div className="p-4 border-t dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '20' }}>
+      {/* ✅ Profil utilisateur avec AVATAR ET FALLBACK */}
+      <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30" style={{ borderColor: colors.primary + '20' }}>
         <Link
           to="/app/profile"
-          className="flex items-center gap-3 p-3 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#1c2a21]/50 transition group border border-transparent hover:border-gray-100/50 mb-3"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition min-w-0"
         >
+          {/* ✅ Avatar avec image ET fallback sur les initiales */}
           <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 overflow-hidden"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm overflow-hidden"
             style={{ background: colors.primary }}
           >
             {profile?.avatar_url ? (
               <img
                 src={getAvatarUrl(profile.avatar_url)}
                 alt="Avatar"
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-full object-cover"
                 onError={(e) => {
+                  console.warn('⚠️ Erreur chargement avatar, fallback sur initiales');
                   (e.target as HTMLImageElement).style.display = 'none';
                   const parent = (e.target as HTMLImageElement).parentElement;
                   if (parent) {
-                    parent.textContent = getInitials(profile?.full_name || '');
+                    parent.textContent = profile?.full_name?.charAt(0) || 'U';
                     parent.style.display = 'flex';
                     parent.style.alignItems = 'center';
                     parent.style.justifyContent = 'center';
@@ -435,9 +481,10 @@ const SidebarContent = ({
                 }}
               />
             ) : (
-              getInitials(profile?.full_name || '')
+              profile?.full_name?.charAt(0) || 'U'
             )}
           </div>
+          
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold truncate text-gray-800 dark:text-gray-100">
               {profile?.full_name || 'Utilisateur'}
@@ -451,7 +498,7 @@ const SidebarContent = ({
 
         <button
           onClick={onLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 w-full transition text-red-500 font-bold text-xs"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 w-full transition text-red-500 font-bold text-xs"
         >
           <LogOut size={16} className="shrink-0" />
           <span className="truncate">Déconnexion</span>
