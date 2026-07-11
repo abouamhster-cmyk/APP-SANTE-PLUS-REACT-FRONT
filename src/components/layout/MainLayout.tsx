@@ -1,4 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
+// ✅ MAQUETTE DE NAVIGATION PRINCIPALE AVEC SALUTATION ADAPTÉE À L'HEURE ET COULEURS EXPLICITES PAR RÔLE
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -14,7 +15,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
-import { cn, getGreeting } from '@/utils/helpers'; // ✅ Import de getGreeting
+import { cn, getGreeting, getInitials } from '@/utils/helpers';  
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 
@@ -246,7 +247,7 @@ const MainLayout = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  {/* ✅ GREETING DYNAMIQUE SELON L'HEURE */}
+                  {/* SALUTATION DYNAMIQUE SELON L'HEURE */}
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">
                     {getGreeting()},
                   </p>
