@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CORRECTION APPLIQUÉE DE SÉCURITÉ DE QUOTA ILLIMITÉ (canTake INCLUS 'creee')
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CORRECTION SYNCHRONE DE PROTECTION CONTRE LES DOUBLES CLICS
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -58,7 +58,7 @@ const getStatusLabel = (status: string): string => {
     livree: 'Livrée',
     validee: 'Validée',
     annulee: 'Annulée',
-    attente_paiement: 'En en attente paiement',
+    attente_paiement: 'En attente paiement',
   };
   return map[status] || status;
 };
@@ -280,6 +280,9 @@ const OrderDetailPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  // ✅ VERROU DE PROTECTION SYNCHRONE CONTRE LES DOUBLES-CLICS
+  const isActionPending = useRef(false);
+
   useEffect(() => {
     if (id) fetchOrderById(id);
   }, [id]);
@@ -297,33 +300,41 @@ const OrderDetailPage = () => {
 
   const handleStatusChange = async (status: string) => {
     if (!id) return;
-
+    if (isActionPending.current) return; // Bloquer instantanément
+    
+    isActionPending.current = true;
     setIsUpdating(true);
 
     try {
       await updateOrderStatus(id, status as any);
       toast.success(`Commande ${getStatusLabel(status)}`);
-      fetchOrderById(id);
+      await fetchOrderById(id);
     } catch (error: any) {
       console.error('❌ Erreur mise à jour statut:', error);
       toast.error(error.message || 'Erreur lors de la mise à jour');
     } finally {
       setIsUpdating(false);
+      isActionPending.current = false; // Libérer le verrou
     }
   };
 
   const handleTakeOrder = async () => {
     if (!id) return;
+    if (isActionPending.current) return; // Bloquer instantanément
+    
+    isActionPending.current = true;
     setIsUpdating(true);
+    
     try {
       await takeOrder(id);
       toast.success('Commande prise en charge ✅');
-      fetchOrderById(id);
+      await fetchOrderById(id);
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
       toast.error(error.message || 'Erreur lors de la prise de commande');
     } finally {
       setIsUpdating(false);
+      isActionPending.current = false; // Libérer le verrou
     }
   };
 
@@ -425,9 +436,9 @@ const OrderDetailPage = () => {
 
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
-  // ✅ SÉCURITÉ SANS QUOTA : 'creee' permet l'action de prise de commande (takeOrder) pour s'attribuer l'aidant_id
   const canTake = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
   const canAccept = order.status === 'creee' && isAdminOrCoordinator;
+  
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
   const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
   const isUrgent = order.status === 'disponible' || order.status === 'en_attente';
@@ -550,7 +561,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* NAVIGATION GPS */}
+      {/* WIDGET DE NAVIGATION DE LIVRAISON SANS CARTE INTERNE */}
       {order.status === 'en_cours' && (
         <div className="bg-white rounded-3xl p-5 border border-amber-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="min-w-0">
@@ -612,7 +623,7 @@ const OrderDetailPage = () => {
         />
       </div>
 
-      {/* BANDEAU PAIEMENT */}
+      {/* BANDEAU PAIEMENT EN ATTENTE */}
       {isPendingPayment && (
         <div 
           className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
