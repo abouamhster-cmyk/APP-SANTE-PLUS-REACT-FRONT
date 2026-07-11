@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
-// ✅ PAGE DÉTAIL VISITE COMPLETE : VISIBILITÉ TOTALE DES MÉDIAS AVEC FALLBACK ET DOUBLE-CLIC SÉCURISÉ
+// ✅ PAGE DÉTAIL VISITE COMPLETE : ENREGISTREMENT ET VISIBILITÉ DES MÉDIAS AVEC PROTECTION ANTI DOUBLE-CLIC ET CORRECTION HOOKS #310
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -25,7 +25,7 @@ import {
   UserCheck,
   Briefcase,
   Navigation as NavIcon,
-  Mic, // ✅ Note vocale
+  Mic, // Note vocale
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -90,6 +90,36 @@ const VisitDetailPage = () => {
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  // ============================================================
+  // ✅ APPLICABLE : RÈGLE DES HOOKS RESPECTÉE (Définis impérativement avant le retour de chargement)
+  // ============================================================
+
+  // Récupération sécurisée et hybride des photos de la visite
+  const photosList = useMemo(() => {
+    if (!currentVisit) return [];
+    const visitObj = currentVisit as any;
+    if (visitObj.photos && visitObj.photos.length > 0) {
+      return visitObj.photos;
+    }
+    if (visitObj.metadata?.photos && Array.isArray(visitObj.metadata.photos)) {
+      return visitObj.metadata.photos;
+    }
+    return [];
+  }, [currentVisit]);
+
+  // Récupération sécurisée et hybride du mémoc vocal de la visite
+  const audioUrl = useMemo(() => {
+    if (!currentVisit) return null;
+    const visitObj = currentVisit as any;
+    if (visitObj.metadata?.audio_url) {
+      return visitObj.metadata.audio_url;
+    }
+    if (visitObj.audios && visitObj.audios.length > 0) {
+      return visitObj.audios[0].audio_url;
+    }
+    return null;
+  }, [currentVisit]);
 
   useEffect(() => {
     if (id) {
@@ -404,6 +434,7 @@ const VisitDetailPage = () => {
   const draftExpiry = getDraftExpiryText();
   const paymentAmount = currentVisit?.metadata?.payment_amount || getPonctualPrice(currentVisit?.duration_minutes || 60);
 
+  // RETOUR ANTICIPÉ DE CHARGEMENT SANS CONFLIT DE HOOKS
   if (isLoading || !currentVisit) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -416,28 +447,6 @@ const VisitDetailPage = () => {
   }
 
   const visit = currentVisit as any;
-
-  // ✅ RECUPERATION FALLBACK HYBRIDE DES PHOTOS (Lit d'abord la table dédiée, sinon se replie sur metadata)
-  const photosList = useMemo(() => {
-    if (visit.photos && visit.photos.length > 0) {
-      return visit.photos;
-    }
-    if (visit.metadata?.photos && Array.isArray(visit.metadata.photos)) {
-      return visit.metadata.photos;
-    }
-    return [];
-  }, [visit.photos, visit.metadata?.photos]);
-
-  // ✅ RECUPERATION FALLBACK HYBRIDE DE L'AUDIO
-  const audioUrl = useMemo(() => {
-    if (visit.metadata?.audio_url) {
-      return visit.metadata.audio_url;
-    }
-    if (visit.audios && visit.audios.length > 0) {
-      return visit.audios[0].audio_url;
-    }
-    return null;
-  }, [visit.metadata?.audio_url, visit.audios]);
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -744,7 +753,7 @@ const VisitDetailPage = () => {
             </div>
           )}
 
-          {/* ✅ COMPTE-RENDU DE VISITE GROUPÉ (MÉDIAS TOTALEMENT VISIBLES PAR TOUS AVEC LES VARIABLES HYBRIDES) */}
+          {/* COMPTE-RENDU DE VISITE GROUPÉ (MÉDIAS TOTALEMENT VISIBLES PAR TOUS AVEC LES VARIABLES HYBRIDES) */}
           {(visit.actions?.length > 0 || visit.notes || (photosList && photosList.length > 0) || visit.report || audioUrl) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-black/5 space-y-5">
               <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ color: colors.text }}>
@@ -798,7 +807,7 @@ const VisitDetailPage = () => {
                 </div>
               )}
 
-              {/* ✅ COMPTE-RENDU AUDIO VISIBLE GRÂCE AU REPLI SÉCURISÉ */}
+              {/* COMPTE-RENDU AUDIO VISIBLE GRÂCE AU REPLI SÉCURISÉ */}
               {audioUrl && (
                 <div className="pt-3 border-t border-gray-100">
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
