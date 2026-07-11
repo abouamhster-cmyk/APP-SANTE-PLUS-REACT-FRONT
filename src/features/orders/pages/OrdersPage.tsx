@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrdersPage.tsx
-// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA SÉCURITÉ DE FILTRAGE AIDANT (POUR NE PAS CACHER LES COMMANDES EN COURS)
+// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA SÉCURITÉ SANS RESTRICTION DE QUOTA
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -170,13 +170,9 @@ const OrdersPage = () => {
     toast.success('Aidant assigné avec succès');
   };
 
-  // ✅ FILTRAGE CORRIGÉ : Protège l'aidant pour qu'il ne perde jamais de vue ses commandes actives
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       let matchStatus = true;
-      
-      // ✅ FIX MAJEUR: On cible l'ID utilisateur (user_id) lié à l'aidant plutot que l'ID de la table aidant.
-      // Cela évite la disparition instantanée des commandes ponctuelles lors de l'acceptation.
       const isMyActiveOrder = isAidant && order.aidant?.user_id === user?.id;
 
       if (activeStatus === 'ponctual') {
@@ -184,11 +180,9 @@ const OrdersPage = () => {
       } else if (activeStatus !== 'all') {
         matchStatus = order.status === activeStatus;
       } else {
-        // En mode 'all', on affiche tout
         matchStatus = true;
       }
 
-      // 🔐 Sécurité absolue : Si la commande appartient à l'aidant connecté, on l'affiche s'il est sur All, Ponctuelles, En Cours ou Livrées.
       if (isMyActiveOrder && ['all', 'ponctual', 'en_cours', 'livree'].includes(activeStatus)) {
         if (activeStatus === 'ponctual') {
           matchStatus = isOrderPonctual(order);
@@ -300,9 +294,6 @@ const OrdersPage = () => {
     );
   }
 
-  // ✅ TERMINOLOGIE HARMONISÉE POUR TOUT INTERVENANT PONCTUEL OU PERMANENT
-  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
-
   return (
     <div 
       className="space-y-6 pb-6 animate-fadeIn"
@@ -329,7 +320,7 @@ const OrdersPage = () => {
         </div>
       </div>
 
-      {/* HEADER COHÉRENT ET ASSIGNÉ */}
+      {/* HEADER */}
       <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md flex flex-col items-center gap-4">
         <div className="space-y-1 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
@@ -340,22 +331,21 @@ const OrdersPage = () => {
           </p>
         </div>
 
-        {/* Quota dynamique et fluide de l'intervenant connecté */}
+        {/* ✅ RENDU DU QUOTA CORRIGÉ : Plus de limitation restrictive "X / 2" */}
         {isAidant && aidantQuota && (
           <div className="px-5 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
               Mon Activité Livraisons
             </p>
             <p className="text-sm font-black text-emerald-800 dark:text-emerald-100 mt-0.5 leading-none">
-              {aidantQuota.current} / {aidantQuota.max} en cours
+              {aidantQuota.current} active(s) en cours
             </p>
             <p className="text-[9px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-1">
-              {aidantQuota.canTake ? `${aidantQuota.available} créneau(x) libre(s)` : 'Quota maximum en cours atteint'}
+              Suivi de mes livraisons actives
             </p>
           </div>
         )}
 
-        {/* Commandes Familles en attente de validation */}
         {stats.pendingPayment > 0 && isFamily && (
           <button
             onClick={() => setActiveStatus('attente_paiement')}
@@ -545,12 +535,11 @@ const OrdersPage = () => {
             setShowAssignModal(false);
             setSelectedOrderForAssign(null);
           }}
-          targetType="patient"
+          targetType="order"
           targetId={selectedOrderForAssign.id}
           targetName={selectedOrderForAssign.target_name || `Commande ${selectedOrderForAssign.id.slice(0, 8)}`}
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedOrderForAssign.aidant_id}
-          allowForce={isAdminOrCoordinator}
           colors={colors} 
         />
       )}
