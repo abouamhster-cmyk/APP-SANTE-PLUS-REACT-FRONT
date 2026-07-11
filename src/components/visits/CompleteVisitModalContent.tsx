@@ -171,27 +171,35 @@ export const CompleteVisitModalContent = ({
     try {
       let audioUrlUploaded = undefined;
       if (audioBlob) {
-        // ✅ CORRECTIF CHEMIN : Enregistrement direct sous le dossier de l'ID de visite [visitId]
+        // ✅ CORRECTIF BUCKET & TYPE MIME : Envoi dans le bucket 'audios' avec le contentType explicite
         const fileName = `${visitId}/audio_${Date.now()}.webm`;
-        const { data, error } = await supabase.storage.from('visites').upload(fileName, audioBlob);
+        const { data, error } = await supabase.storage
+          .from('audios') // 🟢 Bucket 'audios' au lieu de 'visites'
+          .upload(fileName, audioBlob, { contentType: 'audio/webm' }); // 🟢 contentType obligatoire pour contourner la restriction de type de Supabase
 
         if (!error && data) {
-          const { data: { publicUrl } } = supabase.storage.from('visites').getPublicUrl(fileName);
+          const { data: { publicUrl } } = supabase.storage.from('audios').getPublicUrl(fileName);
           audioUrlUploaded = publicUrl;
+        } else if (error) {
+          console.error("❌ Erreur upload audio:", error);
         }
       }
 
       const photoUrls: string[] = [];
       for (const photo of photos) {
         const cleanName = sanitizeFileName(photo.name);
-        // ✅ CORRECTIF CHEMIN : Enregistrement direct sous le dossier [visitId]
+        // ✅ CORRECTIF TYPE MIME : Envoi dans le bucket 'visites' avec son contentType d'image respectif
         const fileName = `${visitId}/${Date.now()}_${cleanName}`;
 
-        const { data, error } = await supabase.storage.from('visites').upload(fileName, photo);
+        const { data, error } = await supabase.storage
+          .from('visites')
+          .upload(fileName, photo, { contentType: photo.type }); // 🟢 contentType obligatoire pour contourner la restriction de type de 'visites'
 
         if (!error && data) {
           const { data: { publicUrl } } = supabase.storage.from('visites').getPublicUrl(fileName);
           photoUrls.push(publicUrl);
+        } else if (error) {
+          console.error("❌ Erreur upload photo:", error);
         }
       }
 
