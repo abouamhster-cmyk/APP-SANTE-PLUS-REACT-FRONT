@@ -28,7 +28,7 @@ import {
   Settings,
   Key,
   Volume2,
- Loader2,
+  Loader2,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -142,6 +142,9 @@ const ProfilePage = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [preferenceMessage, setPreferenceMessage] = useState('');
+  
+  // ✅ État de détection de lien cassé d'avatar (S'active si l'image refuse de s'afficher)
+  const [imageError, setImageError] = useState(false);
 
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -188,7 +191,14 @@ const ProfilePage = () => {
       email: profile.email || '' 
     }));
     setAvatarPreview(profile.avatar_url || null);
+    setImageError(false); // Réinitialiser l'état d'erreur lors du rechargement
   }, [profile]);
+
+  useEffect(() => {
+    if (avatarPreview) {
+      setImageError(false);
+    }
+  }, [avatarPreview]);
 
   useEffect(() => {
     fetchPatients();
@@ -206,7 +216,7 @@ const ProfilePage = () => {
   };
 
   // =============================================
-  // SAUVEGARDE DU PROFIL CORRIGÉE
+  // SAUVEGARDE DU PROFIL SÉCURISÉE
   // =============================================
   const handleSaveProfile = async () => {
     if (!formData.full_name.trim()) return toast.error('Le nom est obligatoire');
@@ -221,14 +231,16 @@ const ProfilePage = () => {
         const fileExt = cleanName.split('.').pop() || 'png';
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
         
+        // ✅ CORRECTIF DE SÉCURITÉ DE LIEN : Ajout du contentType pour forcer le bon type d'image (ex: image/png)
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, avatarFile, { upsert: true });
+          .upload(fileName, avatarFile, { 
+            upsert: true,
+            contentType: avatarFile.type 
+          });
         
         if (uploadError) throw new Error(uploadError.message);
         
-        // ✅ CORRECTIF DE SÉCURITÉ DE LIEN : Utilisation de fileName à la place de uploadData.path
-        // afin d'empêcher les adresses en double du type .../avatars/avatars/image.png
         avatarUrl = supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl + `?v=${Date.now()}`;
       }
       
@@ -385,11 +397,16 @@ const ProfilePage = () => {
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <div className="relative mx-auto sm:mx-0">
             <div 
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm overflow-hidden"
               style={{ background: colors.primary }}
             >
-              {avatarPreview ? (
-                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover rounded-3xl" />
+              {avatarPreview && !imageError ? (
+                <img 
+                  src={avatarPreview} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover rounded-3xl" 
+                  onError={() => setImageError(true)} // ✅ Fallback automatique aux initiales si l'image est cassée
+                />
               ) : (
                 getInitials(profile?.full_name || '')
               )}
