@@ -1,4 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CORRECTION APPLIQUÉE DE SÉCURITÉ DE QUOTA ILLIMITÉ (canTake INCLUS 'creee')
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -57,7 +58,7 @@ const getStatusLabel = (status: string): string => {
     livree: 'Livrée',
     validee: 'Validée',
     annulee: 'Annulée',
-    attente_paiement: 'En attente paiement',
+    attente_paiement: 'En en attente paiement',
   };
   return map[status] || status;
 };
@@ -424,10 +425,9 @@ const OrderDetailPage = () => {
 
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
-  // ✅ CORRECTION APPLIQUÉE : 'creee' est déplacé dans canTake pour que l'aidant s'attribue l'aidant_id au lieu d'un changement de statut vide.
+  // ✅ SÉCURITÉ SANS QUOTA : 'creee' permet l'action de prise de commande (takeOrder) pour s'attribuer l'aidant_id
   const canTake = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
   const canAccept = order.status === 'creee' && isAdminOrCoordinator;
-  
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
   const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
   const isUrgent = order.status === 'disponible' || order.status === 'en_attente';
@@ -550,7 +550,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* WIDGET DE NAVIGATION DE LIVRAISON SANS CARTE INTERNE */}
+      {/* NAVIGATION GPS */}
       {order.status === 'en_cours' && (
         <div className="bg-white rounded-3xl p-5 border border-amber-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="min-w-0">
@@ -612,7 +612,7 @@ const OrderDetailPage = () => {
         />
       </div>
 
-      {/* BANDEAU PAIEMENT EN ATTENTE */}
+      {/* BANDEAU PAIEMENT */}
       {isPendingPayment && (
         <div 
           className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
