@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrdersPage.tsx
-// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA SÉCURITÉ SANS RESTRICTION DE QUOTA
+// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA SÉCURITÉ DE QUOTA ILLIMITÉ ET DU VERROU SYNCHRONE CONTRE LES DOUBLES CLICS
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -74,6 +74,9 @@ const OrdersPage = () => {
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
+
+  // ✅ VERROU DE SÉCURITÉ CONTRE LES CLICS CONSECUTIFS RAPIDES
+  const isActionPending = useRef(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -209,7 +212,9 @@ const OrdersPage = () => {
   }, [orders, search, activeStatus, isAidant, user?.id]);
 
   const handleStatusChange = async (id: string, status: string) => {
-    if (isProcessing) return;
+    if (isProcessing || isActionPending.current) return;
+    
+    isActionPending.current = true;
     setIsProcessing(true);
 
     try {
@@ -217,6 +222,7 @@ const OrdersPage = () => {
       if (!validStatuses.includes(status)) {
         toast.error(`Statut "${status}" invalide`);
         setIsProcessing(false);
+        isActionPending.current = false;
         return;
       }
 
@@ -240,11 +246,14 @@ const OrdersPage = () => {
       toast.error(error?.message || 'Erreur lors de la mise à jour');
     } finally {
       setIsProcessing(false);
+      isActionPending.current = false; // Libérer le verrou
     }
   };
 
   const handleTakeOrder = async (id: string) => {
-    if (isProcessing) return;
+    if (isProcessing || isActionPending.current) return;
+    
+    isActionPending.current = true;
     setIsProcessing(true);
 
     try {
@@ -259,6 +268,7 @@ const OrdersPage = () => {
       toast.error(error?.message || 'Erreur lors de la prise de commande');
     } finally {
       setIsProcessing(false);
+      isActionPending.current = false; // Libérer le verrou
     }
   };
 
@@ -331,7 +341,6 @@ const OrdersPage = () => {
           </p>
         </div>
 
-        {/* ✅ RENDU DU QUOTA CORRIGÉ : Plus de limitation restrictive "X / 2" */}
         {isAidant && aidantQuota && (
           <div className="px-5 py-2.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
@@ -535,12 +544,12 @@ const OrdersPage = () => {
             setShowAssignModal(false);
             setSelectedOrderForAssign(null);
           }}
-          targetType="patient"  
+          targetType="patient"
           targetId={selectedOrderForAssign.id}
           targetName={selectedOrderForAssign.target_name || `Commande ${selectedOrderForAssign.id.slice(0, 8)}`}
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedOrderForAssign.aidant_id}
-          allowForce={isAdminOrCoordinator}  
+          allowForce={isAdminOrCoordinator}
           colors={colors} 
         />
       )}
