@@ -1,15 +1,14 @@
 /* 📁 frontend/src/index.css */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import './themes.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================================
+/* =============================================
    VARIABLES GLOBALES — MODE CLAIR
-============================================================ */
-
+   ============================================= */
 :root {
   /* Senior / Corporate - Default */
   --color-primary: #1a4a3a;
@@ -30,12 +29,10 @@
   --shadow-strong: 0 8px 32px rgba(26, 74, 58, 0.12);
 }
 
-/* ============================================================
+/* =============================================
    VARIABLES — MODE SOMBRE
-============================================================ */
-
-html.dark,
-html[data-theme='dark'] {
+   ============================================= */
+html.dark, html[data-theme='dark'] {
   --color-background: #0f1713;
   --color-surface: #17231d;
   --color-surface-soft: #1d2d25;
@@ -47,10 +44,7 @@ html[data-theme='dark'] {
   --shadow-strong: 0 14px 40px rgba(0, 0, 0, 0.35);
 }
 
-/* ============================================================
-   BASE
-============================================================ */
-
+/* ===== BASE ===== */
 * {
   margin: 0;
   padding: 0;
@@ -59,10 +53,11 @@ html[data-theme='dark'] {
 
 html {
   background-color: var(--color-background);
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--color-background);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
@@ -75,67 +70,52 @@ body {
   background-color: var(--color-background);
 }
 
-/* ============================================================
+/* =============================================
    DARK MODE — OVERRIDES POUR TAILWIND
-============================================================ */
-
-html.dark .bg-white,
-html[data-theme='dark'] .bg-white {
+   ============================================= */
+html.dark .bg-white, html[data-theme='dark'] .bg-white {
   background-color: var(--color-surface) !important;
 }
 
-html.dark .bg-gray-50,
-html[data-theme='dark'] .bg-gray-50 {
+html.dark .bg-gray-50, html[data-theme='dark'] .bg-gray-50 {
   background-color: var(--color-surface-soft) !important;
 }
 
-html.dark .bg-gray-100,
-html[data-theme='dark'] .bg-gray-100 {
+html.dark .bg-gray-100, html[data-theme='dark'] .bg-gray-100 {
   background-color: #24362d !important;
 }
 
-html.dark .text-gray-900,
-html[data-theme='dark'] .text-gray-900 {
+html.dark .text-gray-900, html[data-theme='dark'] .text-gray-900 {
   color: var(--color-text) !important;
 }
 
-html.dark .text-gray-800,
-html[data-theme='dark'] .text-gray-800,
-html.dark .text-gray-700,
-html[data-theme='dark'] .text-gray-700 {
+html.dark .text-gray-800, html[data-theme='dark'] .text-gray-800,
+html.dark .text-gray-700, html[data-theme='dark'] .text-gray-700 {
   color: #dce6e1 !important;
 }
 
-html.dark .text-gray-600,
-html[data-theme='dark'] .text-gray-600,
-html.dark .text-gray-500,
-html[data-theme='dark'] .text-gray-500 {
+html.dark .text-gray-600, html[data-theme='dark'] .text-gray-600,
+html.dark .text-gray-500, html[data-theme='dark'] .text-gray-500 {
   color: var(--color-text-light) !important;
 }
 
-html.dark .text-gray-400,
-html[data-theme='dark'] .text-gray-400 {
+html.dark .text-gray-400, html[data-theme='dark'] .text-gray-400 {
   color: #83958d !important;
 }
 
-html.dark .border-gray-200,
-html[data-theme='dark'] .border-gray-200,
-html.dark .border-black\/5,
-html[data-theme='dark'] .border-black\/5,
-html.dark .border,
-html[data-theme='dark'] .border {
+html.dark .border-gray-200, html[data-theme='dark'] .border-gray-200,
+html.dark .border-black/5, html[data-theme='dark'] .border-black/5,
+html.dark .border, html[data-theme='dark'] .border {
   border-color: var(--color-border) !important;
 }
 
-html.dark .shadow-sm,
-html[data-theme='dark'] .shadow-sm {
+html.dark .shadow-sm, html[data-theme='dark'] .shadow-sm {
   box-shadow: var(--shadow-soft) !important;
 }
 
-/* ============================================================
-   COMPOSANTS
-============================================================ */
-
+/* =============================================
+   COMPOSANTS PAR RÔLES
+   ============================================= */
 @layer components {
   .btn-primary {
     background-color: var(--color-primary);
@@ -144,6 +124,7 @@ html[data-theme='dark'] .shadow-sm {
     border-radius: 0.75rem;
     font-weight: 500;
     transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
 
   .btn-primary:hover {
@@ -182,252 +163,225 @@ html[data-theme='dark'] .shadow-sm {
   }
 }
 
-/* ============================================================
-   SCROLLBAR MASQUÉE
-============================================================ */
+/* =============================================
+   SURCHARGES INDIVIDUELLES DES THEMES DE ROLES
+   ============================================= */
 
+/* 🌸 Thème Maman & Bébé : Harmonisation Rose / Or / Gris */
+.theme-maman {
+  --color-primary: #e8436a;
+  --color-primary-light: #f06292;
+  --color-primary-dark: #c62850;
+  --color-secondary: #c9a84c;
+  --color-secondary-light: #dcc07a;
+  --color-background: #fff5f7;
+  --color-surface: #ffffff;
+  --color-surface-soft: #fff8f9;
+  --color-text: #4a2c2c;
+  --color-text-light: #8a6c6c;
+  --color-accent: #e8436a;
+  --color-border: #f8d4dc;
+}
+.theme-maman .hover\:bg-gray-50:hover,
+.theme-maman .hover\:bg-gray-50\/50:hover {
+  background-color: #fff8f9 !important;
+}
+.theme-maman .hover\:bg-gray-100:hover,
+.theme-maman .hover\:bg-gray-100\/50:hover {
+  background-color: #fce4ec !important;
+}
+.theme-maman input::placeholder,
+.theme-maman textarea::placeholder {
+  color: #bfa0a0 !important;
+}
+.theme-maman .input-field:focus {
+  border-color: #e8436a !important;
+  box-shadow: 0 0 0 4px rgba(232, 67, 106, 0.15) !important;
+}
+
+/* 👴 Thème Senior : Harmonisation Vert / Or / Beige */
+.theme-senior {
+  --color-primary: #1a4a3a;
+  --color-primary-light: #2a6a4a;
+  --color-primary-dark: #0d2a22;
+  --color-secondary: #c9a84c;
+  --color-secondary-light: #dcc07a;
+  --color-background: #f5f0e8;
+  --color-surface: #ffffff;
+  --color-surface-soft: #faf7f1;
+  --color-text: #2d2d2d;
+  --color-text-light: #6b7280;
+  --color-accent: #c9a84c;
+  --color-border: #e5e0d8;
+}
+.theme-senior .hover\:bg-gray-50:hover,
+.theme-senior .hover\:bg-gray-50\/50:hover {
+  background-color: #faf7f1 !important;
+}
+.theme-senior .hover\:bg-gray-100:hover,
+.theme-senior .hover\:bg-gray-100\/50:hover {
+  background-color: #e5e0d8 !important;
+}
+.theme-senior input::placeholder,
+.theme-senior textarea::placeholder {
+  color: #9ca3af !important;
+}
+.theme-senior .input-field:focus {
+  border-color: #1a4a3a !important;
+  box-shadow: 0 0 0 4px rgba(26, 74, 58, 0.15) !important;
+}
+
+/* 🦸 Thème Aidant : Harmonisation Sage / Or / Menthe / Gris-vert */
+.theme-aidant {
+  --color-primary: #2c6e5c;
+  --color-primary-light: #3a8a72;
+  --color-primary-dark: #1a4a3a;
+  --color-secondary: #c9a84c;
+  --color-secondary-light: #f0f5f2;
+  --color-background: #f5faf8;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f0f7f4;
+  --color-text: #1a3a2e;
+  --color-text-light: #5f766d;
+  --color-accent: #3a8a72;
+  --color-border: #dce8e4;
+}
+
+/* 👔 Thème Coordinateur / Admin : Mixte Propre */
+.theme-coordinator {
+  --color-primary: #1a3a5c;
+  --color-primary-light: #2a5a8a;
+  --color-primary-dark: #0d2240;
+  --color-secondary: #c9a84c;
+  --color-secondary-light: #f0f5fa;
+  --color-background: #f0f4f8;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f5f8fb;
+  --color-text: #1a2a3a;
+  --color-text-light: #5a6a7a;
+  --color-accent: #2a5a8a;
+  --color-border: #dce4ec;
+}
+
+/* ===== SCROLLBAR MASQUÉE ===== */
 ::-webkit-scrollbar {
   width: 0px;
   height: 0px;
   background: transparent;
 }
-
 * {
   scrollbar-width: none;
-}
-
-* {
   -ms-overflow-style: none;
 }
-
-html,
-body {
+html, body {
   overflow-y: scroll;
   scrollbar-width: none;
 }
-
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
+html::-webkit-scrollbar, body::-webkit-scrollbar {
   display: none;
 }
-
-.overflow-y-auto,
-.overflow-x-auto,
-.overflow-auto {
+.overflow-y-auto, .overflow-x-auto, .overflow-auto {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-
-.overflow-y-auto::-webkit-scrollbar,
-.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar, .overflow-x-auto::-webkit-scrollbar,
 .overflow-auto::-webkit-scrollbar {
   display: none;
   width: 0px;
   height: 0px;
 }
 
-/* ============================================================
-   FIX LEAFLET MAP Z-INDEX
-============================================================ */
-
-.map-page-shell {
-  position: relative;
-  z-index: 0;
-}
-
-.map-page-shell .leaflet-container {
-  position: relative;
-  z-index: 0 !important;
-}
-
-.map-page-shell .leaflet-pane {
-  z-index: 1 !important;
-}
-
-.map-page-shell .leaflet-tile-pane {
-  z-index: 1 !important;
-}
-
-.map-page-shell .leaflet-overlay-pane {
-  z-index: 2 !important;
-}
-
-.map-page-shell .leaflet-shadow-pane {
-  z-index: 2 !important;
-}
-
-.map-page-shell .leaflet-marker-pane {
-  z-index: 3 !important;
-}
-
-.map-page-shell .leaflet-tooltip-pane {
-  z-index: 4 !important;
-}
-
-.map-page-shell .leaflet-popup-pane {
-  z-index: 5 !important;
-}
-
-.map-page-shell .leaflet-control-container,
-.map-page-shell .leaflet-top,
-.map-page-shell .leaflet-bottom {
-  z-index: 6 !important;
-}
-
-.map-page-shell .leaflet-control {
-  z-index: 6 !important;
-}
-
-/* ============================================================
-   ANIMATIONS
-============================================================ */
-
+/* ===== ANIMATIONS ===== */
 @keyframes pulse-marker {
   0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
   70% { box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }
   100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
 }
-
 .animate-pulse-marker {
   animation: pulse-marker 1.5s ease-in-out infinite;
 }
 
-/* ============================================================
-   DARK MODE GLOBAL
-============================================================ */
-
-html.dark,
-html[data-theme='dark'] {
+/* ===== DARK MODE GLOBAL ===== */
+html.dark, html[data-theme='dark'] {
   color-scheme: dark;
   background: #0f1713;
 }
-
-html.dark body,
-html[data-theme='dark'] body,
-html.dark #root,
+html.dark body, html[data-theme='dark'] body, html.dark #root,
 html[data-theme='dark'] #root {
   background: #0f1713 !important;
   color: #f4f7f5 !important;
 }
-
-html.dark main,
-html[data-theme='dark'] main,
-html.dark section,
+html.dark main, html[data-theme='dark'] main, html.dark section,
 html[data-theme='dark'] section {
   color: var(--color-text) !important;
 }
-
-html.dark .bg-white,
-html[data-theme='dark'] .bg-white {
+html.dark .bg-white, html[data-theme='dark'] .bg-white {
   background-color: #17231d !important;
   color: #f4f7f5 !important;
 }
-
-html.dark .bg-white\/80,
-html[data-theme='dark'] .bg-white\/80 {
+html.dark .bg-white/80, html[data-theme='dark'] .bg-white/80 {
   background-color: rgba(23, 35, 29, 0.82) !important;
 }
-
-html.dark .bg-white\/70,
-html[data-theme='dark'] .bg-white\/70 {
+html.dark .bg-white/70, html[data-theme='dark'] .bg-white/70 {
   background-color: rgba(23, 35, 29, 0.72) !important;
 }
-
-html.dark .bg-gray-50,
-html[data-theme='dark'] .bg-gray-50 {
+html.dark .bg-gray-50, html[data-theme='dark'] .bg-gray-50 {
   background-color: #1d2d25 !important;
 }
-
-html.dark .bg-gray-100,
-html[data-theme='dark'] .bg-gray-100 {
+html.dark .bg-gray-100, html[data-theme='dark'] .bg-gray-100 {
   background-color: #24362d !important;
 }
-
-html.dark .text-gray-900,
-html[data-theme='dark'] .text-gray-900,
-html.dark .text-gray-800,
-html[data-theme='dark'] .text-gray-800,
-html.dark .text-gray-700,
-html[data-theme='dark'] .text-gray-700 {
+html.dark .text-gray-900, html[data-theme='dark'] .text-gray-900,
+html.dark .text-gray-800, html[data-theme='dark'] .text-gray-800,
+html.dark .text-gray-700, html[data-theme='dark'] .text-gray-700 {
   color: #f4f7f5 !important;
 }
-
-html.dark .text-gray-600,
-html[data-theme='dark'] .text-gray-600,
-html.dark .text-gray-500,
-html[data-theme='dark'] .text-gray-500 {
+html.dark .text-gray-600, html[data-theme='dark'] .text-gray-600,
+html.dark .text-gray-500, html[data-theme='dark'] .text-gray-500 {
   color: #a8b6b0 !important;
 }
-
-html.dark .text-gray-400,
-html[data-theme='dark'] .text-gray-400 {
+html.dark .text-gray-400, html[data-theme='dark'] .text-gray-400 {
   color: #7f9189 !important;
 }
-
-html.dark .border,
-html[data-theme='dark'] .border,
-html.dark .border-black\/5,
-html[data-theme='dark'] .border-black\/5,
-html.dark .border-gray-100,
-html[data-theme='dark'] .border-gray-100,
-html.dark .border-gray-200,
-html[data-theme='dark'] .border-gray-200 {
+html.dark .border, html[data-theme='dark'] .border,
+html.dark .border-black/5, html[data-theme='dark'] .border-black/5,
+html.dark .border-gray-100, html[data-theme='dark'] .border-gray-100,
+html.dark .border-gray-200, html[data-theme='dark'] .border-gray-200 {
   border-color: #2c3f35 !important;
 }
-
-html.dark input,
-html.dark textarea,
-html.dark select,
-html[data-theme='dark'] input,
-html[data-theme='dark'] textarea,
-html[data-theme='dark'] select {
+html.dark input, html.dark textarea, html.dark select,
+html[data-theme='dark'] input, html[data-theme='dark'] textarea, html[data-theme='dark'] select {
   background-color: #1d2d25 !important;
   color: #f4f7f5 !important;
   border-color: #2c3f35 !important;
 }
-
-html.dark input::placeholder,
-html.dark textarea::placeholder,
-html[data-theme='dark'] input::placeholder,
-html[data-theme='dark'] textarea::placeholder {
+html.dark input::placeholder, html.dark textarea::placeholder,
+html[data-theme='dark'] input::placeholder, html[data-theme='dark'] textarea::placeholder {
   color: #7f9189 !important;
 }
-
-html.dark .hover\:bg-gray-50:hover,
-html[data-theme='dark'] .hover\:bg-gray-50:hover,
-html.dark .hover\:bg-gray-100:hover,
-html[data-theme='dark'] .hover\:bg-gray-100:hover {
+html.dark .hover:bg-gray-50:hover, html[data-theme='dark'] .hover:bg-gray-50:hover,
+html.dark .hover:bg-gray-100:hover, html[data-theme='dark'] .hover:bg-gray-100:hover {
   background-color: #1d2d25 !important;
 }
-
-html.dark .fixed .bg-white,
-html[data-theme='dark'] .fixed .bg-white {
+html.dark .fixed .bg-white, html[data-theme='dark'] .fixed .bg-white {
   background-color: #17231d !important;
   color: #f4f7f5 !important;
 }
-
-html.dark .bg-red-50,
-html[data-theme='dark'] .bg-red-50 {
+html.dark .bg-red-50, html[data-theme='dark'] .bg-red-50 {
   background-color: rgba(239, 68, 68, 0.12) !important;
 }
-
-html.dark .card,
-html[data-theme='dark'] .card {
+html.dark .card, html[data-theme='dark'] .card {
   background-color: #17231d !important;
   color: #f4f7f5 !important;
   border-color: #2c3f35 !important;
 }
-
-html.dark [class*="shadow"],
-html[data-theme='dark'] [class*="shadow"] {
+html.dark [class*="shadow"], html[data-theme='dark'] [class*="shadow"] {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28) !important;
 }
 
-/* ============================================================
-   ✅ MODALES - Z-INDEX ÉLEVÉ POUR TOUJOURS ÊTRE AU-DESSUS
-   ============================================================ */
-
-/* ✅ Conteneur de modale - z-index maximum */
+/* =============================================
+   MODALES - Z-INDEX ÉLEVÉ
+   ============================================= */
 .modal-overlay {
   position: fixed !important;
   inset: 0 !important;
@@ -442,8 +396,6 @@ html[data-theme='dark'] [class*="shadow"] {
   overflow: hidden !important;
   pointer-events: auto !important;
 }
-
-/* ✅ Carte modale - centrée parfaite */
 .modal-card {
   position: relative !important;
   width: 100% !important;
@@ -458,8 +410,6 @@ html[data-theme='dark'] [class*="shadow"] {
   animation: modalSlideUp 0.3s ease-out !important;
   pointer-events: auto !important;
 }
-
-/* ✅ Header fixe */
 .modal-header {
   flex-shrink: 0 !important;
   padding: 16px 20px !important;
@@ -469,8 +419,6 @@ html[data-theme='dark'] [class*="shadow"] {
   position: sticky !important;
   top: 0 !important;
 }
-
-/* ✅ Body scrollable */
 .modal-body {
   flex: 1 !important;
   overflow-y: auto !important;
@@ -479,8 +427,6 @@ html[data-theme='dark'] [class*="shadow"] {
   overscroll-behavior: contain !important;
   max-height: calc(92vh - 140px) !important;
 }
-
-/* ✅ Footer fixe */
 .modal-footer {
   flex-shrink: 0 !important;
   padding: 16px 20px !important;
@@ -491,78 +437,40 @@ html[data-theme='dark'] [class*="shadow"] {
   bottom: 0 !important;
   padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
 }
-
-/* ✅ Animation */
 @keyframes modalSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
-
-/* ✅ Pour les très petits écrans */
 @media (max-width: 480px) {
   .modal-overlay {
     padding: 8px !important;
     align-items: flex-end !important;
   }
-  
   .modal-card {
     max-height: 95vh !important;
     border-radius: 20px 20px 0 0 !important;
     max-width: 100% !important;
   }
-  
-  .modal-header {
-    padding: 14px 16px !important;
-  }
-  
-  .modal-body {
-    padding: 16px !important;
-    max-height: calc(95vh - 120px) !important;
-  }
-  
-  .modal-footer {
-    padding: 14px 16px !important;
-  }
+  .modal-header { padding: 14px 16px !important; }
+  .modal-body { padding: 16px !important; max-height: calc(95vh - 120px) !important; }
+  .modal-footer { padding: 14px 16px !important; }
 }
-
-/* ✅ Pour les écrans avec notch */
 @supports (padding: max(0px)) {
-  .modal-footer {
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
-  }
+  .modal-footer { padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important; }
 }
-
-/* ✅ Scrollbar stylisée dans les modales */
 .modal-body::-webkit-scrollbar {
   width: 4px !important;
 }
-
-.modal-body::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
+.modal-body::-webkit-scrollbar-track { background: transparent !important; }
 .modal-body::-webkit-scrollbar-thumb {
   background: #d1d5db !important;
   border-radius: 10px !important;
 }
+.modal-body::-webkit-scrollbar-thumb:hover { background: #9ca3af !important; }
 
-.modal-body::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af !important;
-}
-
-/* ✅ Toutes les modales fixes avec z-index élevé */
 .fixed.inset-0.z-50,
-.fixed.inset-0.z-\[100\],
-.fixed.inset-0.z-\[120\],
-.fixed.inset-0.z-\[150\],
-.fixed.inset-0.z-\[200\],
-.fixed.inset-0.z-\[9999\] {
+.fixed.inset-0.z-[100], .fixed.inset-0.z-[120], .fixed.inset-0.z-[150],
+.fixed.inset-0.z-[200], .fixed.inset-0.z-[9999] {
   z-index: 99999 !important;
   position: fixed !important;
   inset: 0 !important;
@@ -575,37 +483,26 @@ html[data-theme='dark'] [class*="shadow"] {
   -webkit-backdrop-filter: blur(4px) !important;
   overflow: hidden !important;
 }
-
-/* ✅ Pour les modales sur mobile - s'assurer qu'elles sont en haut */
 @media (max-width: 480px) {
-  .fixed.inset-0.z-50,
-  .fixed.inset-0.z-\[100\],
-  .fixed.inset-0.z-\[120\],
-  .fixed.inset-0.z-\[150\],
-  .fixed.inset-0.z-\[200\],
-  .fixed.inset-0.z-\[9999\] {
+  .fixed.inset-0.z-50, .fixed.inset-0.z-[100],
+  .fixed.inset-0.z-[120], .fixed.inset-0.z-[150], .fixed.inset-0.z-[200],
+  .fixed.inset-0.z-[9999] {
     align-items: flex-end !important;
     padding: 8px !important;
   }
-  
-  .fixed.inset-0.z-50 > div,
-  .fixed.inset-0.z-\[100\] > div,
-  .fixed.inset-0.z-\[120\] > div,
-  .fixed.inset-0.z-\[150\] > div,
-  .fixed.inset-0.z-\[200\] > div,
-  .fixed.inset-0.z-\[9999\] > div {
+  .fixed.inset-0.z-50 > div, .fixed.inset-0.z-[100] > div, .fixed.inset-0.z-[120] > div,
+  .fixed.inset-0.z-[150] > div, .fixed.inset-0.z-[200] > div, .fixed.inset-0.z-[9999] > div {
     border-radius: 20px 20px 0 0 !important;
     max-height: 95vh !important;
     max-width: 100% !important;
   }
 }
 
-/* ✅ Skeleton / Shimmer */
+/* ===== SKELETON ===== */
 .shimmer {
   position: relative;
   overflow: hidden;
 }
-
 .shimmer::after {
   content: '';
   position: absolute;
@@ -619,9 +516,6 @@ html[data-theme='dark'] [class*="shadow"] {
   transform: translateX(-100%);
   animation: shimmer 1.4s infinite;
 }
-
 @keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
+  100% { transform: translateX(100%); }
 }
