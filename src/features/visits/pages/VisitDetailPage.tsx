@@ -1,7 +1,7 @@
 // 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
-// ✅ PAGE DÉTAIL VISITE COMPLETE : ENREGISTREMENT ET VISIBILITÉ DES MÉDIAS POUR LA FAMILLE ET PROTECTION ANTI DOUBLE-CLIC
+// ✅ PAGE DÉTAIL VISITE COMPLETE : VISIBILITÉ TOTALE DES MÉDIAS AVEC FALLBACK ET DOUBLE-CLIC SÉCURISÉ
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -25,7 +25,7 @@ import {
   UserCheck,
   Briefcase,
   Navigation as NavIcon,
-  Mic, // ✅ Ajouté pour le rendu de la note vocale
+  Mic, // ✅ Note vocale
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -86,7 +86,6 @@ const VisitDetailPage = () => {
   const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [assignmentType, setAssignmentType] = useState<'permanente' | 'temporaire' | 'ponctuelle'>('ponctuelle');
 
-  // ✅ VERROU DE SÉCURITÉ SYNCHRONE (Bloque instantanément les doubles clics sur tous les boutons)
   const isActionPending = useRef(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -214,7 +213,6 @@ const VisitDetailPage = () => {
     setIsUploading(true);
 
     try {
-      // ✅ APPEL ATOMIQUE SÉCURISÉ : On envoie l'audio_url directement au backend
       await completeVisit(id!, {
         actions,
         notes,
@@ -417,8 +415,29 @@ const VisitDetailPage = () => {
     );
   }
 
-  // ✅ CORRECTION DU COMPILATEUR : Transtypage en "any" pour autoriser l'accès dynamique aux propriétés d'audios/photos de visite
   const visit = currentVisit as any;
+
+  // ✅ RECUPERATION FALLBACK HYBRIDE DES PHOTOS (Lit d'abord la table dédiée, sinon se replie sur metadata)
+  const photosList = useMemo(() => {
+    if (visit.photos && visit.photos.length > 0) {
+      return visit.photos;
+    }
+    if (visit.metadata?.photos && Array.isArray(visit.metadata.photos)) {
+      return visit.metadata.photos;
+    }
+    return [];
+  }, [visit.photos, visit.metadata?.photos]);
+
+  // ✅ RECUPERATION FALLBACK HYBRIDE DE L'AUDIO
+  const audioUrl = useMemo(() => {
+    if (visit.metadata?.audio_url) {
+      return visit.metadata.audio_url;
+    }
+    if (visit.audios && visit.audios.length > 0) {
+      return visit.audios[0].audio_url;
+    }
+    return null;
+  }, [visit.metadata?.audio_url, visit.audios]);
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -725,8 +744,8 @@ const VisitDetailPage = () => {
             </div>
           )}
 
-          {/* ✅ COMPTE-RENDU DE VISITE GROUPÉ (MÉDIAS TOTALEMENT VISIBLES PAR TOUS) */}
-          {(visit.actions?.length > 0 || visit.notes || (visit.photos && visit.photos.length > 0) || visit.report || visit.metadata?.audio_url || (visit.audios && visit.audios.length > 0)) ? (
+          {/* ✅ COMPTE-RENDU DE VISITE GROUPÉ (MÉDIAS TOTALEMENT VISIBLES PAR TOUS AVEC LES VARIABLES HYBRIDES) */}
+          {(visit.actions?.length > 0 || visit.notes || (photosList && photosList.length > 0) || visit.report || audioUrl) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-black/5 space-y-5">
               <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ color: colors.text }}>
                 📊 Compte-rendu de la visite
@@ -779,8 +798,8 @@ const VisitDetailPage = () => {
                 </div>
               )}
 
-              {/* ✅ COMPTE-RENDU AUDIO VISIBLE PAR LA FAMILLE, LES ADMINS ET L'AIDANT */}
-              {(visit.metadata?.audio_url || (visit.audios && visit.audios.length > 0)) && (
+              {/* ✅ COMPTE-RENDU AUDIO VISIBLE GRÂCE AU REPLI SÉCURISÉ */}
+              {audioUrl && (
                 <div className="pt-3 border-t border-gray-100">
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                     <Mic size={14} className="text-blue-500 animate-pulse" />
@@ -792,7 +811,7 @@ const VisitDetailPage = () => {
                       <span className="text-xs text-gray-500 font-semibold">Message audio enregistré</span>
                     </div>
                     <audio 
-                      src={visit.metadata?.audio_url || visit.audios?.[0]?.audio_url} 
+                      src={audioUrl} 
                       controls 
                       className="w-full sm:w-auto h-9" 
                     />
@@ -801,13 +820,13 @@ const VisitDetailPage = () => {
               )}
 
               {/* Photos jointes */}
-              {visit.photos && visit.photos.length > 0 && (
+              {photosList && photosList.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                     Photos jointes
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {visit.photos.map((photo: any, index: number) => {
+                    {photosList.map((photo: any, index: number) => {
                       const url = photo.photo_url || photo;
                       return (
                         <div
