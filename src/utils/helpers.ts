@@ -1,5 +1,6 @@
-// 📁 src/utils/helpers.ts
- 
+// 📁 frontend/src/utils/helpers.ts
+// ✅ MODULE D'HELPERS DE FORMULAIRE COMPLET : MISE EN PRIORITÉ DE L'ADRESSE SPÉCIFIQUE DE VISITE
+
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Visit } from '@/types';
@@ -256,8 +257,12 @@ export const getVisitDisplayName = (visit: Visit | null | undefined): string => 
   return 'Visite';
 };
 
+// ✅ CORRECTIF DE PRIORITÉ : On lit d'abord 'visit.address' spécifique avant d'utiliser l'adresse par défaut du profil patient.
 export const getVisitDisplayAddress = (visit: Visit | null | undefined): string => {
   if (!visit) return 'Adresse non renseignée';
+  if (visit.address && visit.address.trim() !== '') {
+    return visit.address;
+  }
   if (visit.patient?.address) {
     return visit.patient.address;
   }
@@ -521,13 +526,8 @@ export const softDeleteVisit = async (visitId: string): Promise<boolean> => {
 export const extractCoordinatesFromGoogleMaps = (text: string): { lat: number; lng: number } | null => {
   if (!text) return null;
 
-  // Pattern 1: Détecte "@latitude,longitude" (Format classique Google Maps bureau)
   const regexAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-  
-  // Pattern 2: Détecte "q=latitude,longitude" ou daddr/saddr/ll (Format mobile/recherche)
   const regexQuery = /[?&](?:q|query|saddr|daddr|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/;
-  
-  // Pattern 3: Détecte deux nombres décimaux séparés par une virgule "latitude, longitude"
   const regexRaw = /^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/;
 
   let match = text.match(regexAt);
