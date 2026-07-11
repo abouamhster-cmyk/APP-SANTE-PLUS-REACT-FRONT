@@ -1,5 +1,4 @@
-// 📁 src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CORRECTION DE LA TERMINOLOGIE DYNAMIQUE "DESTINATAIRE" ET RETRAIT DU TRACAGE CONTINU ENCOMBRANT
+// 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -36,7 +35,6 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime } from '@/utils/helpers';
 
-// ✅ IMPORTER LES HELPERS
 import {
   isOrderPendingPayment,
   isOrderPonctual,
@@ -47,7 +45,7 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// ✅ HELPERS LOCAUX EN HAUT DE PAGE
+// HELPERS LOCAUX
 // ============================================================
 
 const getStatusLabel = (status: string): string => {
@@ -296,7 +294,6 @@ const OrderDetailPage = () => {
     };
   }, [showProofModal]);
 
-  // ✅ CHANGEMENT STATUT - UN SEUL TOAST
   const handleStatusChange = async (status: string) => {
     if (!id) return;
 
@@ -314,7 +311,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  // ✅ PRISE DE COMMANDE - UN SEUL TOAST
   const handleTakeOrder = async () => {
     if (!id) return;
     setIsUpdating(true);
@@ -330,7 +326,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  // ✅ SÉLECTION IMAGE - UN SEUL TOAST
   const handleProofSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
 
@@ -355,7 +350,6 @@ const OrderDetailPage = () => {
     reader.readAsDataURL(file);
   };
 
-  // ✅ UPLOAD PREUVE - UN SEUL TOAST (SUIVI RETIRÉ)
   const handleProofUpload = async () => {
     if (!id || !proofFile) {
       toast.error('Veuillez sélectionner une photo');
@@ -426,14 +420,14 @@ const OrderDetailPage = () => {
     );
   }
 
-  // Transtypage en any pour contourner TS2339 au niveau du typage optionnel de l'interface d'origine
   const order = currentOrder as any;
 
-  // ✅ TERMINOLOGIE HARMONISÉE SUR LES CARTES DE DÉTAIL DES COMMANDES COURSES : "DESTINATAIRE"
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
-  const canTake = (order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
-  const canAccept = order.status === 'creee' && (isAidant || isAdminOrCoordinator);
+  // ✅ CORRECTION APPLIQUÉE : 'creee' est déplacé dans canTake pour que l'aidant s'attribue l'aidant_id au lieu d'un changement de statut vide.
+  const canTake = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
+  const canAccept = order.status === 'creee' && isAdminOrCoordinator;
+  
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
   const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
   const isUrgent = order.status === 'disponible' || order.status === 'en_attente';
@@ -618,7 +612,7 @@ const OrderDetailPage = () => {
         />
       </div>
 
-      {/* ✅ BANDEAU PAIEMENT EN ATTENTE */}
+      {/* BANDEAU PAIEMENT EN ATTENTE */}
       {isPendingPayment && (
         <div 
           className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
