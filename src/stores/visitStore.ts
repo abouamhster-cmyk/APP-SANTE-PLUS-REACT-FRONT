@@ -1,7 +1,5 @@
-
-
-// 📁 frontend/src/stores/visitStore.ts
-// ✅ STORE VISITES COMPLET : PASSAGE STRICT DE L'ADRESSE ET DES COORDONNÉES GPS AU PREMIER NIVEAU DU PAYLOAD API
+// 📁 src/stores/visitStore.ts
+// ✅ STORE VISITES COMPLET : PASSAGE STRUCTURÉ DE L'ADRESSE, AUDIO ET GESTION ROBUSTE DES CONTRAINTES DE VERROU
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -11,10 +9,8 @@ import { assignmentAPI } from '@/lib/api';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
-// ✅ IMPORTER LES HELPERS
 import { getVisitStatusForCreation, requiresPonctualPayment } from '@/lib/constants';
 
-// ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const generateVisitReference = (): string => {
@@ -39,9 +35,6 @@ export const getPonctualPrice = (durationMinutes: number = 60): number => {
   return Math.round((durationMinutes / 60) * 7500);
 };
 
-// ============================================================
-// CACHE HELPERS
-// ============================================================
 const CACHE_KEY = 'sante_plus_visits_cache';
 const CACHE_DURATION = 60000;
 
@@ -87,9 +80,9 @@ interface VisitState {
     wizard_choice?: string;
     selected_aidant_id?: string;
     is_ponctual?: boolean;
-    address?: string;                // ✅ PASSAGE ADRESSE
-    latitude?: number | null;        // ✅ GPS
-    longitude?: number | null;       // ✅ GPS
+    address?: string;
+    latitude?: number | null;
+    longitude?: number | null;
   }) => Promise<Visit>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
@@ -98,7 +91,7 @@ interface VisitState {
   refuseVisit: (id: string, reason: string) => Promise<void>;
   reassignVisit: (id: string, newAidantId: string, assignmentType: string) => Promise<void>;
   startVisit: (id: string) => Promise<void>;
-  completeVisit: (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => Promise<void>;
+  completeVisit: (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string }) => Promise<void>;
   validateVisit: (id: string) => Promise<void>;
   cancelVisit: (id: string) => Promise<void>;
   invalidateCache: () => void;
@@ -296,10 +289,23 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
+      // ✅ RÉCUPÉRATION MULTI-APPAREILS DES PHOTOS ET DES AUDIOS DE LA VISITE POUR L'INTERFACE FAMILLE
+      const { data: photos } = await supabase
+        .from('visite_photos')
+        .select('*')
+        .eq('visite_id', id);
+
+      const { data: audios } = await supabase
+        .from('visite_audios')
+        .select('*')
+        .eq('visite_id', id);
+
       const fullVisit = {
         ...visit,
         patient,
         aidant,
+        photos: photos || [],
+        audios: audios || [],
       };
 
       set({ currentVisit: fullVisit });
@@ -309,9 +315,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // ✅ CREATE VISIT WITH DECODED ADDRESS AND GPS DATA
-  // ============================================================
   createVisit: async (data: Partial<Visit> & {
     target_type?: 'personal' | 'patient';
     target_name?: string;
@@ -319,9 +322,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     wizard_choice?: string;
     selected_aidant_id?: string;
     is_ponctual?: boolean;
-    address?: string;                // ✅ SUPPORT CHAMPS ADRESSE
-    latitude?: number | null;        // ✅ GPS LATITUDE
-    longitude?: number | null;       // ✅ GPS LONGITUDE
+    address?: string;
+    latitude?: number | null;
+    longitude?: number | null;
   }): Promise<Visit> => {
     try {
       set({ error: null });
@@ -374,7 +377,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       if (selectedAidantId) {
         finalAidantId = selectedAidantId;
-        console.log(`✅ Aidant sélectionné via wizard: ${finalAidantId}`);
       }
 
       if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
@@ -386,15 +388,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           familyId ?? undefined
         );
         autoAssigned = !!finalAidantId;
-        
-        if (finalAidantId) {
-          console.log(`✅ Aidant automatique trouvé: ${finalAidantId}`);
-        }
       }
 
       if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
-        console.log('🔄 Aucun aidant trouvé, déclenchement du wizard');
-        
         const wizardError: any = new Error('Aucun aidant disponible');
         wizardError.response = {
           status: 422,
@@ -437,15 +433,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         assigned_by_admin: profile?.role === 'admin' || profile?.role === 'coordinator',
         admin_assigned_at: (profile?.role === 'admin' || profile?.role === 'coordinator') ? new Date().toISOString() : null,
         waiting_for_aidant_since: status === 'en_attente_aidant' ? new Date().toISOString() : null,
-        
-        // ✅ TRANSMISSION DES PROPRIÉTÉS GPS AUX COLONNES CORRESPONDAANTES DE LA BASE DE DONNÉES
         address: data.address || null,
         latitude: data.latitude || null,
         longitude: data.longitude || null,
-
         wizard_choice: wizardChoice,
         selected_aidant_id: selectedAidantId,
-
         metadata: {
           created_by: user.id,
           created_at: new Date().toISOString(),
@@ -463,18 +455,15 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       };
 
-      console.log('📤 Données visite envoyées:', JSON.stringify(visitData, null, 2));
-
       let newVisit;
       try {
         const response = await api.post('/visits', visitData);
         newVisit = response.data?.visit || response.data;
 
         if (!newVisit) {
-          throw new Error('Erreur lors de la création de la visite: réponse vide');
+          throw new Error('Erreur de création : réponse vide');
         }
       } catch (apiError: any) {
-        console.error('❌ Erreur API createVisit:', apiError);
         throw apiError;
       }
 
@@ -546,11 +535,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Mission approuvée avec succès !');
     } catch (error: any) {
       console.error('❌ Approve visit error:', error);
-      toast.error(error.message || "Erreur lors de l'approbation");
+      throw error;
     }
   },
 
@@ -561,11 +548,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.error('❌ Mission refusée');
     } catch (error: any) {
       console.error('❌ Refuse visit error:', error);
-      toast.error(error.message || 'Erreur lors du refus');
+      throw error;
     }
   },
 
@@ -579,11 +564,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite réassignée avec succès !');
     } catch (error: any) {
       console.error('❌ Reassign visit error:', error);
-      toast.error(error.message || 'Erreur lors de la réassignation');
+      throw error;
     }
   },
 
@@ -594,26 +577,23 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('🚀 Visite démarrée avec succès !');
     } catch (error: any) {
       console.error('❌ Start visit error:', error);
-      toast.error(error.message || 'Erreur lors du démarrage');
+      throw error;
     }
   },
 
-  completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[] }) => {
+  // ✅ TRANSMISSION DIRECTE DU COMPTE-RENDU AUDIO ET PHOTO AU BACKEND SANS RE-ÉCRITURE CONFLICTUELLE
+  completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string }) => {
     try {
       set({ error: null });
       await api.post(`/visits/${id}/complete`, data);
 
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite complétée. Rapport envoyé pour validation.');
     } catch (error: any) {
       console.error('❌ Complete visit error:', error);
-      toast.error(error.message || 'Erreur lors de la soumission du rapport');
+      throw error;
     }
   },
 
@@ -624,11 +604,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite validée avec succès !');
     } catch (error: any) {
       console.error('❌ Validate visit error:', error);
-      toast.error(error.message || 'Erreur lors de la validation');
+      throw error;
     }
   },
 
@@ -639,11 +617,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
       get().invalidateCache();
       await get().fetchVisits(true);
-
-      toast.success('✅ Visite annulée avec succès !');
     } catch (error: any) {
       console.error('❌ Cancel visit error:', error);
-      toast.error(error.message || "Erreur lors de l'annulation");
+      throw error;
     }
   },
 
