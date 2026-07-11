@@ -23,8 +23,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'Accept': 'application/json', 
-      'Content-Type': 'application/json',
-    },
+     },
   },
 });
 
@@ -37,8 +36,7 @@ export const getCurrentUser = async () => {
   return user;
 };
 
-// ✅ CORRIGÉ : Utiliser maybeSingle() au lieu de single()
-export const getCurrentProfile = async () => {
+ export const getCurrentProfile = async () => {
   const user = await getCurrentUser();
   if (!user) return null;
 
