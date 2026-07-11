@@ -1,5 +1,5 @@
 // 📁 src/components/visits/VisitInfo.tsx
-// ✅ COMPOSANT RÉUTILISABLE POUR AFFICHER LES INFOS D'UNE VISITE
+// ✅ COMPOSANT DE SÉCURITÉ GESTION DE L'ADRESSE SPÉCIFIQUE DE LA VISITE HIERARCHISÉE
 
 import { Visit } from '@/types';
 import { formatDate, formatTime } from '@/utils/helpers';
@@ -10,9 +10,6 @@ interface VisitInfoProps {
 
 /**
  * Retourne le nom à afficher pour une visite
- * - Si patient existe → nom du patient
- * - Si visite personnelle → target_name
- * - Sinon → 'Personnel'
  */
 export const getVisitDisplayName = (visit: Visit): string => {
   if (!visit) return 'Visite';
@@ -30,12 +27,13 @@ export const getVisitDisplayName = (visit: Visit): string => {
 
 /**
  * Retourne l'adresse à afficher pour une visite
- * - Si patient a une adresse → adresse du patient
- * - Si visite personnelle → 'Adresse personnelle'
- * - Sinon → 'Adresse non renseignée'
+ * ✅ CORRECTIF DE PRIORITÉ : Priorise l'adresse de la visite 'visit.address' sur l'adresse par défaut du proche
  */
 export const getVisitDisplayAddress = (visit: Visit): string => {
   if (!visit) return 'Adresse non renseignée';
+  if (visit.address && visit.address.trim() !== '') {
+    return visit.address;
+  }
   if (visit.patient?.address) {
     return visit.patient.address;
   }
@@ -78,7 +76,6 @@ export const getVisitDisplayType = (visit: Visit): string => {
 
 /**
  * Retourne le nom de l'aidant ou 'Non assigné'
- * ✅ CORRIGÉ : Utilise le bon chemin visit.aidant?.user?.full_name
  */
 export const getVisitDisplayAidant = (visit: Visit): string => {
   if (!visit) return 'Non assigné';
@@ -330,7 +327,6 @@ export const VisitInfoDisplay = ({
 
   return (
     <div className={`space-y-2 ${className}`}>
-      {/* Patient */}
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-gray-500">👤</span>
         <span className="text-sm font-semibold text-gray-800">{patientName}</span>
@@ -339,7 +335,6 @@ export const VisitInfoDisplay = ({
         )}
       </div>
 
-      {/* Aidant */}
       {showAidant && (
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-500">🦸</span>
@@ -347,7 +342,6 @@ export const VisitInfoDisplay = ({
         </div>
       )}
 
-      {/* Adresse */}
       {showAddress && (
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-500">📍</span>
@@ -355,7 +349,6 @@ export const VisitInfoDisplay = ({
         </div>
       )}
 
-      {/* Statut */}
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-gray-500">📌</span>
         <span
@@ -372,7 +365,6 @@ export const VisitInfoDisplay = ({
         )}
       </div>
 
-      {/* Date et heure */}
       <div className="flex items-center gap-4 text-xs text-gray-500">
         <span>📅 {formatDate(visit.scheduled_date)}</span>
         <span>⏰ {visit.scheduled_time}</span>
@@ -382,7 +374,6 @@ export const VisitInfoDisplay = ({
   );
 };
 
-// ✅ Exporter toutes les fonctions
 export default {
   getVisitDisplayName,
   getVisitDisplayAddress,
