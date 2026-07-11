@@ -417,7 +417,8 @@ const VisitDetailPage = () => {
     );
   }
 
-  const visit = currentVisit;
+  // ✅ CORRECTION DU COMPILATEUR : Transtypage en "any" pour autoriser l'accès dynamique aux propriétés d'audios/photos de visite
+  const visit = currentVisit as any;
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -562,7 +563,7 @@ const VisitDetailPage = () => {
         </div>
       </div>
 
-      {/* INFORMATION ASSIGNATION */}
+      {/* BANDEAU D'INFORMATION AIDANT */}
       {isAidant && visit.aidant_id && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl">
           <div className="flex items-center gap-3">
@@ -662,7 +663,7 @@ const VisitDetailPage = () => {
       {/* GRID LAYOUT PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        {/* COLONNE DE GAUCHE : Compte-rendu et Informations (2/3) */}
+        {/* COLONNE DE GAUCHE */}
         <div className="lg:col-span-2 space-y-6">
           
           {/* CARTES D'INFORMATIONS RAPIDES */}
@@ -739,7 +740,7 @@ const VisitDetailPage = () => {
                     Actions complétées
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {visit.actions.map((action, index) => (
+                    {visit.actions.map((action: string, index: number) => (
                       <span
                         key={index}
                         className="px-2.5 py-1 rounded-lg text-xs font-medium"
