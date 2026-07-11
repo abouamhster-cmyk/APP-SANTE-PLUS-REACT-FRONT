@@ -1,5 +1,6 @@
-// 📁 src/features/visits/pages/VisitDetailPage.tsx
- 
+// 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
+// ✅ PAGE DÉTAIL VISITE COMPLETE : ENREGISTREMENT ET VISIBILITÉ DES MÉDIAS POUR LA FAMILLE ET PROTECTION ANTI DOUBLE-CLIC
+
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -24,6 +25,7 @@ import {
   UserCheck,
   Briefcase,
   Navigation as NavIcon,
+  Mic, // ✅ Ajouté pour le rendu de la note vocale
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -38,7 +40,6 @@ import {
   getVisitDisplayAidant
 } from '@/utils/helpers';
 
-// ✅ IMPORTER LES HELPERS DEPUIS CONSTANTS
 import {
   getPonctualPrice,
   getVisitStatusForCreation,
@@ -81,10 +82,12 @@ const VisitDetailPage = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  // États pour l'assignation d'aidant
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [assignmentType, setAssignmentType] = useState<'permanente' | 'temporaire' | 'ponctuelle'>('ponctuelle');
+
+  // ✅ VERROU DE SÉCURITÉ SYNCHRONE (Bloque instantanément les doubles clics sur tous les boutons)
+  const isActionPending = useRef(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -106,26 +109,19 @@ const VisitDetailPage = () => {
     };
   }, [showCompleteModal]);
 
-  // Charger les aidants disponibles quand l'admin ouvre le modal
   useEffect(() => {
     if (showAssignModal) {
       fetchAidants({ onlyAvailable: true });
     }
   }, [showAssignModal, fetchAidants]);
 
-  // =============================================
-  // ✅ OUVERTURE DU MODAL DE PAIEMENT
-  // =============================================
   const handleOpenPayment = () => {
-    if (!currentVisit) return;
+    if (!currentVisit || isActionPending.current) return;
     if (currentVisit.status === 'brouillon' && currentVisit.metadata?.requires_payment) {
       setShowPaymentModal(true);
     }
   };
 
-  // =============================================
-  // ✅ SUCCÈS DU PAIEMENT - UN SEUL TOAST
-  // =============================================
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
     toast.success('✅ Visite planifiée après paiement !');
@@ -136,11 +132,9 @@ const VisitDetailPage = () => {
     }
   };
 
-  // =============================================
-  // ✅ APPROUVER UNE VISITE - UN SEUL TOAST
-  // =============================================
   const handleApprove = async () => {
-    if (!id) return;
+    if (!id || isActionPending.current) return;
+    isActionPending.current = true;
     setIsUpdating(true);
     try {
       await approveVisit(id);
@@ -153,17 +147,16 @@ const VisitDetailPage = () => {
       toast.error(error.message || 'Erreur lors de l\'approbation');
     } finally {
       setIsUpdating(false);
+      isActionPending.current = false;
     }
   };
 
-  // =============================================
-  // ✅ REFUSER UNE VISITE - UN SEUL TOAST
-  // =============================================
   const handleRefuse = async () => {
-    if (!id) return;
+    if (!id || isActionPending.current) return;
     const reason = prompt('Motif du refus :');
     if (!reason) return;
 
+    isActionPending.current = true;
     setIsUpdating(true);
     try {
       await refuseVisit(id, reason);
@@ -176,13 +169,13 @@ const VisitDetailPage = () => {
       toast.error(error.message || 'Erreur lors du refus');
     } finally {
       setIsUpdating(false);
+      isActionPending.current = false;
     }
   };
 
-  // =============================================
-  // ✅ DÉMARRER UNE VISITE - UN SEUL TOAST (SANS TRACKING INTÉGRÉ)
-  // =============================================
   const handleStart = async () => {
+    if (!id || isActionPending.current) return;
+    isActionPending.current = true;
     setIsUpdating(true);
     try {
       await startVisit(id!);
@@ -195,49 +188,39 @@ const VisitDetailPage = () => {
       toast.error(error.message || 'Erreur lors du démarrage');
     } finally {
       setIsUpdating(false);
+      isActionPending.current = false;
     }
   };
 
-  // =============================================
-  // ✅ TERMINER UNE VISITE - UN SEUL TOAST (SANS TRACKING INTÉGRÉ)
-  // =============================================
   const handleComplete = async (data: {
     actions: string[];
     notes: string;
     audio_url?: string;
     photos: string[];
   }) => {
+    if (isActionPending.current) return;
+    
     const actions = data?.actions || [];
     const notes = data?.notes || '';
     const photoUrls = data?.photos || [];
+    const audio_url = data?.audio_url || '';
 
     if (actions.length === 0) {
       toast.error('Veuillez sélectionner au moins une action');
       return;
     }
 
+    isActionPending.current = true;
     setIsUploading(true);
 
     try {
+      // ✅ APPEL ATOMIQUE SÉCURISÉ : On envoie l'audio_url directement au backend
       await completeVisit(id!, {
         actions,
         notes,
         photos: photoUrls,
+        audio_url,
       });
-
-      if (data?.audio_url) {
-        await supabase
-          .from('visites')
-          .update({
-            metadata: {
-              audio_url: data.audio_url,
-              photos: photoUrls,
-              actions,
-              notes,
-            }
-          })
-          .eq('id', id);
-      }
 
       toast.success('✅ Visite terminée avec succès !');
       setShowCompleteModal(false);
@@ -249,14 +232,15 @@ const VisitDetailPage = () => {
       toast.error('Erreur lors de la finalisation');
     } finally {
       setIsUploading(false);
+      isActionPending.current = false;
     }
   };
 
-  // =============================================
-  // ✅ ANNULER UNE VISITE - UN SEUL TOAST
-  // =============================================
   const handleCancel = async () => {
+    if (isActionPending.current) return;
+    
     if (window.confirm('Annuler cette visite ?')) {
+      isActionPending.current = true;
       setIsUpdating(true);
       try {
         await cancelVisit(id!);
@@ -269,19 +253,19 @@ const VisitDetailPage = () => {
         toast.error(error.message || 'Erreur lors de l\'annulation');
       } finally {
         setIsUpdating(false);
+        isActionPending.current = false;
       }
     }
   };
 
-  // =============================================
-  // ✅ ASSIGNER UN AIDANT - UN SEUL TOAST
-  // =============================================
   const handleAssignAidant = async () => {
+    if (isActionPending.current) return;
     if (!selectedAidantId) {
       toast.error('Veuillez sélectionner un aidant');
       return;
     }
 
+    isActionPending.current = true;
     setIsUpdating(true);
     try {
       await reassignVisit(id!, selectedAidantId, assignmentType);
@@ -296,12 +280,10 @@ const VisitDetailPage = () => {
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsUpdating(false);
+      isActionPending.current = false;
     }
   };
 
-  // =============================================
-  // ✅ FONCTIONS D'AFFICHAGE
-  // =============================================
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
       planifiee: '#4CAF50',
@@ -440,9 +422,7 @@ const VisitDetailPage = () => {
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
       
-      {/* ============================================================
-      EN-TÊTE DE LA PAGE
-      ============================================================ */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: colors.border }}>
         <div className="flex items-center space-x-3 min-w-0">
           <button
@@ -488,7 +468,7 @@ const VisitDetailPage = () => {
             <>
               <button
                 onClick={handleApprove}
-                disabled={isUpdating}
+                disabled={isUpdating || isActionPending.current}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
                 style={{ background: '#4CAF50' }}
               >
@@ -497,7 +477,7 @@ const VisitDetailPage = () => {
               </button>
               <button
                 onClick={handleRefuse}
-                disabled={isUpdating}
+                disabled={isUpdating || isActionPending.current}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
                 style={{ background: '#F44336' }}
               >
@@ -510,7 +490,7 @@ const VisitDetailPage = () => {
           {isAccepted && isAidant && (
             <button
               onClick={handleStart}
-              disabled={isUpdating}
+              disabled={isUpdating || isActionPending.current}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#4CAF50' }}
             >
@@ -522,7 +502,7 @@ const VisitDetailPage = () => {
           {isInProgress && isAidant && (
             <button
               onClick={() => setShowCompleteModal(true)}
-              disabled={isUpdating}
+              disabled={isUpdating || isActionPending.current}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#2196F3' }}
             >
@@ -534,7 +514,7 @@ const VisitDetailPage = () => {
           {(isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
             <button
               onClick={handleCancel}
-              disabled={isUpdating}
+              disabled={isUpdating || isActionPending.current}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#F44336' }}
             >
@@ -546,6 +526,8 @@ const VisitDetailPage = () => {
           {isCompleted && isAdminOrCoordinator && (
             <button
               onClick={async () => {
+                if (isActionPending.current) return;
+                isActionPending.current = true;
                 try {
                   await supabase.from('visites').update({ status: 'validee' }).eq('id', id);
                   toast.success('✅ Visite validée');
@@ -555,6 +537,8 @@ const VisitDetailPage = () => {
                 } catch (error: any) {
                   console.error('❌ Erreur validation:', error);
                   toast.error(error.message || 'Erreur lors de la validation');
+                } finally {
+                  isActionPending.current = false;
                 }
               }}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
@@ -575,25 +559,10 @@ const VisitDetailPage = () => {
               <span>Assigner un aidant</span>
             </button>
           )}
-
-          {(isExpired || isRefused) && isAdminOrCoordinator && (
-            <button
-              onClick={() => {
-                const newAidantId = prompt('ID du nouvel aidant :');
-                if (!newAidantId) return;
-                toast('Réassignation à implémenter', { icon: 'ℹ️' });
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
-              style={{ background: '#FF5722' }}
-            >
-              <AlertCircle size={14} />
-              <span>Réassigner</span>
-            </button>
-          )}
         </div>
       </div>
 
-      {/* BANDEAU D'INFORMATION AIDANT */}
+      {/* INFORMATION ASSIGNATION */}
       {isAidant && visit.aidant_id && (
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl">
           <div className="flex items-center gap-3">
@@ -656,9 +625,7 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      ✅ REPOSITIONNÉ : WIDGET DE NAVIGATION DE VISITE SANS CARTE INTERNE
-      ============================================================ */}
+      {/* NAVIGATION GPS */}
       {visit.status === 'en_cours' && (
         <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="min-w-0">
@@ -692,9 +659,7 @@ const VisitDetailPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-      GRID LAYOUT PRINCIPAL
-      ============================================================ */}
+      {/* GRID LAYOUT PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
         {/* COLONNE DE GAUCHE : Compte-rendu et Informations (2/3) */}
@@ -725,7 +690,7 @@ const VisitDetailPage = () => {
             />
           </div>
 
-          {/* STATS AIDANT - UNIQUEMENT POUR L'AIDANT */}
+          {/* STATS AIDANT */}
           {isAidant && visit.aidant && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <StatCard 
@@ -759,8 +724,8 @@ const VisitDetailPage = () => {
             </div>
           )}
 
-          {/* COMPTE-RENDU DE VISITE GROUPÉ */}
-          {(visit.actions?.length > 0 || visit.notes || (visit.photos && visit.photos.length > 0) || visit.report) ? (
+          {/* ✅ COMPTE-RENDU DE VISITE GROUPÉ (MÉDIAS TOTALEMENT VISIBLES PAR TOUS) */}
+          {(visit.actions?.length > 0 || visit.notes || (visit.photos && visit.photos.length > 0) || visit.report || visit.metadata?.audio_url || (visit.audios && visit.audios.length > 0)) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-black/5 space-y-5">
               <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ color: colors.text }}>
                 📊 Compte-rendu de la visite
@@ -813,6 +778,27 @@ const VisitDetailPage = () => {
                 </div>
               )}
 
+              {/* ✅ COMPTE-RENDU AUDIO VISIBLE PAR LA FAMILLE, LES ADMINS ET L'AIDANT */}
+              {(visit.metadata?.audio_url || (visit.audios && visit.audios.length > 0)) && (
+                <div className="pt-3 border-t border-gray-100">
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Mic size={14} className="text-blue-500 animate-pulse" />
+                    Note vocale de l'intervenant
+                  </h4>
+                  <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Play size={16} className="text-gray-400" />
+                      <span className="text-xs text-gray-500 font-semibold">Message audio enregistré</span>
+                    </div>
+                    <audio 
+                      src={visit.metadata?.audio_url || visit.audios?.[0]?.audio_url} 
+                      controls 
+                      className="w-full sm:w-auto h-9" 
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Photos jointes */}
               {visit.photos && visit.photos.length > 0 && (
                 <div className="space-y-2">
@@ -857,7 +843,7 @@ const VisitDetailPage = () => {
           )}
         </div>
 
-        {/* COLONNE DE DROITE : Localisation et Contact (1/3) */}
+        {/* COLONNE DE DROITE */}
         <div className="space-y-4">
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5 space-y-4">
             <h3 className="font-bold text-sm flex items-center gap-2 border-b pb-2" style={{ color: colors.text }}>
@@ -886,7 +872,6 @@ const VisitDetailPage = () => {
               </div>
             )}
 
-            {/* Informations complémentaires pour l'aidant */}
             {isAidant && visit.aidant_id && (
               <div className="pt-2 border-t border-gray-50">
                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Informations</p>
@@ -909,9 +894,7 @@ const VisitDetailPage = () => {
 
       </div>
 
-      {/* ============================================================
-      MODALS
-      ============================================================ */}
+      {/* MODALS */}
       {showPaymentModal && currentVisit && (
         <VisitPaymentModal
           isOpen={true}
@@ -935,10 +918,6 @@ const VisitDetailPage = () => {
     </div>
   );
 };
-
-// ============================================================
-// SOUS-COMPOSANTS
-// ============================================================
 
 interface InfoCardProps {
   icon: React.ReactNode;
