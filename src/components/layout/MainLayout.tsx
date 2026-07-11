@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-// ✅ MAQUETTE DE NAVIGATION PRINCIPALE AVEC SALUTATION ADAPTÉE À L'HEURE ET COULEURS EXPLICITES PAR RÔLE
+// ✅ MAQUETTE DE NAVIGATION PRINCIPALE : GREETING DYNAMIQUE SELON L'HEURE ET COULEURS EXPLICITES CONTEXTUELLES PAR RÔLE
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -11,17 +11,15 @@ Package, Home, Shield, UserCog, AlertCircle, } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useVisitStore } from '@/stores/visitStore';
+import { useOrderStore } from '@/stores/orderStore';
+import { usePatientStore } from '@/stores/patientStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
-import { cn, getGreeting, getInitials } from '@/utils/helpers';  
+import { cn, getGreeting, getInitials } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
-
-// =============================================
-// COMPOSANT PRINCIPAL
-// =============================================
 
 const MainLayout = () => {
   const navigate = useNavigate();
@@ -30,15 +28,72 @@ const MainLayout = () => {
   const { profile, role, logout } = useAuthStore();
   const { unreadCount, fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
   const { visits } = useVisitStore();
+  const { orders } = useOrderStore();
+  const { patients } = usePatientStore();
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const { isFamily } = useTerminology();
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
+  // ============================================================
+  // ✅ ADAPTATION DYNAMIQUE ET CONTEXTUELLE DE LA COULEUR DE RÔLE (Résout définitivement le vert résiduel)
+  // ============================================================
+  const themeName = useMemo(() => {
+    if (role !== 'family') {
+      return getThemeByRole(role, profile?.patient_category as any);
+    }
+
+    const path = location.pathname;
+
+    // 1️⃣ Si l'on consulte la fiche d'un proche spécifique, on adopte ses couleurs
+    if (path.startsWith('/app/patients/')) {
+      const patientId = path.split('/').pop();
+      const patient = patients.find(p => p.id === patientId);
+      if (patient?.category === 'maman_bebe') return 'maman';
+      if (patient?.category === 'senior') return 'senior';
+    }
+
+    // 2️⃣ Si l'on consulte une visite spécifique, on l'adapte
+    if (path.startsWith('/app/visits/')) {
+      const visitId = path.split('/').pop();
+      const visit = visits.find(v => v.id === visitId);
+      if (visit?.patient?.category === 'maman_bebe') return 'maman';
+      if (visit?.patient?.category === 'senior') return 'senior';
+    }
+
+    // 3️⃣ Si l'on consulte une commande spécifique, on l'adapte
+    if (path.startsWith('/app/orders/')) {
+      const orderId = path.split('/').pop();
+      const order = orders.find(o => o.id === orderId);
+      if (order?.patient?.category === 'maman_bebe') return 'maman';
+      if (order?.patient?.category === 'senior') return 'senior';
+    }
+
+    // 4️⃣ Si l'utilisateur a uniquement des proches maternité, on passe l'application en Rose
+    const hasMamanBebe = patients.some(p => p.category === 'maman_bebe');
+    const hasSenior = patients.some(p => p.category === 'senior');
+
+    if (hasMamanBebe && !hasSenior) {
+      return 'maman';
+    }
+    if (hasSenior && !hasMamanBebe) {
+      return 'senior';
+    }
+
+    // 5️⃣ Repli par défaut sur la catégorie du profil enregistré
+    return getThemeByRole(role, profile?.patient_category as any);
+  }, [role, profile?.patient_category, location.pathname, patients, visits, orders]);
+
   const colors = getThemeColors(themeName);
   const logoConfig = getLogoByRole(role, profile?.patient_category);
+
+  // ✅ MISE À JOUR DE LA RACINE DU DOCUMENT POUR APPLIQUER LA COULEUR DE RÔLE GLOBALE
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('theme-senior', 'theme-maman', 'theme-aidant', 'theme-coordinator');
+    root.classList.add(`theme-${themeName}`);
+  }, [themeName]);
 
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const showDraftBadge = isFamily && draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
