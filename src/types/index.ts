@@ -28,7 +28,7 @@ export type VisitStatus =
   | 'expire'          
   | 'attente_paiement'
   | 'brouillon'
-   | 'en_attente_aidant';  // Visite planifiée SANS aidant assigné
+  | 'en_attente_aidant';  
 
 // ✅ ORDER STATUS - AVEC NOUVEAUX STATUTS
 export type OrderStatus = 
@@ -249,6 +249,7 @@ export interface Visit {
   created_at: string;
   updated_at: string;
   photos?: VisitPhoto[];
+  audios?: any[];  
   metadata?: any;
   visit_type?: 'ponctuelle' | 'permanente' | 'intervalle';
   assignment_type?: 'ponctuelle' | 'permanente' | 'intervalle';
@@ -273,13 +274,11 @@ export interface Visit {
   payment_amount?: number;
   draft_expires_at?: string | null;
   auto_assigned_aidant?: boolean;
-  // 🆕 NOUVEAUX CHAMPS
   is_permanent?: boolean;
   assigned_by_admin?: boolean;
   admin_assigned_at?: string | null;
   waiting_for_aidant_since?: string | null;
   subscription_id?: string | null;
-  // ✅ CHAMPS ADRESSE / GPS
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -339,7 +338,6 @@ export interface Order {
   updated_at: string;
   is_ponctual?: boolean;
   auto_assigned_aidant?: boolean;
-  // 🆕 NOUVEAUX CHAMPS
   current_aidant_id?: string | null;
   taken_at?: string | null;
   taken_by?: string | null;
@@ -568,7 +566,6 @@ export interface DashboardStats {
   visitsInProgress: number;
   pendingRegistrations: number;
   revenue: number;
-  // 🆕 NOUVEAUX STATS
   visitsWaitingAidant?: number;
   ordersAvailable?: number;
   totalBeneficiaires?: number;
