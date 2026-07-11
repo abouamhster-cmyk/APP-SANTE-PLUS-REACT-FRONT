@@ -1,5 +1,6 @@
 // 📁 frontend/src/features/visits/pages/VisitsPage.tsx
- 
+// ✅ PAGE DES VISITES COMPLETE : PLANIFICATION ET COMPATIBILITÉ SANS RESTRICTION ET SÉCURISATION ANTI DOUBLE-CLIC
+
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -31,22 +32,13 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
-// ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
-
-// ============================================================
-// TYPES
-// ============================================================
 
 interface VisitWizardData {
   aidantId?: string | null;
   wizardChoice?: string;
   assignmentType?: string;
 }
-
-// =============================================
-// COMPOSANT PRINCIPAL
-// =============================================
 
 const VisitsPage = () => {
   const navigate = useNavigate();
@@ -55,7 +47,6 @@ const VisitsPage = () => {
   const { visits, isLoading, fetchVisits, startVisit, cancelVisit, createVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
 
-  // ✅ Utiliser le guard d'abonnement
   const {
     hasActiveSubscription,
     remainingVisits,
@@ -71,7 +62,6 @@ const VisitsPage = () => {
     singular,
   } = useTerminology();
 
-  // ✅ Hook de paiement ponctuel unifié
   const {
     isPaymentModalOpen,
     pendingPaymentData,
@@ -92,7 +82,6 @@ const VisitsPage = () => {
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
 
-  // ✅ États pour le Wizard
   const [showWizard, setShowWizard] = useState(false);
   const [wizardData, setWizardData] = useState<{
     targetType: 'patient' | 'personal_account' | 'personal';
@@ -105,17 +94,17 @@ const VisitsPage = () => {
   } | null>(null);
   const [isWizardLoading, setIsWizardLoading] = useState(false);
 
-  // ✅ États pour la conversion
   const [isConverting, setIsConverting] = useState(false);
 
-  // ✅ États pour l'assignation d'aidant
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedVisitForAssign, setSelectedVisitForAssign] = useState<any>(null);
 
-  // ÉTATS DE PULL-TO-REFRESH MOBILE
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
+
+  // ✅ VERROU DE SÉCURITÉ CONTRE LES DOUBLES-CLICS SUR LES LISTES D'ACTIONS
+  const isActionPending = useRef(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -124,20 +113,13 @@ const VisitsPage = () => {
   const canStartVisit = isAidantRole || isAdminOrCoordinator;
   const canCancelVisit = isAdminOrCoordinator || isFamily;
 
-  // ✅ Déterminer si l'utilisateur peut créer des visites avec abonnement
   const canCreateWithSubscription = isFamily && hasActiveSubscription && remainingVisits > 0;
 
-  // =============================================
-  // EFFETS : CHARGEMENT DES DONNÉES
-  // =============================================
   useEffect(() => {
     fetchVisits();
     fetchPatients();
   }, []);
 
-  // =============================================
-  // ✅ FILTRES SIMPLIFIÉS AVEC MODE PONCTUEL + EN_ATTENTE_AIDANT
-  // =============================================
   const statusFilterOptions = useMemo(() => {
     if (isAidantRole) {
       return [
@@ -160,9 +142,6 @@ const VisitsPage = () => {
     ];
   }, [isAidantRole]);
 
-  // =============================================
-  // ✅ TRI ET FILTRAGE DES VISITES
-  // =============================================
   const sortedVisits = useMemo(() => {
     return visits
       .filter((visit) => {
@@ -181,9 +160,6 @@ const VisitsPage = () => {
       );
   }, [visits, filterStatus]);
 
-  // =============================================
-  // ✅ STATISTIQUES
-  // =============================================
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const ponctualCount = visits.filter(v => 
     v.metadata?.ponctual_mode === true || 
@@ -193,7 +169,6 @@ const VisitsPage = () => {
   const waitingForAidantCount = visits.filter(v => v.status === 'en_attente_aidant').length;
   const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
-  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -231,11 +206,9 @@ const VisitsPage = () => {
     setPullY(0);
   };
 
-  // =============================================
-  // GESTION DU WIZARD - CRÉATION DE VISITE
-  // =============================================
-
   const handleCreateVisitWithWizard = async (visitData: any) => {
+    if (isActionPending.current) return;
+    
     let targetType: 'patient' | 'personal_account' | 'personal' = 'personal';
     let targetId = user?.id || '';
     let targetName = profile?.full_name || 'Personnel';
@@ -264,10 +237,10 @@ const VisitsPage = () => {
     setShowWizard(true);
   };
 
-  // ✅ SUCCÈS DU WIZARD - UN SEUL TOAST PAR CAS
   const handleWizardSuccess = async (data: VisitWizardData) => {
-    if (!wizardData) return;
+    if (!wizardData || isActionPending.current) return;
 
+    isActionPending.current = true;
     setIsWizardLoading(true);
     setShowWizard(false);
 
@@ -298,6 +271,7 @@ const VisitsPage = () => {
     } finally {
       setIsWizardLoading(false);
       setWizardData(null);
+      isActionPending.current = false;
     }
   };
 
@@ -306,12 +280,10 @@ const VisitsPage = () => {
     setWizardData(null);
   };
 
-  // =============================================
-  // ✅ CONVERTIR UN BROUILLON EN VISITE PLANIFIÉE
-  // =============================================
   const handleConvertToSubscription = async (visitId: string) => {
-    if (isConverting) return;
+    if (isConverting || isActionPending.current) return;
 
+    isActionPending.current = true;
     setIsConverting(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -343,12 +315,10 @@ const VisitsPage = () => {
       toast.error(error.message || 'Erreur lors de la conversion');
     } finally {
       setIsConverting(false);
+      isActionPending.current = false;
     }
   };
 
-  // =============================================
-  // ✅ PAIEMENT PONCTUEL
-  // =============================================
   const handlePonctualPayment = (visit: any) => {
     const patientName = visit.patient 
       ? `${visit.patient.first_name} ${visit.patient.last_name}` 
@@ -367,9 +337,6 @@ const VisitsPage = () => {
     });
   };
 
-  // =============================================
-  // ✅ ASSIGNATION D'AIDANT (ADMIN)
-  // =============================================
   const handleShowAssignAidantModal = (visit: any) => {
     setSelectedVisitForAssign(visit);
     setShowAssignModal(true);
@@ -382,6 +349,9 @@ const VisitsPage = () => {
   };
 
   const handleAdminAssignAidant = async (visitId: string, aidantId: string, assignmentType: string = 'permanente') => {
+    if (isActionPending.current) return;
+    
+    isActionPending.current = true;
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
@@ -416,6 +386,8 @@ const VisitsPage = () => {
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
+    } finally {
+      isActionPending.current = false;
     }
   };
 
@@ -429,9 +401,6 @@ const VisitsPage = () => {
     setIsModalOpen(true);
   };
 
-  // =============================================
-  // ✅ SUCCÈS DU MODAL (SANS DOUBLE TOAST)
-  // =============================================
   const handleModalSuccess = (newVisit?: any) => {
     fetchVisits();
     setIsModalOpen(false);
@@ -441,8 +410,10 @@ const VisitsPage = () => {
     }
   };
 
-  // ✅ START VISIT - UN SEUL TOAST
   const handleStartVisit = async (visitId: string) => {
+    if (isActionPending.current) return;
+    
+    isActionPending.current = true;
     try {
       await startVisit(visitId);
       toast.success('Visite démarrée');
@@ -450,13 +421,16 @@ const VisitsPage = () => {
     } catch (error: any) {
       console.error('❌ Erreur démarrage:', error);
       toast.error(error.message || 'Erreur lors du démarrage');
+    } finally {
+      isActionPending.current = false;
     }
   };
 
-  // ✅ CANCEL VISIT - UN SEUL TOAST
   const handleCancelVisit = async (visitId: string) => {
+    if (isActionPending.current) return;
     if (!window.confirm('Annuler cette visite ?')) return;
 
+    isActionPending.current = true;
     try {
       await cancelVisit(visitId);
       toast.success('Visite annulée');
@@ -464,12 +438,11 @@ const VisitsPage = () => {
     } catch (error: any) {
       console.error('❌ Erreur annulation:', error);
       toast.error(error.message || 'Erreur lors de l\'annulation');
+    } finally {
+      isActionPending.current = false;
     }
   };
 
-  // =============================================
-  // ÉCRAN DE CHARGEMENT SQUELETTE
-  // =============================================
   if (isLoading || subLoading) {
     return (
       <div className="space-y-6">
@@ -484,16 +457,14 @@ const VisitsPage = () => {
   }
 
   return (
-  <div 
-    className="w-full max-w-5xl mx-auto space-y-6 pb-6 px-1 sm:px-0" 
-    onTouchStart={handleTouchStart}
-    onTouchMove={handleTouchMove}
-    onTouchEnd={handleTouchEnd}
-  >
+    <div 
+      className="w-full max-w-5xl mx-auto space-y-6 pb-6 px-1 sm:px-0" 
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       
-      {/* ============================================================
-          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
-          ============================================================ */}
+      {/* INDICATEUR DE PULL-TO-REFRESH MOBILE */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -513,12 +484,9 @@ const VisitsPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-          🆕 CADRE UNIQUE ÉPURÉ (TITRES, CREDITS & BOUTON CENTRALISÉS)
-          ============================================================ */}
+      {/* CADRE UNIQUE ÉPURÉ */}
       <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 flex flex-col items-center text-center gap-4 shadow-sm backdrop-blur-md">
         
-        {/* A. Titre et description centré */}
         <div className="space-y-1 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
             {isAidantRole ? 'Mes missions d\'accompagnement' : 'Planning des visites'}
@@ -530,7 +498,6 @@ const VisitsPage = () => {
           </p>
         </div>
 
-        {/* B. Forfait disponible (Unifié proprement dans le même cadre) */}
         {isFamily && (
           <div className="px-5 py-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
             <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 leading-none">
@@ -545,7 +512,6 @@ const VisitsPage = () => {
           </div>
         )}
 
-        {/* C. Alerte Brouillons en attente (Intégré de manière chic s'il y en a) */}
         {isFamily && draftCount > 0 && (
           <button
             onClick={() => setFilterStatus('brouillon')}
@@ -556,7 +522,6 @@ const VisitsPage = () => {
           </button>
         )}
 
-        {/* D. Alerte Admin assignation (Intégré de manière chic s'il y en a) */}
         {isAdminOrCoordinator && waitingForAidantCount > 0 && (
           <button
             onClick={() => setFilterStatus('en_attente_aidant')}
@@ -567,7 +532,6 @@ const VisitsPage = () => {
           </button>
         )}
 
-        {/* E. Bouton central de Planification (En bas des textes, au milieu) */}
         {canPlanify && (
           <button
             onClick={handleAdd}
@@ -579,7 +543,6 @@ const VisitsPage = () => {
           </button>
         )}
 
-        {/* Bouton manuel d'actualisation en haut à droite du cadre */}
         <button
           onClick={async () => {
             toast.promise(
@@ -603,9 +566,7 @@ const VisitsPage = () => {
 
       </section>
 
-      {/* ============================================================
-          CONTRÔLEUR DE FILTRES SEGMENTÉ (SANS SOUCI DE BADGES CHEVAUCHÉS)
-          ============================================================ */}
+      {/* FILTRES */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
           {statusFilterOptions.map((option) => {
@@ -642,9 +603,7 @@ const VisitsPage = () => {
         </div>
       </section>
 
-      {/* ============================================================
-          LISTE DES VISITES CHRONOLOGIQUES ET PROPRES
-          ============================================================ */}
+      {/* LISTE DES VISITES */}
       {sortedVisits.length > 0 ? (
         <section className="space-y-3.5 visits-list">
           {sortedVisits.map((visit) => (
@@ -683,9 +642,7 @@ const VisitsPage = () => {
           ))}
         </section>
       ) : (
-        /* ============================================================
-            CADRE D'ÉCRAN VIDE PARFAITEMENT CENTRÉ
-            ============================================================ */
+        /* ÉCRAN VIDE */
         <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
           <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400">
             <Calendar size={20} />
@@ -715,7 +672,7 @@ const VisitsPage = () => {
         </section>
       )}
 
-      {/* BOUTON ACCÈS RAPIDE FLOUTÉ MOBILE */}
+      {/* BOUTON FLOATING MOBILE */}
       {canPlanify && (
         <button
           onClick={handleAdd}
@@ -730,9 +687,7 @@ const VisitsPage = () => {
         </button>
       )}
 
-      {/* ============================================================
-          MODALES ET WIZARDS DE L'APPLICATION
-          ============================================================ */}
+      {/* MODALES */}
       <VisitModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
