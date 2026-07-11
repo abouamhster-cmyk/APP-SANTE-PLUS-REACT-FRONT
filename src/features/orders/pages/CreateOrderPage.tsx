@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
-// ✅ CRÉATION DE COMMANDE SIMPLIFIÉE SANS TRACAGE CONTINU (CORRIGÉ DES IMPORTS SUPABASE)
+// ✅ CRÉATION DE COMMANDE SÉCURISÉE AVEC VERROU ANTI DOUBLE-CLIC SYNCHRONE
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -34,7 +34,7 @@ import { usePonctualPayment } from '@/hooks/usePonctualPayment';
 import { getPonctualOrderPriceByType } from '@/lib/constants';
 
 import { OrderItem } from '@/types';
-import { supabase } from '@/lib/supabase'; // ✅ RE-AJOUTÉ : Requis pour les prescriptions upload
+import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
 
@@ -78,6 +78,9 @@ const CreateOrderPage = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRedirecting = useRef(false);
+  
+  // ✅ VERROU DE SÉCURITÉ SYNCHRONE (Bloque instantanément les doubles clics)
+  const isSubmittingRef = useRef(false);
 
   const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
@@ -170,7 +173,6 @@ const CreateOrderPage = () => {
     fetchPatients();
   }, []);
 
-  // ✅ AUTO-REMPLISSAGE INTELLIGENT DE L'ADRESSE ET DU TÉLÉPHONE
   useEffect(() => {
     if (targetType === 'patient' && targetPatientId) {
       const selectedPatient = patients.find(p => p.id === targetPatientId);
@@ -346,22 +348,32 @@ const CreateOrderPage = () => {
 
   const handlePonctualPayment = async () => {
     const orderData = await prepareOrderData();
-    if (!orderData) return;
+    if (!orderData) {
+      isSubmittingRef.current = false;
+      return;
+    }
 
-    payOrderPonctual({
-      description: orderData.description,
-      orderType: orderData.type,
-      items: orderData.items,
-      address: orderData.address,
-      prescriptionUrl: orderData.prescription_url || undefined,
-      targetType: orderData.target_type as 'personal' | 'patient',
-      targetName: orderData.target_name,
-      patientId: orderData.patient_id,
-    });
+    try {
+      await payOrderPonctual({
+        description: orderData.description,
+        orderType: orderData.type,
+        items: orderData.items,
+        address: orderData.address,
+        prescriptionUrl: orderData.prescription_url || undefined,
+        targetType: orderData.target_type as 'personal' | 'patient',
+        targetName: orderData.target_name,
+        patientId: orderData.patient_id,
+      });
+    } catch (err) {
+      isSubmittingRef.current = false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Bloquer immédiatement si soumis
+    if (isSubmittingRef.current) return;
 
     if (isAidant && !canTakeOrder()) {
       toast.error(`Vous avez déjà ${aidantQuota?.current || 0} commande(s) en cours`);
@@ -369,7 +381,10 @@ const CreateOrderPage = () => {
     }
 
     if (orderType === 'ponctual') {
+      isSubmittingRef.current = true;
       await handlePonctualPayment();
+      // On libère le verrou car le modal FedaPay va s'occuper de la suite, ou en cas de fermeture
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -379,12 +394,16 @@ const CreateOrderPage = () => {
         toast.error(msg.description);
         return;
       }
+      isSubmittingRef.current = true;
       await createOrderWithSubscription();
     }
   };
 
   const createOrderWithSubscription = async () => {
-    if (!validateOrderData()) return;
+    if (!validateOrderData()) {
+      isSubmittingRef.current = false;
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -401,6 +420,7 @@ const CreateOrderPage = () => {
 
         if (error) {
           toast.error("Erreur lors de l'upload de la prescription");
+          isSubmittingRef.current = false;
           return;
         }
 
@@ -449,6 +469,7 @@ const CreateOrderPage = () => {
     } catch (error) {
       console.error('❌ Erreur création:', error);
       toast.error('Erreur lors de la création de la commande');
+      isSubmittingRef.current = false; // Libérer le verrou en cas d'erreur
     } finally {
       setIsUploading(false);
     }
@@ -680,7 +701,7 @@ const CreateOrderPage = () => {
 };
 
 // =============================================
-// SOUS-COMPOSANTS LOGIQUES INTERNES SÉCURISÉS
+// SOUS-COMPOSANTS
 // =============================================
 
 interface ModernPanelProps {
