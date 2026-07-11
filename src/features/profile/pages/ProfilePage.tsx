@@ -1,6 +1,5 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
-// ✅ PAGE PROFIL OPTIMISÉE SANS RECHARGEMENT RÉSEAU CONCURRENT REDONDANT AU MONTAGE
-
+ 
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -124,8 +123,6 @@ const sanitizeFileName = (name: string): string => {
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { profile, role, logout, updateProfile, refreshProfile } = useAuthStore();
-  
-  // ✅ CHARGEMENT INTELLIGENT (SANS FORCE-RELOAD INUTILE AU MONTAGE DE L'ONGLET)
   const { patients, fetchPatients } = usePatientStore();
   const { visits, fetchVisits } = useVisitStore();
   const { orders, fetchOrders } = useOrderStore();
@@ -145,7 +142,8 @@ const ProfilePage = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [preferenceMessage, setPreferenceMessage] = useState('');
-
+  
+  // ✅ État de détection de lien cassé d'avatar (S'active si l'image refuse de s'afficher)
   const [imageError, setImageError] = useState(false);
 
   const formRef = useRef<HTMLDivElement>(null);
@@ -193,7 +191,7 @@ const ProfilePage = () => {
       email: profile.email || '' 
     }));
     setAvatarPreview(profile.avatar_url || null);
-    setImageError(false);
+    setImageError(false); // Réinitialiser l'état d'erreur lors du rechargement
   }, [profile]);
 
   useEffect(() => {
@@ -202,12 +200,11 @@ const ProfilePage = () => {
     }
   }, [avatarPreview]);
 
-  // ✅ CHARGEMENT INTELLIGENT DE SÉCURITÉ CONTRE LA SOURCHAGE DU RÉSEAU
   useEffect(() => {
-    if (patients.length === 0) fetchPatients();
-    if (visits.length === 0) fetchVisits();
-    if (orders.length === 0) fetchOrders();
-  }, []);
+    fetchPatients();
+    fetchVisits();
+    fetchOrders();
+  }, [fetchPatients, fetchVisits, fetchOrders]);
 
   const savePreferences = (prefs: Preferences, message?: string) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
@@ -218,6 +215,9 @@ const ProfilePage = () => {
     }
   };
 
+  // =============================================
+  // SAUVEGARDE DU PROFIL SÉCURISÉE
+  // =============================================
   const handleSaveProfile = async () => {
     if (!formData.full_name.trim()) return toast.error('Le nom est obligatoire');
     if (!profile?.id) return toast.error('Profil introuvable');
@@ -231,6 +231,7 @@ const ProfilePage = () => {
         const fileExt = cleanName.split('.').pop() || 'png';
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
         
+        // ✅ CORRECTIF DE SÉCURITÉ DE LIEN : Ajout du contentType pour forcer le bon type d'image (ex: image/png)
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile, { 
@@ -404,7 +405,7 @@ const ProfilePage = () => {
                   src={avatarPreview} 
                   alt="Avatar" 
                   className="w-full h-full object-cover rounded-3xl" 
-                  onError={() => setImageError(true)}
+                  onError={() => setImageError(true)} // ✅ Fallback automatique aux initiales si l'image est cassée
                 />
               ) : (
                 getInitials(profile?.full_name || '')
