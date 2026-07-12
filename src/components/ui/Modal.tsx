@@ -1,8 +1,8 @@
 // 📁 src/components/ui/Modal.tsx
-// ✅ LOGIQUE DE MODAL INTERACTIF RESTUCTURÉE : TRANSITIONS FLUIDES, BOUTONS UNIFIÉS ET SCROLL ACCÈS MOBILE SÉCURISÉ
+// ✅ LOGIQUE DE MODAL INTERACTIF PREMIUM : ANIMATIONS FLUIDES, TIRETTE MOBILE NATIVE ET BOUTONS UNIFIÉS
 
 import { ReactNode, useEffect, useRef } from 'react';
-import { X, CheckCircle, AlertCircle, Loader2  } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/utils/helpers';
 
@@ -52,28 +52,16 @@ export const Modal = ({
   className,
 }: ModalProps) => {
   const modalRef = useRef<HTMLDivElement>(null);
-  const scrollYRef = useRef(0);
 
-  // Verrouillage intelligent du défilement d'arrière-plan (Anti-saccade iOS/Android)
+  // Verrouillage propre du défilement d'arrière-plan
   useEffect(() => {
     if (isOpen) {
-      scrollYRef.current = window.scrollY;
       document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = `-${scrollYRef.current}px`;
     } else {
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      window.scrollTo(0, scrollYRef.current);
     }
     return () => {
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
     };
   }, [isOpen]);
 
@@ -86,71 +74,74 @@ export const Modal = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <div
-        className="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/45 backdrop-blur-sm overflow-hidden pointer-events-auto"
-        onClick={closeOnOverlayClick ? onClose : undefined}
-      >
-        <motion.div
-          ref={modalRef}
-          className={cn(
-            'modal-card relative w-full bg-white dark:bg-[#17231d] rounded-[1.75rem] shadow-2xl flex flex-col overflow-hidden border border-gray-100 dark:border-[#2c3f35] max-h-[92vh]',
-            MAX_WIDTH_CLASSES[maxWidth],
-            className
-          )}
-          initial={{ opacity: 0, y: 30, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 15, scale: 0.97 }}
-          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          onClick={(e) => e.stopPropagation()}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-md overflow-hidden pointer-events-auto"
+          onClick={closeOnOverlayClick ? onClose : undefined}
         >
-          {/* HEADER */}
-          <div className="flex-shrink-0 px-5 sm:px-6 py-4 border-b border-gray-100 dark:border-[#2c3f35] bg-white dark:bg-[#17231d] sticky top-0 z-10 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              {icon && (
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-gray-50 dark:bg-[#24362d] text-gray-500 dark:text-gray-300 shrink-0">
-                  {icon}
-                </div>
-              )}
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-lg font-extrabold truncate text-gray-900 dark:text-gray-50">
-                  {title}
-                </h2>
-                {description && (
-                  <p className="text-xs text-gray-400 truncate font-semibold mt-0.5">
-                    {description}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {showClose && (
-              <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-[#24362d] dark:hover:bg-[#1d2d25] transition flex items-center justify-center shrink-0 border"
-                aria-label="Fermer"
-              >
-                <X size={16} className="text-gray-500 dark:text-gray-300" />
-              </button>
+          <motion.div
+            ref={modalRef}
+            className={cn(
+              'relative w-full bg-white dark:bg-[#17231d] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-gray-100/80 dark:border-[#2c3f35] max-h-[90vh]',
+              MAX_WIDTH_CLASSES[maxWidth],
+              className
             )}
-          </div>
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.96 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* INDICATION DE GLISSEMENT MOBILE (POIGNÉE NATIVE) */}
+            <div className="w-12 h-1 bg-gray-200 dark:bg-gray-700/50 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
 
-          {/* BODY */}
-          <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 sm:py-5 overscroll-contain dark:text-gray-200">
-            {children}
-          </div>
+            {/* HEADER */}
+            <div className="flex-shrink-0 px-5 sm:px-6 py-4 border-b border-gray-100 dark:border-[#2c3f35] bg-white/90 dark:bg-[#17231d]/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {icon && (
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-emerald-50 dark:bg-[#24362d] text-emerald-600 dark:text-emerald-400 shrink-0 border border-emerald-100/50 shadow-inner">
+                    {icon}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-black tracking-tight truncate text-gray-900 dark:text-gray-50">
+                    {title}
+                  </h2>
+                  {description && (
+                    <p className="text-xs text-gray-400 truncate font-semibold mt-0.5">
+                      {description}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-          {/* FOOTER */}
-          {actions && (
-            <div className="flex-shrink-0 px-5 sm:px-6 py-4 border-t border-gray-100 dark:border-[#2c3f35] bg-white dark:bg-[#17231d] sticky bottom-0 z-10 pb-safe">
-              {actions}
+              {showClose && (
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-[#24362d] dark:hover:bg-[#1d2d25] transition flex items-center justify-center shrink-0 border border-gray-100 dark:border-gray-800/40"
+                  aria-label="Fermer"
+                >
+                  <X size={16} className="text-gray-500 dark:text-gray-300" />
+                </button>
+              )}
             </div>
-          )}
-        </motion.div>
-      </div>
+
+            {/* BODY */}
+            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 overscroll-contain dark:text-gray-200">
+              {children}
+            </div>
+
+            {/* FOOTER */}
+            {actions && (
+              <div className="flex-shrink-0 px-5 sm:px-6 py-4 border-t border-gray-100 dark:border-[#2c3f35] bg-white/90 dark:bg-[#17231d]/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe">
+                {actions}
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
 };
@@ -166,7 +157,7 @@ interface ModalActionsProps {
   confirmLabel?: string;
   isLoading?: boolean;
   confirmColor?: string;
-  confirmButtonType?: 'button' | 'submit'; // ✅ Réutilisation pour les formulaires !
+  confirmButtonType?: 'button' | 'submit';
   children?: ReactNode;
 }
 
@@ -181,7 +172,7 @@ export const ModalActions = ({
   children,
 }: ModalActionsProps) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+    <div className="flex flex-col-reverse sm:flex-row gap-2.5 w-full">
       {children ? (
         children
       ) : (
@@ -191,7 +182,7 @@ export const ModalActions = ({
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              className="flex-1 py-2.5 sm:py-3 rounded-xl border text-sm font-bold bg-white hover:bg-gray-50 transition text-gray-600 dark:text-gray-300 dark:bg-transparent dark:hover:bg-[#24362d] disabled:opacity-50"
+              className="flex-1 h-11 sm:h-12 rounded-2xl border text-xs sm:text-sm font-bold bg-white hover:bg-gray-50 transition active:scale-[0.98] text-gray-700 dark:text-gray-200 dark:bg-transparent dark:hover:bg-[#24362d] disabled:opacity-50"
               style={{ borderColor: 'rgba(0,0,0,0.08)' }}
             >
               {cancelLabel}
@@ -202,7 +193,7 @@ export const ModalActions = ({
             <button
               type={confirmButtonType}
               onClick={confirmButtonType === 'button' ? onConfirm : undefined}
-              className="flex-1 py-2.5 sm:py-3 rounded-xl text-white font-black flex items-center justify-center gap-2 transition hover:opacity-95 text-sm disabled:opacity-55 shadow-md shadow-black/5"
+              className="flex-1 h-11 sm:h-12 rounded-2xl text-white font-extrabold flex items-center justify-center gap-2 transition hover:opacity-95 active:scale-[0.98] text-xs sm:text-sm disabled:opacity-55 shadow-md shadow-emerald-900/10"
               style={{ background: confirmColor || 'var(--color-primary, #1a4a3a)' }}
               disabled={isLoading}
             >
@@ -280,7 +271,7 @@ export const ModalWithConfirm = ({
         />
       }
     >
-      <div className="py-4 text-center text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 leading-relaxed">
+      <div className="py-2 text-center text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 leading-relaxed">
         {message}
       </div>
     </Modal>
@@ -288,7 +279,7 @@ export const ModalWithConfirm = ({
 };
 
 // ============================================================
-// 4️⃣ SPECIALISATION : MODAL FORMULAIRE (SANS RÉPÉTITION DE BOUTONS)
+// 4️⃣ SPECIALISATION : MODAL FORMULAIRE
 // ============================================================
 
 interface ModalWithFormProps {
@@ -330,7 +321,6 @@ export const ModalWithForm = ({
         maxWidth={maxWidth}
         className={className}
         actions={
-          /* ✅ RÉUTILISATION DES ACTIONS UNIFIÉES AVEC FORM SUBMISSION */
           <ModalActions
             onCancel={onClose}
             onConfirm={onSubmit as any}
