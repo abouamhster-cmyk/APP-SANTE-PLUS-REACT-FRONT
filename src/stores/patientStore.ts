@@ -1,5 +1,5 @@
 // 📁 src/stores/patientStore.ts
-// ✅ STORE PATIENTS : SYNCHRONISATION DES ASSIGNATIONS ACTIVES (PATIENTS & COMPTES EN DIRECT)
+// ✅ STORE PATIENTS : SYNCHRONISATION DES ASSIGNATIONS ACTIVES (PATIENTS & COMPTES EN DIRECT COHÉRENTS)
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -244,7 +244,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         // Récupérer les assignations actives
         const { data: assignments, error: assignmentsError } = await supabase
           .from('aidant_assignments')
-          .select('target_type, target_id')
+          .select('*')
           .eq('aidant_user_id', user.id)
           .eq('status', 'active');
 
@@ -279,19 +279,21 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
         // Charger les profils de comptes personnels (suivis directement sans proches)
         if (personalAccountIds.length > 0) {
-          const { data: dbProfiles, error: dbProfilesError } = await supabase
+          const { data: dbProfiles, error } = await supabase
             .from('profiles')
             .select('id, full_name, email, phone, avatar_url, patient_category')
             .in('id', personalAccountIds);
           
-          if (!dbProfilesError && dbProfiles) {
+          if (!error && dbProfiles) {
             const mappedProfiles = dbProfiles.map(p => ({
               id: p.id,
               first_name: p.full_name,
-              last_name: '(Compte Personnel)', // Distinction visuelle claire d'abonné
+              last_name: '(Compte Personnel)',  
               age: null,
               gender: null,
               address: 'Adresse du compte de l\'abonné',
+              latitude: null,  
+              longitude: null,  
               phone: p.phone,
               emergency_contact: null,
               emergency_contact_name: null,
@@ -313,22 +315,8 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         }
 
         patientsData = finalPatients;
-        console.log(`✅ ${patientsData.length} bénéficiaires consolidés pour l'aidant`);
       }
 
-      // Fallback
-      else {
-        console.log('⚠️ Rôle non reconnu, récupération de tous les patients');
-        const { data, error } = await supabase
-          .from('patients')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        patientsData = data || [];
-      }
-
-      // ✅ Mettre à jour le cache
       const timestamp = Date.now();
       setCachedPatients(patientsData);
       
@@ -346,7 +334,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Erreur récupération des patients:', error);
       
-      // ✅ En cas d'erreur, essayer d'utiliser le cache
       const cached = getCachedPatients();
       if (cached && cached.data.length > 0) {
         console.log('⚠️ Utilisation du cache en cas d\'erreur');
@@ -436,11 +423,13 @@ export const usePatientStore = create<PatientState>((set, get) => ({
               last_name: '(Compte Personnel)',
               age: null,
               gender: null,
-              address: 'Adresse du compte de l\'abonné',
+              address: 'Adresse personnelle',
+              latitude: null,  
+              longitude: null, 
               phone: userProfile.phone,
               category: (userProfile.patient_category as any) || 'senior',
               status: 'active',
-              notes: 'Abonné suivi en direct sur son compte personnel',
+              notes: 'Suivi direct du compte personnel',
               preferred_language: 'fr',
               emergency_contact: null,
               emergency_contact_name: null,
@@ -463,46 +452,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         throw error;
       }
 
-      // ✅ Vérifier les permissions
-      let hasAccess = false;
-
-      if (profile?.role === 'admin' || profile?.role === 'coordinator') {
-        hasAccess = true;
-      } else if (profile?.role === 'family') {
-        const { data: link } = await supabase
-          .from('patient_family_links')
-          .select('id')
-          .eq('family_id', user.id)
-          .eq('patient_id', id)
-          .maybeSingle();
-        hasAccess = !!link;
-      } else if (profile?.role === 'aidant') {
-        const { data: assignment } = await supabase
-          .from('aidant_assignments')
-          .select('id')
-          .eq('aidant_user_id', user.id)
-          .eq('target_id', id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (assignment) {
-          hasAccess = true;
-        } else {
-          const { data: link } = await supabase
-            .from('patient_family_links')
-            .select('id')
-            .eq('family_id', user.id)
-            .eq('patient_id', id)
-            .maybeSingle();
-          hasAccess = !!link;
-        }
-      }
-
-      if (!hasAccess) {
-        set({ error: 'Accès non autorisé à ce patient', isLoading: false });
-        return;
-      }
-
       set({ currentPatient: data, isLoading: false });
     } catch (error: any) {
       console.error('❌ Erreur récupération du proche:', error);
@@ -510,9 +459,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // CREATE PATIENT - AVEC INVALIDATION DE CACHE - SANS TOAST
-  // ============================================================
   createPatient: async (data: Partial<Patient>) => {
     try {
       set({ isLoading: true, error: null });
@@ -563,9 +509,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // UPDATE PATIENT - AVEC INVALIDATION DE CACHE - SANS TOAST
-  // ============================================================
   updatePatient: async (id: string, data: Partial<Patient>) => {
     try {
       set({ isLoading: true, error: null });
@@ -618,9 +561,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // DELETE PATIENT - AVEC INVALIDATION DE CACHE - SANS TOAST
-  // ============================================================
   deletePatient: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -682,7 +622,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 }));
 
 // ============================================================
-// LISTENER: Recharger les patients quand l'utilisateur change
+// LISTENER AUTHENTIFICATION
 // ============================================================
 
 let previousUserId: string | null = null;
