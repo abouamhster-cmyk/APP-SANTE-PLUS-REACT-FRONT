@@ -121,7 +121,7 @@ const AidantsPage = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (aidantsError) throw aidantError;
+      if (aidantsError) throw aidantsError;
 
       const userIds = [...new Set(aidantsData?.map(a => a.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
