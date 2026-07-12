@@ -1,4 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
+// ✅ MAIN LAYOUT : SALUTATIONS DYNAMIQUES ET EN-TÊTE INTELLIGENT (SCROLL-HIDE / SHOW-ON-SCROLL-UP)
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -36,7 +37,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
-import { cn } from '@/utils/helpers';
+import { cn, getGreeting } from '@/utils/helpers'; // 🟢 Importation de getGreeting ajoutée
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 
@@ -58,12 +59,46 @@ const MainLayout = () => {
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  // ✅ ÉTATS ET RÉFÉRENCES POUR LE HEADER FLOTTANT DYNAMIQUE (HIDE ON SCROLL DOWN / SHOW ON SCROLL UP)
+  const [showHeader, setShowHeader] = useState(true);
+  const lastScrollY = useRef(0);
+
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
   const logoConfig = getLogoByRole(role, profile?.patient_category);
 
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const showDraftBadge = isFamily && draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
+
+  // =============================================
+  // GESTION DU FILTRE DE SCROLL POUR LE HEADER
+  // =============================================
+  const handleScroll = useCallback(() => {
+    const currentScrollY = window.scrollY;
+
+    // Si on est en haut de la page, le header reste affiché
+    if (currentScrollY <= 15) {
+      setShowHeader(true);
+      lastScrollY.current = currentScrollY;
+      return;
+    }
+
+    // Défilement vers le bas de plus de 5px -> Masquer le header
+    if (currentScrollY > lastScrollY.current + 5) {
+      setShowHeader(false);
+    } 
+    // Défilement vers le haut de plus de 5px -> Réafficher le header
+    else if (currentScrollY < lastScrollY.current - 5) {
+      setShowHeader(true);
+    }
+
+    lastScrollY.current = currentScrollY;
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
 
   // =============================================
   // DÉTECTION MOBILE
@@ -239,14 +274,16 @@ const MainLayout = () => {
       <div className="min-h-screen w-full md:pl-72">
         
         {/* ========================================== */}
-        {/* HEADER IMMERSIF (FLOTTANT SUR MOBILE) */}
+        {/* HEADER IMMERSIF AVEC MASQUAGE AU SCROLL */}
         {/* ========================================== */}
         <header
           className={cn(
-            "fixed top-0 left-0 right-0 z-30 transition-all duration-300",
+            "fixed top-0 left-0 right-0 z-30 transition-all duration-300 transform",
             isMobile 
               ? "bg-transparent border-none px-4 py-3" 
-              : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4"
+              : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4",
+            // ✅ Masquage dynamique au scroll
+            showHeader ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
           )}
           style={{
             borderColor: isMobile ? 'transparent' : colors.primary + '20',
@@ -257,7 +294,6 @@ const MainLayout = () => {
               
               {isMobile ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  {/* ✅ Avatar mobile avec image */}
                   <div 
                     className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shadow-sm shrink-0 overflow-hidden"
                     style={{ background: colors.primary }}
@@ -283,7 +319,10 @@ const MainLayout = () => {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">Bonjour,</p>
+                    {/* ✅ Affichage de la salutation dynamique */}
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">
+                      {getGreeting()},
+                    </p>
                     <p className="text-xs font-black truncate leading-tight mt-0.5" style={{ color: colors.text }}>
                       {profile?.full_name || 'Utilisateur'}
                     </p>
@@ -349,10 +388,7 @@ const MainLayout = () => {
           </div>
         </header>
 
-        {/* ============================================================
-            MODIFICATION CRITIQUE : pb-24 AU LIEU DE pb-32 SUR MOBILE 
-            (Défilement fluide, arrêt parfait sans vide abyssal)
-            ============================================================ */}
+        {/* CONTENU PRINCIPAL */}
         <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-24 md:pb-8 animate-fadeIn">
           <div className="max-w-7xl mx-auto">
             <ReminderBanner />
@@ -361,7 +397,7 @@ const MainLayout = () => {
         </main>
       </div>
 
-      {/* TABS MOBILE COMPACT & TRANSLUCIDE */}
+      {/* TABS MOBILE COMPACT */}
       {isMobile && <MobileTabBar colors={colors} />}
     </div>
   );
@@ -406,10 +442,8 @@ const SidebarContent = ({
     return 'Utilisateur';
   };
 
-  // ✅ Fonction pour obtenir l'URL de l'avatar avec timestamp
   const getAvatarUrl = (avatarUrl: string | null | undefined): string => {
     if (!avatarUrl) return '';
-    // ✅ Ajouter un timestamp pour éviter le cache si nécessaire
     if (avatarUrl.includes('?v=')) {
       return avatarUrl;
     }
@@ -452,13 +486,12 @@ const SidebarContent = ({
         })}
       </div>
 
-      {/* ✅ Profil utilisateur avec AVATAR ET FALLBACK */}
+      {/* Profil de bas de colonne */}
       <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30" style={{ borderColor: colors.primary + '20' }}>
         <Link
           to="/app/profile"
           className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition min-w-0"
         >
-          {/* ✅ Avatar avec image ET fallback sur les initiales */}
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm overflow-hidden"
             style={{ background: colors.primary }}
@@ -486,6 +519,10 @@ const SidebarContent = ({
           </div>
           
           <div className="flex-1 min-w-0">
+            {/* ✅ Affichage de la salutation en haut des détails du profil */}
+            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider leading-none mb-0.5">
+              {getGreeting()}
+            </p>
             <p className="text-xs font-bold truncate text-gray-800 dark:text-gray-100">
               {profile?.full_name || 'Utilisateur'}
             </p>
