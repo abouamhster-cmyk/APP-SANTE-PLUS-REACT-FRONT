@@ -32,6 +32,7 @@ import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
+import { formatDate, formatTime, cn } from '@/utils/helpers'; 
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
