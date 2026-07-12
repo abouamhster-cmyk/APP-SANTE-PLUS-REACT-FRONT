@@ -31,9 +31,9 @@ import {
   AlertCircle,
   ChevronRight,
   ChevronLeft,
-  TrendingUp,   // ✅ Correctif imports
-  Compass,      // ✅ Correctif imports
-  Lightbulb,    // ✅ Correctif imports
+  TrendingUp,    
+  Compass,       
+  Lightbulb,    
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -231,7 +231,7 @@ const DashboardPage = () => {
         {
           title: '📑 Validation des rapports',
           description: 'Consultez les rapports soumis par les intervenants et validez-les pour décompter les abonnements.',
-          image: coordImg,
+          image: '/assets/images/banners/coord-visit.png',
           actionText: 'Valider visites',
           actionPath: '/app/admin/visits/validation',
         },
@@ -272,7 +272,7 @@ const DashboardPage = () => {
         {
           title: '🛒 Courses & besoins urgents',
           description: 'Consultez les commandes à proximité et prenez-les en charge pour aider vos bénéficiaires.',
-          image: aidantImg,
+          image: '/assets/images/banners/aidant-visit.png',
           actionText: 'Commandes disponibles',
           actionPath: '/app/orders',
         },
@@ -306,7 +306,7 @@ const DashboardPage = () => {
         {
           title: '🛒 Commandes urgentes Bébé',
           description: 'Faites livrer des couches, du lait infantile ou des soins en pharmacie en quelques clics.',
-          image: mamanImg,
+          image: '/assets/images/banners/maman-visit.png',
           actionText: 'Passer commande',
           actionPath: '/app/orders/create',
         },
@@ -346,7 +346,7 @@ const DashboardPage = () => {
       {
         title: '🛒 Commande de courses & soins',
         description: 'Livraison de médicaments, de repas équilibrés ou de courses de première nécessité directement chez votre proche.',
-        image: seniorImg,
+        image: '/assets/images/banners/senior-visit.png',
         actionText: 'Nouvelle commande',
         actionPath: '/app/orders/create',
       },
