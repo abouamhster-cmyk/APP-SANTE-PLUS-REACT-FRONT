@@ -1,7 +1,6 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
-// ✅ PAGE DÉTAIL DU PROCHE : OPTIMISATION DU DESIGN RESPONSIVE SANS CHEVAUCHEMENTS
-
-import { useEffect, useState } from 'react';
+ 
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -32,10 +31,9 @@ import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
-import { formatDate, formatTime, cn } from '@/utils/helpers'; 
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime } from '@/utils/helpers';
+import { formatDate, formatTime, cn } from '@/utils/helpers';  
 import { Illustration } from '@/components/ui/Illustration';
 import { PatientModal } from '../components/PatientModal';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
@@ -52,7 +50,7 @@ const PatientDetailPage = () => {
 
   const {
     singular,
-    add,
+    detail,
     edit,
     delete: deleteTerm,
     noVisits,
@@ -107,6 +105,7 @@ const PatientDetailPage = () => {
 
   const canManage = canManagePatients();
 
+  // ✅ REFRESH - UN SEUL TOAST
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       if (id) {
@@ -134,25 +133,32 @@ const PatientDetailPage = () => {
     }
   }, [visits, id]);
 
+  // ✅ VÉRIFIER SI L'AIDANT PEUT DÉMARRER UNE VISITE
   const canStartVisit = () => {
     if (!isAidantRole) return false;
     if (!currentPatient) return false;
     if (!hasActiveSubscription) {
+      console.log('⚠️ Pas d\'abonnement actif pour ce patient');
       return false;
     }
     if (remainingVisits <= 0) {
+      console.log('⚠️ Plus de visites disponibles');
       return false;
     }
     const hasActiveVisit = patientVisits.some((v) => v.status === 'en_cours');
     if (hasActiveVisit) {
+      console.log('⚠️ Une visite est déjà en cours pour ce patient');
       return false;
     }
     if (currentPatient?.status !== 'active') {
+      console.log('⚠️ Le patient n\'est pas actif');
       return false;
     }
+    console.log('✅ L\'aidant peut démarrer une visite');
     return true;
   };
 
+  // ✅ DÉMARRER VISITE - UN SEUL TOAST PAR CAS
   const handleStartVisit = async () => {
     if (!canStartVisit()) {
       if (!hasActiveSubscription) {
@@ -194,6 +200,7 @@ const PatientDetailPage = () => {
     }
   };
 
+  // ✅ APPROUVER - UN SEUL TOAST
   const handleApprove = async (visitId: string) => {
     try {
       await approveVisit(visitId);
@@ -205,6 +212,7 @@ const PatientDetailPage = () => {
     }
   };
 
+  // ✅ REFUSER - UN SEUL TOAST
   const handleRefuse = async (visitId: string) => {
     const reason = prompt('Motif du refus :');
     if (!reason) return;
@@ -218,6 +226,7 @@ const PatientDetailPage = () => {
     }
   };
 
+  // ✅ FINALISER - UN SEUL TOAST
   const handleComplete = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
     if (!activeVisitId) return;
     setIsCompleting(true);
@@ -236,6 +245,7 @@ const PatientDetailPage = () => {
     }
   };
 
+  // ✅ ANNULER - UN SEUL TOAST
   const handleCancel = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
     try {
@@ -249,6 +259,7 @@ const PatientDetailPage = () => {
     }
   };
 
+  // ✅ SUPPRIMER - UN SEUL TOAST
   const handleDelete = async () => {
     if (!canManage) {
       toast.error('Vous n\'avez pas les droits pour supprimer un patient');
@@ -266,6 +277,7 @@ const PatientDetailPage = () => {
     }
   };
 
+  // ✅ ÉDITER - UN SEUL TOAST
   const handleEdit = () => {
     if (!canManage) {
       toast.error('Vous n\'avez pas les droits pour modifier un patient');
@@ -364,6 +376,7 @@ const PatientDetailPage = () => {
     );
   };
 
+  // ✅ SI LE PATIENT N'EST PAS CHARGÉ
   if (isLoading || !currentPatient) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -381,7 +394,7 @@ const PatientDetailPage = () => {
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
-      {/* EN-TÊTE AVEC BOUTONS ADAPTATIFS MOBILE */}
+      {/* EN-TÊTE AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button
@@ -403,6 +416,7 @@ const PatientDetailPage = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
           <RefreshButton 
             size="sm" 
             showText={false}
@@ -438,7 +452,7 @@ const PatientDetailPage = () => {
         </div>
       </div>
 
-      {/* STATS (Symmetrical row layout) */}
+      {/* STATS */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Âge" value={person.age || 'N/A'} color={colors.text} />
         <StatCard
@@ -456,7 +470,7 @@ const PatientDetailPage = () => {
           label="En attente"
           value={pendingVisits.length}
           color="#FF9800"
-          className="col-span-2 md:col-span-1" // ✅ Symmetrical flow on mobile grid
+          className="col-span-2 md:col-span-1"
         />
       </div>
 
@@ -539,14 +553,14 @@ const PatientDetailPage = () => {
             <div className="mt-3.5 p-3.5 rounded-xl bg-red-50 border border-red-200">
               <p className="text-xs text-red-700 font-semibold flex items-center gap-2 leading-relaxed">
                 <AlertCircle size={16} />
-                💳 Aucun abonnement actif. Contactez l'administrateur.
+                <span>💳 Aucun abonnement actif. Contactez l'administrateur.</span>
               </p>
             </div>
           )}
         </div>
       )}
 
-      {/* TABS (DEFILEMENT HORIZONTAL FLUIDE SUR MOBILES) */}
+      {/* TABS */}
       <div className="w-full overflow-x-auto scrollbar-none border-b" style={{ borderColor: colors.border }}>
         <div className="flex min-w-max">
           {['info', 'visits', 'notes'].map((tab) => (
@@ -658,7 +672,7 @@ const PatientDetailPage = () => {
                 )}
                 {isAidantRole && !hasActiveSubscription && (
                   <p className="text-[10px] font-bold text-amber-600 mt-4 uppercase tracking-wide">
-                    💳 Aucun abonnement actif. Contactez l'administrateur.
+                    💳 Aucun abonnement actif. Contactez l\'administrateur.
                   </p>
                 )}
               </div>
