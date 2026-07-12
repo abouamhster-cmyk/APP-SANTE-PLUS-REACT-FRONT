@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-// ✅ MAIN LAYOUT : PRE-CHARGEMENT TEMPS REEL UNIFIÉ ET FLUIDE SANS EFFET DE CHARGEMENT FANTÔME
+// ✅ MAIN LAYOUT : SALUTATIONS DYNAMIQUES ET HEADER STRICTEMENT COLLAPSABLE EN DEHORS DU TOP
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -41,12 +41,6 @@ import { cn, getGreeting } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 
-// ✅ STORES ADDITIONNELS POUR LE PRÉ-CHARGEMENT CENTRALISÉ DES DONNÉES
-import { usePatientStore } from '@/stores/patientStore';
-import { useOrderStore } from '@/stores/orderStore';
-import { useOfferStore } from '@/stores/offerStore';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-
 // =============================================
 // COMPOSANT PRINCIPAL
 // =============================================
@@ -58,13 +52,8 @@ const MainLayout = () => {
   const { profile, role, logout } = useAuthStore();
   const { unreadCount, fetchNotifications, subscribe, unsubscribe } =
     useNotificationStore();
-  
-  // ✅ STORES ET CHARGEMENTS D'ABONNEMENTS
-  const { visits, fetchVisits, isLoading: visitsLoading } = useVisitStore();
-  const { hasActiveSubscription, remainingVisits, isLoading: subLoading } = useSubscriptionGuard();
-  const { fetchPatients, isLoading: patientsLoading } = usePatientStore();
-  const { fetchOrders, isLoading: ordersLoading } = useOrderStore();
-  const { fetchOffers, isLoading: offersLoading } = useOfferStore();
+  const { visits } = useVisitStore();
+  const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const { isFamily } = useTerminology();
 
@@ -72,9 +61,6 @@ const MainLayout = () => {
 
   // ✅ ÉTATS POUR LE HEADER FLOTTANT IMMERSIF (Affiché uniquement au sommet de la page)
   const [showHeader, setShowHeader] = useState(true);
-
-  // Réf d'initialisation de l'application (Évite l'apparition du spinner global lors des navigations)
-  const isAppInitialized = useRef(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -89,7 +75,7 @@ const MainLayout = () => {
   const handleScroll = useCallback(() => {
     const currentScrollY = window.scrollY;
 
-    // Le header n'apparaît désormais que si la personne est vraiment remontée tout en haut
+    // ✅ CORRECTION : Le header n'apparaît désormais que si la personne est vraiment remontée tout en haut (seuil de 20px)
     if (currentScrollY <= 20) {
       setShowHeader(true);
     } else {
@@ -114,7 +100,7 @@ const MainLayout = () => {
   }, []);
 
   // =============================================
-  // NOTIFICATIONS TEMPS RÉEL (Canaux) & PRÉ-CHARGEMENT UNIFIÉ
+  // NOTIFICATIONS TEMPS RÉEL (Canaux)
   // =============================================
   const isSubscribed = useRef(false);
 
@@ -122,24 +108,7 @@ const MainLayout = () => {
     if (!profile) return;
     if (isSubscribed.current) return;
 
-    const bootApp = async () => {
-      try {
-        // Chargement parallèle de toutes les données indispensables au montage de l'application
-        await Promise.all([
-          fetchVisits(),
-          fetchPatients(),
-          fetchOrders(),
-          fetchOffers(),
-          fetchNotifications(),
-        ]);
-        isAppInitialized.current = true;
-      } catch (err) {
-        console.warn('⚠️ [MainLayout] Échec partiel de synchronisation au démarrage :', err);
-        isAppInitialized.current = true; // Forcer l'initialisation en secours
-      }
-    };
-
-    bootApp();
+    fetchNotifications();
     subscribe();
     isSubscribed.current = true;
 
@@ -149,7 +118,7 @@ const MainLayout = () => {
         isSubscribed.current = false;
       }
     };
-  }, [profile, fetchVisits, fetchPatients, fetchOrders, fetchOffers, fetchNotifications, subscribe, unsubscribe]);
+  }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
   // NAVIGATION PAR RÔLE
@@ -259,13 +228,6 @@ const MainLayout = () => {
     return 'Santé Plus Services';
   }, [location.pathname, role]);
 
-  // ✅ VÉRIFICATION GLOBALE DU CHARGEMENT INITIAL (Fige l'application uniquement au démarrage)
-  const isGlobalLoading = (visitsLoading || patientsLoading || ordersLoading || offersLoading || subLoading) && !isAppInitialized.current;
-
-  if (isGlobalLoading) {
-    return <LoadingSpinner fullScreen text="Préparation de votre espace..." />;
-  }
-
   return (
     <div
       className="min-h-screen w-full overflow-x-hidden"
@@ -308,6 +270,7 @@ const MainLayout = () => {
             isMobile 
               ? "bg-transparent border-none px-4 py-3" 
               : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4",
+            // ✅ Masquage strict au défilement, réapparition uniquement au sommet (20px)
             showHeader ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
           )}
           style={{
