@@ -1,5 +1,6 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
- 
+// ✅ PAGE DÉTAIL DU PROCHE : OPTIMISATION DU DESIGN RESPONSIVE SANS CHEVAUCHEMENTS
+
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -12,7 +13,6 @@ import {
   Phone,
   User,
   Heart,
-  Baby,
   Play,
   Clock,
   Plus,
@@ -51,7 +51,7 @@ const PatientDetailPage = () => {
 
   const {
     singular,
-    detail,
+    add,
     edit,
     delete: deleteTerm,
     noVisits,
@@ -106,7 +106,6 @@ const PatientDetailPage = () => {
 
   const canManage = canManagePatients();
 
-  // ✅ REFRESH - UN SEUL TOAST
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       if (id) {
@@ -116,7 +115,6 @@ const PatientDetailPage = () => {
     },
     onError: (error) => {
       console.error('❌ Erreur rafraîchissement:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors du rafraîchissement des données');
     },
   });
@@ -135,42 +133,32 @@ const PatientDetailPage = () => {
     }
   }, [visits, id]);
 
-  // ✅ VÉRIFIER SI L'AIDANT PEUT DÉMARRER UNE VISITE
   const canStartVisit = () => {
     if (!isAidantRole) return false;
     if (!currentPatient) return false;
     if (!hasActiveSubscription) {
-      console.log('⚠️ Pas d\'abonnement actif pour ce patient');
       return false;
     }
     if (remainingVisits <= 0) {
-      console.log('⚠️ Plus de visites disponibles');
       return false;
     }
     const hasActiveVisit = patientVisits.some((v) => v.status === 'en_cours');
     if (hasActiveVisit) {
-      console.log('⚠️ Une visite est déjà en cours pour ce patient');
       return false;
     }
     if (currentPatient?.status !== 'active') {
-      console.log('⚠️ Le patient n\'est pas actif');
       return false;
     }
-    console.log('✅ L\'aidant peut démarrer une visite');
     return true;
   };
 
-  // ✅ DÉMARRER VISITE - UN SEUL TOAST PAR CAS
   const handleStartVisit = async () => {
     if (!canStartVisit()) {
       if (!hasActiveSubscription) {
-        // ✅ UN SEUL TOAST
         toast.error('💳 Aucun abonnement actif. Veuillez souscrire un abonnement.');
       } else if (remainingVisits <= 0) {
-        // ✅ UN SEUL TOAST
         toast.error('📅 Plus de visites disponibles. Renouvelez votre abonnement.');
       } else {
-        // ✅ UN SEUL TOAST
         toast.error('❌ Impossible de démarrer la visite. Vérifiez les conditions.');
       }
       return;
@@ -194,56 +182,46 @@ const PatientDetailPage = () => {
       await startVisit(visit.id);
       setActiveVisitId(visit.id);
       setShowCompleteModal(true);
-      // ✅ UN SEUL TOAST
       toast.success('Visite démarrée !');
       await fetchVisits();
       await fetchPatientById(id!);
     } catch (error: any) {
       console.error('❌ Erreur démarrage:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors du démarrage');
     } finally {
       setIsStarting(false);
     }
   };
 
-  // ✅ APPROUVER - UN SEUL TOAST
   const handleApprove = async (visitId: string) => {
     try {
       await approveVisit(visitId);
-      // ✅ UN SEUL TOAST
       toast.success('Visite approuvée');
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur approbation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'approbation');
     }
   };
 
-  // ✅ REFUSER - UN SEUL TOAST
   const handleRefuse = async (visitId: string) => {
     const reason = prompt('Motif du refus :');
     if (!reason) return;
     try {
       await refuseVisit(visitId, reason);
-      // ✅ UN SEUL TOAST
       toast.error('Visite refusée');
       await fetchVisits();
     } catch (error: any) {
       console.error('❌ Erreur refus:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors du refus');
     }
   };
 
-  // ✅ FINALISER - UN SEUL TOAST
   const handleComplete = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
     if (!activeVisitId) return;
     setIsCompleting(true);
     try {
       await completeVisit(activeVisitId, data);
-      // ✅ UN SEUL TOAST
       toast.success('Visite terminée');
       setShowCompleteModal(false);
       setActiveVisitId(null);
@@ -251,54 +229,44 @@ const PatientDetailPage = () => {
       await fetchPatientById(id!);
     } catch (error: any) {
       console.error('❌ Erreur finalisation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors de la finalisation');
     } finally {
       setIsCompleting(false);
     }
   };
 
-  // ✅ ANNULER - UN SEUL TOAST
   const handleCancel = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
     try {
       await cancelVisit(visitId);
-      // ✅ UN SEUL TOAST
       toast.success('Visite annulée');
       await fetchVisits();
       await fetchPatientById(id!);
     } catch (error: any) {
       console.error('❌ Erreur annulation:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'annulation');
     }
   };
 
-  // ✅ SUPPRIMER - UN SEUL TOAST
   const handleDelete = async () => {
     if (!canManage) {
-      // ✅ UN SEUL TOAST
       toast.error('Vous n\'avez pas les droits pour supprimer un patient');
       return;
     }
     if (window.confirm(confirmDelete)) {
       try {
         await deletePatient(id!);
-        // ✅ UN SEUL TOAST
         toast.success(deleted);
         navigate('/app/patients');
       } catch (error: any) {
         console.error('❌ Erreur suppression:', error);
-        // ✅ UN SEUL TOAST D'ERREUR
         toast.error(error.message || 'Erreur lors de la suppression');
       }
     }
   };
 
-  // ✅ ÉDITER - UN SEUL TOAST
   const handleEdit = () => {
     if (!canManage) {
-      // ✅ UN SEUL TOAST
       toast.error('Vous n\'avez pas les droits pour modifier un patient');
       return;
     }
@@ -308,7 +276,6 @@ const PatientDetailPage = () => {
   const handleModalSuccess = () => {
     setIsModalOpen(false);
     fetchPatientById(id!);
-    // ✅ UN SEUL TOAST
     toast.success(updated);
   };
 
@@ -316,7 +283,6 @@ const PatientDetailPage = () => {
     setShowVisitModal(false);
     fetchVisits();
     fetchPatientById(id!);
-    // ✅ UN SEUL TOAST
     toast.success('Visite planifiée');
   };
 
@@ -338,7 +304,7 @@ const PatientDetailPage = () => {
         onClick={handleStartVisit}
         disabled={isDisabled}
         title={tooltip}
-        className="px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90 disabled:opacity-50"
+        className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90 disabled:opacity-50"
         style={{ 
           background: isDisabled ? '#9CA3AF' : colors.primary,
           cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -397,7 +363,6 @@ const PatientDetailPage = () => {
     );
   };
 
-  // ✅ SI LE PATIENT N'EST PAS CHARGÉ
   if (isLoading || !currentPatient) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -412,11 +377,10 @@ const PatientDetailPage = () => {
   const person = currentPatient;
   const activeVisits = patientVisits.filter((v) => v.status === 'en_cours');
   const pendingVisits = patientVisits.filter((v) => v.status === 'planifiee' && !v.approved_at && !v.refused_at);
-  const acceptedVisits = patientVisits.filter((v) => v.status === 'acceptee');
 
   return (
     <div className="space-y-6 pb-24 sm:pb-10">
-      {/* EN-TÊTE AVEC BOUTON DE RAFRAÎCHISSEMENT */}
+      {/* EN-TÊTE AVEC BOUTONS ADAPTATIFS MOBILE */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button
@@ -437,8 +401,7 @@ const PatientDetailPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           <RefreshButton 
             size="sm" 
             showText={false}
@@ -447,36 +410,35 @@ const PatientDetailPage = () => {
                 fetchPatientById(id);
                 fetchVisits();
               }
-              // ✅ UN SEUL TOAST
               toast.success('Données actualisées');
             }}
           />
 
           {canManage && (
-            <>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={handleEdit}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 h-11 rounded-xl font-bold transition hover:opacity-85 text-xs sm:text-sm"
                 style={{ background: colors.primary + '15', color: colors.primary }}
               >
-                <Edit2 size={18} />
+                <Edit2 size={16} />
                 <span>{edit}</span>
               </button>
               <button
                 onClick={handleDelete}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition hover:opacity-80 text-red-500"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 h-11 rounded-xl font-bold transition hover:opacity-85 text-red-500 text-xs sm:text-sm"
                 style={{ background: '#F44336' + '15' }}
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} />
                 <span>Supprimer</span>
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      {/* STATS (Symmetrical row layout) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Âge" value={person.age || 'N/A'} color={colors.text} />
         <StatCard
           label="Statut"
@@ -493,19 +455,20 @@ const PatientDetailPage = () => {
           label="En attente"
           value={pendingVisits.length}
           color="#FF9800"
+          className="col-span-2 md:col-span-1" // ✅ Symmetrical flow on mobile grid
         />
       </div>
 
       {/* ACTIONS RAPIDES */}
       {(isAidantRole || isFamilyRole || isAdminRole) && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1">
-              <p className="font-medium flex items-center gap-2" style={{ color: colors.text }}>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="font-bold flex items-center gap-2 text-sm sm:text-base" style={{ color: colors.text }}>
                 <Zap size={16} style={{ color: colors.primary }} />
-                Actions
+                Actions d'accompagnement
               </p>
-              <p className="text-xs" style={{ color: colors.text + '60' }}>
+              <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.text + '60' }}>
                 {isAidantRole && (
                   <>
                     {hasActiveSubscription && remainingVisits > 0
@@ -516,9 +479,9 @@ const PatientDetailPage = () => {
                 {isFamilyRole && 'Planifiez une visite pour votre proche'}
                 {isAdminRole && 'Gérez les visites du patient'}
               </p>
-              {renderSubscriptionStatus()}
+              <div className="mt-2">{renderSubscriptionStatus()}</div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
               {isAidantRole && renderStartButton()}
 
               {isFamilyRole && (
@@ -528,11 +491,11 @@ const PatientDetailPage = () => {
                     setVisitModalMode('create');
                     setShowVisitModal(true);
                   }}
-                  className="px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
+                  className="w-full sm:w-auto h-11 px-5 rounded-xl text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition hover:opacity-90 shadow-sm"
                   style={{ background: colors.primary }}
                 >
-                  <Calendar size={16} />
-                  Planifier
+                  <Calendar size={15} />
+                  Planifier une visite
                 </button>
               )}
 
@@ -543,104 +506,106 @@ const PatientDetailPage = () => {
                     setVisitModalMode('create');
                     setShowVisitModal(true);
                   }}
-                  className="px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90"
+                  className="w-full sm:w-auto h-11 px-5 rounded-xl text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition hover:opacity-90 shadow-sm"
                   style={{ background: colors.primary }}
                 >
-                  <Plus size={16} />
-                  Assigner
+                  <Plus size={15} />
+                  Assigner un aidant
                 </button>
               )}
             </div>
           </div>
 
           {activeVisits.length > 0 && (
-            <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200">
-              <p className="text-sm text-blue-700 flex items-center gap-2">
-                <Clock size={18} />
-                <span>Une visite est en cours pour ce patient.</span>
+            <div className="mt-3.5 p-3.5 rounded-xl bg-blue-50 border border-blue-200">
+              <p className="text-xs text-blue-700 font-semibold flex items-center gap-2 leading-relaxed">
+                <Clock size={16} />
+                Une visite est en cours pour ce patient.
               </p>
             </div>
           )}
 
           {pendingVisits.length > 0 && isAidantRole && (
-            <div className="mt-3 p-3 rounded-xl bg-yellow-50 border border-yellow-200">
-              <p className="text-sm text-yellow-700 flex items-center gap-2">
-                <AlertCircle size={18} />
-                <span>{pendingVisits.length} visite(s) en attente d'approbation.</span>
+            <div className="mt-3.5 p-3.5 rounded-xl bg-yellow-50 border border-yellow-200">
+              <p className="text-xs text-yellow-700 font-semibold flex items-center gap-2 leading-relaxed">
+                <AlertCircle size={16} />
+                {pendingVisits.length} visite(s) en attente d'approbation.
               </p>
             </div>
           )}
 
           {!hasActiveSubscription && isAidantRole && (
-            <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200">
-              <p className="text-sm text-red-700 flex items-center gap-2">
-                <AlertCircle size={18} />
-                <span>💳 Aucun abonnement actif. Contactez l'administrateur.</span>
+            <div className="mt-3.5 p-3.5 rounded-xl bg-red-50 border border-red-200">
+              <p className="text-xs text-red-700 font-semibold flex items-center gap-2 leading-relaxed">
+                <AlertCircle size={16} />
+                💳 Aucun abonnement actif. Contactez l'administrateur.
               </p>
             </div>
           )}
         </div>
       )}
 
-      {/* TABS */}
-      <div className="flex border-b" style={{ borderColor: colors.border }}>
-        {['info', 'visits', 'notes'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
-            className={`px-6 py-3 font-medium transition relative flex items-center gap-2 ${
-              activeTab === tab ? 'border-b-2' : ''
-            }`}
-            style={{
-              borderColor: activeTab === tab ? colors.primary : 'transparent',
-              color: activeTab === tab ? colors.primary : colors.text + '60',
-            }}
-          >
-            {tab === 'info' && <User size={14} />}
-            {tab === 'visits' && <Calendar size={14} />}
-            {tab === 'notes' && <FileText size={14} />}
-            {tab === 'info' && 'Informations'}
-            {tab === 'visits' && `Visites (${patientVisits.length})`}
-            {tab === 'notes' && 'Notes'}
-          </button>
-        ))}
+      {/* TABS (DEFILEMENT HORIZONTAL FLUIDE SUR MOBILES) */}
+      <div className="w-full overflow-x-auto scrollbar-none border-b" style={{ borderColor: colors.border }}>
+        <div className="flex min-w-max">
+          {['info', 'visits', 'notes'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab as any)}
+              className={`px-5 py-3 font-semibold text-xs sm:text-sm transition relative flex items-center gap-2 ${
+                activeTab === tab ? 'border-b-2' : ''
+              }`}
+              style={{
+                borderColor: activeTab === tab ? colors.primary : 'transparent',
+                color: activeTab === tab ? colors.primary : colors.text + '60',
+              }}
+            >
+              {tab === 'info' && <User size={13} />}
+              {tab === 'visits' && <Calendar size={13} />}
+              {tab === 'notes' && <FileText size={13} />}
+              {tab === 'info' && 'Informations'}
+              {tab === 'visits' && `Visites (${patientVisits.length})`}
+              {tab === 'notes' && 'Notes'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* CONTENU DES TABS */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
+      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm">
         {activeTab === 'info' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
-              <MapPin size={18} />
-              <span>{person.address}</span>
+            <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.text + 'c0' }}>
+              <MapPin size={18} className="shrink-0" />
+              <span className="leading-relaxed">{person.address}</span>
             </div>
             {person.phone && (
-              <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
-                <Phone size={18} />
+              <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.text + 'c0' }}>
+                <Phone size={18} className="shrink-0" />
                 <span>{person.phone}</span>
               </div>
             )}
             {person.emergency_contact && (
-              <div className="flex items-center gap-3 text-sm" style={{ color: colors.text + '80' }}>
-                <ShieldAlert size={18} style={{ color: '#F44336' }} />
+              <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.text + 'c0' }}>
+                <ShieldAlert size={18} style={{ color: '#F44336' }} className="shrink-0" />
                 <span>Urgence: {person.emergency_contact}</span>
               </div>
             )}
             {person.allergies && (
-              <div className="p-3 rounded-xl flex items-start gap-3" style={{ background: '#FF5722' + '10' }}>
+              <div className="p-3.5 rounded-xl flex items-start gap-3" style={{ background: '#FF5722' + '10' }}>
                 <AlertCircle size={18} style={{ color: '#FF5722' }} className="mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium" style={{ color: '#FF5722' }}>Allergies</p>
-                  <p className="text-sm" style={{ color: '#FF5722' }}>{person.allergies}</p>
+                  <p className="text-xs font-bold" style={{ color: '#FF5722' }}>Allergies</p>
+                  <p className="text-xs font-medium mt-0.5 leading-relaxed" style={{ color: '#FF5722' }}>{person.allergies}</p>
                 </div>
               </div>
             )}
             {person.treatments && (
-              <div className="p-3 rounded-xl flex items-start gap-3" style={{ background: colors.primary + '10' }}>
+              <div className="p-3.5 rounded-xl flex items-start gap-3" style={{ background: colors.primary + '10' }}>
                 <ClipboardList size={18} style={{ color: colors.primary }} className="mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium" style={{ color: colors.primary }}>Traitements</p>
-                  <p className="text-sm" style={{ color: colors.primary }}>{person.treatments}</p>
+                  <p className="text-xs font-bold" style={{ color: colors.primary }}>Traitements</p>
+                  <p className="text-xs font-medium mt-0.5 leading-relaxed" style={{ color: colors.primary }}>{person.treatments}</p>
                 </div>
               </div>
             )}
@@ -675,7 +640,7 @@ const PatientDetailPage = () => {
             ) : (
               <div className="text-center py-12" style={{ color: colors.text + '60' }}>
                 <Illustration type="calendar" size="lg" className="mx-auto mb-4 opacity-40" />
-                <p className="font-medium" style={{ color: colors.text }}>{noVisits}</p>
+                <p className="font-bold text-xs" style={{ color: colors.text }}>{noVisits}</p>
                 {(isFamilyRole || isAdminRole) && (
                   <button
                     onClick={() => {
@@ -683,15 +648,15 @@ const PatientDetailPage = () => {
                       setVisitModalMode('create');
                       setShowVisitModal(true);
                     }}
-                    className="mt-4 px-4 py-2 rounded-xl text-white font-medium text-sm inline-flex items-center gap-2"
+                    className="mt-4 px-4 py-2 rounded-xl text-white font-bold text-xs sm:text-sm inline-flex items-center gap-1.5 shadow-sm"
                     style={{ background: colors.primary }}
                   >
-                    <Plus size={16} />
+                    <Plus size={13} strokeWidth={2.5} />
                     Planifier une visite
                   </button>
                 )}
                 {isAidantRole && !hasActiveSubscription && (
-                  <p className="text-xs text-amber-600 mt-4">
+                  <p className="text-[10px] font-bold text-amber-600 mt-4 uppercase tracking-wide">
                     💳 Aucun abonnement actif. Contactez l'administrateur.
                   </p>
                 )}
@@ -704,12 +669,12 @@ const PatientDetailPage = () => {
           <div>
             {person.notes ? (
               <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-                <p style={{ color: colors.text }}>{person.notes}</p>
+                <p className="text-xs sm:text-sm font-medium leading-relaxed" style={{ color: colors.text }}>{person.notes}</p>
               </div>
             ) : (
               <div className="text-center py-12" style={{ color: colors.text + '60' }}>
                 <Illustration type="empty" size="lg" className="mx-auto mb-4 opacity-30" />
-                <p>{noNotes}</p>
+                <p className="text-xs font-semibold">{noNotes}</p>
               </div>
             )}
           </div>
@@ -734,7 +699,6 @@ const PatientDetailPage = () => {
         onSuccess={handleVisitModalSuccess}
       />
 
- 
       {showCompleteModal && activeVisitId && (
         <CompleteVisitModal
           isOpen={true}
@@ -742,7 +706,7 @@ const PatientDetailPage = () => {
             setShowCompleteModal(false);
             setActiveVisitId(null);
           }}
-          visitId={activeVisitId} // ✅ AJOUTE CECI : Passez l'ID explicitement
+          visitId={activeVisitId} 
           visit={{ patient: person }}
           patientCategory={person.category || 'senior'}
           onSubmit={handleComplete}
@@ -761,12 +725,13 @@ interface StatCardProps {
   label: string;
   value: string | number;
   color: string;
+  className?: string;
 }
 
-const StatCard = ({ label, value, color }: StatCardProps) => (
-  <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-    <p className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--color-text, #6b7280)' + '60' }}>{label}</p>
-    <p className="text-lg font-bold" style={{ color }}>{value}</p>
+const StatCard = ({ label, value, color, className = '' }: StatCardProps) => (
+  <div className={cn("bg-white rounded-2xl p-4 shadow-sm border border-black/5", className)}>
+    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
+    <p className="text-sm sm:text-base font-black mt-1" style={{ color }}>{value}</p>
   </div>
 );
 
@@ -848,12 +813,12 @@ const VisitCardCompact = ({
              visit.status === 'validee' ? <CheckCircle size={14} style={{ color: '#4CAF50' }} /> :
              visit.status === 'annulee' ? <XCircle size={14} style={{ color: '#F44336' }} /> :
              <Calendar size={14} style={{ color: colors.primary }} />}
-            <p className="font-medium" style={{ color: colors.text }}>
+            <p className="font-bold text-xs" style={{ color: colors.text }}>
               {formatDate(visit.scheduled_date)} à {formatTime(visit.scheduled_time)}
             </p>
           </div>
           <span
-            className="px-2 py-0.5 rounded-full text-xs font-medium"
+            className="px-2 py-0.5 rounded-full text-[10px] font-bold"
             style={{
               background: getStatusColor(visit.status) + '20',
               color: getStatusColor(visit.status),
@@ -862,16 +827,16 @@ const VisitCardCompact = ({
             {getStatusLabel(visit.status)}
           </span>
           {visit.is_urgent && (
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1 bg-red-100 text-red-600">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 bg-red-100 text-red-600 animate-pulse">
               <AlertCircle size={12} />
               Urgent
             </span>
           )}
         </div>
         {visit.aidant && (
-          <p className="text-xs flex items-center gap-1" style={{ color: colors.text + '60' }}>
+          <p className="text-[11px] font-medium flex items-center gap-1 mt-1" style={{ color: colors.text + '60' }}>
             <User size={12} />
-            Aidant: <span className="font-medium">{getAidantName()}</span>
+            Aidant: <span className="font-semibold">{getAidantName()}</span>
           </p>
         )}
       </div>
@@ -881,7 +846,7 @@ const VisitCardCompact = ({
           <>
             <button
               onClick={(e) => { e.stopPropagation(); onApprove?.(); }}
-              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
+              className="px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1 transition hover:opacity-85 shadow-sm"
               style={{ background: '#4CAF50' }}
             >
               <CheckCircle size={12} />
@@ -889,7 +854,7 @@ const VisitCardCompact = ({
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
-              className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
+              className="px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1 transition hover:opacity-85 shadow-sm"
               style={{ background: '#F44336' }}
             >
               <XCircle size={12} />
@@ -901,7 +866,7 @@ const VisitCardCompact = ({
         {isAccepted && isAidant && (
           <button
             onClick={(e) => { e.stopPropagation(); onStart?.(); }}
-            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
+            className="px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1 transition hover:opacity-85 shadow-sm"
             style={{ background: '#4CAF50' }}
           >
             <Play size={12} />
@@ -912,7 +877,7 @@ const VisitCardCompact = ({
         {(visit.status === 'planifiee' || visit.status === 'en_attente') && (isAdmin || isFamily) && (
           <button
             onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
-            className="px-3 py-1.5 rounded-lg text-white text-xs font-medium flex items-center gap-1 transition hover:opacity-80"
+            className="px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1 transition hover:opacity-85 shadow-sm"
             style={{ background: '#F44336' }}
           >
             <XCircle size={12} />
@@ -922,7 +887,7 @@ const VisitCardCompact = ({
 
         <button
           onClick={(e) => { e.stopPropagation(); onView?.(); }}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:bg-gray-100 flex items-center gap-1"
+          className="px-3 py-1.5 rounded-lg text-xs font-bold transition hover:bg-gray-100 flex items-center gap-1"
           style={{ color: colors.primary }}
         >
           <Eye size={14} />
