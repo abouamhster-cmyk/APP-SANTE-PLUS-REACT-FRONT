@@ -1,16 +1,16 @@
 // 📁 src/features/admin/pages/AidantCandidatesPage.tsx
+// ✅ PAGE CANDIDATS : ALIGNEMENTS DE BOUTONS PARFAITEMENT STACKES SUR MOBILE SANS OVERFLOW
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
-import { UserCheck, Check, X, Loader2, Eye } from 'lucide-react';
+import { UserCheck, Check, X, Loader2, Eye, MapPin, Briefcase } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { CandidateDetailsModal } from '../components/CandidateDetailsModal';
 import toast from 'react-hot-toast';
 
-// ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 interface AidantCandidate {
@@ -174,32 +174,32 @@ const AidantCandidatesPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       {/* Header */}
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
       >
         <div className="relative z-10">
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+          <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
             🦸 Candidatures Aidants
           </h1>
-          <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
-            {candidates.length} dossier{candidates.length > 1 ? 's' : ''} en attente de vérification
+          <p className="text-xs font-semibold mt-0.5 text-gray-400">
+            {candidates.length} dossier{candidates.length > 1 ? 's' : ''} en attente de vérification administrative
           </p>
         </div>
       </section>
 
       {candidates.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
-          <p className="text-sm font-semibold text-gray-400">Aucun dossier en attente d'approbation</p>
+        <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-sm max-w-sm mx-auto">
+          <p className="text-xs font-bold text-gray-400">Aucun dossier en attente d'approbation</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
           {candidates.map((candidate) => (
             <div 
               key={candidate.id} 
-              className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer hover:shadow-md transition-all duration-200 hover:border-[var(--color-primary)]/30 border-2 border-transparent"
+              className="bg-white rounded-3xl p-5 shadow-sm border flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer hover:shadow-md transition-all duration-200 hover:border-[var(--color-primary)]/30 border-gray-100"
               onClick={() => {
                 setSelectedCandidate(candidate);
                 setShowDetailsModal(true);
@@ -207,13 +207,13 @@ const AidantCandidatesPage = () => {
             >
               <div className="space-y-2.5 flex-1 min-w-0">
                 <div>
-                  <h3 className="font-bold text-sm text-gray-800">{candidate.user?.full_name || 'Candidat Anonyme'}</h3>
-                  <p className="text-[11px] text-gray-400">{candidate.user?.email} · {candidate.user?.phone || 'Pas de numéro'}</p>
+                  <h3 className="font-extrabold text-sm sm:text-base text-gray-800">{candidate.user?.full_name || 'Candidat Anonyme'}</h3>
+                  <p className="text-[11px] text-gray-400 font-semibold">{candidate.user?.email} · {candidate.user?.phone || 'Pas de numéro'}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
                   {candidate.specialties?.map(s => (
-                    <span key={s} className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: `${colors.primary}08`, color: colors.primary }}>
+                    <span key={s} className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider" style={{ background: `${colors.primary}08`, color: colors.primary }}>
                       {s === 'maman_bebe' ? '👶 Maman' :
                        s === 'senior' ? '👴 Senior' :
                        s === 'accompagnement' ? '🤝 Accompagnement' :
@@ -221,35 +221,36 @@ const AidantCandidatesPage = () => {
                     </span>
                   ))}
                   {candidate.zones && candidate.zones.length > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-600">
-                      📍 {candidate.zones[0]}{candidate.zones.length > 1 ? ` +${candidate.zones.length - 1}` : ''}
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100/50 flex items-center gap-1 shrink-0">
+                      <MapPin size={10} /> {candidate.zones[0]}{candidate.zones.length > 1 ? ` +${candidate.zones.length - 1}` : ''}
                     </span>
                   )}
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-50 text-gray-500">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gray-50 text-gray-500 border">
                     Expérience : {candidate.experience_years ? `${candidate.experience_years} ans` : 'Non renseignée'}
                   </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${candidate.available ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${candidate.available ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
                     {candidate.available ? '🟢 Disponible' : '🔴 Indisponible'}
                   </span>
                 </div>
 
                 {candidate.bio && (
-                  <p className="text-xs text-gray-500 leading-relaxed italic border-l-2 pl-2 truncate max-w-md" style={{ borderColor: colors.primary }}>
+                  <p className="text-xs text-gray-500 leading-relaxed italic border-l-2 pl-2 truncate max-w-[250px] sm:max-w-md" style={{ borderColor: colors.primary }}>
                     "{candidate.bio}"
                   </p>
                 )}
                 
-                <p className="text-[10px] text-gray-400">Soumis le {formatDate(candidate.created_at)}</p>
+                <p className="text-[10px] text-gray-400 font-bold">Soumis le {formatDate(candidate.created_at)}</p>
               </div>
 
-              <div className="flex gap-2 shrink-0">
+              {/* ✅ ACTIONS RESPONSIVES : Évite les sorties de bloc sur mobile */}
+              <div className="flex items-center justify-end gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0 flex-wrap">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleReject(candidate);
                   }}
                   disabled={isProcessing}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-gray-50 text-red-500 hover:bg-red-50 transition-colors flex items-center gap-1"
+                  className="px-4 h-9 rounded-xl text-xs font-bold bg-gray-50 text-red-500 hover:bg-red-50 transition-all border flex items-center gap-1.5"
                 >
                   <X size={12} /> Refuser
                 </button>
@@ -259,7 +260,7 @@ const AidantCandidatesPage = () => {
                     handleApprove(candidate);
                   }}
                   disabled={isProcessing}
-                  className="px-4 py-2 rounded-xl text-white text-xs font-bold transition-opacity hover:opacity-90 flex items-center gap-1"
+                  className="px-4 h-9 rounded-xl text-white text-xs font-extrabold transition-opacity hover:opacity-90 flex items-center gap-1.5 shadow-sm"
                   style={{ background: colors.primary }}
                 >
                   <Check size={12} /> Approuver
@@ -270,7 +271,7 @@ const AidantCandidatesPage = () => {
                     setSelectedCandidate(candidate);
                     setShowDetailsModal(true);
                   }}
-                  className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-400 hover:text-gray-600"
+                  className="p-2 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors border border-gray-100"
                 >
                   <Eye size={16} />
                 </button>
