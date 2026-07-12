@@ -1,4 +1,5 @@
 // 📁 src/features/admin/pages/AdminSetupPage.tsx
+// ✅ PAGE SETUP ADMIN : INPUTS ET BOUTONS H-11 POUR UN ONBOARDING MOBILE ULTRA TACTILE
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -17,8 +18,6 @@ import {
 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import toast from 'react-hot-toast';
-
-// ✅ toast CONSERVÉ - C'est une page, c'est ici qu'on affiche les toasts
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
@@ -44,7 +43,6 @@ const AdminSetupPage = () => {
     role: 'admin' as 'admin' | 'coordinator',
   });
 
-  // ✅ handleVerifyPin - UN SEUL TOAST PAR ACTION
   const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pin.length !== 8) {
@@ -75,7 +73,6 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ handleSendOTP - UN SEUL TOAST PAR ACTION
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
@@ -107,7 +104,6 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ handleVerifyOTP - UN SEUL TOAST PAR ACTION
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpCode = typeof otp === 'string' ? otp : String(otp);
@@ -143,7 +139,6 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ handleCreateAccount - UN SEUL TOAST PAR ACTION
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password.length < 6) {
@@ -185,7 +180,6 @@ const AdminSetupPage = () => {
     }
   };
 
-  // ✅ startTimer - UN SEUL TOAST D'EXPIRATION
   const startTimer = (minutes: number) => {
     let timeLeft = minutes * 60;
     setOtpExpiresIn(timeLeft);
@@ -209,7 +203,7 @@ const AdminSetupPage = () => {
     };
   }, [timer]);
 
-  const formatTime = (seconds: number) => {
+  const formatTimerTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -226,7 +220,6 @@ const AdminSetupPage = () => {
           style={{ borderColor: 'var(--color-border, #e5e7eb)' }}
         >
           <div>
-            {/* Logo épuré */}
             <div className="flex justify-center mb-6 mt-4 sm:mt-0">
               <div 
                 className="w-16 h-16 rounded-2xl border flex items-center justify-center"
@@ -248,7 +241,7 @@ const AdminSetupPage = () => {
               </p>
             </div>
 
-            {/* Stepper épuré */}
+            {/* Stepper */}
             <div className="flex items-center gap-2 mb-6">
               {['pin', 'email', 'otp', 'create'].map((s, index) => {
                 const isActive = step === s;
@@ -266,30 +259,30 @@ const AdminSetupPage = () => {
               })}
             </div>
 
-            {/* ÉTAPE 1 : PIN */}
+            {/* ÉTAPE 1 : PIN (HAUTEUR UNIFIÉE H-11) */}
             {step === 'pin' && (
               <form onSubmit={handleVerifyPin} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Code d'accès</label>
                   <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <input
                       type="password"
                       value={pin}
                       onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                      placeholder="8 chiffres"
+                      placeholder="8 chiffres d'installation"
                       maxLength={8}
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-sm focus:ring-1 focus:ring-[var(--color-primary)] transition"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                       autoFocus
                     />
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Code temporaire d'installation requis.</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-semibold">Code temporaire d'installation requis.</p>
                 </div>
                 <button
                   type="submit"
                   disabled={pin.length !== 8 || isLoading}
-                  className="w-full py-3 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
+                  className="w-full h-11 rounded-xl text-white text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
                   style={{ background: 'var(--color-primary, #113f30)' }}
                 >
                   {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Continuer <ArrowRight size={14} /></>}
@@ -297,20 +290,20 @@ const AdminSetupPage = () => {
               </form>
             )}
 
-            {/* ÉTAPE 2 : EMAIL */}
+            {/* ÉTAPE 2 : EMAIL (HAUTEUR UNIFIÉE H-11) */}
             {step === 'email' && (
               <form onSubmit={handleSendOTP} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>E-mail professionnel</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="admin@santeplus.bj"
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs focus:ring-1 focus:ring-[var(--color-primary)] transition"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                       required
                     />
                   </div>
@@ -319,7 +312,7 @@ const AdminSetupPage = () => {
                   <button
                     type="button"
                     onClick={() => setStep('pin')}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
+                    className="flex-1 h-11 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
                     style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                   >
                     <ArrowLeft size={14} /> Retour
@@ -327,7 +320,7 @@ const AdminSetupPage = () => {
                   <button
                     type="submit"
                     disabled={!email || isLoading}
-                    className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
+                    className="flex-1 h-11 rounded-xl text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
                     style={{ background: 'var(--color-primary, #113f30)' }}
                   >
                     {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Envoyer <Send size={14} /></>}
@@ -336,34 +329,34 @@ const AdminSetupPage = () => {
               </form>
             )}
 
-            {/* ÉTAPE 3 : OTP */}
+            {/* ÉTAPE 3 : OTP (HAUTEUR UNIFIÉE H-11) */}
             {step === 'otp' && (
               <form onSubmit={handleVerifyOTP} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Code de validation</label>
                   <div className="relative">
-                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={otp}
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="6 chiffres"
                       maxLength={6}
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs font-bold tracking-widest focus:ring-1 focus:ring-[var(--color-primary)] transition"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-extrabold tracking-widest bg-gray-50/50"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                       autoFocus
                     />
                   </div>
-                  <div className="flex justify-between items-center mt-1 text-[10px] text-gray-400">
+                  <div className="flex justify-between items-center mt-1 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
                     <span>Code envoyé à : {email}</span>
-                    <span className="font-bold">⏱️ {formatTime(otpExpiresIn)}</span>
+                    <span className="font-bold text-red-500">⏱️ {formatTimerTime(otpExpiresIn)}</span>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setStep('email')}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
+                    className="flex-1 h-11 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
                     style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                   >
                     <ArrowLeft size={14} /> Retour
@@ -371,7 +364,7 @@ const AdminSetupPage = () => {
                   <button
                     type="submit"
                     disabled={otp.length !== 6 || isLoading}
-                    className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
+                    className="flex-1 h-11 rounded-xl text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
                     style={{ background: 'var(--color-primary, #113f30)' }}
                   >
                     {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Vérifier <CheckCircle size={14} /></>}
@@ -380,20 +373,20 @@ const AdminSetupPage = () => {
               </form>
             )}
 
-            {/* ÉTAPE 4 : CRÉATION DU COMPTE */}
+            {/* ÉTAPE 4 : CRÉATION DU COMPTE (HAUTEUR UNIFIÉE H-11) */}
             {step === 'create' && (
               <form onSubmit={handleCreateAccount} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Nom complet *</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={formData.full_name}
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                       placeholder="Prénom Nom"
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                       required
                     />
                   </div>
@@ -402,14 +395,14 @@ const AdminSetupPage = () => {
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Téléphone</label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="+229 90 00 00 00"
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                     />
                   </div>
                 </div>
@@ -417,12 +410,12 @@ const AdminSetupPage = () => {
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Rôle *</label>
                   <div className="relative">
-                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <select
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'coordinator' })}
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs appearance-none"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                     >
                       <option value="admin">👑 Administrateur</option>
                       <option value="coordinator">👔 Coordinateur</option>
@@ -433,14 +426,14 @@ const AdminSetupPage = () => {
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Mot de passe *</label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <input
                       type="password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       placeholder="Minimum 6 caractères"
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                       required
                       minLength={6}
                     />
@@ -450,14 +443,14 @@ const AdminSetupPage = () => {
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Confirmer le mot de passe *</label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                     <input
                       type="password"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                       placeholder="Confirmez"
-                      className="w-full pl-9 pr-4 py-2.5 rounded-xl border outline-none text-xs"
-                      style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)', color: 'var(--color-text)' }}
+                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
+                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                       required
                     />
                   </div>
@@ -467,7 +460,7 @@ const AdminSetupPage = () => {
                   <button
                     type="button"
                     onClick={() => setStep('otp')}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
+                    className="flex-1 h-11 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
                     style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
                   >
                     <ArrowLeft size={14} /> Retour
@@ -475,7 +468,7 @@ const AdminSetupPage = () => {
                   <button
                     type="submit"
                     disabled={!formData.full_name || !formData.password || isLoading}
-                    className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
+                    className="flex-1 h-11 rounded-xl text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
                     style={{ background: 'var(--color-primary, #113f30)' }}
                   >
                     {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Créer mon compte <CheckCircle size={14} /></>}
