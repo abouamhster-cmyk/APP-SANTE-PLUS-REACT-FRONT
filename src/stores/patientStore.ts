@@ -1,4 +1,5 @@
 // 📁 src/stores/patientStore.ts
+// ✅ STORE PATIENTS : SYNCHRONISATION DES ASSIGNATIONS ACTIVES (PATIENTS & COMPTES EN DIRECT)
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -6,7 +7,6 @@ import { Patient } from '@/types';
 import { useAuthStore } from './authStore';
 import { assignmentAPI } from '@/lib/api';
 
- 
 // ============================================================
 // TYPES
 // ============================================================
@@ -133,7 +133,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // FETCH PATIENTS - VERSION CORRIGÉE
+  // FETCH PATIENTS - VERSION CORRIGÉE ET ADAPTÉE
   // ============================================================
   fetchPatients: async (force = false) => {
     const state = get();
@@ -201,7 +201,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         console.log(`✅ ${patientsData.length} patients récupérés pour admin`);
       }
 
-      // 👨‍👩‍👦 FAMILLE → Ses patients (via liens ET assignations)
+      // 👨‍👩‍👦 FAMILLE → Ses patients (via liens)
       else if (profile?.role === 'family') {
         console.log('👨‍👩‍👦 Famille - Récupération des patients liés');
         console.log('🔍 Family ID:', user.id);
@@ -221,143 +221,99 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
         // ✅ 2. Si la famille a des patients
         if (patientIdsFromLinks.length > 0) {
-          // 🔧 CORRECTION : Récupérer les assignations pour les patients
-          try {
-            const { data: assignments, error: assignmentsError } = await supabase
-              .from('aidant_assignments')
-              .select('target_id')
-              .eq('target_type', 'patient')
-              .eq('status', 'active')
-              .in('target_id', patientIdsFromLinks);
+          const { data, error } = await supabase
+            .from('patients')
+            .select('*')
+            .in('id', patientIdsFromLinks)
+            .order('created_at', { ascending: false });
 
-            if (!assignmentsError && assignments) {
-              const patientIdsFromAssignments = assignments.map(a => a.target_id).filter(Boolean);
-              const allPatientIds = [...new Set([...patientIdsFromAssignments, ...patientIdsFromLinks])];
-              
-              const { data, error } = await supabase
-                .from('patients')
-                .select('*')
-                .in('id', allPatientIds)
-                .order('created_at', { ascending: false });
-
-              if (error) throw error;
-              patientsData = data || [];
-              console.log(`✅ ${patientsData.length} patients récupérés pour la famille (via assignations)`);
-            } else {
-              // Fallback : récupérer directement les patients
-              const { data, error } = await supabase
-                .from('patients')
-                .select('*')
-                .in('id', patientIdsFromLinks)
-                .order('created_at', { ascending: false });
-
-              if (error) throw error;
-              patientsData = data || [];
-              console.log(`✅ ${patientsData.length} patients récupérés pour la famille (fallback)`);
-            }
-          } catch (apiError) {
-            console.error('❌ Erreur API assignments:', apiError);
-            // Fallback : patient_family_links uniquement
-            const { data, error } = await supabase
-              .from('patients')
-              .select('*')
-              .in('id', patientIdsFromLinks)
-              .order('created_at', { ascending: false });
-
-            if (error) throw error;
-            patientsData = data || [];
-          }
+          if (error) throw error;
+          patientsData = data || [];
+          console.log(`✅ ${patientsData.length} patients récupérés pour la famille`);
         } else {
-          // ✅ 3. Compte personnel SANS patient
-          console.log('ℹ️ Compte personnel sans patient - vérification assignation personnelle');
-          
-          // 🔧 CORRECTION : Vérifier si une assignation existe sur le compte personnel
-          try {
-            const { data: personalAssignment, error: personalError } = await supabase
-              .from('aidant_assignments')
-              .select('target_id, aidant_user_id')
-              .eq('target_type', 'personal_account')
-              .eq('status', 'active')
-              .eq('target_id', user.id)
-              .maybeSingle();
-
-            if (!personalError && personalAssignment) {
-              console.log('📋 Assignation personnelle trouvée pour:', user.id);
-            }
-          } catch (e) {
-            console.warn('⚠️ Erreur vérification assignation personnelle:', e);
-          }
-
           // Aucun patient pour ce compte
           set({ patients: [], isLoading: false, isInitialized: true });
           return;
         }
       }
 
-      // 🦸 AIDANT → Patients assignés via l'API d'assignation
+      // 🦸 AIDANT → Patients et comptes personnels assignés (Foyer)
       else if (profile?.role === 'aidant') {
-        console.log('🦸 Aidant - Récupération des patients assignés');
+        console.log('🦸 Aidant - Résolution des assignations de dossiers');
         
-        try {
-          const response = await assignmentAPI.getByAidant(user.id, 'active');
-          const assignments = response.data?.data || [];
-          
-          let patientIds = assignments
-            .filter((a: any) => a.target_type === 'patient')
-            .map((a: any) => a.target_id)
-            .filter(Boolean);
+        // Récupérer les assignations actives
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from('aidant_assignments')
+          .select('target_type, target_id')
+          .eq('aidant_user_id', user.id)
+          .eq('status', 'active');
 
-          // Fallback: patient_family_links
-          if (patientIds.length === 0) {
-            const { data: links, error: linksError } = await supabase
-              .from('patient_family_links')
-              .select('patient_id')
-              .eq('family_id', user.id);
+        if (assignmentsError) throw assignmentsError;
 
-            if (!linksError && links) {
-              patientIds = links.map(l => l.patient_id).filter(Boolean);
-            }
-          }
+        if (!assignments || assignments.length === 0) {
+          set({ patients: [], isLoading: false, isInitialized: true });
+          return;
+        }
 
-          if (patientIds.length === 0) {
-            console.log('ℹ️ Aucun patient assigné à cet aidant');
-            set({ patients: [], isLoading: false, isInitialized: true });
-            return;
-          }
+        const patientIds = assignments
+          .filter((a: any) => a.target_type === 'patient')
+          .map((a: any) => a.target_id);
 
+        const personalAccountIds = assignments
+          .filter((a: any) => a.target_type === 'personal_account' || a.target_type === 'personal')
+          .map((a: any) => a.target_id);
+
+        let finalPatients: Patient[] = [];
+
+        // Charger les patients rattachés
+        if (patientIds.length > 0) {
           const { data, error } = await supabase
             .from('patients')
             .select('*')
-            .in('id', patientIds)
-            .order('created_at', { ascending: false });
+            .in('id', patientIds);
 
-          if (error) throw error;
-          patientsData = data || [];
-          console.log(`✅ ${patientsData.length} patients récupérés pour l'aidant`);
-          
-        } catch (apiError) {
-          console.error('❌ Erreur API assignments:', apiError);
-          // Fallback: patient_family_links
-          const { data: links, error: linksError } = await supabase
-            .from('patient_family_links')
-            .select('patient_id')
-            .eq('family_id', user.id);
-
-          if (!linksError && links) {
-            const patientIds = links.map(l => l.patient_id).filter(Boolean);
-            if (patientIds.length > 0) {
-              const { data, error } = await supabase
-                .from('patients')
-                .select('*')
-                .in('id', patientIds)
-                .order('created_at', { ascending: false });
-
-              if (!error) {
-                patientsData = data || [];
-              }
-            }
+          if (!error && data) {
+            finalPatients = [...data];
           }
         }
+
+        // Charger les profils de comptes personnels (suivis directement sans proches)
+        if (personalAccountIds.length > 0) {
+          const { data: dbProfiles, error: dbProfilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, phone, avatar_url, patient_category')
+            .in('id', personalAccountIds);
+          
+          if (!dbProfilesError && dbProfiles) {
+            const mappedProfiles = dbProfiles.map(p => ({
+              id: p.id,
+              first_name: p.full_name,
+              last_name: '(Compte Personnel)', // Distinction visuelle claire d'abonné
+              age: null,
+              gender: null,
+              address: 'Adresse du compte de l\'abonné',
+              phone: p.phone,
+              emergency_contact: null,
+              emergency_contact_name: null,
+              category: (p.patient_category as any) || 'senior',
+              status: 'active' as const,
+              notes: 'Abonné suivi en direct sur son compte personnel',
+              allergies: null,
+              treatments: null,
+              conditions: null,
+              medical_history: null,
+              preferred_language: 'fr',
+              special_requirements: null,
+              created_by: p.id,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }));
+            finalPatients = [...finalPatients, ...mappedProfiles];
+          }
+        }
+
+        patientsData = finalPatients;
+        console.log(`✅ ${patientsData.length} bénéficiaires consolidés pour l'aidant`);
       }
 
       // Fallback
@@ -414,7 +370,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // SYNC AIDANT PATIENTS - AVEC API
+  // SYNC AIDANT PATIENTS - UNIFIÉ SANS DOUBLONS DE LOGIQUE
   // ============================================================
   syncAidantPatients: async () => {
     try {
@@ -425,60 +381,10 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         return;
       }
 
-      console.log('🔄 Synchronisation des patients pour aidant:', user.id);
+      console.log('🔄 Synchronisation forcée des patients pour aidant:', user.id);
 
-      // ✅ Utiliser l'API d'assignation
-      const response = await assignmentAPI.getByAidant(user.id, 'active');
-      const assignments = response.data?.data || [];
-      
-      let patientIds = assignments
-        .filter((a: any) => a.target_type === 'patient')
-        .map((a: any) => a.target_id)
-        .filter(Boolean);
-
-      // Fallback: patient_family_links
-      if (patientIds.length === 0) {
-        const { data: links, error: linksError } = await supabase
-          .from('patient_family_links')
-          .select('patient_id')
-          .eq('family_id', user.id);
-
-        if (!linksError && links) {
-          patientIds = links.map(l => l.patient_id).filter(Boolean);
-        }
-      }
-
-      console.log('📋 Patient IDs trouvés:', patientIds);
-
-      if (patientIds.length === 0) {
-        console.log('ℹ️ Aucun patient assigné à cet aidant');
-        set({ patients: [], isLoading: false });
-        return;
-      }
-
-      const { data: patients, error: patientsError } = await supabase
-        .from('patients')
-        .select('*')
-        .in('id', patientIds);
-
-      if (patientsError) {
-        console.error('❌ Erreur récupération patients:', patientsError);
-        set({ patients: [], isLoading: false });
-        return;
-      }
-
-      console.log(`✅ ${patients?.length || 0} patients synchronisés`);
-      
-      // ✅ Mettre à jour le cache
-      setCachedPatients(patients || []);
-      set({ 
-        patients: patients || [], 
-        isLoading: false,
-        lastFetch: Date.now(),
-        isCacheInvalidated: false,
-      });
-      
-      return;
+      // ✅ Unifier l'appel via fetchPatients(true) pour consolider les deux univers (patients et abonnés directs)
+      await get().fetchPatients(true);
     } catch (error) {
       console.error('❌ Sync aidant patients error:', error);
       set({ patients: [], isLoading: false });
@@ -516,6 +422,41 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       if (error) {
         if (error.code === 'PGRST116') {
+          // ✅ FALLBACK COMPTE : Si le bénéficiaire n'est pas dans la table patients, charger son profil de compte personnel
+          const { data: userProfile, error: profileErr } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, phone, avatar_url, patient_category')
+            .eq('id', id)
+            .single();
+
+          if (!profileErr && userProfile) {
+            const mappedProfile: Patient = {
+              id: userProfile.id,
+              first_name: userProfile.full_name,
+              last_name: '(Compte Personnel)',
+              age: null,
+              gender: null,
+              address: 'Adresse du compte de l\'abonné',
+              phone: userProfile.phone,
+              category: (userProfile.patient_category as any) || 'senior',
+              status: 'active',
+              notes: 'Abonné suivi en direct sur son compte personnel',
+              preferred_language: 'fr',
+              emergency_contact: null,
+              emergency_contact_name: null,
+              allergies: null,
+              treatments: null,
+              conditions: null,
+              medical_history: null,
+              special_requirements: null,
+              created_by: userProfile.id,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            set({ currentPatient: mappedProfile, isLoading: false });
+            return;
+          }
+
           set({ error: 'Patient non trouvé', isLoading: false });
           return;
         }
@@ -528,7 +469,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         hasAccess = true;
       } else if (profile?.role === 'family') {
-        // ✅ Vérifier via patient_family_links
         const { data: link } = await supabase
           .from('patient_family_links')
           .select('id')
@@ -537,12 +477,10 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           .maybeSingle();
         hasAccess = !!link;
       } else if (profile?.role === 'aidant') {
-        // Vérifier via les assignations
         const { data: assignment } = await supabase
           .from('aidant_assignments')
           .select('id')
           .eq('aidant_user_id', user.id)
-          .eq('target_type', 'patient')
           .eq('target_id', id)
           .eq('status', 'active')
           .maybeSingle();
@@ -550,7 +488,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         if (assignment) {
           hasAccess = true;
         } else {
-          // Fallback: via patient_family_links
           const { data: link } = await supabase
             .from('patient_family_links')
             .select('id')
@@ -587,7 +524,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         throw new Error('Les aidants ne peuvent pas créer de patients');
       }
 
-      // ✅ Créer le patient
       const { data: patient, error } = await supabase
         .from('patients')
         .insert({
@@ -600,7 +536,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ Lier le patient à la famille (via patient_family_links)
       await supabase
         .from('patient_family_links')
         .insert({
@@ -609,7 +544,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           is_primary: true,
         });
 
-      // ✅ Mettre à jour la catégorie du profil
       if (data.category) {
         await supabase
           .from('profiles')
@@ -617,20 +551,14 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           .eq('id', user.id);
       }
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
-
-      // ✅ Recharger les données
       await get().fetchPatients(true);
 
       set({ isLoading: false });
-
-      // ✅ SUPPRIMÉ : toast.success('Proche créé avec succès');
       return patient;
     } catch (error: any) {
       console.error('❌ Erreur création du proche:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
@@ -649,7 +577,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         throw new Error('Les aidants ne peuvent pas modifier les patients');
       }
 
-      // ✅ Vérifier les permissions
       let canEdit = false;
 
       if (profile?.role === 'admin' || profile?.role === 'coordinator') {
@@ -677,22 +604,16 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
-
-      // ✅ Recharger les données
       await get().fetchPatients(true);
 
       set((state) => ({
         currentPatient: patient,
         isLoading: false,
       }));
-
-      // ✅ SUPPRIMÉ : toast.success('Proche mis à jour');
     } catch (error: any) {
       console.error('❌ Erreur modification du proche:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
@@ -710,14 +631,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         throw new Error('Non autorisé à supprimer des patients');
       }
 
-      // ✅ Supprimer les assignations liées
       await supabase
         .from('aidant_assignments')
         .delete()
         .eq('target_type', 'patient')
         .eq('target_id', id);
 
-      // ✅ Supprimer les liens
       await supabase
         .from('patient_family_links')
         .delete()
@@ -728,7 +647,6 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         .delete()
         .eq('patient_id', id);
 
-      // ✅ Supprimer le patient
       const { error } = await supabase
         .from('patients')
         .delete()
@@ -736,26 +654,17 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
       if (error) throw error;
 
-      // ✅ INVALIDER LE CACHE
       get().invalidateCache();
-
-      // ✅ Recharger les données
       await get().fetchPatients(true);
 
       set({ isLoading: false });
-
-      // ✅ SUPPRIMÉ : toast.success('Proche supprimé');
     } catch (error: any) {
       console.error('❌ Erreur suppression du proche:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
-  // ============================================================
-  // UTILITIES
-  // ============================================================
   clearError: () => set({ error: null }),
   
   reset: () => {
@@ -786,10 +695,8 @@ supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔄 Auth changé, rechargement des patients...');
       previousUserId = userId;
       
-      // ✅ Invalider le cache
       usePatientStore.getState().invalidateCache();
       
-      // Attendre que l'utilisateur soit complètement chargé
       setTimeout(() => {
         usePatientStore.getState().fetchPatients(true);
       }, 500);
@@ -802,9 +709,5 @@ supabase.auth.onAuthStateChange((event, session) => {
     usePatientStore.getState().reset();
   }
 });
-
-// ============================================================
-// EXPORT PAR DÉFAUT
-// ============================================================
 
 export default usePatientStore;
