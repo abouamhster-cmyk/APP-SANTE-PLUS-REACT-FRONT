@@ -1,5 +1,5 @@
 // 📁 src/components/ui/Modal.tsx
-// ✅ LOGIQUE DE MODAL INTERACTIF PREMIUM : ANIMATIONS FLUIDES, TIRETTE MOBILE NATIVE ET BOUTONS UNIFIÉS SANS CONFLITS DE BORDURE
+// ✅ LOGIQUE DE MODAL INTERACTIF PREMIUM : BOUTONS INLINE STYLE H-44PX GARANTISSANT LA COMPATIBILITÉ TAILWIND
 
 import { ReactNode, useEffect, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -182,8 +182,9 @@ export const ModalActions = ({
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              // 🟢 CORRECTIF : Bordure visible border-gray-200 et transition d'opacité propre
-              className="flex-1 h-11 rounded-2xl border border-gray-200 dark:border-gray-700 text-xs sm:text-sm font-bold bg-white hover:bg-gray-50 transition active:scale-[0.98] text-gray-700 dark:text-gray-200 dark:bg-transparent dark:hover:bg-[#24362d] disabled:opacity-50"
+              // 🟢 SÉCURISATION TACTILE : Forcer la hauteur via inline-style de 44px
+              className="flex-1 rounded-2xl border border-gray-200 dark:border-gray-700 text-xs sm:text-sm font-bold bg-white hover:bg-gray-50 transition active:scale-[0.98] text-gray-700 dark:text-gray-200 dark:bg-transparent dark:hover:bg-[#24362d] disabled:opacity-50 flex items-center justify-center"
+              style={{ height: '44px', minHeight: '44px' }}
             >
               {cancelLabel}
             </button>
@@ -193,8 +194,13 @@ export const ModalActions = ({
             <button
               type={confirmButtonType}
               onClick={confirmButtonType === 'button' ? onConfirm : undefined}
-              className="flex-1 h-11 rounded-2xl text-white font-extrabold flex items-center justify-center gap-2 transition hover:opacity-95 active:scale-[0.98] text-xs sm:text-sm disabled:opacity-55 shadow-md shadow-emerald-900/10"
-              style={{ background: confirmColor || 'var(--color-primary, #1a4a3a)' }}
+              // 🟢 SÉCURISATION TACTILE : Forcer la hauteur via inline-style de 44px
+              className="flex-1 text-white font-extrabold flex items-center justify-center gap-2 transition hover:opacity-95 active:scale-[0.98] text-xs sm:text-sm disabled:opacity-55 shadow-md shadow-emerald-900/10"
+              style={{ 
+                background: confirmColor || 'var(--color-primary, #1a4a3a)',
+                height: '44px',
+                minHeight: '44px',
+              }}
               disabled={isLoading}
             >
               {isLoading ? (
