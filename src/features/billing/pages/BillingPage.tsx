@@ -1,5 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-// ✅ PAGE DE FACTURATION : COHÉRENCE VERTICALE DYNAMIQUE (SENIORS, MAMAN & BÉBÉ, ET COMPTE PERSONNEL)
+// ✅ PAGE DE FACTURATION : COHÉRENCE VERTICALE ET INTEGRATION DES FORFAITS PERSONNELS (SANS PROCHE)
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
@@ -74,6 +74,8 @@ const BillingPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
+  const patientCategory = profile?.patient_category;
+  const isPersonalAccount = role === 'family' && !patientCategory && patients.length === 0;
   const isAidantRole = role === 'aidant';
 
   // =============================================
@@ -96,7 +98,7 @@ const BillingPage = () => {
   }, []);
 
   // ============================================================
-  // ✅ LOGIQUE DE COHÉRENCE VERTICALE DYNAMIQUE
+  // ✅ LOGIQUE DE COHÉRENCE VERTICALE DYNAMIQUE (RÉGULATION DES PACKS PERSO)
   // ============================================================
   
   const hasSeniorPatient = useMemo(() => patients.some(p => p.category === 'senior'), [patients]);
@@ -107,10 +109,9 @@ const BillingPage = () => {
   const showSenior = hasSeniorPatient || isSeniorProfile;
   const showMaman = hasMamanPatient || isMamanProfile;
   
-  // Compte personnel par défaut si aucun patient ni catégorie déclarée (permet d'explorer tout le catalogue)
+  // Compte personnel sans proche enregistré : on affiche tout l'univers pour lui laisser le choix de souscription
   const showAll = !showSenior && !showMaman;
 
-  // Filtrer les offres en fonction des rôles et des proches enregistrés
   const allowedOffers = useMemo(() => {
     const activeSubscriptionOffers = offers.filter((o: Offer) => o.type !== 'ponctuelle' && o.is_active === true);
 
@@ -145,14 +146,13 @@ const BillingPage = () => {
     return allowedOffers.filter(o => o.category === activeTab);
   }, [allowedOffers, activeTab]);
 
-  // Si on change de catégorie et que l'onglet actif n'est plus disponible, on bascule sur "all"
   useEffect(() => {
     if (activeTab !== 'all' && !visibleTabs.includes(activeTab)) {
       setActiveTab('all');
     }
   }, [visibleTabs, activeTab]);
 
-  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
+  // GESTION DU RAFAICHISSEMENT EN COULISSES
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -187,6 +187,14 @@ const BillingPage = () => {
     setPullY(0);
   };
 
+  const getVisibleTabs = (): TabType[] => {
+    if (isAidantRole) return [];
+    if (isPersonalAccount) return ['all'];
+    if (patientCategory === 'senior') return ['all', 'senior'];
+    if (patientCategory === 'maman_bebe') return ['all', 'maman_bebe'];
+    return ['all', 'senior', 'maman_bebe'];
+  };
+
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
   const hasActiveSub = subscriptions.some((sub) => sub.status === 'actif');
 
@@ -195,16 +203,16 @@ const BillingPage = () => {
   };
 
   const openPayment = (offer: Offer) => {
+    const activePatient = patients.length > 0 ? patients[0] : null;
+    const patientId = activePatient?.id || null;
+
     if (hasActiveSub) {
       toast.error('Vous disposez déjà d\'un forfait actif');
       return;
     }
 
-    // Pré-sélectionner un proche compatible si possible
-    const compatiblePatient = patients.find(p => p.category === offer.category);
-    
     setSelectedOffer(offer);
-    setSelectedPatientId(compatiblePatient?.id || null);
+    setSelectedPatientId(patientId);
     setIsPaymentOpen(true);
   };
 
@@ -216,7 +224,35 @@ const BillingPage = () => {
     toast.success('Paiement effectué avec succès !');
   };
 
+  const stats = {
+    total: filteredOffers.length,
+    senior: filteredOffers.filter((o: Offer) => o.category === 'senior').length,
+    maman: filteredOffers.filter((o: Offer) => o.category === 'maman_bebe').length,
+    pack: filteredOffers.filter((o: Offer) => o.category === 'pack_confort').length,
+  };
+
   const isLoading = storeLoading || offersLoading;
+
+  // Libellés de catégories intelligents selon le type de compte
+  const getTabLabel = (tabId: TabType) => {
+    if (tabId === 'all') return 'Toutes les formules';
+    if (tabId === 'senior') {
+      return isPersonalAccount || !hasSeniorPatient 
+        ? '🏡 Services & Convalescence' 
+        : '👴 Accompagnement Seniors';
+    }
+    if (tabId === 'maman_bebe') {
+      return '👶 Maman & Bébé';
+    }
+    return tabId;
+  };
+
+  const getSubTitleText = () => {
+    if (isPersonalAccount) {
+      return "Sélectionnez une formule d'accompagnement pour organiser vos propres visites de soutien, de convalescence après hospitalisation ou de livraison.";
+    }
+    return "Consultez votre crédit d'accompagnement mensuel, vos formules de visites et l'historique complet de vos règlements.";
+  };
 
   if (isLoading) {
     return (
@@ -257,7 +293,7 @@ const BillingPage = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* INDICATEUR PULL-TO-REFRESH */}
+      {/* INDICATEUR REFRESH */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -284,7 +320,7 @@ const BillingPage = () => {
             Forfaits & Abonnements
           </h1>
           <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
-            Consultez votre crédit d'accompagnement mensuel, vos formules de visites et l'historique complet de vos règlements.
+            {getSubTitleText()}
           </p>
         </div>
 
@@ -307,7 +343,7 @@ const BillingPage = () => {
         </button>
       </section>
 
-      {/* CARTE ABONNEMENT ACTIF */}
+      {/* ABONNEMENT ACTIF */}
       {activeSubscription && (
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6 shadow-md border border-gray-800">
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -337,17 +373,11 @@ const BillingPage = () => {
         </section>
       )}
 
-      {/* FILTRES DE CATÉGORIES COHÉRENTS */}
+      {/* ONGLETS COHÉRENTS */}
       {visibleTabs.length > 1 && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
           <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
             {visibleTabs.map((tabId) => {
-              const label = {
-                'all': 'Toutes les formules',
-                'senior': '👴 Accompagnement Seniors',
-                'maman_bebe': '👶 Maman & Bébé',
-              }[tabId] || tabId;
-
               const isActive = activeTab === tabId;
 
               return (
@@ -362,7 +392,7 @@ const BillingPage = () => {
                   )}
                   style={isActive ? { color: colors.primary } : undefined}
                 >
-                  {label}
+                  {getTabLabel(tabId)}
                 </button>
               );
             })}
@@ -382,6 +412,8 @@ const BillingPage = () => {
               isSubscribed={isOfferSubscribed(offer.id)}
               hasActiveSubscription={hasActiveSub}
               onChoose={() => openPayment(offer)}
+              isPersonalAccount={isPersonalAccount}
+              hasSeniorPatient={hasSeniorPatient}
             />
           ))}
         </section>
@@ -390,19 +422,23 @@ const BillingPage = () => {
           <Package size={24} className="text-gray-400 dark:text-gray-500" />
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Aucun forfait disponible</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500">Aucune offre active n'est disponible pour vos critères actuels.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Aucune offre active n'est proposée pour vos critères actuels.</p>
           </div>
         </div>
       )}
 
-      {/* RAPPEL DISCRET : MODE PONCTUEL DISPONIBLE */}
+      {/* RAPPEL PAIEMENT PONCTUEL */}
       {!hasActiveSub && (
         <div className="bg-white/40 dark:bg-[#17231d]/40 rounded-xl p-4 border border-gray-100 dark:border-gray-800/30 flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto">
           <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
           <div className="space-y-0.5">
-            <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200">Mode ponctuel disponible</p>
+            <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
+              {isPersonalAccount ? 'Formules pour vous-même' : 'Mode ponctuel disponible'}
+            </p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-normal">
-              Vous pouvez régler directement à l'acte chaque course d'urgence (à partir de 2 500 FCFA) ou vos visites de confort.
+              {isPersonalAccount 
+                ? "Vous pouvez activer un forfait d'accompagnement pour votre propre compte ou régler à l'acte chaque course de livraison d'urgence (à partir de 2 500 FCFA)."
+                : "Vous pouvez régler directement à l'acte chaque course d'urgence (à partir de 2 500 FCFA) ou vos visites de confort."}
             </p>
           </div>
         </div>
@@ -431,7 +467,7 @@ const BillingPage = () => {
         )}
       </section>
 
-      {/* MODALS ET PICKERS */}
+      {/* MODALS */}
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => {
@@ -469,7 +505,7 @@ const BillingPage = () => {
 };
 
 // =============================================
-// COMPOSANT COMPACT CARTE OFFRES
+// COMPOSANT CARTE D'OFFRE COMPACTE
 // =============================================
 
 interface OfferCardCompactProps {
@@ -479,6 +515,8 @@ interface OfferCardCompactProps {
   isSubscribed: boolean;
   hasActiveSubscription: boolean;
   onChoose: () => void;
+  isPersonalAccount: boolean;
+  hasSeniorPatient: boolean;
 }
 
 const OfferCardCompact = ({
@@ -488,11 +526,14 @@ const OfferCardCompact = ({
   isSubscribed,
   hasActiveSubscription,
   onChoose,
+  isPersonalAccount,
+  hasSeniorPatient,
 }: OfferCardCompactProps) => {
   const isDisabled = isSubscribed || hasActiveSubscription;
 
   const getIcon = () => {
     if (offer.category === 'maman_bebe') return '👶';
+    if (isPersonalAccount || !hasSeniorPatient) return '🏡';
     return '👴';
   };
 
@@ -502,6 +543,12 @@ const OfferCardCompact = ({
   };
 
   const badgeColor = getBadgeColor();
+
+  const getCategoryLabel = () => {
+    if (offer.category === 'maman_bebe') return '👶 Maman & Bébé';
+    if (isPersonalAccount || !hasSeniorPatient) return '🏡 Santé Plus Services';
+    return '👴 Santé Plus Services (Seniors)';
+  };
 
   return (
     <div
@@ -533,7 +580,7 @@ const OfferCardCompact = ({
               {offer.name}
             </h3>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider mt-0.5">
-              {offer.category === 'maman_bebe' ? '👶 Maman & Bébé' : '👴 Santé Plus Services'}
+              {getCategoryLabel()}
             </p>
           </div>
         </div>
@@ -576,7 +623,7 @@ const OfferCardCompact = ({
 };
 
 // =============================================
-// COMPOSANT COMPACT TRANSACTIONS
+// COMPOSANT HISTORIQUE TRANSACTIONS
 // =============================================
 
 interface PaymentItemProps {
