@@ -1,12 +1,12 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
- 
+// ✅ PAGE MEMBRES & ATTRIBUTIONS : NETTOYAGE RESPONSIVE MOBILE SANS DOUBLONS NI CHEVAUCHEMENTS
+
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Plus, 
   Search, 
   UserPlus,
-  ShieldAlert,
   RefreshCw,
   Users,
   UserCheck,
@@ -15,7 +15,6 @@ import {
   Loader2,
   ChevronDown,
   ChevronRight,
-  Circle,
   CheckCircle,
   User as UserIcon,
   UserMinus,
@@ -23,7 +22,6 @@ import {
   Shield,
   X,
   Heart,
-  Sparkles,
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
@@ -109,13 +107,6 @@ const ASSIGNMENT_TYPES = [
   { value: 'secondary', label: '⚡ Ponctuelle', color: '#3B82F6' },
 ];
 
-const getCategoryLabel = (category: string): string => {
-  if (category === 'maman_bebe') return '👶 Maman & Bébé';
-  if (category === 'senior') return '👴 Senior';
-  if (category === 'personal') return '👤 Personnel';
-  return 'Non spécifié';
-};
-
 const getCategoryColor = (category: string): string => {
   if (category === 'maman_bebe') return '#db4a6d';
   if (category === 'senior') return '#10b981';
@@ -138,7 +129,6 @@ export const PatientsPage = () => {
     list,
     empty,
     emptyAction,
-    getCountLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
@@ -153,9 +143,6 @@ export const PatientsPage = () => {
     syncAidantPatients,
   } = usePatientStore();
 
-  // ============================================================
-  // ÉTATS LOCALISÉS
-  // ============================================================
   const [aidants, setAidants] = useState<Aidant[]>([]);
   const [familyAccounts, setFamilyAccounts] = useState<FamilyAccount[]>([]);
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
@@ -170,9 +157,7 @@ export const PatientsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [isSyncing, setIsSyncing] = useState(false);
 
-  // States pour le nouveau modal contextuel d'assignation individuelle
   const [showRowAssignModal, setShowRowAssignModal] = useState(false);
   const [selectedItemToAssign, setSelectedItemToAssign] = useState<AssignmentItem | null>(null);
   const [modalAidant, setModalAidant] = useState('');
@@ -188,13 +173,9 @@ export const PatientsPage = () => {
   const canManage = canManagePatients();
   const isAdmin = isAdminOrCoordinator;
 
-  // ============================================================
-  // CHARGEMENT DES DONNÉES
-  // ============================================================
-
   const fetchAllData = useCallback(async () => {
     if (!isAdmin) {
-      await fetchPatients(true); // Force reload
+      await fetchPatients(true);
       return;
     }
 
@@ -418,10 +399,6 @@ export const PatientsPage = () => {
     setExpanded(prev => ({ ...prev, [familyId]: !prev[familyId] }));
   };
 
-  // ============================================================
-  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
-  // ============================================================
-
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -461,10 +438,6 @@ export const PatientsPage = () => {
     }
     setPullY(0);
   };
-
-  // ============================================================
-  // GESTION DU MODAL D'ASSIGNATION CONTEXTUEL INDIVIDUEL
-  // ============================================================
 
   const handleOpenRowAssignModal = (item: AssignmentItem) => {
     setSelectedItemToAssign(item);
@@ -534,10 +507,6 @@ export const PatientsPage = () => {
       setProcessingId(null);
     }
   };
-
-  // ============================================================
-  // LOGIQUE PATIENTS / PROCHES COMPTE FAMILLE
-  // ============================================================
 
   const handleDelete = async (id: string) => {
     if (!canManage) {
@@ -628,17 +597,13 @@ export const PatientsPage = () => {
   const modalSelectedAidantObj = aidants.find(a => a.user_id === modalAidant);
   const isSelectedAidantFull = modalSelectedAidantObj && (modalSelectedAidantObj.current_assignments >= modalSelectedAidantObj.max_assignments);
 
-return (
-  <div 
-    className="w-full max-w-5xl mx-auto space-y-6 pb-6 px-1 sm:px-0"  
-    onTouchStart={handleTouchStart}
-    onTouchMove={handleTouchMove}
-    onTouchEnd={handleTouchEnd}
-  >
-      
-      {/* ============================================================
-          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
-          ============================================================ */}
+  return (
+    <div 
+      className="w-full max-w-5xl mx-auto space-y-6 pb-6 px-1 sm:px-0"  
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -658,9 +623,7 @@ return (
         </div>
       </div>
 
-      {/* ============================================================
-          HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC (CENTRE UNIQUE)
-          ============================================================ */}
+      {/* HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC */}
       <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
         <div className="space-y-1.5 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
@@ -673,11 +636,11 @@ return (
           </p>
         </div>
 
-        {/* Bouton Plus d'intervenant pour ordinateurs de bureau */}
+        {/* ✅ CORRECTIF DE SÉCURITÉ MOBILE : Bouton absolu de création masqué sur mobile (évite répétition / chevauchement) */}
         {canManage && !isAdmin && patients.length > 0 && (
           <button
             onClick={handleAdd}
-            className="absolute top-4 right-4 h-8 px-3.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-white transition hover:opacity-90 flex items-center gap-1 shadow-sm"
+            className="hidden sm:flex absolute top-4 right-4 h-8 px-3.5 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-white transition hover:opacity-90 items-center gap-1 shadow-sm"
             style={{ background: colors.primary }}
           >
             <Plus size={12} strokeWidth={2.5} />
@@ -686,9 +649,7 @@ return (
         )}
       </section>
 
-      {/* ============================================================
-          WIDGET BENTO D'ACTIVITÉ MODERNE (ADMIN ONLY)
-          ============================================================ */}
+      {/* WIDGET BENTO D'ACTIVITÉ MODERNE */}
       {isAdmin && (
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
@@ -734,9 +695,7 @@ return (
         </section>
       )}
 
-      {/* ============================================================
-          BARRE DE CONTRÔLES (ALIGNEMENT COHÉRENT HAUTEUR H-11)
-          ============================================================ */}
+      {/* BARRE DE CONTRÔLES */}
       <section className="flex flex-col sm:flex-row gap-3 w-full">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -762,9 +721,7 @@ return (
         </select>
       </section>
 
-      {/* ============================================================
-          RENDU DES DOSSIERS EN GRILLE CARREE COHERENTE (ADMIN)
-          ============================================================ */}
+      {/* RENDU DES DOSSIERS EN GRILLE CARREE COHERENTE */}
       {isAdmin ? (
         Object.keys(grouped).length === 0 ? (
           <section className="bg-white dark:bg-[#17231d] rounded-2xl py-16 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
@@ -804,7 +761,7 @@ return (
                   </div>
 
                   <div className="divide-y divide-gray-100/50 dark:divide-gray-800/30">
-                    {familyItems.map((item: AssignmentItem, idx: number) => {
+                    {familyItems.map((item: AssignmentItem) => {
                       const isAssigned = !!item.assignedAidantUserId;
                       const isAccount = item.type === 'account';
                       const categoryColor = getCategoryColor(item.category);
@@ -880,9 +837,7 @@ return (
           </div>
         )
       ) : (
-        /* ============================================================
-            👨‍👩‍👦 VUE BÉNÉFICIAIRE / GRILLE POUR COMPTES FAMILLES
-            ============================================================ */
+        /* VUE BÉNÉFICIAIRE COMPTE FAMILLE */
         filteredPatients.length > 0 ? (
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPatients.map((patient: any) => (
@@ -899,9 +854,7 @@ return (
             ))}
           </section>
         ) : (
-          /* ============================================================
-              CADRE D'ÉCRAN VIDE PARFAITEMENT CENTRÉ
-              ============================================================ */
+          /* CADRE VIDE */
           <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
             <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400">
               <Users size={20} />
@@ -948,9 +901,7 @@ return (
         </button>
       )}
 
-      {/* ============================================================
-          🆕 ASSIGNATION CONTEXTUELLE INDIVIDUELLE (MODAL PREMIUM COMPLET)
-          ============================================================ */}
+      {/* ASSIGNATION CONTEXTUELLE INDIVIDUELLE */}
       {showRowAssignModal && selectedItemToAssign && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
