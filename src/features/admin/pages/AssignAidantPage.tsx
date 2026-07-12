@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AssignAidantPage.tsx
-// Affichage des assignations - 
+// ✅ PAGE AFFECTATIONS : ALIGNEMENTS DE BARRES ET LISTES SÉCURISÉES SUR MOBILE
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
@@ -26,6 +26,7 @@ import { supabase } from '@/lib/supabase';
 import { assignmentAPI } from '@/lib/api';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 // ============================================================
@@ -223,7 +224,6 @@ const AssignAidantPage = () => {
   // CONSTRUCTION DE LA LISTE HIÉRARCHIQUE
   // ============================================================
   const assignmentItems = familyAccounts.flatMap(family => {
-    // ✅ CORRECTIF CLÉ : Utiliser "personal" au lieu de "personal_account" pour correspondre au format API
     const accountKey = `personal_${family.id}`;
     const accountAssignment = assignments[accountKey];
 
@@ -431,22 +431,22 @@ const AssignAidantPage = () => {
   }
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto pb-10">
+    <div className="space-y-5 max-w-6xl mx-auto pb-10 px-4 sm:px-0">
       {/* HEADER */}
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-black tracking-tight" style={{ color: colors.text }}>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
               👥 Affectations
             </h1>
-            <p className="text-xs mt-0.5 text-gray-400">
+            <p className="text-xs mt-0.5 text-gray-400 font-semibold">
               {assignedCount} bénéficiaire{assignedCount > 1 ? 's' : ''} assigné{assignedCount > 1 ? 's' : ''}
             </p>
           </div>
           <button
             onClick={fetchData}
             disabled={isProcessing}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center gap-1.5 shrink-0"
+            className="px-3.5 h-9 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-center"
             style={{ borderColor: colors.border, color: colors.text }}
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
@@ -455,36 +455,36 @@ const AssignAidantPage = () => {
         </div>
 
         {/* STATS */}
-        <div className="flex flex-wrap gap-3 mt-4">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-            <Users size={14} />
+        <div className="flex flex-wrap gap-2.5 mt-4">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
+            <UsersIcon size={13} />
             {totalItems} bénéficiaires
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-            <UserCheck size={14} />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
+            <UserCheck size={13} />
             {assignedCount} assignés
           </div>
           {unassignedCount > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-              <UserX size={14} />
-              {unassignedCount} non assignés
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-700">
+              <UserX size={13} />
+              {unassignedCount} libres
             </div>
           )}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-            <Home size={14} />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
+            <Home size={13} />
             {totalFamilies} comptes
           </div>
         </div>
       </div>
 
-      {/* BARRE D'ACTION */}
+      {/* BARRE D'ACTION H-11 COHERENTE */}
       <div className="bg-white rounded-3xl p-4 shadow-sm border border-black/5">
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1">
             <select
               value={selectedAidant}
               onChange={e => setSelectedAidant(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm focus:ring-1"
+              className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
               style={{ borderColor: colors.border, color: colors.text }}
             >
               <option value="">Sélectionner un aidant</option>
@@ -498,11 +498,11 @@ const AssignAidantPage = () => {
             </select>
           </div>
 
-          <div className="sm:w-52">
+          <div className="md:w-52">
             <select
               value={selectedType}
               onChange={e => setSelectedType(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm focus:ring-1"
+              className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
               style={{ borderColor: colors.border, color: colors.text }}
             >
               {ASSIGNMENT_TYPES.map(t => (
@@ -516,10 +516,10 @@ const AssignAidantPage = () => {
           <button
             onClick={handleAssignAll}
             disabled={!selectedAidant || isProcessing || unassignedCount === 0}
-            className="px-4 py-2 rounded-xl text-white font-bold text-sm flex items-center gap-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-11 px-4 rounded-xl text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
             style={{ background: colors.primary }}
           >
-            <UserPlus size={16} />
+            <UserPlus size={15} />
             Assigner tout ({unassignedCount})
           </button>
         </div>
@@ -531,7 +531,7 @@ const AssignAidantPage = () => {
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             placeholder="Rechercher un compte ou un bénéficiaire..."
-            className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm"
+            className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
             style={{ borderColor: colors.border, color: colors.text }}
           />
         </div>
@@ -539,16 +539,18 @@ const AssignAidantPage = () => {
 
       {/* LISTE DES ASSIGNATIONS */}
       {Object.keys(grouped).length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-black/5">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '12' }}>
-            <Users size={28} style={{ color: colors.primary }} />
+        <div className="bg-white rounded-3xl p-12 text-center border border-black/5 max-w-sm mx-auto flex flex-col items-center justify-center gap-3">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-gray-300 bg-gray-50">
+            <Users size={24} />
           </div>
-          <h3 className="font-bold text-sm" style={{ color: colors.text }}>
-            Aucun bénéficiaire trouvé
-          </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            {searchTerm ? 'Aucun résultat ne correspond à votre recherche' : 'Aucun compte ou patient disponible'}
-          </p>
+          <div className="space-y-1">
+            <h3 className="font-bold text-sm" style={{ color: colors.text }}>
+              Aucun bénéficiaire trouvé
+            </h3>
+            <p className="text-xs text-gray-400">
+              {searchTerm ? 'Aucun résultat ne correspond à votre recherche' : 'Aucun compte ou patient disponible'}
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
@@ -560,32 +562,32 @@ const AssignAidantPage = () => {
             return (
               <div key={familyId} className="bg-white rounded-3xl border overflow-hidden shadow-sm" style={{ borderColor: colors.border }}>
                 
-                {/* EN-TÊTE FAMILLE */}
+                {/* EN-TÊTE FAMILLE ADAPTATIF */}
                 <div
-                  className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition"
+                  className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between cursor-pointer hover:bg-gray-50 transition gap-2"
                   onClick={() => toggleExpand(familyId)}
                   style={{ background: hasUnassigned ? colors.primary + '04' : 'transparent' }}
                 >
                   <div className="flex items-center gap-3">
-                    <button className="p-0.5">
+                    <button className="p-0.5 shrink-0">
                       {isExpanded ? <ChevronDown size={18} className="text-gray-400" /> : <ChevronRight size={18} className="text-gray-400" />}
                     </button>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-sm" style={{ color: colors.text }}>
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="font-extrabold text-xs sm:text-sm text-gray-800 dark:text-gray-100 truncate">
                         👨‍👩‍👦 {group.name}
                       </span>
-                      <span className="text-[10px] text-gray-400">
+                      <span className="text-[10px] text-gray-400 font-bold shrink-0">
                         ({familyItems.filter((i: AssignmentItem) => i.type === 'patient').length} patient{familyItems.filter((i: AssignmentItem) => i.type === 'patient').length > 1 ? 's' : ''})
                       </span>
                       {hasUnassigned && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-bold border border-yellow-200">
                           ⚠️ {familyItems.filter((i: AssignmentItem) => !i.assignedAidantUserId).length} non assigné(s)
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <span>{familyItems.filter((i: AssignmentItem) => i.assignedAidantUserId).length} assigné(s)</span>
+                  <div className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider pl-7 sm:pl-0 shrink-0">
+                    {familyItems.filter((i: AssignmentItem) => i.assignedAidantUserId).length} assigné(s)
                   </div>
                 </div>
 
@@ -600,45 +602,45 @@ const AssignAidantPage = () => {
                       const isProcessingItem = processingItems.has(item.id);
 
                       return (
-                        <div key={item.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-gray-50/50 transition">
+                        <div key={item.id} className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50/50 transition">
                           
                           {/* INFO GAUCHE */}
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="flex items-center gap-1 shrink-0">
                               {item.priority === 1 && (
-                                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">P1</span>
+                                <span className="text-[9px] font-black text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">P1</span>
                               )}
                               {item.priority === 2 && (
-                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">P2</span>
+                                <span className="text-[9px] font-black text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full">P2</span>
                               )}
                             </div>
 
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-sm truncate" style={{ color: colors.text }}>
+                                <span className="font-extrabold text-xs sm:text-sm text-gray-800 dark:text-gray-100 truncate">
                                   {isAccount ? '👤 ' : ''}{item.targetName}
                                 </span>
                                 <span 
-                                  className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                                  style={{ background: categoryColor + '20', color: categoryColor }}
+                                  className="text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0"
+                                  style={{ background: categoryColor + '12', color: categoryColor }}
                                 >
                                   {categoryLabel}
                                 </span>
                                 {isAccount && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium shrink-0">
+                                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-100/50 text-blue-600 border border-blue-200/50 font-black shrink-0">
                                     Compte
                                   </span>
                                 )}
                                 {isAssigned && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-600 font-medium shrink-0 flex items-center gap-0.5">
+                                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 font-bold shrink-0 flex items-center gap-0.5 border border-green-200">
                                     <CheckCircle size={10} />
                                     Assigné à {item.assignedAidantName}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-gray-400 truncate">
+                              <p className="text-[10px] text-gray-400 font-semibold truncate mt-0.5">
                                 {isAccount ? 'Compte personnel' : `Patient de ${item.familyName}`}
-                                {isAssigned && item.assignedAidantName && ` • 🦸 {item.assignedAidantName}`}
+                                {isAssigned && item.assignedAidantName && ` • 🦸 ${item.assignedAidantName}`}
                                 {item.assignmentType && (
                                   <span className="ml-1 text-[9px] opacity-60">
                                     ({ASSIGNMENT_TYPES.find(t => t.value === item.assignmentType)?.label || item.assignmentType})
@@ -648,18 +650,18 @@ const AssignAidantPage = () => {
                             </div>
                           </div>
 
-                          {/* ACTIONS DROITE */}
-                          <div className="flex items-center gap-2 shrink-0">
+                          {/* ACTIONS DROITE (Boutons larges et tactiles sur mobile) */}
+                          <div className="flex items-center justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 shrink-0 w-full sm:w-auto">
                             {isAssigned ? (
                               <button
                                 onClick={() => handleRevoke(item)}
                                 disabled={isProcessingItem || isProcessing}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 sm:flex-initial h-9 px-4 rounded-xl text-xs font-bold text-red-500 hover:bg-red-50 border border-red-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
                               >
                                 {isProcessingItem ? (
-                                  <Loader2 size={14} className="animate-spin" />
+                                  <Loader2 size={13} className="animate-spin" />
                                 ) : (
-                                  <XCircle size={14} />
+                                  <XCircle size={13} />
                                 )}
                                 {isProcessingItem ? 'Traitement...' : 'Désassigner'}
                               </button>
@@ -667,7 +669,7 @@ const AssignAidantPage = () => {
                               <button
                                 onClick={() => handleAssign(item)}
                                 disabled={!selectedAidant || isProcessingItem || isProcessing}
-                                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 sm:flex-initial h-9 px-4 rounded-xl text-white font-bold text-xs transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-sm"
                                 style={{ 
                                   background: (!selectedAidant || isProcessingItem || isProcessing) 
                                     ? '#9CA3AF' 
@@ -675,9 +677,9 @@ const AssignAidantPage = () => {
                                 }}
                               >
                                 {isProcessingItem ? (
-                                  <Loader2 size={14} className="animate-spin" />
+                                  <Loader2 size={13} className="animate-spin" />
                                 ) : (
-                                  <UserPlus size={14} />
+                                  <UserPlus size={13} />
                                 )}
                                 {isProcessingItem ? 'Traitement...' : 'Assigner'}
                               </button>
@@ -696,17 +698,17 @@ const AssignAidantPage = () => {
 
       {/* LÉGENDE */}
       <div className="bg-white rounded-3xl p-4 border border-black/5">
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <span className="font-medium text-gray-500">Légende des priorités :</span>
-          <span className="flex items-center gap-1 text-green-600">
-            <Circle size={8} fill="#10b981" /> P1 - Patient (priorité max)
+        <div className="flex flex-wrap items-center gap-4 text-xs font-bold uppercase tracking-wider text-gray-400">
+          <span className="font-bold text-gray-500 text-[10px]">Légende :</span>
+          <span className="flex items-center gap-1 text-green-600 text-[9px]">
+            <Circle size={8} fill="#10b981" className="text-green-500" /> P1 - Patient (prioritaire)
           </span>
-          <span className="flex items-center gap-1 text-blue-600">
-            <Circle size={8} fill="#3b82f6" /> P2 - Compte personnel (fallback)
+          <span className="flex items-center gap-1 text-blue-600 text-[9px]">
+            <Circle size={8} fill="#3b82f6" className="text-blue-500" /> P2 - Compte personnel (relais)
           </span>
-          <span className="flex items-center gap-2 text-gray-400 ml-auto">
+          <span className="flex items-center gap-2 text-gray-400 ml-auto text-[9px]">
             {isProcessing && <Loader2 size={12} className="animate-spin" />}
-            {isProcessing ? 'Traitement en cours...' : 'Prêt'}
+            {isProcessing ? 'Traitement...' : 'Prêt'}
           </span>
         </div>
       </div>
