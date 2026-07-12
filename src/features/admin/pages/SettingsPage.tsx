@@ -1,38 +1,27 @@
 // 📁 src/features/admin/pages/SettingsPage.tsx
+// ✅ PAGE PARAMÈTRES : ALIGNEMENT DES CONTRÔLES H-11 ET SÉCURISATION RESPONSIVE SANS CHEVAUCHEMENT
 
 import { useEffect, useState } from 'react';
 import {
   Settings,
   Shield,
   Bell,
-  Mail,
-  User,
-  Lock,
-  Globe,
-  Database,
-  Server,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
   Save,
   X,
   Eye,
   EyeOff,
-  Smartphone,
   CreditCard,
-  Users,
-  FileText,
-  Clock,
-  Zap,
+  RefreshCw,
   Loader2,
   Palette,
+  AlertTriangle,
 } from 'lucide-react';
 
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { NotificationSoundSelector } from '@/components/settings';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 interface Setting {
@@ -59,8 +48,7 @@ interface SettingField {
   category: string;
 }
 
-// ✅ URL de l'API
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-sante-plus-react.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const SettingsPage = () => {
   const { profile, role } = useAuthStore();
@@ -69,14 +57,12 @@ const SettingsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
-  const [showPassword, setShowPassword] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [originalValues, setOriginalValues] = useState<Record<string, any>>({});
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ Charger les paramètres
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -100,15 +86,7 @@ const SettingsPage = () => {
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        console.error('❌ Réponse serveur:', text.substring(0, 200));
         throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('❌ Content-Type:', contentType);
-        throw new Error('Le serveur n\'a pas retourné du JSON');
       }
 
       const result = await response.json();
@@ -122,7 +100,6 @@ const SettingsPage = () => {
     } catch (error: any) {
       console.error('❌ Fetch settings error:', error);
       toast.error(error.message || 'Erreur lors du chargement des paramètres');
-      
       loadDefaultSettings();
     } finally {
       setIsLoading(false);
@@ -305,44 +282,44 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8 px-4 sm:px-0">
       {/* Header */}
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black" style={{ color: colors.text }}>
+      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-black/5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-black" style={{ color: colors.text }}>
               ⚙️ Paramètres
             </h1>
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
+            <p className="text-xs text-gray-400 font-semibold">
               Gérez les paramètres de la plateforme
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 w-full sm:w-auto">
             <button
               onClick={handleReset}
               disabled={isLoading}
-              className="px-4 py-2 rounded-xl font-medium border transition hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-initial h-11 px-4 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center justify-center gap-1.5"
               style={{ borderColor: colors.border, color: colors.text }}
             >
-              <RefreshCw size={18} className={isLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               Réinitialiser
             </button>
             <button
               onClick={handleSave}
               disabled={isSaving || !hasChanges}
-              className="px-4 py-2 rounded-xl text-white font-bold transition hover:opacity-80 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 sm:flex-initial h-11 px-5 rounded-xl text-white font-extrabold text-xs transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               style={{ 
                 background: hasChanges && !isSaving ? colors.primary : '#9CA3AF' 
               }}
             >
               {isSaving ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" />
+                  <Loader2 size={14} className="animate-spin" />
                   Sauvegarde...
                 </>
               ) : (
                 <>
-                  <Save size={18} />
+                  <Save size={14} />
                   Sauvegarder
                 </>
               )}
@@ -350,26 +327,26 @@ const SettingsPage = () => {
           </div>
         </div>
         {hasChanges && (
-          <div className="mt-4 p-3 rounded-xl" style={{ background: '#FF980015', border: '1px solid #FF980030' }}>
-            <p className="text-sm flex items-center gap-2" style={{ color: '#FF9800' }}>
-              <AlertTriangle size={16} />
+          <div className="mt-4 p-3.5 rounded-xl" style={{ background: '#FF980015', border: '1px solid #FF980030' }}>
+            <p className="text-xs font-bold flex items-center gap-2 text-amber-600">
+              <AlertTriangle size={15} />
               Des modifications n'ont pas été sauvegardées
             </p>
           </div>
         )}
       </section>
 
-      {/* Navigation des onglets */}
-      <section className="bg-white rounded-2xl p-2 shadow-sm border border-black/5 overflow-x-auto">
+      {/* Navigation des onglets (Défilement horizontal fluide sur mobile) */}
+      <section className="bg-white rounded-3xl p-2 shadow-sm border border-black/5 overflow-x-auto scrollbar-none">
         <div className="flex gap-1 min-w-max">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
                 activeTab === tab.id
                   ? 'text-white'
-                  : 'text-gray-600 hover:bg-gray-50'
+                  : 'text-gray-500 hover:bg-gray-50'
               }`}
               style={{
                 background: activeTab === tab.id ? colors.primary : 'transparent',
@@ -383,13 +360,13 @@ const SettingsPage = () => {
       </section>
 
       {/* Contenu */}
-      <section className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold" style={{ color: colors.text }}>
+      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-black/5">
+        <div className="mb-6 border-b border-gray-100/50 pb-4">
+          <h2 className="text-base sm:text-lg font-black" style={{ color: colors.text }}>
             {currentCategory}
           </h2>
-          <p className="text-sm" style={{ color: colors.text + '60' }}>
-            Paramètres {currentCategory.toLowerCase()} de la plateforme
+          <p className="text-xs text-gray-400 font-semibold mt-1">
+            Configuration {currentCategory.toLowerCase()} de la plateforme
           </p>
         </div>
 
@@ -404,9 +381,9 @@ const SettingsPage = () => {
             />
           ))}
 
-          {/* ✅ AJOUT DU SÉLECTEUR DE SON DANS L'ONGLET NOTIFICATIONS */}
+          {/* AJOUT DU SÉLECTEUR DE SON */}
           {activeTab === 'notifications' && (
-            <div className="pt-4 border-t border-gray-200">
+            <div className="pt-4 border-t border-gray-100">
               <NotificationSoundSelector />
             </div>
           )}
@@ -438,20 +415,20 @@ const SettingFieldComponent = ({
   switch (field.type) {
     case 'toggle':
       return (
-        <div className="flex items-center justify-between py-3 border-b last:border-b-0" style={{ borderColor: colors.border }}>
-          <div>
-            <p className="font-medium" style={{ color: colors.text }}>
+        <div className="flex items-center justify-between py-3.5 border-b last:border-b-0 gap-4" style={{ borderColor: colors.border }}>
+          <div className="min-w-0 flex-1 pr-1">
+            <p className="font-bold text-xs sm:text-sm text-gray-800" style={{ color: colors.text }}>
               {field.label}
             </p>
             {field.help && (
-              <p className="text-sm" style={{ color: colors.text + '50' }}>
+              <p className="text-[11px] text-gray-400 font-medium leading-relaxed mt-0.5">
                 {field.help}
               </p>
             )}
           </div>
           <button
             onClick={() => onChange(!value)}
-            className={`relative w-12 h-6 rounded-full transition-colors ${
+            className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${
               value ? 'bg-green-500' : 'bg-gray-300'
             }`}
           >
@@ -466,17 +443,16 @@ const SettingFieldComponent = ({
 
     case 'select':
       return (
-        <div className="py-3 border-b last:border-b-0" style={{ borderColor: colors.border }}>
-          <label className="block font-medium mb-1.5" style={{ color: colors.text }}>
+        <div className="py-3.5 border-b last:border-b-0" style={{ borderColor: colors.border }}>
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
             {field.label}
           </label>
           <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl border outline-none text-sm"
+            className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
             style={{
               borderColor: colors.border,
-              background: 'var(--color-background)',
               color: colors.text,
             }}
           >
@@ -487,7 +463,7 @@ const SettingFieldComponent = ({
             ))}
           </select>
           {field.help && (
-            <p className="text-sm mt-1" style={{ color: colors.text + '50' }}>
+            <p className="text-[10px] text-gray-400 font-semibold mt-1">
               {field.help}
             </p>
           )}
@@ -496,8 +472,8 @@ const SettingFieldComponent = ({
 
     case 'color':
       return (
-        <div className="py-3 border-b last:border-b-0" style={{ borderColor: colors.border }}>
-          <label className="block font-medium mb-1.5" style={{ color: colors.text }}>
+        <div className="py-3.5 border-b last:border-b-0" style={{ borderColor: colors.border }}>
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
             {field.label}
           </label>
           <div className="flex items-center gap-3">
@@ -505,7 +481,7 @@ const SettingFieldComponent = ({
               type="color"
               value={value || '#1a4a3a'}
               onChange={(e) => onChange(e.target.value)}
-              className="w-12 h-12 rounded-xl border cursor-pointer"
+              className="w-11 h-11 rounded-xl border cursor-pointer shrink-0"
               style={{ borderColor: colors.border }}
             />
             <input
@@ -513,16 +489,15 @@ const SettingFieldComponent = ({
               value={value || ''}
               onChange={(e) => onChange(e.target.value)}
               placeholder="#000000"
-              className="flex-1 px-4 py-2.5 rounded-xl border outline-none text-sm"
+              className="flex-1 h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
               style={{
                 borderColor: colors.border,
-                background: 'var(--color-background)',
                 color: colors.text,
               }}
             />
           </div>
           {field.help && (
-            <p className="text-sm mt-1" style={{ color: colors.text + '50' }}>
+            <p className="text-[10px] text-gray-400 font-semibold mt-1">
               {field.help}
             </p>
           )}
@@ -531,8 +506,8 @@ const SettingFieldComponent = ({
 
     case 'textarea':
       return (
-        <div className="py-3 border-b last:border-b-0" style={{ borderColor: colors.border }}>
-          <label className="block font-medium mb-1.5" style={{ color: colors.text }}>
+        <div className="py-3.5 border-b last:border-b-0" style={{ borderColor: colors.border }}>
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
             {field.label}
           </label>
           <textarea
@@ -540,15 +515,14 @@ const SettingFieldComponent = ({
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             rows={3}
-            className="w-full px-4 py-2.5 rounded-xl border outline-none text-sm resize-none"
+            className="w-full px-4 py-3 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 resize-none"
             style={{
               borderColor: colors.border,
-              background: 'var(--color-background)',
               color: colors.text,
             }}
           />
           {field.help && (
-            <p className="text-sm mt-1" style={{ color: colors.text + '50' }}>
+            <p className="text-[10px] text-gray-400 font-semibold mt-1">
               {field.help}
             </p>
           )}
@@ -557,8 +531,8 @@ const SettingFieldComponent = ({
 
     case 'password':
       return (
-        <div className="py-3 border-b last:border-b-0" style={{ borderColor: colors.border }}>
-          <label className="block font-medium mb-1.5" style={{ color: colors.text }}>
+        <div className="py-3.5 border-b last:border-b-0" style={{ borderColor: colors.border }}>
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
             {field.label}
           </label>
           <div className="relative">
@@ -567,10 +541,9 @@ const SettingFieldComponent = ({
               value={value || ''}
               onChange={(e) => onChange(e.target.value)}
               placeholder={field.placeholder}
-              className="w-full px-4 py-2.5 rounded-xl border outline-none text-sm pr-11"
+              className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 pr-11"
               style={{
                 borderColor: colors.border,
-                background: 'var(--color-background)',
                 color: colors.text,
               }}
             />
@@ -584,7 +557,7 @@ const SettingFieldComponent = ({
             </button>
           </div>
           {field.help && (
-            <p className="text-sm mt-1" style={{ color: colors.text + '50' }}>
+            <p className="text-[10px] text-gray-400 font-semibold mt-1">
               {field.help}
             </p>
           )}
@@ -593,8 +566,8 @@ const SettingFieldComponent = ({
 
     default:
       return (
-        <div className="py-3 border-b last:border-b-0" style={{ borderColor: colors.border }}>
-          <label className="block font-medium mb-1.5" style={{ color: colors.text }}>
+        <div className="py-3.5 border-b last:border-b-0" style={{ borderColor: colors.border }}>
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
             {field.label}
           </label>
           <input
@@ -602,15 +575,14 @@ const SettingFieldComponent = ({
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
-            className="w-full px-4 py-2.5 rounded-xl border outline-none text-sm"
+            className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
             style={{
               borderColor: colors.border,
-              background: 'var(--color-background)',
               color: colors.text,
             }}
           />
           {field.help && (
-            <p className="text-sm mt-1" style={{ color: colors.text + '50' }}>
+            <p className="text-[10px] text-gray-400 font-semibold mt-1">
               {field.help}
             </p>
           )}
