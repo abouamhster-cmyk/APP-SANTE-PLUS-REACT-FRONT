@@ -1,8 +1,7 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
-// ✅ PAGE DASHBOARD : ALIGNEMENT DES TEXTES DE BANNIÈRES SUR LES INCLUSIONS ET UNIVERS DE L'APPLICATION
-
+ 
 import { useEffect, useState, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Users,
   Calendar,
@@ -159,6 +158,7 @@ const DashboardPage = () => {
   const { aidants, fetchAidants, isLoading: aidantsLoading } = useAidantCatalogStore();
   const { subscriptions, payments, fetchSubscriptions, fetchPayments, isLoading: paymentsLoading } = usePaymentStore();
 
+  // Abonnement Guard
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const [greeting, setGreeting] = useState('');
@@ -201,7 +201,7 @@ const DashboardPage = () => {
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
   // ============================================================
-  // ✅ SLIDES DU CARROUSEL ALIGNÉES SUR LES SPÉCIFICATIONS ET FORFAITS (5 SLIDES PAR RÔLE)
+  // ✅ CONFIGURATION BANNIÈRES : AJUSTEMENT TEXTES ET BOUTONS SELON LE CAHIER DES CHARGES
   // ============================================================
   const slides: HeroSlide[] = useMemo(() => {
     const seniorImg = '/assets/images/banners/senior-banner.png';
@@ -209,40 +209,40 @@ const DashboardPage = () => {
     const aidantImg = '/assets/images/banners/aidant-banner.png';
     const coordImg = '/assets/images/banners/coord-banner.png';
 
-    // 👔 ADMIN / COORDINATEUR (5 SLIDES ENTIÈREMENT NETTOYÉES)
+    // 👔 ADMIN / COORDINATEUR (5 SLIDES)
     if (isAdminOrCoordinator) {
       return [
         {
-          title: '👔 Supervision de la plateforme',
-          description: 'Surveillez les activités en direct, validez les fiches d’inscriptions et supervisez les interventions.',
+          title: '👔 Supervision de la Plateforme',
+          description: 'Pilotez l’activité globale de Santé Plus Services, gérez les alertes opérationnelles et supervisez les interventions en cours.',
           image: coordImg,
           actionText: 'Espace Admin',
           actionPath: '/app/admin',
         },
         {
-          title: '📝 Inscriptions de familles',
-          description: 'De nouveaux dossiers d\'inscription attendent votre validation opérationnelle. Rapprochez les familles de nos aidants.',
+          title: '📝 Inscriptions en attente',
+          description: 'Validez les nouvelles fiches d’inscriptions des familles locales et de la diaspora béninoise pour activer leurs accès.',
           image: coordImg,
-          actionText: 'Inscriptions',
+          actionText: 'Voir les inscriptions',
           actionPath: '/app/registrations',
         },
         {
-          title: '✓ Validation des rapports',
-          description: 'Consultez les rapports de fin de visite soumis par les intervenants et validez-les pour décompter les abonnements.',
+          title: '✓ Validation des Visites',
+          description: 'Examinez les comptes-rendus, photos et mémos vocaux soumis par les aidants pour finaliser la validation des visites.',
           image: '/assets/images/banners/coord-visit.png',
           actionText: 'Valider visites',
           actionPath: '/app/admin/visits/validation',
         },
         {
-          title: '💼 Gestion des offres & forfaits',
-          description: 'Ajustez les formules d\'abonnements Confort, Sérénité ou Essentiel et configurez les inclusions de service.',
+          title: '💼 Gestion des Offres & Tarifs',
+          description: 'Configurez les forfaits Santé Plus Services (Seniors) et Santé Plus Maman & Bébé (Grossesse, Postpartum, Allaitement).',
           image: coordImg,
-          actionText: 'Gérer les offres',
+          actionText: 'Ajuster les offres',
           actionPath: '/app/offers',
         },
         {
           title: '📍 Radar d’interventions GPS',
-          description: 'Visualisez en temps réel sur la carte les positions géographiques déclarées et les trajets actifs des aidants.',
+          description: 'Suivez la position géographique en temps réel des intervenants sur le terrain pour contrôler le bon déroulement des missions.',
           image: coordImg,
           actionText: 'Ouvrir la carte',
           actionPath: '/app/map',
@@ -250,12 +250,12 @@ const DashboardPage = () => {
       ];
     }
 
-    // 🦸 AIDANT (5 SLIDES ENTIÈREMENT NETTOYÉES)
+    // 🦸 AIDANT (5 SLIDES)
     if (isAidant) {
       return [
         {
-          title: '🦸 Vos missions d\'accompagnement',
-          description: 'Accédez en un coup d\'œil à votre planning d\'interventions à domicile, à la carte de suivi et à vos dossiers.',
+          title: '🦸 Votre planning de visites',
+          description: 'Consultez les dates et heures de vos prochains accompagnements à domicile pour vos bénéficiaires assignés.',
           image: aidantImg,
           actionText: 'Mon planning',
           actionPath: '/app/planning',
@@ -278,12 +278,12 @@ const DashboardPage = () => {
           title: '💬 Messagerie et coordination',
           description: 'Discutez en temps réel avec le coordinateur ou le proche du bénéficiaire pour coordonner l’aide.',
           image: aidantImg,
-          actionText: 'Mes messages',
+          actionText: 'Mes discussions',
           actionPath: '/app/messages',
         },
         {
           title: '📋 Historique de vos rapports',
-          description: 'Consultez l\'ensemble de vos rapports d\'intervention complétés, les mémos vocaux transmis et vos états validés.',
+          description: 'Retrouvez l\'ensemble de vos rapports d\'intervention complétés, les mémos vocaux transmis et vos états validés.',
           image: aidantImg,
           actionText: 'Mon historique',
           actionPath: '/app/history',
@@ -291,12 +291,12 @@ const DashboardPage = () => {
       ];
     }
 
-    // 👶 MAMAN & BÉBÉ (5 SLIDES ENTIÈREMENT NETTOYÉES)
+    // 👶 MAMAN & BÉBÉ (5 SLIDES)
     if (isFamily && isMaman) {
       return [
         {
           title: '👶 Votre univers Maman & Bébé',
-          description: 'Planifiez l\'intervention de votre aidant pour un soutien non médical précieux pendant la grossesse ou le postpartum.',
+          description: 'Planifiez l\'intervention de votre aidant pour un soutien précieux et non médical pendant la grossesse ou le postpartum.',
           image: mamanImg,
           actionText: 'Planifier une visite',
           actionPath: '/app/visits',
@@ -305,7 +305,7 @@ const DashboardPage = () => {
           title: '🛒 Achats & soins pour le nouveau-né',
           description: 'Commandez des couches, du lait ou des produits de soin pour bébé. Un aidant s\'occupe des courses et de la livraison.',
           image: '/assets/images/banners/maman-visit.png',
-          actionText: 'Passer commande',
+          actionText: 'Passer une commande',
           actionPath: '/app/orders/create',
         },
         {
@@ -317,7 +317,7 @@ const DashboardPage = () => {
         },
         {
           title: '💬 Messagerie mère-intervenante',
-          description: 'Gardez un lien constant et rassurant avec l\'auxiliaire attitrée à l\'accompagnement de votre enfant.',
+          description: 'Gardez un lien constant et rassurant avec l\'auxiliaire de vie attitrée à l\'accompagnement de votre enfant.',
           image: mamanImg,
           actionText: 'Ouvrir mes messages',
           actionPath: '/app/messages',
@@ -332,7 +332,7 @@ const DashboardPage = () => {
       ];
     }
 
-    // 👴 FAMILLE / SERVICES SENIORS (5 SLIDES ENTIÈREMENT NETTOYÉES)
+    // 👴 FAMILLE / SERVICES SENIORS (5 SLIDES)
     return [
       {
         title: '👴 Aide et présence aux seniors',
@@ -350,7 +350,7 @@ const DashboardPage = () => {
       },
       {
         title: '📖 Cahier de liaison et suivi quotidien',
-        description: 'Retrouvez l\'humeur, la prise de repas et l\'état général de votre parent après chaque intervention à domicile.',
+        description: 'Retrouvez l\'humeur, la prise de repas et l\'état général de votre proche après chaque intervention à domicile.',
         image: seniorImg,
         actionText: 'Consulter le cahier',
         actionPath: '/app/journal',
@@ -1134,12 +1134,3 @@ const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }
 };
 
 export default DashboardPage;
-
-
-==End of Paste==
-
-En me basant sur le document de spécification de l'application (Sitemap, arborescence, politique de confidentialité, politique de paiement et forfait) extrait des images, re-rédige le contenu des bannières (les carrousels) de la page d'accueil pour chaque rôle de l'application (Admin, Aidant, Maman & Bébé, et Senior). 
-
-Assure-toi que les textes (titres, descriptions et boutons) correspondent exactement au positionnement de la marque, à l'arborescence, et aux inclusions/exclusions de chaque forfait. 
-
-Ne me donne que le tableau de `slides` dans le `useMemo` pour remplacer la portion de code concernée dans `src/features/dashboard/pages/DashboardPage.tsx`.
