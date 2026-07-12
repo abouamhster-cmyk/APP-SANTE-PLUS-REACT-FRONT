@@ -1,5 +1,5 @@
 // 📁 src/components/patients/PatientCard.tsx
-// ✅ PATIENT CARD COMPACT & COMPLETE : COMPATIBILITÉ SANS BOUCLE ET ÉCRANS MOBILES FLUIDES
+// ✅ PATIENT CARD COMPACT & COMPLETE : RESOLUTION DES TARGETS DYNAMIQUE ET RESPONSIVE
 
 import { useEffect, useState } from 'react';
 import { Patient } from '@/types';
@@ -40,7 +40,6 @@ export const PatientCard = ({
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ✅ FIX MAJEUR : Résolution définitive de la boucle infinie d'appels réseau en retirant l'état réactif 'activeAidant' des dépendances
   useEffect(() => {
     const getAidant = async () => {
       if (!patient?.id || !user) return;
@@ -48,10 +47,13 @@ export const PatientCard = ({
       setIsLoadingAidant(true);
       try {
         const familyId = user.id;
-        // Effectuer l'appel réseau
-        await fetchActiveAidant('patient', patient.id, familyId);
         
-        // Lire l'état frais depuis le store de manière synchrone
+        // ✅ AIGUILLAGE COHÉRENT : Si le bénéficiaire est un compte personnel mappé en mémoire, interroger avec la bonne clé
+        const isPersonal = patient.last_name === '(Compte Personnel)';
+        const targetType = isPersonal ? 'personal_account' : 'patient';
+        
+        await fetchActiveAidant(targetType, patient.id, familyId);
+        
         const freshActiveAidant = useAssignmentStore.getState().activeAidant;
         if (freshActiveAidant?.aidant) {
           setAssignedAidant(freshActiveAidant.aidant);
@@ -67,7 +69,7 @@ export const PatientCard = ({
     };
 
     getAidant();
-  }, [patient?.id, user?.id]); // 🟢 Seulement déclenché au montage ou changement d'ID de proche/user
+  }, [patient?.id, user?.id]);
 
   const getCategoryLabelText = () => {
     if (patient.category === 'maman_bebe') {
@@ -90,7 +92,7 @@ export const PatientCard = ({
           </div>
           <div className="flex-1 min-w-0 pr-1">
             <h4 className="font-bold text-xs sm:text-sm truncate text-gray-800 dark:text-gray-100">
-              {patient.first_name} {patient.last_name}
+              {patient.first_name} {patient.last_name !== '(Compte Personnel)' ? patient.last_name : ''}
             </h4>
             <div className="flex items-center gap-1 mt-1 flex-wrap">
               <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-neutral-50 border border-neutral-100 shrink-0">
@@ -121,7 +123,7 @@ export const PatientCard = ({
     );
   }
 
-  // ✅ VERSION COMPLÈTE ADAPTATIVE (SANS CHEVAUCHEMENTS)
+  // ✅ VERSION COMPLÈTE ADAPTATIVE
   return (
     <div
       className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all border cursor-pointer hover:border-[var(--color-primary)]/30 w-full overflow-hidden"
@@ -135,7 +137,7 @@ export const PatientCard = ({
           </div>
           <div className="min-w-0">
             <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 truncate">
-              {patient.first_name} {patient.last_name}
+              {patient.first_name} {patient.last_name !== '(Compte Personnel)' ? patient.last_name : ''}
             </h3>
             <div className="flex items-center flex-wrap gap-1.5 mt-1">
               <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold bg-neutral-50 border border-neutral-100">
@@ -155,6 +157,9 @@ export const PatientCard = ({
                   <UserX size={12} />
                   Non assigné
                 </span>
+              )}
+              {isLoadingAidant && (
+                <span className="text-[10px] sm:text-xs text-gray-400 animate-pulse">⏳ Chargement...</span>
               )}
             </div>
           </div>
@@ -209,7 +214,7 @@ export const PatientCard = ({
       )}
 
       {isAdminOrCoordinator && (
-        <div className="mt-4 pt-3 border-t border-gray-100/50" style={{ borderColor: colors.border }}>
+        <div className="mt-4 pt-3 border-t" style={{ borderColor: colors.border }}>
           <div className="flex items-center justify-between text-xs font-bold">
             <span style={{ color: colors.text + '50' }}>
               {assignedAidant ? (
