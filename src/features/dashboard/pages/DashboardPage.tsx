@@ -1,5 +1,6 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
- 
+// ✅ PAGE DASHBOARD : ALIGNEMENT DES TEXTES DE BANNIÈRES SUR LES INCLUSIONS ET UNIVERS DE L'APPLICATION
+
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -53,7 +54,7 @@ import toast from 'react-hot-toast';
 
 import { VisitCard } from '@/components/visits/VisitCard';
 import { OrderCard } from '@/components/orders/OrderCard';
-import { PatientCard } from '@/components/patients/PatientCard'; // ✅ Correctif import
+import { PatientCard } from '@/components/patients/PatientCard';
 
 // =============================================
 // TYPES ET INTERFACES INTERNES
@@ -151,30 +152,27 @@ const DashboardPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ✅ STORES
+  // Stores
   const { patients, fetchPatients, isLoading: patientsLoading } = usePatientStore();
   const { visits, fetchVisits, isLoading: visitsLoading } = useVisitStore();
   const { orders, fetchOrders, isLoading: ordersLoading } = useOrderStore();
   const { aidants, fetchAidants, isLoading: aidantsLoading } = useAidantCatalogStore();
   const { subscriptions, payments, fetchSubscriptions, fetchPayments, isLoading: paymentsLoading } = usePaymentStore();
 
-  // ✅ ABONNEMENT GUARD
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const [greeting, setGreeting] = useState('');
   const [isMaman, setIsMaman] = useState(false);
   
-  // ✅ CARROUSEL INTERACTIF ÉTATS
   const [currentSlide, setCurrentSlide] = useState(0);
   const [autoplayActive, setAutoplayActive] = useState(true);
   const [cycleCount, setCycleCount] = useState(0);
 
-  // Pour le contrôle tactile (Swipe)
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const minSwipeDistance = 50;
 
-  // ✅ STATS ADMIN / BENEFICIAIRES
+  // Stats admin / bénéficiaires
   const [adminStats, setAdminStats] = useState({
     totalUsers: 0,
     pendingRegistrations: 0,
@@ -203,7 +201,7 @@ const DashboardPage = () => {
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
   // ============================================================
-  // ✅ DÉFINITION CARROUSEL DYNAMIQUE PAR RÔLE (AFFICHE 5 SLIDES)
+  // ✅ SLIDES DU CARROUSEL ALIGNÉES SUR LES SPÉCIFICATIONS ET FORFAITS (5 SLIDES PAR RÔLE)
   // ============================================================
   const slides: HeroSlide[] = useMemo(() => {
     const seniorImg = '/assets/images/banners/senior-banner.png';
@@ -211,7 +209,7 @@ const DashboardPage = () => {
     const aidantImg = '/assets/images/banners/aidant-banner.png';
     const coordImg = '/assets/images/banners/coord-banner.png';
 
-    // 👔 ADMIN / COORDINATEUR (5 SLIDES)
+    // 👔 ADMIN / COORDINATEUR (5 SLIDES ENTIÈREMENT NETTOYÉES)
     if (isAdminOrCoordinator) {
       return [
         {
@@ -222,29 +220,29 @@ const DashboardPage = () => {
           actionPath: '/app/admin',
         },
         {
-          title: '📋 Inscriptions de familles',
-          description: 'De nouveaux candidats attendent votre validation. Rapprochez les familles de nos aidants qualifiés.',
+          title: '📝 Inscriptions de familles',
+          description: 'De nouveaux dossiers d\'inscription attendent votre validation opérationnelle. Rapprochez les familles de nos aidants.',
           image: coordImg,
           actionText: 'Inscriptions',
           actionPath: '/app/registrations',
         },
         {
-          title: '📑 Validation des rapports',
-          description: 'Consultez les rapports soumis par les intervenants et validez-les pour décompter les abonnements.',
+          title: '✓ Validation des rapports',
+          description: 'Consultez les rapports de fin de visite soumis par les intervenants et validez-les pour décompter les abonnements.',
           image: '/assets/images/banners/coord-visit.png',
           actionText: 'Valider visites',
           actionPath: '/app/admin/visits/validation',
         },
         {
-          title: 'Package Gestion des offres',
-          description: 'Ajustez les abonnements Confort, créez de nouvelles grilles tarifaires et gérez les options de facturation.',
+          title: '💼 Gestion des offres & forfaits',
+          description: 'Ajustez les formules d\'abonnements Confort, Sérénité ou Essentiel et configurez les inclusions de service.',
           image: coordImg,
           actionText: 'Gérer les offres',
           actionPath: '/app/offers',
         },
         {
-          title: 'MapPin Radar d’interventions',
-          description: 'Visualisez en temps réel les déplacements des intervenants et l\'état de livraison des commandes.',
+          title: '📍 Radar d’interventions GPS',
+          description: 'Visualisez en temps réel sur la carte les positions géographiques déclarées et les trajets actifs des aidants.',
           image: coordImg,
           actionText: 'Ouvrir la carte',
           actionPath: '/app/map',
@@ -252,40 +250,40 @@ const DashboardPage = () => {
       ];
     }
 
-    // 🦸 AIDANT (5 SLIDES)
+    // 🦸 AIDANT (5 SLIDES ENTIÈREMENT NETTOYÉES)
     if (isAidant) {
       return [
         {
           title: '🦸 Vos missions d\'accompagnement',
-          description: 'Accédez en un coup d\'œil à votre planning d\'interventions, à la carte radar et aux fiches d\'accompagnements.',
+          description: 'Accédez en un coup d\'œil à votre planning d\'interventions à domicile, à la carte de suivi et à vos dossiers.',
           image: aidantImg,
           actionText: 'Mon planning',
           actionPath: '/app/planning',
         },
         {
-          title: '📍 Suivi de trajet GPS',
-          description: 'Activez la géolocalisation pour rassurer la famille et tracer votre itinéraire de livraison ou de visite.',
+          title: '📍 Suivi d’itinéraire GPS actif',
+          description: 'Enregistrez votre départ et arrivée lors des visites pour rassurer la famille et valider la réalité des missions.',
           image: aidantImg,
           actionText: 'Voir la carte',
           actionPath: '/app/map',
         },
         {
-          title: '🛒 Courses & besoins urgents',
-          description: 'Consultez les commandes à proximité et prenez-les en charge pour aider vos bénéficiaires.',
+          title: '🛒 Courses et livraisons de confort',
+          description: 'Consultez les commandes de médicaments, produits bébé ou courses de première nécessité de votre zone.',
           image: '/assets/images/banners/aidant-visit.png',
           actionText: 'Commandes disponibles',
           actionPath: '/app/orders',
         },
         {
-          title: '💬 Échanges en direct',
-          description: 'Discutez en temps réel avec le coordinateur ou la famille pour signaler toute urgence ou question.',
+          title: '💬 Messagerie et coordination',
+          description: 'Discutez en temps réel avec le coordinateur ou le proche du bénéficiaire pour coordonner l’aide.',
           image: aidantImg,
           actionText: 'Mes messages',
           actionPath: '/app/messages',
         },
         {
-          title: 'History Vos missions accomplies',
-          description: 'Retrouvez l\'ensemble de vos rapports validés et l\'historique complet de vos interventions rémunérées.',
+          title: '📋 Historique de vos rapports',
+          description: 'Consultez l\'ensemble de vos rapports d\'intervention complétés, les mémos vocaux transmis et vos états validés.',
           image: aidantImg,
           actionText: 'Mon historique',
           actionPath: '/app/history',
@@ -293,90 +291,88 @@ const DashboardPage = () => {
       ];
     }
 
-    // 👶 MAMAN & BÉBÉ (5 SLIDES)
+    // 👶 MAMAN & BÉBÉ (5 SLIDES ENTIÈREMENT NETTOYÉES)
     if (isFamily && isMaman) {
       return [
         {
-          title: '👶 Votre espace Maman & Bébé',
-          description: 'Organisez sereinement la garde, les sorties et l\'accompagnement pédiatrique à domicile.',
+          title: '👶 Votre univers Maman & Bébé',
+          description: 'Planifiez l\'intervention de votre aidant pour un soutien non médical précieux pendant la grossesse ou le postpartum.',
           image: mamanImg,
           actionText: 'Planifier une visite',
           actionPath: '/app/visits',
         },
         {
-          title: '🛒 Commandes urgentes Bébé',
-          description: 'Faites livrer des couches, du lait infantile ou des soins en pharmacie en quelques clics.',
+          title: '🛒 Achats & soins pour le nouveau-né',
+          description: 'Commandez des couches, du lait ou des produits de soin pour bébé. Un aidant s\'occupe des courses et de la livraison.',
           image: '/assets/images/banners/maman-visit.png',
           actionText: 'Passer commande',
           actionPath: '/app/orders/create',
         },
         {
-          title: 'BookOpen Journal d\'éveil',
-          description: 'Consultez les comptes-rendus quotidiens, l\'alimentation et les activités d\'éveil saisis par votre aidant.',
+          title: '📖 Cahier de liaison numérique',
+          description: 'Consultez le journal d\'éveil de votre bébé, ses rythmes de sommeil et de repas saisis par votre intervenante.',
           image: mamanImg,
           actionText: 'Consulter le journal',
           actionPath: '/app/journal',
         },
         {
-          title: '💬 Discussion en direct',
-          description: 'Gardez un lien constant et rassurant avec l\'intervenante attitrée à votre bébé.',
+          title: '💬 Messagerie mère-intervenante',
+          description: 'Gardez un lien constant et rassurant avec l\'auxiliaire attitrée à l\'accompagnement de votre enfant.',
           image: mamanImg,
-          actionText: 'Contacter l\'aidant',
+          actionText: 'Ouvrir mes messages',
           actionPath: '/app/messages',
         },
         {
-          title: 'MapPin Suivi des balades',
-          description: 'Visualisez les trajets de promenade extérieure de votre bébé en toute transparence sur notre carte radar.',
+          title: '💳 Formules Maternité Confort et Sérénité',
+          description: 'Suivez vos crédits de visites restants, gérez vos factures de forfait ou renouvelez votre formule à l\'acte.',
           image: mamanImg,
-          actionText: 'Suivre les déplacements',
-          actionPath: '/app/map',
+          actionText: 'Gérer mon forfait',
+          actionPath: '/app/billing',
         }
       ];
     }
 
-    // 👴 FAMILLE / SENIOR (5 SLIDES)
+    // 👴 FAMILLE / SERVICES SENIORS (5 SLIDES ENTIÈREMENT NETTOYÉES)
     return [
       {
-        title: '👴 Un suivi clair pour votre proche',
-        description: 'Organisez des visites régulières pour rompre l\'isolement et stimuler le quotidien de votre proche.',
+        title: '👴 Aide et présence aux seniors',
+        description: 'Planifiez une visite d\'accompagnement pour veiller au confort, à l\'alimentation et à la sécurité de votre parent âgé.',
         image: seniorImg,
         actionText: 'Planifier une visite',
         actionPath: '/app/visits',
       },
       {
-        title: '🛒 Commande de courses & soins',
-        description: 'Livraison de médicaments, de repas équilibrés ou de courses de première nécessité directement chez votre proche.',
+        title: '🛒 Courses simples & ordonnances livrées',
+        description: 'Besoin de récupérer des médicaments ou de faire des provisions ? Confiez la livraison à nos aidants de confiance.',
         image: '/assets/images/banners/senior-visit.png',
         actionText: 'Nouvelle commande',
         actionPath: '/app/orders/create',
       },
       {
-        title: 'BookOpen Cahier de liaison',
-        description: 'Suivez la prise des repas, la tension, l\'humeur et les activités de votre proche après chaque visite.',
+        title: '📖 Cahier de liaison et suivi quotidien',
+        description: 'Retrouvez l\'humeur, la prise de repas et l\'état général de votre parent après chaque intervention à domicile.',
         image: seniorImg,
         actionText: 'Consulter le cahier',
         actionPath: '/app/journal',
       },
       {
-        title: 'CreditCard Formules d’abonnements',
-        description: 'Choisissez la formule mensuelle Confort la plus adaptée pour bénéficier d’un aidant permanent.',
+        title: '💳 Forfaits Sérénité Seniors & Privilège',
+        description: 'Vérifiez le solde de vos visites d\'abonnements ou choisissez une formule de relais permanent pour votre famille.',
         image: seniorImg,
-        actionText: 'Voir les abonnements',
+        actionText: 'Mon abonnement',
         actionPath: '/app/billing',
       },
       {
-        title: 'Hospital Retour d’hospitalisation',
-        description: 'Préparez le retour à la maison de votre proche après un séjour médical en toute sécurité.',
+        title: '🏠 Convalescence après hospitalisation',
+        description: 'Organisez sereinement la logistique et l\'installation de confort de votre proche pour son retour à la maison.',
         image: seniorImg,
-        actionText: 'Organiser une sortie',
+        actionText: 'Préparer un retour',
         actionPath: '/app/discharge',
       }
     ];
   }, [isAdminOrCoordinator, isAidant, isFamily, isMaman]);
 
-  // =============================================
-  // AUTOPLAY LIMITÉ À 2 CYCLES COMPLETS SANS TOUCHES
-  // =============================================
+  // Autoplay limité à 2 cycles complets sans touches
   useEffect(() => {
     if (!autoplayActive || slides.length <= 1) return;
 
@@ -397,9 +393,7 @@ const DashboardPage = () => {
     return () => clearInterval(interval);
   }, [autoplayActive, slides.length]);
 
-  // =============================================
-  // GESTION DU BALAYAGE TACTILE (SWIPABLE DOCK CARDS)
-  // =============================================
+  // Swipable Dock Cards
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
@@ -437,7 +431,6 @@ const DashboardPage = () => {
     setCurrentSlide(index);
   };
 
-  // ✅ CHARGER LES STATS BENEFICIAIRES
   const fetchBeneficiairesStats = async () => {
     setIsLoadingBeneficiaires(true);
     try {
@@ -479,7 +472,6 @@ const DashboardPage = () => {
     }
   };
 
-  // ✅ CHARGER LES STATS ADMIN
   const fetchAdminStats = async () => {
     if (!isAdminOrCoordinator) return;
     
@@ -571,8 +563,10 @@ const DashboardPage = () => {
 
   useEffect(() => {
     const hasMamanPatient = patients.some((p) => p.category === 'maman_bebe');
-    setIsMaman(hasMamanPatient);
-  }, [patients]);
+    const hasMamanSub = subscriptions.some(s => s.offre?.category === 'maman_bebe');
+    const isMamanProfile = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
+    setIsMaman(hasMamanPatient || hasMamanSub || isMamanProfile);
+  }, [patients, subscriptions, profile]);
 
   const stats = useMemo(() => {
     const pendingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'en_attente').length;
@@ -657,16 +651,13 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-          🆕 HERO BANNER : DIAPORAMA DE CARTES PAR RÔLES ET PAR AMBIANCES (GLASSMORPHIC & BOUTONS DIRECTS - 5 SLIDES EXPLICITES)
-          ============================================================ */}
+      {/* CARROUSEL INTERACTIF */}
       <section 
         className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 border border-white/10"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Rail de translation horizontal fluide */}
         <div 
           className="flex transition-transform duration-500 ease-out h-[210px] sm:h-[185px] w-full"
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
@@ -709,9 +700,7 @@ const DashboardPage = () => {
           ))}
         </div>
 
-        {/* ✅ INDICATEURS PAGINATION (PILLS LUMINEUSES) ET CONTRÔLES COMPACTES */}
         <div className="absolute bottom-3 left-0 right-0 z-20 flex items-center justify-between px-5 pointer-events-none">
-          {/* Points */}
           <div className="flex gap-1.5 pointer-events-auto">
             {slides.map((_, index) => (
               <button
@@ -726,7 +715,6 @@ const DashboardPage = () => {
             ))}
           </div>
 
-          {/* Fleches compactes */}
           <div className="flex items-center gap-1 pointer-events-auto">
             <button 
               onClick={handlePrevSlide}
@@ -982,7 +970,7 @@ const DashboardPage = () => {
                 <button
                   onClick={() => navigate('/app/orders')}
                   className="text-xs font-bold hover:underline"
-                  style={{ color: colors.primary }}
+                  style={{ color: colors.primary}}
                 >
                   Tout voir
                 </button>
@@ -1146,3 +1134,12 @@ const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }
 };
 
 export default DashboardPage;
+
+
+==End of Paste==
+
+En me basant sur le document de spécification de l'application (Sitemap, arborescence, politique de confidentialité, politique de paiement et forfait) extrait des images, re-rédige le contenu des bannières (les carrousels) de la page d'accueil pour chaque rôle de l'application (Admin, Aidant, Maman & Bébé, et Senior). 
+
+Assure-toi que les textes (titres, descriptions et boutons) correspondent exactement au positionnement de la marque, à l'arborescence, et aux inclusions/exclusions de chaque forfait. 
+
+Ne me donne que le tableau de `slides` dans le `useMemo` pour remplacer la portion de code concernée dans `src/features/dashboard/pages/DashboardPage.tsx`.
