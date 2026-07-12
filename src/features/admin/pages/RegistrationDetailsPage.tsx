@@ -1,26 +1,26 @@
-// 📁 src/features/admin/pages/RegistrationDetailsPage.tsx
+// 📁 src/features/admin/pages/RegistrationsPage.tsx
+// ✅ PAGE DES INSCRIPTIONS : OPTIMISATION RESPONSIVE MOBILE ET ALIGNEMENT H-11 DES CONTRÔLES
 
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  User,
-  Mail,
-  Phone,
+  Users,
   CheckCircle,
   XCircle,
   Clock,
-  AlertCircle,
-  Loader2,
+  Eye,
+  Search,
+  Filter,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
-import { formatDate, formatCurrency } from '@/utils/helpers';
-import { InfoRow } from '@/components/ui/InfoRow';
+import { formatDate } from '@/utils/helpers';
+import { useRefreshableData } from '@/hooks/useRefreshableData';
+import { RefreshButton } from '@/components/ui/RefreshButton';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
-// ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 interface Registration {
@@ -43,8 +43,6 @@ interface Registration {
   } | null;
   status: 'en_attente' | 'validee' | 'refusee' | 'info_requise' | 'en_cours_de_traitement';
   comments: string | null;
-  processed_by: string | null;
-  processed_at: string | null;
   source: string;
   created_at: string;
   updated_at: string;
@@ -52,11 +50,9 @@ interface Registration {
 
 const getStatusLabel = (status: string): string => {
   const labels: Record<string, string> = {
-    en_attente: 'En attente ⏳',
-    validee: 'Validée ✅',
-    refusee: 'Refusée ❌',
-    info_requise: 'Info requise ℹ️',
-    en_cours_de_traitement: 'En cours 🔄',
+    en_attente: 'En attente',
+    validee: 'Validée',
+    refusee: 'Refusée',
   };
   return labels[status] || status;
 };
@@ -66,201 +62,221 @@ const getStatusColor = (status: string): string => {
     en_attente: '#f59e0b',
     validee: '#10b981',
     refusee: '#ef4444',
-    info_requise: '#3b82f6',
-    en_cours_de_traitement: '#8b5cf6',
   };
   return colors[status] || '#94a3b8';
 };
 
-const RegistrationDetailsPage = () => {
-  const { id } = useParams<{ id: string }>();
+const RegistrationsPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  
-  const [registration, setRegistration] = useState<Registration | null>(null);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [comment, setComment] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  useEffect(() => {
-    if (id) fetchRegistration(id);
-  }, [id]);
-
-  const fetchRegistration = async (registrationId: string) => {
+  const fetchRegistrations = async () => {
     try {
       setIsLoading(true);
-      const { data: registrationData, error: registrationError } = await supabase
+      const { data: inscriptions, error: inscriptionsError } = await supabase
         .from('inscriptions')
         .select('*')
-        .eq('id', registrationId)
-        .single();
+        .order('created_at', { ascending: false });
 
-      if (registrationError) throw registrationError;
+      if (inscriptionsError) throw inscriptionsError;
 
-      let user = null;
-      if (registrationData.user_id) {
-        const { data: profileData } = await supabase
+      const userIds = [...new Set(inscriptions?.map(i => i.user_id).filter(Boolean))];
+      let profileMap: Record<string, any> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id, full_name, email, phone, role')
-          .eq('id', registrationData.user_id)
-          .single();
-        user = profileData;
+          .in('id', userIds);
+
+        if (!profilesError && profiles) {
+          profileMap = profiles.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {} as Record<string, any>);
+        }
       }
 
-      let offre = null;
-      if (registrationData.offre_id) {
-        const { data: offreData } = await supabase
-          .from('offres')
-          .select('id, name, price, category')
-          .eq('id', registrationData.offre_id)
-          .single();
-        offre = offreData;
-      }
+      const registrationsWithData = (inscriptions || []).map(reg => ({
+        ...reg,
+        user: reg.user_id ? profileMap[reg.user_id] || null : null,
+      }));
 
-      setRegistration({ ...registrationData, user, offre });
+      setRegistrations(registrationsWithData);
     } catch (error: any) {
-      console.error('Fetch registration error:', error);
-      toast.error('Erreur lors du chargement de l\'inscription');
+      console.error('Fetch registrations error:', error);
+      toast.error('Erreur lors du chargement des inscriptions');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleProcess = async (status: 'validee' | 'refusee') => {
-    if (!registration) return;
-    setIsProcessing(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      if (!token) throw new Error('Token manquant');
+  const { refreshAll, isRefreshing } = useRefreshableData({
+    onRefresh: fetchRegistrations,
+    onError: (error) => toast.error('Erreur lors du rafraîchissement des inscriptions'),
+  });
 
-      const response = await fetch(`${API_URL}/auth/admin/process-registration`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          registrationId: registration.id,
-          status,
-          comments: comment || null,
-        }),
-      });
+  useEffect(() => {
+    fetchRegistrations();
+  }, []);
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erreur lors du traitement');
+  const filteredRegistrations = registrations.filter(reg => {
+    const matchesSearch =
+      reg.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reg.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reg.id?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      toast.success(data.message || `Dossier traité`);
-      fetchRegistration(registration.id);
-    } catch (error: any) {
-      console.error('❌ Erreur:', error);
-      toast.error(error.message || 'Erreur lors du traitement');
-    } finally {
-      setIsProcessing(false);
-    }
+    const matchesStatus = statusFilter === 'all' || reg.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: registrations.length,
+    pending: registrations.filter(r => r.status === 'en_attente').length,
+    validated: registrations.filter(r => r.status === 'validee').length,
+    refused: registrations.filter(r => r.status === 'refusee').length,
   };
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <Loader2 className="animate-spin text-gray-300" size={24} />
+      <div className="space-y-6 max-w-5xl mx-auto pb-8">
+        <div className="h-24 bg-white rounded-3xl animate-pulse shadow-sm" />
       </div>
     );
   }
 
-  if (!registration) {
-    return <div className="p-8 text-center text-gray-400">Dossier introuvable</div>;
-  }
-
-  const isPending = registration.status === 'en_attente';
-
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Header */}
-      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/app/registrations')} className="p-1.5 hover:bg-gray-50 rounded-lg"><ArrowLeft size={16} /></button>
-          <div>
-            <h1 className="font-extrabold text-sm text-gray-800">Dossier #{registration.id.slice(0, 8)}</h1>
-            <p className="text-[11px] text-gray-400">{registration.user?.full_name}</p>
+    <div className="space-y-5 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
+      <section 
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
+        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
+      >
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
+              📋 Inscriptions & Dossiers
+            </h1>
+            <p className="text-xs font-semibold" style={{ color: colors.textLight }}>
+              {stats.total} dossier{stats.total > 1 ? 's' : ''} • {stats.pending} en attente de validation
+            </p>
           </div>
+          
+          <RefreshButton 
+            onRefresh={() => {
+              toast.success('Inscriptions actualisées');
+            }}
+          />
         </div>
-        <span className="text-xs font-semibold px-3 py-1 rounded-full self-start sm:self-center" style={{ background: `${getStatusColor(registration.status)}12`, color: getStatusColor(registration.status) }}>
-          {getStatusLabel(registration.status)}
-        </span>
+
+        <div className="relative z-10 mt-4 flex flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
+            <Users size={13} />
+            Total: {stats.total}
+          </div>
+          {stats.pending > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-700">
+              <Clock size={13} />
+              En attente: {stats.pending}
+            </div>
+          )}
+          {stats.validated > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
+              <CheckCircle size={13} />
+              Validés: {stats.validated}
+            </div>
+          )}
+          {stats.refused > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
+              <XCircle size={13} />
+              Refusés: {stats.refused}
+            </div>
+          )}
+        </div>
       </section>
 
-      {/* Détails Utilisateur et Offre */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">👤 Informations Utilisateur</h3>
-          <InfoRow label="Nom" value={registration.user?.full_name || 'N/A'} />
-          <InfoRow label="Email" value={registration.user?.email || 'N/A'} />
-          <InfoRow label="Téléphone" value={registration.user?.phone || 'N/A'} />
-        </section>
-
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">📦 Formule Sélectionnée</h3>
-          {registration.offre ? (
-            <>
-              <InfoRow label="Nom" value={registration.offre.name} />
-              <InfoRow label="Tarif" value={formatCurrency(registration.offre.price)} />
-              <InfoRow label="Période" value={registration.offre.category} />
-            </>
-          ) : (
-            <p className="text-xs text-gray-400">Aucun abonnement présélectionné</p>
-          )}
-        </section>
-      </div>
-
-      {/* Patient Data */}
-      {registration.patient_data && (
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-3">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">👶 Informations Patient</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.entries(registration.patient_data).map(([key, value]) => (
-              <InfoRow key={key} label={key.replace(/_/g, ' ')} value={String(value || 'N/A')} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Validation */}
-      {isPending && (
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">✏️ Décision d'administration</h3>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Commentaire de traitement (optionnel, envoyé par email au client)"
-            className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs resize-none"
-            style={{ borderColor: colors.border, background: 'var(--color-background)' }}
-            rows={2}
+      {/* BARRE DE RECHERCHE - INTEGRATION DU FORMAT H-11 COHÉRENT */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100/50 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher par nom, email..."
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            style={{ color: colors.text }}
           />
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => handleProcess('refusee')}
-              disabled={isProcessing}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-            >
-              Refuser le dossier
-            </button>
-            <button
-              onClick={() => handleProcess('validee')}
-              disabled={isProcessing}
-              className="px-4 py-2 rounded-xl text-white text-xs font-bold hover:opacity-90"
-              style={{ background: colors.primary }}
-            >
-              Valider le dossier
-            </button>
+        </div>
+        
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
+          style={{ color: colors.text }}
+        >
+          <option value="all">Tous les dossiers ({stats.total})</option>
+          <option value="en_attente">⏳ En attente ({stats.pending})</option>
+          <option value="validee">✅ Validés ({stats.validated})</option>
+          <option value="refusee">❌ Refusés ({stats.refused})</option>
+        </select>
+      </section>
+
+      {/* GRILLE LISTE D'INSCRIPTIONS */}
+      <section className="bg-white rounded-3xl shadow-sm border border-gray-100/50 overflow-hidden divide-y" style={{ borderColor: colors.border }}>
+        {filteredRegistrations.length === 0 ? (
+          <div className="p-12 text-center text-gray-400 text-xs font-medium">
+            {searchTerm || statusFilter !== 'all' 
+              ? 'Aucun dossier ne correspond à votre recherche' 
+              : 'Aucun dossier trouvé'}
           </div>
-        </section>
-      )}
+        ) : (
+          filteredRegistrations.map((reg) => (
+            <div
+              key={reg.id}
+              onClick={() => navigate(`/app/registrations/${reg.id}`)}
+              className="p-4 hover:bg-gray-50/50 transition cursor-pointer flex items-center justify-between gap-4"
+            >
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="font-extrabold text-xs sm:text-sm" style={{ color: colors.text }}>
+                  {reg.user?.full_name || 'Anonyme'}
+                </p>
+                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider flex-wrap">
+                  <span className="truncate max-w-[150px] sm:max-w-none">{reg.user?.email || 'Email inconnu'}</span>
+                  <span>•</span>
+                  <span 
+                    className="font-black px-2 py-0.5 rounded-full text-[8px]"
+                    style={{ 
+                      background: getStatusColor(reg.status) + '15', 
+                      color: getStatusColor(reg.status) 
+                    }}
+                  >
+                    {getStatusLabel(reg.status)}
+                  </span>
+                  <span>•</span>
+                  <span className="font-medium lowercase normal-case">{formatDate(reg.created_at)}</span>
+                </div>
+              </div>
+              <button 
+                className="p-2 rounded-xl hover:bg-gray-50 transition text-gray-400 hover:text-gray-600 shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/app/registrations/${reg.id}`);
+                }}
+              >
+                <Eye size={16} />
+              </button>
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 };
 
-export default RegistrationDetailsPage;
+export default RegistrationsPage;
