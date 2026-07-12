@@ -1,5 +1,6 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
- 
+// ✅ PAGE DÉTAIL DU PROCHE : SOLDE RÉEL D'ABONNEMENT DU PROCHE ET SUPPRESSION DU BOUTON DÉMARRER
+
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -12,7 +13,6 @@ import {
   Phone,
   User,
   Heart,
-  Play,
   Clock,
   Plus,
   CheckCircle,
@@ -20,7 +20,6 @@ import {
   Loader2,
   AlertCircle,
   Users,
-  UserPlus,
   ClipboardList,
   FileText,
   ShieldAlert,
@@ -33,7 +32,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime, cn } from '@/utils/helpers';  
+import { formatDate, formatTime, cn } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
 import { PatientModal } from '../components/PatientModal';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
@@ -50,9 +49,7 @@ const PatientDetailPage = () => {
 
   const {
     singular,
-    detail,
     edit,
-    delete: deleteTerm,
     noVisits,
     noNotes,
     confirmDelete,
@@ -68,22 +65,16 @@ const PatientDetailPage = () => {
   const {
     visits,
     fetchVisits,
-    createVisit,
-    startVisit,
     completeVisit,
-    isLoading: visitLoading,
     cancelVisit,
     approveVisit,
     refuseVisit,
-    confirmPayment,
   } = useVisitStore();
 
   const { 
     hasActiveSubscription, 
     remainingVisits, 
-    isLoading: subLoading,
     isExpired,
-    hasNeverSubscribed,
   } = useSubscriptionGuard();
 
   const [activeTab, setActiveTab] = useState<'info' | 'visits' | 'notes'>('info');
@@ -91,11 +82,16 @@ const PatientDetailPage = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [activeVisitId, setActiveVisitId] = useState<string | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [visitModalMode, setVisitModalMode] = useState<'create' | 'edit'>('create');
   const [patientVisits, setPatientVisits] = useState<any[]>([]);
+
+  // ✅ ÉTATS POUR LIRE LE VRAI ABONNEMENT DU PROCHE (Évite l'erreur d'affichage des 999 visites de l'aidant)
+  const [patientSubscription, setPatientSubscription] = useState<any | null>(null);
+  const [isLoadingPatientSub, setIsLoadingPatientSub] = useState(false);
+
+  const isActionPending = useRef(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -133,72 +129,91 @@ const PatientDetailPage = () => {
     }
   }, [visits, id]);
 
-  // ✅ VÉRIFIER SI L'AIDANT PEUT DÉMARRER UNE VISITE
-  const canStartVisit = () => {
-    if (!isAidantRole) return false;
-    if (!currentPatient) return false;
-    if (!hasActiveSubscription) {
-      console.log('⚠️ Pas d\'abonnement actif pour ce patient');
-      return false;
-    }
-    if (remainingVisits <= 0) {
-      console.log('⚠️ Plus de visites disponibles');
-      return false;
-    }
-    const hasActiveVisit = patientVisits.some((v) => v.status === 'en_cours');
-    if (hasActiveVisit) {
-      console.log('⚠️ Une visite est déjà en cours pour ce patient');
-      return false;
-    }
-    if (currentPatient?.status !== 'active') {
-      console.log('⚠️ Le patient n\'est pas actif');
-      return false;
-    }
-    console.log('✅ L\'aidant peut démarrer une visite');
-    return true;
-  };
+  // ============================================================
+  // ✅ DÉCODEUR : RÉCUPÉRATION DE L'ABONNEMENT RÉEL DU PROCHE
+  // ============================================================
+  useEffect(() => {
+    const fetchPatientSubscription = async () => {
+      if (!id || !person) return;
+      setIsLoadingPatientSub(true);
+      try {
+        let targetFamilyId = person.created_by;
+        
+        // Si c'est un compte personnel mappé, son ID est directement l'ID de la famille !
+        if (person.last_name === '(Compte Personnel)') {
+          targetFamilyId = person.id;
+        }
 
-  // ✅ DÉMARRER VISITE - UN SEUL TOAST PAR CAS
-  const handleStartVisit = async () => {
-    if (!canStartVisit()) {
-      if (!hasActiveSubscription) {
-        toast.error('💳 Aucun abonnement actif. Veuillez souscrire un abonnement.');
-      } else if (remainingVisits <= 0) {
-        toast.error('📅 Plus de visites disponibles. Renouvelez votre abonnement.');
-      } else {
-        toast.error('❌ Impossible de démarrer la visite. Vérifiez les conditions.');
+        if (!targetFamilyId) {
+          const { data: link } = await supabase
+            .from('patient_family_links')
+            .select('family_id')
+            .eq('patient_id', id)
+            .maybeSingle();
+          if (link) {
+            targetFamilyId = link.family_id;
+          }
+        }
+
+        if (targetFamilyId) {
+          const { data: sub, error } = await supabase
+            .from('abonnements')
+            .select(`
+              *,
+              offre:offres(*)
+            `)
+            .eq('user_id', targetFamilyId)
+            .eq('status', 'actif')
+            .gte('end_date', new Date().toISOString().split('T')[0])
+            .maybeSingle();
+
+          if (!error && sub) {
+            setPatientSubscription(sub);
+          } else {
+            setPatientSubscription(null);
+          }
+        }
+      } catch (e) {
+        console.error('Erreur récupération abonnement du patient:', e);
+      } finally {
+        setIsLoadingPatientSub(false);
       }
-      return;
+    };
+
+    if (currentPatient) {
+      fetchPatientSubscription();
     }
+  }, [id, currentPatient]);
 
-    setIsStarting(true);
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toTimeString().slice(0, 5);
-
-      const visit = await createVisit({
-        patient_id: currentPatient?.id,
-        scheduled_date: today,
-        scheduled_time: now,
-        duration_minutes: 60,
-        notes: 'Visite démarrée par l\'aidant',
-        is_urgent: false,
-        actions: [],
-      });
-
-      await startVisit(visit.id);
-      setActiveVisitId(visit.id);
-      setShowCompleteModal(true);
-      toast.success('Visite démarrée !');
-      await fetchVisits();
-      await fetchPatientById(id!);
-    } catch (error: any) {
-      console.error('❌ Erreur démarrage:', error);
-      toast.error(error?.message || 'Erreur lors du démarrage');
-    } finally {
-      setIsStarting(false);
+  // ✅ CALCUL DES COMPTEURS RÉELS BASÉ SUR L'ABONNEMENT DU PROCHE
+  const realRemainingVisits = useMemo(() => {
+    if (isFamilyRole) {
+      return remainingVisits; 
     }
-  };
+    if (patientSubscription) {
+      return Math.max(0, (patientSubscription.total_visits || 0) - (patientSubscription.used_visits || 0));
+    }
+    return 0;
+  }, [isFamilyRole, remainingVisits, patientSubscription]);
+
+  const realHasActiveSubscription = useMemo(() => {
+    if (isFamilyRole) {
+      return hasActiveSubscription;
+    }
+    return !!patientSubscription;
+  }, [isFamilyRole, hasActiveSubscription, patientSubscription]);
+
+  const realIsExpired = useMemo(() => {
+    if (isFamilyRole) {
+      return isExpired;
+    }
+    if (patientSubscription) {
+      const endDate = new Date(patientSubscription.end_date);
+      const today = new Date();
+      return patientSubscription.status === 'expire' || endDate < today;
+    }
+    return false;
+  }, [isFamilyRole, isExpired, patientSubscription]);
 
   // ✅ APPROUVER - UN SEUL TOAST
   const handleApprove = async (visitId: string) => {
@@ -299,40 +314,10 @@ const PatientDetailPage = () => {
     toast.success('Visite planifiée');
   };
 
-  const renderStartButton = () => {
-    if (!isAidantRole) return null;
-
-    const canStart = canStartVisit();
-    const isDisabled = !canStart || isStarting;
-
-    let tooltip = '';
-    if (!hasActiveSubscription) tooltip = 'Aucun abonnement actif';
-    else if (remainingVisits <= 0) tooltip = 'Plus de visites disponibles';
-    else if (patientVisits.some(v => v.status === 'en_cours')) tooltip = 'Visite déjà en cours';
-    else if (currentPatient?.status !== 'active') tooltip = 'Patient inactif';
-    else tooltip = 'Démarrer une visite';
-
-    return (
-      <button
-        onClick={handleStartVisit}
-        disabled={isDisabled}
-        title={tooltip}
-        className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition hover:opacity-90 disabled:opacity-50"
-        style={{ 
-          background: isDisabled ? '#9CA3AF' : colors.primary,
-          cursor: isDisabled ? 'not-allowed' : 'pointer',
-        }}
-      >
-        {isStarting ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
-        {isStarting ? 'Démarrage...' : 'Démarrer'}
-      </button>
-    );
-  };
-
   const renderSubscriptionStatus = () => {
     if (!isAidantRole) return null;
 
-    if (subLoading) {
+    if (isLoadingPatientSub) {
       return (
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <Loader2 size={14} className="animate-spin" />
@@ -341,37 +326,28 @@ const PatientDetailPage = () => {
       );
     }
 
-    if (hasActiveSubscription && remainingVisits > 0) {
+    if (realHasActiveSubscription && realRemainingVisits > 0) {
       return (
         <div className="flex items-center gap-2 text-sm text-green-600">
           <CheckCircle size={14} />
-          <span>{remainingVisits} visite{remainingVisits > 1 ? 's' : ''} restante{remainingVisits > 1 ? 's' : ''}</span>
+          <span>{realRemainingVisits} visite{realRemainingVisits > 1 ? 's' : ''} restante{realRemainingVisits > 1 ? 's' : ''}</span>
         </div>
       );
     }
 
-    if (isExpired) {
+    if (realIsExpired) {
       return (
         <div className="flex items-center gap-2 text-sm text-red-500">
           <AlertCircle size={14} />
-          <span>Abonnement expiré - Renouvelez pour démarrer</span>
-        </div>
-      );
-    }
-
-    if (hasNeverSubscribed || !hasActiveSubscription) {
-      return (
-        <div className="flex items-center gap-2 text-sm text-amber-500">
-          <AlertCircle size={14} />
-          <span>Aucun abonnement actif</span>
+          <span>Abonnement expiré - Le proche doit renouveler son forfait</span>
         </div>
       );
     }
 
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Clock size={14} />
-        <span>Aucune visite disponible</span>
+      <div className="flex items-center gap-2 text-sm text-amber-500">
+        <AlertCircle size={14} />
+        <span>Aucun abonnement actif pour ce proche</span>
       </div>
     );
   };
@@ -405,7 +381,7 @@ const PatientDetailPage = () => {
           </button>
           <div>
             <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
-              {person.first_name} {person.last_name}
+              {person.first_name} {person.last_name !== '(Compte Personnel)' ? person.last_name : ''}
             </h1>
             <p className="text-sm flex items-center gap-1.5" style={{ color: colors.text + '99' }}>
               <User size={14} />
@@ -416,7 +392,7 @@ const PatientDetailPage = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          {/* ✅ BOUTON DE RAFRAÎCHISSEMENT */}
+          {/* BOUTON DE RAFRAÎCHISSEMENT */}
           <RefreshButton 
             size="sm" 
             showText={false}
@@ -437,7 +413,7 @@ const PatientDetailPage = () => {
                 style={{ background: colors.primary + '15', color: colors.primary }}
               >
                 <Edit2 size={16} />
-                <span>{edit}</span>
+                <span>Modifier</span>
               </button>
               <button
                 onClick={handleDelete}
@@ -463,8 +439,8 @@ const PatientDetailPage = () => {
         <StatCard label="Visites" value={patientVisits.length} color={colors.primary} />
         <StatCard
           label="Restantes"
-          value={hasActiveSubscription ? remainingVisits : '0'}
-          color={remainingVisits > 0 ? '#4CAF50' : '#F44336'}
+          value={realHasActiveSubscription ? realRemainingVisits : '0'}
+          color={realRemainingVisits > 0 ? '#4CAF50' : '#F44336'}
         />
         <StatCard
           label="En attente"
@@ -486,8 +462,8 @@ const PatientDetailPage = () => {
               <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.text + '60' }}>
                 {isAidantRole && (
                   <>
-                    {hasActiveSubscription && remainingVisits > 0
-                      ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''} restante${remainingVisits > 1 ? 's' : ''}`
+                    {realHasActiveSubscription && realRemainingVisits > 0
+                      ? `${realRemainingVisits} visite${realRemainingVisits > 1 ? 's' : ''} restante${realRemainingVisits > 1 ? 's' : ''}`
                       : 'Aucune visite disponible'}
                   </>
                 )}
@@ -496,9 +472,9 @@ const PatientDetailPage = () => {
               </p>
               <div className="mt-2">{renderSubscriptionStatus()}</div>
             </div>
+            
+            {/* ✅ CORRECTIF : Suppression complète du bouton Démarrer ici pour l'aidant */}
             <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
-              {isAidantRole && renderStartButton()}
-
               {isFamilyRole && (
                 <button
                   onClick={() => {
@@ -549,11 +525,11 @@ const PatientDetailPage = () => {
             </div>
           )}
 
-          {!hasActiveSubscription && isAidantRole && (
+          {!realHasActiveSubscription && isAidantRole && (
             <div className="mt-3.5 p-3.5 rounded-xl bg-red-50 border border-red-200">
               <p className="text-xs text-red-700 font-semibold flex items-center gap-2 leading-relaxed">
                 <AlertCircle size={16} />
-                <span>💳 Aucun abonnement actif. Contactez l'administrateur.</span>
+                <span>💳 Aucun abonnement actif pour ce bénéficiaire.</span>
               </p>
             </div>
           )}
@@ -670,9 +646,9 @@ const PatientDetailPage = () => {
                     Planifier une visite
                   </button>
                 )}
-                {isAidantRole && !hasActiveSubscription && (
+                {isAidantRole && !realHasActiveSubscription && (
                   <p className="text-[10px] font-bold text-amber-600 mt-4 uppercase tracking-wide">
-                    💳 Aucun abonnement actif. Contactez l\'administrateur.
+                    💳 Aucun abonnement actif. Contactez l'administrateur.
                   </p>
                 )}
               </div>
