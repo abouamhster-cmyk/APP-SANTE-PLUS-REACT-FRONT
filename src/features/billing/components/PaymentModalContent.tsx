@@ -1,35 +1,29 @@
 // 📁 src/features/billing/components/PaymentModalContent.tsx
-// VERSION CORRIGÉE - LOGIQUE DE PAIEMENT UNIFIÉE
-// ✅ Suppression des IDs d'offres en dur
-// ✅ Utilisation des helpers pour la détection ponctuelle
-// ✅ Logique cohérente pour les paiements
+// ✅ CONTENU CONFIRMATION PAIEMENT : COHÉRENCE DU BÉNÉFICIAIRE (SÉLECTEUR DYNAMIQUE SÉCURISÉ)
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   CreditCard,
-  ShieldCheck,
   Loader2,
   ExternalLink,
   AlertCircle,
+  Users,
+  CheckCircle,
 } from 'lucide-react';
 
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useAuthStore } from '@/stores/authStore';
+import { usePatientStore } from '@/stores/patientStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Offer } from '@/types';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 // ✅ IMPORTER LES HELPERS
 import {
-  getPonctualPrice,
-  getPonctualOrderPrice,
+  getPonctualOrderPriceByType,
 } from '@/lib/constants';
-import {
-  isVisitDraft,
-  isVisitPonctual,
-  requiresVisitPayment,
-} from '@/utils/helpers';
 
 interface PaymentModalContentProps {
   offer?: Offer | null;
@@ -54,33 +48,23 @@ export const PaymentModalContent = ({
 }: PaymentModalContentProps) => {
   const { createPayment } = usePaymentStore();
   const { profile, role } = useAuthStore();
+  const { patients, fetchPatients } = usePatientStore();
 
   const {
-    singular,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(propPatientId);
-  const [selectedTargetType, setSelectedTargetType] = useState<'personal' | 'patient'>('personal');
-  const [selectedTargetName, setSelectedTargetName] = useState<string>('');
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
   const selectedOffer = offer || plan;
-
   const period = selectedOffer?.period || selectedOffer?.type || 'mois';
 
-  // ✅ DÉTECTION PONCTUELLE - SANS IDs EN DUR
+  // ✅ DÉTECTION PONCTUELLE
   const isPonctual = forcePonctual ||
     period === 'ponctuelle' ||
     period === 'intervention' ||
     selectedOffer?.category === 'ponctuelle' ||
     selectedOffer?.type === 'ponctuelle' ||
-    // ✅ Vérification par nom (fallback)
     selectedOffer?.name?.toLowerCase().includes('ponctuel') ||
     selectedOffer?.name?.toLowerCase().includes('intervention');
 
@@ -88,18 +72,61 @@ export const PaymentModalContent = ({
   const planName = selectedOffer?.name || 'Abonnement Santé Plus';
   const visitsPerWeek = selectedOffer?.visitsPerWeek || selectedOffer?.visits_per_week || null;
 
-  const hasPatients = orderData?.hasPatients || false;
-
-  // ✅ Détecter si c'est une visite ou une commande
+  // Détecter si c'est une visite ou une commande
   const isVisit = isPonctual && !!orderData?.visit_id;
   const isOrder = isPonctual && !!orderData?.description && !orderData?.visit_id;
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(propPatientId || orderData?.patient_id || null);
+  const [selectedTargetType, setSelectedTargetType] = useState<'personal' | 'patient'>(
+    (propPatientId || orderData?.patient_id) ? 'patient' : 'personal'
+  );
+  const [selectedTargetName, setSelectedTargetName] = useState<string>('');
+
+  const themeName = getThemeByRole(role, profile?.patient_category as any);
+  const colors = getThemeColors(themeName);
+
+  // Charger les proches de l'utilisateur
+  useEffect(() => {
+    fetchPatients();
+  }, [fetchPatients]);
+
+  // ✅ FILTRAGE COHÉRENT DES PROCHES : Affiche uniquement les proches qui correspondent à la catégorie du forfait
+  const compatiblePatients = useMemo(() => {
+    if (!selectedOffer || isPonctual) return [];
+    return patients.filter((p) => p.category === selectedOffer.category);
+  }, [patients, selectedOffer, isPonctual]);
+
+  // Ajuster le ciblage par défaut
+  useEffect(() => {
+    if (compatiblePatients.length > 0 && !isPonctual && !selectedPatientId) {
+      setSelectedTargetType('patient');
+      setSelectedPatientId(compatiblePatients[0].id);
+      setSelectedTargetName(`${compatiblePatients[0].first_name} ${compatiblePatients[0].last_name}`);
+    } else if (!selectedPatientId) {
+      setSelectedTargetType('personal');
+      setSelectedPatientId(null);
+      setSelectedTargetName(profile?.full_name || 'Client');
+    }
+  }, [compatiblePatients, isPonctual, selectedPatientId, profile]);
+
+  const handlePatientChange = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    const patient = patients.find(p => p.id === patientId);
+    if (patient) {
+      setSelectedTargetType('patient');
+      setSelectedTargetName(`${patient.first_name} ${patient.last_name}`);
+    } else {
+      setSelectedTargetType('personal');
+      setSelectedTargetName(profile?.full_name || 'Client');
+      setSelectedPatientId(null);
+    }
+  };
+
   const getSubscriptionLabel = () => {
     if (isPonctual) return 'ponctuel';
-    if (isFamily) return `pour votre proche (/${period})`;
-    if (isAidant) return `pour la personne accompagnée (/${period})`;
-    if (isAdminOrCoordinator) return `pour le bénéficiaire (/${period})`;
-    return `/${period}`;
+    if (selectedTargetType === 'patient') return `pour votre proche (/${period})`;
+    return `pour votre compte personnel (/${period})`;
   };
 
   const getInfoMessage = () => {
@@ -112,7 +139,7 @@ export const PaymentModalContent = ({
     if (isPonctual) {
       return 'Vous allez payer ce service ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement.';
     }
-    return 'FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement.';
+    return 'FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement. Après confirmation, l\'abonnement sera immédiatement activé.';
   };
 
   const getTitle = () => {
@@ -136,20 +163,13 @@ export const PaymentModalContent = ({
     setIsLoading(true);
 
     try {
-      // ✅ Nettoyer les données en attente
       if (isPonctual && orderData) {
         sessionStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
         localStorage.setItem('pending_ponctual_order', JSON.stringify(orderData));
-      } else if (isPonctual) {
-        sessionStorage.removeItem('pending_ponctual_order');
-        localStorage.removeItem('pending_ponctual_order');
-      } else {
-        sessionStorage.removeItem('pending_ponctual_order');
-        localStorage.removeItem('pending_ponctual_order');
       }
 
       const orderDataForBackend = (isPonctual && orderData) ? {
-        patient_id: orderData.patient_id || propPatientId || null,
+        patient_id: orderData.patient_id || selectedPatientId || null,
         type: orderData.type || 'autre',
         description: orderData.description || (isVisit ? 'Visite ponctuelle' : 'Commande ponctuelle'),
         address: orderData.address || 'Adresse non spécifiée',
@@ -157,7 +177,6 @@ export const PaymentModalContent = ({
         prescription_url: orderData.prescription_url || null,
         target_type: selectedTargetType,
         target_name: selectedTargetName || profile?.full_name || 'Client',
-        // ✅ Si c'est une visite, ajouter les champs spécifiques
         ...(isVisit ? {
           visit_id: orderData.visit_id,
           duration_minutes: orderData.duration_minutes || 60,
@@ -168,14 +187,10 @@ export const PaymentModalContent = ({
 
       const offerId = selectedOffer?.id || null;
       const subscriptionId = isPonctual ? null : offerId;
-
-      // ✅ patient_id final
-      const finalPatientId = propPatientId || orderData?.patient_id || null;
+      const finalPatientId = selectedPatientId || orderData?.patient_id || null;
 
       console.log('📤 Envoi paiement avec patient_id:', finalPatientId);
-      console.log('📤 Envoi paiement avec is_visit:', isVisit);
-      console.log('📤 Envoi paiement avec visit_id:', orderData?.visit_id || null);
-      console.log('📤 Envoi paiement avec type:', isVisit ? 'visit' : (isOrder ? 'order' : 'subscription'));
+      console.log('📤 Envoi paiement avec cible:', selectedTargetType, selectedTargetName);
 
       const result = await createPayment({
         plan_id: offerId,
@@ -190,7 +205,6 @@ export const PaymentModalContent = ({
         patient_id: finalPatientId,
         target_type: selectedTargetType,
         target_name: selectedTargetName || profile?.full_name || 'Client',
-        // ✅ Ajouter le type explicite pour le webhook
         metadata: {
           type: isVisit ? 'visit' : (isOrder ? 'order' : 'subscription'),
           is_ponctual: isPonctual,
@@ -217,6 +231,7 @@ export const PaymentModalContent = ({
 
   return (
     <div className="space-y-5 pb-4">
+      {/* CADRE TARIF */}
       <div
         className="rounded-2xl p-4 border"
         style={{
@@ -235,7 +250,7 @@ export const PaymentModalContent = ({
             <CreditCard size={22} />
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-black" style={{ color: colors.text }}>
               {getTitle()}
             </p>
@@ -250,7 +265,6 @@ export const PaymentModalContent = ({
               </p>
             )}
 
-            {/* ✅ Indicateur de type pour le débogage */}
             {isPonctual && (
               <p className="text-xs text-orange-500 mt-1 font-medium">
                 ⚡ Service ponctuel - Paiement unique
@@ -269,25 +283,101 @@ export const PaymentModalContent = ({
         </div>
       </div>
 
+      {/* SÉLECTEUR DE BÉNÉFICIAIRE COHÉRENT (Visible s'il y a des proches compatibles) */}
+      {compatiblePatients.length > 0 && !isPonctual && (
+        <div className="space-y-2.5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+            Bénéficiaire du forfait
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedTargetType('personal');
+                setSelectedPatientId(null);
+                setSelectedTargetName(profile?.full_name || 'Client');
+              }}
+              className={cn(
+                "p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5",
+                selectedTargetType === 'personal'
+                  ? "text-white"
+                  : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+              )}
+              style={{
+                background: selectedTargetType === 'personal' ? colors.primary : 'transparent',
+                borderColor: selectedTargetType === 'personal' ? colors.primary : colors.border,
+              }}
+            >
+              👤 Compte Personnel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedTargetType('patient');
+                if (compatiblePatients.length > 0) {
+                  handlePatientChange(compatiblePatients[0].id);
+                }
+              }}
+              className={cn(
+                "p-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5",
+                selectedTargetType === 'patient'
+                  ? "text-white"
+                  : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+              )}
+              style={{
+                background: selectedTargetType === 'patient' ? colors.primary : 'transparent',
+                borderColor: selectedTargetType === 'patient' ? colors.primary : colors.border,
+              }}
+            >
+              👨‍👩‍👦 Un proche ({compatiblePatients.length})
+            </button>
+          </div>
+
+          {selectedTargetType === 'patient' && (
+            <div className="animate-fadeIn space-y-1">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                Sélectionner le proche
+              </label>
+              <select
+                value={selectedPatientId || ''}
+                onChange={(e) => handlePatientChange(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold outline-none bg-gray-50/50"
+                style={{ borderColor: colors.border, color: colors.text }}
+              >
+                {compatiblePatients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.first_name} {p.last_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* MESSAGE INFO */}
       <div
         className="flex items-start gap-3 p-4 rounded-2xl"
         style={{ background: colors.primary + '10' }}
       >
         <AlertCircle size={19} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
-        <p className="text-xs leading-relaxed text-gray-600">
-          {getInfoMessage()}
-        </p>
-        <p className="text-[10px] text-gray-400 mt-1">
-          💳 Paiement sécurisé via FedaPay
-        </p>
+        <div className="space-y-1">
+          <p className="text-xs leading-relaxed text-gray-600">
+            {getInfoMessage()}
+          </p>
+          <p className="text-[10px] text-gray-400 font-medium">
+            💳 Paiement sécurisé via FedaPay
+          </p>
+        </div>
       </div>
 
+      {/* BOUTONS */}
       <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
         <button
           type="button"
           onClick={onCancel}
           disabled={isLoading}
-          className="flex-1 py-3 rounded-2xl font-bold border hover:bg-gray-50 transition disabled:opacity-50"
+          className="flex-1 py-3 rounded-2xl font-bold border hover:bg-gray-50 transition disabled:opacity-50 text-xs sm:text-sm"
           style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           Annuler
@@ -297,7 +387,7 @@ export const PaymentModalContent = ({
           type="button"
           onClick={handlePayment}
           disabled={isLoading}
-          className="flex-1 py-3 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+          className="flex-1 py-3 rounded-2xl text-white font-bold transition hover:opacity-95 disabled:opacity-60 flex items-center justify-center gap-2 text-xs sm:text-sm"
           style={{ background: colors.primary }}
         >
           {isLoading ? (
@@ -307,7 +397,7 @@ export const PaymentModalContent = ({
             </>
           ) : (
             <>
-              {isPonctual ? `Payer ${amount.toLocaleString()} FCFA` : 'Continuer'}
+              Payer {amount.toLocaleString()} FCFA
               <ExternalLink size={18} />
             </>
           )}
