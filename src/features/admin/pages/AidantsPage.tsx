@@ -1,5 +1,6 @@
 // 📁 src/features/admin/pages/AidantsPage.tsx
- 
+// ✅ PAGE ANNUAIRE DES AIDANTS : ALIGNEMENTS DE BOUTONS PARFAITEMENT STACKÉS SUR MOBILE SANS OVERFLOW
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { assignmentAPI } from '@/lib/api';
@@ -21,6 +22,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
 import { Modal } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 interface Aidant {
@@ -47,7 +49,6 @@ interface Aidant {
   current_assignments: number;
 }
 
-// ✅ Interface StatCardProps
 interface StatCardProps {
   label: string;
   value: string | number;
@@ -55,7 +56,6 @@ interface StatCardProps {
   icon: React.ReactNode;
 }
 
-// ✅ Interface pour les assignations
 interface AssignmentInfo {
   id: string;
   target_type: string;
@@ -116,13 +116,12 @@ const AidantsPage = () => {
     try {
       setIsLoading(true);
       
-      // ✅ 1. Récupérer les aidants - Direct Supabase (public)
       const { data: aidantsData, error: aidantsError } = await supabase
         .from('aidants')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (aidantsError) throw aidantsError;
+      if (aidantsError) throw aidantError;
 
       const userIds = [...new Set(aidantsData?.map(a => a.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
@@ -148,17 +147,14 @@ const AidantsPage = () => {
         max_assignments: aidant.max_assignments || 4,
       }));
 
-      // ✅ 2. Récupérer les assignations pour chaque aidant - Utiliser l'API
       const aidantUserIds = aidantsWithUser.map(a => a.user_id).filter(Boolean);
       const newAssignmentsMap: Record<string, AssignmentInfo[]> = {};
 
       if (aidantUserIds.length > 0) {
         try {
-          // Récupérer toutes les assignations actives
           const response = await assignmentAPI.adminGetAll();
           const allAssignments = response.data?.data || [];
           
-          // Filtrer par aidant
           for (const assignment of allAssignments) {
             const aidantUserId = assignment.aidant_user_id;
             if (!aidantUserIds.includes(aidantUserId)) continue;
@@ -183,7 +179,6 @@ const AidantsPage = () => {
           }
         } catch (apiError) {
           console.error('❌ Erreur récupération assignations via API:', apiError);
-          // Fallback: nouvelle tentative avec getByAidant individuel
           for (const aidantUserId of aidantUserIds) {
             try {
               const response = await assignmentAPI.getByAidant(aidantUserId, 'active');
@@ -208,7 +203,6 @@ const AidantsPage = () => {
           }
         }
 
-        // Mettre à jour current_assignments pour chaque aidant
         for (const aidant of aidantsWithUser) {
           const count = newAssignmentsMap[aidant.user_id]?.length || 0;
           aidant.current_assignments = count;
@@ -299,25 +293,25 @@ const AidantsPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       {/* Header */}
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
       >
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
               🦸 Annuaire des aidants
             </h1>
-            <p className="text-xs" style={{ color: colors.textLight }}>
+            <p className="text-xs font-semibold" style={{ color: colors.textLight }}>
               {stats.total} aidant{stats.total > 1 ? 's' : ''} inscrits • {stats.totalAssignments} assignation{stats.totalAssignments > 1 ? 's' : ''} actives
             </p>
           </div>
           <button
             onClick={fetchAidants}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 shrink-0 self-start sm:self-center"
+            className="h-11 px-4 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-center"
             style={{ borderColor: colors.border, color: colors.text }}
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
@@ -327,34 +321,40 @@ const AidantsPage = () => {
       </section>
 
       {/* Statistiques épurées */}
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Users size={16} />} />
         <StatCard label="Actifs" value={stats.active} color="#10b981" icon={<UserCheck size={16} />} />
         <StatCard label="En attente" value={stats.pending} color="#f59e0b" icon={<Clock size={16} />} />
         <StatCard label="Vérifiés" value={stats.verified} color="#8b5cf6" icon={<Award size={16} />} />
-        <StatCard label="Assignés" value={stats.withAssignments} color="#3b82f6" icon={<UsersIcon size={16} />} />
+        <StatCard label="Assignés" value={stats.withAssignments} color="#3b82f6" icon={<UsersIcon size={16} />} className="col-span-2 md:col-span-1" />
       </section>
 
-      {/* Barre de filtre épurée */}
-      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
-        <input
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Rechercher un aidant par son nom ou spécialité..."
-          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
-        />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
-        >
-          {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
+      {/* Barre de filtre épurée H-11 COHERENTE */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+        <div className="flex flex-col sm:flex-row gap-3 w-full">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Rechercher un aidant par son nom ou spécialité..."
+              className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50/50 border-gray-100 dark:border-gray-800/60 transition-all shadow-sm"
+              style={{ borderColor: colors.border, color: colors.text }}
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer transition-all"
+            style={{ borderColor: colors.border, color: colors.text }}
+          >
+            {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+        </div>
       </section>
 
-      {/* Liste épurée */}
+      {/* Liste épurée ADAPTATIVE */}
       {filteredAidants.length > 0 ? (
         <section className="space-y-3">
           {filteredAidants.map((aidant) => {
@@ -364,39 +364,42 @@ const AidantsPage = () => {
             return (
               <div
                 key={aidant.id}
-                className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between gap-4 transition hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)]"
+                className="bg-white rounded-2xl p-4 shadow-sm border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition hover:shadow-md"
+                style={{ borderColor: colors.border }}
               >
                 <div className="flex items-center gap-3.5 min-w-0">
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-inner"
                     style={{ background: colors.primary }}
                   >
-                    {aidant.user?.full_name?.charAt(0) || 'A'}
+                    {aidant.user?.full_name?.charAt(0).toUpperCase() || 'A'}
                   </div>
                   <div className="min-w-0 space-y-0.5">
-                    <p className="font-bold text-xs" style={{ color: colors.text }}>{aidant.user?.full_name || 'Aidant'}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-gray-400 flex-wrap">
+                    <p className="font-bold text-xs sm:text-sm text-gray-800" style={{ color: colors.text }}>{aidant.user?.full_name || 'Aidant'}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider flex-wrap">
                       <span>{aidant.user?.email || 'N/A'}</span>
                       <span>•</span>
                       <span className="font-semibold" style={{ color: getStatusColor(aidant.status) }}>{getStatusLabel(aidant.status)}</span>
                       <span>•</span>
-                      <span className={aidant.available ? 'text-green-600 font-semibold' : 'text-gray-400 font-semibold'}>
+                      <span className={aidant.available ? 'text-green-600 font-bold' : 'text-gray-400 font-bold'}>
                         {aidant.available ? 'Disponible' : 'Indisponible'}
                       </span>
                       <span>•</span>
-                      <span className="text-blue-600 font-semibold">
+                      <span className="text-blue-600 font-bold">
                         {hasAssignments ? `${assignments.length} assignation${assignments.length > 1 ? 's' : ''}` : 'Aucune assignation'}
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => handleViewDetails(aidant)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600">
-                    <Eye size={14} />
+
+                {/* ACTIONS PANEL RESPONSIVE */}
+                <div className="flex items-center justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 shrink-0 w-full sm:w-auto">
+                  <button onClick={() => handleViewDetails(aidant)} className="p-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 border border-gray-100 transition-all">
+                    <Eye size={16} />
                   </button>
                   <button
-                    onClick={() => handleToggleAvailability(aidant.id, aidant.available)}
-                    className="p-1.5 rounded-lg text-xs font-semibold px-2.5 py-1 rounded-lg border hover:bg-gray-50 transition-colors"
+                    onClick={() => handleToggleAvailability(aidant.id, !aidant.available)}
+                    className="h-9 px-4 rounded-xl text-xs font-extrabold border bg-gray-50/50 hover:bg-gray-100 transition-all flex items-center justify-center"
                     style={{ borderColor: colors.border, color: colors.text }}
                   >
                     {aidant.available ? 'Désactiver' : 'Activer'}
@@ -407,7 +410,7 @@ const AidantsPage = () => {
           })}
         </section>
       ) : (
-        <div className="bg-white rounded-3xl p-12 text-center text-gray-400">Aucun aidant ne correspond aux filtres</div>
+        <div className="bg-white rounded-3xl p-12 text-center text-gray-400 text-xs font-medium border">Aucun aidant ne correspond aux filtres</div>
       )}
 
       {/* Modal Détails */}
@@ -416,7 +419,7 @@ const AidantsPage = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-4 pb-4 border-b" style={{ borderColor: colors.border }}>
               <div className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: colors.primary }}>
-                {selectedAidant.user?.full_name?.charAt(0) || 'A'}
+                {selectedAidant.user?.full_name?.charAt(0).toUpperCase() || 'A'}
               </div>
               <div>
                 <p className="font-bold" style={{ color: colors.text }}>{selectedAidant.user?.full_name || 'N/A'}</p>
@@ -424,7 +427,7 @@ const AidantsPage = () => {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <InfoRow label="Rôle" value="🦸 Aidant" />
               <InfoRow label="Statut" value={getStatusLabel(selectedAidant.status)} />
               <InfoRow label="Disponibilité" value={selectedAidant.available ? 'Disponible 🟢' : 'Indisponible 🔴'} />
@@ -434,13 +437,13 @@ const AidantsPage = () => {
               <InfoRow label="Inscription" value={formatDate(selectedAidant.created_at)} />
             </div>
 
-            {/* ✅ Liste des assignations */}
+            {/* Liste des assignations */}
             {selectedAidant.user_id && assignmentsMap[selectedAidant.user_id]?.length > 0 && (
               <div className="mt-4">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
                   📋 Assignations actives ({assignmentsMap[selectedAidant.user_id].length})
                 </h4>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                   {assignmentsMap[selectedAidant.user_id].map((assignment) => (
                     <div
                       key={assignment.id}
@@ -456,7 +459,7 @@ const AidantsPage = () => {
                         </span>
                       </div>
                       <span
-                        className="px-1.5 py-0.5 rounded-full text-[8px] font-medium"
+                        className="px-1.5 py-0.5 rounded-full text-[8px] font-bold"
                         style={{
                           background: getAssignmentTypeColor(assignment.assignment_type) + '20',
                           color: getAssignmentTypeColor(assignment.assignment_type),
@@ -476,17 +479,13 @@ const AidantsPage = () => {
   );
 };
 
-// =============================================
-// STAT CARD - Avec StatCardProps
-// =============================================
-
-const StatCard = ({ label, value, color, icon }: StatCardProps) => (
-  <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
+const StatCard = ({ label, value, color, icon, className = '' }: StatCardProps & { className?: string }) => (
+  <div className={cn("bg-white rounded-2xl p-4 shadow-sm border flex items-center justify-between gap-2", className)}>
     <div className="space-y-0.5">
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">{label}</p>
+      <p className="text-base sm:text-lg font-black truncate" style={{ color }}>{value}</p>
     </div>
-    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '0d', color }}>{icon}</div>
+    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '0d', color }}>{icon}</div>
   </div>
 );
 
