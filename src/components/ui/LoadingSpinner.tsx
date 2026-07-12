@@ -1,9 +1,6 @@
-// 📁 src/components/ui/LoadingSpinner.tsx
-// ✅ SPINNER DE CHARGEMENT : CENTRAGE ABSOLU SANS VERROU DE CONTENEUR NI OMBRES SOMBRES
-
-import { cn } from '@/utils/helpers';
 import { useAuthStore } from '@/stores/authStore';
 import { getLogoByRole } from '@/lib/constants';
+import { cn } from '@/utils/helpers';
 
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -29,10 +26,10 @@ export const LoadingSpinner = ({
   };
 
   const textSizes = {
-    sm: 'text-xs sm:text-sm',
-    md: 'text-sm sm:text-base',
-    lg: 'text-base sm:text-lg',
-    xl: 'text-lg sm:text-xl',
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-lg',
+    xl: 'text-xl',
   };
 
   const borderWidth = {
@@ -43,10 +40,10 @@ export const LoadingSpinner = ({
   };
 
   const spinnerContent = (
-    <div className={cn('text-center flex flex-col items-center justify-center', className)}>
+    <div className={cn('text-center', className)}>
       
       {/* Spinner */}
-      <div className={cn('relative mx-auto mb-5 shrink-0', sizes[size])}>
+      <div className={cn('relative mx-auto mb-5', sizes[size])}>
         
         {/* Cercle animé */}
         <div
@@ -58,11 +55,12 @@ export const LoadingSpinner = ({
           }}
         />
 
-        {/* 💎 Cercle interne premium épuré sans ombres */}
-        <div className="absolute inset-2 rounded-full bg-white flex items-center justify-center">
+        {/* 💎 Cercle interne premium */}
+        <div className="absolute inset-2 rounded-full bg-white shadow-inner flex items-center justify-center">
           
           {/* 🟢 Logo parfaitement circulaire */}
           <div className="w-3/4 h-3/4 rounded-full overflow-hidden flex items-center justify-center bg-white">
+            
             <img
               src={logoConfig.icon}
               alt="Santé Plus"
@@ -76,7 +74,7 @@ export const LoadingSpinner = ({
       {/* Texte */}
       {text && (
         <p
-          className={cn('font-bold tracking-wide mt-2', textSizes[size])}
+          className={cn('font-medium tracking-wide', textSizes[size])}
           style={{ color: 'var(--color-text, #2d2d2d)' }}
         >
           {text}
@@ -88,15 +86,12 @@ export const LoadingSpinner = ({
   if (fullScreen) {
     return (
       <div
-        className="fixed inset-0 z-[9999] w-screen h-screen flex items-center justify-center"
+        className="fixed inset-0 z-[9999] flex items-center justify-center"
         style={{
-          backgroundColor: '#f5f0e8', // 🟢 Utilisation de la couleur crème claire officielle pour le fond complet
+          background: 'var(--color-background, #f5f0e8)',
         }}
       >
-        {/* ✅ CENTRAGE ABSOLU PHYSIQUE (Garantit le centrage horizontal et vertical exact sur tous les mobiles) */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xs px-4">
-          {spinnerContent}
-        </div>
+        {spinnerContent}
       </div>
     );
   }
