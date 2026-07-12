@@ -1,37 +1,30 @@
 // 📁 frontend/src/features/admin/pages/AdminVisitValidationPage.tsx
+// ✅ PAGE VALIDATION VISITES : ALIGNEMENT DES CONTROLES H-11 ET BOUTONS ACTIONS FLEXIBLES MOBILE
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Clock,
-  MapPin,
   User,
   CheckCircle,
   XCircle,
   Eye,
   RefreshCw,
   Search,
-  Image,
-  Mic,
   Volume2,
   AlertCircle,
-  Filter,
   Loader2,
   UserPlus,
   Users,
   Shield,
-  Zap,
   CreditCard,
   Phone,
-  Mail,
   Star,
   Play,
   Check,
   X,
-  FileText,
   Clock as ClockIcon,
-  Award,
   Briefcase,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
@@ -208,19 +201,14 @@ const VisitDetailModal = ({
   const isExpired = visit.status === 'expire';
   const isRefused = visit.status === 'refusee';
   const isWaitingAidant = visit.status === 'en_attente_aidant';
-  const isPendingPayment = visit.status === 'attente_paiement';
 
-  // ✅ Récupérer le nom de l'aidant depuis différentes sources
   const getAidantDisplayName = () => {
-    // 1. Si aidant est présent et a un user
     if (visit.aidant?.user?.full_name) {
       return visit.aidant.user.full_name;
     }
-    // 2. Si aidant a un full_name directement
     if (visit.aidant && 'full_name' in visit.aidant) {
       return (visit.aidant as any).full_name;
     }
-    // 3. Si un aidant a été sélectionné dans le wizard
     if (visit.metadata?.selected_aidant) {
       return `Aidant sélectionné (${visit.metadata.selected_aidant.substring(0, 8)}...)`;
     }
@@ -253,9 +241,7 @@ const VisitDetailModal = ({
     >
       <div className="space-y-6 pb-4 max-w-3xl mx-auto">
         
-        {/* ============================================================
-        EN-TÊTE AVEC STATUT
-        ============================================================ */}
+        {/* EN-TÊTE AVEC STATUT */}
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xl font-bold" style={{ color: colors.text }}>
@@ -277,9 +263,7 @@ const VisitDetailModal = ({
           </span>
         </div>
 
-        {/* ============================================================
-        GRILLE D'INFORMATIONS
-        ============================================================ */}
+        {/* GRILLE D'INFORMATIONS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <InfoItem
             icon={<Calendar size={16} />}
@@ -307,16 +291,14 @@ const VisitDetailModal = ({
           />
         </div>
 
-        {/* ============================================================
-        AIDANT - AVEC NOM CORRECT
-        ============================================================ */}
+        {/* AIDANT */}
         <div className="p-4 rounded-2xl border" style={{ borderColor: colors.border }}>
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
               style={{ background: getAidantColor() }}
             >
-              {getAidantDisplayName().charAt(0) || 'A'}
+              {getAidantDisplayName().charAt(0).toUpperCase() || 'A'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm" style={{ color: colors.text }}>
@@ -338,28 +320,12 @@ const VisitDetailModal = ({
                     </span>
                   </>
                 )}
-                {visit.metadata?.selected_aidant && !visit.aidant && (
-                  <span className="text-yellow-600 text-[10px]">
-                    ⏳ En attente d'assignation
-                  </span>
-                )}
               </div>
             </div>
-            {visit.aidant?.user?.phone && (
-              <a
-                href={`tel:${visit.aidant.user.phone}`}
-                className="p-2 rounded-lg hover:bg-gray-100 transition shrink-0"
-                style={{ color: colors.primary }}
-              >
-                <Phone size={16} />
-              </a>
-            )}
           </div>
         </div>
 
-        {/* ============================================================
-        HORAIRES DE LA VISITE
-        ============================================================ */}
+        {/* HORAIRES DE LA VISITE */}
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 rounded-xl border" style={{ borderColor: colors.border }}>
             <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '40' }}>
@@ -379,9 +345,7 @@ const VisitDetailModal = ({
           </div>
         </div>
 
-        {/* ============================================================
-        ACTIONS RÉALISÉES
-        ============================================================ */}
+        {/* ACTIONS RÉALISÉES */}
         {visit.actions && visit.actions.length > 0 && (
           <div>
             <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.text + '40' }}>
@@ -401,9 +365,7 @@ const VisitDetailModal = ({
           </div>
         )}
 
-        {/* ============================================================
-        NOTES / RAPPORT
-        ============================================================ */}
+        {/* NOTES / RAPPORT */}
         {(visit.notes || visit.report) && (
           <div className="p-4 rounded-2xl border" style={{ borderColor: colors.border, background: colors.primary + '04' }}>
             <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: colors.text + '40' }}>
@@ -415,9 +377,7 @@ const VisitDetailModal = ({
           </div>
         )}
 
-        {/* ============================================================
-        PHOTOS
-        ============================================================ */}
+        {/* PHOTOS */}
         {hasPhotos && (
           <div>
             <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.text + '40' }}>
@@ -446,20 +406,11 @@ const VisitDetailModal = ({
                   )}
                 </div>
               ))}
-              {visit.photos!.length > 6 && (
-                <div className="aspect-square rounded-xl border flex items-center justify-center" style={{ borderColor: colors.border }}>
-                  <span className="text-sm font-bold" style={{ color: colors.text + '40' }}>
-                    +{visit.photos!.length - 6}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         )}
 
-        {/* ============================================================
-        AUDIO
-        ============================================================ */}
+        {/* AUDIO */}
         {hasAudio && (
           <div>
             <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.text + '40' }}>
@@ -475,12 +426,8 @@ const VisitDetailModal = ({
           </div>
         )}
 
-        {/* ============================================================
-        ACTIONS SELON LE STATUT
-        ============================================================ */}
+        {/* ACTIONS SELON LE STATUT */}
         <div className="flex flex-wrap gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
-          
-          {/* ✅ VISITE TERMINÉE : Valider ou Refuser */}
           {isTerminee && (
             <>
               <div className="w-full">
@@ -513,7 +460,6 @@ const VisitDetailModal = ({
             </>
           )}
 
-          {/* ✅ VISITE EN ATTENTE D'AIDANT */}
           {isWaitingAidant && (
             <div className="w-full space-y-3">
               <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 flex items-start gap-3">
@@ -531,7 +477,7 @@ const VisitDetailModal = ({
                 <button
                   onClick={() => {
                     onClose();
-                    // La fonction d'assignation sera gérée par le parent
+                    onReassign(visit.id);
                   }}
                   className="flex-1 py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2"
                   style={{ background: '#FF5722' }}
@@ -543,43 +489,11 @@ const VisitDetailModal = ({
             </div>
           )}
 
-          {/* ✅ VISITE EXPIRÉE OU REFUSÉE : Réassigner */}
-          {(isExpired || isRefused) && (
-            <div className="w-full space-y-3">
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
-                <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-bold text-red-700">
-                    {isExpired ? '⏰ Visite expirée' : '❌ Visite refusée'}
-                  </p>
-                  {visit.metadata?.rejection_reason && (
-                    <p className="text-xs text-red-600">Motif : {visit.metadata.rejection_reason}</p>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => onReassign(visit.id)}
-                disabled={isProcessing}
-                className="w-full py-2.5 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2"
-                style={{ background: '#FF5722' }}
-              >
-                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
-                Réassigner
-              </button>
-            </div>
-          )}
-
-          {/* ✅ DÉJÀ VALIDÉE */}
           {visit.status === 'validee' && (
             <div className="w-full p-3 rounded-xl bg-green-50 border border-green-200 flex items-center gap-3">
               <CheckCircle size={20} className="text-green-500" />
               <div>
                 <p className="text-sm font-bold text-green-700">✅ Visite déjà validée</p>
-                {visit.metadata?.validated_at && (
-                  <p className="text-xs text-green-600">
-                    Validée le {formatDate(visit.metadata.validated_at)}
-                  </p>
-                )}
               </div>
             </div>
           )}
@@ -588,10 +502,6 @@ const VisitDetailModal = ({
     </ModalFullScreen>
   );
 };
-
-// ============================================================
-// INFO ITEM
-// ============================================================
 
 interface InfoItemProps {
   icon: React.ReactNode;
@@ -614,14 +524,13 @@ const InfoItem = ({ icon, label, value, color }: InfoItemProps) => (
   </div>
 );
 
-// ============================================================
+// =============================================
 // COMPOSANT PRINCIPAL
-// ============================================================
+// =============================================
 
 const AdminVisitValidationPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  const { getCategoryLabel, isAdminOrCoordinator } = useTerminology();
   const { fetchVisits } = useVisitStore();
 
   const [visits, setVisits] = useState<VisitToValidate[]>([]);
@@ -634,7 +543,6 @@ const AdminVisitValidationPage = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [validationComment, setValidationComment] = useState('');
 
-  // ✅ États pour l'assignation d'aidant
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showWizardModal, setShowWizardModal] = useState(false);
   const [selectedVisitForAssign, setSelectedVisitForAssign] = useState<VisitToValidate | null>(null);
@@ -776,13 +684,11 @@ const AdminVisitValidationPage = () => {
     return config?.icon || <AlertCircle size={14} />;
   };
 
-  // ✅ HANDLER: Ouvrir les détails
   const handleViewDetails = (visit: VisitToValidate) => {
     setSelectedVisit(visit);
     setShowDetailModal(true);
   };
 
-  // ✅ HANDLER: Valider une visite
   const handleValidate = async (visitId: string) => {
     setIsProcessing(true);
     try {
@@ -810,7 +716,6 @@ const AdminVisitValidationPage = () => {
     }
   };
 
-  // ✅ HANDLER: Refuser une visite
   const handleReject = async (visitId: string) => {
     const reason = validationComment || 'Rapport non conforme';
     setIsProcessing(true);
@@ -839,52 +744,13 @@ const AdminVisitValidationPage = () => {
     }
   };
 
-  // ✅ HANDLER: Réassigner une visite
   const handleReassign = async (visitId: string) => {
-    const newAidantId = prompt('ID du nouvel aidant :');
-    if (!newAidantId) return;
-
-    setIsProcessing(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const response = await fetch(`${API_URL}/visits/${visitId}/reassign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionData.session?.access_token}`,
-        },
-        body: JSON.stringify({ 
-          aidant_id: newAidantId, 
-          assignment_type: 'ponctuelle' 
-        }),
-      });
-      if (!response.ok) throw new Error('Erreur de réassignation');
-      
-      toast.success('✅ Visite réassignée');
-      setShowDetailModal(false);
-      setSelectedVisit(null);
-      await fetchVisitsToValidate();
-      await fetchVisits();
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur de réassignation');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // ✅ HANDLER: Assigner un aidant
-  const handleAssignAidant = (visit: VisitToValidate) => {
-    setSelectedVisitForAssign(visit);
+    const targetVisit = visits.find(v => v.id === visitId);
+    if (!targetVisit) return;
+    setSelectedVisitForAssign(targetVisit);
     setShowAssignModal(true);
   };
 
-  // ✅ HANDLER: Ouvrir le wizard
-  const handleOpenWizard = (visit: VisitToValidate) => {
-    setSelectedVisitForAssign(visit);
-    setShowWizardModal(true);
-  };
-
-  // ✅ SUCCÈS DE L'ASSIGNATION
   const handleAssignSuccess = async () => {
     setShowAssignModal(false);
     setShowWizardModal(false);
@@ -894,7 +760,6 @@ const AdminVisitValidationPage = () => {
     toast.success('Aidant assigné avec succès');
   };
 
-  // ✅ Statistiques
   const stats = {
     total: visits.length,
     pending: visits.filter(v => v.status === 'terminee').length,
@@ -905,7 +770,6 @@ const AdminVisitValidationPage = () => {
     waitingAidant: visits.filter(v => v.status === 'en_attente_aidant').length,
   };
 
-  // ✅ FILTRES
   const filterOptions = [
     { value: 'all', label: '📋 Toutes', count: stats.total },
     { value: 'terminee', label: '⏳ En attente', count: stats.pending },
@@ -915,7 +779,6 @@ const AdminVisitValidationPage = () => {
     { value: 'en_attente_aidant', label: '🦸 En attente aidant', count: stats.waitingAidant },
   ];
 
-  // ✅ Fonction pour obtenir le nom de l'aidant
   const getAidantName = (visit: VisitToValidate) => {
     if (visit.aidant?.user?.full_name) {
       return visit.aidant.user.full_name;
@@ -926,7 +789,6 @@ const AdminVisitValidationPage = () => {
     return 'Non assigné';
   };
 
-  // ✅ Fonction pour savoir si un aidant est assigné
   const isAidantAssigned = (visit: VisitToValidate) => {
     return !!visit.aidant_id || !!visit.aidant;
   };
@@ -940,18 +802,18 @@ const AdminVisitValidationPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       {/* HEADER */}
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
       >
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
               📋 Rapports et validations
             </h1>
-            <p className="text-xs" style={{ color: colors.textLight }}>
+            <p className="text-xs font-semibold" style={{ color: colors.textLight }}>
               {stats.pending} en attente • {stats.expired} expirées • {stats.refused} refusées
               {stats.waitingAidant > 0 && (
                 <span className="ml-2 text-orange-500 font-bold">
@@ -962,14 +824,14 @@ const AdminVisitValidationPage = () => {
           </div>
           <button
             onClick={fetchVisitsToValidate}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 shrink-0 self-start sm:self-center"
+            className="h-11 px-4 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-center"
             style={{ borderColor: colors.border, color: colors.text }}
           >
             <RefreshCw size={14} /> Actualiser
           </button>
         </div>
 
-        {/* BANDEAUX D'ALERTE */}
+        {/* ALERTE */}
         {stats.waitingAidant > 0 && (
           <div className="relative z-10 mt-4 flex flex-wrap gap-2">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
@@ -984,53 +846,39 @@ const AdminVisitValidationPage = () => {
             </div>
           </div>
         )}
-
-        {(stats.expired > 0 || stats.refused > 0) && (
-          <div className="relative z-10 mt-2 flex flex-wrap gap-2">
-            {stats.expired > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
-                <AlertCircle size={14} />
-                {stats.expired} visite(s) expirée(s) - Réassignation nécessaire
-              </div>
-            )}
-            {stats.refused > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
-                <XCircle size={14} />
-                {stats.refused} visite(s) refusée(s) - Réassignation nécessaire
-              </div>
-            )}
-          </div>
-        )}
       </section>
 
-      {/* STATS COMPACTES */}
-      <section className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+      {/* METRIQUES */}
+      <section className="grid grid-cols-2 md:grid-cols-6 gap-2.5">
         <CompactStat label="Total" value={stats.total} color={colors.primary} />
         <CompactStat label="En attente" value={stats.pending} color="#f59e0b" />
         <CompactStat label="Validées" value={stats.validated} color="#10b981" />
         <CompactStat label="Expirées" value={stats.expired} color="#ef4444" />
         <CompactStat label="Refusées" value={stats.refused} color="#ef4444" />
         <CompactStat 
-          label="🦸 En attente aidant" 
+          label="🦸 En attente" 
           value={stats.waitingAidant} 
           color="#FF5722"
           className={stats.waitingAidant > 0 ? 'animate-pulse' : ''}
         />
       </section>
 
-      {/* BARRE DE RECHERCHE */}
-      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
-        <input
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Rechercher par patient ou aidant..."
-          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
-        />
+      {/* RECHERCHE & FILTRES */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher par patient ou aidant..."
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            style={{ borderColor: colors.border, color: colors.text }}
+          />
+        </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as any)}
-          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
           style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
         >
           {filterOptions.map((opt) => (
@@ -1044,7 +892,7 @@ const AdminVisitValidationPage = () => {
       {/* LISTE DES VISITES */}
       <section className="space-y-3">
         {filteredVisits.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center text-gray-400">
+          <div className="bg-white rounded-3xl p-12 text-center text-gray-400 text-xs font-medium border">
             {searchTerm || filterStatus !== 'all' 
               ? 'Aucune visite ne correspond aux critères' 
               : 'Aucune visite en attente de traitement'}
@@ -1054,7 +902,6 @@ const AdminVisitValidationPage = () => {
             const isWaitingAidant = visit.status === 'en_attente_aidant';
             const isExpired = visit.status === 'expire';
             const isRefused = visit.status === 'refusee';
-            const isTerminee = visit.status === 'terminee';
             const isPendingPayment = visit.status === 'attente_paiement';
             const aidantName = getAidantName(visit);
             const isAssigned = isAidantAssigned(visit);
@@ -1062,7 +909,7 @@ const AdminVisitValidationPage = () => {
             return (
               <div
                 key={visit.id}
-                className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] cursor-pointer transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 border"
+                className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-md cursor-pointer transition flex flex-col sm:flex-row sm:items-center justify-between gap-4 border"
                 style={{ 
                   borderColor: isWaitingAidant ? '#FF5722' : getStatusColor(visit.status),
                   borderLeftWidth: '4px',
@@ -1070,86 +917,65 @@ const AdminVisitValidationPage = () => {
                 }}
                 onClick={() => handleViewDetails(visit)}
               >
-                <div className="min-w-0 space-y-1">
+                <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-sm" style={{ color: colors.text }}>
-                      {visit.patient?.first_name} {visit.patient?.last_name}
+                    <p className="font-bold text-xs sm:text-sm text-gray-800">
+                      {visit.patient?.first_name || visit.target_name} {visit.patient?.last_name || ''}
                     </p>
                     <span className="text-[10px] font-semibold" style={{ color: getStatusColor(visit.status) }}>
                       {getStatusLabel(visit.status)}
                     </span>
                     {isWaitingAidant && (
-                      <span className="text-[10px] font-semibold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                      <span className="text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-orange-200">
                         <UserPlus size={10} />
                         En attente
                       </span>
                     )}
                     {isExpired && (
-                      <span className="text-[10px] font-semibold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                      <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-red-200 animate-pulse">
                         <AlertCircle size={10} />
-                        ⚠️ Expirée
+                        Expirée
                       </span>
                     )}
                     {isPendingPayment && (
-                      <span className="text-[10px] font-semibold bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                      <span className="text-[10px] font-bold bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-purple-200">
                         <CreditCard size={10} />
                         En attente paiement
                       </span>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-3 text-[10px] text-gray-400 flex-wrap">
+                  <div className="flex items-center gap-2.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider flex-wrap mt-0.5">
                     <span>📅 {formatDate(visit.scheduled_date)}</span>
-                    <span>📍 {visit.patient?.address || 'Adresse non renseignée'}</span>
-                    <span className="flex items-center gap-0.5">
-                      <User size={11} />
-                      <span className={isAssigned ? 'text-green-600 font-medium' : 'text-red-500 font-medium'}>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="truncate max-w-[200px]">📍 {visit.patient?.address || 'Adresse non renseignée'}</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      <User size={12} className="text-gray-400" />
+                      <span className={isAssigned ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>
                         {aidantName}
                       </span>
-                      {!isAssigned && (
-                        <span className="text-red-400 text-[8px]">(non assigné)</span>
-                      )}
                     </span>
-                    {visit.metadata?.duration_minutes && (
-                      <span>⏱️ {visit.metadata.duration_minutes} min</span>
-                    )}
-                    {isWaitingAidant && visit.metadata?.waiting_for_aidant_since && (
-                      <span className="text-orange-500">
-                        ⏳ En attente depuis {formatDate(visit.metadata.waiting_for_aidant_since)}
-                      </span>
-                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  {/* BOUTON ASSIGNER */}
+                <div className="flex items-center gap-2 shrink-0 flex-wrap w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100">
                   {isWaitingAidant && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleAssignAidant(visit); }}
-                        className="px-3 py-1.5 rounded-xl text-white text-xs font-bold flex items-center gap-1"
-                        style={{ background: '#FF5722' }}
-                      >
-                        <UserPlus size={12} />
-                        Assigner
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleOpenWizard(visit); }}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center gap-1"
-                        style={{ borderColor: colors.border, color: colors.text }}
-                      >
-                        <Users size={12} />
-                        Wizard
-                      </button>
-                    </>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleReassign(visit.id); }}
+                      className="flex-1 sm:flex-initial h-9 px-4 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                      style={{ background: '#FF5722' }}
+                    >
+                      <UserPlus size={12} />
+                      Assigner
+                    </button>
                   )}
 
-                  {/* BOUTON RÉASSIGNER */}
                   {(isExpired || isRefused) && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleReassign(visit.id); }}
                       disabled={isProcessing}
-                      className="px-3 py-1.5 rounded-xl text-white text-xs font-bold flex items-center gap-1"
+                      className="flex-1 sm:flex-initial h-9 px-4 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
                       style={{ background: '#FF5722' }}
                     >
                       <Shield size={12} />
@@ -1157,10 +983,9 @@ const AdminVisitValidationPage = () => {
                     </button>
                   )}
 
-                  {/* BOUTON DÉTAILS */}
                   <button
                     onClick={(e) => { e.stopPropagation(); handleViewDetails(visit); }}
-                    className="px-3 py-1.5 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center gap-1"
+                    className="flex-1 sm:flex-initial h-9 px-4 rounded-xl text-xs font-bold border bg-gray-50/50 hover:bg-gray-100 flex items-center justify-center gap-1.5 transition-colors"
                     style={{ borderColor: colors.border, color: colors.text }}
                   >
                     <Eye size={12} />
@@ -1173,9 +998,7 @@ const AdminVisitValidationPage = () => {
         )}
       </section>
 
-      {/* ============================================================
-      MODAL DÉTAILS COMPLETS
-      ============================================================ */}
+      {/* MODAL DÉTAILS */}
       {showDetailModal && selectedVisit && (
         <VisitDetailModal
           visit={selectedVisit}
@@ -1192,9 +1015,7 @@ const AdminVisitValidationPage = () => {
         />
       )}
 
-      {/* ============================================================
-      MODAL D'ASSIGNATION D'AIDANT
-      ============================================================ */}
+      {/* MODAL D'ASSIGNATION D'AIDANT */}
       {showAssignModal && selectedVisitForAssign && (
         <AssignAidantModal
           isOpen={showAssignModal}
@@ -1210,73 +1031,12 @@ const AdminVisitValidationPage = () => {
           currentAidantId={selectedVisitForAssign.aidant_id}
           colors={colors}
           allowForce={true}
-        />
-      )}
-
-      {/* ============================================================
-      MODAL WIZARD
-      ============================================================ */}
-      {showWizardModal && selectedVisitForAssign && (
-        <VisitWizardModal
-          isOpen={showWizardModal}
-          onClose={() => {
-            setShowWizardModal(false);
-            setSelectedVisitForAssign(null);
-          }}
-          onSuccess={async (data) => {
-            try {
-              const { data: sessionData } = await supabase.auth.getSession();
-              const token = sessionData?.session?.access_token;
-
-              if (!token) {
-                toast.error('Session expirée');
-                return;
-              }
-
-              const response = await fetch(`${API_URL}/visits/admin/assign-aidant`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  visitId: selectedVisitForAssign.id,
-                  aidantId: data.aidantId,
-                  assignmentType: data.assignmentType || 'permanente',
-                  force: data.wizardChoice === 'force' || false,
-                }),
-              });
-
-              const result = await response.json();
-
-              if (!response.ok) {
-                throw new Error(result.error || 'Erreur lors de l\'assignation');
-              }
-
-              toast.success(result.message || 'Aidant assigné avec succès');
-              await handleAssignSuccess();
-            } catch (error: any) {
-              console.error('❌ Erreur assignation:', error);
-              toast.error(error.message || 'Erreur lors de l\'assignation');
-            }
-          }}
-          targetType={selectedVisitForAssign.patient ? 'patient' : 'personal_account'}
-          targetId={selectedVisitForAssign.patient?.id || selectedVisitForAssign.user_id}
-          targetName={selectedVisitForAssign.target_name || 
-            `${selectedVisitForAssign.patient?.first_name || ''} ${selectedVisitForAssign.patient?.last_name || ''}`.trim() || 'Visite'}
-          familyId={selectedVisitForAssign.user_id}
-          scheduledDate={selectedVisitForAssign.scheduled_date}
-          scheduledTime={selectedVisitForAssign.scheduled_time}
-          colors={colors}
+          isAdmin={true}
         />
       )}
     </div>
   );
 };
-
-// ============================================================
-// COMPACT STAT
-// ============================================================
 
 interface CompactStatProps {
   label: string;
@@ -1286,9 +1046,11 @@ interface CompactStatProps {
 }
 
 const CompactStat = ({ label, value, color, className = '' }: CompactStatProps) => (
-  <div className={`bg-white rounded-xl p-2.5 shadow-sm border border-black/5 ${className}`}>
-    <p className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-    <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
+  <div className={`bg-white rounded-xl p-2.5 shadow-sm border border-black/5 flex items-center justify-between gap-2 ${className}`}>
+    <div className="space-y-0.5 min-w-0 pr-1">
+      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider truncate">{label}</p>
+      <p className="text-sm sm:text-base font-black truncate" style={{ color }}>{value}</p>
+    </div>
   </div>
 );
 
