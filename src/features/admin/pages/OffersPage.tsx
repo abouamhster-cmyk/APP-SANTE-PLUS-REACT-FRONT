@@ -1,20 +1,13 @@
 // 📁 src/features/admin/pages/OffersPage.tsx
- 
+// ✅ PAGE CATALOGUE DES OFFRES : GRILLES FORMULAIRES ADAPTATIVES ET BOUTONS ACTIONS FLUIDES SUR MOBILE
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
   Package,
   Plus,
   Search,
-  Filter,
   RefreshCw,
-  Edit,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  Users,
-  Baby,
-  Star,
 } from 'lucide-react';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
@@ -107,54 +100,58 @@ const OffersPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-5 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       {/* Header */}
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
       >
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
               📦 Catalogue des formules
             </h1>
-            <p className="text-xs" style={{ color: colors.textLight }}>
+            <p className="text-xs font-semibold" style={{ color: colors.textLight }}>
               Gestion des offres d'accompagnement proposées au public
             </p>
           </div>
-          <div className="flex gap-2.5 shrink-0 self-start sm:self-center">
+          <div className="flex gap-2 w-full sm:w-auto shrink-0 self-start sm:self-center">
             <button
               onClick={fetchOffers}
-              className="px-3 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50"
+              className="flex-1 sm:flex-initial h-11 px-4 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center justify-center gap-1.5"
               style={{ borderColor: colors.border, color: colors.text }}
             >
-              <RefreshCw size={12} />
+              <RefreshCw size={14} />
+              Actualiser
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-3.5 py-2 rounded-xl text-white text-xs font-bold transition-opacity hover:opacity-95 flex items-center gap-1.5 shadow-sm"
+              className="flex-[2] sm:flex-initial h-11 px-5 rounded-xl text-white font-extrabold text-xs transition-opacity hover:opacity-95 flex items-center justify-center gap-1.5 shadow-sm"
               style={{ background: colors.primary }}
             >
-              <Plus size={14} /> Nouvelle offre
+              <Plus size={15} strokeWidth={2.5} /> Nouvelle offre
             </button>
           </div>
         </div>
       </section>
 
       {/* Barre de Recherche et Filtres */}
-      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
-        <input
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Rechercher une offre par son nom..."
-          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
-        />
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher une offre par son nom..."
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            style={{ color: colors.text }}
+          />
+        </div>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
+          style={{ borderColor: colors.border, color: colors.text }}
         >
           <option value="all">Toutes les catégories</option>
           <option value="senior">👴 Senior</option>
@@ -166,7 +163,7 @@ const OffersPage = () => {
       {/* Grille de cartes d'offres épurée */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredOffers.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-gray-400">Aucune formule trouvée</div>
+          <div className="col-span-full py-12 text-center text-gray-400 text-xs font-medium">Aucune formule trouvée</div>
         ) : (
           filteredOffers.map((offer) => (
             <OfferCard
@@ -212,21 +209,21 @@ const OffersPage = () => {
 const OfferCard = ({ offer, colors, onDelete, onEdit }: { offer: Offer, colors: any, onDelete: (id: string) => void, onEdit: () => void }) => {
   const categoryColor = getCategoryColor(offer.category);
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition duration-300 flex flex-col justify-between border" style={{ borderColor: colors.border }}>
+    <div className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition duration-300 flex flex-col justify-between border" style={{ borderColor: colors.border }}>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: categoryColor + '10', color: categoryColor }}>
             {getCategoryLabel(offer.category)}
           </span>
-          <span className="text-[10px] text-gray-400">#{offer.display_order}</span>
+          <span className="text-[10px] text-gray-400 font-bold">#{offer.display_order}</span>
         </div>
-        <h3 className="font-bold text-xs" style={{ color: colors.text }}>{offer.name}</h3>
+        <h3 className="font-bold text-xs sm:text-sm text-gray-800">{offer.name}</h3>
         <p className="text-lg font-black" style={{ color: colors.primary }}>{offer.price ? formatCurrency(offer.price) : 'Sur devis'}</p>
       </div>
 
-      <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: colors.border }}>
-        <button onClick={onEdit} className="flex-1 py-1.5 rounded-lg text-[11px] font-bold border hover:bg-gray-50" style={{ borderColor: colors.border, color: colors.text }}>Modifier</button>
-        <button onClick={() => onDelete(offer.id)} className="px-3 rounded-lg border border-red-100 text-red-500 hover:bg-red-50 text-[11px] font-bold">Supprimer</button>
+      <div className="flex gap-2 mt-5 pt-3 border-t" style={{ borderColor: colors.border }}>
+        <button onClick={onEdit} className="flex-1 py-2 rounded-xl text-xs font-bold border hover:bg-gray-50 transition-colors" style={{ borderColor: colors.border, color: colors.text }}>Modifier</button>
+        <button onClick={() => onDelete(offer.id)} className="px-3 rounded-xl border border-red-100 text-red-500 hover:bg-red-50 transition-colors text-xs font-bold">Supprimer</button>
       </div>
     </div>
   );
@@ -315,28 +312,29 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: OfferFormMo
       isLoading={isLoading}
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 text-xs">
+        {/* ✅ CORRECTIF RESPONSIVE : Remplacement de grid-cols-2 par grid-cols-1 sm:grid-cols-2 pour l'affichage mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
-            <label className="block font-semibold mb-1" style={{ color: colors.text }}>Nom *</label>
-            <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 rounded-xl border outline-none" style={{ borderColor: colors.border }} required />
+            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Nom *</label>
+            <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50" style={{ borderColor: colors.border }} required />
           </div>
           <div>
-            <label className="block font-semibold mb-1" style={{ color: colors.text }}>Badge</label>
-            <input type="text" value={formData.badge} onChange={(e) => setFormData({ ...formData, badge: e.target.value })} placeholder="⭐ Populaire" className="w-full px-3 py-2 rounded-xl border outline-none" style={{ borderColor: colors.border }} />
+            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Badge</label>
+            <input type="text" value={formData.badge} onChange={(e) => setFormData({ ...formData, badge: e.target.value })} placeholder="⭐ Populaire" className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50" style={{ borderColor: colors.border }} />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
-            <label className="block font-semibold mb-1" style={{ color: colors.text }}>Catégorie *</label>
-            <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as any })} className="w-full px-3 py-2 rounded-xl border outline-none" style={{ borderColor: colors.border }}>
+            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Catégorie *</label>
+            <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as any })} className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50 cursor-pointer" style={{ borderColor: colors.border }}>
               <option value="senior">Senior 👴</option>
               <option value="maman_bebe">Maman & Bébé 👶</option>
             </select>
           </div>
           <div>
-            <label className="block font-semibold mb-1" style={{ color: colors.text }}>Périodicité *</label>
-            <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as any })} className="w-full px-3 py-2 rounded-xl border outline-none" style={{ borderColor: colors.border }}>
+            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Périodicité *</label>
+            <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as any })} className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50 cursor-pointer" style={{ borderColor: colors.border }}>
               <option value="mensuelle">Mensuelle 📅</option>
               <option value="ponctuelle">Ponctuelle ⚡</option>
             </select>
@@ -344,8 +342,8 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: OfferFormMo
         </div>
 
         <div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: colors.text }}>Tarif (FCFA) *</label>
-          <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="w-full px-3 py-2 rounded-xl border outline-none text-xs" style={{ borderColor: colors.border }} required />
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Tarif (FCFA) *</label>
+          <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50" style={{ borderColor: colors.border }} required />
         </div>
       </div>
     </ModalWithForm>
