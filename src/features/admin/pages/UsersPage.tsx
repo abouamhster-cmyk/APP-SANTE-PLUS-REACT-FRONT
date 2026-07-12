@@ -1,5 +1,6 @@
 // 📁 src/features/admin/pages/UsersPage.tsx
- 
+// ✅ PAGE UTILISATEURS : OPTIMISATION RESPONSIVE SANS COMPRESSION DES DETAILS ET DES ACTIONS
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -8,13 +9,12 @@ import {
   UserX,
   Search,
   Filter,
-  RefreshCw,
   Eye,
   Edit,
   Trash2,
   Shield,
-  Award,
-  X,
+  XCircle,
+  Loader2,
 } from 'lucide-react';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
@@ -23,6 +23,7 @@ import { Modal, ModalActions } from '@/components/ui/Modal';
 import { InfoRow } from '@/components/ui/InfoRow';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -66,7 +67,7 @@ const getStatusLabel = (isActive: boolean): string => {
 };
 
 const roleOptions = [
-  { value: 'all', label: 'Tous' },
+  { value: 'all', label: 'Tous les rôles' },
   { value: 'family', label: '👨‍👩‍👦 Famille' },
   { value: 'aidant', label: '🦸 Aidant' },
   { value: 'coordinator', label: '👔 Coordinateur' },
@@ -88,7 +89,6 @@ const UsersPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ DÉCLARER fetchUsers D'ABORD
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
@@ -108,7 +108,6 @@ const UsersPage = () => {
     }
   };
 
-  // ✅ UTILISER le hook APRÈS la déclaration
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: fetchUsers,
     onError: (error) => toast.error('Erreur lors du rafraîchissement des utilisateurs'),
@@ -240,9 +239,10 @@ const UsersPage = () => {
   }
 
   return (
-    <div className="space-y-4 pb-24 sm:pb-10">
+    <div className="space-y-4 pb-24 sm:pb-10 px-4 sm:px-0">
+      {/* HEADER */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="min-w-0">
             <div
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
@@ -259,7 +259,7 @@ const UsersPage = () => {
               👥 Utilisateurs
             </h1>
 
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+            <p className="text-xs mt-0.5 text-gray-400 font-semibold">
               {stats.total} utilisateur{stats.total > 1 ? 's' : ''} au total
             </p>
           </div>
@@ -272,7 +272,8 @@ const UsersPage = () => {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* COMPACT STATS */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <CompactStat
           icon={<Users size={14} />}
           label="Total"
@@ -299,61 +300,60 @@ const UsersPage = () => {
         />
       </section>
 
+      {/* BARRE DE CONTRÔLES H-11 COHÉRENTE */}
       <section className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row gap-3 w-full">
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher par nom, email..."
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none"
-              style={{ borderColor: colors.border, color: colors.text }}
+              className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-gray-50/50 border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+              style={{ color: colors.text }}
             />
           </div>
 
-          <div className="relative min-w-[120px]">
-            <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border bg-gray-50 outline-none appearance-none"
-              style={{ borderColor: colors.border, color: colors.text }}
-            >
-              {roleOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
+            style={{ color: colors.text }}
+          >
+            {roleOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       </section>
 
+      {/* LISTE DES UTILISATEURS ADAPTATIVE */}
       {filteredUsers.length > 0 ? (
-        <section className="space-y-2">
+        <section className="space-y-2.5">
           {filteredUsers.map((user) => (
             <div
               key={user.id}
-              className="bg-white rounded-xl p-3 shadow-sm border border-black/5 hover:shadow-md transition"
+              className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100/50 hover:shadow-md transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black shrink-0 shadow-inner"
                   style={{ background: colors.primary }}
                 >
                   {user.full_name?.charAt(0) || 'U'}
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate" style={{ color: colors.text }}>
+                <div className="min-w-0 flex-1">
+                  <p className="font-extrabold text-sm text-gray-800 dark:text-gray-100 truncate">
                     {user.full_name || 'Utilisateur inconnu'}
                   </p>
-                  <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: colors.text + '50' }}>
-                    <span>{user.email || 'Email inconnu'}</span>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider flex-wrap mt-0.5">
+                    <span className="truncate max-w-[130px] sm:max-w-none">{user.email || 'Email inconnu'}</span>
                     <span>•</span>
                     <span
-                      className="px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                      className="px-2 py-0.5 rounded-full text-[9px] font-black"
                       style={{
                         background: getRoleColor(user.role) + '15',
                         color: getRoleColor(user.role),
@@ -367,61 +367,68 @@ const UsersPage = () => {
                     </span>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                    style={{ color: colors.primary }}
-                    onClick={() => handleViewDetails(user)}
-                  >
-                    <Eye size={16} />
-                  </button>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                    style={{ color: '#2196F3' }}
-                    onClick={() => handleEditUser(user)}
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition"
-                    style={{ color: user.is_active ? '#F44336' : '#4CAF50' }}
-                    onClick={() => handleToggleStatus(user.id, user.is_active)}
-                  >
-                    {user.is_active ? <UserX size={16} /> : <UserCheck size={16} />}
-                  </button>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-red-50 transition"
-                    style={{ color: '#F44336' }}
-                    onClick={() => handleDeleteUser(user.id)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+              {/* ACTIONS PANEL RESPONSIVE : Séparateur et boutons larges sur mobile */}
+              <div className="flex items-center justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 shrink-0">
+                <button
+                  onClick={() => handleViewDetails(user)}
+                  className="p-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors border border-gray-100"
+                  title="Détails"
+                >
+                  <Eye size={16} />
+                </button>
+                <button
+                  onClick={() => handleEditUser(user)}
+                  className="p-2 rounded-xl bg-blue-50/50 hover:bg-blue-100 text-blue-600 transition-colors border border-blue-100/50"
+                  title="Modifier le rôle"
+                >
+                  <Edit size={16} />
+                </button>
+                <button
+                  onClick={() => handleToggleStatus(user.id, user.is_active)}
+                  className={cn(
+                    "p-2 rounded-xl transition-colors border",
+                    user.is_active 
+                      ? "bg-red-50 hover:bg-red-100 text-red-500 border-red-100" 
+                      : "bg-green-50 hover:bg-green-100 text-green-600 border-green-100"
+                  )}
+                  title={user.is_active ? 'Désactiver' : 'Activer'}
+                >
+                  {user.is_active ? <UserX size={16} /> : <UserCheck size={16} />}
+                </button>
+                <button
+                  onClick={() => handleDeleteUser(user.id)}
+                  className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 border border-red-100 transition-colors"
+                  title="Supprimer"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             </div>
           ))}
         </section>
       ) : (
-        <section className="bg-white rounded-2xl p-6 text-center shadow-sm border border-black/5">
+        <section className="bg-white rounded-2xl p-8 text-center border border-gray-100 shadow-sm max-w-sm mx-auto flex flex-col items-center justify-center gap-3">
           <div
-            className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center mb-3"
-            style={{ background: colors.primary + '12', color: colors.primary }}
+            className="w-12 h-12 rounded-xl mx-auto flex items-center justify-center text-gray-300 bg-gray-50"
           >
             <Users size={24} />
           </div>
 
-          <h3 className="text-base font-bold" style={{ color: colors.text }}>
-            {searchTerm || roleFilter !== 'all'
-              ? 'Aucun utilisateur trouvé'
-              : 'Aucun utilisateur enregistré'}
-          </h3>
+          <div className="space-y-1">
+            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
+              {searchTerm || roleFilter !== 'all'
+                ? 'Aucun utilisateur trouvé'
+                : 'Aucun utilisateur enregistré'}
+            </h3>
 
-          <p className="text-xs mt-1 text-gray-500">
-            {searchTerm || roleFilter !== 'all'
-              ? 'Aucun utilisateur ne correspond à vos critères.'
-              : 'Aucun utilisateur n\'a encore été enregistré.'}
-          </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+              {searchTerm || roleFilter !== 'all'
+                ? 'Aucun utilisateur ne correspond à vos critères.'
+                : 'Aucun utilisateur n\'a encore été enregistré.'}
+            </p>
+          </div>
         </section>
       )}
 
