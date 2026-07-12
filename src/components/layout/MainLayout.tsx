@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-// ✅ MAIN LAYOUT : SALUTATIONS DYNAMIQUES ET EN-TÊTE INTELLIGENT (SCROLL-HIDE / SHOW-ON-SCROLL-UP)
+// ✅ MAIN LAYOUT : SALUTATIONS DYNAMIQUES ET HEADER STRICTEMENT COLLAPSABLE EN DEHORS DU TOP
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -37,7 +37,7 @@ import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { getLogoByRole } from '@/lib/constants';
-import { cn, getGreeting } from '@/utils/helpers'; // 🟢 Importation de getGreeting ajoutée
+import { cn, getGreeting } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 
@@ -59,9 +59,8 @@ const MainLayout = () => {
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // ✅ ÉTATS ET RÉFÉRENCES POUR LE HEADER FLOTTANT DYNAMIQUE (HIDE ON SCROLL DOWN / SHOW ON SCROLL UP)
+  // ✅ ÉTATS POUR LE HEADER FLOTTANT IMMERSIF (Affiché uniquement au sommet de la page)
   const [showHeader, setShowHeader] = useState(true);
-  const lastScrollY = useRef(0);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
@@ -71,28 +70,17 @@ const MainLayout = () => {
   const showDraftBadge = isFamily && draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
   // =============================================
-  // GESTION DU FILTRE DE SCROLL POUR LE HEADER
+  // GESTION DU SCROLL STRICT POUR LE HEADER
   // =============================================
   const handleScroll = useCallback(() => {
     const currentScrollY = window.scrollY;
 
-    // Si on est en haut de la page, le header reste affiché
-    if (currentScrollY <= 15) {
+    // ✅ CORRECTION : Le header n'apparaît désormais que si la personne est vraiment remontée tout en haut (seuil de 20px)
+    if (currentScrollY <= 20) {
       setShowHeader(true);
-      lastScrollY.current = currentScrollY;
-      return;
-    }
-
-    // Défilement vers le bas de plus de 5px -> Masquer le header
-    if (currentScrollY > lastScrollY.current + 5) {
+    } else {
       setShowHeader(false);
-    } 
-    // Défilement vers le haut de plus de 5px -> Réafficher le header
-    else if (currentScrollY < lastScrollY.current - 5) {
-      setShowHeader(true);
     }
-
-    lastScrollY.current = currentScrollY;
   }, []);
 
   useEffect(() => {
@@ -274,7 +262,7 @@ const MainLayout = () => {
       <div className="min-h-screen w-full md:pl-72">
         
         {/* ========================================== */}
-        {/* HEADER IMMERSIF AVEC MASQUAGE AU SCROLL */}
+        {/* HEADER IMMERSIF (MASQUAGE STRICT AU SCROLL) */}
         {/* ========================================== */}
         <header
           className={cn(
@@ -282,7 +270,7 @@ const MainLayout = () => {
             isMobile 
               ? "bg-transparent border-none px-4 py-3" 
               : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4",
-            // ✅ Masquage dynamique au scroll
+            // ✅ Masquage strict au défilement, réapparition uniquement au sommet (20px)
             showHeader ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
           )}
           style={{
@@ -319,7 +307,6 @@ const MainLayout = () => {
                     )}
                   </div>
                   <div className="min-w-0">
-                    {/* ✅ Affichage de la salutation dynamique */}
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">
                       {getGreeting()},
                     </p>
@@ -519,7 +506,6 @@ const SidebarContent = ({
           </div>
           
           <div className="flex-1 min-w-0">
-            {/* ✅ Affichage de la salutation en haut des détails du profil */}
             <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider leading-none mb-0.5">
               {getGreeting()}
             </p>
