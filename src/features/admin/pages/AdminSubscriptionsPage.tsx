@@ -1,25 +1,25 @@
 // 📁 src/features/admin/pages/AdminSubscriptionsPage.tsx
-//  - StatCardProps définie
+// ✅ PAGE ABONNEMENTS ADMIN : OPTIMISATION RESPONSIVE SANS COMPRESSION SUR MOBILES
 
 import { useEffect, useState } from 'react';
 import {
   Package,
   Search,
-  Filter,
-  RefreshCw,
-  Eye,
-  X,
   CheckCircle,
   XCircle,
   Clock,
   Calendar,
   DollarSign,
   AlertCircle,
+  X,
+  RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate, formatCurrency } from '@/utils/helpers';
+import { useTerminology } from '@/hooks/useTerminology';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 interface Subscription {
@@ -58,7 +58,6 @@ interface Subscription {
   updated_at: string;
 }
 
-// ✅ Interface StatCardProps
 interface StatCardProps {
   label: string;
   value: string | number;
@@ -90,18 +89,9 @@ const getStatusColor = (status: string): string => {
   return colors[status] || '#94a3b8';
 };
 
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'actif': return <CheckCircle size={14} className="text-green-500" />;
-    case 'en_attente': return <Clock size={14} className="text-yellow-500" />;
-    case 'expire': return <XCircle size={14} className="text-red-500" />;
-    case 'suspendu': return <AlertCircle size={14} className="text-yellow-500" />;
-    default: return <Clock size={14} className="text-gray-400" />;
-  }
-};
-
 const AdminSubscriptionsPage = () => {
   const { profile, role } = useAuthStore();
+  const { getCategoryLabel } = useTerminology();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -251,25 +241,25 @@ const AdminSubscriptionsPage = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-5 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       {/* Header */}
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
       >
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
               📋 Abonnements clients
             </h1>
-            <p className="text-xs" style={{ color: colors.textLight }}>
+            <p className="text-xs font-semibold" style={{ color: colors.textLight }}>
               Gestion des formules souscrites par les familles
             </p>
           </div>
           <button
             onClick={fetchSubscriptions}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50"
+            className="h-11 px-4 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-center"
             style={{ borderColor: colors.border, color: colors.text }}
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
@@ -278,29 +268,29 @@ const AdminSubscriptionsPage = () => {
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Package size={16} />} />
-        <StatCard label="Actifs" value={stats.active} color="#10b981" icon={<CheckCircle size={16} />} />
-        <StatCard label="En attente" value={stats.pending} color="#f59e0b" icon={<Clock size={16} />} />
-        <StatCard label="Expirés" value={stats.expired} color="#ef4444" icon={<XCircle size={16} />} />
-        <StatCard label="Revenus" value={formatCurrency(stats.totalRevenue)} color="#3b82f6" icon={<DollarSign size={16} />} />
+      {/* Stats Symmetrical grid layout */}
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <StatCard label="Total" value={stats.total} color={colors.primary} icon={<Package size={14} />} />
+        <StatCard label="Actifs" value={stats.active} color="#10b981" icon={<CheckCircle size={14} />} />
+        <StatCard label="En attente" value={stats.pending} color="#f59e0b" icon={<Clock size={14} />} />
+        <StatCard label="Expirés" value={stats.expired} color="#ef4444" icon={<XCircle size={14} />} />
+        <StatCard label="Revenus" value={formatCurrency(stats.totalRevenue)} color="#3b82f6" icon={<DollarSign size={14} />} className="col-span-2 md:col-span-1" />
       </section>
 
       {/* Filtres */}
-      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-3">
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Rechercher par client ou abonnement..."
-          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+          className="flex-1 h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 transition-all shadow-sm"
+          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
         />
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer transition-all"
           style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
         >
           <option value="all">Tous les statuts</option>
@@ -310,12 +300,12 @@ const AdminSubscriptionsPage = () => {
         </select>
       </section>
 
-      {/* Grille de cartes épurées */}
+      {/* Grille de cartes */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading ? (
-          <div className="col-span-full py-12 text-center"><RefreshCw size={24} className="animate-spin mx-auto text-gray-300" /></div>
+          <div className="col-span-full py-12 text-center"><Loader2 size={24} className="animate-spin mx-auto text-gray-300" /></div>
         ) : filteredSubscriptions.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-gray-400">Aucun abonnement enregistré</div>
+          <div className="col-span-full py-12 text-center text-gray-400 text-xs font-medium border rounded-2xl">Aucun abonnement enregistré</div>
         ) : (
           filteredSubscriptions.map((sub) => (
             <SubscriptionCard
@@ -336,6 +326,7 @@ const AdminSubscriptionsPage = () => {
           subscription={selectedSubscription}
           onClose={() => setShowDetailsModal(false)}
           colors={colors}
+          getCategoryLabel={getCategoryLabel}
         />
       )}
     </div>
@@ -343,7 +334,7 @@ const AdminSubscriptionsPage = () => {
 };
 
 // =============================================
-// SUBSCRIPTION CARD
+// SUBSCRIPTION CARD (RESPONSIVE)
 // =============================================
 
 const SubscriptionCard = ({
@@ -365,43 +356,43 @@ const SubscriptionCard = ({
 
   return (
     <div
-      className="bg-white rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.015)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.03)] transition duration-300 flex flex-col justify-between min-h-[220px] border"
+      className="bg-white rounded-2xl p-5 shadow-sm border flex flex-col justify-between min-h-[220px] transition duration-300 hover:shadow-md"
       style={{ borderColor: isActive ? `${colors.primary}20` : colors.border }}
     >
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="font-bold text-xs" style={{ color: colors.text }}>{subscription.offre?.name || 'Abonnement'}</h3>
-            <p className="text-[10px] text-gray-400">{subscription.user?.full_name || 'N/A'}</p>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-extrabold text-xs sm:text-sm text-gray-800 dark:text-gray-100 truncate">{subscription.offre?.name || 'Abonnement'}</h3>
+            <p className="text-[10px] sm:text-xs text-gray-400 font-semibold truncate mt-0.5">{subscription.user?.full_name || 'N/A'}</p>
           </div>
-          <span className="text-[10px] font-semibold shrink-0" style={{ color: statusColor }}>{getStatusLabel(subscription.status)}</span>
+          <span className="text-[10px] font-bold shrink-0 px-2 py-0.5 rounded-full" style={{ background: statusColor + '12', color: statusColor }}>{getStatusLabel(subscription.status)}</span>
         </div>
 
         <div className="flex items-baseline gap-1">
           <span className="text-lg font-black" style={{ color: colors.primary }}>{formatCurrency(subscription.offre?.price || 0)}</span>
-          <span className="text-[10px] text-gray-400">/{subscription.offre?.category || 'm'}</span>
+          <span className="text-[10px] text-gray-400 font-bold">/{subscription.offre?.category === 'maman_bebe' ? 'maman' : 'senior'}</span>
         </div>
 
         <div>
-          <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+          <div className="flex justify-between text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-wider">
             <span>Visites consommées</span>
             <span>{subscription.used_visits}/{subscription.total_visits}</span>
           </div>
-          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(progress, 100)}%`, background: colors.primary }} />
           </div>
         </div>
       </div>
 
-      <div className="flex gap-2 mt-4 pt-3 border-t" style={{ borderColor: colors.border }}>
-        <button onClick={onView} className="flex-1 py-2 rounded-xl text-xs font-bold border bg-gray-50/50 hover:bg-gray-100 transition-colors" style={{ color: colors.text }}>Détails</button>
+      <div className="flex gap-2 mt-5 pt-3 border-t" style={{ borderColor: colors.border }}>
+        <button onClick={onView} className="flex-1 py-2 rounded-xl text-xs font-bold border bg-gray-50/50 hover:bg-gray-100 transition-all" style={{ color: colors.text, borderColor: colors.border }}>Détails</button>
         {isActive && (
-          <button onClick={() => onToggleRenew(subscription.id, subscription.auto_renew)} className="px-3 rounded-xl border hover:bg-gray-50 flex items-center justify-center transition-colors" style={{ color: subscription.auto_renew ? '#10b981' : '#94a3b8' }}>
+          <button onClick={() => onToggleRenew(subscription.id, subscription.auto_renew)} className="px-3.5 rounded-xl border hover:bg-gray-50 flex items-center justify-center transition-all" style={{ color: subscription.auto_renew ? '#10b981' : '#94a3b8', borderColor: colors.border }}>
             <RefreshCw size={12} className={subscription.auto_renew ? 'animate-spin-slow' : ''} />
           </button>
         )}
         {subscription.status === 'en_attente' && (
-          <button onClick={() => onUpdateStatus(subscription.id, 'actif')} className="px-3 rounded-xl text-white text-xs font-bold hover:opacity-90" style={{ background: '#10b981' }}>Activer</button>
+          <button onClick={() => onUpdateStatus(subscription.id, 'actif')} className="px-5 rounded-xl text-white text-xs font-bold hover:opacity-90" style={{ background: '#10b981' }}>Activer</button>
         )}
       </div>
     </div>
@@ -409,29 +400,34 @@ const SubscriptionCard = ({
 };
 
 // =============================================
-// SUBSCRIPTION DETAILS MODAL
+// SUBSCRIPTION DETAILS MODAL (RESPONSIVE)
 // =============================================
 
-const SubscriptionDetailsModal = ({ subscription, onClose, colors }: { subscription: Subscription; onClose: () => void; colors: any }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-    <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-xl">
+const SubscriptionDetailsModal = ({ subscription, onClose, colors, getCategoryLabel }: { subscription: Subscription; onClose: () => void; colors: any, getCategoryLabel: (category: string) => string }) => (
+  <div 
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+    onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+  >
+    <div className="bg-white dark:bg-[#17231d] rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-gray-100 animate-fadeIn">
       <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: colors.border }}>
-        <div>
-          <h2 className="font-bold text-sm uppercase tracking-wider text-gray-400">📋 Détails Abonnement</h2>
-          <p className="text-xs text-gray-500 mt-0.5">{subscription.offre?.name}</p>
+        <div className="min-w-0">
+          <h2 className="font-bold text-xs uppercase tracking-wider text-gray-400">📋 Détails Abonnement</h2>
+          <p className="text-sm font-extrabold text-gray-800 dark:text-gray-100 truncate mt-0.5">{subscription.offre?.name}</p>
         </div>
-        <button onClick={onClose} className="p-1 hover:bg-gray-50 rounded-lg"><X size={16} /></button>
+        <button onClick={onClose} className="p-1.5 hover:bg-gray-50 rounded-xl transition-colors"><X size={16} /></button>
       </div>
       <div className="p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="p-2.5 rounded-xl bg-gray-50"><p className="text-gray-400 text-[10px]">Client</p><p className="font-bold">{subscription.user?.full_name || 'N/A'}</p></div>
-          <div className="p-2.5 rounded-xl bg-gray-50"><p className="text-gray-400 text-[10px]">Statut</p><p className="font-bold" style={{ color: getStatusColor(subscription.status) }}>{getStatusLabel(subscription.status)}</p></div>
+        {/* ✅ CORRECTIF RESPONSIVE : grid-cols-1 sm:grid-cols-2 pour l'affichage mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div className="p-3 rounded-xl bg-gray-50/50"><p className="text-gray-400 text-[9px] font-bold uppercase tracking-wider mb-0.5">Client</p><p className="font-extrabold text-gray-800">{subscription.user?.full_name || 'N/A'}</p></div>
+          <div className="p-3 rounded-xl bg-gray-50/50"><p className="text-gray-400 text-[9px] font-bold uppercase tracking-wider mb-0.5">Statut</p><p className="font-extrabold" style={{ color: getStatusColor(subscription.status) }}>{getStatusLabel(subscription.status)}</p></div>
         </div>
         <div className="space-y-2 text-xs divide-y" style={{ borderColor: colors.border }}>
-          <div className="flex justify-between py-1.5"><span className="text-gray-400">Patient</span><span className="font-semibold">{subscription.patient ? `${subscription.patient.first_name} ${subscription.patient.last_name}` : 'Non assigné'}</span></div>
-          <div className="flex justify-between py-1.5"><span className="text-gray-400">Prix</span><span className="font-semibold">{formatCurrency(subscription.offre?.price || 0)}</span></div>
-          <div className="flex justify-between py-1.5"><span className="text-gray-400">Début</span><span className="font-semibold">{formatDate(subscription.start_date)}</span></div>
-          <div className="flex justify-between py-1.5"><span className="text-gray-400">Fin</span><span className="font-semibold">{formatDate(subscription.end_date)}</span></div>
+          <div className="flex justify-between py-2"><span className="text-gray-400 font-semibold">Bénéficiaire</span><span className="font-bold text-gray-800">{subscription.patient ? `${subscription.patient.first_name} ${subscription.patient.last_name}` : 'Non assigné'}</span></div>
+          <div className="flex justify-between py-2"><span className="text-gray-400 font-semibold">Prix</span><span className="font-bold text-gray-800">{formatCurrency(subscription.offre?.price || 0)}</span></div>
+          <div className="flex justify-between py-2"><span className="text-gray-400 font-semibold">Période</span><span className="font-bold text-gray-800">{getCategoryLabel(subscription.offre?.category || 'senior')}</span></div>
+          <div className="flex justify-between py-2"><span className="text-gray-400 font-semibold">Début</span><span className="font-bold text-gray-800">{formatDate(subscription.start_date)}</span></div>
+          <div className="flex justify-between py-2"><span className="text-gray-400 font-semibold">Fin</span><span className="font-bold text-gray-800">{formatDate(subscription.end_date)}</span></div>
         </div>
       </div>
     </div>
@@ -439,16 +435,16 @@ const SubscriptionDetailsModal = ({ subscription, onClose, colors }: { subscript
 );
 
 // =============================================
-// STAT CARD - Avec StatCardProps
+// STAT CARD
 // =============================================
 
-const StatCard = ({ label, value, color, icon }: StatCardProps) => (
-  <div className="bg-white rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center justify-between">
-    <div className="space-y-0.5">
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-extrabold" style={{ color }}>{value}</p>
+const StatCard = ({ label, value, color, icon, className = '' }: StatCardProps & { className?: string }) => (
+  <div className={cn("bg-white rounded-2xl p-4 shadow-sm border border-black/5 flex items-center justify-between gap-2", className)}>
+    <div className="space-y-0.5 min-w-0 pr-1">
+      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">{label}</p>
+      <p className="text-base sm:text-lg font-black truncate" style={{ color }}>{value}</p>
     </div>
-    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: color + '0d', color }}>{icon}</div>
+    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '0d', color }}>{icon}</div>
   </div>
 );
 
