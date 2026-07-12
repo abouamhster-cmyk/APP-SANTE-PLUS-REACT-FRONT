@@ -5,7 +5,6 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Patient } from '@/types';
 import { useAuthStore } from './authStore';
-import { assignmentAPI } from '@/lib/api';
 
 // ============================================================
 // TYPES
@@ -78,6 +77,8 @@ const clearCachedPatients = () => {
   }
 };
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
 // ============================================================
 // STORE
 // ============================================================
@@ -119,13 +120,19 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       const { user } = useAuthStore.getState();
       if (!user) return null;
 
-      const familyId = user.id;
-      const response = await assignmentAPI.getActive('patient', patientId, familyId);
-      
-      if (response.data?.success && response.data?.data?.aidant_id) {
-        return response.data.data.aidant_id;
-      }
-      return null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) return null;
+
+      const response = await fetch(`${API_BASE_URL}/assignments/active?targetType=patient&targetId=${patientId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) return null;
+
+      const result = await response.json();
+      return result.data?.aidant_id || null;
     } catch (error) {
       console.error('❌ getActiveAidantForPatient error:', error);
       return null;
@@ -133,7 +140,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   },
 
   // ============================================================
-  // FETCH PATIENTS - VERSION CORRIGÉE ET ADAPTÉE
+  // FETCH PATIENTS - CHARGEMENT INTÉGRAL DEPUIS L'API REST (BYPASSE RLS)
   // ============================================================
   fetchPatients: async (force = false) => {
     const state = get();
@@ -174,149 +181,35 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     try {
       set({ isLoading: true, error: null, isCacheInvalidated: false });
       
-      const { user, profile } = useAuthStore.getState();
+      const { user } = useAuthStore.getState();
       
-      console.log('🔍 fetchPatients - Début (force:', force, ')');
-      console.log('🔍 User ID:', user?.id);
-      console.log('🔍 Role:', profile?.role);
-
       if (!user) {
-        console.log('⚠️ Aucun utilisateur connecté');
         set({ patients: [], isLoading: false, isInitialized: true });
         return;
       }
 
-      let patientsData: Patient[] = [];
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      // 👔 ADMIN / COORDINATEUR → Tous les patients
-      if (profile?.role === 'admin' || profile?.role === 'coordinator') {
-        console.log('👔 Admin/Coord - Récupération de tous les patients');
-        const { data, error } = await supabase
-          .from('patients')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        patientsData = data || [];
-        console.log(`✅ ${patientsData.length} patients récupérés pour admin`);
+      if (!token) {
+        throw new Error('Session expirée');
       }
 
-      // 👨‍👩‍👦 FAMILLE → Ses patients (via liens)
-      else if (profile?.role === 'family') {
-        console.log('👨‍👩‍👦 Famille - Récupération des patients liés');
-        console.log('🔍 Family ID:', user.id);
-        
-        // ✅ 1. Récupérer les patients via patient_family_links
-        const { data: links, error: linksError } = await supabase
-          .from('patient_family_links')
-          .select('patient_id')
-          .eq('family_id', user.id);
+      // ✅ APPEL REST UNIFIÉ : Le backend résout proprement toutes les permissions et mappings (patients + comptes personnels suivis)
+      const response = await fetch(`${API_BASE_URL}/patients`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (linksError) {
-          console.error('❌ Erreur récupération liens famille:', linksError);
-        }
-
-        const patientIdsFromLinks = links?.map(l => l.patient_id).filter(Boolean) || [];
-        console.log('📋 Patient IDs depuis patient_family_links:', patientIdsFromLinks);
-
-        // ✅ 2. Si la famille a des patients
-        if (patientIdsFromLinks.length > 0) {
-          const { data, error } = await supabase
-            .from('patients')
-            .select('*')
-            .in('id', patientIdsFromLinks)
-            .order('created_at', { ascending: false });
-
-          if (error) throw error;
-          patientsData = data || [];
-          console.log(`✅ ${patientsData.length} patients récupérés pour la famille`);
-        } else {
-          // Aucun patient pour ce compte
-          set({ patients: [], isLoading: false, isInitialized: true });
-          return;
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la récupération des bénéficiaires');
       }
 
-      // 🦸 AIDANT → Patients et comptes personnels assignés (Foyer)
-      else if (profile?.role === 'aidant') {
-        console.log('🦸 Aidant - Résolution des assignations de dossiers');
-        
-        // Récupérer les assignations actives
-        const { data: assignments, error: assignmentsError } = await supabase
-          .from('aidant_assignments')
-          .select('*')
-          .eq('aidant_user_id', user.id)
-          .eq('status', 'active');
+      const patientsData: Patient[] = await response.json();
 
-        if (assignmentsError) throw assignmentsError;
-
-        if (!assignments || assignments.length === 0) {
-          set({ patients: [], isLoading: false, isInitialized: true });
-          return;
-        }
-
-        const patientIds = assignments
-          .filter((a: any) => a.target_type === 'patient')
-          .map((a: any) => a.target_id);
-
-        const personalAccountIds = assignments
-          .filter((a: any) => a.target_type === 'personal_account' || a.target_type === 'personal')
-          .map((a: any) => a.target_id);
-
-        let finalPatients: Patient[] = [];
-
-        // Charger les patients rattachés
-        if (patientIds.length > 0) {
-          const { data, error } = await supabase
-            .from('patients')
-            .select('*')
-            .in('id', patientIds);
-
-          if (!error && data) {
-            finalPatients = [...data];
-          }
-        }
-
-        // Charger les profils de comptes personnels (suivis directement sans proches)
-        if (personalAccountIds.length > 0) {
-          const { data: dbProfiles, error } = await supabase
-            .from('profiles')
-            .select('id, full_name, email, phone, avatar_url, patient_category')
-            .in('id', personalAccountIds);
-          
-          if (!error && dbProfiles) {
-            const mappedProfiles = dbProfiles.map(p => ({
-              id: p.id,
-              first_name: p.full_name,
-              last_name: '(Compte Personnel)',  
-              age: null,
-              gender: null,
-              address: 'Adresse du compte de l\'abonné',
-              latitude: null,  
-              longitude: null,  
-              phone: p.phone,
-              emergency_contact: null,
-              emergency_contact_name: null,
-              category: (p.patient_category as any) || 'senior',
-              status: 'active' as const,
-              notes: 'Abonné suivi en direct sur son compte personnel',
-              allergies: null,
-              treatments: null,
-              conditions: null,
-              medical_history: null,
-              preferred_language: 'fr',
-              special_requirements: null,
-              created_by: p.id,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }));
-            finalPatients = [...finalPatients, ...mappedProfiles];
-          }
-        }
-
-        patientsData = finalPatients;
-      }
-
+      // Mettre à jour le cache
       const timestamp = Date.now();
       setCachedPatients(patientsData);
       
@@ -329,14 +222,13 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         isCacheInvalidated: false,
       });
 
-      console.log(`✅ ${patientsData.length} patients chargés avec succès`);
+      console.log(`✅ ${patientsData.length} bénéficiaires chargés avec succès depuis l'API REST`);
 
     } catch (error: any) {
       console.error('❌ Erreur récupération des patients:', error);
       
       const cached = getCachedPatients();
       if (cached && cached.data.length > 0) {
-        console.log('⚠️ Utilisation du cache en cas d\'erreur');
         set({
           patients: cached.data,
           isLoading: false,
@@ -375,24 +267,22 @@ export const usePatientStore = create<PatientState>((set, get) => ({
     } catch (error) {
       console.error('❌ Sync aidant patients error:', error);
       set({ patients: [], isLoading: false });
-      return;
     }
   },
 
   // ============================================================
-  // FETCH PATIENT BY ID
+  // FETCH PATIENT BY ID - APPEL REST SÉCURISÉ
   // ============================================================
   fetchPatientById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
       
-      const { user, profile } = useAuthStore.getState();
+      const { user } = useAuthStore.getState();
       if (!user) {
         set({ isLoading: false });
         return;
       }
 
-      // ✅ Vérifier si le patient est déjà dans le cache
       const state = get();
       const cachedPatient = state.patients.find(p => p.id === id);
       if (cachedPatient) {
@@ -401,57 +291,25 @@ export const usePatientStore = create<PatientState>((set, get) => ({
         return;
       }
 
-      const { data, error } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // ✅ FALLBACK COMPTE : Si le bénéficiaire n'est pas dans la table patients, charger son profil de compte personnel
-          const { data: userProfile, error: profileErr } = await supabase
-            .from('profiles')
-            .select('id, full_name, email, phone, avatar_url, patient_category')
-            .eq('id', id)
-            .single();
-
-          if (!profileErr && userProfile) {
-            const mappedProfile: Patient = {
-              id: userProfile.id,
-              first_name: userProfile.full_name,
-              last_name: '(Compte Personnel)',
-              age: null,
-              gender: null,
-              address: 'Adresse personnelle',
-              latitude: null,  
-              longitude: null, 
-              phone: userProfile.phone,
-              category: (userProfile.patient_category as any) || 'senior',
-              status: 'active',
-              notes: 'Suivi direct du compte personnel',
-              preferred_language: 'fr',
-              emergency_contact: null,
-              emergency_contact_name: null,
-              allergies: null,
-              treatments: null,
-              conditions: null,
-              medical_history: null,
-              special_requirements: null,
-              created_by: userProfile.id,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-            set({ currentPatient: mappedProfile, isLoading: false });
-            return;
-          }
-
-          set({ error: 'Patient non trouvé', isLoading: false });
-          return;
-        }
-        throw error;
+      if (!token) {
+        throw new Error('Session expirée');
       }
 
+      const response = await fetch(`${API_BASE_URL}/patients/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Bénéficiaire non trouvé');
+      }
+
+      const data = await response.json();
       set({ currentPatient: data, isLoading: false });
     } catch (error: any) {
       console.error('❌ Erreur récupération du proche:', error);
@@ -622,7 +480,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 }));
 
 // ============================================================
-// LISTENER AUTHENTIFICATION
+// LISTENER: Recharger les patients quand l'utilisateur change
 // ============================================================
 
 let previousUserId: string | null = null;
