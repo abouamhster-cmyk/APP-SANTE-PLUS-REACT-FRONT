@@ -1,5 +1,5 @@
 // 📁 src/components/ui/ModalFullScreen.tsx
-// ✅ ENVELOPPE MODAL PLEIN ÉCRAN COMPLET : STYLE COHÉRENT AVEC LE THÈME BRANDING ET EFFETS GLASSMORPHISM FLUIDES
+// ✅ ENVELOPPE MODAL PLEIN ÉCRAN : DESIGN COHÉRENT BRANDING AVEC EFFETS GLASSMORPHISM
 
 import { ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,36 +37,20 @@ export const ModalFullScreen = ({
 }: ModalFullScreenProps) => {
   const { profile, role } = useAuthStore();
 
-  // ✅ RÉCUPÉRATION DYNAMIQUE DU THÈME DE COULEUR BRANDING CONFORME À MAINLAYOUT
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // 🔒 Lock scroll body (Anti-saccade lors du défilement)
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = `-${window.scrollY}px`;
     } else {
-      const scrollY = document.body.style.top;
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
     }
     return () => {
       document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
     };
   }, [isOpen]);
 
-  // ⌨️ Fermeture par la touche Échap
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -92,7 +76,6 @@ export const ModalFullScreen = ({
           initial={{ opacity: 0, x: '100%' }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: '100%' }}
-          // ✅ TRANSITION AVEC EFFET RESSORT DE NIVEAU PRODUCTION (SPRING DAMPING)
           transition={{ type: 'spring', damping: 28, stiffness: 260 }}
           className={cn(
             'fixed inset-0 z-[99999] flex flex-col',
@@ -104,15 +87,13 @@ export const ModalFullScreen = ({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: colors.background, // ✅ Le fond du modal prend la couleur dynamique (ex: #f5f0e8 ou #0f1713)
+            backgroundColor: colors.background,
           }}
         >
-          {/* ============================================================
-              HEADER GLASSMORPHIC (Totalement aligné avec l'en-tête de MainLayout)
-              ============================================================ */}
+          {/* HEADER GLASSMORPHIC */}
           <div
             className={cn(
-              'flex-shrink-0 px-5 py-4 bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-xl sticky top-0 z-10',
+              'flex-shrink-0 px-4 sm:px-6 py-3.5 sm:py-4 bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-xl sticky top-0 z-10',
               'flex items-center gap-3 border-b',
               headerClassName
             )}
@@ -124,7 +105,7 @@ export const ModalFullScreen = ({
             {showBack && (
               <button
                 onClick={handleBack}
-                className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border border-gray-100/30"
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border border-gray-100/30"
                 aria-label="Retour"
               >
                 <ArrowLeft size={18} style={{ color: colors.primary }} />
@@ -132,7 +113,7 @@ export const ModalFullScreen = ({
             )}
 
             <h2 
-              className="flex-1 text-sm sm:text-base font-extrabold truncate"
+              className="flex-1 text-sm sm:text-base font-black truncate"
               style={{ color: colors.text }}
             >
               {title}
@@ -141,7 +122,7 @@ export const ModalFullScreen = ({
             {showClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border border-gray-100/30"
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border border-gray-100/30"
                 aria-label="Fermer"
               >
                 <X size={18} className="text-gray-500" />
@@ -149,9 +130,7 @@ export const ModalFullScreen = ({
             )}
           </div>
 
-          {/* ============================================================
-              BODY CONTENT (Avec marge basse de sécurité contre le chevauchement)
-              ============================================================ */}
+          {/* BODY CONTENT */}
           <div
             className={cn(
               'flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 py-5 sm:py-6',
@@ -167,9 +146,7 @@ export const ModalFullScreen = ({
             </div>
           </div>
 
-          {/* ============================================================
-              FOOTER GLASSMORPHIC (Optionnel)
-              ============================================================ */}
+          {/* FOOTER GLASSMORPHIC */}
           {footer && (
             <div
               className="flex-shrink-0 px-5 py-4 bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-xl sticky bottom-0 z-10 border-t"
