@@ -1,5 +1,6 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
- 
+// ✅ PAGE DASHBOARD : SYNCHRONISATION ABSOLUE ET COHÉRENCE DES STATISTIQUES GLOBALES ET LOCALES SELON LE RÔLE CONNECTÉ
+
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
@@ -158,7 +159,6 @@ const DashboardPage = () => {
   const { aidants, fetchAidants, isLoading: aidantsLoading } = useAidantCatalogStore();
   const { subscriptions, payments, fetchSubscriptions, fetchPayments, isLoading: paymentsLoading } = usePaymentStore();
 
-  // Abonnement Guard
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const [greeting, setGreeting] = useState('');
@@ -201,7 +201,7 @@ const DashboardPage = () => {
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
   // ============================================================
-  // ✅ CONFIGURATION BANNIÈRES : AJUSTEMENT TEXTES ET BOUTONS SELON LE CAHIER DES CHARGES
+  // ✅ SLIDES DU CARROUSEL ALIGNÉES SUR LES SPÉCIFICATIONS ET FORFAITS (5 SLIDES PAR RÔLE)
   // ============================================================
   const slides: HeroSlide[] = useMemo(() => {
     const seniorImg = '/assets/images/banners/senior-banner.png';
@@ -237,7 +237,7 @@ const DashboardPage = () => {
           title: '💼 Gestion des Offres & Tarifs',
           description: 'Configurez les forfaits Santé Plus Services (Seniors) et Santé Plus Maman & Bébé (Grossesse, Postpartum, Allaitement).',
           image: coordImg,
-          actionText: 'Ajuster les offres',
+          actionText: 'Gérer les offres',
           actionPath: '/app/offers',
         },
         {
@@ -254,7 +254,7 @@ const DashboardPage = () => {
     if (isAidant) {
       return [
         {
-          title: '🦸 Votre planning de visites',
+          title: '🦸 Vos planning de visites',
           description: 'Consultez les dates et heures de vos prochains accompagnements à domicile pour vos bénéficiaires assignés.',
           image: aidantImg,
           actionText: 'Mon planning',
@@ -524,17 +524,26 @@ const DashboardPage = () => {
 
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
-      await Promise.all([
+      const loaders = [
         fetchPatients(true),
         fetchVisits(),
         fetchOrders(),
-        fetchAidants(),
-        fetchSubscriptions(),
-        fetchPayments(),
-        fetchBeneficiairesStats(),
-      ]);
+      ];
+
+      if (isFamily || isAdminOrCoordinator) {
+        loaders.push(fetchSubscriptions());
+        loaders.push(fetchPayments());
+        loaders.push(fetchAidants());
+      }
+
+      await Promise.all(loaders);
+
+      // ✅ Chargement des statistiques globales UNIQUEMENT pour les administrateurs
       if (isAdminOrCoordinator) {
-        await fetchAdminStats();
+        await Promise.all([
+          fetchBeneficiairesStats(),
+          fetchAdminStats()
+        ]);
       }
     },
     onError: () => {
@@ -544,29 +553,31 @@ const DashboardPage = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      await Promise.all([
+      const loaders = [
         fetchPatients(),
         fetchVisits(),
         fetchOrders(),
-        fetchAidants(),
-        fetchSubscriptions(),
-        fetchPayments(),
-        fetchBeneficiairesStats(),
-      ]);
+      ];
+
+      if (isFamily || isAdminOrCoordinator) {
+        loaders.push(fetchSubscriptions());
+        loaders.push(fetchPayments());
+        loaders.push(fetchAidants());
+      }
+
+      await Promise.all(loaders);
+
+      // ✅ Chargement des statistiques globales UNIQUEMENT pour les administrateurs
       if (isAdminOrCoordinator) {
-        await fetchAdminStats();
+        await Promise.all([
+          fetchBeneficiairesStats(),
+          fetchAdminStats()
+        ]);
       }
     };
     loadData();
     setGreeting(getGreeting());
-  }, []);
-
-  useEffect(() => {
-    const hasMamanPatient = patients.some((p) => p.category === 'maman_bebe');
-    const hasMamanSub = subscriptions.some(s => s.offre?.category === 'maman_bebe');
-    const isMamanProfile = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
-    setIsMaman(hasMamanPatient || hasMamanSub || isMamanProfile);
-  }, [patients, subscriptions, profile]);
+  }, [isAdminOrCoordinator, isFamily]);
 
   const stats = useMemo(() => {
     const pendingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'en_attente').length;
@@ -578,9 +589,10 @@ const DashboardPage = () => {
     const totalPayments = payments.length;
 
     return {
-      proches: beneficiairesStats.totalBeneficiaires || patients.length,
-      patientsCount: beneficiairesStats.patientsCount || patients.length,
-      personalAccountsCount: beneficiairesStats.personalAccountsCount || 0,
+      // ✅ COHÉRENCE PARFAITE : Si admin, afficher le total global de la plateforme, sinon afficher le compte local du rôle connecté (famille ou aidant)
+      proches: isAdminOrCoordinator ? beneficiairesStats.totalBeneficiaires : patients.length,
+      patientsCount: isAdminOrCoordinator ? beneficiairesStats.patientsCount : patients.length,
+      personalAccountsCount: isAdminOrCoordinator ? beneficiairesStats.personalAccountsCount : 0,
       pendingVisits,
       upcomingVisits,
       pendingOrders,
@@ -596,10 +608,13 @@ const DashboardPage = () => {
       revenue: adminStats.revenue,
       draftCount: drafts.length,
     };
-  }, [patients, visits, orders, aidants, subscriptions, payments, adminStats, beneficiairesStats, drafts.length]);
+  }, [patients, visits, orders, aidants, subscriptions, payments, adminStats, beneficiairesStats, drafts.length, isAdminOrCoordinator]);
 
   const tiles = getTilesForRole(role, colors, stats, stats.proches);
-  const isLoading = patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires;
+  
+  // ✅ CORRECTION DU FLUX DE CHARGEMENT : Aucun clignotement ni "mode fantôme" si des données sont déjà en mémoire
+  const hasInMemoryData = patients.length > 0 || visits.length > 0 || orders.length > 0;
+  const isLoading = (patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires) && !hasInMemoryData;
 
   const getProchesTitle = () => {
     if (isFamily) return 'Mes proches';
