@@ -1,6 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-// ✅ PAGE DE FACTURATION : COHÉRENCE VERTICALE ET INTEGRATION DES FORFAITS PERSONNELS (SANS PROCHE)
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
@@ -98,7 +97,7 @@ const BillingPage = () => {
   }, []);
 
   // ============================================================
-  // ✅ LOGIQUE DE COHÉRENCE VERTICALE DYNAMIQUE (RÉGULATION DES PACKS PERSO)
+  // ✅ LOGIQUE DE COHÉRENCE VERTICALE DYNAMIQUE
   // ============================================================
   
   const hasSeniorPatient = useMemo(() => patients.some(p => p.category === 'senior'), [patients]);
@@ -195,6 +194,8 @@ const BillingPage = () => {
     return ['all', 'senior', 'maman_bebe'];
   };
 
+  const visibleTabsList = getVisibleTabs();
+
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
   const hasActiveSub = subscriptions.some((sub) => sub.status === 'actif');
 
@@ -224,12 +225,15 @@ const BillingPage = () => {
     toast.success('Paiement effectué avec succès !');
   };
 
-  const stats = {
-    total: filteredOffers.length,
-    senior: filteredOffers.filter((o: Offer) => o.category === 'senior').length,
-    maman: filteredOffers.filter((o: Offer) => o.category === 'maman_bebe').length,
-    pack: filteredOffers.filter((o: Offer) => o.category === 'pack_confort').length,
-  };
+  // ✅ CORRIGÉ : Remplacement de filteredOffers par allowedOffers pour l'analyse des métriques
+  const stats = useMemo(() => {
+    return {
+      total: allowedOffers.length,
+      senior: allowedOffers.filter((o: Offer) => o.category === 'senior').length,
+      maman: allowedOffers.filter((o: Offer) => o.category === 'maman_bebe').length,
+      pack: allowedOffers.filter((o: Offer) => o.category === 'pack_confort').length,
+    };
+  }, [allowedOffers]);
 
   const isLoading = storeLoading || offersLoading;
 
@@ -293,6 +297,7 @@ const BillingPage = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      
       {/* INDICATEUR REFRESH */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
@@ -374,10 +379,10 @@ const BillingPage = () => {
       )}
 
       {/* ONGLETS COHÉRENTS */}
-      {visibleTabs.length > 1 && (
+      {visibleTabsList.length > 1 && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
           <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
-            {visibleTabs.map((tabId) => {
+            {visibleTabsList.map((tabId) => {
               const isActive = activeTab === tabId;
 
               return (
@@ -422,12 +427,12 @@ const BillingPage = () => {
           <Package size={24} className="text-gray-400 dark:text-gray-500" />
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Aucun forfait disponible</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500">Aucune offre active n'est proposée pour vos critères actuels.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Aucune offre active n'est disponible pour vos critères actuels.</p>
           </div>
         </div>
       )}
 
-      {/* RAPPEL PAIEMENT PONCTUEL */}
+      {/* RAPPEL DISCRET : MODE PONCTUEL DISPONIBLE */}
       {!hasActiveSub && (
         <div className="bg-white/40 dark:bg-[#17231d]/40 rounded-xl p-4 border border-gray-100 dark:border-gray-800/30 flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto">
           <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
@@ -505,7 +510,7 @@ const BillingPage = () => {
 };
 
 // =============================================
-// COMPOSANT CARTE D'OFFRE COMPACTE
+// COMPOSANT COMPACT CARTE OFFRES
 // =============================================
 
 interface OfferCardCompactProps {
@@ -623,7 +628,7 @@ const OfferCardCompact = ({
 };
 
 // =============================================
-// COMPOSANT HISTORIQUE TRANSACTIONS
+// COMPOSANT COMPACT TRANSACTIONS
 // =============================================
 
 interface PaymentItemProps {
