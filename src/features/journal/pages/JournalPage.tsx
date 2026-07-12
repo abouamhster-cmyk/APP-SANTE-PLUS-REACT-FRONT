@@ -1,4 +1,5 @@
 // 📁 src/features/journal/pages/JournalPage.tsx
+// ✅ PAGE JOURNAL DE BORD : OPTIMISATION DU DESIGN RESPONSIVE SANS CHEVAUCHEMENTS
 
 import { useEffect, useState } from 'react';
 import {
@@ -21,7 +22,7 @@ import { useJournalStore } from '@/stores/journalStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime } from '@/utils/helpers';
+import { formatDate, formatTime, cn } from '@/utils/helpers'; // 🟢 Importation de 'cn' ajoutée
 import { Illustration } from '@/components/ui/Illustration';
 import { RatingModal } from '@/features/journal/components/RatingModal';
 import { VisitDetailsModal } from '@/features/journal/components/VisitDetailsModal';
@@ -107,9 +108,7 @@ const JournalPage = () => {
     aidants: 'Aidants',
   };
 
-  // ✅ Fonction pour obtenir le nom de l'aidant - CORRIGÉE
   const getAidantName = (entry: any) => {
-    // Vérifier le chemin correct
     if (entry.aidant?.user?.full_name) {
       return entry.aidant.user.full_name;
     }
@@ -125,7 +124,6 @@ const JournalPage = () => {
     return 'Non assigné';
   };
 
-  // ✅ Fonction pour obtenir le nom du patient
   const getPatientName = (entry: any) => {
     if (entry.patient) {
       return `${entry.patient.first_name} ${entry.patient.last_name}`;
@@ -135,9 +133,9 @@ const JournalPage = () => {
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
-      {/* HEADER */}
+      {/* HEADER AVEC SEGMENT MOBILE ADAPTATIF */}
       <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="min-w-0">
             <div
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold mb-1.5"
@@ -150,7 +148,7 @@ const JournalPage = () => {
               Journal
             </div>
 
-            <h1 className="text-xl font-black" style={{ color: colors.text }}>
+            <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
               {getPageTitle()}
             </h1>
 
@@ -159,42 +157,46 @@ const JournalPage = () => {
             </p>
           </div>
 
-          <div className="flex gap-1">
+          {/* ✅ Sélecteur segmenté pour écrans tactiles mobiles */}
+          <div className="flex w-full md:w-auto bg-gray-100/80 p-1 rounded-xl gap-1 shrink-0">
             <button
               onClick={() => setViewMode('timeline')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                viewMode === 'timeline' ? 'text-white' : 'text-gray-600'
-              }`}
-              style={{
-                background: viewMode === 'timeline' ? colors.primary : 'transparent',
-              }}
+              className={cn(
+                "flex-1 md:flex-initial px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none",
+                viewMode === 'timeline' 
+                  ? "bg-white text-gray-900 shadow-sm font-extrabold" 
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+              style={viewMode === 'timeline' ? { color: colors.primary } : undefined}
             >
               <List size={12} />
-              Liste
+              <span>Liste</span>
             </button>
             <button
               onClick={() => setViewMode('weekly')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                viewMode === 'weekly' ? 'text-white' : 'text-gray-600'
-              }`}
-              style={{
-                background: viewMode === 'weekly' ? colors.primary : 'transparent',
-              }}
+              className={cn(
+                "flex-1 md:flex-initial px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none",
+                viewMode === 'weekly' 
+                  ? "bg-white text-gray-900 shadow-sm font-extrabold" 
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+              style={viewMode === 'weekly' ? { color: colors.primary } : undefined}
             >
               <LayoutGrid size={12} />
-              Semaine
+              <span>Semaine</span>
             </button>
             <button
               onClick={() => setViewMode('stats')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                viewMode === 'stats' ? 'text-white' : 'text-gray-600'
-              }`}
-              style={{
-                background: viewMode === 'stats' ? colors.primary : 'transparent',
-              }}
+              className={cn(
+                "flex-1 md:flex-initial px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none",
+                viewMode === 'stats' 
+                  ? "bg-white text-gray-900 shadow-sm font-extrabold" 
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+              style={viewMode === 'stats' ? { color: colors.primary } : undefined}
             >
               <BarChart3 size={12} />
-              Stats
+              <span>Stats</span>
             </button>
           </div>
         </div>
@@ -378,7 +380,7 @@ const StatCard = ({ icon, label, value, color }: StatCardProps) => {
 };
 
 // =============================================
-// JOURNAL ENTRY COMPACT
+// JOURNAL ENTRY COMPACT ADAPTATIVE SANS CHEVAUCHEMENTS
 // =============================================
 
 interface JournalEntryCompactProps {
@@ -403,70 +405,76 @@ const JournalEntryCompact = ({
   const isRated = entry.rating !== null;
 
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-black/5 hover:shadow-md transition">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+    <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-black/5 hover:shadow-md transition">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center gap-3">
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0 shadow-inner"
               style={{ background: colors.primary }}
             >
               {entry.patient?.first_name?.[0] || 'P'}
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold truncate" style={{ color: colors.text }}>
+              <p className="font-bold text-sm text-gray-800 dark:text-gray-100 truncate">
                 {getPatientName(entry)}
               </p>
-              <p className="text-[9px] text-gray-400 flex items-center gap-1">
-                <Calendar size={10} /> {formatDate(entry.date)} {entry.time}
+              <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-wide mt-0.5">
+                <Calendar size={11} className="shrink-0 text-gray-400" /> 
+                <span>{formatDate(entry.date)} à {entry.time}</span>
               </p>
             </div>
           </div>
 
-          {/* ✅ Affichage de l'aidant - CORRIGÉ */}
+          {/* Affichage de l'aidant */}
           {entry.aidant && (
-            <div className="mt-0.5 flex items-center gap-1">
-              <User size={10} style={{ color: colors.text + '50' }} />
-              <span className="text-[9px] text-gray-500">
-                Aidant: <span className="font-medium">{getAidantName(entry)}</span>
+            <div className="flex items-center gap-1.5 pl-0.5">
+              <User size={11} className="shrink-0 text-gray-400" />
+              <span className="text-[11px] font-semibold text-gray-500">
+                Auxiliaire : <span className="font-bold" style={{ color: colors.text }}>{getAidantName(entry)}</span>
               </span>
             </div>
           )}
 
+          {/* Actions réalisés */}
           {entry.actions && entry.actions.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-0.5">
+            <div className="flex flex-wrap gap-1">
               {entry.actions.slice(0, 3).map((action: string, index: number) => (
                 <span
                   key={index}
-                  className="px-1.5 py-0.5 rounded-full text-[8px] font-medium"
+                  className="px-2.5 py-0.5 rounded-full text-[9px] font-bold"
                   style={{ background: colors.primary + '12', color: colors.primary }}
                 >
                   {action}
                 </span>
               ))}
               {entry.actions.length > 3 && (
-                <span className="text-[8px] text-gray-400">+{entry.actions.length - 3}</span>
+                <span className="text-[9px] text-gray-400 font-bold">+{entry.actions.length - 3}</span>
               )}
             </div>
           )}
 
-          <div className="mt-1 flex items-center gap-2">
-            {hasPhotos && (
-              <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
-                <Image size={10} /> {entry.photos.length}
-              </span>
-            )}
-            {hasAudio && (
-              <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
-                <Music size={10} /> Audio
-              </span>
-            )}
-          </div>
+          {/* Médias */}
+          {(hasPhotos || hasAudio) && (
+            <div className="flex items-center gap-2 pt-1">
+              {hasPhotos && (
+                <span className="text-[10px] font-bold text-gray-400 flex items-center gap-0.5">
+                  <Image size={11} /> {entry.photos.length} photo{entry.photos.length > 1 ? 's' : ''}
+                </span>
+              )}
+              {hasAudio && (
+                <span className="text-[10px] font-bold text-gray-400 flex items-center gap-0.5">
+                  <Music size={11} /> Note vocale
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col items-end gap-1 shrink-0">
+        {/* Section Actions & Notes adaptatives */}
+        <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 shrink-0">
           <span
-            className="px-1.5 py-0.5 rounded-full text-[8px] font-bold flex items-center gap-0.5"
+            className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1"
             style={{
               background: entry.status === 'validee' ? '#4CAF5015' : '#FF980015',
               color: entry.status === 'validee' ? '#4CAF50' : '#FF9800',
@@ -474,42 +482,44 @@ const JournalEntryCompact = ({
           >
             {entry.status === 'validee' ? (
               <>
-                <CheckCircle size={8} />
+                <CheckCircle size={10} />
                 Validée
               </>
             ) : (
               <>
-                <Clock size={8} />
+                <Clock size={10} />
                 En attente
               </>
             )}
           </span>
 
-          {isRated ? (
-            <div className="flex items-center gap-0.5">
-              <Star size={10} className="fill-yellow-400 text-yellow-400" />
-              <span className="text-xs font-bold">{entry.rating}</span>
-            </div>
-          ) : (
-            entry.status === 'validee' && (
-              <button
-                onClick={onRate}
-                className="text-[9px] font-medium hover:underline"
-                style={{ color: colors.primary }}
-              >
-                Noter
-              </button>
-            )
-          )}
+          <div className="flex items-center gap-3">
+            {isRated ? (
+              <div className="flex items-center gap-1">
+                <Star size={12} className="fill-yellow-400 text-yellow-400" />
+                <span className="text-xs font-black">{entry.rating}</span>
+              </div>
+            ) : (
+              entry.status === 'validee' && (
+                <button
+                  onClick={onRate}
+                  className="text-xs font-extrabold hover:underline"
+                  style={{ color: colors.primary }}
+                >
+                  Noter
+                </button>
+              )
+            )}
 
-          <button
-            onClick={onViewDetails}
-            className="text-[9px] font-medium hover:underline flex items-center gap-0.5"
-            style={{ color: colors.primary }}
-          >
-            Détails
-            <ChevronRight size={10} />
-          </button>
+            <button
+              onClick={onViewDetails}
+              className="text-xs font-extrabold hover:underline flex items-center gap-0.5"
+              style={{ color: colors.primary }}
+            >
+              Détails
+              <ChevronRight size={12} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
