@@ -1,4 +1,5 @@
 // 📁 src/components/patients/PatientCard.tsx
+// ✅ PATIENT CARD COMPACT & COMPLETE : COMPATIBILITÉ SANS BOUCLE ET ÉCRANS MOBILES FLUIDES
 
 import { useEffect, useState } from 'react';
 import { Patient } from '@/types';
@@ -26,22 +27,20 @@ export const PatientCard = ({
   compact = false 
 }: PatientCardProps) => {
   const colors = getThemeColors('senior');
-  const { user, profile } = useAuthStore();
-  const { fetchActiveAidant, activeAidant, isLoading } = useAssignmentStore();
+  const { user } = useAuthStore();
+  const { fetchActiveAidant, activeAidant } = useAssignmentStore();
   
   const [assignedAidant, setAssignedAidant] = useState<any>(null);
   const [isLoadingAidant, setIsLoadingAidant] = useState(false);
 
-  // ✅ Jargon dynamique selon le rôle
   const {
-    singular,
     getCategoryLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ✅ Récupérer l'aidant assigné au patient
+  // ✅ FIX MAJEUR : Résolution définitive de la boucle infinie d'appels réseau en retirant l'état réactif 'activeAidant' des dépendances
   useEffect(() => {
     const getAidant = async () => {
       if (!patient?.id || !user) return;
@@ -49,10 +48,13 @@ export const PatientCard = ({
       setIsLoadingAidant(true);
       try {
         const familyId = user.id;
+        // Effectuer l'appel réseau
         await fetchActiveAidant('patient', patient.id, familyId);
         
-        if (activeAidant?.aidant) {
-          setAssignedAidant(activeAidant.aidant);
+        // Lire l'état frais depuis le store de manière synchrone
+        const freshActiveAidant = useAssignmentStore.getState().activeAidant;
+        if (freshActiveAidant?.aidant) {
+          setAssignedAidant(freshActiveAidant.aidant);
         } else {
           setAssignedAidant(null);
         }
@@ -65,15 +67,7 @@ export const PatientCard = ({
     };
 
     getAidant();
-  }, [patient?.id, user, fetchActiveAidant, activeAidant]);
-
-  // ✅ Libellé dynamique pour le patient
-  const getPatientLabel = () => {
-    if (isFamily) return 'Proche';
-    if (isAidant) return 'Personne accompagnée';
-    if (isAdminOrCoordinator) return 'Bénéficiaire';
-    return 'Patient';
-  };
+  }, [patient?.id, user?.id]); // 🟢 Seulement déclenché au montage ou changement d'ID de proche/user
 
   const getCategoryLabelText = () => {
     if (patient.category === 'maman_bebe') {
@@ -82,11 +76,11 @@ export const PatientCard = ({
     return '👴 Senior';
   };
 
-  // ✅ Version compacte
+  // ✅ VERSION COMPACTE MOBILE-FIRST
   if (compact) {
     return (
       <div
-        className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all border cursor-pointer hover:border-[var(--color-primary)]/30"
+        className="bg-white rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border cursor-pointer hover:border-[var(--color-primary)]/30 w-full overflow-hidden"
         style={{ borderColor: colors.border }}
         onClick={onClick}
       >
@@ -94,28 +88,21 @@ export const PatientCard = ({
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0" style={{ background: colors.primary }}>
             {patient.first_name.charAt(0)}{patient.last_name.charAt(0)}
           </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm truncate" style={{ color: colors.text }}>
+          <div className="flex-1 min-w-0 pr-1">
+            <h4 className="font-bold text-xs sm:text-sm truncate text-gray-800 dark:text-gray-100">
               {patient.first_name} {patient.last_name}
             </h4>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: colors.primary + '15', color: colors.primary }}>
+            <div className="flex items-center gap-1 mt-1 flex-wrap">
+              <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-neutral-50 border border-neutral-100 shrink-0">
                 {getCategoryLabelText()}
               </span>
               {patient.age && (
-                <span className="text-[10px]" style={{ color: colors.text + '60' }}>🎂 {patient.age} ans</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-gray-400">🎂 {patient.age} ans</span>
               )}
-              {/* ✅ Afficher l'aidant assigné */}
               {assignedAidant && !isLoadingAidant && (
-                <span className="text-[10px] flex items-center gap-0.5 text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                <span className="text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full shrink-0">
                   <UserCheck size={10} />
                   {assignedAidant.full_name?.split(' ')[0] || 'Aidant'}
-                </span>
-              )}
-              {!assignedAidant && !isLoadingAidant && isAdminOrCoordinator && (
-                <span className="text-[10px] flex items-center gap-0.5 text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded-full">
-                  <UserX size={10} />
-                  Non assigné
                 </span>
               )}
             </div>
@@ -126,7 +113,7 @@ export const PatientCard = ({
               className="p-1.5 hover:bg-gray-100 rounded-lg transition shrink-0"
               style={{ color: colors.primary }}
             >
-              <Edit2 size={14} />
+              <Edit2 size={13} />
             </button>
           )}
         </div>
@@ -134,57 +121,54 @@ export const PatientCard = ({
     );
   }
 
-  // ✅ Version complète
+  // ✅ VERSION COMPLÈTE ADAPTATIVE (SANS CHEVAUCHEMENTS)
   return (
     <div
-      className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border cursor-pointer hover:border-[var(--color-primary)]/30"
+      className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all border cursor-pointer hover:border-[var(--color-primary)]/30 w-full overflow-hidden"
       style={{ borderColor: colors.border }}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center text-white font-semibold text-xl flex-shrink-0" style={{ background: colors.primary }}>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex items-center space-x-4 min-w-0">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg sm:text-xl flex-shrink-0" style={{ background: colors.primary }}>
             {patient.first_name.charAt(0)}{patient.last_name.charAt(0)}
           </div>
-          <div>
-            <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
+          <div className="min-w-0">
+            <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 truncate">
               {patient.first_name} {patient.last_name}
             </h3>
-            <div className="flex items-center flex-wrap gap-2 mt-1">
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: colors.primary + '15', color: colors.primary }}>
+            <div className="flex items-center flex-wrap gap-1.5 mt-1">
+              <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-bold bg-neutral-50 border border-neutral-100">
                 {getCategoryLabelText()}
               </span>
               {patient.age && (
-                <span className="text-xs" style={{ color: colors.text + '60' }}>🎂 {patient.age} ans</span>
+                <span className="text-[10px] sm:text-xs font-bold text-gray-400">🎂 {patient.age} ans</span>
               )}
-              {/* ✅ Afficher l'aidant assigné */}
               {assignedAidant && !isLoadingAidant && (
-                <span className="text-xs flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] sm:text-xs font-bold flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full shrink-0">
                   <UserCheck size={12} />
                   Aidant: {assignedAidant.full_name}
                 </span>
               )}
               {!assignedAidant && !isLoadingAidant && isAdminOrCoordinator && (
-                <span className="text-xs flex items-center gap-1 text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] sm:text-xs font-bold flex items-center gap-1 text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full shrink-0">
                   <UserX size={12} />
                   Non assigné
                 </span>
               )}
-              {isLoadingAidant && (
-                <span className="text-xs text-gray-400 animate-pulse">⏳ Chargement...</span>
-              )}
             </div>
           </div>
         </div>
+        
         {showActions && (
-          <div className="flex space-x-2">
+          <div className="flex space-x-1.5 self-end sm:self-auto shrink-0">
             {onEdit && (
               <button 
                 onClick={(e) => { e.stopPropagation(); onEdit(); }} 
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
                 style={{ color: colors.primary }}
               >
-                <Edit2 size={18} />
+                <Edit2 size={16} />
               </button>
             )}
             {onDelete && (
@@ -192,42 +176,41 @@ export const PatientCard = ({
                 onClick={(e) => { e.stopPropagation(); onDelete(); }} 
                 className="p-2 hover:bg-red-50 rounded-lg transition text-red-500"
               >
-                <Trash2 size={18} />
+                <Trash2 size={16} />
               </button>
             )}
           </div>
         )}
       </div>
 
-      <div className="mt-4 space-y-2">
-        <div className="flex items-center space-x-2 text-sm" style={{ color: colors.text + '70' }}>
-          <MapPin size={16} />
-          <span>{patient.address}</span>
+      <div className="mt-4 space-y-2 text-xs sm:text-sm font-semibold" style={{ color: colors.text + 'b0' }}>
+        <div className="flex items-start space-x-2">
+          <MapPin size={16} className="shrink-0 mt-0.5 text-gray-400" />
+          <span className="leading-relaxed">{patient.address}</span>
         </div>
         {patient.phone && (
-          <div className="flex items-center space-x-2 text-sm" style={{ color: colors.text + '70' }}>
-            <Phone size={16} />
+          <div className="flex items-center space-x-2">
+            <Phone size={16} className="shrink-0 text-gray-400" />
             <span>{patient.phone}</span>
           </div>
         )}
         {patient.emergency_contact && (
-          <div className="flex items-center space-x-2 text-sm" style={{ color: colors.text + '70' }}>
-            <span>🆘</span>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm shrink-0">🆘</span>
             <span>Urgence: {patient.emergency_contact}</span>
           </div>
         )}
       </div>
 
       {patient.notes && (
-        <div className="mt-3 p-3 rounded-xl" style={{ background: colors.primary + '05' }}>
-          <p className="text-sm" style={{ color: colors.text + '60' }}>{patient.notes}</p>
+        <div className="mt-3.5 p-3 rounded-xl bg-gray-50/50 border border-gray-100/30">
+          <p className="text-xs sm:text-sm font-medium leading-relaxed" style={{ color: colors.text + '90' }}>{patient.notes}</p>
         </div>
       )}
 
-      {/* ✅ Footer avec info d'assignation */}
       {isAdminOrCoordinator && (
-        <div className="mt-4 pt-3 border-t" style={{ borderColor: colors.border }}>
-          <div className="flex items-center justify-between text-xs">
+        <div className="mt-4 pt-3 border-t border-gray-100/50" style={{ borderColor: colors.border }}>
+          <div className="flex items-center justify-between text-xs font-bold">
             <span style={{ color: colors.text + '50' }}>
               {assignedAidant ? (
                 <span className="flex items-center gap-1 text-green-600">
@@ -244,7 +227,7 @@ export const PatientCard = ({
             {isAdminOrCoordinator && (
               <button
                 onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-                className="text-[10px] font-medium hover:underline"
+                className="text-[10px] font-bold hover:underline"
                 style={{ color: colors.primary }}
               >
                 Gérer les assignations
