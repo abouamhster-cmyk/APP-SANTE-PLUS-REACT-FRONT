@@ -1,5 +1,6 @@
 // 📁 src/features/admin/pages/RegistrationsPage.tsx
- 
+// ✅ PAGE DES INSCRIPTIONS : OPTIMISATION RESPONSIVE MOBILE ET ALIGNEMENT H-11 DES CONTRÔLES
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -10,7 +11,6 @@ import {
   Eye,
   Search,
   Filter,
-  RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -76,7 +77,6 @@ const RegistrationsPage = () => {
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
 
-  // ✅ DÉCLARER fetchRegistrations D'ABORD
   const fetchRegistrations = async () => {
     try {
       setIsLoading(true);
@@ -118,7 +118,6 @@ const RegistrationsPage = () => {
     }
   };
 
-  // ✅ UTILISER le hook APRÈS la déclaration
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: fetchRegistrations,
     onError: (error) => toast.error('Erreur lors du rafraîchissement des inscriptions'),
@@ -154,18 +153,18 @@ const RegistrationsPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-5 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all"
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
       >
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight" style={{ color: colors.text }}>
-              📋 Inscriptions et dossiers
+            <h1 className="text-lg sm:text-xl font-black tracking-tight" style={{ color: colors.text }}>
+              📋 Inscriptions & Dossiers
             </h1>
-            <p className="text-xs" style={{ color: colors.textLight }}>
-              {stats.total} dossier{stats.total > 1 ? 's' : ''} • {stats.pending} en attente
+            <p className="text-xs font-semibold" style={{ color: colors.textLight }}>
+              {stats.total} dossier{stats.total > 1 ? 's' : ''} • {stats.pending} en attente de validation
             </p>
           </div>
           
@@ -176,45 +175,50 @@ const RegistrationsPage = () => {
           />
         </div>
 
-        <div className="relative z-10 mt-4 flex flex-wrap gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700">
-            <Users size={14} />
+        <div className="relative z-10 mt-4 flex flex-wrap gap-2.5">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-700">
+            <Users size={13} />
             Total: {stats.total}
           </div>
           {stats.pending > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">
-              <Clock size={14} />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-700">
+              <Clock size={13} />
               En attente: {stats.pending}
             </div>
           )}
           {stats.validated > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-700">
-              <CheckCircle size={14} />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
+              <CheckCircle size={13} />
               Validés: {stats.validated}
             </div>
           )}
           {stats.refused > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700">
-              <XCircle size={14} />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">
+              <XCircle size={13} />
               Refusés: {stats.refused}
             </div>
           )}
         </div>
       </section>
 
-      <section className="bg-white rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col sm:flex-row gap-3">
-        <input
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Rechercher par nom, email..."
-          className="flex-1 px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)' }}
-        />
+      {/* BARRE DE RECHERCHE - INTEGRATION DU FORMAT H-11 COHÉRENT */}
+      <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100/50 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher par nom, email..."
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            style={{ color: colors.text }}
+          />
+        </div>
+        
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3.5 py-2 rounded-xl border outline-none text-xs"
-          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
+          style={{ color: colors.text }}
         >
           <option value="all">Tous les dossiers ({stats.total})</option>
           <option value="en_attente">⏳ En attente ({stats.pending})</option>
@@ -223,9 +227,10 @@ const RegistrationsPage = () => {
         </select>
       </section>
 
-      <section className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.015)] overflow-hidden divide-y" style={{ borderColor: colors.border }}>
+      {/* GRILLE LISTE D'INSCRIPTIONS */}
+      <section className="bg-white rounded-3xl shadow-sm border border-gray-100/50 overflow-hidden divide-y" style={{ borderColor: colors.border }}>
         {filteredRegistrations.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">
+          <div className="p-12 text-center text-gray-400 text-xs font-medium">
             {searchTerm || statusFilter !== 'all' 
               ? 'Aucun dossier ne correspond à votre recherche' 
               : 'Aucun dossier trouvé'}
@@ -237,15 +242,15 @@ const RegistrationsPage = () => {
               onClick={() => navigate(`/app/registrations/${reg.id}`)}
               className="p-4 hover:bg-gray-50/50 transition cursor-pointer flex items-center justify-between gap-4"
             >
-              <div className="min-w-0 space-y-0.5">
-                <p className="font-bold text-xs" style={{ color: colors.text }}>
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="font-extrabold text-xs sm:text-sm" style={{ color: colors.text }}>
                   {reg.user?.full_name || 'Anonyme'}
                 </p>
-                <div className="flex items-center gap-2 text-[10px] text-gray-400 flex-wrap">
-                  <span>{reg.user?.email || 'Email inconnu'}</span>
+                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider flex-wrap">
+                  <span className="truncate max-w-[150px] sm:max-w-none">{reg.user?.email || 'Email inconnu'}</span>
                   <span>•</span>
                   <span 
-                    className="font-semibold px-1.5 py-0.5 rounded-full text-[8px]"
+                    className="font-black px-2 py-0.5 rounded-full text-[8px]"
                     style={{ 
                       background: getStatusColor(reg.status) + '15', 
                       color: getStatusColor(reg.status) 
@@ -254,17 +259,17 @@ const RegistrationsPage = () => {
                     {getStatusLabel(reg.status)}
                   </span>
                   <span>•</span>
-                  <span>{formatDate(reg.created_at)}</span>
+                  <span className="font-medium lowercase normal-case">{formatDate(reg.created_at)}</span>
                 </div>
               </div>
               <button 
-                className="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600"
+                className="p-2 rounded-xl hover:bg-gray-50 transition text-gray-400 hover:text-gray-600 shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/app/registrations/${reg.id}`);
                 }}
               >
-                <Eye size={14} />
+                <Eye size={16} />
               </button>
             </div>
           ))
