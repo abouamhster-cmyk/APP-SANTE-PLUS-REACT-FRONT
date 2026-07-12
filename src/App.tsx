@@ -1,5 +1,5 @@
 // 📁 frontend/src/App.tsx
-// ✅ CONTROLEUR DE NAVIGATION PRINCIPAL AVEC ECOUTE REALTIME OPTIMISÉE ET DEBOUNCÉE
+// ✅ CONTROLEUR DE NAVIGATION PRINCIPAL AVEC ECOUTE REALTIME OPTIMISÉE ET RE-SAUVEGARDE COMPLÈTE DES IMPORTS
 
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -23,6 +23,60 @@ import { useAuthStore } from '@/stores/authStore';
 import { useOfferStore } from '@/stores/offerStore';
 import { useContractStore } from '@/stores/contractStore';
 
+// ============================================================
+// AUTH PAGES
+// ============================================================
+import LoginPage from '@/features/auth/pages/LoginPage';
+import RegisterPage from '@/features/auth/pages/RegisterPage';
+import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage';
+import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage';
+import AdminSetupPage from '@/features/admin/pages/AdminSetupPage';
+
+// ============================================================
+// DASHBOARD & MAIN PAGES
+// ============================================================
+import DashboardPage from '@/features/dashboard/pages/DashboardPage';
+import PatientsPage from '@/features/patients/pages/PatientsPage';
+import PatientDetailPage from '@/features/patients/pages/PatientDetailPage';
+import VisitsPage from '@/features/visits/pages/VisitsPage';
+import VisitDetailPage from '@/features/visits/pages/VisitDetailPage';
+import OrdersPage from '@/features/orders/pages/OrdersPage';
+import CreateOrderPage from '@/features/orders/pages/CreateOrderPage';
+import OrderDetailPage from '@/features/orders/pages/OrderDetailPage';
+import MessagesPage from '@/features/messages/pages/MessagesPage';
+import BillingPage from '@/features/billing/pages/BillingPage';
+import MapPage from '@/features/map/pages/MapPage';
+import NotificationsPage from '@/features/notifications/pages/NotificationsPage';
+import ProfilePage from '@/features/profile/pages/ProfilePage';
+import EducationPage from '@/features/education/pages/EducationPage';
+import JournalPage from '@/features/journal/pages/JournalPage';
+import DischargePage from '@/features/discharge/pages/DischargePage';
+import AidantCatalogPage from '@/features/aidants/pages/AidantCatalogPage';
+import AidantDetailPage from '@/features/aidants/pages/AidantDetailPage';
+
+// ============================================================
+// AIDANT / HELP PAGES
+// ============================================================
+import MissionsPage from '@/features/help/pages/MissionsPage';
+import PlanningPage from '@/features/help/pages/PlanningPage';
+import HistoryPage from '@/features/help/pages/HistoryPage';
+
+// ============================================================
+// ADMIN PAGES - AVEC ROLE GUARD
+// ============================================================
+import AdminDashboardPage from '@/features/admin/pages/AdminDashboardPage';
+import AdminPaymentsPage from '@/features/admin/pages/AdminPaymentsPage';
+import AdminSubscriptionsPage from '@/features/admin/pages/AdminSubscriptionsPage';
+import AdminNotificationsPage from '@/features/admin/pages/AdminNotificationsPage';
+import AdminVisitValidationPage from '@/features/admin/pages/AdminVisitValidationPage';
+import RegistrationsPage from '@/features/admin/pages/RegistrationsPage';
+import RegistrationDetailsPage from '@/features/admin/pages/RegistrationDetailsPage';
+import AidantsPage from '@/features/admin/pages/AidantsPage';
+import AidantCandidatesPage from '@/features/admin/pages/AidantCandidatesPage';
+import UsersPage from '@/features/admin/pages/UsersPage';
+import OffersPage from '@/features/admin/pages/OffersPage';
+import SettingsPage from '@/features/admin/pages/SettingsPage';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -36,7 +90,8 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const { initialize, isLoading: isAuthLoading, isAuthenticated, isInitialized: isAuthInitialized } = useAuthStore();
+  // ✅ CORRECTION TS : Destructuration de profile ajoutée
+  const { initialize, isLoading: isAuthLoading, isAuthenticated, isInitialized: isAuthInitialized, profile } = useAuthStore();
   const { fetchNotifications, subscribe, unsubscribe, unreadCount } = useNotificationStore();
   const { fetchOffers, isInitialized: isOffersInitialized } = useOfferStore();
   const { checkContract } = useContractStore();
@@ -72,14 +127,12 @@ function App() {
 
   // ============================================================
   // ✅ UNIQUE & OPTIMISÉ - REALTIME AUTO-REFRESH DEBOUNCÉ DES VISITES ET COMMANDES
-  // (Élimine complètement le waterfall de requêtes Axios et re-renders en doublon)
   // ============================================================
   useEffect(() => {
     if (!isAuthenticated || !isAuthInitialized) return;
 
     console.log('📡 [Realtime] Initialisation du canal temps réel unique et optimisé...');
 
-    // Fonctions de rechargement debouncées (regroupe les requêtes en cas d'écritures simultanées)
     let visitTimeout: any;
     const debouncedFetchVisits = () => {
       clearTimeout(visitTimeout);
@@ -100,7 +153,6 @@ function App() {
       }, 300);
     };
 
-    // Canal unique d'écoute pour les visites
     const visitsChannel = supabase
       .channel('realtime_visites_consolidated')
       .on(
@@ -113,7 +165,6 @@ function App() {
       )
       .subscribe();
 
-    // Canal unique d'écoute pour les commandes
     const ordersChannel = supabase
       .channel('realtime_commandes_consolidated')
       .on(
