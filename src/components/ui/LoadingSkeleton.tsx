@@ -1,8 +1,8 @@
 // 📁 src/components/ui/LoadingSkeleton.tsx
+// ✅ SQUELETTES DE CHARGEMENT : UNIFICATION PREMIUM DE TRANSITION AVEC LE LOADING SPINNER
 
 import { cn } from '@/utils/helpers';
-import { useAuthStore } from '@/stores/authStore';
-import { getLogoByRole } from '@/lib/constants';
+import { LoadingSpinner } from './LoadingSpinner';
 
 interface LoadingSkeletonProps {
   type?: 'page' | 'card' | 'list' | 'fullscreen';
@@ -15,48 +15,16 @@ export const LoadingSkeleton = ({
   count = 1,
   className,
 }: LoadingSkeletonProps) => {
-  const { role, profile } = useAuthStore();
-  const logoConfig = getLogoByRole(role, profile?.patient_category);
 
   // =========================================
-  // PAGE / FULLSCREEN
+  // ✅ UNIFICATION UNIQUE : Rendu du spinner premium pour éviter le double clignotement de page
   // =========================================
   if (type === 'page' || type === 'fullscreen') {
-    return (
-      <div
-        className="flex flex-col items-center justify-center min-h-screen"
-        style={{
-          background: 'rgba(245,240,232,0.9)',
-          backdropFilter: 'blur(6px)',
-        }}
-      >
-        <div className="animate-pulse text-center">
-          
-          <div className="flex justify-center mb-6">
-            <img
-              src={logoConfig.icon}
-              alt="logo"
-              className="w-20 h-20 object-contain opacity-80"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <div className="h-4 w-40 rounded-full bg-neutral-200 mx-auto shimmer" />
-            <div className="h-3 w-24 rounded-full bg-neutral-200 mx-auto shimmer" />
-          </div>
-
-          <div className="mt-8 space-y-4">
-            <div className="h-12 w-72 rounded-xl bg-neutral-200 shimmer" />
-            <div className="h-12 w-72 rounded-xl bg-neutral-200 shimmer" />
-            <div className="h-12 w-72 rounded-xl bg-neutral-200 shimmer" />
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen />;
   }
 
   // =========================================
-  // CARD
+  // CARD (PULSATION TRÈS DOUCE SANS CLIGNOTEMENT AGRESSIF)
   // =========================================
   if (type === 'card') {
     return (
@@ -65,21 +33,21 @@ export const LoadingSkeleton = ({
           <div
             key={i}
             className={cn(
-              'rounded-2xl bg-white p-6 shadow-sm space-y-4',
+              'rounded-2xl bg-white p-6 border border-gray-100/50 shadow-sm space-y-4 animate-pulse',
               className
             )}
           >
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-full bg-neutral-200 shimmer" />
+              <div className="w-12 h-12 rounded-full bg-neutral-100" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-3/4 rounded-full bg-neutral-200 shimmer" />
-                <div className="h-3 w-1/2 rounded-full bg-neutral-200 shimmer" />
+                <div className="h-4 w-3/4 rounded-full bg-neutral-100" />
+                <div className="h-3 w-1/2 rounded-full bg-neutral-100" />
               </div>
             </div>
 
             <div className="space-y-2">
-              <div className="h-3 w-full rounded-full bg-neutral-200 shimmer" />
-              <div className="h-3 w-2/3 rounded-full bg-neutral-200 shimmer" />
+              <div className="h-3 w-full rounded-full bg-neutral-100" />
+              <div className="h-3 w-2/3 rounded-full bg-neutral-100" />
             </div>
           </div>
         ))}
@@ -96,15 +64,15 @@ export const LoadingSkeleton = ({
         <div
           key={i}
           className={cn(
-            'rounded-xl bg-white p-4 shadow-sm',
+            'rounded-xl bg-white p-4 border border-gray-100/50 shadow-sm animate-pulse',
             className
           )}
         >
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 rounded-full bg-neutral-200 shimmer" />
+            <div className="w-10 h-10 rounded-full bg-neutral-100" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 w-3/4 rounded-full bg-neutral-200 shimmer" />
-              <div className="h-3 w-1/3 rounded-full bg-neutral-200 shimmer" />
+              <div className="h-4 w-3/4 rounded-full bg-neutral-100" />
+              <div className="h-3 w-1/3 rounded-full bg-neutral-100" />
             </div>
           </div>
         </div>
