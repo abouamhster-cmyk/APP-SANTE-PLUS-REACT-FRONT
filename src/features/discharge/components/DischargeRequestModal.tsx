@@ -1,6 +1,5 @@
 // 📁 src/features/discharge/components/DischargeRequestModal.tsx
-// ✅ WRAPPER DEMANDE SORTIE : PRISE EN COMPTE DU PAIEMENT ET DU REDIRECT WIZARD D'ASSIGNATION
-
+ 
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { DischargeRequestModalContent } from './DischargeRequestModalContent';
 
