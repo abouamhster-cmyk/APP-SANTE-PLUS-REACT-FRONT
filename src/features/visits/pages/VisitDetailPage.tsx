@@ -14,16 +14,11 @@ import {
   Phone,
   Heart,
   AlertCircle,
-  Image,
   CreditCard,
-  Users,
   UserPlus,
-  X,
-  Award,
   Clock,
-  Bell,
   UserCheck,
-  Briefcase,
+  Award,
   Navigation as NavIcon,
   Mic, // Note vocale
 } from 'lucide-react';
@@ -974,10 +969,7 @@ const VisitDetailPage = () => {
       {showAssignModal && (
         <AssignAidantModal
           isOpen={showAssignModal}
-          onClose={() => {
-            setShowAssignModal(false);
-            setSelectedAidant(null);
-          }}
+          onClose={handleAssignSuccess}
           targetType="visit"
           targetId={visit.id}
           targetName={visit.target_name || `${visit.patient?.first_name || ''} ${visit.patient?.last_name || ''}`.trim()}
@@ -1028,19 +1020,21 @@ interface StatCardProps {
   color: string;
 }
 
-const StatCard = ({ icon, label, value, sub, color }: StatCardProps) => (
-  <div className="bg-white rounded-xl p-3 shadow-sm border border-black/5">
-    <div className="flex items-center gap-2">
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '12', color }}>
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs font-bold" style={{ color }}>{value}</p>
-        <p className="text-[9px] text-gray-400 truncate">{label}</p>
-        {sub && <p className="text-[8px] text-gray-400 truncate">{sub}</p>}
+const StatCard = ({ icon, label, value, sub, color }: StatCardProps) => {
+  return (
+    <div className="bg-white rounded-xl p-3 shadow-sm border border-black/5">
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '12', color }}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-bold" style={{ color }}>{value}</p>
+          <p className="text-[9px] text-gray-400 truncate">{label}</p>
+          {sub && <p className="text-[8px] text-gray-400 truncate">{sub}</p>}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default VisitDetailPage;
