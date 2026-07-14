@@ -1,5 +1,6 @@
 // 📁 src/features/discharge/components/DischargeRequestModalContent.tsx
- 
+// ✅ FORMULAIRE SORTIE : SELECTION COMPTE PROCHE OU PERSONNEL ET CAPTURE DU WIZARD AVEC ATTRIBUTION D'ERREUR SECURISEE
+
 import { useState } from 'react';
 import { Hospital, Calendar, Clock, Stethoscope, User, CheckCircle } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
@@ -36,7 +37,7 @@ export const DischargeRequestModalContent = ({
   } = useTerminology();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal'); // ✅ Choix d'aiguillage du bénéficiaire
+  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal'); 
   const [formData, setFormData] = useState({
     patient_id: '',
     hospital_name: '',
@@ -73,7 +74,7 @@ export const DischargeRequestModalContent = ({
 
     setIsSubmitting(true);
     
-    // ✅ CONSTRUCTION DU PAYLOAD UNIFIÉ
+    // CONSTRUCTION DU PAYLOAD UNIFIÉ
     const payload = {
       patient_id: targetType === 'patient' ? formData.patient_id : null,
       scheduled_date: formData.discharge_date,
@@ -106,8 +107,9 @@ export const DischargeRequestModalContent = ({
     } catch (error: any) {
       console.error('Erreur création sortie:', error);
       
-      const errCode = error.code || error.response?.data?.code;
-      const wizardData = error.wizard || error.response?.data?.wizard;
+      // ✅ CORRECTIF DE PRIORITÉ : Interroger en premier la réponse de l'API (response.data) avant le code générique d'Axios
+      const errCode = error.response?.data?.code || error.code;
+      const wizardData = error.response?.data?.wizard || error.wizard;
 
       // REBOND SECURISE WIZARD : Si aucun aidant permanent n'est rattaché, fermer la demande et ouvrir le Wizard
       if (errCode === 'WIZARD_REQUIRED' || errCode === 'ALL_AIDANTS_FULL') {
@@ -122,7 +124,7 @@ export const DischargeRequestModalContent = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 pb-4 max-w-xl mx-auto">
-      {/* ✅ Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
+      {/* Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
       <div>
         <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{ color: colors.text }}>
           Bénéficiaire de la sortie *
@@ -245,7 +247,7 @@ export const DischargeRequestModalContent = ({
             value={formData.doctor_name}
             onChange={(e) => setFormData(prev => ({ ...prev, doctor_name: e.target.value }))}
             placeholder="Dr. Nom du médecin"
-            className="w-full h-11 pl-11 pr-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
             style={{
               borderColor: colors.border,
               color: colors.text,
