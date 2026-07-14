@@ -1,5 +1,5 @@
 // 📁 src/features/discharge/components/DischargeRequestModal.tsx
-// ✅ WRAPPER DEMANDE SORTIE : PRISE EN COMPTE DU PAIEMENT PONCTUEL DE COMMANDE
+// ✅ WRAPPER DEMANDE SORTIE : PRISE EN COMPTE DU PAIEMENT ET DU REDIRECT WIZARD D'ASSIGNATION
 
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { DischargeRequestModalContent } from './DischargeRequestModalContent';
@@ -8,7 +8,8 @@ interface DischargeRequestModalProps {
   patients: any[];
   onClose: () => void;
   onSuccess: () => void;
-  onPaymentRequired: (visit: any) => void; 
+  onPaymentRequired: (visit: any) => void;
+  onWizardRequired: (wizardData: any, pendingData: any) => void; 
   colors: any;
 }
 
@@ -17,6 +18,7 @@ export const DischargeRequestModal = ({
   onClose,
   onSuccess,
   onPaymentRequired,
+  onWizardRequired,
   colors,
 }: DischargeRequestModalProps) => {
   return (
@@ -34,6 +36,10 @@ export const DischargeRequestModal = ({
         }}
         onPaymentRequired={(visit) => {
           onPaymentRequired(visit);
+          onClose();
+        }}
+        onWizardRequired={(wizardData, pendingData) => {
+          onWizardRequired(wizardData, pendingData);
           onClose();
         }}
         onCancel={onClose}
