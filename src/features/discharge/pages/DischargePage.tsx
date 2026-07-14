@@ -1,6 +1,5 @@
 // 📁 src/features/discharge/pages/DischargePage.tsx
-// ✅ PAGE SORTIE HÔPITAL : FUSION TOTALE SUR LE MOTEUR DE VISITES, WIZARD D'ASSIGNATION ET FÉDAPAY SANS ERREUR DE BUILD
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, Clock, Hospital, CheckCircle, Eye, Loader2, Filter, XCircle, CreditCard, UserPlus } from 'lucide-react';
@@ -14,7 +13,7 @@ import { formatDate } from '@/utils/helpers';
 import { DischargeRequestModal } from '../components/DischargeRequestModal';
 import { DischargeDetailsModal } from '../components/DischargeDetailsModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal'; 
-import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal'; 
+import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal'; // Import du Wizard d'assignation
 import { DischargeStatus } from '@/types';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
@@ -171,13 +170,16 @@ const DischargePage = () => {
 
   // ✅ CANALISATION ET PRÉPARATION DU WIZARD (Récupère les données cibles de la visite en cours)
   const handleWizardRequired = (wizardData: any, pendingData: any) => {
+    const targetPatient = patients.find(p => p.id === pendingData.patient_id);
+    const resolvedName = pendingData.patient_id 
+      ? (targetPatient ? `${targetPatient.first_name} ${targetPatient.last_name}` : 'Mon Proche')
+      : (profile?.full_name || 'Personnel');
+
     setPendingDischargeData(pendingData);
     setWizardTarget({
       targetType: pendingData.target_type || 'personal',
       targetId: pendingData.patient_id || profile?.id || '',
-      targetName: pendingData.patient_id 
-        ? `${patients.find(p => p.id === pendingData.patient_id)?.first_name || ''} ${patients.find(p => p.id === pendingData.patient_id)?.last_name || ''}`.trim()
-        : (profile?.full_name || 'Personnel'),
+      targetName: resolvedName,
     });
     setShowWizardModal(true);
   };
@@ -380,7 +382,7 @@ const DischargePage = () => {
             fetchVisits();
           }}
           onPaymentRequired={handlePaymentRequired}
-          onWizardRequired={handleWizardRequired}  
+          onWizardRequired={handleWizardRequired} // ✅ Canalisation du Wizard
           colors={colors}
         />
       )}
