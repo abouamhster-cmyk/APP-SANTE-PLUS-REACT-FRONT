@@ -1,17 +1,19 @@
 // 📁 src/features/discharge/components/DischargeRequestModalContent.tsx
-// ✅ FORMULAIRE SORTIE : ENREGISTREMENT EN VISITE AVEC MÉTADONNÉES ET GESTION DES QUOTAS D'ABONNEMENTS
+// ✅ FORMULAIRE SORTIE : SELECTION COMPTE PROCHE OU COMPTE PERSONNEL ET REDIRECTION SUR LE WIZARD SANS CRASH
 
 import { useState } from 'react';
 import { Hospital, Calendar, Clock, Stethoscope, User, CheckCircle } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { useTerminology } from '@/hooks/useTerminology';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 interface DischargeRequestModalContentProps {
   patients: any[];
   onSuccess: () => void;
   onPaymentRequired: (visit: any) => void;
+  onWizardRequired: (wizardData: any, pendingData: any) => void; // ✅ Canalisation du Wizard
   onCancel: () => void;
   colors: any;
 }
@@ -20,6 +22,7 @@ export const DischargeRequestModalContent = ({
   patients,
   onSuccess,
   onPaymentRequired,
+  onWizardRequired,
   onCancel,
   colors,
 }: DischargeRequestModalContentProps) => {
@@ -34,6 +37,7 @@ export const DischargeRequestModalContent = ({
   } = useTerminology();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal'); // ✅ Choix d'aiguillage du bénéficiaire
   const [formData, setFormData] = useState({
     patient_id: '',
     hospital_name: '',
@@ -53,7 +57,7 @@ export const DischargeRequestModalContent = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.patient_id) {
+    if (targetType === 'patient' && !formData.patient_id) {
       toast.error(`Veuillez sélectionner un${getPatientLabel().startsWith('B') ? ' ' : 'e '}${getPatientLabel().toLowerCase()}`);
       return;
     }
@@ -69,25 +73,29 @@ export const DischargeRequestModalContent = ({
     }
 
     setIsSubmitting(true);
+    
+    // ✅ CONSTRUCTION DU PAYLOAD UNIFIÉ
+    const payload = {
+      patient_id: targetType === 'patient' ? formData.patient_id : null,
+      scheduled_date: formData.discharge_date,
+      scheduled_time: formData.discharge_time || '10:00:00',
+      duration_minutes: 120, // Une sortie dure généralement 2h
+      notes: `🏥 SORTIE HÔPITAL - Hôpital : ${formData.hospital_name.trim()}. Service : ${formData.hospital_service.trim() || 'Non renseigné'}. Médecin : ${formData.doctor_name.trim() || 'Non renseigné'}.`,
+      is_urgent: false,
+      is_ponctual: !hasActiveSubscription, // Si pas d'abonnement, c'est un achat ponctuel payant
+      target_type: targetType, 
+      metadata: {
+        is_discharge: true, // Tag d'aiguillage
+        hospital_name: formData.hospital_name.trim(),
+        hospital_service: formData.hospital_service.trim() || null,
+        doctor_name: formData.doctor_name.trim() || null,
+        discharge_date: formData.discharge_date,
+        discharge_time: formData.discharge_time || '10:00:00',
+      }
+    };
+
     try {
-      // ✅ INTEGRATION PROCESSUS UNIQUE DE VISITE : Enregistrement sous forme de visite de type 'permanente' (ou ponctuelle si pas d'abonnement)
-      const response = await createVisit({
-        patient_id: formData.patient_id,
-        scheduled_date: formData.discharge_date,
-        scheduled_time: formData.discharge_time || '10:00:00',
-        duration_minutes: 120, // Une sortie dure généralement 2h
-        notes: `🏥 SORTIE HÔPITAL - Hôpital : ${formData.hospital_name.trim()}. Service : ${formData.hospital_service.trim() || 'Non renseigné'}. Médecin : ${formData.doctor_name.trim() || 'Non renseigné'}.`,
-        is_urgent: false,
-        is_ponctual: !hasActiveSubscription, // Si pas d'abonnement, c'est un achat ponctuel payant
-        metadata: {
-          is_discharge: true, // Tag d'aiguillage pour le dossier d'accompagnement
-          hospital_name: formData.hospital_name.trim(),
-          hospital_service: formData.hospital_service.trim() || null,
-          doctor_name: formData.doctor_name.trim() || null,
-          discharge_date: formData.discharge_date,
-          discharge_time: formData.discharge_time || '10:00:00',
-        }
-      });
+      const response = await createVisit(payload);
 
       // Si le processus exige un paiement à l'acte
       if (response.requires_payment || response.status === 'brouillon') {
@@ -98,7 +106,16 @@ export const DischargeRequestModalContent = ({
       }
     } catch (error: any) {
       console.error('Erreur création sortie:', error);
-      toast.error(error.message || 'Erreur lors de la création de la demande');
+      
+      const errCode = error.code || error.response?.data?.code;
+      const wizardData = error.wizard || error.response?.data?.wizard;
+
+      // ✅ REBOND SECURISE WIZARD : Si aucun aidant permanent n'est rattaché, fermer la demande et ouvrir le Wizard
+      if (errCode === 'WIZARD_REQUIRED' || errCode === 'ALL_AIDANTS_FULL') {
+        onWizardRequired(wizardData, payload);
+      } else {
+        toast.error(error.message || 'Erreur lors de la création de la demande');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -106,29 +123,70 @@ export const DischargeRequestModalContent = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 pb-4">
-      {/* Patient / Proche */}
+      {/* ✅ Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
       <div>
         <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{ color: colors.text }}>
-          {getPatientLabel()} *
+          Bénéficiaire de la sortie *
         </label>
-        <select
-          value={formData.patient_id}
-          onChange={(e) => setFormData(prev => ({ ...prev, patient_id: e.target.value }))}
-          required
-          className="w-full h-11 px-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
-          style={{
-            borderColor: colors.border,
-            color: colors.text,
-            '--tw-ring-color': colors.primary
-          } as any}
-        >
-          <option value="">Sélectionner un{getPatientLabel().startsWith('B') ? ' ' : 'e '}{getPatientLabel().toLowerCase()}</option>
-          {patients.map((patient) => (
-            <option key={patient.id} value={patient.id}>
-              {patient.first_name} {patient.last_name}
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              setTargetType('personal');
+              setFormData(prev => ({ ...prev, patient_id: '' }));
+            }}
+            className={cn(
+              "h-11 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5",
+              targetType === 'personal'
+                ? "text-white"
+                : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+            )}
+            style={{
+              background: targetType === 'personal' ? colors.primary : 'transparent',
+              borderColor: targetType === 'personal' ? colors.primary : colors.border,
+            }}
+          >
+            👤 Pour moi-même
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTargetType('patient');
+              if (patients.length > 0) {
+                setFormData(prev => ({ ...prev, patient_id: patients[0].id }));
+              }
+            }}
+            className={cn(
+              "h-11 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5",
+              targetType === 'patient'
+                ? "text-white"
+                : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+            )}
+            style={{
+              background: targetType === 'patient' ? colors.primary : 'transparent',
+              borderColor: targetType === 'patient' ? colors.primary : colors.border,
+            }}
+          >
+            👨‍👩‍👦 Un proche
+          </button>
+        </div>
+
+        {targetType === 'patient' && (
+          <select
+            value={formData.patient_id}
+            onChange={(e) => setFormData(prev => ({ ...prev, patient_id: e.target.value }))}
+            required={targetType === 'patient'}
+            className="w-full h-11 px-4 rounded-xl border bg-gray-50/40 outline-none text-xs font-bold cursor-pointer"
+            style={{ borderColor: colors.border, color: colors.text }}
+          >
+            <option value="">Sélectionner un proche</option>
+            {patients.map((patient) => (
+              <option key={patient.id} value={patient.id}>
+                {patient.first_name} {patient.last_name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Hôpital */}
