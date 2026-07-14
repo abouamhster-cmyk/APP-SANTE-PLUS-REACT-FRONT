@@ -1,7 +1,7 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
-// ✅ PAGE DASHBOARD : SYNCHRONISATION ABSOLUE ET COHÉRENCE DES STATISTIQUES GLOBALES ET LOCALES SELON LE RÔLE CONNECTÉ
-
+ 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Users,
@@ -15,7 +15,6 @@ import {
   CreditCard,
   MapPin,
   BookOpen,
-  Hospital,
   History,
   Settings,
   ClipboardList,
@@ -77,7 +76,7 @@ interface HeroSlide {
 }
 
 // =============================================
-// DÉFINITION DES TUILES PAR RÔLE
+// DÉFINITION DES TUILES PAR RÔLE (SANS LE DOUBLON SORTIE HÔPITAL)
 // =============================================
 const getTilesForRole = (role: string | null, colors: any, stats: any, patientsCount: number): Tile[] => {
   const tiles: Tile[] = [];
@@ -91,7 +90,7 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
       { icon: <CreditCard size={20} />, label: 'Abonnement', color: '#8b5cf6', path: '/app/billing' },
       { icon: <BookOpen size={20} />, label: 'Journal', color: '#b45309', path: '/app/journal' },
       { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
-      { icon: <Hospital size={20} />, label: 'Sortie', color: '#ec4899', path: '/app/discharge' },
+      // ❌ RETIRÉ : L'outil de Sortie Hôpital a été complètement fusionné au sein des Visites
       { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
     return tiles;
@@ -952,7 +951,7 @@ const DashboardPage = () => {
       {isFamily && (stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stats.upcomingVisits > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
+            <section className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
                   Prochaines visites
@@ -977,7 +976,7 @@ const DashboardPage = () => {
           )}
 
           {stats.pendingOrders > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
+            <section className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
               <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
                   Commandes récentes
@@ -1005,7 +1004,7 @@ const DashboardPage = () => {
 
       {/* PLANIFICATION POUR LES AIDANTS */}
       {isAidant && stats.pendingVisits > 0 && (
-        <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
+        <section className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
               📋 Missions à venir
@@ -1031,7 +1030,7 @@ const DashboardPage = () => {
 
       {/* EMPTY STATE PROACTIF */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
-        <section className="bg-white rounded-3xl p-6 text-center border border-gray-100/50">
+        <section className="bg-white rounded-3xl p-6 text-center border border-black/5">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
             <Lightbulb size={22} style={{ color: colors.primary }} />
           </div>
