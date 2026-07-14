@@ -8,7 +8,7 @@ interface DischargeRequestModalProps {
   patients: any[];
   onClose: () => void;
   onSuccess: () => void;
-  onPaymentRequired: (visit: any) => void; // ✅ Canalisation du paiement
+  onPaymentRequired: (visit: any) => void; 
   colors: any;
 }
 
