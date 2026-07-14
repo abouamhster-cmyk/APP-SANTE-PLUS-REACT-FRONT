@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
-// ✅ PAGE DÉTAIL VISITE COMPLETE : ENREGISTREMENT ET VISIBILITÉ DES MÉDIAS AVEC PROTECTION ANTI DOUBLE-CLIC ET CORRECTION HOOKS #310
+// ✅ PAGE DÉTAIL VISITE : INTEGRATION ET RENDER DYNAMIQUE DES OPTIONS CLINIQUES (SORTIE & RDV MÉDICAL)
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,6 +21,9 @@ import {
   Award,
   Navigation as NavIcon,
   Mic, // Note vocale
+  Hospital, // 🟢 Importé pour l'aiguillage hospitalier
+  Stethoscope, // 🟢 Importé pour l'aiguillage médical
+  Home, // 🟢 Importé pour l'aide à domicile
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -40,7 +43,7 @@ import {
 
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal';
-import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal'; // 🟢 Import du composant officiel
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal'; 
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -76,7 +79,7 @@ const VisitDetailPage = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
-  // ✅ États pour l'assignation d'aidant unifiée
+  // États pour l'assignation d'aidant unifiée
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   const isActionPending = useRef(false);
@@ -279,9 +282,7 @@ const VisitDetailPage = () => {
     }
   };
 
-  // ============================================================
   // ✅ LOGIQUE D'ASSIGNATION ADMINISTRATIVE DE L'AIDANT
-  // ============================================================
   const handleAssignAidant = async (aidantUserId: string, type: string, force: boolean = false) => {
     isActionPending.current = true;
     setIsUpdating(true);
@@ -437,6 +438,34 @@ const VisitDetailPage = () => {
     };
   };
 
+  // ✅ BADGE DYNAMIQUE D'INTERVENTION (S'adapte à l'aiguillage clinique)
+  const getPrestationBadge = () => {
+    if (!currentVisit) return null;
+    const visitObj = currentVisit as any;
+    if (visitObj.metadata?.is_discharge) {
+      return (
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-pink-100 text-pink-700 border border-pink-200 shrink-0 flex items-center gap-1">
+          <Hospital size={11} />
+          Sortie d'hôpital
+        </span>
+      );
+    }
+    if (visitObj.metadata?.is_medical_appointment) {
+      return (
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-700 border border-blue-200 shrink-0 flex items-center gap-1">
+          <Stethoscope size={11} />
+          Rendez-vous médical
+        </span>
+      );
+    }
+    return (
+      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0 flex items-center gap-1">
+        <Home size={11} />
+        Aide à domicile
+      </span>
+    );
+  };
+
   const isDraft = currentVisit?.status === 'brouillon';
   const isPendingApproval = currentVisit?.status === 'planifiee' || currentVisit?.status === 'en_attente';
   const isAccepted = currentVisit?.status === 'acceptee';
@@ -485,6 +514,7 @@ const VisitDetailPage = () => {
               Visite du {formatDate(visit.scheduled_date)}
             </h1>
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              {getPrestationBadge()}
               <span
                 className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shrink-0"
                 style={{
@@ -773,6 +803,45 @@ const VisitDetailPage = () => {
             </div>
           )}
 
+          {/* ✅ BLOC CLINIQUE ET HOSPITALISATION CONDITIONNEL DYNAMIQUE */}
+          {(visit.metadata?.is_discharge || visit.metadata?.is_medical_appointment) && (
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100/80 space-y-4">
+              <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b pb-2 flex items-center gap-2">
+                <Hospital size={16} className="text-emerald-500 shrink-0" />
+                Détails de l'admission hospitalière
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1.5">Établissement</p>
+                  <p className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200 mt-1 leading-normal truncate">
+                    🏥 {visit.metadata.hospital_name || 'Non spécifié'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1.5">Service médical</p>
+                  <p className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200 mt-1 leading-normal truncate">
+                    🩺 {visit.metadata.hospital_service || 'Non précisé'}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1.5">Médecin traitant</p>
+                  <p className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200 mt-1 leading-normal truncate">
+                    👤 {visit.metadata.doctor_name || 'Non renseigné'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-blue-50/40 border border-blue-100/40 text-xs text-blue-700 leading-relaxed font-semibold">
+                ℹ️ {visit.metadata?.is_discharge 
+                  ? "Cet accompagnement comprend l'aide à la sortie, le transport de retour et la réinstallation de confort à domicile."
+                  : "Cet accompagnement comprend la présence lors du rendez-vous, la prise de notes et le compte-rendu médical."}
+              </div>
+            </div>
+          )}
+
           {/* COMPTE-RENDU DE VISITE GROUPÉ (MÉDIAS TOTALEMENT VISIBLES PAR TOUS AVEC LES VARIABLES HYBRIDES) */}
           {(visit.actions?.length > 0 || visit.notes || (photosList && photosList.length > 0) || visit.report || audioUrl) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-black/5 space-y-5">
@@ -901,7 +970,12 @@ const VisitDetailPage = () => {
             </h3>
             
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Adresse de visite</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">
+                {/* ✅ LIBELLÉ DE DESTINATION ADAPTATIF */}
+                {visit.metadata?.is_discharge 
+                  ? "Adresse de retour (domicile)" 
+                  : (visit.metadata?.is_medical_appointment ? "Destination (Cabinet / Clinique)" : "Adresse de visite")}
+              </p>
               <p className="text-xs sm:text-sm text-gray-700 leading-relaxed font-medium">
                 {getVisitDisplayAddress(visit)}
               </p>
