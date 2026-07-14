@@ -1,9 +1,9 @@
 // 📁 src/features/discharge/pages/DischargePage.tsx
-// ✅ PAGE SORTIE HÔPITAL : FUSION TOTALE SUR LE MOTEUR DE VISITES ET FLUX DE PAIEMENT FEDAPAY
+// ✅ PAGE SORTIE HÔPITAL : INTÉGRATION COMPLÈTE DU WIZARD D'ASSIGNATION ET DU FLUX DE PAIEMENT PONCTUEL
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, Clock, Hospital, CheckCircle, Eye, Loader2, Filter, XCircle, CreditCard } from 'lucide-react';
+import { Plus, Calendar, Clock, Hospital, CheckCircle, Eye, Loader2, Filter, XCircle, CreditCard, UserPlus } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
@@ -13,13 +13,13 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate } from '@/utils/helpers';
 import { DischargeRequestModal } from '../components/DischargeRequestModal';
 import { DischargeDetailsModal } from '../components/DischargeDetailsModal';
-import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal'; // ✅ Import paiement
+import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal'; 
+import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal'; 
 import { DischargeStatus } from '@/types';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
-// ============================================================
-// ADAPTATEUR UNIFIÉ : Transforme une visite d'hôpital au format de sortie attendu par le UI
-// ============================================================
+// Adaptateur unifié : convertit une visite d'hôpital au format attendu par le UI
 const mapVisitToDischarge = (visit: any) => {
   return {
     id: visit.id,
@@ -47,7 +47,6 @@ const DischargePage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
   
-  // Utilisation directe du store des visites
   const { visits, fetchVisits, isLoading } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
   const { hasActiveSubscription } = useSubscriptionGuard();
@@ -56,12 +55,16 @@ const DischargePage = () => {
 
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false); // ✅ Modal paiement
+  const [showPaymentModal, setShowPaymentModal] = useState(false); 
+  const [showWizardModal, setShowWizardModal] = useState(false);  
+
   const [selectedDischarge, setSelectedDischarge] = useState<any>(null);
-  const [selectedVisitForPayment, setSelectedVisitForPayment] = useState<any>(null); // ✅ Visite en attente de paiement
+  const [selectedVisitForPayment, setSelectedVisitForPayment] = useState<any>(null); 
+  const [wizardOptions, setWizardOptions] = useState<any>(null); // ✅ Options d'aidants disponibles
+  const [pendingDischargeData, setPendingDischargeData] = useState<any>(null); // ✅ Données de visite en attente du choix d'aidant
+
   const [filter, setFilter] = useState<DischargeStatus | 'all'>('all');
 
-  // ✅ VERROU DE SÉCURITÉ CONTRE LES CLICS CONSECUTIFS RAPIDES
   const isActionPending = useRef(false);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
@@ -75,7 +78,6 @@ const DischargePage = () => {
     }
   }, []);
 
-  // ✅ FILTRAGE DES VISITES SUR LA MÉTADONNÉE "is_discharge"
   const dischargeVisits = useMemo(() => {
     return (visits || [])
       .filter((v: any) => v.metadata?.is_discharge === true)
@@ -157,6 +159,13 @@ const DischargePage = () => {
     setSelectedVisitForPayment(null);
     fetchVisits();
     toast.success('💳 Paiement validé. Sortie d\'hôpital planifiée !');
+  };
+
+  // ✅ HANDLER DE SÉCURITÉ WIZARD : Appelé si aucun aidant permanent n'est assigné
+  const handleWizardRequired = (wizardData: any, pendingData: any) => {
+    setWizardOptions(wizardData);
+    setPendingDischargeData(pendingData);
+    setShowWizardModal(true);
   };
 
   if (isLoading) {
@@ -260,7 +269,6 @@ const DischargePage = () => {
               style={{ borderLeftColor: getStatusColor(discharge.status) }}
               onClick={() => {
                 if (isActionPending.current) return;
-                // Rediriger directement vers la page de détails unifiée de la visite pour profiter du plan de suivi GPS / Photos / Audio
                 navigate(`/app/visits/${discharge.id}`);
               }}
             >
@@ -271,12 +279,12 @@ const DischargePage = () => {
                       className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-inner"
                       style={{ background: colors.primary }}
                     >
-                      {discharge.patient?.first_name?.[0]}{discharge.patient?.last_name?.[0]}
+                      {discharge.patient?.first_name?.[0] || 'P'}{discharge.patient?.last_name?.[0] || ''}
                     </div>
                     
                     <div className="min-w-0 space-y-1">
                       <p className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-100 truncate">
-                        {discharge.patient?.first_name} {discharge.patient?.last_name}
+                        {discharge.patient ? `${discharge.patient.first_name} ${discharge.patient.last_name}` : '👤 Mon compte personnel'}
                       </p>
                       
                       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
@@ -341,6 +349,7 @@ const DischargePage = () => {
             fetchVisits();
           }}
           onPaymentRequired={handlePaymentRequired}
+          onWizardRequired={handleWizardRequired}  
           colors={colors}
         />
       )}
@@ -357,7 +366,7 @@ const DischargePage = () => {
         />
       )}
 
-      {/* ✅ DEPLOIEMENT DU PAYEMENT FEDAPAY POUR TOUTE COMMANDE PONCTUELLE HORS ABONNEMENT */}
+      {/* MODAL PAIEMENT FEDAPAY */}
       {showPaymentModal && selectedVisitForPayment && (
         <VisitPaymentModal
           isOpen={true}
@@ -367,6 +376,34 @@ const DischargePage = () => {
           }}
           visit={selectedVisitForPayment}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* ✅ DEPLOIEMENT DU WIZARD EN CAS D'ABSENCE D'AIDANT PERMANENT (FONCTIONNEMENT IDENTIQUE VISITE) */}
+      {showWizardModal && wizardOptions && pendingDischargeData && (
+        <VisitWizardModal
+          isOpen={true}
+          onClose={() => {
+            setShowWizardModal(false);
+            setWizardOptions(null);
+            setPendingDischargeData(null);
+          }}
+          options={wizardOptions}
+          visitData={pendingDischargeData}
+          onSuccess={async (result) => {
+            setShowWizardModal(false);
+            setWizardOptions(null);
+            setPendingDischargeData(null);
+            
+            // Si l'assignation du Wizard exige un paiement ponctuel à l'acte
+            if (result.requires_payment || result.visit?.status === 'brouillon') {
+              handlePaymentRequired(result.visit);
+            } else {
+              fetchVisits();
+              toast.success('🎉 Sortie d\'hôpital planifiée avec l\'aidant sélectionné !');
+            }
+          }}
+          colors={colors}
         />
       )}
     </div>
