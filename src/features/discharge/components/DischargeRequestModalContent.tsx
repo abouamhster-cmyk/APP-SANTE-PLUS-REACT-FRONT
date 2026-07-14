@@ -1,6 +1,5 @@
 // 📁 src/features/discharge/components/DischargeRequestModalContent.tsx
-// ✅ FORMULAIRE SORTIE : SELECTION COMPTE PROCHE OU COMPTE PERSONNEL SANS ERREUR DE SYNTAXE JSX
-
+ 
 import { useState } from 'react';
 import { Hospital, Calendar, Clock, Stethoscope, User, CheckCircle } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
@@ -37,7 +36,7 @@ export const DischargeRequestModalContent = ({
   } = useTerminology();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal'); 
+  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal'); // ✅ Choix d'aiguillage du bénéficiaire
   const [formData, setFormData] = useState({
     patient_id: '',
     hospital_name: '',
@@ -74,7 +73,7 @@ export const DischargeRequestModalContent = ({
 
     setIsSubmitting(true);
     
-    // CONSTRUCTION DU PAYLOAD UNIFIÉ
+    // ✅ CONSTRUCTION DU PAYLOAD UNIFIÉ
     const payload = {
       patient_id: targetType === 'patient' ? formData.patient_id : null,
       scheduled_date: formData.discharge_date,
@@ -122,9 +121,8 @@ export const DischargeRequestModalContent = ({
   };
 
   return (
-    // 🟢 CORRECTIF : Utilisation de la balise <form> à la place de <div> pour correspondre à la fermeture </form>
     <form onSubmit={handleSubmit} className="space-y-5 pb-4 max-w-xl mx-auto">
-      {/* Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
+      {/* ✅ Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
       <div>
         <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{ color: colors.text }}>
           Bénéficiaire de la sortie *
