@@ -13,7 +13,7 @@ interface DischargeRequestModalContentProps {
   patients: any[];
   onSuccess: () => void;
   onPaymentRequired: (visit: any) => void;
-  onWizardRequired: (wizardData: any, pendingData: any) => void; // ✅ Canalisation du Wizard
+  onWizardRequired: (wizardData: any, pendingData: any) => void; 
   onCancel: () => void;
   colors: any;
 }
