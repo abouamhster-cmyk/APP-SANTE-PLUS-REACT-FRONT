@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-// ✅ MAIN LAYOUT : SALUTATIONS DYNAMIQUES ET HEADER STRICTEMENT COLLAPSABLE EN DEHORS DU TOP
+// ✅ MAIN LAYOUT : RETRAIT DE LA NAVIGATION SORTIE HÔPITAL ET FLUX UNIFIÉ DE VISITES
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -20,7 +20,6 @@ import {
   CreditCard,
   Award,
   History as HistoryIcon,
-  Hospital,
   BookOpen,
   FileCheck,
   Package,
@@ -139,7 +138,7 @@ const MainLayout = () => {
         { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing' },
         { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal' },
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
-        { icon: <Hospital size={20} />, label: 'Sortie hôpital', path: '/app/discharge' },
+        // ❌ SUPPRIMÉ : L'onglet Sortie Hôpital redondant a été retiré
         { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
     }
@@ -201,7 +200,6 @@ const MainLayout = () => {
       '/app/history': 'Historique',
       '/app/map': 'Carte',
       '/app/journal': 'Journal',
-      '/app/discharge': 'Sortie hôpital',
       '/app/admin': 'Administration',
       '/app/registrations': 'Inscriptions',
       '/app/aidants': 'Aidants',
@@ -229,13 +227,8 @@ const MainLayout = () => {
   }, [location.pathname, role]);
 
   return (
-    <div
-      className="min-h-screen w-full overflow-x-hidden"
-      style={{ backgroundColor: colors.background }}
-    >
-      {/* ========================================== */}
+    <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }} > 
       {/* SIDEBAR DESKTOP UNIQUEMENT */}
-      {/* ========================================== */}
       {!isMobile && (
         <aside
           className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col"
@@ -445,9 +438,8 @@ const SidebarContent = ({
           <img src={logoConfig.icon} alt="Logo" className="w-8 h-8 object-contain" />
           <div className="min-w-0">
             <p className="font-black text-sm leading-tight truncate" style={{ color: colors.primary }}>
-              Santé Plus
+              Santé Plus Services
             </p>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Services</p>
           </div>
         </div>
       </div>
