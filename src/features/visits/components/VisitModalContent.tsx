@@ -1,20 +1,7 @@
-// 📁 frontend/src/features/visits/components/VisitModalContent.tsx
-// ✅ CONTENU DU MODAL DE PLANIFICATION : AUTO-REMPLISSAGE MAIS ENTIÈREMENT MODIFIABLE SANS BOUCLE DE BLOCAGE
-
+// 📁 src/features/visits/components/VisitModalContent.tsx
+ 
 import { useState, useEffect } from 'react';
-import {
-  Calendar,
-  Clock,
-  User,
-  UserCircle,
-  Users,
-  Search,
-  AlertCircle,
-  CreditCard,
-  CheckCircle,
-  Loader2,
-  MapPin,
-} from 'lucide-react';
+import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, CheckCircle, Loader2, MapPin, Hospital, Stethoscope } from 'lucide-react';
 
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
@@ -24,6 +11,7 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { getThemeColors } from '@/lib/permissions';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 // ============================================================
@@ -66,7 +54,7 @@ export const VisitModalContent = ({
   onOpenWizard,
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
-  const { profile, role, user } = useAuthStore();
+  const { profile, role } = useAuthStore();
 
   const {
     hasActiveSubscription,
@@ -75,12 +63,9 @@ export const VisitModalContent = ({
     isFamily,
     isAidant: isAidantRole,
     isAdminOrCoordinator,
-    isLoading: subLoading,
   } = useSubscriptionGuard();
 
-  const {
-    getCategoryLabel,
-  } = useTerminology();
+  const { getCategoryLabel } = useTerminology();
 
   const [isLoading, setIsLoading] = useState(false);
   const colors = getThemeColors('senior');
@@ -91,7 +76,7 @@ export const VisitModalContent = ({
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
 
   const [targetType, setTargetType] = useState<'account' | 'patient'>('account');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -100,7 +85,13 @@ export const VisitModalContent = ({
     duration_minutes: 60,
     notes: '',
     is_urgent: false,
-    address: '',                      
+    address: '',
+    
+    // ✅ PARAMÈTRES PRESTATIONS SPÉCIFIQUES FUSIONNÉES (SORTIE HÔPITAL & RDV MÉDICAL)
+    prestation_type: 'domicile', // 'domicile', 'medical_appointment', 'hospital_discharge'
+    hospital_name: '',
+    hospital_service: '',
+    doctor_name: '',
   });
 
   const selectedAccount = accounts.find(a => a.id === selectedAccountId);
@@ -177,7 +168,7 @@ export const VisitModalContent = ({
     }
   };
 
-  // ✅ INITIALISATION DE CHARGEMENT SUR EDIT / CREATE
+  // INITIALISATION DE CHARGEMENT SUR EDIT / CREATE
   useEffect(() => {
     if (visit && mode === 'edit') {
       setFormData({
@@ -188,6 +179,10 @@ export const VisitModalContent = ({
         notes: visit.notes || '',
         is_urgent: visit.is_urgent || false,
         address: visit.address || '',
+        prestation_type: visit.metadata?.prestation_type || 'domicile',
+        hospital_name: visit.metadata?.hospital_name || '',
+        hospital_service: visit.metadata?.hospital_service || '',
+        doctor_name: visit.metadata?.doctor_name || '',
       });
       if (visit.patient_id) {
         setTargetType('patient');
@@ -207,6 +202,10 @@ export const VisitModalContent = ({
         notes: '',
         is_urgent: false,
         address: '',
+        prestation_type: 'domicile',
+        hospital_name: '',
+        hospital_service: '',
+        doctor_name: '',
       });
 
       if (isAdmin && accounts.length > 0) {
@@ -222,16 +221,11 @@ export const VisitModalContent = ({
     }
   }, [visit, mode, isAdmin, accounts, profile]);
 
-  // ============================================================
-  // ✅ GESTIONNAIRES D'ÉVÉNEMENTS EXPLICITES (ÉVITE TOUTE BOUCLE D'OVERWRITE DE L'ADRESSE)
-  // ============================================================
-
-  // 1️⃣ Sélection de l'option "Personnel" (Mon compte)
   const selectPersonnel = () => {
     setTargetType('account');
     const currentPhone = isAdmin ? selectedAccount?.phone : profile?.phone;
     const phoneSuffix = currentPhone ? ` (Tél: ${currentPhone})` : '';
-    
+
     setFormData(prev => ({
       ...prev,
       patient_id: '',
@@ -239,10 +233,8 @@ export const VisitModalContent = ({
     }));
   };
 
-  // 2️⃣ Sélection de l'option "Un proche" (Patient)
   const selectPatientType = () => {
     setTargetType('patient');
-    // On vide l'adresse jusqu'à ce qu'un proche soit explicitement sélectionné dans le menu déroulant
     setFormData(prev => ({
       ...prev,
       patient_id: '',
@@ -250,11 +242,10 @@ export const VisitModalContent = ({
     }));
   };
 
-  // 3️⃣ Choix d'un proche spécifique dans le menu déroulant
   const handlePatientSelect = (patientId: string) => {
     const patientList = isAdmin && selectedAccount?.has_patient ? accountPatients : patients;
     const selectedPatientObj = patientList.find(p => p.id === patientId);
-    
+
     if (selectedPatientObj) {
       const phoneSuffix = selectedPatientObj.phone ? ` (Tél: ${selectedPatientObj.phone})` : '';
       setFormData(prev => ({
@@ -285,6 +276,12 @@ export const VisitModalContent = ({
       return;
     }
 
+    if ((formData.prestation_type === 'hospital_discharge' || formData.prestation_type === 'medical_appointment') && !formData.hospital_name.trim()) {
+      toast.error('Le nom de l\'établissement hospitalier est requis');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const today = new Date().toISOString().split('T')[0];
       if (formData.scheduled_date < today) {
@@ -293,17 +290,35 @@ export const VisitModalContent = ({
         return;
       }
 
+      // ✅ CONSTITUTION DES METADATA CLINIQUES SELON LE CHOIX DE PRESTATION (SANS CONFLIT DE STRUCTURES)
+      const payloadMetadata = {
+        prestation_type: formData.prestation_type,
+        ...(formData.prestation_type === 'hospital_discharge' ? {
+          is_discharge: true,
+          hospital_name: formData.hospital_name.trim(),
+          hospital_service: formData.hospital_service.trim() || null,
+          doctor_name: formData.doctor_name.trim() || null,
+        } : {}),
+        ...(formData.prestation_type === 'medical_appointment' ? {
+          is_medical_appointment: true,
+          hospital_name: formData.hospital_name.trim(),
+          hospital_service: formData.hospital_service.trim() || null,
+          doctor_name: formData.doctor_name.trim() || null,
+        } : {}),
+      };
+
       let data: any = {
         scheduled_date: formData.scheduled_date,
         scheduled_time: formData.scheduled_time,
         duration_minutes: formData.duration_minutes,
-        notes: formData.notes || null,
+        notes: formData.notes ? formData.notes.trim() : null,
         is_urgent: formData.is_urgent,
         actions: [],
         requested_by: profile?.id,
         address: formData.address.trim(),       
         latitude: null,                          
-        longitude: null,                         
+        longitude: null,
+        metadata: payloadMetadata, // ✅ INJECTION SÉCURISÉE DES MÉDATADONNÉES D'AIGUILLAGE
       };
 
       if (targetType === 'patient' && formData.patient_id) {
@@ -703,8 +718,7 @@ export const VisitModalContent = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-full overflow-hidden">
-
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-xl mx-auto">
       {/* 🔹 ADMIN : Sélection de compte */}
       {isAdmin && renderAccountSelector()}
 
@@ -720,9 +734,72 @@ export const VisitModalContent = ({
       {/* 🔹 Résumé destinataire de la visite */}
       {renderTargetSummary()}
 
-      {/* ============================================================
-          ✅ CHAMP ADRESSE DE LA VISITE SIMPLE ET ENTIÈREMENT EFFACABLE
-          ============================================================ */}
+      {/* ✅ SELECTION DU TYPE D'INTERVENTION (AIGUILLAGE CLINIQUE ET PRESTATIONS) */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+          Type d'intervention requis *
+        </label>
+        <select
+          value={formData.prestation_type}
+          onChange={(e) => setFormData(prev => ({ ...prev, prestation_type: e.target.value }))}
+          className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
+          style={{ borderColor: colors.border, color: colors.text }}
+        >
+          <option value="domicile">🏡 Aide, présence et confort à domicile</option>
+          <option value="medical_appointment">🩺 Accompagnement à un Rendez-vous médical</option>
+          <option value="hospital_discharge">🏥 Accompagnement / Sortie d'hôpital (Assistance)</option>
+        </select>
+      </div>
+
+      {/* ✅ CHAMPS CLINIQUES EXTENSIBLES CONDITIONNELS */}
+      {(formData.prestation_type === 'hospital_discharge' || formData.prestation_type === 'medical_appointment') && (
+        <div className="animate-fadeIn space-y-3.5 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
+          <p className="text-[10px] font-black uppercase text-emerald-600 tracking-wider flex items-center gap-1.5">
+            <Hospital size={13} />
+            Détails de l'établissement hospitalier
+          </p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Nom de l'établissement *</label>
+              <input 
+                type="text" 
+                value={formData.hospital_name} 
+                onChange={(e) => setFormData(prev => ({ ...prev, hospital_name: e.target.value }))} 
+                placeholder="Ex: CNHU, Hôpital de zone..."
+                className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-white" 
+                style={{ borderColor: colors.border }} 
+                required 
+              />
+            </div>
+            <div>
+              <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Service de l'admission</label>
+              <input 
+                type="text" 
+                value={formData.hospital_service} 
+                onChange={(e) => setFormData(prev => ({ ...prev, hospital_service: e.target.value }))} 
+                placeholder="Ex: Cardiologie, Postpartum..."
+                className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-white" 
+                style={{ borderColor: colors.border }} 
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Médecin référent / Traitant</label>
+            <input 
+              type="text" 
+              value={formData.doctor_name} 
+              onChange={(e) => setFormData(prev => ({ ...prev, doctor_name: e.target.value }))} 
+              placeholder="Dr. Nom de famille"
+              className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-white" 
+              style={{ borderColor: colors.border }} 
+            />
+          </div>
+        </div>
+      )}
+
+      {/* CHAMP ADRESSE DE LA VISITE */}
       <div className="space-y-1">
         <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
           Adresse de l'intervention ou indications de quartier *
@@ -894,7 +971,7 @@ export const VisitModalContent = ({
         </button>
         <button
           type="submit"
-          className="flex-1 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold transition hover:opacity-90 flex items-center justify-center disabled:opacity-55"
+          className="flex-1 py-2.5 rounded-xl text-white text-xs sm:text-sm font-bold transition hover:opacity-90 flex items-center justify-center disabled:opacity-55 animate-active"
           style={{ background: colors.primary }}
           disabled={isLoading}
         >
