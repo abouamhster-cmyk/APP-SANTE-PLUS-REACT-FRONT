@@ -1,15 +1,17 @@
 // 📁 src/features/discharge/components/DischargeRequestModalContent.tsx
-// 📌 Contenu de la demande de sortie d'hôpital (sans wrapper modal)
+// ✅ FORMULAIRE SORTIE : ENREGISTREMENT EN VISITE AVEC MÉTADONNÉES ET GESTION DES QUOTAS D'ABONNEMENTS
 
 import { useState } from 'react';
-import { X, Hospital, Calendar, Clock, Stethoscope, User, MapPin, CheckCircle } from 'lucide-react';
-import { useDischargeStore } from '@/stores/dischargeStore';
+import { Hospital, Calendar, Clock, Stethoscope, User, CheckCircle } from 'lucide-react';
+import { useVisitStore } from '@/stores/visitStore';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { useTerminology } from '@/hooks/useTerminology';
 import toast from 'react-hot-toast';
 
 interface DischargeRequestModalContentProps {
   patients: any[];
   onSuccess: () => void;
+  onPaymentRequired: (visit: any) => void;
   onCancel: () => void;
   colors: any;
 }
@@ -17,13 +19,15 @@ interface DischargeRequestModalContentProps {
 export const DischargeRequestModalContent = ({
   patients,
   onSuccess,
+  onPaymentRequired,
   onCancel,
   colors,
 }: DischargeRequestModalContentProps) => {
-  const { createDischarge } = useDischargeStore();
+  const { createVisit } = useVisitStore();
+  const { hasActiveSubscription } = useSubscriptionGuard();
 
   const {
-    singular,
+    getCategoryLabel,
     isFamily,
     isAidant,
     isAdminOrCoordinator,
@@ -66,10 +70,35 @@ export const DischargeRequestModalContent = ({
 
     setIsSubmitting(true);
     try {
-      await createDischarge(formData);
-      onSuccess();
-    } catch (error) {
-      toast.error('Erreur lors de la création');
+      // ✅ INTEGRATION PROCESSUS UNIQUE DE VISITE : Enregistrement sous forme de visite de type 'permanente' (ou ponctuelle si pas d'abonnement)
+      const response = await createVisit({
+        patient_id: formData.patient_id,
+        scheduled_date: formData.discharge_date,
+        scheduled_time: formData.discharge_time || '10:00:00',
+        duration_minutes: 120, // Une sortie dure généralement 2h
+        notes: `🏥 SORTIE HÔPITAL - Hôpital : ${formData.hospital_name.trim()}. Service : ${formData.hospital_service.trim() || 'Non renseigné'}. Médecin : ${formData.doctor_name.trim() || 'Non renseigné'}.`,
+        is_urgent: false,
+        is_ponctual: !hasActiveSubscription, // Si pas d'abonnement, c'est un achat ponctuel payant
+        metadata: {
+          is_discharge: true, // Tag d'aiguillage pour le dossier d'accompagnement
+          hospital_name: formData.hospital_name.trim(),
+          hospital_service: formData.hospital_service.trim() || null,
+          doctor_name: formData.doctor_name.trim() || null,
+          discharge_date: formData.discharge_date,
+          discharge_time: formData.discharge_time || '10:00:00',
+        }
+      });
+
+      // Si le processus exige un paiement à l'acte
+      if (response.requires_payment || response.status === 'brouillon') {
+        onPaymentRequired(response);
+      } else {
+        toast.success('Demande de sortie d\'hôpital créée avec succès !');
+        onSuccess();
+      }
+    } catch (error: any) {
+      console.error('Erreur création sortie:', error);
+      toast.error(error.message || 'Erreur lors de la création de la demande');
     } finally {
       setIsSubmitting(false);
     }
@@ -86,7 +115,7 @@ export const DischargeRequestModalContent = ({
           value={formData.patient_id}
           onChange={(e) => setFormData(prev => ({ ...prev, patient_id: e.target.value }))}
           required
-          className="w-full px-4 py-3 rounded-2xl border bg-gray-50/40 outline-none text-sm transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
+          className="w-full h-11 px-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
           style={{
             borderColor: colors.border,
             color: colors.text,
@@ -108,13 +137,13 @@ export const DischargeRequestModalContent = ({
           Nom de l'hôpital *
         </label>
         <div className="relative">
-          <Hospital className="absolute left-4 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.text + '50' }} />
+          <Hospital className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={formData.hospital_name}
             onChange={(e) => setFormData(prev => ({ ...prev, hospital_name: e.target.value }))}
             placeholder="Ex: CNHU, Hôpital de zone..."
-            className="w-full pl-11 pr-4 py-3 rounded-2xl border bg-gray-50/40 outline-none text-sm transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
+            className="w-full h-11 pl-11 pr-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
             style={{
               borderColor: colors.border,
               color: colors.text,
@@ -131,13 +160,13 @@ export const DischargeRequestModalContent = ({
           Service
         </label>
         <div className="relative">
-          <Stethoscope className="absolute left-4 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.text + '50' }} />
+          <Stethoscope className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={formData.hospital_service}
             onChange={(e) => setFormData(prev => ({ ...prev, hospital_service: e.target.value }))}
             placeholder="Ex: Médecine interne, Chirurgie, Maternité..."
-            className="w-full pl-11 pr-4 py-3 rounded-2xl border bg-gray-50/40 outline-none text-sm transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
+            className="w-full h-11 pl-11 pr-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
             style={{
               borderColor: colors.border,
               color: colors.text,
@@ -153,13 +182,13 @@ export const DischargeRequestModalContent = ({
           Médecin référent
         </label>
         <div className="relative">
-          <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.text + '50' }} />
+          <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={formData.doctor_name}
             onChange={(e) => setFormData(prev => ({ ...prev, doctor_name: e.target.value }))}
             placeholder="Dr. Nom du médecin"
-            className="w-full pl-11 pr-4 py-3 rounded-2xl border bg-gray-50/40 outline-none text-sm transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
+            className="w-full h-11 pl-11 pr-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
             style={{
               borderColor: colors.border,
               color: colors.text,
@@ -176,12 +205,12 @@ export const DischargeRequestModalContent = ({
             Date de sortie *
           </label>
           <div className="relative">
-            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.text + '50' }} />
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
             <input
               type="date"
               value={formData.discharge_date}
               onChange={(e) => setFormData(prev => ({ ...prev, discharge_date: e.target.value }))}
-              className="w-full pl-11 pr-4 py-3 rounded-2xl border bg-gray-50/40 outline-none text-sm transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
+              className="w-full h-11 pl-11 pr-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
               style={{
                 borderColor: colors.border,
                 color: colors.text,
@@ -196,12 +225,12 @@ export const DischargeRequestModalContent = ({
             Heure de sortie
           </label>
           <div className="relative">
-            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.text + '50' }} />
+            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
             <input
               type="time"
               value={formData.discharge_time}
               onChange={(e) => setFormData(prev => ({ ...prev, discharge_time: e.target.value }))}
-              className="w-full pl-11 pr-4 py-3 rounded-2xl border bg-gray-50/40 outline-none text-sm transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
+              className="w-full h-11 pl-11 pr-4 rounded-xl border bg-gray-50/40 outline-none text-xs transition-all focus:bg-white font-medium focus:border-transparent focus:ring-1"
               style={{
                 borderColor: colors.border,
                 color: colors.text,
@@ -215,7 +244,7 @@ export const DischargeRequestModalContent = ({
       {/* Info */}
       <div className="p-4 rounded-2xl border border-gray-100" style={{ background: colors.primary + '05' }}>
         <p className="text-xs font-medium leading-relaxed" style={{ color: colors.text + '80' }}>
-          📋 Une fois votre demande validée, un coordinateur vous contactera pour planifier l'accompagnement.
+          📋 En tant que processus unifié de visite, cette demande consommera 1 crédit de votre forfait d'accompagnement ou activera une validation d'aidant.
         </p>
       </div>
 
