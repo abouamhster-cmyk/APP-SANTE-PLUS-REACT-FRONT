@@ -1,5 +1,5 @@
 // 📁 src/features/discharge/pages/DischargePage.tsx
-// ✅ PAGE SORTIE HÔPITAL : FUSION SUR LE MOTEUR DE VISITES ET INTEGRATION PARFAITE DU WIZARD
+// ✅ PAGE SORTIE HÔPITAL : FUSION TOTALE SUR LE MOTEUR DE VISITES, WIZARD D'ASSIGNATION ET FÉDAPAY SANS ERREUR DE BUILD
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,7 @@ import { formatDate } from '@/utils/helpers';
 import { DischargeRequestModal } from '../components/DischargeRequestModal';
 import { DischargeDetailsModal } from '../components/DischargeDetailsModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal'; 
-import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal'; // Import du Wizard d'assignation
+import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal'; 
 import { DischargeStatus } from '@/types';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
@@ -52,7 +52,7 @@ const DischargePage = () => {
   const { patients, fetchPatients } = usePatientStore();
   const { hasActiveSubscription } = useSubscriptionGuard();
 
-  const { singular, getCategoryLabel, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -190,7 +190,7 @@ const DischargePage = () => {
   }) => {
     if (!pendingDischargeData) return;
 
-    // Fusionner les données d'assignation récoltées par le Wizard au sein du formulaire initial de sortie
+    // Fusionner les données d'assignation récoltées par le Wizard au sein du formulaire de sortie d'origine
     const completePayload = {
       ...pendingDischargeData,
       selected_aidant_id: wizardResult.aidantId,
@@ -205,12 +205,12 @@ const DischargePage = () => {
       setWizardTarget(null);
       setPendingDischargeData(null);
 
-      // Si l'offre finale exige d'abord un règlement FedaPay
+      // Si le processus exige un paiement ponctuel à l'acte
       if (response.requires_payment || response.status === 'brouillon') {
         handlePaymentRequired(response);
       } else {
         await fetchVisits();
-        toast.success('🎉 Sortie d\'hôpital planifiée avec succès !');
+        toast.success('🎉 Sortie d\'hôpital planifiée avec l\'aidant sélectionné !');
       }
     } catch (error: any) {
       console.error('❌ Erreur finalisation wizard sortie:', error);
@@ -380,7 +380,7 @@ const DischargePage = () => {
             fetchVisits();
           }}
           onPaymentRequired={handlePaymentRequired}
-          onWizardRequired={handleWizardRequired} // ✅ Canalisation du Wizard
+          onWizardRequired={handleWizardRequired}  
           colors={colors}
         />
       )}
