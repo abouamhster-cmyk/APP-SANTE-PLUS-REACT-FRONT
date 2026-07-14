@@ -37,19 +37,19 @@ import {
   formatDate, 
   getVisitDisplayName,
   getVisitDisplayAddress,
-  getVisitDisplayAidant
 } from '@/utils/helpers';
 
 import {
   getPonctualPrice,
-  getVisitStatusForCreation,
-  requiresPonctualPayment,
 } from '@/lib/constants';
 
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal';
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal'; // 🟢 Import du composant officiel
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 const VisitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -65,7 +65,6 @@ const VisitDetailPage = () => {
     refuseVisit,
     isLoading,
     fetchVisits,
-    reassignVisit,
   } = useVisitStore();
 
   const {
@@ -75,16 +74,15 @@ const VisitDetailPage = () => {
     isFamily,
   } = useTerminology();
 
-  const { aidants, fetchAidants, isLoading: aidantsLoading } = useAidantCatalogStore();
+  const { fetchAidants } = useAidantCatalogStore();
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   
+  // ✅ États pour l'assignation d'aidant unifiée
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedAidantId, setSelectedAidantId] = useState<string>('');
-  const [assignmentType, setAssignmentType] = useState<'permanente' | 'temporaire' | 'ponctuelle'>('ponctuelle');
 
   const isActionPending = useRef(false);
 
@@ -286,23 +284,43 @@ const VisitDetailPage = () => {
     }
   };
 
-  const handleAssignAidant = async () => {
-    if (isActionPending.current) return;
-    if (!selectedAidantId) {
-      toast.error('Veuillez sélectionner un aidant');
-      return;
-    }
-
+  // ============================================================
+  // ✅ LOGIQUE D'ASSIGNATION ADMINISTRATIVE DE L'AIDANT
+  // ============================================================
+  const handleAssignAidant = async (aidantUserId: string, type: string, force: boolean = false) => {
     isActionPending.current = true;
     setIsUpdating(true);
     try {
-      await reassignVisit(id!, selectedAidantId, assignmentType);
-      toast.success(`✅ Aidant assigné avec succès (${assignmentType})`);
-      setShowAssignModal(false);
-      setSelectedAidantId('');
-      useVisitStore.getState().invalidateCache();
-      await fetchVisitById(id!);
-      await fetchVisits();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) throw new Error('Token de session manquant');
+
+      // Conversion du label d'IHM vers le type d'assignation backend attendu
+      const assignmentType = type === 'permanente' ? 'permanente' : (type === 'temporaire' ? 'temporaire' : 'ponctuelle');
+
+      const response = await fetch(`${API_URL}/assignments/admin/assign-to-visit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          visitId: id,
+          aidantId: aidantUserId,
+          assignmentType: assignmentType,
+          force: force,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erreur lors de l\'assignation de l\'aidant');
+      }
+
+      toast.success(result.message || 'Aidant assigné à la visite !');
+      await handleAssignSuccess();
     } catch (error: any) {
       console.error('❌ Erreur assignation:', error);
       toast.error(error.message || 'Erreur lors de l\'assignation');
@@ -310,6 +328,13 @@ const VisitDetailPage = () => {
       setIsUpdating(false);
       isActionPending.current = false;
     }
+  };
+
+  const handleAssignSuccess = async () => {
+    setShowAssignModal(false);
+    useVisitStore.getState().invalidateCache();
+    await fetchVisitById(id!);
+    await fetchVisits();
   };
 
   const getStatusColor = (status: string) => {
@@ -942,6 +967,26 @@ const VisitDetailPage = () => {
           patientCategory={visit.patient?.category || 'senior'}
           onSubmit={handleComplete}
           isLoading={isUploading}
+        />
+      )}
+
+      {/* ✅ MODAL D'ASSIGNATION D'AIDANT PREMIUM HARMONISÉ */}
+      {showAssignModal && (
+        <AssignAidantModal
+          isOpen={showAssignModal}
+          onClose={() => {
+            setShowAssignModal(false);
+            setSelectedAidant(null);
+          }}
+          targetType="visit"
+          targetId={visit.id}
+          targetName={visit.target_name || `${visit.patient?.first_name || ''} ${visit.patient?.last_name || ''}`.trim()}
+          onSuccess={handleAssignSuccess}
+          currentAidantId={visit.aidant_id}
+          colors={colors}
+          allowForce={true}
+          onAssignAidant={handleAssignAidant}
+          isAdmin={true}
         />
       )}
     </div>
