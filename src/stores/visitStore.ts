@@ -1,6 +1,5 @@
 // 📁 src/stores/visitStore.ts
-// ✅ STORE VISITES COMPLET : PASSAGE STRUCTURÉ DE L'ADRESSE, AUDIO ET GESTION ROBUSTE DES CONTRAINTES DE VERROU
-
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
@@ -43,7 +42,9 @@ const getCachedVisits = (): { data: Visit[]; timestamp: number } | null => {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) return JSON.parse(cached);
     return null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 };
 
 const setCachedVisits = (visits: Visit[]) => {
@@ -52,14 +53,18 @@ const setCachedVisits = (visits: Visit[]) => {
       data: visits,
       timestamp: Date.now(),
     }));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 };
 
 const clearCachedVisits = () => {
   try {
     localStorage.removeItem(CACHE_KEY);
     console.log('🗑️ Cache visites invalidé');
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 };
 
 interface VisitState {
@@ -83,10 +88,11 @@ interface VisitState {
     address?: string;
     latitude?: number | null;
     longitude?: number | null;
-  }) => Promise<Visit>;
+    metadata?: any; // ✅ Ajouté pour intégrer les métadonnées cliniques
+  }) => Promise<any>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
-  confirmPayment: (id: string, transactionId: string) => Promise<Visit>;
+  confirmPayment: (id: string, transactionId: string) => Promise<any>;
   approveVisit: (id: string) => Promise<void>;
   refuseVisit: (id: string, reason: string) => Promise<void>;
   reassignVisit: (id: string, newAidantId: string, assignmentType: string) => Promise<void>;
@@ -125,7 +131,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
 
   invalidateCache: () => {
     clearCachedVisits();
-    set({
+    set({ 
       isCacheInvalidated: true,
       isInitialized: false,
       lastFetch: null,
@@ -289,7 +295,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         }
       }
 
-      // ✅ RÉCUPÉRATION MULTI-APPAREILS DES PHOTOS ET DES AUDIOS DE LA VISITE POUR L'INTERFACE FAMILLE
       const { data: photos } = await supabase
         .from('visite_photos')
         .select('*')
@@ -325,7 +330,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     address?: string;
     latitude?: number | null;
     longitude?: number | null;
-  }): Promise<Visit> => {
+    metadata?: any;
+  }): Promise<any> => {
     try {
       set({ error: null });
 
@@ -452,6 +458,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           selected_aidant: selectedAidantId || null,
           waiting_for_aidant: status === 'en_attente_aidant',
           is_personal_account: targetType === 'personal' && !data.patient_id,
+          ...(data.metadata || {}), // ✅ INTEGRATION SÉCURISÉE DES MÉDATADONNÉES REÇUES DU FORMULAIRE
         }
       };
 
@@ -498,7 +505,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       await get().fetchVisits(true);
 
       return fullVisit;
-
     } catch (error: any) {
       console.error('❌ Create visit error:', error);
       set({ error: error.message, isLoading: false });
@@ -506,7 +512,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  confirmPayment: async (id: string, transactionId: string): Promise<Visit> => {
+  confirmPayment: async (id: string, transactionId: string): Promise<any> => {
     try {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
@@ -557,10 +563,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
   reassignVisit: async (id: string, newAidantId: string, assignmentType: string) => {
     try {
       set({ error: null });
-      await api.post(`/visits/${id}/reassign`, { 
-        aidant_id: newAidantId, 
-        assignment_type: assignmentType 
-      });
+      await api.post(`/visits/${id}/reassign`, { aidant_id: newAidantId, assignment_type: assignmentType });
 
       get().invalidateCache();
       await get().fetchVisits(true);
@@ -583,7 +586,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ✅ TRANSMISSION DIRECTE DU COMPTE-RENDU AUDIO ET PHOTO AU BACKEND SANS RE-ÉCRITURE CONFLICTUELLE
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string }) => {
     try {
       set({ error: null });
@@ -840,7 +842,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           patient:patients!visites_patient_id_fkey(*),
           aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
         `)
-        .eq('aidant_id', aidant.id)
+        .eq('ant_id', aidant.id)
         .eq('status', 'planifiee')
         .is('approved_at', null)
         .is('refused_at', null)
