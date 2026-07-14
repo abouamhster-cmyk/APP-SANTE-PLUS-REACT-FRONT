@@ -1,5 +1,5 @@
 // 📁 src/features/discharge/components/DischargeRequestModalContent.tsx
-// ✅ FORMULAIRE SORTIE : SELECTION COMPTE PROCHE OU COMPTE PERSONNEL ET REDIRECTION SUR LE WIZARD SANS CRASH
+// ✅ FORMULAIRE SORTIE : SELECTION COMPTE PROCHE OU COMPTE PERSONNEL SANS ERREUR DE SYNTAXE JSX
 
 import { useState } from 'react';
 import { Hospital, Calendar, Clock, Stethoscope, User, CheckCircle } from 'lucide-react';
@@ -13,7 +13,7 @@ interface DischargeRequestModalContentProps {
   patients: any[];
   onSuccess: () => void;
   onPaymentRequired: (visit: any) => void;
-  onWizardRequired: (wizardData: any, pendingData: any) => void; // ✅ Canalisation du Wizard
+  onWizardRequired: (wizardData: any, pendingData: any) => void; 
   onCancel: () => void;
   colors: any;
 }
@@ -37,7 +37,7 @@ export const DischargeRequestModalContent = ({
   } = useTerminology();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal'); // ✅ Choix d'aiguillage du bénéficiaire
+  const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal'); 
   const [formData, setFormData] = useState({
     patient_id: '',
     hospital_name: '',
@@ -74,7 +74,7 @@ export const DischargeRequestModalContent = ({
 
     setIsSubmitting(true);
     
-    // ✅ CONSTRUCTION DU PAYLOAD UNIFIÉ
+    // CONSTRUCTION DU PAYLOAD UNIFIÉ
     const payload = {
       patient_id: targetType === 'patient' ? formData.patient_id : null,
       scheduled_date: formData.discharge_date,
@@ -110,7 +110,7 @@ export const DischargeRequestModalContent = ({
       const errCode = error.code || error.response?.data?.code;
       const wizardData = error.wizard || error.response?.data?.wizard;
 
-      // ✅ REBOND SECURISE WIZARD : Si aucun aidant permanent n'est rattaché, fermer la demande et ouvrir le Wizard
+      // REBOND SECURISE WIZARD : Si aucun aidant permanent n'est rattaché, fermer la demande et ouvrir le Wizard
       if (errCode === 'WIZARD_REQUIRED' || errCode === 'ALL_AIDANTS_FULL') {
         onWizardRequired(wizardData, payload);
       } else {
@@ -122,8 +122,9 @@ export const DischargeRequestModalContent = ({
   };
 
   return (
-    <div className="space-y-5 pb-4 max-w-xl mx-auto">
-      {/* ✅ Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
+    // 🟢 CORRECTIF : Utilisation de la balise <form> à la place de <div> pour correspondre à la fermeture </form>
+    <form onSubmit={handleSubmit} className="space-y-5 pb-4 max-w-xl mx-auto">
+      {/* Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
       <div>
         <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{ color: colors.text }}>
           Bénéficiaire de la sortie *
