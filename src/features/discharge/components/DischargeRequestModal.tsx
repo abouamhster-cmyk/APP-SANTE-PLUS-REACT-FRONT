@@ -1,5 +1,6 @@
 // 📁 src/features/discharge/components/DischargeRequestModal.tsx
- 
+// ✅ WRAPPER DEMANDE SORTIE : PRISE EN COMPTE DU PAIEMENT ET DU REDIRECT WIZARD D'ASSIGNATION
+
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { DischargeRequestModalContent } from './DischargeRequestModalContent';
 
@@ -8,7 +9,7 @@ interface DischargeRequestModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onPaymentRequired: (visit: any) => void;
-  onWizardRequired: (wizardData: any, pendingData: any) => void;  
+  onWizardRequired: (wizardData: any, pendingData: any) => void; // ✅ Canalisation du Wizard
   colors: any;
 }
 
