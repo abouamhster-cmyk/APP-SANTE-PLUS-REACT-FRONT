@@ -13,7 +13,7 @@ interface DischargeRequestModalContentProps {
   patients: any[];
   onSuccess: () => void;
   onPaymentRequired: (visit: any) => void;
-  onWizardRequired: (wizardData: any, pendingData: any) => void; 
+  onWizardRequired: (wizardData: any, pendingData: any) => void; // ✅ Canalisation du Wizard
   onCancel: () => void;
   colors: any;
 }
@@ -122,7 +122,7 @@ export const DischargeRequestModalContent = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 pb-4">
+    <div className="space-y-5 pb-4 max-w-xl mx-auto">
       {/* ✅ Pour qui est cette sortie d'hôpital (Sélecteur mobile confortable) */}
       <div>
         <label className="block text-xs font-bold mb-1.5 uppercase tracking-wider" style={{ color: colors.text }}>
