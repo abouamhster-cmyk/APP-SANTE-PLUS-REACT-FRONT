@@ -4,27 +4,25 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
   Users,
-  FileText,
   Calendar,
   User,
-  Settings,
+  X,
+  Menu,
+  MessageCircle,
+  CreditCard,
+  BookOpen,
+  MapPin,
+  Bell,
+  Briefcase,
+  History,
+  LayoutDashboard,
   ClipboardList,
   UserCheck,
-  Briefcase,
-  CreditCard,
-  Bell,
-  MessageCircle,
-  MapPin,
-  History,
+  FileCheck,
+  ShoppingBag,
   Award,
   Package,
-  Menu,
-  BookOpen,
-  Hospital,
-  X,
-  ChevronUp,
-  LayoutDashboard,
-  ShoppingBag,
+  Settings,
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -71,46 +69,45 @@ const getMainItems = (role: string | null) => {
 };
 
 // ============================================================
-// ÉLÉMENTS DU MENU PLUS AVEC COULEURS COMPATIBLES DU BRANDING
+// ÉLÉMENTS DU MENU PLUS AVEC COULEURS COMPATIBLES DU BRANDING (SANS SORTIE HÔPITAL)
 // ============================================================
 const getMoreItems = (role: string | null, colors: any) => {
   const primaryColor = colors.primary;
 
   if (role === 'family') {
     return [
-      { icon: <UserCheck size={18} />, label: 'Aidants', path: '/app/aidants', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <CreditCard size={18} />, label: 'Abonnement', path: '/app/billing', color: '#10B981', bg: '#10B98112' },
-      { icon: <BookOpen size={18} />, label: 'Journal', path: '/app/journal', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
-      { icon: <Hospital size={18} />, label: 'Sortie', path: '/app/discharge', color: '#EC4899', bg: '#EC489912' },
-      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants', color: primaryColor, bg: `${primaryColor}12` },
+      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
+      { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing', color: '#10B981', bg: '#10B98112' },
+      { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal', color: '#8B5CF6', bg: '#8B5CF612' },
+      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
+       { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
     ];
   }
 
   if (role === 'aidant') {
     return [
-      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={18} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <History size={18} />, label: 'Historique', path: '/app/history', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
-      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: primaryColor, bg: `${primaryColor}12` },
+      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
+      { icon: <History size={20} />, label: 'Historique', path: '/app/history', color: '#8B5CF6', bg: '#8B5CF612' },
+      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
+      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
     ];
   }
 
   if (role === 'admin' || role === 'coordinator') {
     return [
-      { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/app/admin', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <UserCheck size={18} />, label: 'Candidatures', path: '/app/aidant-candidates', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <Calendar size={18} />, label: 'Visites', path: '/app/visits', color: '#10B981', bg: '#10B98112' },
-      { icon: <FileText size={18} />, label: 'Rapports', path: '/app/admin/visits/validation', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <ShoppingBag size={18} />, label: 'Commandes', path: '/app/orders', color: '#F59E0B', bg: '#F59E0B12' },
-      { icon: <CreditCard size={18} />, label: 'Paiements', path: '/app/admin-payments', color: '#EC4899', bg: '#EC489912' },
-      { icon: <Award size={18} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: '#6366F1', bg: '#6366F112' },
-      { icon: <Package size={18} />, label: 'Offres', path: '/app/offers', color: '#14B8A6', bg: '#14B8A612' },
-      { icon: <Bell size={18} />, label: 'Notifications', path: '/app/admin-notifications', color: '#EF4444', bg: '#EF444412' },
-      { icon: <MapPin size={18} />, label: 'Carte', path: '/app/map', color: '#06B6D4', bg: '#06B6D412' },
-      { icon: <User size={18} />, label: 'Profil', path: '/app/profile', color: '#84CC16', bg: '#84CC1612' },
+      { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/app/admin', color: primaryColor, bg: `${primaryColor}12` },
+      { icon: <ClipboardList size={20} />, label: 'Candidatures', path: '/app/aidant-candidates', color: '#3B82F6', bg: '#3B82F612' },
+      { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits', color: '#10B981', bg: '#10B98112' },
+      { icon: <FileCheck size={20} />, label: 'Rapports', path: '/app/admin/visits/validation', color: '#8B5CF6', bg: '#8B5CF612' },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments', color: '#EC4899', bg: '#EC489912' },
+      { icon: <Award size={20} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: '#6366F1', bg: '#6366F112' },
+      { icon: <Package size={20} />, label: 'Offres', path: '/app/offers', color: '#14B8A6', bg: '#14B8A612' },
+      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/admin-notifications', color: '#EF4444', bg: '#EF444412' },
+      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: '#06B6D4', bg: '#06B6D412' },
+      { icon: <User size={20} />, label: 'Profil', path: '/app/profile', color: '#84CC16', bg: '#84CC1612' },
     ];
   }
 
@@ -155,9 +152,9 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
     <>
       {/* Fond flouté sombre derrière le BottomSheet */}
       {showMore && (
-        <div
-          className="fixed inset-0 z-[45] bg-black/25 backdrop-blur-sm transition-opacity duration-300 ease-out"
-          onClick={() => setShowMore(false)}
+        <div 
+          className="fixed inset-0 z-[45] bg-black/25 backdrop-blur-sm transition-opacity duration-300 ease-out" 
+          onClick={() => setShowMore(false)} 
         />
       )}
 
@@ -178,7 +175,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
         <div className="flex items-center justify-between mb-5 border-b pb-3 dark:border-[#2c3f35]">
           <div className="space-y-0.5">
             <h3 className="text-sm font-extrabold text-gray-800 dark:text-gray-100">Plus d'outils</h3>
-           </div>
+          </div>
           <button
             onClick={() => setShowMore(false)}
             className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition shadow-sm"
@@ -240,7 +237,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
             boxShadow: '0 20px 40px -15px rgba(15,31,25,0.15), 0 0 1px 1px rgba(255,255,255,0.15) inset',
           }}
         >
-          {/* BOUTONS PRINCIPAUX AVEC CERCLES TACTILES D'ACTIVATION */}
+          {/* BOUTONS PRINCIPAUX */}
           {mainItems.map((item) => {
             const active = isActive(item.path);
 
@@ -251,7 +248,6 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                 onClick={handleLinkClick}
                 className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
               >
-                {/* Icône enveloppée dans un cercle actif de couleur du rôle */}
                 <div
                   className={cn(
                     "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
@@ -290,7 +286,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
             );
           })}
 
-          {/* BOUTON PLUS AVEC FLUIDITÉ CERCLE TACTILE DE COULEUR */}
+          {/* BOUTON PLUS */}
           {moreItems.length > 0 && (
             <div className="relative">
               <button
