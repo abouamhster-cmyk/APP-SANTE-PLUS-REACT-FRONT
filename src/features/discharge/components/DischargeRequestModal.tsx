@@ -9,7 +9,7 @@ interface DischargeRequestModalProps {
   onClose: () => void;
   onSuccess: () => void;
   onPaymentRequired: (visit: any) => void;
-  onWizardRequired: (wizardData: any, pendingData: any) => void; 
+  onWizardRequired: (wizardData: any, pendingData: any) => void;  
   colors: any;
 }
 
