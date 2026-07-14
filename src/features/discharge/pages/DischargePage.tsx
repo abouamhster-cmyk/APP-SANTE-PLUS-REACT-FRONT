@@ -1,5 +1,6 @@
 // 📁 src/features/discharge/pages/DischargePage.tsx
- 
+// ✅ PAGE SORTIE HÔPITAL : FUSION SUR LE MOTEUR DE VISITES ET INTEGRATION PARFAITE DU WIZARD
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Calendar, Clock, Hospital, CheckCircle, Eye, Loader2, Filter, XCircle, CreditCard, UserPlus } from 'lucide-react';
@@ -215,8 +216,8 @@ const DischargePage = () => {
         toast.success('🎉 Sortie d\'hôpital planifiée avec l\'aidant sélectionné !');
       }
     } catch (error: any) {
-      console.error('❌ Erreur finalisation wizard sortie:', error);
-      toast.error(error.message || 'Erreur lors de la planification de la sortie d\'hôpital');
+      console.error('❌ Erreur création sortie depuis wizard:', error);
+      toast.error(error.message || 'Erreur lors de la création de la demande');
     }
   };
 
