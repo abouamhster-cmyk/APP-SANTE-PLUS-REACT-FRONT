@@ -1,31 +1,64 @@
 // 📁 src/features/discharge/pages/DischargePage.tsx
-// ✅ PAGE SORTIE HÔPITAL : OPTIMISATION DU DESIGN RESPONSIVE SANS CHEVAUCHEMENTS
+// ✅ PAGE SORTIE HÔPITAL : FUSION TOTALE SUR LE MOTEUR DE VISITES ET FLUX DE PAIEMENT FEDAPAY
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, Clock, Hospital, CheckCircle, Eye, Loader2, Filter, XCircle } from 'lucide-react';
-import { useDischargeStore } from '@/stores/dischargeStore';
+import { Plus, Calendar, Clock, Hospital, CheckCircle, Eye, Loader2, Filter, XCircle, CreditCard } from 'lucide-react';
+import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
+import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate } from '@/utils/helpers';
 import { DischargeRequestModal } from '../components/DischargeRequestModal';
 import { DischargeDetailsModal } from '../components/DischargeDetailsModal';
+import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal'; // ✅ Import paiement
 import { DischargeStatus } from '@/types';
 import toast from 'react-hot-toast';
+
+// ============================================================
+// ADAPTATEUR UNIFIÉ : Transforme une visite d'hôpital au format de sortie attendu par le UI
+// ============================================================
+const mapVisitToDischarge = (visit: any) => {
+  return {
+    id: visit.id,
+    status: visit.status,
+    patient_id: visit.patient_id,
+    patient: visit.patient,
+    aidant_id: visit.aidant_id,
+    aidant: visit.aidant,
+    hospital_name: visit.metadata?.hospital_name || 'Hôpital non spécifié',
+    hospital_service: visit.metadata?.hospital_service || 'Non précisé',
+    doctor_name: visit.metadata?.doctor_name || 'Non précisé',
+    discharge_date: visit.metadata?.discharge_date || visit.scheduled_date,
+    discharge_time: visit.metadata?.discharge_time || visit.scheduled_time,
+    notes: visit.notes,
+    report: visit.report,
+    photos: visit.photos || [],
+    audios: visit.audios || [],
+    user_id: visit.user_id,
+    is_ponctual: visit.is_ponctual,
+    payment_status: visit.payment_status,
+  };
+};
 
 const DischargePage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
-  const { discharges, isLoading, fetchDischarges, updateStatus } = useDischargeStore();
+  
+  // Utilisation directe du store des visites
+  const { visits, fetchVisits, isLoading } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
+  const { hasActiveSubscription } = useSubscriptionGuard();
 
   const { singular, getCategoryLabel, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false); // ✅ Modal paiement
   const [selectedDischarge, setSelectedDischarge] = useState<any>(null);
+  const [selectedVisitForPayment, setSelectedVisitForPayment] = useState<any>(null); // ✅ Visite en attente de paiement
   const [filter, setFilter] = useState<DischargeStatus | 'all'>('all');
 
   // ✅ VERROU DE SÉCURITÉ CONTRE LES CLICS CONSECUTIFS RAPIDES
@@ -36,34 +69,47 @@ const DischargePage = () => {
   const isFamilyRole = role === 'family';
 
   useEffect(() => {
-    fetchDischarges();
+    fetchVisits();
     if (isFamilyRole) {
       fetchPatients();
     }
   }, []);
 
-  const filteredDischarges = discharges.filter(d => filter === 'all' || d.status === filter);
+  // ✅ FILTRAGE DES VISITES SUR LA MÉTADONNÉE "is_discharge"
+  const dischargeVisits = useMemo(() => {
+    return (visits || [])
+      .filter((v: any) => v.metadata?.is_discharge === true)
+      .map((v: any) => mapVisitToDischarge(v));
+  }, [visits]);
 
-  const getStatusColor = (status: DischargeStatus): string => {
+  const filteredDischarges = useMemo(() => {
+    return dischargeVisits.filter(d => filter === 'all' || d.status === filter);
+  }, [dischargeVisits, filter]);
+
+  const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'pending': return '#FF9800';
-      case 'assessing': return '#2196F3';
-      case 'planned': return '#4CAF50';
-      case 'in_progress': return '#FF5722';
-      case 'completed': return '#4CAF50';
-      case 'cancelled': return '#F44336';
+      case 'brouillon': return '#8b5cf6';
+      case 'planifiee': return '#4CAF50';
+      case 'en_attente': return '#FF9800';
+      case 'en_cours': return '#FF5722';
+      case 'terminee': return '#9C27B0';
+      case 'validee': return '#4CAF50';
+      case 'annulee': return '#F44336';
+      case 'refusee': return '#F44336';
       default: return '#9E9E9E';
     }
   };
 
-  const getStatusLabel = (status: DischargeStatus): string => {
+  const getStatusLabel = (status: string): string => {
     switch (status) {
-      case 'pending': return '📋 En attente';
-      case 'assessing': return '🔍 Évaluation';
-      case 'planned': return '📅 Planifiée';
-      case 'in_progress': return '🚗 En cours';
-      case 'completed': return '✅ Terminée';
-      case 'cancelled': return '❌ Annulée';
+      case 'brouillon': return '💳 En attente paiement';
+      case 'planifiee': return '📅 Planifiée';
+      case 'en_attente': return '⏳ En attente validation';
+      case 'en_cours': return '🚗 En cours';
+      case 'terminee': return '📝 Rapport soumis';
+      case 'validee': return '✅ Validée';
+      case 'annulee': return '❌ Annulée';
+      case 'refusee': return '❌ Refusée';
       default: return status;
     }
   };
@@ -81,21 +127,37 @@ const DischargePage = () => {
     return 'Les demandes de sortie apparaîtront ici.';
   };
 
-  const stats = {
-    total: discharges.length,
-    pending: discharges.filter(d => d.status === 'pending' || d.status === 'assessing').length,
-    in_progress: discharges.filter(d => d.status === 'planned' || d.status === 'in_progress').length,
-    completed: discharges.filter(d => d.status === 'completed').length,
-  };
+  const stats = useMemo(() => {
+    return {
+      total: dischargeVisits.length,
+      pending: dischargeVisits.filter(d => d.status === 'planifiee' || d.status === 'en_attente' || d.status === 'brouillon').length,
+      in_progress: dischargeVisits.filter(d => d.status === 'en_cours').length,
+      completed: dischargeVisits.filter(d => d.status === 'terminee' || d.status === 'validee').length,
+    };
+  }, [dischargeVisits]);
 
   const filterOptions = [
     { value: 'all', label: '📋 Toutes les demandes' },
-    { value: 'pending', label: '📋 En attente' },
-    { value: 'planned', label: '📅 Planifiées' },
-    { value: 'in_progress', label: '🚗 En cours' },
-    { value: 'completed', label: '✅ Terminées' },
-    { value: 'cancelled', label: '❌ Annulées' },
+    { value: 'brouillon', label: '💳 En attente de paiement' },
+    { value: 'en_attente', label: '⏳ En attente validation' },
+    { value: 'planifiee', label: '📅 Planifiées' },
+    { value: 'en_cours', label: '🚗 En cours' },
+    { value: 'terminee', label: '📝 Rapports soumis' },
+    { value: 'validee', label: '✅ Validées' },
+    { value: 'annulee', label: '❌ Annulées' },
   ];
+
+  const handlePaymentRequired = (visit: any) => {
+    setSelectedVisitForPayment(visit);
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    setSelectedVisitForPayment(null);
+    fetchVisits();
+    toast.success('💳 Paiement validé. Sortie d\'hôpital planifiée !');
+  };
 
   if (isLoading) {
     return (
@@ -198,8 +260,8 @@ const DischargePage = () => {
               style={{ borderLeftColor: getStatusColor(discharge.status) }}
               onClick={() => {
                 if (isActionPending.current) return;
-                setSelectedDischarge(discharge);
-                setShowDetailsModal(true);
+                // Rediriger directement vers la page de détails unifiée de la visite pour profiter du plan de suivi GPS / Photos / Audio
+                navigate(`/app/visits/${discharge.id}`);
               }}
             >
               <div className="flex items-center justify-between gap-3">
@@ -244,9 +306,7 @@ const DischargePage = () => {
                   <button
                     onClick={(e) => { 
                       e.stopPropagation();
-                      if (isActionPending.current) return;
-                      setSelectedDischarge(discharge);
-                      setShowDetailsModal(true);
+                      navigate(`/app/visits/${discharge.id}`);
                     }}
                     className="p-2 rounded-xl hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors duration-150"
                   >
@@ -278,9 +338,9 @@ const DischargePage = () => {
           onClose={() => setShowRequestModal(false)}
           onSuccess={() => {
             setShowRequestModal(false);
-            fetchDischarges();
-            toast.success('Demande de sortie créée !');
+            fetchVisits();
           }}
+          onPaymentRequired={handlePaymentRequired}
           colors={colors}
         />
       )}
@@ -292,8 +352,21 @@ const DischargePage = () => {
             setShowDetailsModal(false);
             setSelectedDischarge(null);
           }}
-          onUpdate={() => fetchDischarges()}
+          onUpdate={() => fetchVisits()}
           colors={colors}
+        />
+      )}
+
+      {/* ✅ DEPLOIEMENT DU PAYEMENT FEDAPAY POUR TOUTE COMMANDE PONCTUELLE HORS ABONNEMENT */}
+      {showPaymentModal && selectedVisitForPayment && (
+        <VisitPaymentModal
+          isOpen={true}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedVisitForPayment(null);
+          }}
+          visit={selectedVisitForPayment}
+          onSuccess={handlePaymentSuccess}
         />
       )}
     </div>
