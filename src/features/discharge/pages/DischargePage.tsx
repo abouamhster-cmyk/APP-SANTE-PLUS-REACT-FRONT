@@ -1,5 +1,5 @@
 // 📁 src/features/discharge/pages/DischargePage.tsx
-// ✅ PAGE SORTIE HÔPITAL : INTÉGRATION COMPLÈTE DU WIZARD D'ASSIGNATION ET DU FLUX DE PAIEMENT PONCTUEL
+// ✅ PAGE SORTIE HÔPITAL : FUSION SUR LE MOTEUR DE VISITES ET INTEGRATION PARFAITE DU WIZARD
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,7 @@ import { formatDate } from '@/utils/helpers';
 import { DischargeRequestModal } from '../components/DischargeRequestModal';
 import { DischargeDetailsModal } from '../components/DischargeDetailsModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal'; 
-import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal'; 
+import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal'; // Import du Wizard d'assignation
 import { DischargeStatus } from '@/types';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
@@ -47,7 +47,8 @@ const DischargePage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
   
-  const { visits, fetchVisits, isLoading } = useVisitStore();
+  // Utilisation directe du store des visites
+  const { visits, fetchVisits, createVisit, isLoading } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
   const { hasActiveSubscription } = useSubscriptionGuard();
 
@@ -56,12 +57,18 @@ const DischargePage = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false); 
-  const [showWizardModal, setShowWizardModal] = useState(false);  
+  const [showWizardModal, setShowWizardModal] = useState(false); // Modal Wizard
 
   const [selectedDischarge, setSelectedDischarge] = useState<any>(null);
   const [selectedVisitForPayment, setSelectedVisitForPayment] = useState<any>(null); 
-  const [wizardOptions, setWizardOptions] = useState<any>(null); // ✅ Options d'aidants disponibles
-  const [pendingDischargeData, setPendingDischargeData] = useState<any>(null); // ✅ Données de visite en attente du choix d'aidant
+  
+  // États de synchronisation du Wizard
+  const [pendingDischargeData, setPendingDischargeData] = useState<any>(null); 
+  const [wizardTarget, setWizardTarget] = useState<{
+    targetType: 'patient' | 'personal_account' | 'personal';
+    targetId: string;
+    targetName: string;
+  } | null>(null);
 
   const [filter, setFilter] = useState<DischargeStatus | 'all'>('all');
 
@@ -78,6 +85,7 @@ const DischargePage = () => {
     }
   }, []);
 
+  // Filtrage des visites sur la métadonnée "is_discharge"
   const dischargeVisits = useMemo(() => {
     return (visits || [])
       .filter((v: any) => v.metadata?.is_discharge === true)
@@ -161,31 +169,54 @@ const DischargePage = () => {
     toast.success('💳 Paiement validé. Sortie d\'hôpital planifiée !');
   };
 
-  // ✅ HANDLER DE SÉCURITÉ WIZARD : Appelé si aucun aidant permanent n'est assigné
+  // ✅ CANALISATION ET PRÉPARATION DU WIZARD (Récupère les données cibles de la visite en cours)
   const handleWizardRequired = (wizardData: any, pendingData: any) => {
-    setWizardOptions(wizardData);
     setPendingDischargeData(pendingData);
+    setWizardTarget({
+      targetType: pendingData.target_type || 'personal',
+      targetId: pendingData.patient_id || profile?.id || '',
+      targetName: pendingData.patient_id 
+        ? `${patients.find(p => p.id === pendingData.patient_id)?.first_name || ''} ${patients.find(p => p.id === pendingData.patient_id)?.last_name || ''}`.trim()
+        : (profile?.full_name || 'Personnel'),
+    });
     setShowWizardModal(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="h-20 bg-white rounded-2xl animate-pulse shadow-sm" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse shadow-sm" />
-          ))}
-        </div>
-        <div className="h-12 bg-white rounded-xl animate-pulse shadow-sm" />
-        <div className="space-y-2">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-16 bg-white rounded-xl animate-pulse shadow-sm" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // ✅ SUCCÈS DU WIZARD : Soumission finale de l'offre avec l'intervenant d'accompagnement sélectionné
+  const handleWizardSuccess = async (wizardResult: {
+    aidantId?: string | null;
+    wizardChoice?: string;
+    assignmentType?: string;
+  }) => {
+    if (!pendingDischargeData) return;
+
+    // Fusionner les données d'assignation récoltées par le Wizard au sein du formulaire initial de sortie
+    const completePayload = {
+      ...pendingDischargeData,
+      selected_aidant_id: wizardResult.aidantId,
+      wizard_choice: wizardResult.wizardChoice,
+      assignment_type: wizardResult.assignmentType,
+    };
+
+    try {
+      const response = await createVisit(completePayload);
+
+      setShowWizardModal(false);
+      setWizardTarget(null);
+      setPendingDischargeData(null);
+
+      // Si l'offre finale exige d'abord un règlement FedaPay
+      if (response.requires_payment || response.status === 'brouillon') {
+        handlePaymentRequired(response);
+      } else {
+        await fetchVisits();
+        toast.success('🎉 Sortie d\'hôpital planifiée avec succès !');
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur finalisation wizard sortie:', error);
+      toast.error(error.message || 'Erreur lors de la planification de la sortie d\'hôpital');
+    }
+  };
 
   return (
     <div className="space-y-4 pb-24 sm:pb-10 px-4 sm:px-0">
@@ -349,7 +380,7 @@ const DischargePage = () => {
             fetchVisits();
           }}
           onPaymentRequired={handlePaymentRequired}
-          onWizardRequired={handleWizardRequired}  
+          onWizardRequired={handleWizardRequired} // ✅ Canalisation du Wizard
           colors={colors}
         />
       )}
@@ -379,30 +410,22 @@ const DischargePage = () => {
         />
       )}
 
-      {/* ✅ DEPLOIEMENT DU WIZARD EN CAS D'ABSENCE D'AIDANT PERMANENT (FONCTIONNEMENT IDENTIQUE VISITE) */}
-      {showWizardModal && wizardOptions && pendingDischargeData && (
+      {/* ✅ DEPLOIEMENT DU WIZARD D'ASSIGNATION DE L'AIDANT CONFORME AU PROTOCOLE */}
+      {showWizardModal && wizardTarget && pendingDischargeData && (
         <VisitWizardModal
           isOpen={true}
           onClose={() => {
             setShowWizardModal(false);
-            setWizardOptions(null);
+            setWizardTarget(null);
             setPendingDischargeData(null);
           }}
-          options={wizardOptions}
-          visitData={pendingDischargeData}
-          onSuccess={async (result) => {
-            setShowWizardModal(false);
-            setWizardOptions(null);
-            setPendingDischargeData(null);
-            
-            // Si l'assignation du Wizard exige un paiement ponctuel à l'acte
-            if (result.requires_payment || result.visit?.status === 'brouillon') {
-              handlePaymentRequired(result.visit);
-            } else {
-              fetchVisits();
-              toast.success('🎉 Sortie d\'hôpital planifiée avec l\'aidant sélectionné !');
-            }
-          }}
+          onSuccess={handleWizardSuccess} // ✅ Signature de callback parfaitement conforme et typée
+          targetType={wizardTarget.targetType}
+          targetId={wizardTarget.targetId}
+          targetName={wizardTarget.targetName}
+          familyId={profile?.id}
+          scheduledDate={pendingDischargeData.scheduled_date}
+          scheduledTime={pendingDischargeData.scheduled_time}
           colors={colors}
         />
       )}
