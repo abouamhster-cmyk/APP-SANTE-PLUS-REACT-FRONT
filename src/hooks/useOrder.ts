@@ -1,5 +1,5 @@
 // 📁 frontend/src/hooks/useOrder.ts
-
+ 
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -80,7 +80,7 @@ interface UseOrderReturn {
 }
 
 // ============================================================
-// COMPOSANT PRINCIPAL
+// HOOK COMPOSANT
 // ============================================================
 
 export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
@@ -98,10 +98,7 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
     fetchOrders: storeFetchOrders,
     takeOrder: storeTakeOrder,
     updateOrderStatus: storeUpdateStatus,
-    deleteOrder,
-    getAssignedOrders,
     getAvailableOrders: storeGetAvailableOrders,
-    getDeliveryOrders,
     invalidateCache,
   } = useOrderStore();
 
@@ -153,33 +150,32 @@ export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
   }, [isAidant, user]);
 
   // ============================================================
-  // RÉCUPÉRATION DES COMMANDES DISPONIBLES (AIDANT)
+  // RÉCUPÉRER LES COMMANDES DISPONIBLES (AIDANTS)
   // ============================================================
 
- 
-const fetchAvailableOrders = useCallback(async () => {
-  try {
-    const { data, error } = await supabase
-      .from('commandes')
-      .select(`
-        *,
-        patient:patients(*),
-        aidant:aidants!commandes_aidant_id_fkey(*, user:profiles(*))
-      `)
-      .in('status', ['creee', 'en_attente', 'disponible'])
-      .order('created_at', { ascending: true });
+  const fetchAvailableOrders = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('commandes')
+        .select(`
+          *,
+          patient:patients(*),
+          aidant:aidants!commandes_aidant_id_fkey(*, user:profiles(*))
+        `)
+        .in('status', ['creee', 'en_attente', 'disponible'])
+        .order('created_at', { ascending: true });
 
-    if (error) throw error;
-    setAvailableOrders(data || []);
-    return data || [];
-  } catch (error) {
-    console.error('❌ fetchAvailableOrders error:', error);
-    return [];
-  }
-}, []);
+      if (error) throw error;
+      setAvailableOrders(data || []);
+      return data || [];
+    } catch (error) {
+      console.error('❌ fetchAvailableOrders error:', error);
+      return [];
+    }
+  }, []);
 
   // ============================================================
-  // CHARGEMENT DES DONNÉES
+  // EFFETS DE CHARGEMENT
   // ============================================================
 
   useEffect(() => {
@@ -201,7 +197,7 @@ const fetchAvailableOrders = useCallback(async () => {
   }, [isAidant, orders, fetchAvailableOrders]);
 
   // ============================================================
-  // ACTIONS
+  // ACTIONS ET METHODES DU HOOK (AVEC PROTECTION GPS)
   // ============================================================
 
   const fetchOrders = useCallback(async (force = false) => {
@@ -212,15 +208,31 @@ const fetchAvailableOrders = useCallback(async () => {
     }
   }, [storeFetchOrders, isAidant, fetchAvailableOrders, fetchQuota]);
 
-  // ✅ CORRIGÉ : takeOrder avec try/catch pour void
+  // ✅ CAPTURE GPS SÉCURISÉE LORS DE LA PRISE DE COMMANDE DEPUIS LES GRILLES
   const takeOrder = useCallback(async (orderId: string): Promise<boolean> => {
     try {
-      await storeTakeOrder(orderId);
+      let startLat: number | null = null;
+      let startLng: number | null = null;
+
+      try {
+        if (navigator.geolocation) {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000 });
+          });
+          startLat = position.coords.latitude;
+          startLng = position.coords.longitude;
+          console.log(`📍 GPS Départ Commande Capturé (Hook) : ${startLat}, ${startLng}`);
+        }
+      } catch (e) {
+        console.warn("⚠️ Impossible de capturer le GPS lors de la prise de commande depuis la grille");
+      }
+
+      await storeTakeOrder(orderId, startLat, startLng); // Transmettre les coordonnées GPS au store
       
       // Rafraîchir le quota
       await fetchQuota();
       await fetchAvailableOrders();
-      toast.success('Commande prise en charge ✅');
+      toast.success('Commande prise en charge ✅ (GPS enregistré)');
       return true;
     } catch (error: any) {
       console.error('❌ takeOrder error:', error);
@@ -259,8 +271,6 @@ const fetchAvailableOrders = useCallback(async () => {
         throw new Error(error.error || 'Erreur lors de la livraison');
       }
 
-      const result = await response.json();
-      
       // Rafraîchir les données
       await fetchOrders(true);
       if (isAidant) {
@@ -351,7 +361,7 @@ const fetchAvailableOrders = useCallback(async () => {
   }, [invalidateCache, fetchOrders, isAidant, fetchQuota, fetchAvailableOrders]);
 
   // ============================================================
-  // STATISTIQUES AVEC TYPE ÉTENDU
+  // STATISTIQUES
   // ============================================================
 
   const stats = useMemo(() => ({
@@ -383,7 +393,6 @@ const fetchAvailableOrders = useCallback(async () => {
     return orders.filter(o => o.status === 'attente_paiement');
   }, [orders]);
 
-  // ✅ CORRIGÉ : Accès à metadata avec ExtendedOrder
   const ponctualOrders = useMemo(() => {
     return orders.filter(o => {
       const ext = o as ExtendedOrder;
@@ -394,7 +403,7 @@ const fetchAvailableOrders = useCallback(async () => {
   }, [orders]);
 
   // ============================================================
-  // UTILITAIRES
+  // UTILITAIRES DE RENSEIGNEMENT DE QUOTA
   // ============================================================
 
   const canTakeOrder = useMemo((): boolean => {
@@ -425,10 +434,6 @@ const fetchAvailableOrders = useCallback(async () => {
   const getPendingCount = useCallback((): number => {
     return stats.pending || 0;
   }, [stats.pending]);
-
-  // ============================================================
-  // RETOUR
-  // ============================================================
 
   return {
     // État
