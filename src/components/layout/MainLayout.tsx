@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-// ✅ MAIN LAYOUT : RETRAIT DE LA NAVIGATION SORTIE HÔPITAL ET FLUX UNIFIÉ DE VISITES
+// ✅ MAIN LAYOUT : EN-TÊTE INTELLIGENT ET INTÉGRATION DE LA MESSAGERIE POUR TOUS LES RÔLES (ADMIN INCLUS)
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -74,7 +74,7 @@ const MainLayout = () => {
   const handleScroll = useCallback(() => {
     const currentScrollY = window.scrollY;
 
-    // ✅ CORRECTION : Le header n'apparaît désormais que si la personne est vraiment remontée tout en haut (seuil de 20px)
+    // Le header n'apparaît désormais que si la personne est vraiment remontée tout en haut (seuil de 20px)
     if (currentScrollY <= 20) {
       setShowHeader(true);
     } else {
@@ -138,7 +138,6 @@ const MainLayout = () => {
         { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing' },
         { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal' },
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
-        // ❌ SUPPRIMÉ : L'onglet Sortie Hôpital redondant a été retiré
         { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
     }
@@ -166,6 +165,7 @@ const MainLayout = () => {
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <FileCheck size={20} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
+        { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },  
         { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments' },
         { icon: <Award size={20} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
         { icon: <Package size={20} />, label: 'Offres', path: '/app/offers' },
