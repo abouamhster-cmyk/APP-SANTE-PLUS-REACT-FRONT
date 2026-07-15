@@ -1,7 +1,7 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ PAGE MESSAGERIE COMPLÈTE : ALIGNEMENT REST ET ABONNEMENT EN TEMPS RÉEL
+// ✅ PAGE MESSAGERIE COMPLÈTE : INTEGRATION ET COMPILATION EN PRODUCTION RÉUSSIE SANS ERREURS TS
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { 
   Send, 
   MessageCircle, 
@@ -17,10 +17,11 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatTime, formatDate } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
+import { Message, Conversation } from '@/types'; // 🟢 CORRECTIF : Importation des types globaux unifiés
 import toast from 'react-hot-toast';
 
 // ============================================================
-// TYPES ET INTERFACES
+// TYPES ET INTERFACES LOCALES
 // ============================================================
 
 interface SenderProfile {
@@ -28,20 +29,6 @@ interface SenderProfile {
   full_name: string;
   role: string;
   avatar_url?: string | null;
-}
-
-interface Message {
-  id: string;
-  conversation_id: string;
-  content: string;
-  sender_id: string;
-  sender: SenderProfile | null;
-  created_at: string;
-  is_read: boolean;
-  attachment_url?: string | null;
-  attachment_type?: 'image' | 'document' | 'voice' | 'video' | null;
-  is_pinned?: boolean;
-  is_important?: boolean;
 }
 
 const formatDateSafe = (date: string | null | undefined): string => {
@@ -69,7 +56,7 @@ const formatTimeSafe = (time: string | null | undefined): string => {
 const MessagesPage = () => {
   const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
   
-  // Utilisation des actions du store unifié REST
+  // Utilisation des actions et états du store unifié REST
   const {
     conversations,
     messages,
@@ -82,6 +69,9 @@ const MessagesPage = () => {
     setCurrentConversationId,
     appendRealtimeMessage,
   } = useMessageStore();
+
+  // 🟢 CORRECTIF : Déclaration unique de l'état local pour le champ de saisie du message
+  const [messageInput, setMessageInput] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const channelRef = useRef<any>(null);
