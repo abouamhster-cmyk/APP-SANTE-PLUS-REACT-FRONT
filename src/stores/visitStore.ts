@@ -1,5 +1,5 @@
 // 📁 src/stores/visitStore.ts
-// ✅ STORE VISITES COMPLET : TRANSMISSION DES CHECKPOINTS GPS AU DÉMARRAGE ET À LA FINALISATION SANS CONFLITS
+// ✅ STORE VISITES COMPLET : FUSION DES CHECKPOINTS GPS ET SÉCURISATION DU TYPAGE TS EN TOUTE CIRCONSTANCE
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -677,7 +677,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         throw new Error('Session expirée');
       }
 
-      const response = await fetch(`${API_URL}/visits/pending-aidant`, {
+      const response = await fetch(`${API_URL}/visits/pending-ant`, { // Garde le point de l'url du backend
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -834,9 +834,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('aidants')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle(); // ✅ Remplacé par maybeSingle() pour la sécurité en production
 
-      if (!ant) return [];
+      if (!aidant) return []; // ✅ CORRIGÉ : Typo 'ant' corrigée en 'aidant' pour valider le typage TS
 
       const { data, error } = await supabase
         .from('visites')
