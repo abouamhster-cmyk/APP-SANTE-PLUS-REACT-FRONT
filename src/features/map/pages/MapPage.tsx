@@ -1,53 +1,86 @@
 // 📁 src/features/map/pages/MapPage.tsx
-import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { useState, useEffect } from 'react';
+import { APIProvider, Map, Marker, InfoWindow } from '@vis.gl/react-google-maps';
 import { useLocationStore } from '@/stores/locationStore';
+import { useLocation } from '@/hooks/useLocation';
 import { RefreshCw } from 'lucide-react';
 
 const MapPage = () => {
-  const mapContainer = useRef<HTMLDivElement | null>(null);
-  const map = useRef<maplibregl.Map | null>(null);
   const { locations, activeVisits, activeOrders, isLoading, fetchActiveVisits } = useLocationStore();
+  const { position, startWatching } = useLocation();
+  const [selectedMarker, setSelectedMarker] = useState<any>(null);
 
   useEffect(() => {
+    startWatching();
     fetchActiveVisits();
-    
-    // Initialisation de la carte
-    map.current = new maplibregl.Map({
-      container: mapContainer.current!,
-      style: 'https://demotiles.maplibre.org/style.json', // Style gratuit
-      center: [2.3912, 6.3703], // Cotonou
-      zoom: 13
-    });
-
-    return () => map.current?.remove();
-  }, []);
-
-  // Mise à jour des marqueurs quand les données changent
-  useEffect(() => {
-    if (!map.current) return;
-
-    // Ajouter les marqueurs dynamiquement ici (on peut utiliser des .marker() classiques)
-    locations.aidants.forEach((a) => {
-      new maplibregl.Marker({ color: '#FF9800' })
-        .setLngLat([a.longitude, a.latitude])
-        .setPopup(new maplibregl.Popup().setText(a.full_name))
-        .addTo(map.current!);
-    });
-
-    activeVisits.forEach((v) => {
-      new maplibregl.Marker({ color: '#2196F3' })
-        .setLngLat([v.patient?.longitude || 2.39, v.patient?.latitude || 6.37])
-        .setPopup(new maplibregl.Popup().setText('Visite: ' + v.target_name))
-        .addTo(map.current!);
-    });
-  }, [locations, activeVisits, activeOrders]);
+  }, [startWatching, fetchActiveVisits]);
 
   return (
-    <div className="relative w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100">
-      <div ref={mapContainer} className="w-full h-full" />
-      
+    <div className="w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 relative">
+      <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
+        <Map
+          defaultZoom={14}
+          defaultCenter={{ 
+            lat: position?.[0] || 6.3703, 
+            lng: position?.[1] || 2.3912 
+          }}
+          disableDefaultUI={false}
+        >
+          {/* ✅ Position utilisateur */}
+          {position && (
+            <Marker 
+              position={{ lat: position[0], lng: position[1] }} 
+              title="Ma position"
+            />
+          )}
+
+          {/* 🦸 Aidants */}
+          {locations.aidants.map((aidant: any) => (
+            <Marker 
+              key={aidant.id} 
+              position={{ lat: aidant.latitude || 6.3703, lng: aidant.longitude || 2.3912 }}
+              onClick={() => setSelectedMarker({ type: 'aidant', ...aidant })}
+              title={aidant.full_name}
+            />
+          ))}
+
+          {/* 🏠 Visites */}
+          {activeVisits.map((visit: any) => (
+            <Marker 
+              key={visit.id} 
+              position={{ 
+                lat: visit.patient?.latitude || 6.3703, 
+                lng: visit.patient?.longitude || 2.3912 
+              }}
+              onClick={() => setSelectedMarker({ type: 'visit', ...visit })}
+              title={visit.target_name || "Visite"}
+            />
+          ))}
+
+          {/* Info Window dynamique */}
+          {selectedMarker && (
+            <InfoWindow 
+              position={{ 
+                lat: selectedMarker.latitude || selectedMarker.patient?.latitude || 6.3703, 
+                lng: selectedMarker.longitude || selectedMarker.patient?.longitude || 2.3912 
+              }} 
+              onCloseClick={() => setSelectedMarker(null)}
+            >
+              <div className="p-2 text-xs">
+                <p className="font-bold">
+                  {selectedMarker.type === 'aidant' ? selectedMarker.full_name : 
+                   selectedMarker.target_name || (selectedMarker.patient?.first_name + ' ' + selectedMarker.patient?.last_name)}
+                </p>
+                <p className="text-gray-500 mt-1">
+                  {selectedMarker.type === 'visit' ? 'Visite active' : 'Intervenant'}
+                </p>
+              </div>
+            </InfoWindow>
+          )}
+        </Map>
+      </APIProvider>
+
+      {/* Bouton rafraîchir flottant */}
       <button 
         onClick={() => fetchActiveVisits()}
         className="absolute bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition z-10"
