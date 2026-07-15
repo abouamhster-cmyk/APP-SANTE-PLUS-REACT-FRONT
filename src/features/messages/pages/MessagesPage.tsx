@@ -1,5 +1,6 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
- 
+// ✅ PAGE MESSAGERIE RESPONSIVE PREMIUM : POSITIONNEMENT FIXE ADAPTÉ SANS CHEVAUCHEMENT MOBILE
+
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { 
   Send, 
@@ -173,8 +174,8 @@ const MessagesPage = () => {
 
   return (
     <div 
-      // 🟢 CORRECTIF : Positionnement fixe sur mobile (stoppe l'effet de tremblement) et statique sur ordinateur
-      className="fixed md:static inset-x-0 md:inset-auto top-[56px] md:top-auto bottom-[64px] md:bottom-auto md:h-[calc(100vh-130px)] flex flex-col md:flex-row bg-white rounded-none md:rounded-3xl overflow-hidden shadow-sm md:border"
+      // 🟢 CORRECTIF : bottom-[80px] au lieu de bottom-[64px] pour remonter proprement la boîte au-dessus du menu mobile
+      className="fixed md:static inset-x-0 md:inset-auto top-[56px] md:top-auto bottom-[80px] md:bottom-auto md:h-[calc(100vh-130px)] flex flex-col md:flex-row bg-white rounded-none md:rounded-3xl overflow-hidden shadow-sm md:border"
       style={{ borderColor: colors.primary + '12' }}
     >
       
