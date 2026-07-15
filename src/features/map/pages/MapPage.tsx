@@ -1,50 +1,53 @@
 // 📁 src/features/map/pages/MapPage.tsx
-import { useState, useEffect } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow } from '@vis.gl/react-google-maps';
+import { useEffect, useRef, useState } from 'react';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { useLocationStore } from '@/stores/locationStore';
-import { useLocation } from '@/hooks/useLocation';
 import { RefreshCw } from 'lucide-react';
 
 const MapPage = () => {
+  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const map = useRef<maplibregl.Map | null>(null);
   const { locations, activeVisits, activeOrders, isLoading, fetchActiveVisits } = useLocationStore();
-  const { position, startWatching } = useLocation();
-  const [selectedMarker, setSelectedMarker] = useState<any>(null);
 
-  // ✅ INITIALISATION UNIQUE
   useEffect(() => {
-    startWatching();
     fetchActiveVisits();
-  }, []); // [] garantit que cela ne s'exécute qu'une fois au montage
+    
+    // Initialisation de la carte
+    map.current = new maplibregl.Map({
+      container: mapContainer.current!,
+      style: 'https://demotiles.maplibre.org/style.json', // Style gratuit
+      center: [2.3912, 6.3703], // Cotonou
+      zoom: 13
+    });
+
+    return () => map.current?.remove();
+  }, []);
+
+  // Mise à jour des marqueurs quand les données changent
+  useEffect(() => {
+    if (!map.current) return;
+
+    // Ajouter les marqueurs dynamiquement ici (on peut utiliser des .marker() classiques)
+    locations.aidants.forEach((a) => {
+      new maplibregl.Marker({ color: '#FF9800' })
+        .setLngLat([a.longitude, a.latitude])
+        .setPopup(new maplibregl.Popup().setText(a.full_name))
+        .addTo(map.current!);
+    });
+
+    activeVisits.forEach((v) => {
+      new maplibregl.Marker({ color: '#2196F3' })
+        .setLngLat([v.patient?.longitude || 2.39, v.patient?.latitude || 6.37])
+        .setPopup(new maplibregl.Popup().setText('Visite: ' + v.target_name))
+        .addTo(map.current!);
+    });
+  }, [locations, activeVisits, activeOrders]);
 
   return (
-    <div className="w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 relative">
-      <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-        <Map
-          defaultZoom={14}
-          defaultCenter={{ lat: 6.3703, lng: 2.3912 }}
-          disableDefaultUI={false}
-        >
-          {/* Position utilisateur */}
-          {position && (
-            <AdvancedMarker position={{ lat: position[0], lng: position[1] }}>
-              <Pin background={"#2563eb"} glyphColor={"white"} borderColor={"#1e40af"} />
-            </AdvancedMarker>
-          )}
-
-          {/* Marqueurs Visites */}
-          {activeVisits.map((visit: any) => (
-            <AdvancedMarker 
-              key={visit.id} 
-              position={{ lat: visit.patient?.latitude || 6.3703, lng: visit.patient?.longitude || 2.3912 }}
-              onClick={() => setSelectedMarker({ type: 'visit', ...visit })}
-            >
-              <Pin background={"#2196F3"} glyph={"🏠"} />
-            </AdvancedMarker>
-          ))}
-        </Map>
-      </APIProvider>
-
-      {/* Bouton manuel de rafraîchissement au lieu de l'intervalle infini */}
+    <div className="relative w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100">
+      <div ref={mapContainer} className="w-full h-full" />
+      
       <button 
         onClick={() => fetchActiveVisits()}
         className="absolute bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition z-10"
