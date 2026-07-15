@@ -1,5 +1,6 @@
 // 📁 src/stores/visitStore.ts
- 
+// ✅ STORE VISITES COMPLET : TRANSMISSION DES CHECKPOINTS GPS AU DÉMARRAGE ET À LA FINALISATION SANS CONFLITS
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
@@ -88,7 +89,7 @@ interface VisitState {
     address?: string;
     latitude?: number | null;
     longitude?: number | null;
-    metadata?: any; // ✅ Ajouté pour intégrer les métadonnées cliniques
+    metadata?: any; 
   }) => Promise<any>;
   updateVisit: (id: string, data: Partial<Visit>) => Promise<void>;
   deleteVisit: (id: string) => Promise<void>;
@@ -96,8 +97,8 @@ interface VisitState {
   approveVisit: (id: string) => Promise<void>;
   refuseVisit: (id: string, reason: string) => Promise<void>;
   reassignVisit: (id: string, newAidantId: string, assignmentType: string) => Promise<void>;
-  startVisit: (id: string) => Promise<void>;
-  completeVisit: (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string }) => Promise<void>;
+  startVisit: (id: string, lat?: number | null, lng?: number | null) => Promise<void>;
+  completeVisit: (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string; lat?: number | null; lng?: number | null }) => Promise<void>;
   validateVisit: (id: string) => Promise<void>;
   cancelVisit: (id: string) => Promise<void>;
   invalidateCache: () => void;
@@ -458,7 +459,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           selected_aidant: selectedAidantId || null,
           waiting_for_aidant: status === 'en_attente_aidant',
           is_personal_account: targetType === 'personal' && !data.patient_id,
-          ...(data.metadata || {}), // ✅ INTEGRATION SÉCURISÉE DES MÉDATADONNÉES REÇUES DU FORMULAIRE
+          ...(data.metadata || {}), 
         }
       };
 
@@ -573,10 +574,11 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  startVisit: async (id: string) => {
+  // ✅ CAPTURE GPS : Transmet le point de départ de l'intervenant lors du démarrage
+  startVisit: async (id: string, lat?: number | null, lng?: number | null) => {
     try {
       set({ error: null });
-      await api.post(`/visits/${id}/start`);
+      await api.post(`/visits/${id}/start`, { lat, lng });
 
       get().invalidateCache();
       await get().fetchVisits(true);
@@ -586,7 +588,8 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string }) => {
+  // ✅ CAPTURE GPS : Transmet le point d'arrivée de l'intervenant lors de la finalisation
+  completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string; lat?: number | null; lng?: number | null }) => {
     try {
       set({ error: null });
       await api.post(`/visits/${id}/complete`, data);
@@ -833,7 +836,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .eq('user_id', user.id)
         .single();
 
-      if (!aidant) return [];
+      if (!ant) return [];
 
       const { data, error } = await supabase
         .from('visites')
@@ -842,7 +845,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
           patient:patients!visites_patient_id_fkey(*),
           aidant:aidants!visites_aidant_id_fkey(*, user:profiles!aidants_user_id_fkey(*))
         `)
-        .eq('ant_id', aidant.id)
+        .eq('aidant_id', aidant.id)
         .eq('status', 'planifiee')
         .is('approved_at', null)
         .is('refused_at', null)
