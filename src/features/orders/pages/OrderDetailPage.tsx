@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CORRECTION SYNCHRONE DE PROTECTION CONTRE LES DOUBLES CLICS
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CAPTURE DU CHECKPOINT GPS DE PRISE ET DE LIVRAISON SANS CONFLITS
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -318,16 +318,36 @@ const OrderDetailPage = () => {
     }
   };
 
+  // ✅ CAPTURE DU POINT DE DÉPART DE MISSION LORS DE LA PRISE EN CHARGE (CHECKPOINT)
   const handleTakeOrder = async () => {
     if (!id) return;
     if (isActionPending.current) return; // Bloquer instantanément
     
     isActionPending.current = true;
     setIsUpdating(true);
+
+    let takeLat: number | null = null;
+    let takeLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 6000,
+          });
+        });
+        takeLat = position.coords.latitude;
+        takeLng = position.coords.longitude;
+        console.log(`📍 Checkpoint Prise de Commande GPS capturé: ${takeLat}, ${takeLng}`);
+      }
+    } catch (e) {
+      console.warn("⚠️ Impossible de récupérer la position GPS au moment d'accepter la commande");
+    }
     
     try {
-      await takeOrder(id);
-      toast.success('Commande prise en charge ✅');
+      await takeOrder(id, takeLat, takeLng); // ✅ Transmission des coordonnées au store
+      toast.success('Commande prise en charge ✅ (GPS enregistré)');
       await fetchOrderById(id);
     } catch (error: any) {
       console.error('❌ Erreur prise commande:', error);
@@ -362,6 +382,7 @@ const OrderDetailPage = () => {
     reader.readAsDataURL(file);
   };
 
+  // ✅ CAPTURE DU POINT D'ARRIVÉE LORS DE LA LIVRAISON AVEC PREUVE (CHECKPOINT)
   const handleProofUpload = async () => {
     if (!id || !proofFile) {
       toast.error('Veuillez sélectionner une photo');
@@ -384,14 +405,11 @@ const OrderDetailPage = () => {
         data: { publicUrl },
       } = supabase.storage.from('orders').getPublicUrl(fileName);
 
-      await updateOrderStatus(id, 'livree');
+      // ✅ APPEL DE FIN DE LIVRAISON AVEC GEOLOCALISATION ET LIEN DE PREUVE DE LIVRAISON SÉCURISÉ
+      const { completeDelivery } = useOrderStore.getState();
+      await completeDelivery(id, publicUrl); 
 
-      await supabase
-        .from('commandes')
-        .update({ proof_url: publicUrl })
-        .eq('id', id);
-
-      toast.success('Livraison confirmée avec preuve');
+      toast.success('Livraison confirmée avec preuve (GPS enregistré)');
 
       setShowProofModal(false);
       setProofFile(null);
