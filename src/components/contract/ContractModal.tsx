@@ -1,5 +1,5 @@
 // 📁 src/components/contract/ContractModal.tsx
-// 📌 Wrapper pour compatibilité
+// 📌 WRAPPER DE CONTRAT UNIFIÉ SANS DOUBLE EN-TÊTE
 
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { ContractModalContent } from './ContractModalContent';
@@ -36,7 +36,7 @@ export const ContractModal = ({
       isOpen={isOpen}
       onClose={handleClose}
       onBack={handleClose}
-      title="📜 Conditions Générales"
+      title="📜 Conditions Générales d'Utilisation"  
     >
       <ContractModalContent
         contract={contract}
