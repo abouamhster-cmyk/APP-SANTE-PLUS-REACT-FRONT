@@ -1,5 +1,6 @@
 // 📁 src/components/onboarding/OnboardingTour.tsx
- 
+// ✅ ONBOARDING TOUR COMPLET : DESIGN FLOTTANT IMMERSIF PAR RÔLE AVEC OUVERTURE INSTANTANÉE APRÈS LES CGU
+
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -12,15 +13,11 @@ import {
   ShoppingBag,
   Briefcase,
   MessageCircle,
-  ShieldCheck,
   CreditCard,
-  Loader2,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
-import { usePatientStore } from '@/stores/patientStore';
-import { useVisitStore } from '@/stores/visitStore';
-import { useOrderStore } from '@/stores/orderStore';
+import { useContractStore } from '@/stores/contractStore'; // 🟢 Pour coordonner l'ouverture après le contrat
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { cn } from '@/utils/helpers';
@@ -30,10 +27,7 @@ interface TourStep {
   title: string;
   description: string;
   icon: React.ReactNode;
-  actionPath?: string;
-  actionLabel?: string;
-  condition?: () => boolean;
-  skipCondition?: () => boolean;
+  image: string;
 }
 
 interface OnboardingTourProps {
@@ -42,7 +36,7 @@ interface OnboardingTourProps {
 
 type TimerType = ReturnType<typeof setTimeout> | null;
 
-// Clés localStorage
+// Clés localStorage unifiées
 const TOUR_STORAGE_KEY = 'sante_plus_tour_seen';
 const TOUR_VERSION = '2.0.0';
 
@@ -51,35 +45,27 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const location = useLocation();
 
   const { profile, role, isAuthenticated, isInitialized, user } = useAuthStore();
-  const { patients, fetchPatients } = usePatientStore();
-  const { visits, fetchVisits } = useVisitStore();
-  const { orders, fetchOrders } = useOrderStore();
+  const { needsAcceptance } = useContractStore(); // 🟢 État du contrat d'utilisation
 
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
-    plural,          // "proches" / "personnes accompagnées" / "bénéficiaires"
-    add,             // "Ajouter un proche" / "Ajouter une personne" / "Ajouter un bénéficiaire"
-    list,            // "Mes proches" / "Mes personnes accompagnées" / "Bénéficiaires"
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
+    singular,        // "proche"
+    plural,          // "proches"
+    add,             // "Ajouter un proche"
   } = useTerminology();
 
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [hasSeenTour, setHasSeenTour] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
   const [hasAttemptedShow, setHasAttemptedShow] = useState(false);
 
-  const navigationTimeoutRef = useRef<TimerType>(null);
   const showTimeoutRef = useRef<TimerType>(null);
 
   const themeName = getThemeByRole(role, profile?.patient_category as any);
   const colors = getThemeColors(themeName);
+
+  const isMaman = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
 
   // ============================================================
   // 1. VÉRIFICATION DU TOUR DÉJÀ VU
@@ -100,88 +86,156 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, []);
 
   // ============================================================
-  // 2. CHARGEMENT DES DONNÉES NÉCESSAIRES
+  // 2. DÉFINITION DES ÉTAPES AUTONOMES (ZÉRO REQUÊTE RÉSEAU ENCOMBRANTE)
   // ============================================================
-  useEffect(() => {
-    if (!isAuthenticated || !role) return;
-
-    const loadData = async () => {
-      setIsLoadingData(true);
-      try {
-        if (role === 'family') {
-          await Promise.all([
-            fetchPatients(),
-            fetchVisits(),
-            fetchOrders(),
-          ]);
-        } else if (role === 'aidant') {
-          await Promise.all([
-            fetchVisits(),
-            fetchOrders(),
-          ]);
-        }
-      } catch (error) {
-        console.warn('Erreur chargement données tour:', error);
-      } finally {
-        setIsLoadingData(false);
-      }
-    };
-
-    loadData();
-  }, [isAuthenticated, role, fetchPatients, fetchVisits, fetchOrders]);
-
-  // ============================================================
-  // 3. DÉFINITION DES ÉTAPES
-  // ============================================================
-  const steps = useMemo(() => {
+  const steps: TourStep[] = useMemo(() => {
     if (!isAuthenticated || !role) return [];
 
+    const seniorImg = '/assets/images/banners/senior-banner.png';
+    const mamanImg = '/assets/images/banners/maman-banner.png';
+    const aidantImg = '/assets/images/banners/aidant-banner.png';
+    const coordImg = '/assets/images/banners/coord-banner.png';
+
+    // 🦸 RÔLE : AIDANT (5 Étapes)
     if (role === 'aidant') {
-      return getAidantSteps(visits.length, orders.length);
+      return [
+        {
+          id: 'welcome-aidant',
+          title: '👋 Bienvenue dans l’équipe',
+          description: 'Vous êtes maintenant aidant certifié chez Santé Plus Services. Voici un rapide tour de votre espace professionnel.',
+          icon: <Sparkles size={28} />,
+          image: aidantImg,
+        },
+        {
+          id: 'missions',
+          title: '📋 Vos Missions d\'Aide',
+          description: 'Consultez et acceptez en un clic les demandes de visites d\'accompagnements ou d\'achats urgents dans votre zone.',
+          icon: <Briefcase size={28} />,
+          image: aidantImg,
+        },
+        {
+          id: 'planning',
+          title: '📅 Votre Planning de Visites',
+          description: 'Visualisez toutes vos interventions acceptées et préparez vos itinéraires sur une interface de calendrier claire.',
+          icon: <Calendar size={28} />,
+          image: aidantImg,
+        },
+        {
+          id: 'orders-aidant',
+          title: '🛒 Achats & Livraisons d\'Urgence',
+          description: 'Aidez les familles à proximité en effectuant et en livrant leurs besoins (médicaments en pharmacie, courses de confort).',
+          icon: <ShoppingBag size={28} />,
+          image: aidantImg,
+        },
+        {
+          id: 'complete-aidant',
+          title: '🚀 Prêt à Accompagner',
+          description: 'Votre profil est validé. Vous pouvez dès maintenant commencer à assister vos premiers bénéficiaires.',
+          icon: <Check size={28} />,
+          image: aidantImg,
+        },
+      ];
     }
 
+    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (7 Étapes)
     if (role === 'family') {
-      return getFamilySteps(
-        patients.length,
-        visits.length,
-        orders.length,
-        profile?.patient_category,
-        { singular, plural, add, list }
-      );
+      const banner = isMaman ? mamanImg : seniorImg;
+      return [
+        {
+          id: 'welcome-family',
+          title: '👋 Bienvenue sur Santé Plus',
+          description: `Accompagnez vos proches et gérez leur confort au quotidien en toute sérénité depuis chez vous ou la diaspora.`,
+          icon: <Sparkles size={28} />,
+          image: banner,
+        },
+        {
+          id: 'patients',
+          title: `👨‍👩‍👦 Fiches des ${isMaman ? 'Mamans / Bébés' : 'Seniors'}`,
+          description: `Renseignez le profil d'identité, les allergies et les habitudes de vie du ${singular} pour un suivi personnalisé.`,
+          icon: <Users size={28} />,
+          image: banner,
+        },
+        {
+          id: 'visits',
+          title: '📅 Planification des Visites',
+          description: 'Programmez des visites d’accompagnement de confort et de présence pour veiller sur la sécurité de votre parent.',
+          icon: <Calendar size={28} />,
+          image: banner,
+        },
+        {
+          id: 'orders',
+          title: '🛒 Commandes & Fournitures',
+          description: 'Faites livrer en urgence des médicaments sur ordonnance, des produits d’hygiène bébé ou des courses de première nécessité.',
+          icon: <ShoppingBag size={28} />,
+          image: banner,
+        },
+        {
+          id: 'messages',
+          title: '💬 Messagerie de Coordination',
+          description: 'Échangez en direct avec votre intervenant de confiance ou notre équipe d’administration dans des fils de discussions sécurisés.',
+          icon: <MessageCircle size={28} />,
+          image: banner,
+        },
+        {
+          id: 'billing',
+          title: '💳 Formules d\'Abonnement',
+          description: 'Gérez vos forfaits Confort, Sérénité ou Privilège et suivez le solde de vos visites restantes de manière transparente.',
+          icon: <CreditCard size={28} />,
+          image: banner,
+        },
+        {
+          id: 'complete-family',
+          title: '🚀 Prêt à Commencer',
+          description: `Le parcours d'onboarding est terminé. Vous pouvez dès à présent enregistrer votre premier ${singular}.`,
+          icon: <Check size={28} />,
+          image: banner,
+        },
+      ];
     }
 
-    return getDefaultSteps();
-  }, [
-    isAuthenticated,
-    role,
-    patients.length,
-    visits.length,
-    orders.length,
-    profile?.patient_category,
-    singular,
-    plural,
-    add,
-    list,
-  ]);
-
-  const filteredSteps = useMemo(() => {
-    return steps.filter((step) => {
-      if (step.skipCondition && step.skipCondition()) return false;
-      if (step.condition && !step.condition()) return false;
-      return true;
-    });
-  }, [steps]);
+    // 👑 RÔLE : ADMIN (4 Étapes)
+    return [
+      {
+        id: 'welcome-admin',
+        title: '👋 Espace de Supervision',
+        description: 'Bienvenue dans la console de gestion administrative globale de la plateforme de coordination Santé Plus.',
+        icon: <Sparkles size={28} />,
+        image: coordImg,
+      },
+      {
+        id: 'registrations',
+        title: '📋 Inscriptions d’Abonnés',
+        description: 'Passez en revue et validez les nouvelles fiches d’inscriptions des familles pour leur ouvrir l’accès aux services.',
+        icon: <Users size={28} />,
+        image: coordImg,
+      },
+      {
+        id: 'aidants',
+        title: '🦸 Recrutement des Aidants',
+        description: 'Gérez les candidatures opérationnelles, vérifiez les casiers judiciaires et homologuez les nouveaux aidants.',
+        icon: <Briefcase size={28} />,
+        image: coordImg,
+      },
+      {
+        id: 'complete-admin',
+        title: '🚀 Prêt à Piloter',
+        description: 'La console administrative est prête. Vous avez le contrôle total sur la modération et la gestion des flux.',
+        icon: <Check size={28} />,
+        image: coordImg,
+      },
+    ];
+  }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 4. DÉCISION D'AFFICHAGE (Si non vu, s'affiche systématiquement)
+  // 3. RETENIR L'AFFICHAGE JUSQU'À L'ACCEPTATION DU CONTRAT (SANS CHEVAUCHEMENT)
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
     if (!isInitialized) return;
     if (!isAuthenticated) return;
-    if (hasSeenTour) return; // Bloque l'affichage uniquement si déjà validé/passé
-    if (isLoadingData) return;
-    if (filteredSteps.length === 0) return;
+    if (hasSeenTour) return;
+    if (needsAcceptance) return; // 🟢 CORRECTIF : Bloque l'ouverture de l'onboarding tant que la signature du contrat n'est pas validée !
+    if (steps.length === 0) return;
     if (hasAttemptedShow) return;
 
     const blockedPages = [
@@ -199,6 +253,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
     
+    // Déclencher après l'acceptation avec un léger décalage fluide (1.2s)
     showTimeoutRef.current = setTimeout(() => {
       setShouldShow(true);
       setIsOpen(true);
@@ -212,14 +267,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     isInitialized,
     isAuthenticated,
     hasSeenTour,
-    isLoadingData,
-    filteredSteps.length,
+    needsAcceptance,
+    steps.length,
     location.pathname,
     hasAttemptedShow,
   ]);
 
   // ============================================================
-  // 5. COMPLÉTION DU TOUR
+  // 4. COMPLÉTION DU TOUR
   // ============================================================
   const handleComplete = useCallback(() => {
     setIsOpen(false);
@@ -235,65 +290,25 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     if (onComplete) onComplete();
   }, [onComplete, user?.id]);
 
-  const handleSkip = useCallback(() => {
-    handleComplete();
-  }, [handleComplete]);
-
-  // ============================================================
-  // 6. GESTION DE LA NAVIGATION D'ÉTAPE
-  // ============================================================
-  const handleNavigateAndContinue = useCallback((path: string) => {
-    if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
-
-    setIsNavigating(true);
-    setIsTransitioning(true);
-
-    navigate(path);
-
-    navigationTimeoutRef.current = setTimeout(() => {
-      setIsNavigating(false);
-      setIsTransitioning(false);
-
-      if (currentStep < filteredSteps.length - 1) {
-        setCurrentStep(prev => prev + 1);
-      } else {
-        handleComplete();
-      }
-    }, 400);
-
-  }, [currentStep, filteredSteps.length, navigate, handleComplete]);
-
   const handleNext = useCallback(() => {
-    const activeStep = filteredSteps[currentStep];
-    if (!activeStep) return;
-
-    if (activeStep.actionPath && location.pathname !== activeStep.actionPath) {
-      handleNavigateAndContinue(activeStep.actionPath);
-      return;
-    }
-
-    if (currentStep < filteredSteps.length - 1) {
+    if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
-      return;
+    } else {
+      handleComplete();
     }
-
-    handleComplete();
-  }, [currentStep, filteredSteps, location.pathname, handleNavigateAndContinue, handleComplete]);
+  }, [currentStep, steps.length, handleComplete]);
 
   // Touche Échap
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        handleSkip();
+        handleComplete();
       }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, handleSkip]);
+  }, [isOpen, handleComplete]);
 
-  // ============================================================
-  // RENDU VISUEL
-  // ============================================================
   if (
     hasSeenTour ||
     !shouldShow ||
@@ -301,32 +316,28 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     !role ||
     !isReady ||
     !isInitialized ||
-    isLoadingData ||
-    filteredSteps.length === 0
+    needsAcceptance ||
+    steps.length === 0
   ) {
     return null;
   }
 
-  const step = filteredSteps[currentStep];
-  const isLastStep = currentStep === filteredSteps.length - 1;
-  const totalSteps = filteredSteps.length;
+  const step = steps[currentStep];
+  const isLastStep = currentStep === steps.length - 1;
+  const totalSteps = steps.length;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300" 
-        onClick={handleSkip}
-        style={{ opacity: isOpen ? 1 : 0 }}
-      />
-
+    // 🟢 ENVELOPE FLOUTANTE GLOBALE : Bloque l'accès aux clics externes
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm">
+      
+      {/* 🟢 BANDEAU IMMERSIF PREMIUM (Prend tout l'écran sur mobile, s'affiche en carte centrée sur ordi) */}
       <div 
         className={cn(
-          "relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-black/5 transition-all duration-300",
-          isTransitioning ? "scale-95 opacity-70" : "scale-100 opacity-100"
+          "relative w-full h-full sm:h-[620px] sm:max-w-lg bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border border-black/5 flex flex-col justify-between animate-fadeIn",
         )}
       >
-        {/* Progress bar */}
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gray-100">
+        {/* Progress bar line supérieure */}
+        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gray-100/50 z-20">
           <div
             className="h-full transition-all duration-500 ease-out"
             style={{
@@ -336,279 +347,72 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           />
         </div>
 
-        {/* Close button */}
-        <button
-          type="button"
-          onClick={handleSkip}
-          disabled={isNavigating}
-          className="absolute top-4 right-4 w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center z-10 transition disabled:opacity-50"
-          aria-label="Fermer le tour"
+        {/* 🟢 IMAGE FLOTTANTE BRANDING SUPÉRIEURE (Inclusion de l'univers de l'abonné) */}
+        <div 
+          className="w-full h-56 sm:h-64 relative bg-gray-900 overflow-hidden shrink-0 border-b"
+          style={{ borderColor: colors.border + '30' }}
         >
-          <X size={18} className="text-gray-500" />
-        </button>
+          <img 
+            src={step.image} 
+            alt={step.title} 
+            className="w-full h-full object-cover opacity-85"
+          />
+          {/* Dégradé doux */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        </div>
 
-        {/* Contenu */}
-        <div className="p-6 pt-8">
-          <div
-            className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 transition-transform duration-300"
-            style={{
-              background: colors.primary + '12',
-              color: colors.primary,
-            }}
-          >
-            {step.icon}
+        {/* CONTENU TEXTUEL CENTRAL AÉRÉ */}
+        <div className="flex-1 flex flex-col justify-between p-6 sm:p-8 text-center min-h-0 bg-white">
+          <div className="space-y-3.5 my-auto">
+            <div className="flex justify-center text-4xl mb-1">
+              {step.icon}
+            </div>
+            
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight">
+              {step.title}
+            </h2>
+            
+            <p className="text-xs sm:text-sm text-gray-500 leading-relaxed max-w-sm mx-auto font-medium">
+              {step.description}
+            </p>
           </div>
 
-          <h2
-            className="text-xl font-black text-center transition-colors duration-300"
-            style={{ color: colors.text }}
-          >
-            {step.title}
-          </h2>
-
-          <p className="text-sm text-center mt-2 text-gray-500 leading-relaxed transition-colors duration-300">
-            {step.description}
-          </p>
-
-          <div className="flex justify-center gap-1.5 mt-6">
-            {filteredSteps.map((_, index) => (
+          {/* Indicateur de petits points de navigation (Dots) */}
+          <div className="flex justify-center gap-1.5 pt-4 shrink-0">
+            {steps.map((_, index) => (
               <div
                 key={index}
                 className="h-1.5 rounded-full transition-all duration-300"
                 style={{
                   width: index === currentStep ? '24px' : '8px',
-                  background:
-                    index === currentStep
-                      ? colors.primary
-                      : colors.primary + '28',
+                  background: index === currentStep ? colors.primary : colors.primary + '25',
                 }}
               />
             ))}
           </div>
+        </div>
 
-          <div className="flex gap-3 mt-6">
-            <button
-              type="button"
-              onClick={handleSkip}
-              disabled={isNavigating}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold border hover:bg-gray-50 transition disabled:opacity-50"
-              style={{
-                borderColor: colors.border || '#e5e0d8',
-                color: colors.text,
-              }}
-            >
-              {isNavigating ? 'Chargement...' : 'Passer'}
-            </button>
+        {/* 🟢 PIED DE PAGE MINIMALISTE SANS EFFET DE BLOC (Raccords "Ignorer" et "Suivant") */}
+        <div className="p-5 sm:p-6 border-t border-gray-100/50 flex items-center justify-between bg-gray-50/50 shrink-0">
+          <button
+            type="button"
+            onClick={handleComplete}
+            className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-wider select-none px-2 py-1"
+          >
+            Ignorer
+          </button>
 
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={isNavigating}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ 
-                background: isNavigating ? '#9CA3AF' : colors.primary,
-                minWidth: '100px',
-              }}
-            >
-              {isNavigating ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Navigation...
-                </>
-              ) : isLastStep ? (
-                <>
-                  Commencer
-                  <Check size={16} />
-                </>
-              ) : (
-                <>
-                  {step.actionLabel || 'Suivant'}
-                  <ArrowRight size={16} />
-                </>
-              )}
-            </button>
-          </div>
-
-          <p className="text-center text-xs text-gray-400 mt-3">
-            {currentStep + 1} / {totalSteps}
-          </p>
+          <button
+            type="button"
+            onClick={handleNext}
+            className="px-6 py-2.5 rounded-2xl text-white font-extrabold text-xs sm:text-sm transition-all hover:opacity-95 shadow-md flex items-center gap-1.5 shrink-0"
+            style={{ background: colors.primary }}
+          >
+            {isLastStep ? 'Commencer' : 'Suivant'}
+            <ArrowRight size={14} />
+          </button>
         </div>
       </div>
     </div>
   );
 };
-
-// =============================================
-// ÉTAPES SÉCURISÉES ET MODULAIRES
-// =============================================
-
-function getAidantSteps(visitsCount: number, ordersCount: number): TourStep[] {
-  const hasMissions = visitsCount > 0;
-  const hasOrders = ordersCount > 0;
-
-  return [
-    {
-      id: 'welcome-aidant',
-      title: '👋 Bienvenue dans l’équipe',
-      description:
-        'Vous êtes maintenant aidant chez Santé Plus. Voici un rapide tour de votre espace.',
-      icon: <Sparkles size={32} />,
-    },
-    {
-      id: 'missions',
-      title: '📋 Mes missions',
-      description: hasMissions
-        ? 'Vous avez déjà des missions assignées. Retrouvez-les ici.'
-        : 'Retrouvez ici toutes les missions qui vous sont assignées.',
-      icon: <Briefcase size={32} />,
-      actionPath: '/app/missions',
-      actionLabel: hasMissions ? 'Voir mes missions' : 'Découvrir les missions',
-    },
-    {
-      id: 'planning',
-      title: '📅 Planning',
-      description: 'Visualisez vos missions à venir dans un planning clair.',
-      icon: <Calendar size={32} />,
-      actionPath: '/app/planning',
-      actionLabel: 'Voir mon planning',
-    },
-    {
-      id: 'orders-aidant',
-      title: '🛒 Commandes',
-      description: hasOrders
-        ? 'Des commandes vous ont déjà été confiées.'
-        : 'Vous pouvez voir les commandes à préparer.',
-      icon: <ShoppingBag size={32} />,
-      actionPath: '/app/orders',
-      actionLabel: hasOrders ? 'Voir les commandes' : 'Découvrir les commandes',
-    },
-    {
-      id: 'complete-aidant',
-      title: '✅ Prêt à commencer',
-      description: 'Vous êtes prêt à commencer vos missions.',
-      icon: <Check size={32} />,
-    },
-  ];
-}
-
-function getFamilySteps(
-  patientsCount: number,
-  visitsCount: number,
-  ordersCount: number,
-  patientCategory: string | null | undefined,
-  terminology: { singular: string; plural: string; add: string; list: string }
-): TourStep[] {
-  const hasPatients = patientsCount > 0;
-  const hasVisits = visitsCount > 0;
-  const hasOrders = ordersCount > 0;
-  const isWithoutPatient = !hasPatients && !patientCategory;
-
-  const { singular, plural, add, list } = terminology;
-
-  return [
-    {
-      id: 'welcome-family',
-      title: '👋 Bienvenue sur Santé Plus',
-      description: isWithoutPatient
-        ? `Vous avez créé un compte personnel. Vous pouvez ajouter un ${singular} plus tard.`
-        : hasPatients
-          ? `Vous avez ${patientsCount} ${singular}${patientsCount > 1 ? 's' : ''} à accompagner.`
-          : `Vous allez accompagner votre ${singular} avec Santé Plus.`,
-      icon: <Sparkles size={32} />,
-    },
-    {
-      id: 'patients',
-      title: `👨‍👩‍👦 ${list}`,
-      description: isWithoutPatient
-        ? `Ajoutez un ${singular} pour bénéficier des services d’accompagnement.`
-        : hasPatients
-          ? `Retrouvez les informations de vos ${plural} ici.`
-          : `Ajoutez votre premier ${singular} pour commencer.`,
-      icon: <Users size={32} />,
-      actionPath: '/app/patients',
-      actionLabel: isWithoutPatient ? add : `Voir mes ${plural}`,
-    },
-    {
-      id: 'visits',
-      title: '📅 Visites',
-      description: hasVisits
-        ? `Vous avez ${visitsCount} visite${visitsCount > 1 ? 's' : ''} planifiée${visitsCount > 1 ? 's' : ''}.`
-        : `Consultez les visites planifiées pour vos ${plural}.`,
-      icon: <Calendar size={32} />,
-      actionPath: '/app/visits',
-      actionLabel: hasVisits ? 'Voir les visites' : 'Découvrir les visites',
-      condition: () => !isWithoutPatient || hasVisits,
-    },
-    {
-      id: 'orders',
-      title: '🛒 Commandes',
-      description: hasOrders
-        ? `Vous avez ${ordersCount} commande${ordersCount > 1 ? 's' : ''} en cours.`
-        : 'Commandez des médicaments, produits de soin ou autres besoins.',
-      icon: <ShoppingBag size={32} />,
-      actionPath: '/app/orders',
-      actionLabel: hasOrders ? 'Voir mes commandes' : 'Faire une commande',
-    },
-    {
-      id: 'messages',
-      title: '💬 Messages',
-      description:
-        'Communiquez avec votre équipe d’aidants et les coordinateurs.',
-      icon: <MessageCircle size={32} />,
-      actionPath: '/app/messages',
-      actionLabel: 'Voir mes messages',
-    },
-    {
-      id: 'billing',
-      title: '💳 Abonnement',
-      description: 'Gérez vos abonnements et vos paiements en toute sécurité.',
-      icon: <CreditCard size={32} />,
-      actionPath: '/app/billing',
-      actionLabel: 'Voir les offres',
-    },
-    {
-      id: 'complete-family',
-      title: '✅ Prêt à commencer',
-      description: isWithoutPatient
-        ? `Vous pouvez utiliser Santé Plus et ajouter un ${singular} à tout moment.`
-        : `Vous êtes prêt à accompagner votre ${singular} avec Santé Plus.`,
-      icon: <Check size={32} />,
-    },
-  ];
-}
-
-function getDefaultSteps(): TourStep[] {
-  return [
-    {
-      id: 'welcome-admin',
-      title: '👋 Bienvenue dans l’administration',
-      description:
-        'Voici un rapide tour des fonctionnalités d’administration.',
-      icon: <Sparkles size={32} />,
-    },
-    {
-      id: 'registrations',
-      title: '📋 Inscriptions',
-      description:
-        'Gérez les demandes d’inscription des familles et des aidants.',
-      icon: <Users size={32} />,
-      actionPath: '/app/registrations',
-      actionLabel: 'Voir les inscriptions',
-    },
-    {
-      id: 'aidants',
-      title: '🦸 Aidants',
-      description: 'Gérez les aidants et les candidatures.',
-      icon: <Briefcase size={32} />,
-      actionPath: '/app/aidants',
-      actionLabel: 'Voir les aidants',
-    },
-    {
-      id: 'complete-admin',
-      title: '✅ Prêt à gérer',
-      description:
-        'Vous avez accès aux fonctionnalités d’administration.',
-      icon: <Check size={32} />,
-    },
-  ];
-}
