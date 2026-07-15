@@ -1,5 +1,5 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ PAGE MESSAGERIE RESPONSIVE PREMIUM : CADRE CARTE FLOTTANTE ARRONDI SANS COLLAGE SUR LES BORDURES
+// ✅ PAGE MESSAGERIE RESPONSIVE DE GRANDE QUALITÉ : CADRE FLOTTANT EN HAUTEUR ET LARGEUR OPTIMISÉES SANS COLLAGE
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { 
@@ -174,8 +174,8 @@ const MessagesPage = () => {
 
   return (
     <div 
-      // 🟢 CORRECTIF : Positionnement flottant avec marges gauche/droite (left-4, right-4), espacement haut (top-[72px]) et bas (bottom-[96px]) pour libérer le menu mobile
-      className="fixed md:static left-4 md:left-auto right-4 md:right-auto top-[72px] md:top-auto bottom-[96px] md:bottom-auto md:h-[calc(100vh-130px)] flex flex-col md:flex-row bg-white rounded-3xl overflow-hidden shadow-sm border"
+      // 🟢 CORRECTIF DE REMONTÉE ET LARGEUR : Marge de haut réduite (top-[58px]), bas optimisé (bottom-[88px]) et élargissement de confort (left-3, right-3)
+      className="fixed md:static left-3 md:left-auto right-3 md:right-auto top-[58px] md:top-auto bottom-[88px] md:bottom-auto md:h-[calc(100vh-130px)] flex flex-col md:flex-row bg-white rounded-3xl overflow-hidden shadow-sm border"
       style={{ borderColor: colors.primary + '12' }}
     >
       
