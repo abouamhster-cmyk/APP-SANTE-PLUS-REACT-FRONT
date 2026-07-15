@@ -1,5 +1,5 @@
 // 📁 src/features/map/pages/MapPage.tsx
-// ✅ PAGE CARTE : INTERFACE COMPLÈTE AVEC CENTRE DE CONTRÔLE ADMIN ET CHECKPOINTS DYNAMIQUES
+// ✅ PAGE CARTE : AFFICHAGE COMPACT DES CHECKPOINTS RÉELS UNIQUEMENT SANS MARQUEURS DE SECOURS
 
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
@@ -10,7 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// Coordonnées par défaut (Cotonou)
+// Coordonnées par défaut uniquement pour initialiser la caméra (Cotonou)
 const DEFAULT_CENTER: [number, number] = [2.3912, 6.3703];
 
 // Helper pour dessiner des marqueurs HTML élégants avec des emojis
@@ -79,12 +79,12 @@ const MapPage = () => {
     }
   }, [position]);
 
-  // ✅ CALCUL ET RENDU DYNAMIQUE DES CHECKPOINTS GPS SUR LA CARTE (AVEC MODULE ADMIN DIRECT)
+  // ✅ CALCUL ET RENDU DYNAMIQUE DES CHECKPOINTS GPS REELS UNIQUEMENT
   useEffect(() => {
     const currentMap = map.current;
     if (!currentMap) return;
 
-    // A. Supprimer tous les marqueurs précédents de la mémoire pour éviter les fuites de performances
+    // A. Supprimer tous les marqueurs précédents de la mémoire
     activeMarkersRef.current.forEach(m => m.remove());
     activeMarkersRef.current = [];
 
@@ -124,13 +124,35 @@ const MapPage = () => {
       newMarkersList.push(marker);
     });
 
-    // 3️⃣ 🦸 MARQUEURS AIDANTS (Pour l'Admin, montre dynamiquement leur activité et position en direct)
+    // 3️⃣ 🏠 SÉCURISATION ADMIN : Afficher les positions réelles de connexion des Foyers Familles
+    if (locations.families && locations.families.length > 0) {
+      locations.families.forEach((family: any) => {
+        const lat = Number(family.latitude);
+        const lng = Number(family.longitude);
+        if (!lat || !lng) return;
+
+        const el = createHtmlMarker('🏠', '#8b5cf6'); // Maison violette pour les foyers familiaux
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([lng, lat])
+          .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
+            <div style="min-width: 150px; font-family: sans-serif;">
+              <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7c3aed; uppercase">🏠 Foyer de confiance</p>
+              <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: #1f2937;">Famille ${family.full_name}</p>
+              <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563;">📧 ${family.email}</p>
+              <p style="margin: 2px 0 0 0; font-size: 9px; color: #9ca3af; line-height: 1.2;">📍 ${family.address}</p>
+            </div>
+          `))
+          .addTo(currentMap);
+        newMarkersList.push(marker);
+      });
+    }
+
+    // 4️⃣ 🦸 MARQUEURS AIDANTS (Pour l'Admin, montre ce qu'ils font en direct sur coordonnées réelles)
     locations.aidants.forEach((aidant: any) => {
       const lat = Number(aidant.latitude);
       const lng = Number(aidant.longitude);
       if (!lat || !lng) return;
 
-      // Analyser si cet aidant a une mission active dans le flux du radar
       const activeVisit = activeVisits.find((v: any) => v.aidant_id === aidant.id || v.aidant?.user_id === aidant.id);
       const activeOrder = activeOrders.find((o: any) => o.aidant_id === aidant.id || o.aidant?.user_id === aidant.id);
 
@@ -143,7 +165,7 @@ const MapPage = () => {
         statusEmoji = '⚡';
         statusText = "En visite d'accompagnement active";
         statusColor = '#9c27b0';
-        taskDetail = `<p style="margin: 4px 0 0 0; font-size: 10px; color: #7b1fa2; font-weight: 700;">🏠 Chez : ${activeVisit.target_name || 'Patient'}</p>`;
+        taskDetail = `<p style="margin: 4px 0 0 0; font-size: 10px; color: #7b1fa2; font-weight: 700;">🏥 Chez : ${activeVisit.target_name || 'Patient'}</p>`;
       } else if (activeOrder) {
         statusEmoji = '🚚';
         statusText = 'En cours de livraison active';
@@ -170,7 +192,7 @@ const MapPage = () => {
       newMarkersList.push(marker);
     });
 
-    // 4️⃣ Checkpoints de Démarrage (🟢) et d'Arrivée (🏁) des VISITES actives (Pour les repères d'étapes)
+    // 5️⃣ Checkpoints de Démarrage (🟢) et d'Arrivée (🏁) des VISITES actives
     activeVisits.forEach((visit: any) => {
       const targetLabel = visit.target_name || (visit.patient ? `${visit.patient.first_name} ${visit.patient.last_name}` : 'Patient');
       const aidantName = visit.aidant?.user?.full_name || 'Intervenant';
@@ -235,7 +257,7 @@ const MapPage = () => {
       }
     });
 
-    // 5️⃣ Checkpoints de Prise (📦) et de Livraison (🚚) des COMMANDES actives
+    // 6️⃣ Checkpoints de Prise (📦) et de Livraison (🚚) des COMMANDES actives
     activeOrders.forEach((order: any) => {
       const targetLabel = order.target_name || (order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : 'Bénéficiaire');
       const aidantName = order.aidant?.user?.full_name || 'Livreur';
