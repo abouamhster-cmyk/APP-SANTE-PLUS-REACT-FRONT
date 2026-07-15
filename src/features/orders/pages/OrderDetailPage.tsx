@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CAPTURE DU CHECKPOINT GPS DE PRISE ET DE LIVRAISON SANS CONFLITS
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CAPTURE DU CHECKPOINT GPS DE DEPART ET D'ARRIVÉE DES LIVRAISONS
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -95,7 +95,7 @@ const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: Acti
     <button
       onClick={onClick}
       disabled={disabled || isLoading}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50"
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
       style={{ background: color }}
     >
       {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
