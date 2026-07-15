@@ -1,15 +1,16 @@
 // 📁 src/stores/locationStore.ts
-// ✅ STORE GPS OPTIMISÉ : APPELS VIA API REST POUR CONTOURNER LES RESTRICTIONS RLS EN PRODUCTION
+// ✅ STORE GPS OPTIMISÉ : RÉSOLUTION DE COORDONNÉES RÉELLES EN DIRECT (SANS AUCUNE VALEUR PAR DÉFAUT)
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from './authStore';
-import api from '@/lib/api';  
+import api from '@/lib/api';
 
 interface LocationState {
   locations: {
     patients: any[];
     aidants: any[];
+    families: any[];  
   };
   activeVisits: any[];
   activeOrders: any[];
@@ -27,12 +28,8 @@ interface LocationState {
   clearError: () => void;
 }
 
-// Coordonnées par défaut (Cotonou) en cas d'absence de données GPS
-const DEFAULT_LAT = 6.3703;
-const DEFAULT_LNG = 2.3912;
-
 export const useLocationStore = create<LocationState>((set, get) => ({
-  locations: { patients: [], aidants: [] },
+  locations: { patients: [], aidants: [], families: [] },
   activeVisits: [],
   activeOrders: [],
   isLoading: false,
@@ -40,14 +37,17 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   subscription: null,
   watchId: null,
 
-  // ✅ RECUPERATION VIA L'API REST (Résout les jointures d'aidants de manière robuste et sécurisée)
+  // ✅ RECUPERATION ET RESOLUTION DES COORDONNÉES GPS RÉELLES DE L'ABONNÉ EN DIRECT
   fetchActiveVisits: async () => {
     if (get().isLoading) return;
 
     try {
       set({ isLoading: true, error: null });
       
-      // Appel des routes REST du serveur (qui contournent les limitations RLS du client de base de données)
+      const { profile } = useAuthStore.getState();
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'coordinator';
+
+      // 1️⃣ Récupérer visites et commandes en cours ('en_cours')
       const [visitsResponse, ordersResponse] = await Promise.all([
         api.get('/visits'),
         api.get('/orders')
@@ -56,41 +56,108 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       const allVisits = visitsResponse.data || [];
       const allOrders = ordersResponse.data || [];
 
-      // Filtrer uniquement les visites et commandes en cours de livraison/missions active ('en_cours')
       const activeVisits = allVisits.filter((v: any) => v.status === 'en_cours');
       const activeOrders = allOrders.filter((o: any) => o.status === 'en_cours');
 
-      // Extraire et cartographier les patients et aidants concernés
+      // Extraire tous les IDs uniques de comptes familles (user_id) et d'aidants concernés
+      const familyUserIds = [...new Set([
+        ...activeVisits.map((v: any) => v.user_id),
+        ...activeOrders.map((o: any) => o.user_id)
+      ].filter(Boolean))];
+
+      const aidantIds = [...new Set([
+        ...activeVisits.map((v: any) => v.aidant_id),
+        ...activeOrders.map((o: any) => o.aidant_id)
+      ].filter(Boolean))];
+
+      // 2️⃣ Récupérer les profils correspondants pour obtenir leurs coordonnées GPS réelles de connexion
+      let profilesMap: Record<string, any> = {};
+      const allProfileIds = [...new Set([...familyUserIds, ...aidantIds])];
+      
+      if (allProfileIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, last_latitude, last_longitude, address, role')
+          .in('id', allProfileIds);
+
+        if (profilesData) {
+          profilesMap = profilesData.reduce((acc, p) => ({ ...acc, [p.id]: p }), {});
+        }
+      }
+
+      // 3️⃣ Construire la liste des aidants avec leurs coordonnées réelles (SANS COORDONNÉES PAR DÉFAUT)
+      const aidants = Object.values(profilesMap)
+        .filter((p: any) => p.role === 'aidant' || aidantIds.includes(p.id))
+        .map((p: any) => ({
+          id: p.id,
+          full_name: p.full_name,
+          latitude: p.last_latitude ? Number(p.last_latitude) : null,
+          longitude: p.last_longitude ? Number(p.last_longitude) : null,
+        }))
+        // 🟢 FILTRAGE STRICT : On affiche uniquement si les coordonnées GPS réelles existent
+        .filter((a: any) => a.latitude !== null && a.longitude !== null);
+
+      // 4️⃣ Construire la liste des bénéficiaires/patients basés sur les coordonnées de leur compte famille respectif
       const patientsMap: Record<string, any> = {};
-      const aidantsMap: Record<string, any> = {};
 
       activeVisits.forEach((v: any) => {
-        if (v.patient) patientsMap[v.patient.id] = v.patient;
-        if (v.aidant) aidantsMap[v.aidant.id] = v.aidant;
+        const familyProfile = profilesMap[v.user_id];
+        if (familyProfile && familyProfile.last_latitude && familyProfile.last_longitude) {
+          patientsMap[v.patient_id || v.id] = {
+            id: v.patient_id || v.id,
+            first_name: v.patient?.first_name || v.target_name || 'Bénéficiaire',
+            last_name: v.patient?.last_name || '',
+            address: v.address || familyProfile.address || 'Adresse',
+            latitude: Number(familyProfile.last_latitude),
+            longitude: Number(familyProfile.last_longitude),
+          };
+        }
       });
 
       activeOrders.forEach((o: any) => {
-        if (o.patient) patientsMap[o.patient.id] = o.patient;
-        if (o.aidant) aidantsMap[o.aidant.id] = o.aidant;
+        const familyProfile = profilesMap[o.user_id];
+        if (familyProfile && familyProfile.last_latitude && familyProfile.last_longitude) {
+          patientsMap[o.patient_id || o.id] = {
+            id: o.patient_id || o.id,
+            first_name: o.patient?.first_name || o.target_name || 'Bénéficiaire',
+            last_name: o.patient?.last_name || '',
+            address: o.address || familyProfile.address || 'Adresse',
+            latitude: Number(familyProfile.last_latitude),
+            longitude: Number(familyProfile.last_longitude),
+          };
+        }
       });
 
-      const patients = Object.values(patientsMap).map((p: any) => ({
-        ...p,
-        latitude: Number(p.latitude) || DEFAULT_LAT,
-        longitude: Number(p.longitude) || DEFAULT_LNG,
-      }));
+      const patients = Object.values(patientsMap);
 
-      const aidants = Object.values(aidantsMap).map((a: any) => ({
-        id: a.user_id,
-        full_name: a.user?.full_name || 'Intervenant',
-        latitude: Number(a.user?.last_latitude) || DEFAULT_LAT,
-        longitude: Number(a.user?.last_longitude) || DEFAULT_LNG,
-      }));
+      // 5️⃣ Pour l'admin, charger TOUS les comptes utilisateurs familles actifs avec leur position réelle
+      let families: any[] = [];
+      if (isAdmin) {
+        const { data: familyProfiles, error: familyError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone, last_latitude, last_longitude, address')
+          .eq('role', 'family');
+
+        if (!familyError && familyProfiles) {
+          families = familyProfiles
+            .map((f: any) => ({
+              id: f.id,
+              full_name: f.full_name,
+              email: f.email,
+              phone: f.phone,
+              address: f.address || 'Adresse non spécifiée',
+              latitude: f.last_latitude ? Number(f.last_latitude) : null,
+              longitude: f.last_longitude ? Number(f.last_longitude) : null,
+            }))
+            // 🟢 FILTRAGE STRICT : Aucun point par défaut, seulement le réel
+            .filter((f: any) => f.latitude !== null && f.longitude !== null);
+        }
+      }
 
       set({ 
         activeVisits, 
         activeOrders,
-        locations: { patients, aidants },
+        locations: { patients, aidants, families },
         isLoading: false 
       });
 
@@ -134,7 +201,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       if (role === 'aidant') {
         const { data: aidant } = await supabase.from('aidants').select('id').eq('user_id', user.id).single();
         if (aidant) {
-          // Mise à jour de la localisation dans la visite active
           await supabase.from('visites').update({ location_start: { lat, lng } }).eq('aidant_id', aidant.id).eq('status', 'en_cours');
         }
       }
