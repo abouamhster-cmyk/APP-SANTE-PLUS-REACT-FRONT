@@ -1,245 +1,174 @@
-// 📁 src/features/map/pages/MapPage.tsx
-// ✅ PAGE CARTE : INTERFACE COMPLÈTE AVEC LE STYLE DE CARTES MONDIAL GRATUIT D'OPENFREEMAP
+// 📁 src/stores/locationStore.ts
+// ✅ STORE GPS OPTIMISÉ : APPELS VIA API REST POUR CONTOURNER LES RESTRICTIONS RLS EN PRODUCTION
 
-import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { useLocationStore } from '@/stores/locationStore';
-import { useLocation } from '@/hooks/useLocation';
-import { useAuthStore } from '@/stores/authStore';
-import { RefreshCw } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { create } from 'zustand';
+import { supabase } from '@/lib/supabase';
+import { useAuthStore } from './authStore';
+import api from '@/lib/api'; // 🟢 Import de l'instance API pour les requêtes REST sécurisées
 
-// Coordonnées par défaut (Cotonou)
-const DEFAULT_CENTER: [number, number] = [2.3912, 6.3703];
+interface LocationState {
+  locations: {
+    patients: any[];
+    aidants: any[];
+  };
+  activeVisits: any[];
+  activeOrders: any[];
+  isLoading: boolean;
+  error: string | null;
+  subscription: any | null;
+  watchId: number | null;
+  
+  fetchActiveVisits: () => Promise<void>;
+  startTracking: () => void;
+  stopTracking: () => void;
+  updateLocation: (lat: number, lng: number) => Promise<void>;
+  subscribeToLocations: () => void;
+  unsubscribeFromLocations: () => void;
+  clearError: () => void;
+}
 
-// Helper pour dessiner des marqueurs HTML élégants avec des emojis
-const createHtmlMarker = (emoji: string, color: string) => {
-  const el = document.createElement('div');
-  el.className = 'custom-checkpoint-marker';
-  el.innerHTML = `
-    <div style="
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: white;
-      border: 3px solid ${color};
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      cursor: pointer;
-      transition: transform 0.2s;
-    " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-      ${emoji}
-    </div>
-  `;
-  return el;
-};
+// Coordonnées par défaut (Cotonou) en cas d'absence de données GPS
+const DEFAULT_LAT = 6.3703;
+const DEFAULT_LNG = 2.3912;
 
-const MapPage = () => {
-  const mapContainer = useRef<HTMLDivElement | null>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const activeMarkersRef = useRef<maplibregl.Marker[]>([]); // Tracker pour vider proprement les anciens marqueurs
+export const useLocationStore = create<LocationState>((set, get) => ({
+  locations: { patients: [], aidants: [] },
+  activeVisits: [],
+  activeOrders: [],
+  isLoading: false,
+  error: null,
+  subscription: null,
+  watchId: null,
 
-  const { locations, activeVisits, activeOrders, isLoading, fetchActiveVisits } = useLocationStore();
-  const { position, startWatching } = useLocation();
-  const { profile } = useAuthStore();
+  // ✅ RECUPERATION VIA L'API REST (Résout les jointures d'aidants de manière robuste et sécurisée)
+  fetchActiveVisits: async () => {
+    if (get().isLoading) return;
 
-  // 1. Initialisation unique au montage
-  useEffect(() => {
-    startWatching();
-    fetchActiveVisits();
-
-    // ✅ UTISATION DU COMPOSANT DE STYLE MONDIAL ET TOTALEMENT GRATUIT DE OPENFREEMAP
-    map.current = new maplibregl.Map({
-      container: mapContainer.current!,
-      style: 'https://tiles.openfreemap.org/styles/liberty', // 🟢 Version Liberty avec routes et détails complets
-      center: DEFAULT_CENTER,
-      zoom: 13
-    });
-
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-    map.current.on('load', () => {
-      map.current?.resize();
-    });
-
-    return () => {
-      map.current?.remove();
-    };
-  }, []);
-
-  // Centrage automatique sur le GPS de l'appareil
-  useEffect(() => {
-    if (position && map.current) {
-      map.current.flyTo({ center: [position[1], position[0]], zoom: 15 });
-    }
-  }, [position]);
-
-  // ✅ CALCUL ET RENDU DYNAMIQUE DES CHECKPOINTS GPS SUR LA CARTE
-  useEffect(() => {
-    const currentMap = map.current;
-    if (!currentMap) return;
-
-    // A. Supprimer tous les marqueurs précédents de la mémoire
-    activeMarkersRef.current.forEach(m => m.remove());
-    activeMarkersRef.current = [];
-
-    const newMarkersList: maplibregl.Marker[] = [];
-
-    // 1️⃣ Afficher ma position actuelle (Moi)
-    if (position) {
-      const el = createHtmlMarker('👤', '#3b82f6');
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([position[1], position[0]])
-        .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-          <div style="font-family: sans-serif; padding: 2px;">
-            <p style="font-weight: 800; margin: 0; font-size: 11px; color: #1e40af;">👤 Ma position</p>
-          </div>
-        `))
-        .addTo(currentMap);
-      newMarkersList.push(marker);
-    }
-
-    // 2️⃣ Afficher les positions des fiches des bénéficiaires (Patients)
-    locations.patients.forEach((patient: any) => {
-      const lat = Number(patient.latitude);
-      const lng = Number(patient.longitude);
-      if (!lat || !lng) return;
-
-      const el = createHtmlMarker('👵', '#10b981');
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([lng, lat])
-        .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-          <div style="min-width: 140px; font-family: sans-serif;">
-            <p style="font-weight: 800; margin: 0; font-size: 11px; color: #047857;">👵 Proche accompagné</p>
-            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: #374151;">${patient.first_name} ${patient.last_name}</p>
-            <p style="margin: 3px 0 0 0; font-size: 9px; color: #9ca3af; line-height: 1.2;">📍 ${patient.address || 'Adresse'}</p>
-          </div>
-        `))
-        .addTo(currentMap);
-      newMarkersList.push(marker);
-    });
-
-    // 3️⃣ Afficher les checkpoints de Démarrage et Arrivée des VISITES en cours
-    activeVisits.forEach((visit: any) => {
-      const targetLabel = visit.target_name || (visit.patient ? `${visit.patient.first_name} ${visit.patient.last_name}` : 'Patient');
-      const aidantName = visit.aidant?.user?.full_name || 'Intervenant';
-
-      // 🟢 Checkpoint Départ (location_start)
-      if (visit.location_start && typeof visit.location_start === 'object') {
-        const lat = Number(visit.location_start.lat);
-        const lng = Number(visit.location_start.lng);
-        
-        if (lat && lng) {
-          const el = createHtmlMarker('🟢', '#10B981');
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #047857; uppercase">🚀 Départ de l'accompagnement</p>
-                <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>
-                <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Intervenant : ${aidantName}</p>
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-
-      // 🏁 Checkpoint Arrivée (location_end)
-      if (visit.location_end && typeof visit.location_end === 'object') {
-        const lat = Number(visit.location_end.lat);
-        const lng = Number(visit.location_end.lng);
-        
-        if (lat && lng) {
-          const el = createHtmlMarker('🏁', '#9C27B0');
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7b1fa2; uppercase">🏁 Fin de l'accompagnement</p>
-                <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>
-                <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Intervenant : ${aidantName}</p>
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-    });
-
-    // 4️⃣ Afficher les checkpoints de Prise et Livraison des COMMANDES en cours
-    activeOrders.forEach((order: any) => {
-      const targetLabel = order.target_name || (order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : 'Bénéficiaire');
-      const aidantName = order.aidant?.user?.full_name || 'Livreur';
-      const metadataObj = order.metadata || {};
-
-      // 📦 Checkpoint Prise (location_start stocké en metadata)
-      if (metadataObj.location_start && typeof metadataObj.location_start === 'object') {
-        const lat = Number(metadataObj.location_start.lat);
-        const lng = Number(metadataObj.location_start.lng);
-
-        if (lat && lng) {
-          const el = createHtmlMarker('📦', '#F59E0B');
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #b45309; uppercase">📦 Commande prise en charge</p>
-                <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Livreur : ${aidantName}</p>
-                <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Destinataire : ${targetLabel}</p>
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-
-      // 🚚 Checkpoint Arrivée (location_end stocké en metadata)
-      if (metadataObj.location_end && typeof metadataObj.location_end === 'object') {
-        const lat = Number(metadataObj.location_end.lat);
-        const lng = Number(metadataObj.location_end.lng);
-
-        if (lat && lng) {
-          const el = createHtmlMarker('🚚', '#2563EB');
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #1d4ed8; uppercase">🚚 Commande livrée</p>
-                <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Livreur : ${aidantName}</p>
-                <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Destinataire : ${targetLabel}</p>
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-    });
-
-    activeMarkersRef.current = newMarkersList;
-
-  }, [position, locations, activeVisits, activeOrders]);
-
-  return (
-    <div className="map-container-wrapper w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 relative">
-      <div ref={mapContainer} className="w-full h-full" />
+    try {
+      set({ isLoading: true, error: null });
       
-      {/* Bouton manuel de rafraîchissement */}
-      <button 
-        onClick={() => {
-          fetchActiveVisits();
-          toast.success('Positions radar actualisées');
-        }}
-        className="absolute bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition z-10"
-      >
-        <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
-      </button>
-    </div>
-  );
-};
+      // Appel des routes REST du serveur (qui contournent les limitations RLS du client de base de données)
+      const [visitsResponse, ordersResponse] = await Promise.all([
+        api.get('/visits'),
+        api.get('/orders')
+      ]);
 
-export default MapPage;
+      const allVisits = visitsResponse.data || [];
+      const allOrders = ordersResponse.data || [];
+
+      // Filtrer uniquement les visites et commandes en cours de livraison/missions active ('en_cours')
+      const activeVisits = allVisits.filter((v: any) => v.status === 'en_cours');
+      const activeOrders = allOrders.filter((o: any) => o.status === 'en_cours');
+
+      // Extraire et cartographier les patients et aidants concernés
+      const patientsMap: Record<string, any> = {};
+      const aidantsMap: Record<string, any> = {};
+
+      activeVisits.forEach((v: any) => {
+        if (v.patient) patientsMap[v.patient.id] = v.patient;
+        if (v.aidant) aidantsMap[v.aidant.id] = v.aidant;
+      });
+
+      activeOrders.forEach((o: any) => {
+        if (o.patient) patientsMap[o.patient.id] = o.patient;
+        if (o.aidant) aidantsMap[o.aidant.id] = o.aidant;
+      });
+
+      const patients = Object.values(patientsMap).map((p: any) => ({
+        ...p,
+        latitude: Number(p.latitude) || DEFAULT_LAT,
+        longitude: Number(p.longitude) || DEFAULT_LNG,
+      }));
+
+      const aidants = Object.values(aidantsMap).map((a: any) => ({
+        id: a.user_id,
+        full_name: a.user?.full_name || 'Intervenant',
+        latitude: Number(a.user?.last_latitude) || DEFAULT_LAT,
+        longitude: Number(a.user?.last_longitude) || DEFAULT_LNG,
+      }));
+
+      set({ 
+        activeVisits, 
+        activeOrders,
+        locations: { patients, aidants },
+        isLoading: false 
+      });
+
+    } catch (error: any) {
+      console.error('❌ Fetch active items error:', error);
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  startTracking: () => {
+    if (!navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => get().updateLocation(pos.coords.latitude, pos.coords.longitude),
+      (err) => console.error("GPS Watch Error:", err),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+    set({ watchId });
+  },
+
+  stopTracking: () => {
+    const { watchId } = get();
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      set({ watchId: null });
+    }
+  },
+
+  updateLocation: async (lat: number, lng: number) => {
+    try {
+      const { user, role } = useAuthStore.getState();
+      if (!user) return;
+
+      // Update Profile
+      await supabase.from('profiles').update({
+        last_latitude: lat,
+        last_longitude: lng,
+        last_location_update: new Date().toISOString(),
+      }).eq('id', user.id);
+
+      // Update Active Missions if Aidant
+      if (role === 'aidant') {
+        const { data: aidant } = await supabase.from('aidants').select('id').eq('user_id', user.id).single();
+        if (aidant) {
+          // Mise à jour de la localisation dans la visite active
+          await supabase.from('visites').update({ location_start: { lat, lng } }).eq('aidant_id', aidant.id).eq('status', 'en_cours');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Update location error:', error);
+    }
+  },
+
+  subscribeToLocations: () => {
+    if (get().subscription) return;
+
+    const channel = supabase
+      .channel('locations')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+        set((state) => ({
+          locations: {
+            ...state.locations,
+            aidants: state.locations.aidants.map((a: any) =>
+              a.id === payload.new.id ? { ...a, latitude: payload.new.last_latitude, longitude: payload.new.last_longitude } : a
+            ),
+          },
+        }));
+      })
+      .subscribe();
+    set({ subscription: channel });
+  },
+
+  unsubscribeFromLocations: () => {
+    const { subscription } = get();
+    if (subscription) {
+      supabase.removeChannel(subscription);
+      set({ subscription: null });
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));
