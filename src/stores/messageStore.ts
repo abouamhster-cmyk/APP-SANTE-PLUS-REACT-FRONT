@@ -1,11 +1,11 @@
 // 📁 src/stores/messageStore.ts
+// ✅ STORE MESSAGERIE COMPLET : GESTION DES ABONNEMENTS ET FLUX DE MESSAGES SÉCURISÉS
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Conversation, Message } from '@/types';
 import { useAuthStore } from './authStore';
 
- 
 interface MessageState {
   conversations: Conversation[];
   messages: Message[];
@@ -13,13 +13,13 @@ interface MessageState {
   isLoading: boolean;
   error: string | null;
   subscription: any | null;
-  
+
   fetchConversations: () => Promise<void>;
   fetchMessages: (conversationId: string) => Promise<void>;
-  sendMessage: (data: { conversation_id: string; content: string; attachment?: File }) => Promise<Message>;
+  sendMessage: (data: { conversation_id: string; content: string; attachment?: File }) => Promise<any>;
   markAsRead: (messageId: string) => Promise<void>;
   markAllRead: (conversationId: string) => Promise<void>;
-  createConversation: (participantIds: string[]) => Promise<Conversation>;
+  createConversation: (participantIds: string[]) => Promise<any>;
   subscribeToMessages: (conversationId: string) => void;
   unsubscribeFromMessages: () => void;
   clearError: () => void;
@@ -33,20 +33,16 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   error: null,
   subscription: null,
 
-  // ============================================================
-  // FETCH CONVERSATIONS - SANS TOAST
-  // ============================================================
   fetchConversations: async () => {
     try {
       set({ isLoading: true, error: null });
-      
+
       const { user } = useAuthStore.getState();
       if (!user) {
         set({ conversations: [], isLoading: false });
         return;
       }
 
-      // Récupérer les conversations via la table de liaison
       const { data: participants, error: pError } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
@@ -74,41 +70,34 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
       if (error) throw error;
 
-      // Récupérer le dernier message de chaque conversation
       const conversationsWithLastMessage = await Promise.all(
-        (data || []).map(async (conv) => {
+        (data || []).map(async (conv: any) => {
           const { data: lastMessage } = await supabase
             .from('messages')
             .select('*')
             .eq('conversation_id', conv.id)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
           return {
             ...conv,
-            last_message: lastMessage,
+            last_message: lastMessage || undefined,
           };
         })
       );
 
-      set({ 
-        conversations: conversationsWithLastMessage, 
-        isLoading: false 
-      });
+      set({ conversations: conversationsWithLastMessage, isLoading: false });
     } catch (error: any) {
       console.error('Fetch conversations error:', error);
       set({ error: error.message, isLoading: false });
     }
   },
 
-  // ============================================================
-  // FETCH MESSAGES - SANS TOAST
-  // ============================================================
   fetchMessages: async (conversationId: string) => {
     try {
       set({ isLoading: true, error: null });
-      
+
       const { data, error } = await supabase
         .from('messages')
         .select(`
@@ -127,9 +116,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // SEND MESSAGE - SANS TOAST
-  // ============================================================
   sendMessage: async (data: { conversation_id: string; content: string; attachment?: File }) => {
     try {
       const { user } = useAuthStore.getState();
@@ -176,19 +162,14 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         messages: [...state.messages, message],
       }));
 
-      // ✅ SUPPRIMÉ : toast.success('Message envoyé');
       return message;
     } catch (error: any) {
       console.error('Send message error:', error);
       set({ error: error.message });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
-  // ============================================================
-  // MARK AS READ - SANS TOAST
-  // ============================================================
   markAsRead: async (messageId: string) => {
     try {
       const { error } = await supabase
@@ -199,21 +180,13 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       if (error) throw error;
 
       set((state) => ({
-        messages: state.messages.map(m => 
-          m.id === messageId ? { ...m, is_read: true } : m
-        ),
+        messages: state.messages.map(m => m.id === messageId ? { ...m, is_read: true } : m),
       }));
-
-      // ✅ SUPPRIMÉ : toast.success('Message marqué comme lu');
     } catch (error: any) {
       console.error('Mark as read error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message);
     }
   },
 
-  // ============================================================
-  // MARK ALL READ - SANS TOAST
-  // ============================================================
   markAllRead: async (conversationId: string) => {
     try {
       const { user } = useAuthStore.getState();
@@ -229,23 +202,13 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       if (error) throw error;
 
       set((state) => ({
-        messages: state.messages.map(m => 
-          m.conversation_id === conversationId && m.sender_id !== user.id
-            ? { ...m, is_read: true }
-            : m
-        ),
+        messages: state.messages.map(m => m.conversation_id === conversationId && m.sender_id !== user.id ? { ...m, is_read: true } : m),
       }));
-
-      // ✅ SUPPRIMÉ : toast.success('Tous les messages ont été marqués comme lus');
     } catch (error: any) {
       console.error('Mark all read error:', error);
-      // ✅ SUPPRIMÉ : toast.error(error.message);
     }
   },
 
-  // ============================================================
-  // CREATE CONVERSATION - SANS TOAST
-  // ============================================================
   createConversation: async (participantIds: string[]) => {
     try {
       const { user } = useAuthStore.getState();
@@ -257,13 +220,13 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         .from('conversations')
         .insert({
           last_message_at: new Date().toISOString(),
+          participant_ids: allParticipants,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Ajouter les participants
       for (const participantId of allParticipants) {
         await supabase
           .from('conversation_participants')
@@ -278,49 +241,35 @@ export const useMessageStore = create<MessageState>((set, get) => ({
         currentConversation: data,
       }));
 
-      // ✅ SUPPRIMÉ : toast.success('Conversation créée');
       return data;
     } catch (error: any) {
       console.error('Create conversation error:', error);
       set({ error: error.message });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
-  // ============================================================
-  // SUBSCRIBE TO MESSAGES
-  // ============================================================
   subscribeToMessages: (conversationId: string) => {
     get().unsubscribeFromMessages();
 
     const subscription = supabase
       .channel(`messages:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          const { data: message } = await supabase
-            .from('messages')
-            .select(`
-              *,
-              sender:profiles(*)
-            `)
-            .eq('id', payload.new.id)
-            .single();
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, async (payload) => {
+        const { data: message } = await supabase
+          .from('messages')
+          .select(`
+            *,
+            sender:profiles(*)
+          `)
+          .eq('id', payload.new.id)
+          .single();
 
-          if (message) {
-            set((state) => ({
-              messages: [...state.messages, message],
-            }));
-          }
+        if (message) {
+          set((state) => ({
+            messages: [...state.messages, message],
+          }));
         }
-      )
+      })
       .subscribe();
 
     set({ subscription });
