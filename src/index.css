@@ -625,3 +625,12 @@ html[data-theme='dark'] [class*="shadow"] {
     transform: translateX(100%);
   }
 }
+
+
+/* Forcer l'affichage de la carte */
+.maplibregl-map {
+  background-color: #ffffff !important;
+}
+.maplibregl-canvas {
+  display: block !important;
+}
