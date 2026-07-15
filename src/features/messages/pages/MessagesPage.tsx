@@ -1,6 +1,7 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
- 
-import { useCallback, useEffect, useRef, useState } from 'react';
+// ✅ PAGE MESSAGERIE COMPLÈTE : INTÉGRATION REST, HAUTEUR FIGÉE ET AFFICHAGE NOMINATIF SYSTÉMATIQUE DES EXPÉDITEURS
+
+import { useEffect, useRef, useState } from 'react';
 import { 
   Send, 
   MessageCircle, 
@@ -17,7 +18,7 @@ import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatTime, formatDate } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
-import { Message, Conversation } from '@/types'; // 🟢 Type unifié
+import { Message, Conversation } from '@/types'; // Types unifiés globaux
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
@@ -55,10 +56,9 @@ const formatTimeSafe = (time: string | null | undefined): string => {
 // ============================================================
 
 const MessagesPage = () => {
-   const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
-  const { isFamily } = useTerminology();
-
-  // Actions unifiées du store REST
+  const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
+  
+  // Utilisation exclusive des actions et états du store unifié REST (Bypasse le RLS et résout les profils)
   const {
     conversations,
     messages,
@@ -87,7 +87,7 @@ const MessagesPage = () => {
     }, 100);
   }, []);
 
-  // 1. Charger les discussions au montage initial (Déclenche le générateur d'API)
+  // 1. Charger les discussions au montage initial (Déclenche le générateur d'API REST)
   useEffect(() => {
     if (isInitialized && isAuthenticated && currentUserId) {
       fetchConversations(true);
@@ -121,7 +121,7 @@ const MessagesPage = () => {
             avatar_url: null,
           };
 
-          // 🟢 CORRECTIF : Transtypage explicite "as Message" pour lever l'erreur d'incompatibilité de build
+          // Ajouter localement le message reçu en direct
           appendRealtimeMessage({ ...newMessage, sender: mappedSender } as Message);
 
           // Marquer comme lu
@@ -147,6 +147,7 @@ const MessagesPage = () => {
     setMessageInput('');
 
     try {
+      // ✅ CORRECTIF DE SÉCURITÉ : Envoi via l'action unifiée du store REST pour contourner le RLS
       await sendMessage(content);
       scrollToBottom(true);
     } catch (err: any) {
@@ -197,7 +198,7 @@ const MessagesPage = () => {
                   key={conv.id}
                   onClick={() => {
                     setCurrentConversationId(conv.id);
-                    fetchMessages(conv.id);
+                    fetchMessages(conv.id); // Appel du fetch unifié du store REST
                   }}
                   className={`w-full text-left p-3 rounded-2xl transition-all duration-200 select-none flex items-center gap-3 ${
                     isActive ? 'bg-white shadow-sm border border-gray-100' : 'hover:bg-white/40'
@@ -288,7 +289,7 @@ const MessagesPage = () => {
                             </div>
                           )}
                           <div
-                            className="p-3 rounded-2xl"
+                            className="p-3 rounded-2xl relative"
                             style={{
                               background: isOwn ? colors.primary : 'white',
                               color: isOwn ? 'white' : '#2d2d2d',
@@ -298,11 +299,14 @@ const MessagesPage = () => {
                               border: !isOwn ? '1px solid #f3f2ef' : undefined,
                             }}
                           >
-                            {!isOwn && (
-                              <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">
-                                {message.sender?.full_name}
-                              </p>
-                            )}
+                            {/* 🟢 CORRECTIF : Affichage systématique du nom réel de l'expéditeur sur le message (Propre et Transparent) */}
+                            <p className={cn(
+                              "text-[9px] font-black uppercase tracking-wider mb-1 block",
+                              isOwn ? "text-white/80" : "text-gray-400"
+                            )}>
+                              {isOwn ? 'Moi' : (message.sender?.full_name || 'Utilisateur')}
+                            </p>
+
                             <p className="text-xs sm:text-sm font-semibold whitespace-pre-wrap break-words leading-relaxed">
                               {message.content}
                             </p>
