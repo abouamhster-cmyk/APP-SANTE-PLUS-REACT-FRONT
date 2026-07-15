@@ -1,6 +1,5 @@
 // 📁 src/App.tsx
-// ✅ CONTROLEUR DE NAVIGATION PRINCIPAL AVEC ECOUTE REALTIME OPTIMISÉE ET RE-SAUVEGARDE COMPLÈTE DES IMPORTS
-
+ 
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -57,7 +56,7 @@ import AidantDetailPage from '@/features/aidants/pages/AidantDetailPage';
 // ============================================================
 // AIDANT / HELP PAGES
 // ============================================================
-import MissionsPage chain from '@/features/help/pages/MissionsPage';
+import MissionsPage from '@/features/help/pages/MissionsPage'; 
 import PlanningPage from '@/features/help/pages/PlanningPage';
 import HistoryPage from '@/features/help/pages/HistoryPage';
 
@@ -360,7 +359,7 @@ function App() {
               element={
                 <RoleGuard allowedRoles={['admin', 'coordinator']}>
                   <RegistrationDetailsPage />
-                </RouteGuard>
+                </RoleGuard> // ✅ CORRECTIF : Fermeture de balise corrigée de </Route> vers </RoleGuard>
               } 
             />
             <Route 
