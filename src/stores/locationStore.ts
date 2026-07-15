@@ -1,5 +1,5 @@
 // 📁 src/stores/locationStore.ts
-// ✅ STORE GPS OPTIMISÉ : RECUPERATION DES MISSIONS EN COURS ET DES MISSIONS RÉCEMMENT TERMINÉES AUJOURD'HUI
+// ✅ STORE GPS COMPLET : INTÉGRATION DES FILTRES DE RAPPORTS RÉELS (END_TIME & UPDATED_AT) POUR LE RADAR
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -10,7 +10,7 @@ interface LocationState {
   locations: {
     patients: any[];
     aidants: any[];
-    families: any[]; // Comptes familles physiques
+    families: any[]; 
   };
   activeVisits: any[];
   activeOrders: any[];
@@ -28,7 +28,7 @@ interface LocationState {
   clearError: () => void;
 }
 
-// Coordonnées par défaut (Cotonou) en cas d'absence de données GPS
+// Coordonnées par défaut (Cotonou)
 const DEFAULT_LAT = 6.3703;
 const DEFAULT_LNG = 2.3912;
 
@@ -59,18 +59,18 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       const allVisits = visitsResponse.data || [];
       const allOrders = ordersResponse.data || [];
 
-      // ✅ FIX CRITIQUE : Inclure les visites en cours ET les visites récemment terminées AUJOURD'HUI
-      // pour permettre à la carte d'afficher les drapeaux d'arrivée (🏁 et 🚚) de fin de parcours !
       const todayStr = new Date().toISOString().split('T')[0];
 
+      // ✅ CORRECTIF FILTRE VISITES : On se base sur end_time (date de fin réelle) pour inclure les visites terminées aujourd'hui !
       const activeVisits = allVisits.filter((v: any) => 
         v.status === 'en_cours' || 
-        ((v.status === 'terminee' || v.status === 'validee') && v.scheduled_date === todayStr)
+        ((v.status === 'terminee' || v.status === 'validee') && v.end_time?.startsWith(todayStr))
       );
 
+      // ✅ CORRECTIF FILTRE COMMANDES : On se base sur updated_at (date de livraison réelle) pour inclure les livraisons faites aujourd'hui !
       const activeOrders = allOrders.filter((o: any) => 
         o.status === 'en_cours' || 
-        ((o.status === 'livree' || o.status === 'validee') && o.created_at?.startsWith(todayStr))
+        ((o.status === 'livree' || o.status === 'validee') && o.updated_at?.startsWith(todayStr))
       );
 
       // Extraire tous les IDs uniques de comptes familles (user_id) et d'aidants concernés
