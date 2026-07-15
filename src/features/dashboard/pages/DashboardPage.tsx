@@ -1,7 +1,6 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
  
 import { useEffect, useState, useMemo, useRef } from 'react';
-import type { ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Users,
@@ -90,7 +89,6 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
       { icon: <CreditCard size={20} />, label: 'Abonnement', color: '#8b5cf6', path: '/app/billing' },
       { icon: <BookOpen size={20} />, label: 'Journal', color: '#b45309', path: '/app/journal' },
       { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
-      // ❌ RETIRÉ : L'outil de Sortie Hôpital a été complètement fusionné au sein des Visites
       { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
     return tiles;
@@ -371,7 +369,7 @@ const DashboardPage = () => {
     ];
   }, [isAdminOrCoordinator, isAidant, isFamily, isMaman]);
 
-  // Autoplay limité à 2 cycles complets sans touches
+  // Autoplay carrousel
   useEffect(() => {
     if (!autoplayActive || slides.length <= 1) return;
 
@@ -392,7 +390,6 @@ const DashboardPage = () => {
     return () => clearInterval(interval);
   }, [autoplayActive, slides.length]);
 
-  // Swipable Dock Cards
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchEnd(null);
     setTouchStart(e.targetTouches[0].clientX);
@@ -550,6 +547,9 @@ const DashboardPage = () => {
     },
   });
 
+  // ============================================================
+  // ✅ CHARGEMENT DE DONNÉES CIBLÉ ET INTÉGRAL PAR RÔLE POUR OPTIMISER LE TEMPS DE RENDU
+  // ============================================================
   useEffect(() => {
     const loadData = async () => {
       const loaders = [
@@ -576,7 +576,11 @@ const DashboardPage = () => {
     };
     loadData();
     setGreeting(getGreeting());
-  }, [isAdminOrCoordinator, isFamily]);
+  }, [isAdminOrCoordinator, isFamily, isAidant]);
+
+  // Calcul du loader optimisé selon le rôle
+  const hasInMemoryData = patients.length > 0 || visits.length > 0 || orders.length > 0;
+  const isLoading = (patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires) && !hasInMemoryData;
 
   const stats = useMemo(() => {
     const pendingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'en_attente').length;
@@ -610,10 +614,6 @@ const DashboardPage = () => {
   }, [patients, visits, orders, aidants, subscriptions, payments, adminStats, beneficiairesStats, drafts.length, isAdminOrCoordinator]);
 
   const tiles = getTilesForRole(role, colors, stats, stats.proches);
-  
-  // ✅ CORRECTION DU FLUX DE CHARGEMENT : Aucun clignotement ni "mode fantôme" si des données sont déjà en mémoire
-  const hasInMemoryData = patients.length > 0 || visits.length > 0 || orders.length > 0;
-  const isLoading = (patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires) && !hasInMemoryData;
 
   const getProchesTitle = () => {
     if (isFamily) return 'Mes proches';
@@ -626,7 +626,7 @@ const DashboardPage = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-5xl mx-auto">
         <div className="h-44 rounded-3xl bg-white animate-pulse shadow-sm" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -847,28 +847,6 @@ const DashboardPage = () => {
           </>
         )}
       </section>
-
-      {/* SUGGESTIONS D'ONBOARDING */}
-      {isFamily && !hasProches && (
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <SuggestionCard
-            icon={<CreditCard size={20} />}
-            title="Découvrir les offres"
-            description="Choisissez la formule d'abonnement la plus adaptée à vos besoins d'accompagnement."
-            color={colors.primary}
-            onClick={() => navigate('/app/billing')}
-            buttonText="Voir les offres"
-          />
-          <SuggestionCard
-            icon={<UserPlus size={20} />}
-            title="Enregistrer un proche"
-            description="Renseignez le profil de la personne pour initier son premier accompagnement à domicile."
-            color={colors.primary}
-            onClick={() => navigate('/app/patients')}
-            buttonText="Enregistrer"
-          />
-        </section>
-      )}
 
       {/* MENU DE NAVIGATION GRILLE */}
       <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
