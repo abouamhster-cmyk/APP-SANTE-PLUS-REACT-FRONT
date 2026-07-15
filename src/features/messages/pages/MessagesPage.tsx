@@ -1,5 +1,5 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ PAGE MESSAGERIE RESPONSIVE PREMIUM : POSITIONNEMENT FIXE ADAPTÉ SANS CHEVAUCHEMENT MOBILE
+// ✅ PAGE MESSAGERIE RESPONSIVE PREMIUM : CADRE CARTE FLOTTANTE ARRONDI SANS COLLAGE SUR LES BORDURES
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { 
@@ -174,8 +174,8 @@ const MessagesPage = () => {
 
   return (
     <div 
-      // 🟢 CORRECTIF : bottom-[80px] au lieu de bottom-[64px] pour remonter proprement la boîte au-dessus du menu mobile
-      className="fixed md:static inset-x-0 md:inset-auto top-[56px] md:top-auto bottom-[80px] md:bottom-auto md:h-[calc(100vh-130px)] flex flex-col md:flex-row bg-white rounded-none md:rounded-3xl overflow-hidden shadow-sm md:border"
+      // 🟢 CORRECTIF : Positionnement flottant avec marges gauche/droite (left-4, right-4), espacement haut (top-[72px]) et bas (bottom-[96px]) pour libérer le menu mobile
+      className="fixed md:static left-4 md:left-auto right-4 md:right-auto top-[72px] md:top-auto bottom-[96px] md:bottom-auto md:h-[calc(100vh-130px)] flex flex-col md:flex-row bg-white rounded-3xl overflow-hidden shadow-sm border"
       style={{ borderColor: colors.primary + '12' }}
     >
       
