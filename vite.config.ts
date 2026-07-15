@@ -1,5 +1,5 @@
 // 📁 vite.config.ts
-
+ 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -39,6 +39,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // ✅ CORRECTIF : Augmente la limite de cache pour le gros fichier bundle (index-js)
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,mp3}'],
         runtimeCaching: [
           {
@@ -80,5 +82,18 @@ export default defineConfig({
         secure: false,
       },
     },
+  },
+  build: {
+    // ✅ Optimisation : Découpage automatique des gros fichiers et relèvement du seuil d'alerte
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor'; // Sépare les bibliothèques lourdes
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
   },
 });
