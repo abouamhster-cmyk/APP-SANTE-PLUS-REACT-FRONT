@@ -1,5 +1,5 @@
 // 📁 src/stores/locationStore.ts
-// ✅ STORE GPS OPTIMISÉ : RÉSOLUTION DE COORDONNÉES RÉELLES EN DIRECT (SANS AUCUNE VALEUR PAR DÉFAUT)
+// ✅ STORE GPS OPTIMISÉ : RECUPERATION DES MISSIONS EN COURS ET DES MISSIONS RÉCEMMENT TERMINÉES AUJOURD'HUI
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -10,7 +10,7 @@ interface LocationState {
   locations: {
     patients: any[];
     aidants: any[];
-    families: any[];  
+    families: any[]; // Comptes familles physiques
   };
   activeVisits: any[];
   activeOrders: any[];
@@ -28,6 +28,10 @@ interface LocationState {
   clearError: () => void;
 }
 
+// Coordonnées par défaut (Cotonou) en cas d'absence de données GPS
+const DEFAULT_LAT = 6.3703;
+const DEFAULT_LNG = 2.3912;
+
 export const useLocationStore = create<LocationState>((set, get) => ({
   locations: { patients: [], aidants: [], families: [] },
   activeVisits: [],
@@ -37,7 +41,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   subscription: null,
   watchId: null,
 
-  // ✅ RECUPERATION ET RESOLUTION DES COORDONNÉES GPS RÉELLES DE L'ABONNÉ EN DIRECT
   fetchActiveVisits: async () => {
     if (get().isLoading) return;
 
@@ -47,7 +50,7 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       const { profile } = useAuthStore.getState();
       const isAdmin = profile?.role === 'admin' || profile?.role === 'coordinator';
 
-      // 1️⃣ Récupérer visites et commandes en cours ('en_cours')
+      // 1️⃣ Récupérer les visites et commandes
       const [visitsResponse, ordersResponse] = await Promise.all([
         api.get('/visits'),
         api.get('/orders')
@@ -56,8 +59,19 @@ export const useLocationStore = create<LocationState>((set, get) => ({
       const allVisits = visitsResponse.data || [];
       const allOrders = ordersResponse.data || [];
 
-      const activeVisits = allVisits.filter((v: any) => v.status === 'en_cours');
-      const activeOrders = allOrders.filter((o: any) => o.status === 'en_cours');
+      // ✅ FIX CRITIQUE : Inclure les visites en cours ET les visites récemment terminées AUJOURD'HUI
+      // pour permettre à la carte d'afficher les drapeaux d'arrivée (🏁 et 🚚) de fin de parcours !
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const activeVisits = allVisits.filter((v: any) => 
+        v.status === 'en_cours' || 
+        ((v.status === 'terminee' || v.status === 'validee') && v.scheduled_date === todayStr)
+      );
+
+      const activeOrders = allOrders.filter((o: any) => 
+        o.status === 'en_cours' || 
+        ((o.status === 'livree' || o.status === 'validee') && o.created_at?.startsWith(todayStr))
+      );
 
       // Extraire tous les IDs uniques de comptes familles (user_id) et d'aidants concernés
       const familyUserIds = [...new Set([
@@ -94,7 +108,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
           latitude: p.last_latitude ? Number(p.last_latitude) : null,
           longitude: p.last_longitude ? Number(p.last_longitude) : null,
         }))
-        // 🟢 FILTRAGE STRICT : On affiche uniquement si les coordonnées GPS réelles existent
         .filter((a: any) => a.latitude !== null && a.longitude !== null);
 
       // 4️⃣ Construire la liste des bénéficiaires/patients basés sur les coordonnées de leur compte famille respectif
@@ -149,7 +162,6 @@ export const useLocationStore = create<LocationState>((set, get) => ({
               latitude: f.last_latitude ? Number(f.last_latitude) : null,
               longitude: f.last_longitude ? Number(f.last_longitude) : null,
             }))
-            // 🟢 FILTRAGE STRICT : Aucun point par défaut, seulement le réel
             .filter((f: any) => f.latitude !== null && f.longitude !== null);
         }
       }
