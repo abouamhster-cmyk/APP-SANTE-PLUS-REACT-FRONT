@@ -1,7 +1,7 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ PAGE MESSAGERIE COMPLÈTE : SYNC FLUIDE ET INTERFACE TACTILE CORRIGÉE SANS BUGS TS
+// ✅ PAGE MESSAGERIE COMPLÈTE : ALIGNEMENT REST ET ABONNEMENT EN TEMPS RÉEL
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { 
   Send, 
   MessageCircle, 
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
+import { useMessageStore } from '@/stores/messageStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatTime, formatDate } from '@/utils/helpers';
@@ -43,16 +44,6 @@ interface Message {
   is_important?: boolean;
 }
 
-interface Conversation {
-  id: string;
-  type: 'direct' | 'group' | 'global';
-  participant_ids: string[];
-  name: string | null;
-  participants?: SenderProfile[];
-  last_message_at: string;
-  last_message?: Message;
-}
-
 const formatDateSafe = (date: string | null | undefined): string => {
   if (!date) return '';
   try {
@@ -76,16 +67,21 @@ const formatTimeSafe = (time: string | null | undefined): string => {
 // ============================================================
 
 const MessagesPage = () => {
-  // 🟢 CORRECTIF : Ajout de "profile" dans l'importation destructurée du store d'authentification
   const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
-  const { isFamily } = useTerminology();
-
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messageInput, setMessageInput] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
+  
+  // Utilisation des actions du store unifié REST
+  const {
+    conversations,
+    messages,
+    currentConversationId,
+    isLoading,
+    isSending,
+    fetchConversations,
+    fetchMessages,
+    sendMessage,
+    setCurrentConversationId,
+    appendRealtimeMessage,
+  } = useMessageStore();
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const channelRef = useRef<any>(null);
@@ -100,156 +96,14 @@ const MessagesPage = () => {
     }, 100);
   }, []);
 
-  // ============================================================
-  // RECUPERATION DES MESSAGES
-  // ============================================================
-  const fetchMessages = useCallback(async (conversationId: string) => {
-    if (!currentUserId) return;
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      const rawMessages = data || [];
-      const senderIds = [...new Set(rawMessages.map((m: any) => m.sender_id))].filter(Boolean);
-      let profilesMap: Record<string, SenderProfile> = {};
-
-      if (senderIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, full_name, role, avatar_url')
-          .in('id', senderIds);
-
-        if (profilesData) {
-          profilesMap = profilesData.reduce((acc: Record<string, SenderProfile>, item: any) => {
-            acc[item.id] = {
-              id: item.id,
-              full_name: item.full_name || 'Utilisateur',
-              role: item.role || 'family',
-              avatar_url: item.avatar_url || null,
-            };
-            return acc;
-          }, {});
-        }
-      }
-
-      const messagesWithSenders: Message[] = rawMessages.map((message: any) => ({
-        ...message,
-        sender: profilesMap[message.sender_id] || {
-          id: message.sender_id,
-          full_name: 'Utilisateur',
-          role: 'family',
-          avatar_url: null,
-        },
-      }));
-
-      setMessages(messagesWithSenders);
-
-      // Marquer comme lus
-      const unreadIds = messagesWithSenders
-        .filter(m => !m.is_read && m.sender_id !== currentUserId)
-        .map(m => m.id);
-
-      if (unreadIds.length > 0) {
-        await supabase.from('messages').update({ is_read: true }).in('id', unreadIds);
-      }
-
-      scrollToBottom(false);
-    } catch (err: any) {
-      console.error('❌ Error fetching messages:', err.message);
-    }
-  }, [currentUserId, scrollToBottom]);
-
-  // ============================================================
-  // RECUPERATION DES CONVERSATIONS
-  // ============================================================
-  const fetchConversations = useCallback(async (isFirstLoad = false) => {
-    if (!currentUserId) return;
-    if (isFirstLoad) setIsLoading(true);
-
-    try {
-      const { data: convData, error: convError } = await supabase
-        .from('conversations')
-        .select('*')
-        .contains('participant_ids', [currentUserId])
-        .order('last_message_at', { ascending: false });
-
-      if (convError) throw convError;
-
-      const filteredData = convData || [];
-
-      if (filteredData.length === 0) {
-        setConversations([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const conversationsWithDetails = await Promise.all(
-        filteredData.map(async (conv) => {
-          const participantIds = (conv.participant_ids || []).filter((id: string) => id !== currentUserId);
-          let participants: SenderProfile[] = [];
-
-          if (participantIds.length > 0) {
-            const { data: profiles } = await supabase
-              .from('profiles')
-              .select('id, full_name, role, avatar_url')
-              .in('id', participantIds);
-
-            if (profiles) {
-              participants = profiles.map((p: any) => ({
-                id: p.id,
-                full_name: p.full_name || 'Utilisateur',
-                role: p.role || 'family',
-                avatar_url: p.avatar_url || null,
-              }));
-            }
-          }
-
-          const { data: lastMessage } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('conversation_id', conv.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          return {
-            ...conv,
-            participants,
-            last_message: lastMessage || undefined,
-          } as Conversation;
-        })
-      );
-
-      setConversations(conversationsWithDetails);
-
-      if (conversationsWithDetails.length > 0) {
-        setCurrentConversationId(prevId => {
-          const activeId = prevId || conversationsWithDetails[0].id;
-          fetchMessages(activeId);
-          return activeId;
-        });
-      }
-    } catch (err: any) {
-      console.error('❌ Error fetching conversations:', err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUserId, fetchMessages]);
-
+  // 1. Charger les discussions au montage initial (Déclenche le générateur d'API)
   useEffect(() => {
     if (isInitialized && isAuthenticated && currentUserId) {
       fetchConversations(true);
     }
-  }, [isInitialized, isAuthenticated, currentUserId]);
+  }, [isInitialized, isAuthenticated, currentUserId, fetchConversations]);
 
-  // ============================================================
-  // ÉCOUTE DU REALTIME
-  // ============================================================
+  // 2. Écoute du Realtime Supabase pour l'immédiateté des messages reçus
   useEffect(() => {
     if (!currentUserId || !currentConversationId) return;
 
@@ -276,12 +130,10 @@ const MessagesPage = () => {
             avatar_url: null,
           };
 
-          setMessages((prev) => {
-            if (prev.some(m => m.id === newMessage.id)) return prev;
-            // 🟢 CORRECTIF : Ajout de "as Message" pour lever le conflit de typage TS du tableau
-            return [...prev, { ...newMessage, sender: mappedSender } as Message];
-          });
+          // Ajouter localement
+          appendRealtimeMessage({ ...newMessage, sender: mappedSender } as Message);
 
+          // Marquer comme lu
           await supabase.from('messages').update({ is_read: true }).eq('id', newMessage.id);
           scrollToBottom(true);
         }
@@ -293,51 +145,21 @@ const MessagesPage = () => {
     return () => {
       if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
-  }, [currentConversationId, currentUserId, scrollToBottom]);
+  }, [currentConversationId, currentUserId, appendRealtimeMessage, scrollToBottom]);
 
-  // ============================================================
-  // ENVOI DU MESSAGE
-  // ============================================================
+  // 3. Envoi du message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageInput.trim() || !currentConversationId || !currentUserId) return;
+    if (!messageInput.trim()) return;
 
-    setIsSending(true);
     const content = messageInput.trim();
     setMessageInput('');
 
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: currentConversationId,
-          sender_id: currentUserId,
-          content: content,
-          is_read: false,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      await supabase
-        .from('conversations')
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('id', currentConversationId);
-
-      const myProfile: SenderProfile = {
-        id: currentUserId,
-        full_name: profile?.full_name || 'Moi',
-        role: role || 'family',
-        avatar_url: profile?.avatar_url || null,
-      };
-
-      setMessages(prev => [...prev, { ...data, sender: myProfile }]);
+      await sendMessage(content);
       scrollToBottom(true);
     } catch (err: any) {
-      toast.error("Erreur lors de l'envoi");
-    } finally {
-      setIsSending(false);
+      toast.error("Échec de l'envoi");
     }
   };
 
