@@ -1,5 +1,6 @@
 // 📁 src/features/map/pages/MapPage.tsx
- 
+// ✅ PAGE CARTE : INTERFACE COMPLÈTE AVEC LE STYLE DE CARTES MONDIAL GRATUIT D'OPENFREEMAP
+
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -51,9 +52,10 @@ const MapPage = () => {
     startWatching();
     fetchActiveVisits();
 
+    // ✅ UTISATION DU COMPOSANT DE STYLE MONDIAL ET TOTALEMENT GRATUIT DE OPENFREEMAP
     map.current = new maplibregl.Map({
       container: mapContainer.current!,
-      style: 'https://demotiles.maplibre.org/style.json',
+      style: 'https://tiles.openfreemap.org/styles/liberty', // 🟢 Version Liberty avec routes et détails complets
       center: DEFAULT_CENTER,
       zoom: 13
     });
@@ -220,7 +222,6 @@ const MapPage = () => {
 
     activeMarkersRef.current = newMarkersList;
 
-  // ✅ CORRIGÉ : Retrait de 'leafletRef' qui n'existe plus dans ce fichier MapLibre
   }, [position, locations, activeVisits, activeOrders]);
 
   return (
