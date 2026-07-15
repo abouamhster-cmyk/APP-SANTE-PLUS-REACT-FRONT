@@ -1,7 +1,7 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
 // ✅ PAGE MESSAGERIE COMPLÈTE : INTÉGRATION REST, HAUTEUR FIGÉE ET AFFICHAGE NOMINATIF SYSTÉMATIQUE DES EXPÉDITEURS
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';  
 import { 
   Send, 
   MessageCircle, 
