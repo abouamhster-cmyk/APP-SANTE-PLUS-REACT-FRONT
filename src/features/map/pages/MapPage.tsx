@@ -1,345 +1,350 @@
-// 📁 src/features/map/pages/MapPage.tsx
-// ✅ PAGE CARTE : AFFICHAGE COMPACT ET NETTOYAGE DES DOUBLONS D'INTERVENANTS EN MISSION ACTIVE
+// 📁 src/features/messages/pages/MessagesPage.tsx
+// ✅ PAGE MESSAGERIE COMPLÈTE : ALIGNEMENT REST ET ABONNEMENT EN TEMPS RÉEL
 
-import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { useLocationStore } from '@/stores/locationStore';
-import { useLocation } from '@/hooks/useLocation';
+import { useCallback, useEffect, useRef } from 'react';
+import { 
+  Send, 
+  MessageCircle, 
+  Check, 
+  CheckCheck, 
+  Loader2,
+  Users,
+} from 'lucide-react';
+
 import { useAuthStore } from '@/stores/authStore';
-import { RefreshCw } from 'lucide-react';
+import { useMessageStore } from '@/stores/messageStore';
+import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useTerminology } from '@/hooks/useTerminology';
+import { formatTime, formatDate } from '@/utils/helpers';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// Coordonnées par défaut uniquement pour initialiser la caméra (Cotonou)
-const DEFAULT_CENTER: [number, number] = [2.3912, 6.3703];
-const DEFAULT_LAT = 6.3703;
-const DEFAULT_LNG = 2.3912;
+// ============================================================
+// TYPES ET INTERFACES
+// ============================================================
 
-// Helper pour dessiner des marqueurs HTML élégants avec des emojis
-const createHtmlMarker = (emoji: string, color: string) => {
-  const el = document.createElement('div');
-  el.className = 'custom-checkpoint-marker';
-  el.innerHTML = `
-    <div style="
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: white;
-      border: 3px solid ${color};
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      cursor: pointer;
-      transition: transform 0.2s;
-    " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-      ${emoji}
-    </div>
-  `;
-  return el;
+interface SenderProfile {
+  id?: string;
+  full_name: string;
+  role: string;
+  avatar_url?: string | null;
+}
+
+interface Message {
+  id: string;
+  conversation_id: string;
+  content: string;
+  sender_id: string;
+  sender: SenderProfile | null;
+  created_at: string;
+  is_read: boolean;
+  attachment_url?: string | null;
+  attachment_type?: 'image' | 'document' | 'voice' | 'video' | null;
+  is_pinned?: boolean;
+  is_important?: boolean;
+}
+
+const formatDateSafe = (date: string | null | undefined): string => {
+  if (!date) return '';
+  try {
+    return formatDate(date);
+  } catch {
+    return '';
+  }
 };
 
-const MapPage = () => {
-  const mapContainer = useRef<HTMLDivElement | null>(null);
-  const map = useRef<maplibregl.Map | null>(null);
-  const activeMarkersRef = useRef<maplibregl.Marker[]>([]); // Tracker pour vider proprement les anciens marqueurs
+const formatTimeSafe = (time: string | null | undefined): string => {
+  if (!time) return '';
+  try {
+    return formatTime(time);
+  } catch {
+    return '';
+  }
+};
 
-  const { locations, activeVisits, activeOrders, isLoading, fetchActiveVisits } = useLocationStore();
-  const { position, startWatching } = useLocation();
-  const { profile, role } = useAuthStore();
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
 
-  const isAidantRole = role === 'aidant';
+const MessagesPage = () => {
+  const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
+  
+  // Utilisation des actions du store unifié REST
+  const {
+    conversations,
+    messages,
+    currentConversationId,
+    isLoading,
+    isSending,
+    fetchConversations,
+    fetchMessages,
+    sendMessage,
+    setCurrentConversationId,
+    appendRealtimeMessage,
+  } = useMessageStore();
 
-  // 1. Initialisation unique au montage
-  useEffect(() => {
-    startWatching();
-    fetchActiveVisits();
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const channelRef = useRef<any>(null);
 
-    map.current = new maplibregl.Map({
-      container: mapContainer.current!,
-      style: 'https://tiles.openfreemap.org/styles/liberty', 
-      center: DEFAULT_CENTER,
-      zoom: 13
-    });
+  const currentUserId = user?.id || null;
+  const themeName = getThemeByRole(role, null);
+  const colors = getThemeColors(themeName);
 
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-    map.current.on('load', () => {
-      map.current?.resize();
-    });
-
-    return () => {
-      map.current?.remove();
-    };
+  const scrollToBottom = useCallback((smooth = true) => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
+    }, 100);
   }, []);
 
-  // Centrage automatique sur le GPS de l'appareil
+  // 1. Charger les discussions au montage initial (Déclenche le générateur d'API)
   useEffect(() => {
-    if (position && map.current) {
-      map.current.flyTo({ center: [position[1], position[0]], zoom: 15 });
+    if (isInitialized && isAuthenticated && currentUserId) {
+      fetchConversations(true);
     }
-  }, [position]);
+  }, [isInitialized, isAuthenticated, currentUserId, fetchConversations]);
 
-  // ✅ CALCUL ET RENDU DYNAMIQUE DES CHECKPOINTS GPS REELS UNIQUEMENT
+  // 2. Écoute du Realtime Supabase pour l'immédiateté des messages reçus
   useEffect(() => {
-    const currentMap = map.current;
-    if (!currentMap) return;
+    if (!currentUserId || !currentConversationId) return;
 
-    // A. Supprimer tous les marqueurs précédents de la mémoire
-    activeMarkersRef.current.forEach(m => m.remove());
-    activeMarkersRef.current = [];
+    const channel = supabase
+      .channel(`room_${currentConversationId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${currentConversationId}` }, async (payload) => {
+        const newMessage = payload.new;
+        if (newMessage.sender_id !== currentUserId) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id, full_name, role, avatar_url')
+            .eq('id', newMessage.sender_id)
+            .single();
 
-    const newMarkersList: maplibregl.Marker[] = [];
+          const mappedSender: SenderProfile = profileData ? {
+            id: profileData.id,
+            full_name: profileData.full_name || 'Utilisateur',
+            role: profileData.role || 'family',
+            avatar_url: profileData.avatar_url || null,
+          } : {
+            id: newMessage.sender_id,
+            full_name: 'Utilisateur',
+            role: 'family',
+            avatar_url: null,
+          };
 
-    // 1️⃣ Afficher ma position actuelle (Moi)
-    if (position) {
-      const el = createHtmlMarker('👤', '#3b82f6');
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([position[1], position[0]])
-        .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-          <div style="font-family: sans-serif; padding: 2px;">
-            <p style="font-weight: 800; margin: 0; font-size: 11px; color: #1e40af;">👤 Ma position</p>
-          </div>
-        `))
-        .addTo(currentMap);
-      newMarkersList.push(marker);
+          // Ajouter localement
+          appendRealtimeMessage({ ...newMessage, sender: mappedSender } as Message);
+
+          // Marquer comme lu
+          await supabase.from('messages').update({ is_read: true }).eq('id', newMessage.id);
+          scrollToBottom(true);
+        }
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+    };
+  }, [currentConversationId, currentUserId, appendRealtimeMessage, scrollToBottom]);
+
+  // 3. Envoi du message
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageInput.trim()) return;
+
+    const content = messageInput.trim();
+    setMessageInput('');
+
+    try {
+      await sendMessage(content);
+      scrollToBottom(true);
+    } catch (err: any) {
+      toast.error("Échec de l'envoi");
     }
+  };
 
-    // 2️⃣ Afficher les positions des fiches des bénéficiaires (Patients)
-    locations.patients.forEach((patient: any) => {
-      const lat = Number(patient.latitude);
-      const lng = Number(patient.longitude);
-      if (!lat || !lng) return;
+  if (isLoading && conversations.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3" style={{ color: colors.primary }} />
+          <p className="text-xs text-gray-500">Chargement de la messagerie...</p>
+        </div>
+      </div>
+    );
+  }
 
-      const el = createHtmlMarker('👵', '#10b981');
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([lng, lat])
-        .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-          <div style="min-width: 140px; font-family: sans-serif;">
-            <p style="font-weight: 800; margin: 0; font-size: 11px; color: #047857;">👵 Proche accompagné</p>
-            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: #374151;">${patient.first_name} ${patient.last_name}</p>
-            <p style="margin: 3px 0 0 0; font-size: 9px; color: #9ca3af; line-height: 1.2;">📍 ${patient.address || 'Adresse'}</p>
-          </div>
-        `))
-        .addTo(currentMap);
-      newMarkersList.push(marker);
-    });
-
-    // 3️⃣ 🏠 SÉCURISATION ADMIN : Afficher les positions réelles de connexion des Foyers Familles
-    if (locations.families && locations.families.length > 0) {
-      locations.families.forEach((family: any) => {
-        const lat = Number(family.latitude);
-        const lng = Number(family.longitude);
-        if (!lat || !lng) return;
-
-        const el = createHtmlMarker('🏠', '#8b5cf6'); // Maison violette pour les foyers familiaux
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([lng, lat])
-          .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-            <div style="min-width: 150px; font-family: sans-serif;">
-              <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7c3aed; uppercase">🏠 Foyer de confiance</p>
-              <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: #1f2937;">Famille ${family.full_name}</p>
-              <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563;">📧 ${family.email}</p>
-              <p style="margin: 2px 0 0 0; font-size: 9px; color: #9ca3af; line-height: 1.2;">📍 ${family.address}</p>
-            </div>
-          `))
-          .addTo(currentMap);
-        newMarkersList.push(marker);
-      });
-    }
-
-    // 4️⃣ 🦸 MARQUEURS AIDANTS (Pour l'Admin, montre ce qu'ils font en direct sur coordonnées réelles)
-    locations.aidants.forEach((aidant: any) => {
-      const lat = Number(aidant.latitude);
-      const lng = Number(aidant.longitude);
-      if (!lat || !lng) return;
-
-      // Chercher si cet aidant a une mission active en cours de déroulement (en_cours)
-      const activeVisit = activeVisits.find((v: any) => v.status === 'en_cours' && (v.aidant_id === aidant.id || v.aidant?.user_id === aidant.id));
-      const activeOrder = activeOrders.find((o: any) => o.status === 'en_cours' && (o.aidant_id === aidant.id || o.aidant?.user_id === aidant.id));
-
-      // ✅ RÈGLE DE COHÉRENCE : Si l'aidant est en action (mission active), on ne dessine PAS son marqueur générique 👤 ou 🟢 !
-      // Sa position de mission active (🟢 ou 📦) suffit amplement.
-      if (activeVisit || activeOrder) {
-        return;
-      }
-
-      let statusEmoji = '🟢';
-      let statusText = 'Disponible (En attente de mission)';
-      let statusColor = '#10b981';
-
-      if (aidant.available === false) {
-        statusEmoji = '🔴';
-        statusText = 'Hors-ligne ou Inactif';
-        statusColor = '#ef4444';
-      }
-
-      const el = createHtmlMarker(statusEmoji, statusColor);
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([lng, lat])
-        .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-          <div style="min-width: 160px; font-family: sans-serif;">
-            <p style="font-weight: 800; margin: 0; font-size: 10px; color: ${statusColor}; uppercase">🦸 Intervenant</p>
-            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 12px; color: #1f2937;">${aidant.full_name}</p>
-            <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563; font-weight: 600;">Statut : ${statusText}</p>
-          </div>
-        `))
-        .addTo(currentMap);
-      newMarkersList.push(marker);
-    });
-
-    // 5️⃣ Checkpoints de Démarrage (🟢) et d'Arrivée (🏁) des VISITES actives
-    activeVisits.forEach((visit: any) => {
-      const targetLabel = visit.target_name || (visit.patient ? `${visit.patient.first_name} ${visit.patient.last_name}` : 'Patient');
-      const aidantName = visit.aidant?.user?.full_name || 'Intervenant';
-      const isMyVisit = visit.aidant_id === profile?.id || visit.aidant?.user_id === profile?.id;
-
-      if (visit.location_start && typeof visit.location_start === 'object') {
-        const lat = Number(visit.location_start.lat);
-        const lng = Number(visit.location_start.lng);
-        
-        if (lat && lng) {
-          const el = createHtmlMarker('🟢', '#10B981');
-          
-          const titleText = isAidantRole && isMyVisit
-            ? "🚀 Vous avez démarré la visite"
-            : "🚀 Début de l'accompagnement";
-
-          const detailsHtml = isAidantRole && isMyVisit
-            ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>`
-            : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>
-               <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Intervenant : ${aidantName}</p>`;
-
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #047857; uppercase">${titleText}</p>
-                ${detailsHtml}
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-
-      if (visit.location_end && typeof visit.location_end === 'object') {
-        const lat = Number(visit.location_end.lat);
-        const lng = Number(visit.location_end.lng);
-        
-        if (lat && lng) {
-          const el = createHtmlMarker('🏁', '#9C27B0');
-          
-          const titleText = isAidantRole && isMyVisit
-            ? "🏁 Vous avez terminé la visite"
-            : "🏁 Fin de l'accompagnement";
-
-          const detailsHtml = isAidantRole && isMyVisit
-            ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>`
-            : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>
-               <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Intervenant : ${aidantName}</p>`;
-
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7b1fa2; uppercase">${titleText}</p>
-                ${detailsHtml}
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-    });
-
-    // 6️⃣ Checkpoints de Prise (📦) et de Livraison (🚚) des COMMANDES actives
-    activeOrders.forEach((order: any) => {
-      const targetLabel = order.target_name || (order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : 'Bénéficiaire');
-      const aidantName = order.aidant?.user?.full_name || 'Livreur';
-      const metadataObj = order.metadata || {};
-      const isMyOrder = order.aidant_id === profile?.id || order.aidant?.user_id === profile?.id;
-
-      if (metadataObj.location_start && typeof metadataObj.location_start === 'object') {
-        const lat = Number(metadataObj.location_start.lat);
-        const lng = Number(metadataObj.location_start.lng);
-
-        if (lat && lng) {
-          const el = createHtmlMarker('📦', '#F59E0B');
-
-          const titleText = isAidantRole && isMyOrder
-            ? "📦 Vous avez pris en charge la commande"
-            : "📦 Commande prise en charge";
-
-          const detailsHtml = isAidantRole && isMyOrder
-            ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Destinataire : ${targetLabel}</p>`
-            : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Livreur : ${aidantName}</p>
-               <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Destinataire : ${targetLabel}</p>`;
-
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #b45309; uppercase">${titleText}</p>
-                ${detailsHtml}
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-
-      if (metadataObj.location_end && typeof metadataObj.location_end === 'object') {
-        const lat = Number(metadataObj.location_end.lat);
-        const lng = Number(metadataObj.location_end.lng);
-
-        if (lat && lng) {
-          const el = createHtmlMarker('🚚', '#2563EB');
-
-          const titleText = isAidantRole && isMyOrder
-            ? "🚚 Vous avez livré la commande"
-            : "🚚 Commande livrée";
-
-          const detailsHtml = isAidantRole && isMyOrder
-            ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Destinataire : ${targetLabel}</p>`
-            : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Livreur : ${aidantName}</p>
-               <p style="margin: 2px 0 0 0; font-size: 10px; color: #6b7280;">Destinataire : ${targetLabel}</p>`;
-
-          const marker = new maplibregl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
-              <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #1d4ed8; uppercase">${titleText}</p>
-                ${detailsHtml}
-              </div>
-            `))
-            .addTo(currentMap);
-          newMarkersList.push(marker);
-        }
-      }
-    });
-
-    activeMarkersRef.current = newMarkersList;
-
-  }, [position, locations, activeVisits, activeOrders]);
+  const activeConversation = conversations.find(c => c.id === currentConversationId);
 
   return (
-    <div className="map-container-wrapper w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 relative">
-      <div ref={mapContainer} className="w-full h-full" />
+    <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
       
-      {/* Bouton de rafraîchissement manuel */}
-      <button 
-        onClick={() => {
-          fetchActiveVisits();
-          toast.success('Positions radar actualisées');
-        }}
-        className="absolute bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition z-10"
-      >
-        <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
-      </button>
+      {/* BARRE LATÉRALE DE DISCUSSIONS */}
+      <div className="w-full md:w-80 border-b md:border-b-0 md:border-r flex flex-col bg-gray-50/50 shrink-0">
+        <div className="p-4 border-b flex items-center justify-between bg-white">
+          <h2 className="text-xs font-black uppercase tracking-wider text-gray-400">💬 Mes discussions</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-none">
+          {conversations.length === 0 ? (
+            <p className="text-[11px] text-gray-400 text-center py-6 font-semibold">Aucun canal actif</p>
+          ) : (
+            conversations.map((conv) => {
+              const isActive = conv.id === currentConversationId;
+              const hasUnread = conv.last_message && !conv.last_message.is_read && conv.last_message.sender_id !== currentUserId;
+              return (
+                <button
+                  key={conv.id}
+                  onClick={() => {
+                    setCurrentConversationId(conv.id);
+                    fetchMessages(conv.id);
+                  }}
+                  className={`w-full text-left p-3 rounded-2xl transition-all duration-200 select-none flex items-center gap-3 ${
+                    isActive ? 'bg-white shadow-sm border border-gray-100' : 'hover:bg-white/40'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-black shrink-0" style={{ background: colors.primary }}>
+                    {conv.type === 'group' ? <Users size={16} /> : (conv.name?.charAt(0)?.toUpperCase() || conv.participants?.[0]?.full_name?.charAt(0)?.toUpperCase() || 'U')}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-xs font-black text-gray-800 truncate">
+                        {conv.type === 'group' ? conv.name : (conv.participants?.[0]?.full_name || 'Utilisateur')}
+                      </p>
+                      {hasUnread && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+                    </div>
+                    <p className="text-[10px] text-gray-400 truncate font-semibold mt-0.5">
+                      {conv.last_message?.content || 'Aucun message'}
+                    </p>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ZONE DE CHAT ACTIVE */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white">
+        {activeConversation ? (
+          <>
+            <div className="p-4 border-b flex items-center gap-3 bg-white shrink-0">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black" style={{ background: colors.primary }}>
+                {activeConversation.type === 'group' ? <Users size={16} /> : (activeConversation.participants?.[0]?.full_name?.charAt(0)?.toUpperCase() || 'U')}
+              </div>
+              <div>
+                <h3 className="font-extrabold text-xs sm:text-sm text-gray-800">
+                  {activeConversation.type === 'group' ? activeConversation.name : (activeConversation.participants?.[0]?.full_name || 'Discussion privée')}
+                </h3>
+                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
+                  {activeConversation.type === 'group' ? '👥 Canal de Coordination' : '💬 Discussion privée sécurisée'}
+                </p>
+              </div>
+            </div>
+
+            {/* Corps du chat */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#faf9f6]/40 scrollbar-none">
+              {messages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center py-10">
+                  <div>
+                    <MessageCircle className="mx-auto text-gray-200 mb-2" size={32} />
+                    <p className="text-[11px] text-gray-400 font-semibold">Aucun message de coordination dans ce fil.</p>
+                  </div>
+                </div>
+              ) : (
+                messages.map((message, index) => {
+                  const isOwn = message.sender_id === currentUserId;
+                  const currentDate = formatDateSafe(message.created_at);
+                  const prevDate = formatDateSafe(messages[index - 1]?.created_at);
+                  const showDate = currentDate !== prevDate && currentDate !== '';
+                  return (
+                    <div key={message.id}>
+                      {showDate && (
+                        <div className="text-center my-4">
+                          <span className="text-[10px] font-bold px-3 py-1 rounded-full border bg-white" style={{ borderColor: colors.border, color: colors.text + '80' }}>
+                            {currentDate}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                        <div className="flex items-start space-x-2 max-w-[85%]">
+                          {!isOwn && (
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0 mt-1" style={{ background: colors.primary }}>
+                              {message.sender?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
+                          )}
+                          <div
+                            className="p-3 rounded-2xl"
+                            style={{
+                              background: isOwn ? colors.primary : 'white',
+                              color: isOwn ? 'white' : '#2d2d2d',
+                              borderBottomRightRadius: isOwn ? '4px' : '16px',
+                              borderBottomLeftRadius: isOwn ? '16px' : '4px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.015)',
+                              border: !isOwn ? '1px solid #f3f2ef' : undefined,
+                            }}
+                          >
+                            {!isOwn && (
+                              <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">
+                                {message.sender?.full_name}
+                              </p>
+                            )}
+                            <p className="text-xs sm:text-sm font-semibold whitespace-pre-wrap break-words leading-relaxed">
+                              {message.content}
+                            </p>
+                            <div className="flex items-center justify-end gap-1 mt-1 opacity-60 text-[8px]">
+                              <span>{formatTimeSafe(message.created_at)}</span>
+                              {isOwn && (
+                                <span>
+                                  {message.is_read ? <CheckCheck size={11} /> : <Check size={11} />}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Saisie */}
+            <form onSubmit={handleSendMessage} className="p-3 border-t bg-white shrink-0">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  placeholder="Écrire un message à la coordination..."
+                  className="flex-1 h-11 px-4 rounded-2xl border bg-gray-50/50 outline-none text-xs font-bold"
+                  style={{ borderColor: colors.border }}
+                  disabled={isSending}
+                />
+                <button
+                  type="submit"
+                  disabled={!messageInput.trim() || isSending}
+                  className="p-3 rounded-2xl text-white transition hover:opacity-90 disabled:opacity-50 shrink-0"
+                  style={{ background: colors.primary }}
+                >
+                  {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center p-6 text-center">
+            <div>
+              <MessageCircle className="mx-auto text-gray-200 mb-2" size={40} />
+              <h3 className="font-extrabold text-sm text-gray-700">Aucun fil sélectionné</h3>
+              <p className="text-xs text-gray-400 max-w-xs mt-1">Sélectionnez une discussion à gauche pour initier le dialogue avec l'administration.</p>
+            </div>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };
 
-export default MapPage;
+export default MessagesPage;
