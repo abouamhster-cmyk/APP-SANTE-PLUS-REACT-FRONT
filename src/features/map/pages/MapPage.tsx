@@ -1,5 +1,5 @@
 // 📁 src/features/map/pages/MapPage.tsx
-// ✅ PAGE CARTE : AFFICHAGE COMPACT DES CHECKPOINTS RÉELS UNIQUEMENT SANS MARQUEURS DE SECOURS
+// ✅ PAGE CARTE : AFFICHAGE COMPACT ET NETTOYAGE DES DOUBLONS D'INTERVENANTS EN MISSION ACTIVE
 
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
@@ -12,6 +12,8 @@ import toast from 'react-hot-toast';
 
 // Coordonnées par défaut uniquement pour initialiser la caméra (Cotonou)
 const DEFAULT_CENTER: [number, number] = [2.3912, 6.3703];
+const DEFAULT_LAT = 6.3703;
+const DEFAULT_LNG = 2.3912;
 
 // Helper pour dessiner des marqueurs HTML élégants avec des emojis
 const createHtmlMarker = (emoji: string, color: string) => {
@@ -153,25 +155,21 @@ const MapPage = () => {
       const lng = Number(aidant.longitude);
       if (!lat || !lng) return;
 
-      const activeVisit = activeVisits.find((v: any) => v.aidant_id === aidant.id || v.aidant?.user_id === aidant.id);
-      const activeOrder = activeOrders.find((o: any) => o.aidant_id === aidant.id || o.aidant?.user_id === aidant.id);
+      // Chercher si cet aidant a une mission active en cours de déroulement (en_cours)
+      const activeVisit = activeVisits.find((v: any) => v.status === 'en_cours' && (v.aidant_id === aidant.id || v.aidant?.user_id === aidant.id));
+      const activeOrder = activeOrders.find((o: any) => o.status === 'en_cours' && (o.aidant_id === aidant.id || o.aidant?.user_id === aidant.id));
+
+      // ✅ RÈGLE DE COHÉRENCE : Si l'aidant est en action (mission active), on ne dessine PAS son marqueur générique 👤 ou 🟢 !
+      // Sa position de mission active (🟢 ou 📦) suffit amplement.
+      if (activeVisit || activeOrder) {
+        return;
+      }
 
       let statusEmoji = '🟢';
       let statusText = 'Disponible (En attente de mission)';
       let statusColor = '#10b981';
-      let taskDetail = '';
 
-      if (activeVisit) {
-        statusEmoji = '⚡';
-        statusText = "En visite d'accompagnement active";
-        statusColor = '#9c27b0';
-        taskDetail = `<p style="margin: 4px 0 0 0; font-size: 10px; color: #7b1fa2; font-weight: 700;">🏥 Chez : ${activeVisit.target_name || 'Patient'}</p>`;
-      } else if (activeOrder) {
-        statusEmoji = '🚚';
-        statusText = 'En cours de livraison active';
-        statusColor = '#2563eb';
-        taskDetail = `<p style="margin: 4px 0 0 0; font-size: 10px; color: #1d4ed8; font-weight: 700;">📦 Colis : ${activeOrder.description || 'Commande'}</p>`;
-      } else if (aidant.available === false) {
+      if (aidant.available === false) {
         statusEmoji = '🔴';
         statusText = 'Hors-ligne ou Inactif';
         statusColor = '#ef4444';
@@ -185,7 +183,6 @@ const MapPage = () => {
             <p style="font-weight: 800; margin: 0; font-size: 10px; color: ${statusColor}; uppercase">🦸 Intervenant</p>
             <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 12px; color: #1f2937;">${aidant.full_name}</p>
             <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563; font-weight: 600;">Statut : ${statusText}</p>
-            ${taskDetail}
           </div>
         `))
         .addTo(currentMap);
