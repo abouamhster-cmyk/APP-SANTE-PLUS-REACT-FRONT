@@ -1,13 +1,12 @@
 // 📁 src/features/map/pages/MapPage.tsx
-// ✅ PAGE CARTE : AFFICHAGE DYNAMIQUE ET SÉCURISÉ DES CHECKPOINTS GPS DE DÉPART ET D'ARRIVÉE (VISITES + COMMANDES)
-
+ 
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useLocationStore } from '@/stores/locationStore';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuthStore } from '@/stores/authStore';
-import { RefreshCw, MapPin } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Coordonnées par défaut (Cotonou)
@@ -73,7 +72,7 @@ const MapPage = () => {
   // Centrage automatique sur le GPS de l'appareil
   useEffect(() => {
     if (position && map.current) {
-      map.current.flyTo({ center: [position[1], position[0]], zoom: 14 });
+      map.current.flyTo({ center: [position[1], position[0]], zoom: 15 });
     }
   }, [position]);
 
@@ -221,7 +220,8 @@ const MapPage = () => {
 
     activeMarkersRef.current = newMarkersList;
 
-  }, [leafletRef, position, locations, activeVisits, activeOrders]);
+  // ✅ CORRIGÉ : Retrait de 'leafletRef' qui n'existe plus dans ce fichier MapLibre
+  }, [position, locations, activeVisits, activeOrders]);
 
   return (
     <div className="map-container-wrapper w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 relative">
