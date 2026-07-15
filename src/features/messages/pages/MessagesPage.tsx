@@ -1,7 +1,6 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ PAGE MESSAGERIE COMPLÈTE : INTÉGRATION REST, HAUTEUR FIGÉE ET AFFICHAGE NOMINATIF SYSTÉMATIQUE DES EXPÉDITEURS
-
-import { useEffect, useState, useRef, useCallback } from 'react';  
+ 
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { 
   Send, 
   MessageCircle, 
@@ -56,9 +55,11 @@ const formatTimeSafe = (time: string | null | undefined): string => {
 // ============================================================
 
 const MessagesPage = () => {
+  // Récupération correcte du profil pour l'envoi de messages
   const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
-  
-  // Utilisation exclusive des actions et états du store unifié REST (Bypasse le RLS et résout les profils)
+  const { isFamily } = useTerminology();
+
+  // Utilisation des actions et états du store unifié REST
   const {
     conversations,
     messages,
@@ -72,6 +73,7 @@ const MessagesPage = () => {
     appendRealtimeMessage,
   } = useMessageStore();
 
+  // Déclaration unique de l'état local pour le champ de saisie du message
   const [messageInput, setMessageInput] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -121,7 +123,7 @@ const MessagesPage = () => {
             avatar_url: null,
           };
 
-          // Ajouter localement le message reçu en direct
+          // Ajouter localement
           appendRealtimeMessage({ ...newMessage, sender: mappedSender } as Message);
 
           // Marquer comme lu
@@ -147,7 +149,7 @@ const MessagesPage = () => {
     setMessageInput('');
 
     try {
-      // ✅ CORRECTIF DE SÉCURITÉ : Envoi via l'action unifiée du store REST pour contourner le RLS
+      // Envoi via l'action unifiée du store REST pour contourner le RLS
       await sendMessage(content);
       scrollToBottom(true);
     } catch (err: any) {
@@ -171,7 +173,8 @@ const MessagesPage = () => {
 
   return (
     <div 
-      className="h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white rounded-3xl overflow-hidden shadow-sm border"
+      // 🟢 CORRECTIF : Positionnement fixe sur mobile (stoppe l'effet de tremblement) et statique sur ordinateur
+      className="fixed md:static inset-x-0 md:inset-auto top-[56px] md:top-auto bottom-[64px] md:bottom-auto md:h-[calc(100vh-130px)] flex flex-col md:flex-row bg-white rounded-none md:rounded-3xl overflow-hidden shadow-sm md:border"
       style={{ borderColor: colors.primary + '12' }}
     >
       
@@ -299,7 +302,7 @@ const MessagesPage = () => {
                               border: !isOwn ? '1px solid #f3f2ef' : undefined,
                             }}
                           >
-                            {/* 🟢 CORRECTIF : Affichage systématique du nom réel de l'expéditeur sur le message (Propre et Transparent) */}
+                            {/* Affichage systématique du nom réel de l'expéditeur sur le message */}
                             <p className={cn(
                               "text-[9px] font-black uppercase tracking-wider mb-1 block",
                               isOwn ? "text-white/80" : "text-gray-400"
