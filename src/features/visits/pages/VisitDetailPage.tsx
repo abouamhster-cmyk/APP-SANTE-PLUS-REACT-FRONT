@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
-// ✅ PAGE DÉTAIL VISITE : INTEGRATION ET RENDER DYNAMIQUE DES OPTIONS CLINIQUES (SORTIE & RDV MÉDICAL)
+// ✅ PAGE DÉTAIL VISITE : CAPTURE DU CHECKPOINT GPS DE DÉPART ET D'ARRIVÉE DES MISSIONS EN DIRECT
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -21,9 +21,9 @@ import {
   Award,
   Navigation as NavIcon,
   Mic, // Note vocale
-  Hospital, // 🟢 Importé pour l'aiguillage hospitalier
-  Stethoscope, // 🟢 Importé pour l'aiguillage médical
-  Home, // 🟢 Importé pour l'aide à domicile
+  Hospital, 
+  Stethoscope, 
+  Home, 
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -198,13 +198,34 @@ const VisitDetailPage = () => {
     }
   };
 
+  // ✅ CAPTURE DU POINT DE DÉPART DE MISSION EN DIRECT (CHECKPOINT)
   const handleStart = async () => {
     if (!id || isActionPending.current) return;
     isActionPending.current = true;
     setIsUpdating(true);
+
+    let startLat: number | null = null;
+    let startLng: number | null = null;
+
     try {
-      await startVisit(id!);
-      toast.success('🚀 Visite démarrée !');
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        startLat = position.coords.latitude;
+        startLng = position.coords.longitude;
+        console.log(`📍 Checkpoint Départ GPS capturé: ${startLat}, ${startLng}`);
+      }
+    } catch (geoError) {
+      console.warn('⚠️ Impossible de capturer le GPS au démarrage (utilisation de la position par défaut)');
+    }
+
+    try {
+      await startVisit(id!, startLat, startLng); // ✅ Transmission des coordonnées au store
+      toast.success('🚀 Visite démarrée avec succès (GPS enregistré) !');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
       await fetchVisits();
@@ -217,6 +238,7 @@ const VisitDetailPage = () => {
     }
   };
 
+  // ✅ CAPTURE DU POINT D'ARRIVÉE DE MISSION EN DIRECT (CHECKPOINT)
   const handleComplete = async (data: {
     actions: string[];
     notes: string;
@@ -238,15 +260,36 @@ const VisitDetailPage = () => {
     isActionPending.current = true;
     setIsUploading(true);
 
+    let endLat: number | null = null;
+    let endLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        endLat = position.coords.latitude;
+        endLng = position.coords.longitude;
+        console.log(`📍 Checkpoint Arrivée GPS capturé: ${endLat}, ${endLng}`);
+      }
+    } catch (geoError) {
+      console.warn('⚠️ Impossible de capturer le GPS à la finalisation (utilisation de la position par défaut)');
+    }
+
     try {
       await completeVisit(id!, {
         actions,
         notes,
         photos: photoUrls,
         audio_url,
+        lat: endLat, // ✅ Transmission de la position de fin
+        lng: endLng, // ✅ Transmission de la position de fin
       });
 
-      toast.success('✅ Visite terminée avec succès !');
+      toast.success('✅ Visite terminée avec succès (GPS enregistré) !');
       setShowCompleteModal(false);
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
@@ -424,7 +467,7 @@ const VisitDetailPage = () => {
     if (currentVisit?.aidant_id) {
       return {
         label: 'En attente de validation',
-        sub: `⏳ ${aidantName} doit approuver la visite`,
+        sub: `⏳ ${antName} doit approuver la visite`,
         color: '#FF9800',
         icon: <Clock size={15} />
       };
@@ -805,7 +848,7 @@ const VisitDetailPage = () => {
 
           {/* ✅ BLOC CLINIQUE ET HOSPITALISATION CONDITIONNEL DYNAMIQUE */}
           {(visit.metadata?.is_discharge || visit.metadata?.is_medical_appointment) && (
-            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100/80 space-y-4">
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100/85 space-y-4">
               <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b pb-2 flex items-center gap-2">
                 <Hospital size={16} className="text-emerald-500 shrink-0" />
                 Détails de l'admission hospitalière
@@ -980,6 +1023,33 @@ const VisitDetailPage = () => {
                 {getVisitDisplayAddress(visit)}
               </p>
             </div>
+
+            {/* ✅ AFFICHAGE DES CHECKPOINTS GPS ENREGISTRÉS */}
+            {(visit.location_start || visit.location_end) && (
+              <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100 space-y-2.5">
+                <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
+                  📍 Checkpoints GPS Figés
+                </p>
+                <div className="text-xs space-y-2 font-medium">
+                  {visit.location_start && (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" />
+                      <span className="text-gray-600">
+                        <strong>Départ enregistré</strong> à {new Date(visit.start_time || visit.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )}
+                  {visit.location_end && (
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+                      <span className="text-gray-600">
+                        <strong>Arrivée enregistrée</strong> à {new Date(visit.end_time || visit.updated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {visit.patient?.phone && (
               <div className="pt-2 border-t border-gray-50">
