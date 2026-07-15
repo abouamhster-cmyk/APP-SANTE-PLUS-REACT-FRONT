@@ -1,4 +1,4 @@
-// 📁 frontend/src/App.tsx
+// 📁 src/App.tsx
 // ✅ CONTROLEUR DE NAVIGATION PRINCIPAL AVEC ECOUTE REALTIME OPTIMISÉE ET RE-SAUVEGARDE COMPLÈTE DES IMPORTS
 
 import { useEffect, useRef } from 'react';
@@ -57,7 +57,7 @@ import AidantDetailPage from '@/features/aidants/pages/AidantDetailPage';
 // ============================================================
 // AIDANT / HELP PAGES
 // ============================================================
-import MissionsPage from '@/features/help/pages/MissionsPage';
+import MissionsPage chain from '@/features/help/pages/MissionsPage';
 import PlanningPage from '@/features/help/pages/PlanningPage';
 import HistoryPage from '@/features/help/pages/HistoryPage';
 
@@ -90,7 +90,6 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  // ✅ CORRECTION TS : Destructuration de profile ajoutée
   const { initialize, isLoading: isAuthLoading, isAuthenticated, isInitialized: isAuthInitialized, profile } = useAuthStore();
   const { fetchNotifications, subscribe, unsubscribe, unreadCount } = useNotificationStore();
   const { fetchOffers, isInitialized: isOffersInitialized } = useOfferStore();
@@ -112,7 +111,7 @@ function App() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R' || e.key === 'f5')) {
-        console.log('🔄 Rechargement manuel détecté');
+        console.log('🔄 Rechargement manuel d’application détecté');
       }
     };
 
@@ -361,7 +360,7 @@ function App() {
               element={
                 <RoleGuard allowedRoles={['admin', 'coordinator']}>
                   <RegistrationDetailsPage />
-                </RoleGuard>
+                </RouteGuard>
               } 
             />
             <Route 
