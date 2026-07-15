@@ -1,12 +1,11 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ PAGE MESSAGERIE COMPLÈTE : ALIGNEMENT REST ET ABONNEMENT EN TEMPS RÉEL (ZÉRO BLOCAGE DE DROITS AIDANTS)
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { 
-  Send, 
-  MessageCircle, 
-  Check, 
-  CheckCheck, 
+import {
+  Send,
+  MessageCircle,
+  Check,
+  CheckCheck,
   Loader2,
   Users,
   ArrowLeft,
@@ -15,16 +14,11 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { useMessageStore } from '@/stores/messageStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
-import { useTerminology } from '@/hooks/useTerminology';
 import { formatTime, formatDate } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
 import { Message, Conversation } from '@/types';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
-
-// ============================================================
-// TYPES ET INTERFACES LOCALES
-// ============================================================
 
 interface SenderProfile {
   id?: string;
@@ -51,14 +45,9 @@ const formatTimeSafe = (time: string | null | undefined): string => {
   }
 };
 
-// ============================================================
-// COMPOSANT PRINCIPAL
-// ============================================================
-
 const MessagesPage = () => {
-  const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
-  
-  // Utilisation des actions et états du store unifié REST
+  const { user, role, isAuthenticated, isInitialized } = useAuthStore();
+
   const {
     conversations,
     messages,
@@ -83,52 +72,70 @@ const MessagesPage = () => {
 
   const scrollToBottom = useCallback((smooth = true) => {
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'end' });
+      messagesEndRef.current?.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
     }, 100);
   }, []);
 
-  // 1. Charger les discussions au montage initial (Déclenche le générateur d'API)
   useEffect(() => {
     if (isInitialized && isAuthenticated && currentUserId) {
       fetchConversations(true);
     }
   }, [isInitialized, isAuthenticated, currentUserId, fetchConversations]);
 
-  // 2. Écoute du Realtime Supabase pour l'immédiateté des messages reçus
   useEffect(() => {
     if (!currentUserId || !currentConversationId) return;
 
     const channel = supabase
       .channel(`room_${currentConversationId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${currentConversationId}` }, async (payload) => {
-        const newMessage = payload.new;
-        if (newMessage.sender_id !== currentUserId) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('id, full_name, role, avatar_url')
-            .eq('id', newMessage.sender_id)
-            .single();
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${currentConversationId}`,
+        },
+        async (payload) => {
+          const newMessage = payload.new;
 
-          const mappedSender: SenderProfile = profileData ? {
-            id: profileData.id,
-            full_name: profileData.full_name || 'Utilisateur',
-            role: profileData.role || 'family',
-            avatar_url: profileData.avatar_url || null,
-          } : {
-            id: newMessage.sender_id,
-            full_name: 'Utilisateur',
-            role: 'family',
-            avatar_url: null,
-          };
+          if (newMessage.sender_id !== currentUserId) {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('id, full_name, role, avatar_url')
+              .eq('id', newMessage.sender_id)
+              .single();
 
-          // Ajouter localement
-          appendRealtimeMessage({ ...newMessage, sender: mappedSender } as Message);
+            const mappedSender: SenderProfile = profileData
+              ? {
+                  id: profileData.id,
+                  full_name: profileData.full_name || 'Utilisateur',
+                  role: profileData.role || 'family',
+                  avatar_url: profileData.avatar_url || null,
+                }
+              : {
+                  id: newMessage.sender_id,
+                  full_name: 'Utilisateur',
+                  role: 'family',
+                  avatar_url: null,
+                };
 
-          // Marquer comme lu
-          await supabase.from('messages').update({ is_read: true }).eq('id', newMessage.id);
-          scrollToBottom(true);
+            appendRealtimeMessage({
+              ...newMessage,
+              sender: mappedSender,
+            } as Message);
+
+            await supabase
+              .from('messages')
+              .update({ is_read: true })
+              .eq('id', newMessage.id);
+
+            scrollToBottom(true);
+          }
         }
-      })
+      )
       .subscribe();
 
     channelRef.current = channel;
@@ -138,7 +145,6 @@ const MessagesPage = () => {
     };
   }, [currentConversationId, currentUserId, appendRealtimeMessage, scrollToBottom]);
 
-  // 3. Envoi du message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageInput.trim()) return;
@@ -147,215 +153,192 @@ const MessagesPage = () => {
     setMessageInput('');
 
     try {
-      // ✅ CORRECTIF DE SÉCURITÉ : Envoi direct via l'API REST unifiée pour contourner les verrous RLS
       await sendMessage(content);
       scrollToBottom(true);
-    } catch (err: any) {
+    } catch {
       toast.error("Échec de l'envoi");
-      setMessageInput(content); // Restituer le texte tapé en cas d'échec
+      setMessageInput(content);
     }
   };
 
   if (isLoading && conversations.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-3" style={{ color: colors.primary }} />
-          <p className="text-xs text-gray-500">Chargement de la messagerie...</p>
-        </div>
+      <div className="flex items-center justify-center h-full flex-col">
+        <Loader2
+          className="w-10 h-10 animate-spin mb-3"
+          style={{ color: colors.primary }}
+        />
+        <p className="text-sm text-gray-500 font-medium">
+          Chargement de la messagerie...
+        </p>
       </div>
     );
   }
 
-  const activeConversation = conversations.find(c => c.id === currentConversationId);
+  const activeConversation = conversations.find(
+    (c) => c.id === currentConversationId
+  );
 
   return (
-    <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
-      
-      {/* BARRE LATÉRALE DE DISCUSSIONS RESPONSIVE (Masquée sur mobile si un chat est actif) */}
-      <div 
+    <div className="flex h-[100dvh] bg-[#f8f7f4] overflow-hidden">
+      {/* SIDEBAR */}
+      <div
         className={cn(
-          "w-full md:w-80 border-b md:border-b-0 md:border-r flex flex-col bg-gray-50/50 shrink-0 h-full",
-          currentConversationId ? "hidden md:flex" : "flex"
+          'w-full md:w-[320px] border-r flex flex-col bg-white/80 backdrop-blur-xl',
+          currentConversationId ? 'hidden md:flex' : 'flex'
         )}
-        style={{ borderColor: colors.primary + '10' }}
       >
-        <div className="p-4 border-b flex items-center justify-between bg-white" style={{ borderColor: colors.primary + '10' }}>
-          <h2 className="text-xs font-black uppercase tracking-wider text-gray-400">💬 Mes discussions</h2>
+        <div className="px-5 py-4 border-b bg-white/60">
+          <h2 className="text-[11px] font-black uppercase tracking-widest text-gray-400">
+            💬 Messages
+          </h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-none">
-          {conversations.length === 0 ? (
-            <p className="text-[11px] text-gray-400 text-center py-6 font-semibold">Aucun canal actif</p>
-          ) : (
-            conversations.map((conv) => {
-              const isActive = conv.id === currentConversationId;
-              const hasUnread = conv.last_message && !conv.last_message.is_read && conv.last_message.sender_id !== currentUserId;
-              return (
-                <button
-                  key={conv.id}
-                  onClick={() => {
-                    setCurrentConversationId(conv.id);
-                    fetchMessages(conv.id);
-                  }}
-                  className={`w-full text-left p-3 rounded-2xl transition-all duration-200 select-none flex items-center gap-3 ${
-                    isActive ? 'bg-white shadow-sm border border-gray-100' : 'hover:bg-white/40'
-                  }`}
+
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+          {conversations.map((conv) => {
+            const isActive = conv.id === currentConversationId;
+
+            return (
+              <button
+                key={conv.id}
+                onClick={() => {
+                  setCurrentConversationId(conv.id);
+                  fetchMessages(conv.id);
+                }}
+                className={cn(
+                  'w-full p-3 rounded-2xl flex items-center gap-3 transition',
+                  isActive
+                    ? 'bg-white shadow-md border'
+                    : 'hover:bg-white'
+                )}
+              >
+                <div
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold"
+                  style={{ background: colors.primary }}
                 >
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-black shrink-0" style={{ background: colors.primary }}>
-                    {conv.type === 'group' ? <Users size={16} /> : (conv.name?.charAt(0)?.toUpperCase() || conv.participants?.[0]?.full_name?.charAt(0)?.toUpperCase() || 'U')}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-1">
-                      <p className="text-xs font-black text-gray-800 truncate">
-                        {conv.type === 'group' ? conv.name : (conv.participants?.[0]?.full_name || 'Utilisateur')}
-                      </p>
-                      {hasUnread && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                    </div>
-                    <p className="text-[10px] text-gray-400 truncate font-semibold mt-0.5">
-                      {conv.last_message?.content || 'Aucun message'}
-                    </p>
-                  </div>
-                </button>
-              );
-            })
-          )}
+                  {conv.type === 'group' ? (
+                    <Users size={16} />
+                  ) : (
+                    conv.name?.charAt(0)?.toUpperCase() || 'U'
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-bold truncate">
+                    {conv.name || 'Discussion'}
+                  </p>
+                  <p className="text-[11px] text-gray-400 truncate">
+                    {conv.last_message?.content || 'Aucun message'}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* ZONE DE CHAT ACTIVE RESPONSIVE (Plein écran sur mobile si actif) */}
-      <div 
+      {/* CHAT */}
+      <div
         className={cn(
-          "flex-1 flex flex-col min-w-0 bg-white h-full",
-          currentConversationId ? "flex" : "hidden md:flex"
+          'flex-1 flex flex-col bg-[#fdfcf9]',
+          currentConversationId ? 'flex' : 'hidden md:flex'
         )}
       >
         {activeConversation ? (
           <>
-            <div className="p-4 border-b flex items-center gap-3 bg-white shrink-0">
-              
-              {/* BOUTON RETOUR : Visible uniquement sur mobile pour fermer le chat actif */}
+            {/* HEADER */}
+            <div className="px-4 py-3 border-b bg-white flex items-center gap-3">
               <button
                 onClick={() => setCurrentConversationId(null)}
-                className="md:hidden p-1.5 hover:bg-gray-100 rounded-xl transition shrink-0"
+                className="md:hidden"
               >
-                <ArrowLeft size={18} style={{ color: colors.primary }} />
+                <ArrowLeft size={18} />
               </button>
 
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0" style={{ background: colors.primary }}>
-                {activeConversation.type === 'group' ? <Users size={16} /> : (activeConversation.participants?.[0]?.full_name?.charAt(0)?.toUpperCase() || 'U')}
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-white"
+                style={{ background: colors.primary }}
+              >
+                <Users size={14} />
               </div>
+
               <div>
-                <h3 className="font-extrabold text-xs sm:text-sm text-gray-800">
-                  {activeConversation.type === 'group' ? activeConversation.name : (activeConversation.participants?.[0]?.full_name || 'Discussion privée')}
+                <h3 className="font-bold text-sm">
+                  {activeConversation.name}
                 </h3>
-                <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider mt-0.5">
-                  {activeConversation.type === 'group' ? '👥 Canal de Coordination' : '💬 Discussion privée sécurisée'}
+                <p className="text-[10px] text-gray-400">
+                  Discussion sécurisée
                 </p>
               </div>
             </div>
 
-            {/* Corps du chat */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#faf9f6]/40 scrollbar-none">
-              {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center py-10">
-                  <div>
-                    <MessageCircle className="mx-auto text-gray-200 mb-2" size={32} />
-                    <p className="text-[11px] text-gray-400 font-semibold">Aucun message de coordination dans ce fil.</p>
-                  </div>
-                </div>
-              ) : (
-                messages.map((message, index) => {
-                  const isOwn = message.sender_id === currentUserId;
-                  const currentDate = formatDateSafe(message.created_at);
-                  const prevDate = formatDateSafe(messages[index - 1]?.created_at);
-                  const showDate = currentDate !== prevDate && currentDate !== '';
-                  return (
-                    <div key={message.id}>
-                      {showDate && (
-                        <div className="text-center my-4">
-                          <span className="text-[10px] font-bold px-3 py-1 rounded-full border bg-white" style={{ borderColor: colors.border, color: colors.text + '80' }}>
-                            {currentDate}
-                          </span>
-                        </div>
-                      )}
-                      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
-                        <div className="flex items-start space-x-2 max-w-[85%]">
-                          {!isOwn && (
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0 mt-1" style={{ background: colors.primary }}>
-                              {message.sender?.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                            </div>
-                          )}
-                          <div
-                            className="p-3 rounded-2xl"
-                            style={{
-                              background: isOwn ? colors.primary : 'white',
-                              color: isOwn ? 'white' : '#2d2d2d',
-                              borderBottomRightRadius: isOwn ? '4px' : '16px',
-                              borderBottomLeftRadius: isOwn ? '16px' : '4px',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.015)',
-                              border: !isOwn ? '1px solid #f3f2ef' : undefined,
-                            }}
-                          >
-                            {!isOwn && (
-                              <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">
-                                {message.sender?.full_name}
-                              </p>
-                            )}
-                            <p className="text-xs sm:text-sm font-semibold whitespace-pre-wrap break-words leading-relaxed">
-                              {message.content}
-                            </p>
-                            <div className="flex items-center justify-end gap-1 mt-1 opacity-60 text-[8px]">
-                              <span>{formatTimeSafe(message.created_at)}</span>
-                              {isOwn && (
-                                <span>
-                                  {message.is_read ? <CheckCheck size={11} /> : <Check size={11} />}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+            {/* MESSAGES */}
+            <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
+              {messages.map((message, index) => {
+                const isOwn = message.sender_id === currentUserId;
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${
+                      isOwn ? 'justify-end' : 'justify-start'
+                    }`}
+                  >
+                    <div
+                      className="px-4 py-2 rounded-2xl max-w-[80%]"
+                      style={{
+                        background: isOwn ? colors.primary : 'white',
+                        color: isOwn ? 'white' : '#1f2937',
+                      }}
+                    >
+                      <p className="text-[13px]">{message.content}</p>
+
+                      <div className="flex justify-end text-[9px] mt-1 opacity-60">
+                        {formatTimeSafe(message.created_at)}
+                        {isOwn &&
+                          (message.is_read ? (
+                            <CheckCheck size={12} />
+                          ) : (
+                            <Check size={12} />
+                          ))}
                       </div>
                     </div>
-                  );
-                })
-              )}
+                  </div>
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Saisie */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t bg-white shrink-0">
-              <div className="flex items-center gap-2">
+            {/* INPUT */}
+            <form
+              onSubmit={handleSendMessage}
+              className="p-3 bg-white border-t"
+            >
+              <div className="flex items-center gap-2 bg-gray-100 rounded-2xl px-2">
                 <input
-                  type="text"
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
+                  className="flex-1 h-10 bg-transparent outline-none text-sm px-2"
                   placeholder="Écrire un message..."
-                  className="flex-1 h-11 px-4 rounded-2xl border bg-gray-50/50 outline-none text-xs font-bold"
-                  style={{ borderColor: colors.border }}
-                  disabled={isSending}
                 />
+
                 <button
                   type="submit"
-                  disabled={!messageInput.trim() || isSending}
-                  className="p-3 rounded-2xl text-white transition hover:opacity-90 disabled:opacity-50 shrink-0"
+                  disabled={!messageInput.trim()}
+                  className="p-2 rounded-xl text-white"
                   style={{ background: colors.primary }}
                 >
-                  {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  <Send size={16} />
                 </button>
               </div>
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center p-6 text-center">
-            <div>
-              <MessageCircle className="mx-auto text-gray-200 mb-2" size={40} />
-              <h3 className="font-extrabold text-sm text-gray-700">Aucun fil sélectionné</h3>
-              <p className="text-xs text-gray-400 max-w-xs mt-1">Sélectionnez une discussion à gauche pour initier le dialogue.</p>
-            </div>
+          <div className="flex-1 flex items-center justify-center">
+            <MessageCircle size={40} className="text-gray-300" />
           </div>
         )}
       </div>
-
     </div>
   );
 };
