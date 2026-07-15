@@ -1,5 +1,5 @@
 // 📁 frontend/src/stores/orderStore.ts
-// ✅ STORE COMMANDES COMPLET : OPTIMISTIC UPDATES ET BY-PASS DU VERROU DE CACHE SUR FORCE-REFRESH
+// ✅ STORE COMMANDES COMPLET : TRANSMISSION DES CHECKPOINTS GPS LORS DE LA PRISE ET DE LA LIVRAISON (COHÉRENCE DES FLUX)
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -100,7 +100,7 @@ interface OrderState {
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   deleteOrder: (id: string) => Promise<void>;
   confirmPayment: (id: string, transactionId: string) => Promise<void>;
-  takeOrder: (id: string) => Promise<void>;
+  takeOrder: (id: string, lat?: number | null, lng?: number | null) => Promise<any>;
   acceptOrder: (id: string) => Promise<void>;
   prepareOrder: (id: string) => Promise<void>;
   markOrderReady: (id: string) => Promise<void>;
@@ -209,7 +209,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   fetchOrders: async (force = false) => {
     const state = get();
     
-    // ✅ CORRECTIF DU VERROU : Si force = true, on ignore totalement le lock 'isLoading'
     if (state.isLoading && !force) {
       console.log('ℹ️ Déjà en cours de chargement, skip...');
       return;
@@ -403,7 +402,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const response = await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
       const order = response.data?.order || response.data;
 
-      // ✅ OPTIMISTIC UPDATE
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? order : o),
         currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
@@ -421,29 +419,28 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   // ============================================================
-  // PRENDRE UNE COMMANDE (PRISE DE COMMANDE OPTIMISTE)
+  // PRENDRE UNE COMMANDE (TRANSMISSION SÉCURISÉE DES CHECKPOINTS GPS)
   // ============================================================
-  takeOrder: async (id: string) => {
+  takeOrder: async (id: string, lat?: number | null, lng?: number | null) => {
     try {
       set({ isLoading: true, error: null });
       
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      const response = await api.post(`/orders/${id}/take`);
+      // ✅ TRANSMISSION GPS DU CHECKPOINT DE DÉPART DE LA COMMANDE
+      const response = await api.post(`/orders/${id}/take`, { lat, lng });
       const order = response.data?.order || response.data;
 
       if (!order) {
         throw new Error('Erreur lors de la prise de commande');
       }
 
-      // ✅ OPTIMISTIC UPDATE : Injecter directement l'aidant et le nouveau statut dans le state local
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? order : o),
         currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
       }));
 
-      // Vider radicalement le cache local pour forcer l'actualisation
       clearCachedOrders();
       await get().fetchOrders(true);
 
@@ -457,7 +454,23 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   },
 
   acceptOrder: async (id: string) => {
-    return get().takeOrder(id);
+    // Si l'IHM propose d'accepter, on demande de géolocaliser d'abord en amont
+    let startLat: number | null = null;
+    let startLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        });
+        startLat = position.coords.latitude;
+        startLng = position.coords.longitude;
+      }
+    } catch (e) {
+      console.warn("⚠️ Impossible de récupérer le GPS au moment d'accepter");
+    }
+
+    return get().takeOrder(id, startLat, startLng);
   },
 
   prepareOrder: async (id: string) => {
@@ -514,13 +527,34 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // LIVRER UNE COMMANDE (TRANSMISSION SÉCURISÉE DES CHECKPOINTS GPS)
+  // ============================================================
   completeDelivery: async (id: string, proof_url?: string) => {
     try {
       set({ isLoading: true, error: null });
-      const response = await api.post(`/orders/${id}/complete`, { proof_url });
+
+      // ✅ CAPTURE GPS : Transmet le point de livraison au moment du dépôt
+      let location = null;
+      try {
+        if (navigator.geolocation) {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000 });
+          });
+          location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }
+      } catch (e) {
+        console.warn("⚠️ Impossible de capturer le GPS de dépôt de colis");
+      }
+
+      // Appel de l'API de livraison (/deliver) avec la preuve et les coordonnées d'arrivée
+      const response = await api.post(`/orders/${id}/deliver`, { proof_url, location });
       const order = response.data?.order || response.data;
       
-      set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
+      set((state) => ({ 
+        orders: state.orders.map(o => o.id === id ? order : o),
+        currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
+      }));
 
       clearCachedOrders();
       await get().fetchOrders(true);
@@ -567,7 +601,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const response = await api.post(`/orders/${id}/status`, { status });
       const order = response.data?.order || response.data;
 
-      // ✅ OPTIMISTIC UPDATE
       set((state) => ({
         orders: state.orders.map(o => o.id === id ? order : o),
         currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
