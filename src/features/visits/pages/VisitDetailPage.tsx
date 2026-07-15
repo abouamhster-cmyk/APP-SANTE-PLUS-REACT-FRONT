@@ -467,7 +467,7 @@ const VisitDetailPage = () => {
     if (currentVisit?.aidant_id) {
       return {
         label: 'En attente de validation',
-        sub: `⏳ ${antName} doit approuver la visite`,
+        sub: `⏳ ${aidantName} doit approuver la visite`,
         color: '#FF9800',
         icon: <Clock size={15} />
       };
@@ -848,7 +848,7 @@ const VisitDetailPage = () => {
 
           {/* ✅ BLOC CLINIQUE ET HOSPITALISATION CONDITIONNEL DYNAMIQUE */}
           {(visit.metadata?.is_discharge || visit.metadata?.is_medical_appointment) && (
-            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100/85 space-y-4">
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100/80 space-y-4">
               <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b pb-2 flex items-center gap-2">
                 <Hospital size={16} className="text-emerald-500 shrink-0" />
                 Détails de l'admission hospitalière
