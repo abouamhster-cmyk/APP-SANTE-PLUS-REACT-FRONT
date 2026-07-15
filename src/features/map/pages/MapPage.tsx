@@ -1,5 +1,5 @@
 // 📁 src/features/map/pages/MapPage.tsx
-// ✅ PAGE CARTE : AFFICHAGE DYNAMIQUE ET PERSONNALISÉ SELON LE RÔLE DE L'UTILISATEUR CONNECTÉ
+// ✅ PAGE CARTE : INTERFACE COMPLÈTE AVEC CENTRE DE CONTRÔLE ADMIN ET CHECKPOINTS DYNAMIQUES
 
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
@@ -79,12 +79,12 @@ const MapPage = () => {
     }
   }, [position]);
 
-  // ✅ CALCUL ET RENDU DYNAMIQUE DES CHECKPOINTS GPS SUR LA CARTE
+  // ✅ CALCUL ET RENDU DYNAMIQUE DES CHECKPOINTS GPS SUR LA CARTE (AVEC MODULE ADMIN DIRECT)
   useEffect(() => {
     const currentMap = map.current;
     if (!currentMap) return;
 
-    // A. Supprimer tous les marqueurs précédents de la mémoire
+    // A. Supprimer tous les marqueurs précédents de la mémoire pour éviter les fuites de performances
     activeMarkersRef.current.forEach(m => m.remove());
     activeMarkersRef.current = [];
 
@@ -124,13 +124,58 @@ const MapPage = () => {
       newMarkersList.push(marker);
     });
 
-    // 3️⃣ Afficher les checkpoints de Démarrage et Arrivée des VISITES en cours
+    // 3️⃣ 🦸 MARQUEURS AIDANTS (Pour l'Admin, montre dynamiquement leur activité et position en direct)
+    locations.aidants.forEach((aidant: any) => {
+      const lat = Number(aidant.latitude);
+      const lng = Number(aidant.longitude);
+      if (!lat || !lng) return;
+
+      // Analyser si cet aidant a une mission active dans le flux du radar
+      const activeVisit = activeVisits.find((v: any) => v.aidant_id === aidant.id || v.aidant?.user_id === aidant.id);
+      const activeOrder = activeOrders.find((o: any) => o.aidant_id === aidant.id || o.aidant?.user_id === aidant.id);
+
+      let statusEmoji = '🟢';
+      let statusText = 'Disponible (En attente de mission)';
+      let statusColor = '#10b981';
+      let taskDetail = '';
+
+      if (activeVisit) {
+        statusEmoji = '⚡';
+        statusText = "En visite d'accompagnement active";
+        statusColor = '#9c27b0';
+        taskDetail = `<p style="margin: 4px 0 0 0; font-size: 10px; color: #7b1fa2; font-weight: 700;">🏠 Chez : ${activeVisit.target_name || 'Patient'}</p>`;
+      } else if (activeOrder) {
+        statusEmoji = '🚚';
+        statusText = 'En cours de livraison active';
+        statusColor = '#2563eb';
+        taskDetail = `<p style="margin: 4px 0 0 0; font-size: 10px; color: #1d4ed8; font-weight: 700;">📦 Colis : ${activeOrder.description || 'Commande'}</p>`;
+      } else if (aidant.available === false) {
+        statusEmoji = '🔴';
+        statusText = 'Hors-ligne ou Inactif';
+        statusColor = '#ef4444';
+      }
+
+      const el = createHtmlMarker(statusEmoji, statusColor);
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([lng, lat])
+        .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
+          <div style="min-width: 160px; font-family: sans-serif;">
+            <p style="font-weight: 800; margin: 0; font-size: 10px; color: ${statusColor}; uppercase">🦸 Intervenant</p>
+            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 12px; color: #1f2937;">${aidant.full_name}</p>
+            <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563; font-weight: 600;">Statut : ${statusText}</p>
+            ${taskDetail}
+          </div>
+        `))
+        .addTo(currentMap);
+      newMarkersList.push(marker);
+    });
+
+    // 4️⃣ Checkpoints de Démarrage (🟢) et d'Arrivée (🏁) des VISITES actives (Pour les repères d'étapes)
     activeVisits.forEach((visit: any) => {
       const targetLabel = visit.target_name || (visit.patient ? `${visit.patient.first_name} ${visit.patient.last_name}` : 'Patient');
       const aidantName = visit.aidant?.user?.full_name || 'Intervenant';
       const isMyVisit = visit.aidant_id === profile?.id || visit.aidant?.user_id === profile?.id;
 
-      // 🟢 Checkpoint Départ (location_start)
       if (visit.location_start && typeof visit.location_start === 'object') {
         const lat = Number(visit.location_start.lat);
         const lng = Number(visit.location_start.lng);
@@ -138,7 +183,6 @@ const MapPage = () => {
         if (lat && lng) {
           const el = createHtmlMarker('🟢', '#10B981');
           
-          // ✅ ADAPTATION COMPORTEMENT DU MESSAGE SELON L'AIDANT OU LE CLIENT
           const titleText = isAidantRole && isMyVisit
             ? "🚀 Vous avez démarré la visite"
             : "🚀 Début de l'accompagnement";
@@ -161,7 +205,6 @@ const MapPage = () => {
         }
       }
 
-      // 🏁 Checkpoint Arrivée (location_end)
       if (visit.location_end && typeof visit.location_end === 'object') {
         const lat = Number(visit.location_end.lat);
         const lng = Number(visit.location_end.lng);
@@ -169,7 +212,6 @@ const MapPage = () => {
         if (lat && lng) {
           const el = createHtmlMarker('🏁', '#9C27B0');
           
-          // ✅ ADAPTATION COMPORTEMENT DU MESSAGE SELON L'AIDANT OU LE CLIENT
           const titleText = isAidantRole && isMyVisit
             ? "🏁 Vous avez terminé la visite"
             : "🏁 Fin de l'accompagnement";
@@ -193,14 +235,13 @@ const MapPage = () => {
       }
     });
 
-    // 4️⃣ Afficher les checkpoints de Prise et Livraison des COMMANDES en cours
+    // 5️⃣ Checkpoints de Prise (📦) et de Livraison (🚚) des COMMANDES actives
     activeOrders.forEach((order: any) => {
       const targetLabel = order.target_name || (order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : 'Bénéficiaire');
       const aidantName = order.aidant?.user?.full_name || 'Livreur';
       const metadataObj = order.metadata || {};
       const isMyOrder = order.aidant_id === profile?.id || order.aidant?.user_id === profile?.id;
 
-      // 📦 Checkpoint Prise (location_start stocké en metadata)
       if (metadataObj.location_start && typeof metadataObj.location_start === 'object') {
         const lat = Number(metadataObj.location_start.lat);
         const lng = Number(metadataObj.location_start.lng);
@@ -208,7 +249,6 @@ const MapPage = () => {
         if (lat && lng) {
           const el = createHtmlMarker('📦', '#F59E0B');
 
-          // ✅ ADAPTATION COMPORTEMENT DU MESSAGE SELON L'AIDANT OU LE CLIENT
           const titleText = isAidantRole && isMyOrder
             ? "📦 Vous avez pris en charge la commande"
             : "📦 Commande prise en charge";
@@ -231,7 +271,6 @@ const MapPage = () => {
         }
       }
 
-      // 🚚 Checkpoint Arrivée (location_end stocké en metadata)
       if (metadataObj.location_end && typeof metadataObj.location_end === 'object') {
         const lat = Number(metadataObj.location_end.lat);
         const lng = Number(metadataObj.location_end.lng);
@@ -239,7 +278,6 @@ const MapPage = () => {
         if (lat && lng) {
           const el = createHtmlMarker('🚚', '#2563EB');
 
-          // ✅ ADAPTATION COMPORTEMENT DU MESSAGE SELON L'AIDANT OU LE CLIENT
           const titleText = isAidantRole && isMyOrder
             ? "🚚 Vous avez livré la commande"
             : "🚚 Commande livrée";
@@ -271,7 +309,7 @@ const MapPage = () => {
     <div className="map-container-wrapper w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 relative">
       <div ref={mapContainer} className="w-full h-full" />
       
-      {/* Bouton manuel de rafraîchissement */}
+      {/* Bouton de rafraîchissement manuel */}
       <button 
         onClick={() => {
           fetchActiveVisits();
