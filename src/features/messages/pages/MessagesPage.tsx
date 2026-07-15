@@ -1,5 +1,5 @@
 // 📁 src/features/messages/pages/MessagesPage.tsx
-// ✅ PAGE MESSAGERIE COMPLÈTE : SYNC FLUIDE ET INTERFACE TACTILE SANS BOUCLES RÉCURSIVES
+// ✅ PAGE MESSAGERIE COMPLÈTE : SYNC FLUIDE ET INTERFACE TACTILE CORRIGÉE SANS BUGS TS
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { 
@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
-import { useMessageStore } from '@/stores/messageStore';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatTime, formatDate } from '@/utils/helpers';
@@ -54,12 +53,31 @@ interface Conversation {
   last_message?: Message;
 }
 
+const formatDateSafe = (date: string | null | undefined): string => {
+  if (!date) return '';
+  try {
+    return formatDate(date);
+  } catch {
+    return '';
+  }
+};
+
+const formatTimeSafe = (time: string | null | undefined): string => {
+  if (!time) return '';
+  try {
+    return formatTime(time);
+  } catch {
+    return '';
+  }
+};
+
 // ============================================================
 // COMPOSANT PRINCIPAL
 // ============================================================
 
 const MessagesPage = () => {
-  const { user, role, isAuthenticated, isInitialized } = useAuthStore();
+  // 🟢 CORRECTIF : Ajout de "profile" dans l'importation destructurée du store d'authentification
+  const { user, profile, role, isAuthenticated, isInitialized } = useAuthStore();
   const { isFamily } = useTerminology();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -260,7 +278,8 @@ const MessagesPage = () => {
 
           setMessages((prev) => {
             if (prev.some(m => m.id === newMessage.id)) return prev;
-            return [...prev, { ...newMessage, sender: mappedSender }];
+            // 🟢 CORRECTIF : Ajout de "as Message" pour lever le conflit de typage TS du tableau
+            return [...prev, { ...newMessage, sender: mappedSender } as Message];
           });
 
           await supabase.from('messages').update({ is_read: true }).eq('id', newMessage.id);
@@ -410,42 +429,54 @@ const MessagesPage = () => {
                   </div>
                 </div>
               ) : (
-                messages.map((message) => {
+                messages.map((message, index) => {
                   const isOwn = message.sender_id === currentUserId;
+                  const currentDate = formatDateSafe(message.created_at);
+                  const prevDate = formatDateSafe(messages[index - 1]?.created_at);
+                  const showDate = currentDate !== prevDate && currentDate !== '';
                   return (
-                    <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
-                      <div className="flex items-start space-x-2 max-w-[85%]">
-                        {!isOwn && (
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0 mt-1" style={{ background: colors.primary }}>
-                            {message.sender?.full_name?.charAt(0)?.toUpperCase() || 'U'}
-                          </div>
-                        )}
-                        <div
-                          className="p-3 rounded-2xl"
-                          style={{
-                            background: isOwn ? colors.primary : 'white',
-                            color: isOwn ? 'white' : '#2d2d2d',
-                            borderBottomRightRadius: isOwn ? '4px' : '16px',
-                            borderBottomLeftRadius: isOwn ? '16px' : '4px',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.015)',
-                            border: !isOwn ? '1px solid #f3f2ef' : undefined,
-                          }}
-                        >
+                    <div key={message.id}>
+                      {showDate && (
+                        <div className="text-center my-4">
+                          <span className="text-[10px] font-bold px-3 py-1 rounded-full border bg-white" style={{ borderColor: colors.border, color: colors.text + '80' }}>
+                            {currentDate}
+                          </span>
+                        </div>
+                      )}
+                      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
+                        <div className="flex items-start space-x-2 max-w-[85%]">
                           {!isOwn && (
-                            <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">
-                              {message.sender?.full_name}
-                            </p>
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0 mt-1" style={{ background: colors.primary }}>
+                              {message.sender?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                            </div>
                           )}
-                          <p className="text-xs sm:text-sm font-semibold whitespace-pre-wrap break-words leading-relaxed">
-                            {message.content}
-                          </p>
-                          <div className="flex items-center justify-end gap-1 mt-1 opacity-60 text-[8px]">
-                            <span>{formatTime(message.created_at)}</span>
-                            {isOwn && (
-                              <span>
-                                {message.is_read ? <CheckCheck size={11} /> : <Check size={11} />}
-                              </span>
+                          <div
+                            className="p-3 rounded-2xl"
+                            style={{
+                              background: isOwn ? colors.primary : 'white',
+                              color: isOwn ? 'white' : '#2d2d2d',
+                              borderBottomRightRadius: isOwn ? '4px' : '16px',
+                              borderBottomLeftRadius: isOwn ? '16px' : '4px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.015)',
+                              border: !isOwn ? '1px solid #f3f2ef' : undefined,
+                            }}
+                          >
+                            {!isOwn && (
+                              <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">
+                                {message.sender?.full_name}
+                              </p>
                             )}
+                            <p className="text-xs sm:text-sm font-semibold whitespace-pre-wrap break-words leading-relaxed">
+                              {message.content}
+                            </p>
+                            <div className="flex items-center justify-end gap-1 mt-1 opacity-60 text-[8px]">
+                              <span>{formatTimeSafe(message.created_at)}</span>
+                              {isOwn && (
+                                <span>
+                                  {message.is_read ? <CheckCheck size={11} /> : <Check size={11} />}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
