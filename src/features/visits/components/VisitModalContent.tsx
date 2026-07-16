@@ -13,6 +13,10 @@ import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
 import toast from 'react-hot-toast';
 
+// ============================================================
+// TYPES
+// ============================================================
+
 interface VisitModalContentProps {
   mode: 'create' | 'edit';
   visit: Visit | null;
@@ -35,6 +39,10 @@ interface Account {
   display_name: string;
   type: 'account_with_patients' | 'personal_account';
 }
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
 
 export const VisitModalContent = ({
   mode,
@@ -346,7 +354,7 @@ export const VisitModalContent = ({
   };
 
   // ============================================================
-  // INTERFACE-HELPER FUNCTIONS
+  // INTERFACE-HELPER FUNCTIONS (RÉINTÉGRÉES ET CORRIGÉES)
   // ============================================================
 
   const renderAccountSelector = () => {
@@ -516,7 +524,7 @@ export const VisitModalContent = ({
             type="button"
             onClick={selectPersonnel}
             className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
-              targetType === 'account' ? 'text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              targetType === 'account' ? 'text-white shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
             }`}
             style={{
               background: targetType === 'account' ? colors.primary : 'transparent',
