@@ -64,28 +64,28 @@ export const AidantCard = memo(({
     if (isAssigned) {
       return { 
         label: 'Mon aidant', 
-        icon: <UserCheck size={12} />, 
-        color: 'text-blue-600 bg-blue-50/60 border-blue-100', 
+        icon: <UserCheck size={11} />, 
+        color: 'text-blue-600 bg-blue-50 border-blue-100', 
       };
     }
     if (!isAvailable) {
       return { 
         label: 'Indisponible', 
-        icon: <AlertCircle size={12} />, 
-        color: 'text-red-500 bg-red-50/60 border-red-100', 
+        icon: <AlertCircle size={11} />, 
+        color: 'text-red-500 bg-red-50 border-red-100', 
       };
     }
     if (isFull) {
       return { 
         label: 'Complet', 
-        icon: <Clock size={12} />, 
-        color: 'text-orange-500 bg-orange-50/60 border-orange-100', 
+        icon: <Clock size={11} />, 
+        color: 'text-orange-500 bg-orange-50 border-orange-100', 
       };
     }
     return { 
       label: 'Disponible', 
-      icon: <CheckCircle size={12} />, 
-      color: 'text-green-600 bg-green-50/60 border-green-100', 
+      icon: <CheckCircle size={11} />, 
+      color: 'text-green-600 bg-green-50 border-green-100', 
     };
   }, [aidant, isAssigned]);
 
@@ -142,39 +142,38 @@ export const AidantCard = memo(({
     }
   }, [onRevoke]);
 
-  // RENDU VERSION COMPACTE
+  // RENDU VERSION COMPACTE (SANS TRANSPARENCE)
   if (compact) {
     return (
       <div
         onClick={handleClick}
         className={cn(
-          "w-full bg-white rounded-2xl border p-3.5 transition-all cursor-pointer",
+          "w-full bg-white rounded-2xl border p-4 transition-all cursor-pointer shadow-sm",
           "hover:shadow-md active:scale-[0.99]",
-          isAssigned && "border-blue-200 bg-blue-50/10"
+          isAssigned && "border-l-4 border-l-blue-500 border-blue-100"
         )}
-        style={{ borderColor: isAssigned ? '#3B82F6' : colors.primary + '20' }}
       >
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shrink-0"
             style={{ background: isAssigned ? '#3B82F6' : colors.primary }}
           >
             {name.charAt(0).toUpperCase()}
           </div>
 
           <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-sm truncate" style={{ color: colors.text }}>
+            <h4 className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
               {name}
             </h4>
             <p className="text-[10px] font-semibold truncate mt-0.5" style={{ color: colors.textLight }}>
-              {isAssigned ? `📌 Assigné à ${assignedTargetName || 'votre compte'}` : `${zones}`}
+              {isAssigned ? `📌 Assigné à ${assignedTargetName || 'mon compte'}` : `${zones}`}
             </p>
           </div>
 
           {showActions && isAssigned && onRevoke && (
             <button
               onClick={handleRevoke}
-              className="px-2.5 h-8 rounded-xl text-red-500 border border-red-200 bg-red-50/50 text-xs font-bold shrink-0 transition hover:bg-red-50"
+              className="px-2.5 h-8 rounded-xl text-red-500 border border-red-200 bg-red-50 text-xs font-bold shrink-0 transition hover:bg-red-100"
             >
               Libérer
             </button>
@@ -194,21 +193,20 @@ export const AidantCard = memo(({
     );
   }
 
-  // RENDU VERSION CATALOGUE COMPLÈTE
+  // RENDU VERSION CATALOGUE COMPLÈTE (SANS TRANSPARENCE)
   return (
     <div
       onClick={handleClick}
       className={cn(
-        "w-full bg-white rounded-[2rem] border p-5 transition-all cursor-pointer shadow-sm",
+        "w-full bg-white rounded-3xl border p-5 sm:p-6 transition-all cursor-pointer shadow-sm",
         "hover:shadow-md active:scale-[0.99]",
-        isAssigned && "border-blue-200 bg-blue-50/10"
+        isAssigned && "border-l-4 border-l-blue-500 border-blue-100" // 💡 Bordure gauche colorée de relief
       )}
-      style={{ borderColor: isAssigned ? '#3B82F6' : colors.primary + '15' }}
     >
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 border border-white/10"
+          className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0"
           style={{ background: isAssigned ? '#3B82F6' : colors.primary }}
         >
           {name.charAt(0).toUpperCase()}
@@ -216,12 +214,12 @@ export const AidantCard = memo(({
 
         {/* Infos principales */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
             <div className="min-w-0">
               <h3 className="font-black text-base truncate" style={{ color: colors.text }}>
                 {name}
               </h3>
-              <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap font-semibold" style={{ color: colors.textLight }}>
+              <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap font-bold" style={{ color: colors.textLight }}>
                 <span className="flex items-center gap-0.5">
                   <Star size={12} className="text-yellow-400 fill-yellow-400" />
                   {rating.toFixed(1)}
@@ -235,7 +233,7 @@ export const AidantCard = memo(({
             </div>
 
             <span className={cn(
-              "text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0 font-bold border",
+              "text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1.5 shrink-0 font-bold border self-start sm:self-center mt-1 sm:mt-0",
               status.color
             )}>
               {status.icon}
@@ -245,7 +243,7 @@ export const AidantCard = memo(({
 
           {/* Spécialités */}
           {aidant.specialties && aidant.specialties.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-2">
               {aidant.specialties.slice(0, 3).map((spec) => (
                 <span
                   key={spec}
@@ -264,7 +262,7 @@ export const AidantCard = memo(({
       </div>
 
       {/* METADATA SECONDAIRES */}
-      <div className="mt-4 grid grid-cols-3 gap-2 text-[11px] font-semibold border-t pt-3.5" style={{ color: colors.textLight, borderColor: colors.primary + '10' }}>
+      <div className="mt-4 grid grid-cols-3 gap-2 text-[11px] font-bold border-t pt-3.5" style={{ color: colors.textLight, borderColor: colors.primary + '10' }}>
         <div className="flex items-center gap-1 min-w-0">
           <MapPin size={13} className="text-gray-400 shrink-0" />
           <span className="truncate">{zones}</span>
@@ -307,14 +305,14 @@ export const AidantCard = memo(({
         )}
       </div>
 
-      {/* Badge d'assignation stable sans effet clignotant agressif */}
+      {/* Badge d'assignation statique et propre */}
       {isAssigned && (
-        <div className="mt-4 p-3 rounded-2xl text-[11px] bg-blue-50 border border-blue-100 text-blue-800 font-bold flex items-center gap-1.5">
+        <div className="mt-4 p-3.5 rounded-2xl text-[11px] bg-blue-50 border border-blue-100 text-blue-800 font-bold flex items-center gap-1.5">
           📌 Cet aidant est assigné à : <strong>{assignedTargetName || 'votre compte personnel'}</strong>
         </div>
       )}
 
-      {/* BOUTONS ACTIONS */}
+      {/* ACTIONS */}
       {showActions && (
         <div className="mt-4 flex gap-2 pt-4 border-t" style={{ borderColor: colors.primary + '10' }}>
           <button
