@@ -55,14 +55,17 @@ export const Modal = ({
   const brand = useBranding();
   const colors = brand.colors;
 
-  // Verrouillage propre du défilement d'arrière-plan
+  // 💡 Verrouillage robuste du défilement (HTML + Body) contre le scroll d'arrière-plan sur mobile
   useEffect(() => {
     if (isOpen) {
+      document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } else {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     }
     return () => {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
   }, [isOpen]);
@@ -152,10 +155,10 @@ export const Modal = ({
               )}
             </div>
 
-            {/* BODY */}
+            {/* BODY (Scrollable avec momentum tactile pour mobile) */}
             <div 
               className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 overscroll-contain"
-              style={{ color: colors.text }}
+              style={{ color: colors.text, WebkitOverflowScrolling: 'touch' }}
             >
               {children}
             </div>
