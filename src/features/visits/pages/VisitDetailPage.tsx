@@ -20,30 +20,26 @@ import {
   UserCheck,
   Award,
   Navigation as NavIcon,
-  Mic, // Note vocale
-  Hospital, 
-  Stethoscope, 
-  Home, 
+  Mic,
+  Hospital,
+  Stethoscope,
+  Home,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
-import { 
-  formatDate, 
+import {
+  formatDate,
   getVisitDisplayName,
   getVisitDisplayAddress,
 } from '@/utils/helpers';
-
-import {
-  getPonctualPrice,
-} from '@/lib/constants';
-
+import { getPonctualPrice } from '@/lib/constants';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
 import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal';
-import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal'; 
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -53,6 +49,9 @@ const VisitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
+
   const {
     currentVisit,
     fetchVisitById,
@@ -78,18 +77,9 @@ const VisitDetailPage = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  
-  // États pour l'assignation d'aidant unifiée
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   const isActionPending = useRef(false);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
-  // ============================================================
-  // ✅ APPLICABLE : RÈGLE DES HOOKS RESPECTÉE (Définis impérativement avant le retour de chargement)
-  // ============================================================
 
   // Récupération sécurisée et hybride des photos de la visite
   const photosList = useMemo(() => {
@@ -220,11 +210,11 @@ const VisitDetailPage = () => {
         console.log(`📍 Checkpoint Départ GPS capturé: ${startLat}, ${startLng}`);
       }
     } catch (geoError) {
-      console.warn('⚠️ Impossible de capturer le GPS au démarrage (utilisation de la position par défaut)');
+      console.warn('⚠️ Impossible de capturer le GPS au démarrage');
     }
 
     try {
-      await startVisit(id!, startLat, startLng); // ✅ Transmission des coordonnées au store
+      await startVisit(id!, startLat, startLng);
       toast.success('🚀 Visite démarrée avec succès (GPS enregistré) !');
       useVisitStore.getState().invalidateCache();
       await fetchVisitById(id!);
@@ -246,7 +236,7 @@ const VisitDetailPage = () => {
     photos: string[];
   }) => {
     if (isActionPending.current) return;
-    
+
     const actions = data?.actions || [];
     const notes = data?.notes || '';
     const photoUrls = data?.photos || [];
@@ -276,7 +266,7 @@ const VisitDetailPage = () => {
         console.log(`📍 Checkpoint Arrivée GPS capturé: ${endLat}, ${endLng}`);
       }
     } catch (geoError) {
-      console.warn('⚠️ Impossible de capturer le GPS à la finalisation (utilisation de la position par défaut)');
+      console.warn('⚠️ Impossible de capturer le GPS à la finalisation');
     }
 
     try {
@@ -285,8 +275,8 @@ const VisitDetailPage = () => {
         notes,
         photos: photoUrls,
         audio_url,
-        lat: endLat, // ✅ Transmission de la position de fin
-        lng: endLng, // ✅ Transmission de la position de fin
+        lat: endLat,
+        lng: endLng,
       });
 
       toast.success('✅ Visite terminée avec succès (GPS enregistré) !');
@@ -305,7 +295,7 @@ const VisitDetailPage = () => {
 
   const handleCancel = async () => {
     if (isActionPending.current) return;
-    
+
     if (window.confirm('Annuler cette visite ?')) {
       isActionPending.current = true;
       setIsUpdating(true);
@@ -335,7 +325,6 @@ const VisitDetailPage = () => {
 
       if (!token) throw new Error('Token de session manquant');
 
-      // Conversion du label d'IHM vers le type d'assignation backend attendu
       const assignmentType = type === 'permanente' ? 'permanente' : (type === 'temporaire' ? 'temporaire' : 'ponctuelle');
 
       const response = await fetch(`${API_URL}/assignments/admin/assign-to-visit`, {
@@ -379,18 +368,19 @@ const VisitDetailPage = () => {
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
       planifiee: '#4CAF50',
-      en_attente: '#FF9800',
-      acceptee: '#2196F3',
-      en_cours: '#2196F3',
-      terminee: '#9C27B0',
+      en_attente: '#F59E0B',
+      acceptee: '#3B82F6',
+      en_cours: '#3B82F6',
+      terminee: '#8B5CF6',
       validee: '#4CAF50',
-      annulee: '#F44336',
-      refusee: '#F44336',
+      annulee: '#EF4444',
+      refusee: '#EF4444',
       expire: '#795548',
-      replanifiee: '#FF5722',
+      replanifiee: '#F59E0B',
       no_show: '#795548',
-      attente_paiement: '#8b5cf6',
+      attente_paiement: '#8B5CF6',
       brouillon: '#F59E0B',
+      en_attente_aidant: '#FF5722',
     };
     return statusColors[status] || '#9E9E9E';
   };
@@ -410,6 +400,7 @@ const VisitDetailPage = () => {
       no_show: 'Absent',
       attente_paiement: 'Paiement en attente',
       brouillon: '💳 Paiement requis',
+      en_attente_aidant: '🦸 En attente aidant',
     };
     return labels[status] || status;
   };
@@ -427,6 +418,7 @@ const VisitDetailPage = () => {
       case 'expire': return <AlertCircle size={13} />;
       case 'attente_paiement': return <CreditCard size={13} />;
       case 'brouillon': return <CreditCard size={13} />;
+      case 'en_attente_aidant': return <UserPlus size={13} />;
       default: return <AlertCircle size={13} />;
     }
   };
@@ -445,7 +437,7 @@ const VisitDetailPage = () => {
 
   const getAidantDisplayStatus = () => {
     const aidantName = currentVisit?.aidant?.user?.full_name || 'Non assigné';
-    
+
     if (isAidant) {
       return {
         label: 'Moi',
@@ -454,7 +446,7 @@ const VisitDetailPage = () => {
         icon: <UserCheck size={15} />
       };
     }
-    
+
     if (currentVisit?.aidant) {
       return {
         label: aidantName,
@@ -463,16 +455,16 @@ const VisitDetailPage = () => {
         icon: <Heart size={15} />
       };
     }
-    
+
     if (currentVisit?.aidant_id) {
       return {
         label: 'En attente de validation',
         sub: `⏳ ${aidantName} doit approuver la visite`,
-        color: '#FF9800',
+        color: '#F59E0B',
         icon: <Clock size={15} />
       };
     }
-    
+
     return {
       label: 'Non assigné',
       sub: 'En attente d\'assignation',
@@ -481,13 +473,13 @@ const VisitDetailPage = () => {
     };
   };
 
-  // ✅ BADGE DYNAMIQUE D'INTERVENTION (S'adapte à l'aiguillage clinique)
+  // ✅ BADGE DYNAMIQUE D'INTERVENTION
   const getPrestationBadge = () => {
     if (!currentVisit) return null;
     const visitObj = currentVisit as any;
     if (visitObj.metadata?.is_discharge) {
       return (
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-pink-100 text-pink-700 border border-pink-200 shrink-0 flex items-center gap-1">
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1" style={{ backgroundColor: '#FCE4EC', color: '#D81B60', border: '1px solid #F8BBD0' }}>
           <Hospital size={11} />
           Sortie d'hôpital
         </span>
@@ -495,14 +487,14 @@ const VisitDetailPage = () => {
     }
     if (visitObj.metadata?.is_medical_appointment) {
       return (
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-700 border border-blue-200 shrink-0 flex items-center gap-1">
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1" style={{ backgroundColor: '#E3F2FD', color: '#1565C0', border: '1px solid #BBDEFB' }}>
           <Stethoscope size={11} />
           Rendez-vous médical
         </span>
       );
     }
     return (
-      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0 flex items-center gap-1">
+      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1" style={{ backgroundColor: colors.primary + '10', color: colors.primary, border: `1px solid ${colors.primary + '20'}` }}>
         <Home size={11} />
         Aide à domicile
       </span>
@@ -516,23 +508,24 @@ const VisitDetailPage = () => {
   const isCompleted = currentVisit?.status === 'terminee';
   const isExpired = currentVisit?.status === 'expire';
   const isRefused = currentVisit?.status === 'refusee';
+  const isWaitingAidant = currentVisit?.status === 'en_attente_aidant';
   const hasNoAidant = !currentVisit?.aidant_id;
-  
+
   const isOwner = currentVisit?.user_id === profile?.id;
   const requiresPayment = isDraft && currentVisit?.metadata?.requires_payment && isOwner;
-  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused);
+  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused || isWaitingAidant);
 
   const aidantStatus = getAidantDisplayStatus();
   const draftExpiry = getDraftExpiryText();
   const paymentAmount = currentVisit?.metadata?.payment_amount || getPonctualPrice(currentVisit?.duration_minutes || 60);
 
-  // RETOUR ANTICIPÉ DE CHARGEMENT SANS CONFLIT DE HOOKS
+  // RETOUR ANTICIPÉ DE CHARGEMENT
   if (isLoading || !currentVisit) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-xs text-gray-500">Chargement des détails...</p>
+          <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-3" style={{ borderColor: colors.primary, borderTopColor: 'transparent' }} />
+          <p className="text-xs" style={{ color: colors.textLight }}>Chargement des détails...</p>
         </div>
       </div>
     );
@@ -542,9 +535,9 @@ const VisitDetailPage = () => {
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
-      
+
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: colors.border }}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-center space-x-3 min-w-0">
           <button
             onClick={() => navigate(-1)}
@@ -570,14 +563,14 @@ const VisitDetailPage = () => {
               </span>
               {visit.is_urgent && (
                 <span
-                  className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shrink-0"
-                  style={{ background: '#F44336' + '15', color: '#F44336' }}
+                  className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 shrink-0 animate-pulse"
+                  style={{ background: '#EF444415', color: '#EF4444' }}
                 >
                   <AlertCircle size={11} />
                   <span>Urgent</span>
                 </span>
               )}
-              <span className="text-[10px] text-gray-400 font-mono">
+              <span className="text-[10px] font-mono" style={{ color: colors.textLight }}>
                 #{visit.id.slice(0, 8)}
               </span>
             </div>
@@ -601,7 +594,7 @@ const VisitDetailPage = () => {
                 onClick={handleRefuse}
                 disabled={isUpdating || isActionPending.current}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#F44336' }}
+                style={{ background: '#EF4444' }}
               >
                 <XCircle size={14} />
                 <span>Refuser</span>
@@ -626,7 +619,7 @@ const VisitDetailPage = () => {
               onClick={() => setShowCompleteModal(true)}
               disabled={isUpdating || isActionPending.current}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
-              style={{ background: '#2196F3' }}
+              style={{ background: colors.primary }}
             >
               <CheckCircle size={14} />
               <span>Terminer</span>
@@ -638,7 +631,7 @@ const VisitDetailPage = () => {
               onClick={handleCancel}
               disabled={isUpdating || isActionPending.current}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
-              style={{ background: '#F44336' }}
+              style={{ background: '#EF4444' }}
             >
               <XCircle size={14} />
               <span>Annuler</span>
@@ -664,7 +657,7 @@ const VisitDetailPage = () => {
                 }
               }}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
-              style={{ background: '#9C27B0' }}
+              style={{ background: '#8B5CF6' }}
             >
               <CheckCircle size={14} />
               <span>Valider</span>
@@ -686,18 +679,18 @@ const VisitDetailPage = () => {
 
       {/* BANDEAU D'INFORMATION AIDANT */}
       {isAidant && visit.aidant_id && (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-xl">
+        <div className="p-4 rounded-xl" style={{ backgroundColor: '#E3F2FD', borderLeft: '4px solid #3B82F6' }}>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-full">
+            <div className="p-2 rounded-full" style={{ backgroundColor: '#BBDEFB' }}>
               <UserCheck size={20} className="text-blue-600" />
             </div>
             <div>
               <p className="font-bold text-blue-800">✅ Vous êtes assigné à cette visite</p>
               <p className="text-sm text-blue-600">
-                {visit.status === 'planifiee' 
-                  ? '👆 Approuvez cette visite pour confirmer votre présence.' 
-                  : visit.status === 'acceptee' 
-                    ? '✅ La visite est confirmée. Préparez-vous à intervenir.' 
+                {visit.status === 'planifiee'
+                  ? '👆 Approuvez cette visite pour confirmer votre présence.'
+                  : visit.status === 'acceptee'
+                    ? '✅ La visite est confirmée. Préparez-vous à intervenir.'
                     : visit.status === 'en_cours'
                       ? '🔄 Vous êtes actuellement en visite.'
                       : '📋 Visite en cours de traitement.'}
@@ -709,17 +702,17 @@ const VisitDetailPage = () => {
 
       {/* BANDEAU DE PAIEMENT */}
       {requiresPayment && (
-        <div 
+        <div
           className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-          style={{ 
+          style={{
             background: colors.primary + '08',
             borderColor: colors.primary + '20',
           }}
         >
           <div className="flex items-start gap-3 min-w-0">
-            <div 
+            <div
               className="p-2 rounded-xl shrink-0"
-              style={{ 
+              style={{
                 background: colors.primary + '15',
                 color: colors.primary,
               }}
@@ -749,9 +742,9 @@ const VisitDetailPage = () => {
 
       {/* NAVIGATION GPS */}
       {visit.status === 'en_cours' && (
-        <div className="bg-white rounded-3xl p-5 border border-blue-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="bg-white rounded-3xl p-5 border shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" style={{ borderColor: '#3B82F620' }}>
           <div className="min-w-0">
-            <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider flex items-center gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 text-blue-600">
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
               Accompagnement actif
             </span>
@@ -783,10 +776,10 @@ const VisitDetailPage = () => {
 
       {/* GRID LAYOUT PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        
+
         {/* COLONNE DE GAUCHE */}
         <div className="lg:col-span-2 space-y-6">
-          
+
           {/* CARTES D'INFORMATIONS RAPIDES */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <InfoCard
@@ -815,31 +808,31 @@ const VisitDetailPage = () => {
           {/* STATS AIDANT */}
           {isAidant && visit.aidant && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard 
-                icon={<Award size={14} />} 
-                label="Ma note" 
-                value={visit.aidant.rating || 0} 
+              <StatCard
+                icon={<Award size={14} />}
+                label="Ma note"
+                value={visit.aidant.rating || 0}
                 sub={`${visit.aidant.total_missions || 0} missions`}
                 color={colors.primary}
               />
-              <StatCard 
-                icon={<Clock size={14} />} 
-                label="Durée estimée" 
-                value={`${visit.duration_minutes || 60} min`} 
+              <StatCard
+                icon={<Clock size={14} />}
+                label="Durée estimée"
+                value={`${visit.duration_minutes || 60} min`}
                 sub="Intervention"
                 color={colors.primary}
               />
-              <StatCard 
-                icon={<Calendar size={14} />} 
-                label="Date" 
-                value={formatDate(visit.scheduled_date)} 
+              <StatCard
+                icon={<Calendar size={14} />}
+                label="Date"
+                value={formatDate(visit.scheduled_date)}
                 sub={visit.scheduled_time}
                 color={colors.primary}
               />
-              <StatCard 
-                icon={<MapPin size={14} />} 
-                label="Adresse" 
-                value={getVisitDisplayAddress(visit)} 
+              <StatCard
+                icon={<MapPin size={14} />}
+                label="Adresse"
+                value={getVisitDisplayAddress(visit)}
                 sub="Lieu d'intervention"
                 color={colors.primary}
               />
@@ -848,54 +841,54 @@ const VisitDetailPage = () => {
 
           {/* ✅ BLOC CLINIQUE ET HOSPITALISATION CONDITIONNEL DYNAMIQUE */}
           {(visit.metadata?.is_discharge || visit.metadata?.is_medical_appointment) && (
-            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100/80 space-y-4">
-              <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b pb-2 flex items-center gap-2">
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border space-y-4" style={{ borderColor: colors.primary + '10' }}>
+              <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider border-b pb-2 flex items-center gap-2" style={{ color: colors.textLight }}>
                 <Hospital size={16} className="text-emerald-500 shrink-0" />
                 Détails de l'admission hospitalière
               </h3>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1.5">Établissement</p>
-                  <p className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200 mt-1 leading-normal truncate">
+                <div className="p-3 bg-gray-50/50 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1.5" style={{ color: colors.textLight }}>Établissement</p>
+                  <p className="font-bold text-xs sm:text-sm mt-1 leading-normal truncate" style={{ color: colors.text }}>
                     🏥 {visit.metadata.hospital_name || 'Non spécifié'}
                   </p>
                 </div>
 
-                <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1.5">Service médical</p>
-                  <p className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200 mt-1 leading-normal truncate">
+                <div className="p-3 bg-gray-50/50 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1.5" style={{ color: colors.textLight }}>Service médical</p>
+                  <p className="font-bold text-xs sm:text-sm mt-1 leading-normal truncate" style={{ color: colors.text }}>
                     🩺 {visit.metadata.hospital_service || 'Non précisé'}
                   </p>
                 </div>
 
-                <div className="p-3 bg-gray-50/50 rounded-xl border border-gray-100/50">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1.5">Médecin traitant</p>
-                  <p className="font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-200 mt-1 leading-normal truncate">
+                <div className="p-3 bg-gray-50/50 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1.5" style={{ color: colors.textLight }}>Médecin traitant</p>
+                  <p className="font-bold text-xs sm:text-sm mt-1 leading-normal truncate" style={{ color: colors.text }}>
                     👤 {visit.metadata.doctor_name || 'Non renseigné'}
                   </p>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-blue-50/40 border border-blue-100/40 text-xs text-blue-700 leading-relaxed font-semibold">
-                ℹ️ {visit.metadata?.is_discharge 
+              <div className="p-3 rounded-xl text-xs leading-relaxed font-semibold" style={{ backgroundColor: '#E3F2FD', color: '#1565C0' }}>
+                ℹ️ {visit.metadata?.is_discharge
                   ? "Cet accompagnement comprend l'aide à la sortie, le transport de retour et la réinstallation de confort à domicile."
                   : "Cet accompagnement comprend la présence lors du rendez-vous, la prise de notes et le compte-rendu médical."}
               </div>
             </div>
           )}
 
-          {/* COMPTE-RENDU DE VISITE GROUPÉ (MÉDIAS TOTALEMENT VISIBLES PAR TOUS AVEC LES VARIABLES HYBRIDES) */}
+          {/* COMPTE-RENDU DE VISITE GROUPÉ */}
           {(visit.actions?.length > 0 || visit.notes || (photosList && photosList.length > 0) || visit.report || audioUrl) ? (
-            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-black/5 space-y-5">
-              <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ color: colors.text }}>
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border space-y-5" style={{ borderColor: colors.primary + '10' }}>
+              <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ borderColor: colors.primary + '10', color: colors.text }}>
                 📊 Compte-rendu de la visite
               </h3>
 
               {/* Actions complétées */}
               {visit.actions && visit.actions.length > 0 && (
                 <div>
-                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: colors.textLight }}>
                     <CheckCircle size={14} className="text-green-500" />
                     Actions complétées
                   </h4>
@@ -917,21 +910,21 @@ const VisitDetailPage = () => {
               {(visit.notes || visit.report) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {visit.notes && (
-                    <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
-                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    <div className="bg-gray-50/60 p-4 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: colors.textLight }}>
                         Notes de préparation
                       </h4>
-                      <p className="text-xs text-gray-700 leading-relaxed font-medium">
+                      <p className="text-xs leading-relaxed font-medium" style={{ color: colors.text + '80' }}>
                         {visit.notes}
                       </p>
                     </div>
                   )}
                   {visit.report && (
-                    <div className="bg-gray-50/60 p-4 rounded-xl border border-gray-100">
-                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                    <div className="bg-gray-50/60 p-4 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: colors.textLight }}>
                         Rapport d'intervention
                       </h4>
-                      <p className="text-xs text-gray-700 leading-relaxed font-medium">
+                      <p className="text-xs leading-relaxed font-medium" style={{ color: colors.text + '80' }}>
                         {visit.report}
                       </p>
                     </div>
@@ -939,22 +932,22 @@ const VisitDetailPage = () => {
                 </div>
               )}
 
-              {/* COMPTE-RENDU AUDIO VISIBLE GRÂCE AU REPLI SÉCURISÉ */}
+              {/* COMPTE-RENDU AUDIO */}
               {audioUrl && (
-                <div className="pt-3 border-t border-gray-100">
-                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <div className="pt-3 border-t" style={{ borderColor: colors.primary + '10' }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: colors.textLight }}>
                     <Mic size={14} className="text-blue-500 animate-pulse" />
                     Note vocale de l'intervenant
                   </h4>
-                  <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="bg-gray-50/80 p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderColor: colors.primary + '10' }}>
                     <div className="flex items-center gap-2">
                       <Play size={16} className="text-gray-400" />
-                      <span className="text-xs text-gray-500 font-semibold">Message audio enregistré</span>
+                      <span className="text-xs font-semibold" style={{ color: colors.textLight }}>Message audio enregistré</span>
                     </div>
-                    <audio 
-                      src={audioUrl} 
-                      controls 
-                      className="w-full sm:w-auto h-9" 
+                    <audio
+                      src={audioUrl}
+                      controls
+                      className="w-full sm:w-auto h-9"
                     />
                   </div>
                 </div>
@@ -963,7 +956,7 @@ const VisitDetailPage = () => {
               {/* Photos jointes */}
               {photosList && photosList.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
                     Photos jointes
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -973,7 +966,7 @@ const VisitDetailPage = () => {
                         <div
                           key={index}
                           className="relative aspect-square rounded-xl overflow-hidden border cursor-pointer hover:opacity-90 transition group"
-                          style={{ borderColor: colors.border }}
+                          style={{ borderColor: colors.primary + '15' }}
                           onClick={() => window.open(url, '_blank')}
                         >
                           <img
@@ -994,9 +987,9 @@ const VisitDetailPage = () => {
               )}
             </div>
           ) : (
-            <div className="bg-white rounded-2xl p-6 text-center border border-black/5">
-              <p className="text-xs text-gray-400 font-medium">
-                {isAidant 
+            <div className="bg-white rounded-2xl p-6 text-center border" style={{ borderColor: colors.primary + '10' }}>
+              <p className="text-xs font-medium" style={{ color: colors.textLight }}>
+                {isAidant
                   ? '📝 Une fois la visite terminée, vous pourrez ajouter un compte-rendu, des photos et un rapport.'
                   : 'Le compte-rendu, les photos et les rapports de visite apparaîtront ici une fois complétés par l\'aidant.'}
               </p>
@@ -1006,28 +999,27 @@ const VisitDetailPage = () => {
 
         {/* COLONNE DE DROITE */}
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5 space-y-4">
-            <h3 className="font-bold text-sm flex items-center gap-2 border-b pb-2" style={{ color: colors.text }}>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border space-y-4" style={{ borderColor: colors.primary + '10' }}>
+            <h3 className="font-bold text-sm flex items-center gap-2 border-b pb-2" style={{ borderColor: colors.primary + '10', color: colors.text }}>
               <MapPin size={16} />
               Localisation
             </h3>
-            
+
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">
-                {/* ✅ LIBELLÉ DE DESTINATION ADAPTATIF */}
-                {visit.metadata?.is_discharge 
-                  ? "Adresse de retour (domicile)" 
+              <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: colors.textLight }}>
+                {visit.metadata?.is_discharge
+                  ? "Adresse de retour (domicile)"
                   : (visit.metadata?.is_medical_appointment ? "Destination (Cabinet / Clinique)" : "Adresse de visite")}
               </p>
-              <p className="text-xs sm:text-sm text-gray-700 leading-relaxed font-medium">
+              <p className="text-xs sm:text-sm leading-relaxed font-medium" style={{ color: colors.text }}>
                 {getVisitDisplayAddress(visit)}
               </p>
             </div>
 
             {/* ✅ AFFICHAGE DES CHECKPOINTS GPS ENREGISTRÉS */}
             {(visit.location_start || visit.location_end) && (
-              <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-100 space-y-2.5">
-                <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
+              <div className="p-3.5 rounded-xl bg-gray-50 border space-y-2.5" style={{ borderColor: colors.primary + '10' }}>
+                <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textLight }}>
                   📍 Checkpoints GPS Figés
                 </p>
                 <div className="text-xs space-y-2 font-medium">
@@ -1052,8 +1044,8 @@ const VisitDetailPage = () => {
             )}
 
             {visit.patient?.phone && (
-              <div className="pt-2 border-t border-gray-50">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Contact bénéficiaire</p>
+              <div className="pt-2 border-t" style={{ borderColor: colors.primary + '10' }}>
+                <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: colors.textLight }}>Contact bénéficiaire</p>
                 <a
                   href={`tel:${visit.patient.phone}`}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold transition hover:opacity-80"
@@ -1066,9 +1058,9 @@ const VisitDetailPage = () => {
             )}
 
             {isAidant && visit.aidant_id && (
-              <div className="pt-2 border-t border-gray-50">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Informations</p>
-                <div className="space-y-1 text-xs text-gray-600">
+              <div className="pt-2 border-t" style={{ borderColor: colors.primary + '10' }}>
+                <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: colors.textLight }}>Informations</p>
+                <div className="space-y-1 text-xs" style={{ color: colors.text + '80' }}>
                   <p className="flex items-center gap-1.5">
                     <Clock size={12} className="text-gray-400" />
                     Visite de {visit.duration_minutes || 60} minutes
@@ -1097,7 +1089,7 @@ const VisitDetailPage = () => {
         />
       )}
 
-       {showCompleteModal && (
+      {showCompleteModal && (
         <CompleteVisitModal
           isOpen={true}
           onClose={() => setShowCompleteModal(false)}
@@ -1129,6 +1121,10 @@ const VisitDetailPage = () => {
   );
 };
 
+// ============================================================
+// SOUS-COMPOSANTS
+// ============================================================
+
 interface InfoCardProps {
   icon: React.ReactNode;
   label: string;
@@ -1138,9 +1134,9 @@ interface InfoCardProps {
 }
 
 const InfoCard = ({ icon, label, value, sub, color }: InfoCardProps) => (
-  <div className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 flex flex-col justify-between">
+  <div className="bg-white rounded-2xl p-4 shadow-sm border flex flex-col justify-between" style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
     <div>
-      <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: '#6b7280' }}>
         {icon}
         {label}
       </div>
@@ -1149,7 +1145,7 @@ const InfoCard = ({ icon, label, value, sub, color }: InfoCardProps) => (
       </p>
     </div>
     {sub && (
-      <p className="text-[11px] text-gray-400 mt-1 truncate font-medium">
+      <p className="text-[11px] mt-1 truncate font-medium" style={{ color: '#6b7280' }}>
         {sub}
       </p>
     )}
@@ -1166,15 +1162,15 @@ interface StatCardProps {
 
 const StatCard = ({ icon, label, value, sub, color }: StatCardProps) => {
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-black/5">
+    <div className="bg-white rounded-xl p-3 shadow-sm border" style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '12', color }}>
           {icon}
         </div>
         <div className="min-w-0">
           <p className="text-xs font-bold" style={{ color }}>{value}</p>
-          <p className="text-[9px] text-gray-400 truncate">{label}</p>
-          {sub && <p className="text-[8px] text-gray-400 truncate">{sub}</p>}
+          <p className="text-[9px] truncate" style={{ color: '#6b7280' }}>{label}</p>
+          {sub && <p className="text-[8px] truncate" style={{ color: '#6b7280' }}>{sub}</p>}
         </div>
       </div>
     </div>
