@@ -1,5 +1,6 @@
-import { useAuthStore } from '@/stores/authStore';
-import { getLogoByRole } from '@/lib/constants';
+// 📁 src/components/ui/LoadingSpinner.tsx
+
+import { useBranding } from '@/hooks/useBranding';
 import { cn } from '@/utils/helpers';
 
 interface LoadingSpinnerProps {
@@ -15,8 +16,8 @@ export const LoadingSpinner = ({
   className = '',
   fullScreen = false,
 }: LoadingSpinnerProps) => {
-  const { role, profile } = useAuthStore();
-  const logoConfig = getLogoByRole(role, profile?.patient_category);
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const sizes = {
     sm: 'w-16 h-16',
@@ -41,41 +42,33 @@ export const LoadingSpinner = ({
 
   const spinnerContent = (
     <div className={cn('text-center', className)}>
-      
-      {/* Spinner */}
       <div className={cn('relative mx-auto mb-5', sizes[size])}>
-        
         {/* Cercle animé */}
         <div
           className="absolute inset-0 rounded-full animate-spin"
           style={{
-            border: `${borderWidth[size]} solid var(--color-primary, #1a4a3a)`,
+            border: `${borderWidth[size]} solid ${colors.primary}`,
             borderTopColor: 'transparent',
             borderRightColor: 'transparent',
           }}
         />
 
-        {/* 💎 Cercle interne premium */}
+        {/* Cercle interne premium avec logo */}
         <div className="absolute inset-2 rounded-full bg-white shadow-inner flex items-center justify-center">
-          
-          {/* 🟢 Logo parfaitement circulaire */}
           <div className="w-3/4 h-3/4 rounded-full overflow-hidden flex items-center justify-center bg-white">
-            
             <img
-              src={logoConfig.icon}
+              src={brand.logo.icon}
               alt="Santé Plus"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           </div>
-
         </div>
       </div>
 
-      {/* Texte */}
       {text && (
         <p
           className={cn('font-medium tracking-wide', textSizes[size])}
-          style={{ color: 'var(--color-text, #2d2d2d)' }}
+          style={{ color: colors.text }}
         >
           {text}
         </p>
@@ -87,9 +80,7 @@ export const LoadingSpinner = ({
     return (
       <div
         className="fixed inset-0 z-[9999] flex items-center justify-center"
-        style={{
-          background: 'var(--color-background, #f5f0e8)',
-        }}
+        style={{ background: colors.background }}
       >
         {spinnerContent}
       </div>
