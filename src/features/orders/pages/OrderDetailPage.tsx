@@ -32,7 +32,7 @@ import {
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime } from '@/utils/helpers';
 
@@ -66,13 +66,13 @@ const getStatusLabel = (status: string): string => {
 const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
     creee: '#9E9E9E',
-    en_attente: '#FF9800',
-    disponible: '#F44336',
-    en_cours: '#2196F3',
-    livree: '#2196F3',
+    en_attente: '#F59E0B',
+    disponible: '#EF4444',
+    en_cours: '#3B82F6',
+    livree: '#3B82F6',
     validee: '#4CAF50',
     annulee: '#9E9E9E',
-    attente_paiement: '#8b5cf6',
+    attente_paiement: '#8B5CF6',
   };
   return colors[status] || '#9E9E9E';
 };
@@ -112,15 +112,18 @@ interface MiniCardProps {
 }
 
 const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
-    <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border border-black/5 min-w-0">
+    <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border min-w-0" style={{ borderColor: colors.primary + '15' }}>
       <div
         className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3"
         style={{ background: color + '14', color }}
       >
         {icon}
       </div>
-      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-xs" style={{ color: colors.textLight }}>{label}</p>
       <p className="font-black text-sm mt-1 break-words" style={{ color }}>
         {value}
       </p>
@@ -137,14 +140,17 @@ interface PersonBoxProps {
 }
 
 const PersonBox = ({ icon, title, name, detail, detailIcon }: PersonBoxProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
-    <div className="rounded-2xl bg-gray-50 p-4 border border-black/5">
-      <div className="flex items-center gap-2 text-gray-500 text-sm mb-2">
+    <div className="rounded-2xl bg-gray-50 p-4 border" style={{ borderColor: colors.primary + '15' }}>
+      <div className="flex items-center gap-2 text-sm mb-2" style={{ color: colors.textLight }}>
         {icon}
         {title}
       </div>
-      <p className="font-bold text-gray-900 break-words">{name}</p>
-      <p className="text-sm text-gray-500 mt-1 break-words flex items-center gap-1">
+      <p className="font-bold break-words" style={{ color: colors.text }}>{name}</p>
+      <p className="text-sm mt-1 break-words flex items-center gap-1" style={{ color: colors.textLight }}>
         {detailIcon}
         {detail}
       </p>
@@ -160,10 +166,13 @@ interface DocButtonProps {
 }
 
 const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
     <button
       onClick={onClick}
-      className="rounded-2xl bg-gray-50 p-4 border border-black/5 text-left hover:bg-gray-100 transition group"
+      className="rounded-2xl bg-gray-50 p-4 border text-left hover:bg-gray-100 transition group" style={{ borderColor: colors.primary + '15' }}
     >
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -173,7 +182,7 @@ const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
           >
             {icon}
           </div>
-          <p className="font-bold text-gray-900">{title}</p>
+          <p className="font-bold" style={{ color: colors.text }}>{title}</p>
         </div>
         <Eye size={20} style={{ color }} className="opacity-50 group-hover:opacity-100 transition" />
       </div>
@@ -197,26 +206,26 @@ const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
       },
       en_attente: { 
         icon: <Clock size={14} />, 
-        color: '#FF9800', 
-        bg: '#FF980015', 
+        color: '#F59E0B', 
+        bg: '#F59E0B15', 
         label: 'En attente' 
       },
       disponible: { 
         icon: <AlertCircle size={14} />, 
-        color: '#F44336', 
-        bg: '#F4433615', 
+        color: '#EF4444', 
+        bg: '#EF444415', 
         label: 'Disponible' 
       },
       en_cours: { 
         icon: <Clock size={14} />, 
-        color: '#2196F3', 
-        bg: '#2196F315', 
+        color: '#3B82F6', 
+        bg: '#3B82F615', 
         label: 'En cours' 
       },
       livree: { 
         icon: <Truck size={14} />, 
-        color: '#2196F3', 
-        bg: '#2196F315', 
+        color: '#3B82F6', 
+        bg: '#3B82F615', 
         label: 'Livrée' 
       },
       validee: { 
@@ -227,14 +236,14 @@ const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
       },
       annulee: { 
         icon: <XCircle size={14} />, 
-        color: '#F44336', 
-        bg: '#F4433615', 
+        color: '#EF4444', 
+        bg: '#EF444415', 
         label: 'Annulée' 
       },
       attente_paiement: { 
         icon: <CreditCard size={14} />, 
-        color: '#8b5cf6', 
-        bg: '#8b5cf615', 
+        color: '#8B5CF6', 
+        bg: '#8B5CF615', 
         label: 'En attente paiement' 
       },
     };
@@ -263,6 +272,8 @@ const OrderDetailPage = () => {
   const navigate = useNavigate();
 
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, isLoading } = useOrderStore();
 
   const {
@@ -277,10 +288,6 @@ const OrderDetailPage = () => {
   const [proofPreview, setProofPreview] = useState<string | null>(null);
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
-  // ✅ VERROU DE PROTECTION SYNCHRONE CONTRE LES DOUBLES-CLICS
   const isActionPending = useRef(false);
 
   useEffect(() => {
@@ -300,7 +307,7 @@ const OrderDetailPage = () => {
 
   const handleStatusChange = async (status: string) => {
     if (!id) return;
-    if (isActionPending.current) return; // Bloquer instantanément
+    if (isActionPending.current) return;
     
     isActionPending.current = true;
     setIsUpdating(true);
@@ -314,14 +321,14 @@ const OrderDetailPage = () => {
       toast.error(error.message || 'Erreur lors de la mise à jour');
     } finally {
       setIsUpdating(false);
-      isActionPending.current = false; // Libérer le verrou
+      isActionPending.current = false;
     }
   };
 
   // ✅ CAPTURE DU POINT DE DÉPART DE MISSION LORS DE LA PRISE EN CHARGE (CHECKPOINT)
   const handleTakeOrder = async () => {
     if (!id) return;
-    if (isActionPending.current) return; // Bloquer instantanément
+    if (isActionPending.current) return;
     
     isActionPending.current = true;
     setIsUpdating(true);
@@ -346,7 +353,7 @@ const OrderDetailPage = () => {
     }
     
     try {
-      await takeOrder(id, takeLat, takeLng); // ✅ Transmission des coordonnées au store
+      await takeOrder(id, takeLat, takeLng);
       toast.success('Commande prise en charge ✅ (GPS enregistré)');
       await fetchOrderById(id);
     } catch (error: any) {
@@ -354,7 +361,7 @@ const OrderDetailPage = () => {
       toast.error(error.message || 'Erreur lors de la prise de commande');
     } finally {
       setIsUpdating(false);
-      isActionPending.current = false; // Libérer le verrou
+      isActionPending.current = false;
     }
   };
 
@@ -405,9 +412,8 @@ const OrderDetailPage = () => {
         data: { publicUrl },
       } = supabase.storage.from('orders').getPublicUrl(fileName);
 
-      // ✅ APPEL DE FIN DE LIVRAISON AVEC GEOLOCALISATION ET LIEN DE PREUVE DE LIVRAISON SÉCURISÉ
       const { completeDelivery } = useOrderStore.getState();
-      await completeDelivery(id, publicUrl); 
+      await completeDelivery(id, publicUrl);
 
       toast.success('Livraison confirmée avec preuve (GPS enregistré)');
 
@@ -464,13 +470,13 @@ const OrderDetailPage = () => {
   return (
     <div className="space-y-5 pb-10">
       {/* HEADER */}
-      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
+      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-start gap-3">
           <button
             onClick={() => navigate(-1)}
             className="w-11 h-11 rounded-2xl border flex items-center justify-center hover:bg-gray-50 shrink-0"
             style={{
-              borderColor: colors.border || '#e5e0d8',
+              borderColor: colors.primary + '20',
               color: colors.text,
             }}
           >
@@ -513,7 +519,7 @@ const OrderDetailPage = () => {
               {order.description || 'Détail de commande'}
             </h1>
 
-            <p className="text-sm mt-1 flex items-center gap-2" style={{ color: colors.text + '70' }}>
+            <p className="text-sm mt-1 flex items-center gap-2" style={{ color: colors.textLight }}>
               <span>#{order.id.slice(0, 8)}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
@@ -529,7 +535,7 @@ const OrderDetailPage = () => {
           {canTake && (
             <ActionButton
               label={order.status === 'disponible' ? 'Prendre (Urgent)' : 'Prendre'}
-              color={order.status === 'disponible' ? '#F44336' : '#FF9800'}
+              color={order.status === 'disponible' ? '#EF4444' : '#F59E0B'}
               icon={order.status === 'disponible' ? <AlertCircle size={17} /> : <Play size={17} />}
               disabled={isUpdating}
               onClick={handleTakeOrder}
@@ -551,7 +557,7 @@ const OrderDetailPage = () => {
           {canDeliver && (
             <ActionButton
               label="Livrer"
-              color="#2196F3"
+              color="#3B82F6"
               icon={<Truck size={17} />}
               disabled={isUpdating}
               onClick={() => setShowProofModal(true)}
@@ -562,7 +568,7 @@ const OrderDetailPage = () => {
           {canCancel && (
             <ActionButton
               label="Annuler"
-              color="#F44336"
+              color="#EF4444"
               icon={<XCircle size={17} />}
               disabled={isUpdating}
               onClick={() => handleStatusChange('annulee')}
@@ -579,11 +585,11 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* WIDGET DE NAVIGATION DE LIVRAISON SANS CARTE INTERNE */}
+      {/* WIDGET DE NAVIGATION DE LIVRAISON */}
       {order.status === 'en_cours' && (
-        <div className="bg-white rounded-3xl p-5 border border-amber-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="bg-white rounded-3xl p-5 border shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4" style={{ borderColor: '#F59E0B30' }}>
           <div className="min-w-0">
-            <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider flex items-center gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 text-amber-600">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
               Livraison active
             </span>
@@ -631,7 +637,7 @@ const OrderDetailPage = () => {
           icon={<MapPin size={20} />}
           label="Adresse"
           value={order.address || 'Non précisée'}
-          color={colors.secondary || colors.primary}
+          color={colors.gold || '#c9a84c'}
         />
         <MiniCard
           icon={<Clock size={20} />}
@@ -664,7 +670,7 @@ const OrderDetailPage = () => {
               <p className="text-sm font-bold" style={{ color: colors.text }}>
                 💳 Paiement requis pour finaliser la commande
               </p>
-              <p className="text-[11px] font-medium mt-0.5" style={{ color: colors.text + '70' }}>
+              <p className="text-[11px] font-medium mt-0.5" style={{ color: colors.textLight }}>
                 Montant : <strong style={{ color: colors.primary }}>{formatCurrency(order.estimated_amount || 0)}</strong>
               </p>
             </div>
@@ -682,7 +688,7 @@ const OrderDetailPage = () => {
       )}
 
       {/* PERSONNES */}
-      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
+      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
           Personnes concernées
@@ -725,7 +731,7 @@ const OrderDetailPage = () => {
 
       {/* ARTICLES */}
       {order.items && order.items.length > 0 && (
-        <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
+        <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
           <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
             <ShoppingBag size={18} style={{ color: colors.primary }} />
             Articles
@@ -738,8 +744,8 @@ const OrderDetailPage = () => {
                 className="flex items-center justify-between gap-3 rounded-2xl bg-gray-50 p-3"
               >
                 <div>
-                  <p className="font-semibold text-gray-900">{item.name}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="font-semibold" style={{ color: colors.text }}>{item.name}</p>
+                  <p className="text-sm" style={{ color: colors.textLight }}>
                     Qté : {item.quantity}
                   </p>
                 </div>
@@ -755,7 +761,7 @@ const OrderDetailPage = () => {
 
       {/* DOCUMENTS */}
       {(order.prescription_url || order.proof_url) && (
-        <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
+        <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
           <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
             <FileText size={18} style={{ color: colors.primary }} />
             Documents
@@ -784,7 +790,7 @@ const OrderDetailPage = () => {
       )}
 
       {/* SUIVI */}
-      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border border-black/5">
+      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Clock size={18} style={{ color: colors.primary }} />
           Suivi de la commande
@@ -792,7 +798,7 @@ const OrderDetailPage = () => {
 
         {order.status === 'annulee' ? (
           <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 border border-red-200">
-            <XCircle size={24} style={{ color: '#F44336' }} />
+            <XCircle size={24} style={{ color: '#EF4444' }} />
             <div>
               <p className="font-bold text-red-600">Commande annulée</p>
               <p className="text-sm text-red-500">Cette commande a été annulée.</p>
@@ -800,7 +806,7 @@ const OrderDetailPage = () => {
           </div>
         ) : order.status === 'disponible' ? (
           <div className="flex items-center gap-3 p-4 rounded-2xl bg-red-50 border border-red-200">
-            <AlertCircle size={24} style={{ color: '#F44336' }} />
+            <AlertCircle size={24} style={{ color: '#EF4444' }} />
             <div>
               <p className="font-bold text-red-600">🚨 Commande urgente</p>
               <p className="text-sm text-red-500">Cette commande est disponible pour tous les aidants. Premier arrivé, premier servi !</p>
@@ -839,7 +845,7 @@ const OrderDetailPage = () => {
                 );
               })}
             </div>
-            <div className="flex justify-between mt-1 text-xs text-gray-400">
+            <div className="flex justify-between mt-1 text-xs" style={{ color: colors.textLight }}>
               <span>Créée</span>
               <span>En cours</span>
               <span>Livrée</span>
@@ -848,14 +854,14 @@ const OrderDetailPage = () => {
           </>
         )}
 
-        <p className="text-sm mt-4 text-gray-500 flex items-center gap-1">
+        <p className="text-sm mt-4 flex items-center gap-1" style={{ color: colors.textLight }}>
           <Clock size={14} />
           Dernière mise à jour : {formatDateTime(order.updated_at)}
         </p>
 
         {order.status === 'en_attente' && (
           <div className="mt-3 p-3 rounded-xl bg-yellow-50 border border-yellow-200 flex items-start gap-2">
-            <Clock size={18} style={{ color: '#FF9800' }} className="mt-0.5" />
+            <Clock size={18} style={{ color: '#F59E0B' }} className="mt-0.5" />
             <div>
               <p className="text-sm font-medium text-yellow-700">En attente de prise</p>
               <p className="text-xs text-yellow-600">L'aidant assigné a 30 minutes pour prendre la commande.</p>
@@ -865,7 +871,7 @@ const OrderDetailPage = () => {
 
         {order.status === 'livree' && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2">
-            <Clock size={18} style={{ color: '#2196F3' }} className="mt-0.5" />
+            <Clock size={18} style={{ color: '#3B82F6' }} className="mt-0.5" />
             <div>
               <p className="text-sm font-medium text-blue-700">Validation automatique</p>
               <p className="text-xs text-blue-600">Cette commande sera automatiquement validée dans 12h.</p>
@@ -885,7 +891,7 @@ const OrderDetailPage = () => {
 
         {isPendingPayment && (
           <div className="mt-3 p-3 rounded-xl bg-purple-50 border border-purple-200 flex items-start gap-2">
-            <CreditCard size={18} style={{ color: '#8b5cf6' }} className="mt-0.5" />
+            <CreditCard size={18} style={{ color: '#8B5CF6' }} className="mt-0.5" />
             <div>
               <p className="text-sm font-medium text-purple-700">Paiement requis</p>
               <p className="text-xs text-purple-600">Effectuez le paiement pour finaliser votre commande.</p>
@@ -918,11 +924,11 @@ const OrderDetailPage = () => {
               </button>
             </div>
 
-            <p className="text-sm mb-4 text-gray-500">
+            <p className="text-sm mb-4" style={{ color: colors.textLight }}>
               Ajoutez une photo comme preuve de livraison.
             </p>
 
-            <div className="relative min-h-[220px] border-2 border-dashed rounded-[1.5rem] p-5 flex items-center justify-center bg-gray-50 overflow-hidden">
+            <div className="relative min-h-[220px] border-2 border-dashed rounded-[1.5rem] p-5 flex items-center justify-center bg-gray-50 overflow-hidden" style={{ borderColor: colors.primary + '30' }}>
               {proofPreview ? (
                 <>
                   <img
@@ -950,7 +956,7 @@ const OrderDetailPage = () => {
                     <p className="font-semibold" style={{ color: colors.text }}>
                       Sélectionner une photo
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm mt-1" style={{ color: colors.textLight }}>
                       PNG, JPG, JPEG — Max 5MB
                     </p>
                   </div>
@@ -969,7 +975,7 @@ const OrderDetailPage = () => {
                 onClick={() => setShowProofModal(false)}
                 className="py-3 rounded-2xl font-semibold border hover:bg-gray-50 transition"
                 style={{
-                  borderColor: colors.border || '#e5e0d8',
+                  borderColor: colors.primary + '20',
                   color: colors.text,
                 }}
               >
