@@ -1,9 +1,9 @@
-// 📁 frontend/src/features/visits/components/VisitModal.tsx
- 
+// 📁 src/features/visits/components/VisitModal.tsx
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Visit, Patient } from '@/types';
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
+import { Modal } from '@/components/ui/Modal';  
 import { VisitModalContent } from './VisitModalContent';
 import { VisitWizardModal } from './VisitWizardModal';
 import { useVisitStore } from '@/stores/visitStore';
@@ -30,20 +30,16 @@ export const VisitModal = ({
   const navigate = useNavigate();
   const colors = getThemeColors('senior');
 
-  // ✅ ÉTATS POUR LE WIZARD
   const [showWizard, setShowWizard] = useState(false);
   const [wizardData, setWizardData] = useState<any>(null);
   const [pendingVisitData, setPendingVisitData] = useState<any>(null);
 
-  // ✅ OUVERTURE DU WIZARD
   const handleOpenWizard = (data: any, wizardDataObj: any) => {
-    console.log('🔄 [VisitModal] Ouverture du wizard avec:', wizardDataObj);
     setPendingVisitData(data);
     setWizardData(wizardDataObj);
     setShowWizard(true);
   };
 
-  // ✅ SUCCÈS DU WIZARD AVEC REDIRECTION ET FEEDBACK UTILISATEUR CIBLÉ SANS DOUBLE TOAST
   const handleWizardSuccess = async (wizardResult: any) => {
     try {
       const { createVisit } = useVisitStore.getState();
@@ -55,8 +51,6 @@ export const VisitModal = ({
         assignment_type: wizardResult.assignmentType || 'ponctuelle',
         aidant_id: wizardResult.aidantId,
       };
-      
-      console.log('📤 Wizard - Création visite avec aidant:', visitPayload);
       
       const result = await createVisit(visitPayload);
       
@@ -72,7 +66,6 @@ export const VisitModal = ({
       setWizardData(null);
       setPendingVisitData(null);
 
-      // Si la visite est planifiée, on redirige directement vers sa fiche détaillée
       if (result && result.status !== 'brouillon' && result.id) {
         navigate(`/app/visits/${result.id}`);
       }
@@ -91,7 +84,6 @@ export const VisitModal = ({
     setPendingVisitData(null);
   };
 
-  // ✅ REDIRECTION INTELLIGENTE CIBLÉE SUR LA FICHE DÉTAILLÉE DE LA VISITE APRÈS VALIDATION DU FORMULAIRE STANDARD
   const handleSuccess = (result?: any) => {
     onClose();
     if (result && result.status !== 'brouillon' && result.id) {
@@ -102,12 +94,11 @@ export const VisitModal = ({
 
   return (
     <>
-      {/* 1️⃣ Modal principal de planification (masqué si le Wizard est ouvert) */}
-      <ModalFullScreen
+      <Modal
         isOpen={isOpen && !showWizard}
         onClose={onClose}
-        onBack={onClose}
         title={mode === 'create' ? 'Planifier une visite' : 'Modifier la visite'}
+        maxWidth="xl" // 💡 Ajustement parfait de la largeur pour un formulaire centré
       >
         <VisitModalContent
           mode={mode}
@@ -117,9 +108,8 @@ export const VisitModal = ({
           onCancel={onClose}
           onOpenWizard={handleOpenWizard} 
         />
-      </ModalFullScreen>
+      </Modal>
 
-      {/* 2️⃣ Wizard de planification (rendu à l'EXTÉRIEUR du modal de planification) */}
       {showWizard && wizardData && (
         <VisitWizardModal
           isOpen={showWizard}
