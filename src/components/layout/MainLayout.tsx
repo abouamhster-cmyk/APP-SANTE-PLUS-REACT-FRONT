@@ -1,5 +1,4 @@
 // 📁 src/components/layout/MainLayout.tsx
-// ✅ MAIN LAYOUT : EN-TÊTE INTELLIGENT ET INTÉGRATION DE LA MESSAGERIE POUR TOUS LES RÔLES (ADMIN INCLUS)
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -33,9 +32,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
-import { getLogoByRole } from '@/lib/constants';
+import { useBranding } from '@/hooks/useBranding';
 import { cn, getGreeting } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
@@ -55,26 +53,22 @@ const MainLayout = () => {
   const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
 
   const { isFamily } = useTerminology();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // ✅ ÉTATS POUR LE HEADER FLOTTANT IMMERSIF (Affiché uniquement au sommet de la page)
+  // ✅ ÉTATS POUR LE HEADER FLOTTANT IMMERSIF
   const [showHeader, setShowHeader] = useState(true);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-  const logoConfig = getLogoByRole(role, profile?.patient_category);
 
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
   const showDraftBadge = isFamily && draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
   // =============================================
-  // GESTION DU SCROLL STRICT POUR LE HEADER
+  // GESTION DU SCROLL
   // =============================================
   const handleScroll = useCallback(() => {
     const currentScrollY = window.scrollY;
-
-    // Le header n'apparaît désormais que si la personne est vraiment remontée tout en haut (seuil de 20px)
     if (currentScrollY <= 20) {
       setShowHeader(true);
     } else {
@@ -99,7 +93,7 @@ const MainLayout = () => {
   }, []);
 
   // =============================================
-  // NOTIFICATIONS TEMPS RÉEL (Canaux)
+  // NOTIFICATIONS TEMPS RÉEL
   // =============================================
   const isSubscribed = useRef(false);
 
@@ -227,7 +221,7 @@ const MainLayout = () => {
   }, [location.pathname, role]);
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }} > 
+    <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }}> 
       {/* SIDEBAR DESKTOP UNIQUEMENT */}
       {!isMobile && (
         <aside
@@ -240,7 +234,7 @@ const MainLayout = () => {
             colors={colors}
             profile={profile}
             role={role}
-            logoConfig={logoConfig}
+            logoConfig={brand.logo}
             onLogout={() => {
               logout();
               navigate('/login');
@@ -255,7 +249,7 @@ const MainLayout = () => {
       <div className="min-h-screen w-full md:pl-72">
         
         {/* ========================================== */}
-        {/* HEADER IMMERSIF (MASQUAGE STRICT AU SCROLL) */}
+        {/* HEADER IMMERSIF */}
         {/* ========================================== */}
         <header
           className={cn(
@@ -263,7 +257,6 @@ const MainLayout = () => {
             isMobile 
               ? "bg-transparent border-none px-4 py-3" 
               : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4",
-            // ✅ Masquage strict au défilement, réapparition uniquement au sommet (20px)
             showHeader ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
           )}
           style={{
@@ -321,7 +314,11 @@ const MainLayout = () => {
                 {showDraftBadge && (
                   <Link
                     to="/app/visits?filter=brouillon"
-                    className="flex items-center gap-1 px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-[10px] font-bold hover:bg-yellow-200 transition shrink-0 shadow-sm"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold hover:opacity-80 transition shrink-0 shadow-sm"
+                    style={{
+                      backgroundColor: colors.secondary,
+                      color: colors.text,
+                    }}
                   >
                     <AlertCircle size={11} />
                     <span>{draftCount}</span>
@@ -349,9 +346,12 @@ const MainLayout = () => {
                   className={cn(
                     "relative transition flex items-center justify-center shrink-0",
                     isMobile 
-                      ? "w-9 h-9 rounded-full bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-md border border-gray-100 dark:border-gray-800/40 shadow-sm"
+                      ? "w-9 h-9 rounded-full bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-md border shadow-sm"
                       : "w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] border"
                   )}
+                  style={{
+                    borderColor: colors.primary + '20',
+                  }}
                 >
                   <Bell size={18} className="text-gray-500 dark:text-gray-300" />
                   {unreadCount > 0 && (
@@ -454,7 +454,7 @@ const SidebarContent = ({
               to={item.path}
               className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0 font-medium hover:bg-gray-50 dark:hover:bg-[#1c2a21]/50"
               style={{
-                color: active ? colors.primary : '#6B7280',
+                color: active ? colors.primary : colors.textLight,
                 backgroundColor: active ? colors.primary + '10' : 'transparent',
               }}
             >
@@ -501,7 +501,7 @@ const SidebarContent = ({
             <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider leading-none mb-0.5">
               {getGreeting()}
             </p>
-            <p className="text-xs font-bold truncate text-gray-800 dark:text-gray-100">
+            <p className="text-xs font-bold truncate" style={{ color: colors.text }}>
               {profile?.full_name || 'Utilisateur'}
             </p>
             <p className="text-[10px] font-semibold flex items-center gap-1 mt-0.5" style={{ color: colors.primary }}>
