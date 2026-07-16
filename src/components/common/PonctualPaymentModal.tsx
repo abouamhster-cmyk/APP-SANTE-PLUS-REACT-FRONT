@@ -20,7 +20,7 @@ import {
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { formatCurrency } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
@@ -29,26 +29,22 @@ import toast from 'react-hot-toast';
 // ============================================================
 
 export interface PonctualPaymentData {
-  // Informations générales
   type: 'visit' | 'order';
   amount: number;
   description: string;
   
-  // Pour les visites
   visitId?: string;
   scheduledDate?: string;
   scheduledTime?: string;
   durationMinutes?: number;
   patientName?: string;
   
-  // Pour les commandes
   orderId?: string;
   orderType?: string;
   items?: Array<{ name: string; quantity: number; price: number }>;
   address?: string;
   prescriptionUrl?: string;
   
-  // Cible
   targetType: 'personal' | 'patient';
   targetName: string;
   targetId?: string | null;
@@ -76,13 +72,12 @@ export const PonctualPaymentModal = ({
 }: PonctualPaymentModalProps) => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { createPayment } = usePaymentStore();
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   const isVisit = paymentData.type === 'visit';
   const isOrder = paymentData.type === 'order';
@@ -95,7 +90,6 @@ export const PonctualPaymentModal = ({
     setError(null);
 
     try {
-      // ✅ Préparer les données pour le backend
       const orderData = isVisit ? {
         visit_id: paymentData.visitId,
         duration_minutes: paymentData.durationMinutes || 60,
@@ -128,7 +122,6 @@ export const PonctualPaymentModal = ({
         patientId: paymentData.patientId,
       });
 
-      // ✅ Appeler l'API de paiement
       const result = await createPayment({
         amount: paymentData.amount,
         description: paymentData.description,
@@ -154,7 +147,6 @@ export const PonctualPaymentModal = ({
         throw new Error("Le lien de paiement n'a pas été généré");
       }
 
-      // ✅ Sauvegarder les données en attente
       const pendingData = {
         type: paymentData.type,
         id: paymentData.visitId || paymentData.orderId,
@@ -169,14 +161,12 @@ export const PonctualPaymentModal = ({
         localStorage.setItem('pending_ponctual_order', JSON.stringify(pendingData));
       }
 
-      // ✅ UN SEUL TOAST - REDIRECTION
       toast.success('Redirection vers FedaPay...');
       window.location.href = paymentUrl;
       
     } catch (error: any) {
       console.error('❌ Erreur paiement:', error);
       setError(error?.message || 'Erreur lors du lancement du paiement');
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors du paiement');
       setIsLoading(false);
     }
@@ -217,7 +207,7 @@ export const PonctualPaymentModal = ({
               {isVisit ? <Calendar size={18} /> : <ShoppingBag size={18} />}
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '50' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
                 {isVisit ? 'Visite ponctuelle' : 'Commande ponctuelle'}
               </span>
               <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
@@ -231,31 +221,31 @@ export const PonctualPaymentModal = ({
             {isVisit ? (
               <>
                 <div>
-                  <p className="font-semibold text-[9px] uppercase" style={{ color: colors.text + '50' }}>
+                  <p className="font-semibold text-[9px] uppercase" style={{ color: colors.textLight }}>
                     Date & Heure
                   </p>
                   <p className="font-semibold flex items-center gap-1" style={{ color: colors.text }}>
-                    <Calendar size={12} className="shrink-0" style={{ color: colors.text + '40' }} />
+                    <Calendar size={12} className="shrink-0" style={{ color: colors.textLight }} />
                     {paymentData.scheduledDate ? new Date(paymentData.scheduledDate).toLocaleDateString('fr-FR') : 'À définir'}
                     {paymentData.scheduledTime && ` à ${paymentData.scheduledTime}`}
                   </p>
                 </div>
                 <div>
-                  <p className="font-semibold text-[9px] uppercase" style={{ color: colors.text + '50' }}>
+                  <p className="font-semibold text-[9px] uppercase" style={{ color: colors.textLight }}>
                     Durée
                   </p>
                   <p className="font-semibold flex items-center gap-1" style={{ color: colors.text }}>
-                    <Clock size={12} className="shrink-0" style={{ color: colors.text + '40' }} />
+                    <Clock size={12} className="shrink-0" style={{ color: colors.textLight }} />
                     {paymentData.durationMinutes || 60} min
                   </p>
                 </div>
                 {paymentData.patientName && (
                   <div className="col-span-2">
-                    <p className="font-semibold text-[9px] uppercase" style={{ color: colors.text + '50' }}>
+                    <p className="font-semibold text-[9px] uppercase" style={{ color: colors.textLight }}>
                       Patient
                     </p>
                     <p className="font-semibold flex items-center gap-1" style={{ color: colors.text }}>
-                      <User size={12} className="shrink-0" style={{ color: colors.text + '40' }} />
+                      <User size={12} className="shrink-0" style={{ color: colors.textLight }} />
                       {paymentData.patientName}
                     </p>
                   </div>
@@ -264,7 +254,7 @@ export const PonctualPaymentModal = ({
             ) : (
               <>
                 <div className="col-span-2">
-                  <p className="font-semibold text-[9px] uppercase" style={{ color: colors.text + '50' }}>
+                  <p className="font-semibold text-[9px] uppercase" style={{ color: colors.textLight }}>
                     Description
                   </p>
                   <p className="font-semibold text-sm" style={{ color: colors.text }}>
@@ -273,20 +263,20 @@ export const PonctualPaymentModal = ({
                 </div>
                 {paymentData.items && paymentData.items.length > 0 && (
                   <div className="col-span-2">
-                    <p className="font-semibold text-[9px] uppercase" style={{ color: colors.text + '50' }}>
+                    <p className="font-semibold text-[9px] uppercase" style={{ color: colors.textLight }}>
                       Articles ({paymentData.items.length})
                     </p>
                     <div className="space-y-0.5 mt-1">
                       {paymentData.items.slice(0, 3).map((item, index) => (
                         <div key={index} className="flex justify-between text-[11px]">
-                          <span style={{ color: colors.text + '80' }}>{item.name} × {item.quantity}</span>
+                          <span style={{ color: colors.textLight }}>{item.name} × {item.quantity}</span>
                           <span className="font-semibold" style={{ color: colors.primary }}>
                             {(item.quantity * item.price).toLocaleString()} FCFA
                           </span>
                         </div>
                       ))}
                       {paymentData.items.length > 3 && (
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[10px]" style={{ color: colors.textLight }}>
                           +{paymentData.items.length - 3} autres articles
                         </span>
                       )}
@@ -295,10 +285,10 @@ export const PonctualPaymentModal = ({
                 )}
                 {paymentData.address && (
                   <div className="col-span-2">
-                    <p className="font-semibold text-[9px] uppercase" style={{ color: colors.text + '50' }}>
+                    <p className="font-semibold text-[9px] uppercase" style={{ color: colors.textLight }}>
                       Livraison
                     </p>
-                    <p className="text-xs" style={{ color: colors.text + '70' }}>
+                    <p className="text-xs" style={{ color: colors.textLight }}>
                       {paymentData.address}
                     </p>
                   </div>
@@ -311,14 +301,14 @@ export const PonctualPaymentModal = ({
           <div className="border-t pt-3" style={{ borderColor: colors.primary + '20' }}>
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '50' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
                   Total à régler
                 </p>
                 <p className="text-2xl font-black tracking-tight" style={{ color: colors.primary }}>
                   {formatCurrency(paymentData.amount)}
                 </p>
               </div>
-              <span className="text-[10px] text-gray-400 font-medium">
+              <span className="text-[10px] font-medium" style={{ color: colors.textLight }}>
                 Paiement unique
               </span>
             </div>
@@ -334,10 +324,10 @@ export const PonctualPaymentModal = ({
         >
           <AlertCircle size={15} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
           <div className="space-y-0.5">
-            <p className="text-xs leading-relaxed font-medium" style={{ color: colors.text + '80' }}>
+            <p className="text-xs leading-relaxed font-medium" style={{ color: colors.textLight }}>
               💳 Vous allez être redirigé vers FedaPay pour finaliser le paiement.
               <br />
-              <span className="text-[10px]" style={{ color: colors.text + '50' }}>
+              <span className="text-[10px]" style={{ color: colors.textLight }}>
                 Moyens acceptés : Mobile Money (MTN, Moov, Wave) ou Carte bancaire.
               </span>
             </p>
@@ -357,7 +347,7 @@ export const PonctualPaymentModal = ({
         {/* ============================================================
         BOUTONS
         ============================================================ */}
-        <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
+        <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
           <button
             type="button"
             onClick={onClose}
@@ -392,7 +382,7 @@ export const PonctualPaymentModal = ({
         {/* ============================================================
         FOOTER INFO
         ============================================================ */}
-        <p className="text-[9px] text-center" style={{ color: colors.text + '30' }}>
+        <p className="text-[9px] text-center" style={{ color: colors.textLight }}>
           Paiement sécurisé par FedaPay
         </p>
       </div>
