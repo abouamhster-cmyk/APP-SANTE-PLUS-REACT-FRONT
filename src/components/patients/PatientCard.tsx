@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Patient } from '@/types';
 import { MapPin, Phone, Edit2, Trash2, UserCheck, UserX } from 'lucide-react';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useAssignmentStore } from '@/stores/assignmentStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -26,7 +26,8 @@ export const PatientCard = ({
   showActions = false, 
   compact = false 
 }: PatientCardProps) => {
-  const colors = getThemeColors('senior');
+  const brand = useBranding();
+  const colors = brand.colors;
   const { user } = useAuthStore();
   const { fetchActiveAidant, activeAidant } = useAssignmentStore();
   
@@ -83,15 +84,18 @@ export const PatientCard = ({
     return (
       <div
         className="bg-white rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border cursor-pointer hover:border-[var(--color-primary)]/30 w-full overflow-hidden"
-        style={{ borderColor: colors.border }}
+        style={{ borderColor: colors.primary + '20' }}
         onClick={onClick}
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0" style={{ background: colors.primary }}>
+          <div 
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0" 
+            style={{ background: colors.primary }}
+          >
             {patient.first_name.charAt(0)}{patient.last_name.charAt(0)}
           </div>
           <div className="flex-1 min-w-0 pr-1">
-            <h4 className="font-bold text-xs sm:text-sm truncate text-gray-800 dark:text-gray-100">
+            <h4 className="font-bold text-xs sm:text-sm truncate" style={{ color: colors.text }}>
               {patient.first_name} {patient.last_name !== '(Compte Personnel)' ? patient.last_name : ''}
             </h4>
             <div className="flex items-center gap-1 mt-1 flex-wrap">
@@ -99,10 +103,10 @@ export const PatientCard = ({
                 {getCategoryLabelText()}
               </span>
               {patient.age && (
-                <span className="text-[9px] sm:text-[10px] font-bold text-gray-400">🎂 {patient.age} ans</span>
+                <span className="text-[9px] sm:text-[10px] font-bold" style={{ color: colors.textLight }}>🎂 {patient.age} ans</span>
               )}
               {assignedAidant && !isLoadingAidant && (
-                <span className="text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full shrink-0">
+                <span className="text-[9px] sm:text-[10px] font-bold flex items-center gap-0.5 px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: colors.primary + '10', color: colors.primary }}>
                   <UserCheck size={10} />
                   {assignedAidant.full_name?.split(' ')[0] || 'Aidant'}
                 </span>
@@ -127,16 +131,19 @@ export const PatientCard = ({
   return (
     <div
       className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-md transition-all border cursor-pointer hover:border-[var(--color-primary)]/30 w-full overflow-hidden"
-      style={{ borderColor: colors.border }}
+      style={{ borderColor: colors.primary + '20' }}
       onClick={onClick}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4 min-w-0">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg sm:text-xl flex-shrink-0" style={{ background: colors.primary }}>
+          <div 
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white font-semibold text-lg sm:text-xl flex-shrink-0" 
+            style={{ background: colors.primary }}
+          >
             {patient.first_name.charAt(0)}{patient.last_name.charAt(0)}
           </div>
           <div className="min-w-0">
-            <h3 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100 truncate">
+            <h3 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
               {patient.first_name} {patient.last_name !== '(Compte Personnel)' ? patient.last_name : ''}
             </h3>
             <div className="flex items-center flex-wrap gap-1.5 mt-1">
@@ -144,22 +151,22 @@ export const PatientCard = ({
                 {getCategoryLabelText()}
               </span>
               {patient.age && (
-                <span className="text-[10px] sm:text-xs font-bold text-gray-400">🎂 {patient.age} ans</span>
+                <span className="text-[10px] sm:text-xs font-bold" style={{ color: colors.textLight }}>🎂 {patient.age} ans</span>
               )}
               {assignedAidant && !isLoadingAidant && (
-                <span className="text-[10px] sm:text-xs font-bold flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full shrink-0">
+                <span className="text-[10px] sm:text-xs font-bold flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: colors.primary + '10', color: colors.primary }}>
                   <UserCheck size={12} />
                   Aidant: {assignedAidant.full_name}
                 </span>
               )}
               {!assignedAidant && !isLoadingAidant && isAdminOrCoordinator && (
-                <span className="text-[10px] sm:text-xs font-bold flex items-center gap-1 text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full shrink-0">
+                <span className="text-[10px] sm:text-xs font-bold flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0" style={{ backgroundColor: '#EF444410', color: '#EF4444' }}>
                   <UserX size={12} />
                   Non assigné
                 </span>
               )}
               {isLoadingAidant && (
-                <span className="text-[10px] sm:text-xs text-gray-400 animate-pulse">⏳ Chargement...</span>
+                <span className="text-[10px] sm:text-xs animate-pulse" style={{ color: colors.textLight }}>⏳ Chargement...</span>
               )}
             </div>
           </div>
@@ -214,11 +221,11 @@ export const PatientCard = ({
       )}
 
       {isAdminOrCoordinator && (
-        <div className="mt-4 pt-3 border-t" style={{ borderColor: colors.border }}>
+        <div className="mt-4 pt-3 border-t" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between text-xs font-bold">
             <span style={{ color: colors.text + '50' }}>
               {assignedAidant ? (
-                <span className="flex items-center gap-1 text-green-600">
+                <span className="flex items-center gap-1" style={{ color: colors.primary }}>
                   <UserCheck size={14} />
                   Aidant: {assignedAidant.full_name}
                 </span>
