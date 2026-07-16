@@ -10,15 +10,12 @@ import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAssignmentStore } from '@/stores/assignmentStore';
-
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 
 import { AidantCard } from '../components/AidantCard';
 import { AidantFilters } from '../components/AidantFilters';
- 
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Illustration } from '@/components/ui/Illustration';
-
 import { AidantFilters as AidantFiltersType } from '@/types/aidant';
 import toast from 'react-hot-toast';
 
@@ -26,9 +23,10 @@ const AidantCatalogPage = () => {
   const navigate = useNavigate();
 
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { patients, fetchPatients } = usePatientStore();
   
-  // ✅ Store d'assignation
   const { 
     assignments,
     fetchAssignments, 
@@ -49,9 +47,6 @@ const AidantCatalogPage = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
   // ============================================================
   // INITIALISATION
   // ============================================================
@@ -66,7 +61,7 @@ const AidantCatalogPage = () => {
       await Promise.all([
         fetchAidants(),
         fetchPatients(),
-        fetchAssignments(),  // ✅ Charger les assignations de la famille
+        fetchAssignments(),
       ]);
     };
     
@@ -102,14 +97,12 @@ const AidantCatalogPage = () => {
     setShowAssignModal(false);
     setSelectedAidant(null);
     
-    // Rafraîchir les données
     Promise.all([
       fetchAidants(),
       fetchAssignments(),
     ]);
   };
 
-  // ✅ Libérer un aidant directement depuis le catalogue d'un clic !
   const handleRevoke = async (assignmentId: string) => {
     if (!window.confirm("Êtes-vous sûr de vouloir libérer cet aidant ? Il ne sera plus lié à votre compte.")) return;
 
@@ -117,7 +110,6 @@ const AidantCatalogPage = () => {
       await revokeAssignment(assignmentId, "Révocation demandée depuis le catalogue d'aidants");
       toast.success("L'aidant a été libéré avec succès");
       
-      // Rafraîchir
       Promise.all([
         fetchAidants(),
         fetchAssignments(),
@@ -168,7 +160,7 @@ const AidantCatalogPage = () => {
           >
             🦸 Aidants disponibles
           </h1>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs" style={{ color: colors.textLight }}>
             {aidants.length} aidant{aidants.length > 1 ? 's' : ''} disponible{aidants.length > 1 ? 's' : ''}
             {hasPatients ? ` • ${patients.length} proche${patients.length > 1 ? 's' : ''}` : ' • Aucun proche enregistré'}
           </p>
@@ -186,7 +178,7 @@ const AidantCatalogPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Rechercher par nom, spécialité ou zone..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none transition focus:ring-1 focus:ring-offset-0 min-w-0"
-              style={{ borderColor: colors.border, color: colors.text }}
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
             />
           </div>
 
@@ -194,7 +186,7 @@ const AidantCatalogPage = () => {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="flex-1 sm:flex-none px-3 py-2 rounded-xl border text-xs flex items-center justify-center gap-1.5 hover:bg-gray-50 transition font-medium"
-              style={{ borderColor: colors.border, color: colors.text }}
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
             >
               <Filter size={13} />
               Filtres
@@ -229,13 +221,13 @@ const AidantCatalogPage = () => {
 
       {/* MESSAGE SI AUCUN PROCHE */}
       {!hasPatients && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
-          <p className="text-sm text-amber-700">
+        <div className="p-4 rounded-2xl text-center" style={{ backgroundColor: '#FFFBEB', border: '1px solid #F59E0B30' }}>
+          <p className="text-sm" style={{ color: '#92400E' }}>
             ⚠️ Vous n'avez pas encore de proche enregistré. Vous pouvez toujours vous assigner un aidant personnel.
           </p>
           <button
             onClick={() => navigate('/app/patients')}
-            className="mt-2 text-xs font-medium text-amber-800 hover:underline"
+            className="mt-2 text-xs font-medium hover:underline" style={{ color: '#92400E' }}
           >
             Ajouter un proche
           </button>
@@ -246,7 +238,6 @@ const AidantCatalogPage = () => {
       {filteredAidants.length > 0 ? (
         <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 w-full min-w-0">
           {filteredAidants.map((aidant) => {
-            // ✅ Trouver si cet aidant est déjà lié à votre compte ou à un proche
             const targetAidantId = aidant.user_id || aidant.id;
             const activeAssignment = assignments.find(
               as => (as.aidant_user_id === targetAidantId || as.aidant?.id === aidant.id) && as.status === 'active'
@@ -262,7 +253,7 @@ const AidantCatalogPage = () => {
                   onRevoke={isAssigned ? () => handleRevoke(activeAssignment.id) : undefined}
                   colors={colors}
                   showActions={true}
-                  isAssigned={isAssigned} // ✅ True s'il est déjà lié
+                  isAssigned={isAssigned}
                   assignedTargetName={(activeAssignment as any)?.target_name} 
                 />
               </div>
@@ -270,12 +261,12 @@ const AidantCatalogPage = () => {
           })}
         </section>
       ) : (
-        <section className="text-center py-12 px-4 bg-white rounded-2xl border border-black/5 w-full min-w-0">
+        <section className="text-center py-12 px-4 bg-white rounded-2xl border w-full min-w-0" style={{ borderColor: colors.primary + '15' }}>
           <Illustration type="search" size="md" className="mx-auto opacity-30 mb-3" />
           <h3 className="font-semibold text-xs sm:text-sm" style={{ color: colors.text }}>
             {searchTerm ? 'Aucun aidant ne correspond à votre recherche' : 'Aucun aidant disponible pour le moment'}
           </h3>
-          <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5">
+          <p className="text-[10px] sm:text-xs mt-0.5" style={{ color: colors.textLight }}>
             {searchTerm 
               ? 'Essayez de modifier votre recherche ou vos filtres' 
               : 'Revenez plus tard, de nouveaux aidants peuvent être disponibles'}
