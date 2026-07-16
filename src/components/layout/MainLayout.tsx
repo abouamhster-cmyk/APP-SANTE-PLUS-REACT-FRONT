@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MainLayout.tsx
-
+ 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -406,6 +406,8 @@ const SidebarContent = ({
   logoConfig,
   onLogout,
 }: SidebarContentProps) => {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   const getRoleIcon = () => {
     if (role === 'aidant') return <Briefcase size={14} />;
     if (role === 'family') return <Users size={14} />;
@@ -431,6 +433,13 @@ const SidebarContent = ({
     return `${avatarUrl}${separator}v=${Date.now()}`;
   };
 
+  const isActive = (path: string) => {
+    if (path === '/app') {
+      return locationPath === '/app' || locationPath === '/app/dashboard';
+    }
+    return locationPath.startsWith(path);
+  };
+
   return (
     <div className="flex h-full flex-col bg-white dark:bg-[#17231d]">
       <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '20' }}>
@@ -446,16 +455,22 @@ const SidebarContent = ({
 
       <div className="flex-1 overflow-y-auto pr-1 py-4 px-3 space-y-1 scrollbar-none">
         {navItems.map((item) => {
-          const active = isActivePath(item.path, locationPath);
+          const active = isActive(item.path);
+          const isHovered = hoveredId === item.path;
 
           return (
             <Link
               key={item.path}
               to={item.path}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0 font-medium hover:bg-gray-50 dark:hover:bg-[#1c2a21]/50"
+              onMouseEnter={() => setHoveredId(item.path)}
+              onMouseLeave={() => setHoveredId(null)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0 font-medium"
               style={{
                 color: active ? colors.primary : colors.textLight,
-                backgroundColor: active ? colors.primary + '10' : 'transparent',
+                // 🟢 HOVER DYNAMIQUE ET SÉCURISÉ : Plus de vert forcé en mode sombre, s'ajuste à l'opacité de l'univers connecté
+                backgroundColor: active 
+                  ? colors.primary + '18' 
+                  : (isHovered ? colors.primary + '08' : 'transparent'),
               }}
             >
               <span className="shrink-0">{item.icon}</span>
