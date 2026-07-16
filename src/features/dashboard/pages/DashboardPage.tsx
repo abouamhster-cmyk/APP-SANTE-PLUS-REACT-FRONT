@@ -1045,16 +1045,7 @@ const DashboardPage = () => {
           </div>
         </section>
       )}
-
-      {/* 🟢 CARD CITATION ÉDITORIALE BAS DE PAGE (Pour meubler l'espace et apporter une signature haut de gamme) */}
-      <section className="bg-white/35 dark:bg-[#17231d]/20 rounded-3xl p-5 border border-black/5 text-center max-w-lg mx-auto animate-fadeIn">
-        <p className="text-xs italic leading-relaxed text-gray-500 font-medium dark:text-gray-400">
-          "Accompagner quelqu’un, c’est ne pas projeter sur lui ses propres désirs mais l'aider à accomplir les siens."
-        </p>
-        <p className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 mt-2 tracking-wider">
-          — Philosophie Santé Plus Services —
-        </p>
-      </section>
+ 
 
     </div>
   );
