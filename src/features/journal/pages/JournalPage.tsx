@@ -20,9 +20,9 @@ import {
 } from 'lucide-react';
 import { useJournalStore } from '@/stores/journalStore';
 import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatDate, formatTime, cn } from '@/utils/helpers'; // 🟢 Importation de 'cn' ajoutée
+import { formatDate, formatTime, cn } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
 import { RatingModal } from '@/features/journal/components/RatingModal';
 import { VisitDetailsModal } from '@/features/journal/components/VisitDetailsModal';
@@ -30,6 +30,8 @@ import toast from 'react-hot-toast';
 
 const JournalPage = () => {
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const {
     singular,
@@ -54,9 +56,6 @@ const JournalPage = () => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'weekly' | 'stats'>('timeline');
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   useEffect(() => {
     fetchEntries();
@@ -134,7 +133,7 @@ const JournalPage = () => {
   return (
     <div className="space-y-4 pb-24 sm:pb-10">
       {/* HEADER AVEC SEGMENT MOBILE ADAPTATIF */}
-      <section className="bg-white rounded-2xl p-4 shadow-sm border border-black/5">
+      <section className="bg-white rounded-2xl p-4 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="min-w-0">
             <div
@@ -152,7 +151,7 @@ const JournalPage = () => {
               {getPageTitle()}
             </h1>
 
-            <p className="text-xs mt-0.5" style={{ color: colors.text + '70' }}>
+            <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
               {entries.length} visite(s) enregistrée(s)
             </p>
           </div>
@@ -164,10 +163,13 @@ const JournalPage = () => {
               className={cn(
                 "flex-1 md:flex-initial px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none",
                 viewMode === 'timeline' 
-                  ? "bg-white text-gray-900 shadow-sm font-extrabold" 
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white shadow-sm font-extrabold" 
+                  : "hover:opacity-80"
               )}
-              style={viewMode === 'timeline' ? { color: colors.primary } : undefined}
+              style={{
+                color: viewMode === 'timeline' ? colors.primary : colors.textLight,
+                backgroundColor: viewMode === 'timeline' ? '#ffffff' : 'transparent',
+              }}
             >
               <List size={12} />
               <span>Liste</span>
@@ -177,10 +179,13 @@ const JournalPage = () => {
               className={cn(
                 "flex-1 md:flex-initial px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none",
                 viewMode === 'weekly' 
-                  ? "bg-white text-gray-900 shadow-sm font-extrabold" 
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white shadow-sm font-extrabold" 
+                  : "hover:opacity-80"
               )}
-              style={viewMode === 'weekly' ? { color: colors.primary } : undefined}
+              style={{
+                color: viewMode === 'weekly' ? colors.primary : colors.textLight,
+                backgroundColor: viewMode === 'weekly' ? '#ffffff' : 'transparent',
+              }}
             >
               <LayoutGrid size={12} />
               <span>Semaine</span>
@@ -190,10 +195,13 @@ const JournalPage = () => {
               className={cn(
                 "flex-1 md:flex-initial px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 select-none",
                 viewMode === 'stats' 
-                  ? "bg-white text-gray-900 shadow-sm font-extrabold" 
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white shadow-sm font-extrabold" 
+                  : "hover:opacity-80"
               )}
-              style={viewMode === 'stats' ? { color: colors.primary } : undefined}
+              style={{
+                color: viewMode === 'stats' ? colors.primary : colors.textLight,
+                backgroundColor: viewMode === 'stats' ? '#ffffff' : 'transparent',
+              }}
             >
               <BarChart3 size={12} />
               <span>Stats</span>
@@ -215,19 +223,19 @@ const JournalPage = () => {
             icon={<Clock size={14} />}
             label={statLabels.pending}
             value={stats.pending_visits}
-            color="#FF9800"
+            color="#F59E0B"
           />
           <StatCard
             icon={<Star size={14} />}
             label={statLabels.average}
             value={stats.average_rating.toFixed(1)}
-            color="#FFD700"
+            color={colors.gold || '#c9a84c'}
           />
           <StatCard
             icon={<User size={14} />}
             label={statLabels.aidants}
             value={stats.total_aidants}
-            color="#2196F3"
+            color={colors.secondary || '#c9a84c'}
           />
         </section>
       )}
@@ -236,16 +244,16 @@ const JournalPage = () => {
       {viewMode === 'weekly' && (
         <section className="space-y-3">
           {weeklyEntries.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
               <Illustration type="calendar" size="lg" className="mx-auto mb-3 opacity-30" />
               <h3 className="text-sm font-bold" style={{ color: colors.text }}>
                 Aucune visite
               </h3>
-              <p className="text-xs text-gray-400 mt-1">Aucune visite enregistrée pour le moment</p>
+              <p className="text-xs mt-1" style={{ color: colors.textLight }}>Aucune visite enregistrée pour le moment</p>
             </div>
           ) : (
             weeklyEntries.map(({ week, entries: weekEntries }) => (
-              <div key={week} className="bg-white rounded-2xl p-3 shadow-sm border border-black/5">
+              <div key={week} className="bg-white rounded-2xl p-3 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar size={14} style={{ color: colors.primary }} />
                   <p className="text-xs font-bold" style={{ color: colors.text }}>
@@ -266,21 +274,21 @@ const JournalPage = () => {
                         <div
                           className="w-1.5 h-1.5 rounded-full shrink-0"
                           style={{
-                            background: entry.status === 'validee' ? '#4CAF50' : '#FF9800',
+                            background: entry.status === 'validee' ? '#4CAF50' : '#F59E0B',
                           }}
                         />
                         <p className="text-xs font-medium truncate" style={{ color: colors.text }}>
                           {getPatientName(entry)}
                         </p>
-                        <p className="text-[9px] text-gray-400 shrink-0">
+                        <p className="text-[9px] shrink-0" style={{ color: colors.textLight }}>
                           {formatDate(entry.date)} {entry.time}
                         </p>
                       </div>
                       <span
                         className="px-1.5 py-0.5 rounded-full text-[8px] font-bold shrink-0"
                         style={{
-                          background: entry.status === 'validee' ? '#4CAF5015' : '#FF980015',
-                          color: entry.status === 'validee' ? '#4CAF50' : '#FF9800',
+                          background: entry.status === 'validee' ? '#4CAF5015' : '#F59E0B15',
+                          color: entry.status === 'validee' ? '#4CAF50' : '#F59E0B',
                         }}
                       >
                         {entry.status === 'validee' ? (
@@ -302,12 +310,12 @@ const JournalPage = () => {
       {viewMode === 'timeline' && (
         <section className="space-y-2">
           {entries.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-black/5">
+            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
               <Illustration type="calendar" size="lg" className="mx-auto mb-3 opacity-30" />
               <h3 className="text-sm font-bold" style={{ color: colors.text }}>
                 Aucune visite
               </h3>
-              <p className="text-xs text-gray-400 mt-1">Aucune visite enregistrée pour le moment</p>
+              <p className="text-xs mt-1" style={{ color: colors.textLight }}>Aucune visite enregistrée pour le moment</p>
             </div>
           ) : (
             entries.map((entry) => (
@@ -364,15 +372,18 @@ interface StatCardProps {
 }
 
 const StatCard = ({ icon, label, value, color }: StatCardProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
-    <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '15', color }}>
           {icon}
         </div>
         <div className="min-w-0">
           <p className="text-base font-black" style={{ color }}>{value}</p>
-          <p className="text-[8px] text-gray-400 uppercase tracking-wider">{label}</p>
+          <p className="text-[8px] uppercase tracking-wider" style={{ color: colors.textLight }}>{label}</p>
         </div>
       </div>
     </div>
@@ -405,7 +416,7 @@ const JournalEntryCompact = ({
   const isRated = entry.rating !== null;
 
   return (
-    <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-black/5 hover:shadow-md transition">
+    <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border hover:shadow-md transition" style={{ borderColor: colors.primary + '15' }}>
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-3">
@@ -416,10 +427,10 @@ const JournalEntryCompact = ({
               {entry.patient?.first_name?.[0] || 'P'}
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-sm text-gray-800 dark:text-gray-100 truncate">
+              <p className="font-bold text-sm truncate" style={{ color: colors.text }}>
                 {getPatientName(entry)}
               </p>
-              <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-wide mt-0.5">
+              <p className="text-[10px] font-bold flex items-center gap-1 uppercase tracking-wide mt-0.5" style={{ color: colors.textLight }}>
                 <Calendar size={11} className="shrink-0 text-gray-400" /> 
                 <span>{formatDate(entry.date)} à {entry.time}</span>
               </p>
@@ -430,7 +441,7 @@ const JournalEntryCompact = ({
           {entry.aidant && (
             <div className="flex items-center gap-1.5 pl-0.5">
               <User size={11} className="shrink-0 text-gray-400" />
-              <span className="text-[11px] font-semibold text-gray-500">
+              <span className="text-[11px] font-semibold" style={{ color: colors.textLight }}>
                 Auxiliaire : <span className="font-bold" style={{ color: colors.text }}>{getAidantName(entry)}</span>
               </span>
             </div>
@@ -449,7 +460,7 @@ const JournalEntryCompact = ({
                 </span>
               ))}
               {entry.actions.length > 3 && (
-                <span className="text-[9px] text-gray-400 font-bold">+{entry.actions.length - 3}</span>
+                <span className="text-[9px] font-bold" style={{ color: colors.textLight }}>+{entry.actions.length - 3}</span>
               )}
             </div>
           )}
@@ -458,12 +469,12 @@ const JournalEntryCompact = ({
           {(hasPhotos || hasAudio) && (
             <div className="flex items-center gap-2 pt-1">
               {hasPhotos && (
-                <span className="text-[10px] font-bold text-gray-400 flex items-center gap-0.5">
+                <span className="text-[10px] font-bold flex items-center gap-0.5" style={{ color: colors.textLight }}>
                   <Image size={11} /> {entry.photos.length} photo{entry.photos.length > 1 ? 's' : ''}
                 </span>
               )}
               {hasAudio && (
-                <span className="text-[10px] font-bold text-gray-400 flex items-center gap-0.5">
+                <span className="text-[10px] font-bold flex items-center gap-0.5" style={{ color: colors.textLight }}>
                   <Music size={11} /> Note vocale
                 </span>
               )}
@@ -476,8 +487,8 @@ const JournalEntryCompact = ({
           <span
             className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1"
             style={{
-              background: entry.status === 'validee' ? '#4CAF5015' : '#FF980015',
-              color: entry.status === 'validee' ? '#4CAF50' : '#FF9800',
+              background: entry.status === 'validee' ? '#4CAF5015' : '#F59E0B15',
+              color: entry.status === 'validee' ? '#4CAF50' : '#F59E0B',
             }}
           >
             {entry.status === 'validee' ? (
@@ -497,7 +508,7 @@ const JournalEntryCompact = ({
             {isRated ? (
               <div className="flex items-center gap-1">
                 <Star size={12} className="fill-yellow-400 text-yellow-400" />
-                <span className="text-xs font-black">{entry.rating}</span>
+                <span className="text-xs font-black" style={{ color: colors.text }}>{entry.rating}</span>
               </div>
             ) : (
               entry.status === 'validee' && (
