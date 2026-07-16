@@ -1,6 +1,7 @@
 // 📁 src/components/visits/CompleteVisitModal.tsx
+// 💡 Soumission du rapport de visite par l'intervenant
 
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
+import { Modal } from '@/components/ui/Modal';  
 import { CompleteVisitModalContent } from './CompleteVisitModalContent';
 
 interface CompleteVisitModalProps {
@@ -28,11 +29,11 @@ export const CompleteVisitModal = ({
   isLoading,
 }: CompleteVisitModalProps) => {
   return (
-    <ModalFullScreen
+    <Modal
       isOpen={isOpen}
       onClose={onClose}
-      onBack={onClose}
       title="✅ Terminer la visite"
+      maxWidth="xl" 
     >
       <CompleteVisitModalContent
         visit={visit}
@@ -42,6 +43,8 @@ export const CompleteVisitModal = ({
         onCancel={onClose}
         isLoading={isLoading}
       />
-    </ModalFullScreen>
+    </Modal>
   );
 };
+
+export default CompleteVisitModal;
