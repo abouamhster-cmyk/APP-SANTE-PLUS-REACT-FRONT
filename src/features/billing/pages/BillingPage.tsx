@@ -1,5 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
- 
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
@@ -15,7 +15,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useOfferStore } from '@/stores/offerStore';
 import { usePatientStore } from '@/stores/patientStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { PaymentModal } from '../components/PaymentModal';
@@ -36,6 +36,8 @@ type TabType = 'all' | 'senior' | 'maman_bebe';
 
 const BillingPage = () => {
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { patients, fetchPatients } = usePatientStore();
   const { hasActiveSubscription } = useSubscriptionGuard();
 
@@ -69,9 +71,6 @@ const BillingPage = () => {
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   const patientCategory = profile?.patient_category;
   const isPersonalAccount = role === 'family' && !patientCategory && patients.length === 0;
@@ -275,13 +274,13 @@ const BillingPage = () => {
   if (isAidantRole) {
     return (
       <div className="max-w-5xl mx-auto pb-6">
-        <section className="bg-white dark:bg-[#17231d] rounded-2xl py-14 px-6 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
-          <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 mx-auto">
+        <section className="bg-white rounded-2xl py-14 px-6 text-center border max-w-md mx-auto space-y-4" style={{ borderColor: colors.primary + '15' }}>
+          <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 mx-auto">
             <ShieldCheck size={22} style={{ color: colors.primary }} />
           </div>
           <div className="space-y-1">
-            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100">Espace Intervenant homologué</h2>
-            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+            <h2 className="text-sm font-bold" style={{ color: colors.text }}>Espace Intervenant homologué</h2>
+            <p className="text-xs max-w-xs leading-relaxed" style={{ color: colors.textLight }}>
               En tant qu'auxiliaire de vie qualifié, vous n'avez pas d'abonnement ou de facturation d'heures à gérer sur cette interface.
             </p>
           </div>
@@ -319,12 +318,12 @@ const BillingPage = () => {
       </div>
 
       {/* HEADER ÉDITORIAL */}
-      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+      <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 text-center shadow-sm backdrop-blur-md" style={{ borderColor: colors.primary + '15' }}>
         <div className="space-y-1.5 relative z-10">
-          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+          <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
             Forfaits & Abonnements
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
             {getSubTitleText()}
           </p>
         </div>
@@ -341,7 +340,7 @@ const BillingPage = () => {
             );
           }}
           disabled={isLoading}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
           title="Actualiser"
         >
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
@@ -350,7 +349,7 @@ const BillingPage = () => {
 
       {/* ABONNEMENT ACTIF */}
       {activeSubscription && (
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900 to-gray-800 text-white p-6 shadow-md border border-gray-800">
+        <section className="relative overflow-hidden rounded-2xl text-white p-6 shadow-md" style={{ background: colors.gradient || colors.primary }}>
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -381,7 +380,7 @@ const BillingPage = () => {
       {/* ONGLETS COHÉRENTS */}
       {visibleTabsList.length > 1 && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
-          <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
+          <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border gap-1" style={{ borderColor: colors.primary + '10' }}>
             {visibleTabsList.map((tabId) => {
               const isActive = activeTab === tabId;
 
@@ -392,10 +391,13 @@ const BillingPage = () => {
                   className={cn(
                     "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
                     isActive
-                      ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                      ? "bg-white shadow-sm font-extrabold"
+                      : "hover:opacity-80"
                   )}
-                  style={isActive ? { color: colors.primary } : undefined}
+                  style={{
+                    color: isActive ? colors.primary : colors.textLight,
+                    backgroundColor: isActive ? '#ffffff' : 'transparent',
+                  }}
                 >
                   {getTabLabel(tabId)}
                 </button>
@@ -423,24 +425,24 @@ const BillingPage = () => {
           ))}
         </section>
       ) : (
-        <div className="col-span-full bg-white dark:bg-[#17231d] rounded-2xl py-12 px-4 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-3">
-          <Package size={24} className="text-gray-400 dark:text-gray-500" />
+        <div className="col-span-full bg-white rounded-2xl py-12 px-4 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-3" style={{ borderColor: colors.primary + '15' }}>
+          <Package size={24} style={{ color: colors.textLight }} />
           <div className="space-y-1">
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Aucun forfait disponible</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500">Aucune offre active n'est disponible pour vos critères actuels.</p>
+            <h3 className="text-sm font-bold" style={{ color: colors.text }}>Aucun forfait disponible</h3>
+            <p className="text-xs" style={{ color: colors.textLight }}>Aucune offre active n'est disponible pour vos critères actuels.</p>
           </div>
         </div>
       )}
 
       {/* RAPPEL DISCRET : MODE PONCTUEL DISPONIBLE */}
       {!hasActiveSub && (
-        <div className="bg-white/40 dark:bg-[#17231d]/40 rounded-xl p-4 border border-gray-100 dark:border-gray-800/30 flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto">
-          <Sparkles size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
+        <div className="bg-white/40 rounded-xl p-4 border flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto" style={{ borderColor: colors.primary + '15' }}>
+          <Sparkles size={16} className="text-emerald-600 shrink-0 mt-0.5 animate-pulse" />
           <div className="space-y-0.5">
-            <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200">
+            <p className="text-[11px] font-bold" style={{ color: colors.text }}>
               {isPersonalAccount ? 'Formules pour vous-même' : 'Mode ponctuel disponible'}
             </p>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-normal">
+            <p className="text-[10px] leading-normal" style={{ color: colors.textLight }}>
               {isPersonalAccount 
                 ? "Vous pouvez activer un forfait d'accompagnement pour votre propre compte ou régler à l'acte chaque course de livraison d'urgence (à partir de 2 500 FCFA)."
                 : "Vous pouvez régler directement à l'acte chaque course d'urgence (à partir de 2 500 FCFA) ou vos visites de confort."}
@@ -450,12 +452,12 @@ const BillingPage = () => {
       )}
 
       {/* HISTORIQUE DE TRANSACTIONS */}
-      <section className="bg-white dark:bg-[#17231d] rounded-2xl p-5 border border-gray-100 dark:border-gray-800/50 shadow-sm">
-        <div className="flex items-center justify-between border-b dark:border-gray-800/40 pb-3 mb-4">
-          <h2 className="text-xs font-black tracking-wider uppercase text-gray-400">
+      <section className="bg-white rounded-2xl p-5 border shadow-sm" style={{ borderColor: colors.primary + '15' }}>
+        <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: colors.primary + '10' }}>
+          <h2 className="text-xs font-black tracking-wider uppercase" style={{ color: colors.textLight }}>
             Historique des paiements
           </h2>
-          <span className="text-[10px] font-black text-gray-400 px-2 py-0.5 rounded-md bg-gray-50 dark:bg-gray-800">{payments.length} txn</span>
+          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gray-50" style={{ color: colors.textLight }}>{payments.length} txn</span>
         </div>
 
         {payments.length > 0 ? (
@@ -466,8 +468,8 @@ const BillingPage = () => {
           </div>
         ) : (
           <div className="text-center py-6">
-            <CreditCard size={20} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-            <p className="text-[10px] text-gray-400">Aucune transaction enregistrée</p>
+            <CreditCard size={20} className="mx-auto mb-2 text-gray-300" />
+            <p className="text-[10px]" style={{ color: colors.textLight }}>Aucune transaction enregistrée</p>
           </div>
         )}
       </section>
@@ -557,9 +559,9 @@ const OfferCardCompact = ({
 
   return (
     <div
-      className="bg-white dark:bg-[#17231d] rounded-2xl p-5 shadow-sm border flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:translate-y-[-1px]"
+      className="bg-white rounded-2xl p-5 shadow-sm border flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:translate-y-[-1px]"
       style={{
-        borderColor: offer.badge ? badgeColor : 'transparent',
+        borderColor: offer.badge ? badgeColor : color + '20',
         borderWidth: offer.badge ? '1.5px' : '1px',
       }}
     >
@@ -581,33 +583,33 @@ const OfferCardCompact = ({
             {getIcon()}
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-extrabold text-sm truncate text-gray-900 dark:text-gray-100">
+            <h3 className="font-extrabold text-sm truncate" style={{ color: textColor }}>
               {offer.name}
             </h3>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider mt-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: color + '80' }}>
               {getCategoryLabel()}
             </p>
           </div>
         </div>
 
         <div className="mt-4 flex items-baseline gap-1">
-          <span className="text-xl font-black text-gray-900 dark:text-white">
+          <span className="text-xl font-black" style={{ color: textColor }}>
             {offer.price.toLocaleString()}
           </span>
-          <span className="text-xs text-gray-400 font-bold">FCFA</span>
-          {offer.period && <span className="text-xs text-gray-400 font-medium ml-1">/ {offer.period}</span>}
+          <span className="text-xs font-bold" style={{ color: color }}>FCFA</span>
+          {offer.period && <span className="text-xs font-medium ml-1" style={{ color: color + '60' }}>/ {offer.period}</span>}
         </div>
 
         {offer.features && offer.features.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-gray-100/60 dark:border-gray-800/40 space-y-1.5">
+          <div className="mt-4 pt-3 border-t space-y-1.5" style={{ borderColor: color + '15' }}>
             {offer.features.slice(0, 2).map((feature: string, index: number) => (
-              <div key={index} className="flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <div key={index} className="flex items-start gap-2 text-xs">
                 <CheckCircle size={12} style={{ color: badgeColor }} className="shrink-0 mt-0.5" />
-                <span className="truncate leading-tight font-medium">{feature}</span>
+                <span className="truncate leading-tight font-medium" style={{ color: color + '80' }}>{feature}</span>
               </div>
             ))}
             {offer.features.length > 2 && (
-              <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold block pt-1">+{offer.features.length - 2} prestations incluses</span>
+              <span className="text-[9px] font-bold block pt-1" style={{ color: color + '50' }}>+{offer.features.length - 2} prestations incluses</span>
             )}
           </div>
         )}
@@ -640,7 +642,7 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
   const isValid = payment.status === 'valide';
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50/50 dark:bg-gray-800/20 p-3 transition-colors hover:bg-gray-50">
+    <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50/50 p-3 transition-colors hover:bg-gray-50">
       <div className="flex items-center gap-3 min-w-0">
         <div
           className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 animate-fadeIn"
@@ -652,10 +654,10 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
           {isValid ? <CheckCircle size={15} /> : <Clock size={15} />}
         </div>
         <div className="min-w-0 space-y-0.5">
-          <p className="font-extrabold text-xs text-gray-900 dark:text-gray-100">
+          <p className="font-extrabold text-xs" style={{ color: colors.text }}>
             {Number(payment.amount || 0).toLocaleString()} FCFA
           </p>
-          <p className="text-[10px] text-gray-400 font-medium">
+          <p className="text-[10px] font-medium" style={{ color: colors.textLight }}>
             Le {new Date(payment.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         </div>
