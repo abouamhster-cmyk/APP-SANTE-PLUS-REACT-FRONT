@@ -1,12 +1,10 @@
 // 📁 src/components/ui/ModalFullScreen.tsx
-// ✅ ENVELOPPE MODAL PLEIN ÉCRAN : DESIGN COHÉRENT BRANDING AVEC EFFETS GLASSMORPHISM
 
 import { ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
 import { cn } from '@/utils/helpers';
-import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 
 interface ModalFullScreenProps {
   isOpen: boolean;
@@ -35,10 +33,8 @@ export const ModalFullScreen = ({
   bodyClassName,
   footer,
 }: ModalFullScreenProps) => {
-  const { profile, role } = useAuthStore();
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
+  const brand = useBranding();
+  const colors = brand.colors;
 
   useEffect(() => {
     if (isOpen) {
@@ -105,7 +101,8 @@ export const ModalFullScreen = ({
             {showBack && (
               <button
                 onClick={handleBack}
-                className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border border-gray-100/30"
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border"
+                style={{ borderColor: colors.primary + '15' }}
                 aria-label="Retour"
               >
                 <ArrowLeft size={18} style={{ color: colors.primary }} />
@@ -122,7 +119,8 @@ export const ModalFullScreen = ({
             {showClose && (
               <button
                 onClick={onClose}
-                className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border border-gray-100/30"
+                className="w-9 h-9 rounded-xl hover:bg-gray-100 dark:hover:bg-[#24362d] transition flex items-center justify-center shrink-0 border"
+                style={{ borderColor: colors.primary + '15' }}
                 aria-label="Fermer"
               >
                 <X size={18} className="text-gray-500" />
