@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { cn } from '@/utils/helpers';
+import { useBranding } from '@/hooks/useBranding';
 
 interface IllustrationProps {
   type: 'empty' | 'success' | 'error' | 'warning' | 'info' | 'calendar' | 'users' | 'search' | 'visit' | 'order' | 'message' | 'payment' | 'patient' | 'doctor' | 'home';
@@ -159,7 +160,10 @@ export const Illustration = ({
   className,
   color 
 }: IllustrationProps) => {
-  const finalColor = color || DEFAULT_COLORS[type] || '#6B7280';
+  const brand = useBranding();
+  const colors = brand.colors;
+  
+  const finalColor = color || DEFAULT_COLORS[type] || colors.primary;
   const IllustrationComponent = ILLUSTRATIONS[type];
   
   if (!IllustrationComponent) {
@@ -172,3 +176,5 @@ export const Illustration = ({
     </div>
   );
 };
+
+export default Illustration;
