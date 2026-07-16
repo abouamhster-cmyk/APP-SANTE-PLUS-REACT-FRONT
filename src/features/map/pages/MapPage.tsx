@@ -7,6 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useLocationStore } from '@/stores/locationStore';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuthStore } from '@/stores/authStore';
+import { useBranding } from '@/hooks/useBranding';
 import { RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -43,8 +44,10 @@ const createHtmlMarker = (emoji: string, color: string) => {
 const MapPage = () => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
-  const activeMarkersRef = useRef<maplibregl.Marker[]>([]); // Tracker pour vider proprement les anciens marqueurs
+  const activeMarkersRef = useRef<maplibregl.Marker[]>([]);
 
+  const brand = useBranding();
+  const colors = brand.colors;
   const { locations, activeVisits, activeOrders, isLoading, fetchActiveVisits } = useLocationStore();
   const { position, startWatching } = useLocation();
   const { profile, role } = useAuthStore();
@@ -86,7 +89,6 @@ const MapPage = () => {
     const currentMap = map.current;
     if (!currentMap) return;
 
-    // A. Supprimer tous les marqueurs précédents de la mémoire
     activeMarkersRef.current.forEach(m => m.remove());
     activeMarkersRef.current = [];
 
@@ -112,13 +114,13 @@ const MapPage = () => {
       const lng = Number(patient.longitude);
       if (!lat || !lng) return;
 
-      const el = createHtmlMarker('👵', '#10b981');
+      const el = createHtmlMarker('👵', colors.primary);
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([lng, lat])
         .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
           <div style="min-width: 140px; font-family: sans-serif;">
-            <p style="font-weight: 800; margin: 0; font-size: 11px; color: #047857;">👵 Proche accompagné</p>
-            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: #374151;">${patient.first_name} ${patient.last_name}</p>
+            <p style="font-weight: 800; margin: 0; font-size: 11px; color: ${colors.primary};">👵 Proche accompagné</p>
+            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: ${colors.text};">${patient.first_name} ${patient.last_name}</p>
             <p style="margin: 3px 0 0 0; font-size: 9px; color: #9ca3af; line-height: 1.2;">📍 ${patient.address || 'Adresse'}</p>
           </div>
         `))
@@ -133,13 +135,13 @@ const MapPage = () => {
         const lng = Number(family.longitude);
         if (!lat || !lng) return;
 
-        const el = createHtmlMarker('🏠', '#8b5cf6'); // Maison violette pour les foyers familiaux
+        const el = createHtmlMarker('🏠', '#8b5cf6');
         const marker = new maplibregl.Marker({ element: el })
           .setLngLat([lng, lat])
           .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
             <div style="min-width: 150px; font-family: sans-serif;">
               <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7c3aed; uppercase">🏠 Foyer de confiance</p>
-              <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: #1f2937;">Famille ${family.full_name}</p>
+              <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: ${colors.text};">Famille ${family.full_name}</p>
               <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563;">📧 ${family.email}</p>
               <p style="margin: 2px 0 0 0; font-size: 9px; color: #9ca3af; line-height: 1.2;">📍 ${family.address}</p>
             </div>
@@ -155,12 +157,9 @@ const MapPage = () => {
       const lng = Number(aidant.longitude);
       if (!lat || !lng) return;
 
-      // Chercher si cet aidant a une mission active en cours de déroulement (en_cours)
       const activeVisit = activeVisits.find((v: any) => v.status === 'en_cours' && (v.aidant_id === aidant.id || v.aidant?.user_id === aidant.id));
       const activeOrder = activeOrders.find((o: any) => o.status === 'en_cours' && (o.aidant_id === aidant.id || o.aidant?.user_id === aidant.id));
 
-      // ✅ RÈGLE DE COHÉRENCE : Si l'aidant est en action (mission active), on ne dessine PAS son marqueur générique 👤 ou 🟢 !
-      // Sa position de mission active (🟢 ou 📦) suffit amplement.
       if (activeVisit || activeOrder) {
         return;
       }
@@ -181,7 +180,7 @@ const MapPage = () => {
         .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
           <div style="min-width: 160px; font-family: sans-serif;">
             <p style="font-weight: 800; margin: 0; font-size: 10px; color: ${statusColor}; uppercase">🦸 Intervenant</p>
-            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 12px; color: #1f2937;">${aidant.full_name}</p>
+            <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 12px; color: ${colors.text};">${aidant.full_name}</p>
             <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563; font-weight: 600;">Statut : ${statusText}</p>
           </div>
         `))
@@ -325,10 +324,9 @@ const MapPage = () => {
   }, [position, locations, activeVisits, activeOrders]);
 
   return (
-    <div className="map-container-wrapper w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 relative">
+    <div className="map-container-wrapper w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border relative" style={{ borderColor: colors.primary + '15' }}>
       <div ref={mapContainer} className="w-full h-full" />
       
-      {/* Bouton de rafraîchissement manuel */}
       <button 
         onClick={() => {
           fetchActiveVisits();
