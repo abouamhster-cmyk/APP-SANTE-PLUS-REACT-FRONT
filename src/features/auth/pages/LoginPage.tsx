@@ -1,31 +1,28 @@
 // 📁 src/features/auth/pages/LoginPage.tsx
- 
+
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/ui/Logo';
+import { useBranding } from '@/hooks/useBranding';
 import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-
-  // IMPORTANT : on ne prend plus initialize ici
   const { setUser } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ Récupérer le thème sauvegardé
-  const [savedTheme, setSavedTheme] = useState<'senior' | 'maman' | null>(null);
-
-  useEffect(() => {
-    const theme = localStorage.getItem('sante_plus_theme') as 'senior' | 'maman' | null;
-    setSavedTheme(theme);
-  }, []);
+  const isMaman = brand.theme === 'maman';
+  const primaryColor = colors.primary;
+  const textColor = colors.text;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +46,6 @@ const LoginPage = () => {
 
       if (error) {
         console.error('❌ Erreur de connexion:', error);
-        // ✅ UN SEUL TOAST D'ERREUR
         toast.error(error.message || 'Email ou mot de passe incorrect');
         setIsLoading(false);
         return;
@@ -57,7 +53,6 @@ const LoginPage = () => {
 
       if (!data?.user) {
         console.error('❌ Aucun utilisateur retourné');
-        // ✅ UN SEUL TOAST D'ERREUR (fusionné avec le cas précédent)
         toast.error('Email ou mot de passe incorrect');
         setIsLoading(false);
         return;
@@ -78,7 +73,6 @@ const LoginPage = () => {
         return;
       }
 
-      // ✅ Vérification du compte aidant en attente
       if (profile?.role === 'aidant' && !profile?.is_active) {
         toast.error('⏳ Votre compte aidant est en attente de validation.');
         await supabase.auth.signOut();
@@ -86,7 +80,6 @@ const LoginPage = () => {
         return;
       }
 
-      // ✅ Création du profil si inexistant
       if (!profile) {
         console.log('📝 Création du profil...');
 
@@ -111,16 +104,12 @@ const LoginPage = () => {
         }
 
         console.log('✅ Profil créé:', newProfile);
-
         setUser(data.user, newProfile);
-
-        // ✅ UN SEUL TOAST DE SUCCÈS
         toast.success('Bienvenue !');
         navigate('/app', { replace: true });
         return;
       }
 
-      // ✅ Vérification supplémentaire du compte aidant
       if (profile.role === 'aidant' && !profile.is_active) {
         toast.error('⏳ Votre compte aidant est en attente de validation.');
         await supabase.auth.signOut();
@@ -129,48 +118,39 @@ const LoginPage = () => {
       }
 
       console.log('✅ Profil récupéré:', profile);
-
       setUser(data.user, profile);
-
-      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success('Bienvenue !');
       navigate('/app', { replace: true });
 
     } catch (error: any) {
       console.error('❌ Erreur inattendue:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Une erreur est survenue');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logoRole = savedTheme === 'maman' ? 'maman' : 'general';
-  const primaryBrandColor = savedTheme === 'maman' ? '#db4a6d' : '#113f30';
-  const textBrandColor = savedTheme === 'maman' ? '#371e24' : '#1f2937';
-
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center p-3"
-      style={{ background: 'var(--color-background, #faf9f6)' }}
+      style={{ background: colors.background }}
     >
       <div className="w-full max-w-md">
         <div
           className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border relative"
-          style={{ borderColor: 'var(--color-border, #e5e7eb)' }}
+          style={{ borderColor: colors.primary + '20' }}
         >
-          {/* Logo plus petit */}
+          {/* Logo */}
           <div className="absolute -top-8 left-1/2 -translate-x-1/2">
             <div
               className="w-14 h-14 rounded-xl bg-white shadow-sm border flex items-center justify-center"
-              style={{ borderColor: primaryBrandColor }}
+              style={{ borderColor: primaryColor }}
             >
               <Logo
                 size="sm"
                 showText={false}
                 whiteBg={false}
                 className="justify-center"
-                role={logoRole}
               />
             </div>
           </div>
@@ -181,31 +161,31 @@ const LoginPage = () => {
           <div className="text-center mb-4">
             <h1
               className="text-lg font-extrabold"
-              style={{ color: textBrandColor }}
+              style={{ color: textColor }}
             >
               Santé Plus Services
             </h1>
             <p
               className="text-[11px] mt-0.5"
-              style={{ color: 'var(--color-text-light, #4b5563)' }}
+              style={{ color: colors.textLight }}
             >
               Accompagnement de confiance & coordination à domicile
             </p>
           </div>
 
-          {/* Formulaire compact */}
+          {/* Formulaire */}
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label
                 className="block text-[11px] font-semibold mb-0.5"
-                style={{ color: textBrandColor }}
+                style={{ color: textColor }}
               >
                 Adresse e-mail
               </label>
               <div className="relative">
                 <Mail
                   className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5"
-                  style={{ color: 'var(--color-text-light, #4b5563)' }}
+                  style={{ color: colors.textLight }}
                 />
                 <input
                   type="email"
@@ -213,9 +193,9 @@ const LoginPage = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-8 pr-3 py-2 rounded-xl border outline-none text-xs"
                   style={{
-                    borderColor: 'var(--color-border, #e5e7eb)',
-                    background: '#ffffff',
-                    color: 'var(--color-text)',
+                    borderColor: colors.primary + '25',
+                    background: colors.background,
+                    color: textColor,
                   }}
                   placeholder="exemple@email.com"
                   disabled={isLoading}
@@ -226,14 +206,14 @@ const LoginPage = () => {
             <div>
               <label
                 className="block text-[11px] font-semibold mb-0.5"
-                style={{ color: textBrandColor }}
+                style={{ color: textColor }}
               >
                 Mot de passe
               </label>
               <div className="relative">
                 <Lock
                   className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5"
-                  style={{ color: 'var(--color-text-light, #4b5563)' }}
+                  style={{ color: colors.textLight }}
                 />
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -241,9 +221,9 @@ const LoginPage = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-8 pr-8 py-2 rounded-xl border outline-none text-xs"
                   style={{
-                    borderColor: 'var(--color-border, #e5e7eb)',
-                    background: '#ffffff',
-                    color: 'var(--color-text)',
+                    borderColor: colors.primary + '25',
+                    background: colors.background,
+                    color: textColor,
                   }}
                   placeholder="••••••••"
                   disabled={isLoading}
@@ -252,7 +232,7 @@ const LoginPage = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2"
-                  style={{ color: 'var(--color-text-light, #4b5563)' }}
+                  style={{ color: colors.textLight }}
                   disabled={isLoading}
                 >
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -264,7 +244,7 @@ const LoginPage = () => {
               <Link
                 to="/forgot-password"
                 className="text-[11px] font-medium hover:underline"
-                style={{ color: primaryBrandColor }}
+                style={{ color: primaryColor }}
               >
                 Mot de passe oublié ?
               </Link>
@@ -273,7 +253,7 @@ const LoginPage = () => {
             <button
               type="submit"
               className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75"
-              style={{ background: primaryBrandColor }}
+              style={{ background: primaryColor }}
               disabled={isLoading}
             >
               {isLoading ? (
@@ -287,14 +267,14 @@ const LoginPage = () => {
             </button>
           </form>
 
-          {/* Lien d'inscription compact */}
+          {/* Lien d'inscription */}
           <div className="mt-4 text-center text-[11px]">
-            <p style={{ color: 'var(--color-text-light, #4b5563)' }}>
+            <p style={{ color: colors.textLight }}>
               Nouveau ?{' '}
               <Link
                 to="/register"
                 className="font-bold hover:underline"
-                style={{ color: primaryBrandColor }}
+                style={{ color: primaryColor }}
               >
                 S'inscrire
               </Link>
