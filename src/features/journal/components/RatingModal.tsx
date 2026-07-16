@@ -1,7 +1,7 @@
 // 📁 src/features/journal/components/RatingModal.tsx
-// 📌 Wrapper pour compatibilité
+// 💡 Wrapper épuré centré pour l'évaluation des visites
 
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
+import { Modal } from '@/components/ui/Modal'; 
 import { RatingModalContent } from './RatingModalContent';
 
 interface RatingModalProps {
@@ -18,11 +18,11 @@ export const RatingModal = ({
   colors,
 }: RatingModalProps) => {
   return (
-    <ModalFullScreen
+    <Modal
       isOpen={true}
       onClose={onClose}
-      onBack={onClose}
       title="⭐ Évaluer la visite"
+      maxWidth="lg"  
     >
       <RatingModalContent
         visit={visit}
@@ -30,7 +30,7 @@ export const RatingModal = ({
         onCancel={onClose}
         colors={colors}
       />
-    </ModalFullScreen>
+    </Modal>
   );
 };
 
