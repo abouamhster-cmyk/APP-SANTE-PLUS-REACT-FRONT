@@ -1,5 +1,5 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
-// ✅ COMPOSANT DE SOUUMISSION UNIQUE : CORRECTION DES APPELS DUPLIQUÉS ET DU TYPE D'ASSIGNATION
+// ✅ COMPOSANT DE SOUMISSION UNIQUE : CORRECTION DES APPELS DUPLIQUÉS ET DU TYPE D'ASSIGNATION
 
 import { useState, useEffect } from 'react';
 import { 
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { useAssignmentStore } from '@/stores/assignmentStore';
+import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -52,7 +53,7 @@ interface AssignAidantModalContentProps {
   patients: any[];
   onSuccess: () => void;
   onCancel: () => void;
-  colors: any;
+  colors?: any;
   targetType?: 'visit' | 'patient' | 'personal_account';
   targetId?: string;
   targetName?: string;
@@ -67,7 +68,7 @@ export const AssignAidantModalContent = ({
   patients,
   onSuccess,
   onCancel,
-  colors,
+  colors: propColors,
   targetType = 'patient',
   targetId,
   targetName,
@@ -76,13 +77,15 @@ export const AssignAidantModalContent = ({
   onAssignAidant,
   isAdmin = false,
 }: AssignAidantModalContentProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
+  
   const [selectedAidantId, setSelectedAidantId] = useState<string>(
     initialAidant?.id || initialAidant?.user_id || ''
   );
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [assignmentType, setAssignmentType] = useState('primary');
   
-  // ✅ Choix par défaut : si aucun proche, c'est obligatoirement le compte personnel (Moi)
   const hasPatients = patients.length > 0;
   const [targetTypeLocal, setTargetTypeLocal] = useState<'personal' | 'patient'>(
     hasPatients ? 'patient' : 'personal'
@@ -133,7 +136,7 @@ export const AssignAidantModalContent = ({
   };
 
   // ============================================================
-  // SOUUMISSION DU FORMULAIRE UNIQUE (FUSION CAS 1 & CAS 2)
+  // SOUMISSION DU FORMULAIRE UNIQUE
   // ============================================================
   const handleSubmit = async () => {
     if (targetTypeLocal === 'patient' && !selectedPatientId && targetType !== 'visit') {
@@ -173,7 +176,7 @@ export const AssignAidantModalContent = ({
         return;
       }
 
-      // ✅ CAS B : Assignation directe (famille) - Valable pour le catalogue et la page de détail !
+      // ✅ CAS B : Assignation directe (famille)
       const finalTargetType = targetTypeLocal === 'patient' ? 'patient' : 'personal_account';
       const finalTargetId = targetTypeLocal === 'patient' ? selectedPatientId : user.id;
 
@@ -191,7 +194,6 @@ export const AssignAidantModalContent = ({
         }
       }
 
-      // ✅ Un seul et unique appel d'API unifié d'assignation
       const result = await assignAidantStore({
         aidantUserId: aidantUserId,
         targetType: finalTargetType,
@@ -266,7 +268,7 @@ export const AssignAidantModalContent = ({
               <p className="text-sm font-bold truncate" style={{ color: colors.text }}>
                 {name}
               </p>
-              <div className="flex items-center gap-2 text-xs text-gray-400 flex-wrap">
+              <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: colors.textLight }}>
                 <span className="flex items-center gap-0.5">
                   <Star size={12} className="text-yellow-400 fill-yellow-400" />
                   {rating.toFixed(1)}
@@ -286,7 +288,7 @@ export const AssignAidantModalContent = ({
               <p className="text-xs font-bold" style={{ color: isFull ? '#ef4444' : colors.primary }}>
                 {current}/{max}
               </p>
-              <p className="text-[10px] text-gray-400">assignations</p>
+              <p className="text-[10px]" style={{ color: colors.textLight }}>assignations</p>
             </div>
           </div>
         </div>
@@ -296,14 +298,14 @@ export const AssignAidantModalContent = ({
     if (isAdmin && availableAidants.length > 0) {
       return (
         <div className="space-y-1">
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+          <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
             Sélectionner un aidant
           </label>
           <select
             value={selectedAidantId}
             onChange={(e) => setSelectedAidantId(e.target.value)}
             className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-xs sm:text-sm font-semibold transition"
-            style={{ borderColor: colors.border, color: colors.text }}
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             <option value="">Sélectionner un aidant...</option>
             {availableAidants.map((aidant: any) => (
@@ -335,8 +337,8 @@ export const AssignAidantModalContent = ({
           onChange={(e) => setSelectedPatientId(e.target.value)}
           className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-sm focus:ring-2 transition"
           style={{
-            borderColor: colors.border,
-            background: 'var(--color-background, #f5f0e8)',
+            borderColor: colors.primary + '20',
+            background: colors.background,
             color: colors.text,
           }}
         >
@@ -379,7 +381,7 @@ export const AssignAidantModalContent = ({
               }`}
               style={{
                 background: targetTypeLocal === 'personal' ? colors.primary : 'transparent',
-                borderColor: targetTypeLocal === 'personal' ? colors.primary : colors.border,
+                borderColor: targetTypeLocal === 'personal' ? colors.primary : colors.primary + '20',
               }}
             >
               <div className="flex items-center justify-center gap-1.5">
@@ -402,7 +404,7 @@ export const AssignAidantModalContent = ({
               }`}
               style={{
                 background: targetTypeLocal === 'patient' ? colors.primary : 'transparent',
-                borderColor: targetTypeLocal === 'patient' ? colors.primary : colors.border,
+                borderColor: targetTypeLocal === 'patient' ? colors.primary : colors.primary + '20',
               }}
             >
               <div className="flex items-center justify-center gap-1.5">
@@ -438,7 +440,7 @@ export const AssignAidantModalContent = ({
                 }`}
                 style={{
                   background: assignmentType === type.value ? colors.primary : 'transparent',
-                  borderColor: assignmentType === type.value ? colors.primary : colors.border,
+                  borderColor: assignmentType === type.value ? colors.primary : colors.primary + '20',
                   color: assignmentType === type.value ? 'white' : colors.text,
                 }}
               >
@@ -497,13 +499,13 @@ export const AssignAidantModalContent = ({
         </div>
       </div>
 
-      <div className="flex gap-3 pt-2 border-t" style={{ borderColor: colors.border }}>
+      <div className="flex gap-3 pt-2 border-t" style={{ borderColor: colors.primary + '15' }}>
         <button
           type="button"
           onClick={onCancel}
           disabled={isLoading}
           className="flex-1 py-2.5 rounded-xl font-medium border transition hover:bg-gray-50 disabled:opacity-50"
-          style={{ borderColor: colors.border, color: colors.text }}
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           Annuler
         </button>
