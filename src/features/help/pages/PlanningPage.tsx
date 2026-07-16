@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, cn } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
@@ -41,26 +41,26 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; 
     icon: <CalendarIcon size={10} />,
   },
   en_cours: { 
-    color: '#FF9800', 
-    bg: '#FF980015', 
+    color: '#F59E0B', 
+    bg: '#F59E0B15', 
     label: 'En cours',
     icon: <Play size={10} />,
   },
   terminee: { 
-    color: '#2196F3', 
-    bg: '#2196F315', 
+    color: '#3B82F6', 
+    bg: '#3B82F615', 
     label: 'Terminée',
     icon: <CheckCircle size={10} />,
   },
   validee: { 
-    color: '#9C27B0', 
-    bg: '#9C27B015', 
+    color: '#8B5CF6', 
+    bg: '#8B5CF615', 
     label: 'Validée',
     icon: <CheckCircle size={10} />,
   },
   annulee: { 
-    color: '#F44336', 
-    bg: '#F4433615', 
+    color: '#EF4444', 
+    bg: '#EF444415', 
     label: 'Annulée',
     icon: <XCircle size={10} />,
   },
@@ -71,8 +71,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; 
     icon: <XCircle size={10} />,
   },
   replanifiee: { 
-    color: '#FF5722', 
-    bg: '#FF572215', 
+    color: '#F59E0B', 
+    bg: '#F59E0B15', 
     label: 'Replanifiée',
     icon: <CalendarIcon size={10} />,
   },
@@ -81,6 +81,8 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; 
 const PlanningPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { visits, fetchVisits, isLoading } = useVisitStore();
 
   const {
@@ -93,19 +95,14 @@ const PlanningPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState<'day' | 'week'>('day');
 
-  // ÉTATS DE PULL-TO-REFRESH MOBILE
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   useEffect(() => {
     fetchVisits();
   }, []);
 
-  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -184,15 +181,15 @@ const PlanningPage = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
+        <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-7 gap-2">
           {[1, 2, 3, 4, 5, 6, 7].map((item) => (
-            <div key={item} className="h-16 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
+            <div key={item} className="h-16 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
         <div className="space-y-3">
           {[1, 2].map((item) => (
-            <div key={item} className="h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl animate-pulse" />
+            <div key={item} className="h-20 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -207,9 +204,6 @@ const PlanningPage = () => {
       onTouchEnd={handleTouchEnd}
     >
       
-      {/* ============================================================
-          🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE)
-          ============================================================ */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -217,7 +211,7 @@ const PlanningPage = () => {
           opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
         }}
       >
-        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600">
           <RefreshCw 
             size={13} 
             className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
@@ -229,23 +223,22 @@ const PlanningPage = () => {
         </div>
       </div>
 
-      {/* ============================================================
-          HEADER ÉDITORIAL SÉCURISÉ (ALIGNEMENT FLUIDE SANS CHEVAUCHEMENT)
-          ============================================================ */}
-      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-5 sm:p-6 shadow-sm backdrop-blur-md flex flex-col items-center gap-4">
+      <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-5 sm:p-6 shadow-sm backdrop-blur-md flex flex-col items-center gap-4" style={{ borderColor: colors.primary + '15' }}>
         
-        {/* Ligne 1 : Sélecteur Segmenté & Actualisation (Flux naturel) */}
-        <div className="w-full flex items-center justify-between gap-2 border-b border-gray-100/50 dark:border-gray-800/20 pb-3">
-          <div className="p-0.5 bg-gray-100/85 dark:bg-[#1c2a21]/50 rounded-xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-0.5 flex">
+        <div className="w-full flex items-center justify-between gap-2 border-b pb-3" style={{ borderColor: colors.primary + '10' }}>
+          <div className="p-0.5 bg-gray-100/85 rounded-xl border gap-0.5 flex" style={{ borderColor: colors.primary + '10' }}>
             <button
               onClick={() => setView('day')}
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
                 view === 'day'
-                  ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                  ? "bg-white shadow-sm font-extrabold"
+                  : "hover:opacity-80"
               )}
-              style={view === 'day' ? { color: colors.primary } : undefined}
+              style={{
+                color: view === 'day' ? colors.primary : colors.textLight,
+                backgroundColor: view === 'day' ? '#ffffff' : 'transparent',
+              }}
             >
               Jour
             </button>
@@ -254,10 +247,13 @@ const PlanningPage = () => {
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
                 view === 'week'
-                  ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                  ? "bg-white shadow-sm font-extrabold"
+                  : "hover:opacity-80"
               )}
-              style={view === 'week' ? { color: colors.primary } : undefined}
+              style={{
+                color: view === 'week' ? colors.primary : colors.textLight,
+                backgroundColor: view === 'week' ? '#ffffff' : 'transparent',
+              }}
             >
               Semaine
             </button>
@@ -275,31 +271,27 @@ const PlanningPage = () => {
               );
             }}
             disabled={isLoading}
-            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner shrink-0"
+            className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner shrink-0"
             title="Rafraîchir"
           >
             <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
           </button>
         </div>
 
-        {/* Ligne 2 : Titres & Descriptions */}
         <div className="space-y-1 mt-1">
-          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+          <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
             {getPageTitle()}
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
             Consultez et organisez vos interventions d'aide et d'assistance à la journée ou à la semaine.
           </p>
         </div>
       </section>
 
-      {/* ============================================================
-          CONTROLES CHRONOLOGIQUES DE NAVIGATION (PRECÉDENT / AUJOURD'HUI / SUIVANT)
-          ============================================================ */}
-      <section className="bg-white/80 dark:bg-[#17231d]/80 rounded-2xl p-3 border border-gray-100 dark:border-[#2c3f35]/30 shadow-sm flex items-center justify-between gap-3">
+      <section className="bg-white/80 rounded-2xl p-3 border shadow-sm flex items-center justify-between gap-3" style={{ borderColor: colors.primary + '15' }}>
         <button
           onClick={() => changeDate(view === 'day' ? -1 : -7)}
-          className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
+          className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
         >
           <ChevronLeft size={16} />
         </button>
@@ -321,17 +313,14 @@ const PlanningPage = () => {
 
         <button
           onClick={() => changeDate(view === 'day' ? 1 : 7)}
-          className="w-9 h-9 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
+          className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-700 transition"
         >
           <ChevronRight size={16} />
         </button>
       </section>
 
-      {/* ============================================================
-          RUBAN SEMAINE ÉPURÉ (AÉRE & COHÉRENT)
-          ============================================================ */}
       {view === 'week' && (
-        <section className="bg-white dark:bg-[#17231d] rounded-2xl shadow-sm border border-gray-100 dark:border-[#2c3f35]/30 p-2.5">
+        <section className="bg-white rounded-2xl shadow-sm border p-2.5" style={{ borderColor: colors.primary + '15' }}>
           <div className="grid grid-cols-7 gap-1">
             {daysInWeek.map((day, index) => {
               const isSelected = selectedDate.toISOString().split('T')[0] === day.toISOString().split('T')[0];
@@ -344,7 +333,7 @@ const PlanningPage = () => {
                   onClick={() => setSelectedDate(day)}
                   className={cn(
                     "p-2.5 rounded-xl text-center transition flex flex-col items-center justify-between min-h-[70px]",
-                    isSelected ? "text-white shadow-sm" : "hover:bg-gray-50 dark:hover:bg-gray-800/40"
+                    isSelected ? "text-white shadow-sm" : "hover:bg-gray-50"
                   )}
                   style={{
                     backgroundColor: isSelected ? colors.primary : 'transparent',
@@ -352,7 +341,7 @@ const PlanningPage = () => {
                 >
                   <p 
                     className="text-[10px] font-bold uppercase tracking-wider" 
-                    style={{ color: isSelected ? '#ffffff' : (isToday_ ? colors.primary : 'rgba(156, 163, 175, 0.9)') }}
+                    style={{ color: isSelected ? '#ffffff' : (isToday_ ? colors.primary : colors.textLight) }}
                   >
                     {day.toLocaleDateString('fr-FR', { weekday: 'short' }).slice(0, 3)}
                   </p>
@@ -366,7 +355,7 @@ const PlanningPage = () => {
                     <span 
                       className={cn(
                         "text-[9px] px-1.5 py-0.5 rounded-full flex items-center justify-center gap-0.5 mt-1",
-                        isSelected ? "bg-white/20 text-white" : "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30"
+                        isSelected ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-700 border border-emerald-100"
                       )}
                     >
                       {count}
@@ -381,26 +370,21 @@ const PlanningPage = () => {
         </section>
       )}
 
-      {/* ============================================================
-          TIMELINE DES VISITES DU JOUR SELECTIONNÉ
-          ============================================================ */}
-      <section className="bg-white dark:bg-[#17231d] rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-[#2c3f35]/30 space-y-4">
+      <section className="bg-white rounded-2xl p-5 shadow-sm border space-y-4" style={{ borderColor: colors.primary + '15' }}>
         
-        {/* En-tête de section */}
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-800/30">
+        <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: colors.primary + '10' }}>
           <p className="text-xs sm:text-sm font-extrabold flex items-center gap-2" style={{ color: colors.text }}>
             <CalendarIcon size={16} style={{ color: colors.primary }} />
             <span>{selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
           </p>
-          <span className="text-xs font-bold text-gray-400 flex items-center gap-1.5">
+          <span className="text-xs font-bold flex items-center gap-1.5" style={{ color: colors.textLight }}>
             <List size={13} />
             <span>{dayVisits.length} visite{dayVisits.length > 1 ? 's' : ''}</span>
           </span>
         </div>
 
-        {/* Contenu */}
         {dayVisits.length > 0 ? (
-          <div className="space-y-3 relative pl-3.5 border-l border-gray-100 dark:border-gray-800">
+          <div className="space-y-3 relative pl-3.5 border-l" style={{ borderColor: colors.primary + '10' }}>
             {dayVisits
               .sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time))
               .map((visit) => {
@@ -409,25 +393,25 @@ const PlanningPage = () => {
                   <div
                     key={visit.id}
                     onClick={() => navigate(`/app/visits/${visit.id}`)}
-                    className="relative group p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-[#24362d]/25 border border-gray-100/50 dark:border-gray-800/50 shadow-inner flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all duration-200"
+                    className="relative group p-4 rounded-xl hover:bg-gray-50 border shadow-inner flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all duration-200"
+                    style={{ borderColor: colors.primary + '10' }}
                   >
-                    {/* Balle indicatrice sur l'axe de la frise chronologique */}
                     <div 
-                      className="absolute -left-[19px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#17231d] shadow-sm z-10 animate-pulse"
+                      className="absolute -left-[19px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm z-10 animate-pulse"
                       style={{ background: statusConfig.color }}
                     />
 
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="flex items-center gap-1 text-xs font-black text-gray-800 dark:text-gray-100 bg-gray-100/60 dark:bg-gray-800 px-2.5 py-1 rounded-lg shrink-0">
+                      <div className="flex items-center gap-1 text-xs font-black bg-gray-100/60 px-2.5 py-1 rounded-lg shrink-0" style={{ color: colors.text }}>
                         <Clock size={11} className="text-gray-400" />
                         <span>{visit.scheduled_time}</span>
                       </div>
 
                       <div className="min-w-0">
-                        <p className="font-extrabold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
+                        <p className="font-extrabold text-xs sm:text-sm truncate" style={{ color: colors.text }}>
                           {visit.patient?.first_name} {visit.patient?.last_name}
                         </p>
-                        <p className="text-[11px] text-gray-400 truncate flex items-center gap-1 mt-0.5">
+                        <p className="text-[11px] truncate flex items-center gap-1 mt-0.5" style={{ color: colors.textLight }}>
                           <MapPin size={10} className="shrink-0 text-gray-400" />
                           <span>{visit.patient?.address || 'Adresse non renseignée'}</span>
                         </p>
@@ -447,12 +431,12 @@ const PlanningPage = () => {
                       </span>
                       
                       {visit.is_urgent && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border border-red-100/35">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-600 border border-red-100/35">
                           ⚠️ Urgent
                         </span>
                       )}
 
-                      <div className="p-1 text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors hidden sm:block">
+                      <div className="p-1 text-gray-400 group-hover:text-gray-700 transition-colors hidden sm:block">
                         <ChevronRight size={14} />
                       </div>
                     </div>
@@ -461,12 +445,11 @@ const PlanningPage = () => {
               })}
           </div>
         ) : (
-          /* Écran vide chic & moderne */
           <div className="text-center py-10 flex flex-col items-center justify-center gap-3">
             <Illustration type="calendar" size="md" className="mx-auto opacity-35" />
             <div className="space-y-0.5">
-              <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Aucune visite ce jour</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Profitez de cette journée pour vous ressourcer.</p>
+              <p className="text-sm font-bold" style={{ color: colors.text }}>Aucune visite ce jour</p>
+              <p className="text-xs" style={{ color: colors.textLight }}>Profitez de cette journée pour vous ressourcer.</p>
             </div>
           </div>
         )}
