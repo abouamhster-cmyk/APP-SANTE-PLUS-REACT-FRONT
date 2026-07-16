@@ -1,7 +1,8 @@
 // 📁 src/features/billing/components/PaymentModal.tsx
+// 💡 Confirmation et redirection de paiement FedaPay
 
 import { Offer } from '@/types';
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
+import { Modal } from '@/components/ui/Modal';  
 import { PaymentModalContent } from './PaymentModalContent';
 
 interface PaymentModalProps {
@@ -28,11 +29,11 @@ export const PaymentModal = ({
   patientId = null, 
 }: PaymentModalProps) => {
   return (
-    <ModalFullScreen
+    <Modal
       isOpen={isOpen}
       onClose={onClose}
-      onBack={onClose}
       title={forcePonctual ? '💳 Paiement ponctuel' : 'Confirmer le paiement'}
+      maxWidth="xl"  
     >
       <PaymentModalContent
         offer={offer}
@@ -47,7 +48,7 @@ export const PaymentModal = ({
         forcePonctual={forcePonctual}
         patientId={patientId} 
       />
-    </ModalFullScreen>
+    </Modal>
   );
 };
 
