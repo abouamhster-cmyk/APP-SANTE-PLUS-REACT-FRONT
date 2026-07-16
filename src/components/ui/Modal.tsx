@@ -1,6 +1,7 @@
 // 📁 src/components/ui/Modal.tsx
 
 import { ReactNode, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/utils/helpers';
@@ -55,7 +56,7 @@ export const Modal = ({
   const brand = useBranding();
   const colors = brand.colors;
 
-  // 💡 Verrouillage robuste du défilement (HTML + Body) contre le scroll d'arrière-plan sur mobile
+  // 💡 Verrouillage robuste du défilement d'arrière-plan (HTML + Body) contre le scroll sur mobile
   useEffect(() => {
     if (isOpen) {
       document.documentElement.style.overflow = 'hidden';
@@ -79,11 +80,15 @@ export const Modal = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  return (
+  // Sécurité SSR
+  if (typeof window === 'undefined') return null;
+
+  // 💡 createPortal détache le modal du DOM d'origine pour l'injecter sous document.body
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-md overflow-hidden pointer-events-auto"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-md overflow-hidden pointer-events-auto"
           onClick={closeOnOverlayClick ? onClose : undefined}
         >
           <motion.div
@@ -155,7 +160,7 @@ export const Modal = ({
               )}
             </div>
 
-            {/* BODY (Scrollable avec momentum tactile pour mobile) */}
+            {/* BODY (Scrollable avec momentum tactile) */}
             <div 
               className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 overscroll-contain"
               style={{ color: colors.text, WebkitOverflowScrolling: 'touch' }}
@@ -175,7 +180,8 @@ export const Modal = ({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
