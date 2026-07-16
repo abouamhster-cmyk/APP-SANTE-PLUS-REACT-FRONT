@@ -27,7 +27,7 @@ import {
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAssignmentStore } from '@/stores/assignmentStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
 import { PatientCard } from '@/components/patients/PatientCard';
@@ -121,6 +121,8 @@ const getCategoryColor = (category: string): string => {
 export const PatientsPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { fetchAssignments } = useAssignmentStore();
 
   const {
@@ -169,7 +171,6 @@ export const PatientsPage = () => {
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
 
-  const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
   const canManage = canManagePatients();
   const isAdmin = isAdminOrCoordinator;
 
@@ -623,20 +624,19 @@ export const PatientsPage = () => {
         </div>
       </div>
 
-      {/* HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC */}
-      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+      {/* HEADER ÉDITORIAL */}
+      <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 text-center shadow-sm backdrop-blur-md" style={{ borderColor: colors.primary + '15' }}>
         <div className="space-y-1.5 relative z-10">
-          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+          <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
             {isAdmin ? 'Membres & Attributions' : 'Mes proches'}
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
             {isAdmin 
-              ? 'Supervision complète des fiches d’interventions et charges des aidants.' 
-              : 'Retrouvez les fiches d’identité et de suivi de vos proches accompagnés.'}
+              ? 'Supervision complète des fiches d\'interventions et charges des aidants.' 
+              : 'Retrouvez les fiches d\'identité et de suivi de vos proches accompagnés.'}
           </p>
         </div>
 
-        {/* ✅ CORRECTIF DE SÉCURITÉ MOBILE : Bouton absolu de création masqué sur mobile (évite répétition / chevauchement) */}
         {canManage && !isAdmin && patients.length > 0 && (
           <button
             onClick={handleAdd}
@@ -649,47 +649,50 @@ export const PatientsPage = () => {
         )}
       </section>
 
-      {/* WIDGET BENTO D'ACTIVITÉ MODERNE */}
+      {/* WIDGET BENTO D'ACTIVITÉ */}
       {isAdmin && (
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+          <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col justify-between h-36" style={{ borderColor: colors.primary + '15' }}>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Activité active</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Activité active</span>
               <Users size={16} className="text-emerald-500" />
             </div>
             <div>
-              <p className="text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-none">{stats.totalBeneficiaires}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1.5">Bénéficiaires & comptes enregistrés</p>
+              <p className="text-3xl font-black tracking-tight" style={{ color: colors.text }}>{stats.totalBeneficiaires}</p>
+              <p className="text-xs font-medium mt-1.5" style={{ color: colors.textLight }}>Bénéficiaires & comptes enregistrés</p>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+          <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col justify-between h-36" style={{ borderColor: colors.primary + '15' }}>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Suivi d'attributions</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Suivi d'attributions</span>
               <UserCheck size={16} className="text-blue-500" />
             </div>
             <div>
               <div className="flex items-baseline justify-between mb-2">
-                <p className="text-xl font-black text-gray-800 dark:text-gray-100 leading-none">{stats.assignedCount} rattachés</p>
-                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-none">{stats.unassignedCount} libres</p>
+                <p className="text-xl font-black" style={{ color: colors.text }}>{stats.assignedCount} rattachés</p>
+                <p className="text-[10px] font-bold" style={{ color: colors.gold || '#c9a84c' }}>{stats.unassignedCount} libres</p>
               </div>
-              <div className="w-full h-1.5 bg-gray-50 dark:bg-gray-800 rounded-full overflow-hidden flex">
+              <div className="w-full h-1.5 bg-gray-50 rounded-full overflow-hidden flex">
                 <div 
-                  className="h-full bg-emerald-500 transition-all duration-500 rounded-full" 
-                  style={{ width: `${(stats.assignedCount / (stats.totalBeneficiaires || 1)) * 100}%` }} 
+                  className="h-full transition-all duration-500 rounded-full" 
+                  style={{ 
+                    width: `${(stats.assignedCount / (stats.totalBeneficiaires || 1)) * 100}%`,
+                    background: colors.primary 
+                  }} 
                 />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-[#17231d] p-6 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-36">
+          <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col justify-between h-36" style={{ borderColor: colors.primary + '15' }}>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Foyers enregistrés</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Foyers enregistrés</span>
               <Home size={16} className="text-emerald-500" />
             </div>
             <div>
-              <p className="text-3xl font-black tracking-tight text-gray-800 dark:text-gray-100 leading-none">{stats.totalFamilies}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1.5">Foyers familiaux sous contrat</p>
+              <p className="text-3xl font-black tracking-tight" style={{ color: colors.text }}>{stats.totalFamilies}</p>
+              <p className="text-xs font-medium mt-1.5" style={{ color: colors.textLight }}>Foyers familiaux sous contrat</p>
             </div>
           </div>
         </section>
@@ -703,16 +706,16 @@ export const PatientsPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={isAdmin ? "Rechercher par nom de famille, proche, aidant..." : "Rechercher un membre..."}
-            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white dark:bg-[#17231d] border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
-            style={{ color: colors.text }}
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           />
         </div>
         
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white dark:bg-[#17231d] border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-48 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
-          style={{ color: colors.text }}
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold shrink-0 sm:w-48 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           <option value="all">Tous les profils</option>
           <option value="senior">👴 Seniors</option>
@@ -724,11 +727,11 @@ export const PatientsPage = () => {
       {/* RENDU DES DOSSIERS EN GRILLE CARREE COHERENTE */}
       {isAdmin ? (
         Object.keys(grouped).length === 0 ? (
-          <section className="bg-white dark:bg-[#17231d] rounded-2xl py-16 px-4 text-center border border-gray-100 dark:border-[#2c3f35] max-w-md mx-auto space-y-4">
+          <section className="bg-white rounded-2xl py-16 px-4 text-center border max-w-md mx-auto space-y-4" style={{ borderColor: colors.primary + '15' }}>
             <Illustration type={searchTerm || categoryFilter !== 'all' ? 'search' : 'users'} size="md" className="mx-auto opacity-35" />
             <div className="space-y-1">
-              <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">Aucun dossier correspondant</h3>
-              <p className="text-xs text-gray-400 dark:text-gray-500">Veuillez modifier ou réinitialiser vos filtres de recherche.</p>
+              <h3 className="font-bold text-sm" style={{ color: colors.text }}>Aucun dossier correspondant</h3>
+              <p className="text-xs" style={{ color: colors.textLight }}>Veuillez modifier ou réinitialiser vos filtres de recherche.</p>
             </div>
           </section>
         ) : (
@@ -740,27 +743,28 @@ export const PatientsPage = () => {
               return (
                 <div 
                   key={familyId} 
-                  className="bg-white dark:bg-[#17231d] rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm p-6 space-y-4 transition-all duration-300 hover:shadow-md"
+                  className="bg-white rounded-2xl border shadow-sm p-6 space-y-4 transition-all duration-300 hover:shadow-md"
+                  style={{ borderColor: colors.primary + '15' }}
                 >
-                  <div className="flex items-start justify-between gap-3 border-b border-gray-100/50 dark:border-gray-800/30 pb-4">
+                  <div className="flex items-start justify-between gap-3 border-b pb-4" style={{ borderColor: colors.primary + '10' }}>
                     <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Dossier de suivi</span>
-                      <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100 truncate mt-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Dossier de suivi</span>
+                      <h3 className="font-extrabold text-sm truncate mt-1" style={{ color: colors.text }}>
                         Foyer {group.name}
                       </h3>
                     </div>
                     {hasUnassigned ? (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border border-amber-100 dark:border-amber-900/30">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold border" style={{ backgroundColor: colors.gold + '15', color: colors.gold, borderColor: colors.gold + '30' }}>
                         Rattachement requis
                       </span>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold border" style={{ backgroundColor: colors.primary + '10', color: colors.primary, borderColor: colors.primary + '20' }}>
                         Attributions complètes ({familyItems.length})
                       </span>
                     )}
                   </div>
 
-                  <div className="divide-y divide-gray-100/50 dark:divide-gray-800/30">
+                  <div className="divide-y" style={{ borderColor: colors.primary + '10' }}>
                     {familyItems.map((item: AssignmentItem) => {
                       const isAssigned = !!item.assignedAidantUserId;
                       const isAccount = item.type === 'account';
@@ -785,17 +789,17 @@ export const PatientsPage = () => {
 
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-bold text-xs text-gray-900 dark:text-gray-100 truncate">
+                                <span className="font-bold text-xs truncate" style={{ color: colors.text }}>
                                   {item.targetName}
                                 </span>
                                 {isAssigned && (
-                                  <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-md border border-emerald-100 dark:border-emerald-900/30 flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-md border flex items-center gap-1" style={{ backgroundColor: colors.primary + '10', color: colors.primary, borderColor: colors.primary + '20' }}>
+                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: colors.primary }} />
                                     {item.assignedAidantName}
                                   </span>
                                 )}
                               </div>
-                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold block mt-1 uppercase tracking-wide">
+                              <span className="text-[10px] font-bold block mt-1 uppercase tracking-wide" style={{ color: colors.textLight }}>
                                 {isAccount ? 'Responsable légal' : 'Proche accompagné'}
                               </span>
                             </div>
@@ -806,7 +810,8 @@ export const PatientsPage = () => {
                               <button
                                 onClick={() => handleRevoke(item)}
                                 disabled={isProcessingItem || isProcessing}
-                                className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-red-50 dark:bg-gray-800/40 dark:hover:bg-red-950/20 text-gray-400 hover:text-red-500 dark:hover:text-red-400 flex items-center justify-center transition-all border border-gray-100 dark:border-gray-800/30"
+                                className="w-8 h-8 rounded-xl bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 flex items-center justify-center transition-all border"
+                                style={{ borderColor: colors.primary + '15' }}
                                 title="Désassigner l'aidant"
                               >
                                 {isProcessingItem ? (
@@ -855,14 +860,14 @@ export const PatientsPage = () => {
           </section>
         ) : (
           /* CADRE VIDE */
-          <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400">
+          <section className="bg-white/40 rounded-2xl py-16 px-6 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm" style={{ borderColor: colors.primary + '15' }}>
+            <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
               <Users size={20} />
             </div>
             
             <div className="space-y-1">
-              <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">{empty}</h3>
-              <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">{emptyAction}</p>
+              <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>{empty}</h3>
+              <p className="text-xs" style={{ color: colors.textLight }}>{emptyAction}</p>
             </div>
 
             {canManage && (
@@ -881,7 +886,7 @@ export const PatientsPage = () => {
 
       {/* FOOTER DISCRET */}
       {isAdmin && Object.keys(grouped).length > 0 && (
-        <div className="text-[10px] text-gray-400 dark:text-gray-500 font-bold text-center pt-4 tracking-wide uppercase">
+        <div className="text-[10px] font-bold text-center pt-4 tracking-wide uppercase" style={{ color: colors.textLight }}>
           🟢 Système d'attributions d'intervenants Santé Plus Services — Synchronisé
         </div>
       )}
@@ -907,16 +912,17 @@ export const PatientsPage = () => {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowRowAssignModal(false); }}
         >
-          <div className="bg-white dark:bg-[#17231d] rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 border border-gray-100 dark:border-gray-800/60 animate-fadeIn">
-            <div className="flex items-start justify-between border-b border-gray-100 dark:border-gray-800/40 pb-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
+            <div className="flex items-start justify-between border-b pb-4" style={{ borderColor: colors.primary + '10' }}>
               <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Rattachement administratif</span>
-                <h3 className="text-sm font-extrabold text-gray-800 dark:text-gray-100">Intervenant d'accompagnement</h3>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Dossier : <strong className="text-gray-700 dark:text-gray-300 font-bold">{selectedItemToAssign.targetName}</strong></p>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Rattachement administratif</span>
+                <h3 className="text-sm font-extrabold" style={{ color: colors.text }}>Intervenant d'accompagnement</h3>
+                <p className="text-xs mt-1" style={{ color: colors.textLight }}>Dossier : <strong className="font-bold" style={{ color: colors.text }}>{selectedItemToAssign.targetName}</strong></p>
               </div>
               <button 
                 onClick={() => setShowRowAssignModal(false)}
-                className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 flex items-center justify-center text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-all border border-gray-100 dark:border-gray-800/30"
+                className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-all border"
+                style={{ borderColor: colors.primary + '15' }}
               >
                 <X size={15} />
               </button>
@@ -924,12 +930,12 @@ export const PatientsPage = () => {
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Sélectionner un aidant qualifié</label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Sélectionner un aidant qualifié</label>
                 <select
                   value={modalAidant}
                   onChange={(e) => setModalAidant(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50 dark:bg-[#1d2d25] border-gray-100 dark:border-gray-800/60"
-                  style={{ color: colors.text }}
+                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50/50"
+                  style={{ borderColor: colors.primary + '20', color: colors.text }}
                 >
                   <option value="">Sélectionner un aidant</option>
                   {aidants.map(a => {
@@ -944,22 +950,24 @@ export const PatientsPage = () => {
               </div>
 
               {modalSelectedAidantObj && (
-                <div className={cn(
-                  "p-3 rounded-xl flex items-center justify-between border text-[11px] font-semibold transition-all",
-                  isSelectedAidantFull ? "bg-red-50/50 border-red-200/50 text-red-700 dark:text-red-400 dark:bg-red-950/20" : "bg-emerald-50/50 border-emerald-200/50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-950/20"
-                )}>
+                <div 
+                  className={cn(
+                    "p-3 rounded-xl flex items-center justify-between border text-[11px] font-semibold transition-all",
+                    isSelectedAidantFull ? "bg-red-50/50 border-red-200/50 text-red-700" : "bg-emerald-50/50 border-emerald-200/50 text-emerald-700"
+                  )}
+                >
                   <span>Quota de l'intervenant : {modalSelectedAidantObj.current_assignments}/{modalSelectedAidantObj.max_assignments}</span>
                   <span>{isSelectedAidantFull ? 'Quota max atteint' : 'Disponible'}</span>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Type de contrat d'accompagnement</label>
+                <label className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Type de contrat d'accompagnement</label>
                 <select
                   value={modalType}
                   onChange={(e) => setModalType(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50 dark:bg-[#1d2d25] border-gray-100 dark:border-gray-800/60"
-                  style={{ color: colors.text }}
+                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50/50"
+                  style={{ borderColor: colors.primary + '20', color: colors.text }}
                 >
                   {ASSIGNMENT_TYPES.map(t => (
                     <option key={t.value} value={t.value}>{t.label}</option>
@@ -968,22 +976,22 @@ export const PatientsPage = () => {
               </div>
 
               {isSelectedAidantFull && (
-                <div className="p-4 bg-amber-50/40 dark:bg-amber-950/10 rounded-xl border border-amber-100/50 dark:border-amber-900/30 space-y-3">
+                <div className="p-4 bg-amber-50/40 rounded-xl border border-amber-100/50 space-y-3">
                   <div className="flex items-start gap-2.5">
-                    <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                    <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 leading-relaxed font-medium">
                       Cet aidant est au maximum de sa charge d'accompagnements (4/4). Souhaitez-vous forcer l'assignation ?
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-amber-100/50 dark:border-amber-900/20">
+                  <div className="flex items-center gap-2 pt-2 border-t border-amber-100/50">
                     <input
                       type="checkbox"
                       id="force_checkbox"
                       checked={modalForce}
                       onChange={(e) => setModalForce(e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-gray-800/60"
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-white border-gray-100"
                     />
-                    <label htmlFor="force_checkbox" className="text-xs font-bold text-amber-950 dark:text-amber-200 cursor-pointer select-none">
+                    <label htmlFor="force_checkbox" className="text-xs font-bold text-amber-950 cursor-pointer select-none">
                       Forcer le rattachement
                     </label>
                   </div>
@@ -991,12 +999,12 @@ export const PatientsPage = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 dark:border-gray-800/40">
+            <div className="grid grid-cols-2 gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '10' }}>
               <button
                 type="button"
                 onClick={() => setShowRowAssignModal(false)}
-                className="h-11 rounded-xl font-bold border border-gray-100 dark:border-gray-800/60 bg-white dark:bg-[#17231d] hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-xs sm:text-sm text-center"
-                style={{ color: colors.text }}
+                className="h-11 rounded-xl font-bold border bg-white hover:bg-gray-50 transition-all text-xs sm:text-sm text-center"
+                style={{ borderColor: colors.primary + '20', color: colors.text }}
               >
                 Annuler
               </button>
