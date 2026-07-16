@@ -139,30 +139,11 @@ const AidantDetailPage = () => {
     }
   }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
 
-  // 💡 Cast "any" propre pour désactiver la vérification stricte sur ce composant uniquement (évite les erreurs de compilation sur les propriétés DB non déclarées)
-  const detail = aidant as any;
-
-  // 💡 Déclaration explicite du type de l'état pour corriger l'erreur Vercel sur la propriété "bg"
-  const status: { label: string; color: string; bg: string } = (() => {
-    if (!detail?.is_available) {
-      return { 
-        label: 'Indisponible', 
-        color: 'text-red-500 border-red-100', 
-        bg: 'bg-red-50/50' 
-      };
-    }
-    if ((detail.active_assignments || 0) >= (detail.max_assignments || 4)) {
-      return { 
-        label: 'Complet', 
-        color: 'text-orange-500 border-orange-100', 
-        bg: 'bg-orange-50/50' 
-      };
-    }
-    return { 
-      label: 'Disponible', 
-      color: 'text-green-600 border-green-100', 
-      bg: 'bg-green-50/50' 
-    };
+  const status = (() => {
+    if (!aidant?.is_available) return { label: 'Indisponible', color: 'text-red-500 border-red-100 bg-red-50/50' };
+    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4))
+      return { label: 'Complet', color: 'text-orange-500 border-orange-100 bg-orange-50/50' };
+    return { label: 'Disponible', color: 'text-green-600 border-green-100 bg-green-50/50' };
   })();
 
   if (isLoading || isCheckingAssignment) {
@@ -173,15 +154,34 @@ const AidantDetailPage = () => {
     );
   }
 
-  if (!detail) return null;
+  if (!aidant) return null;
 
-  const canAssign = isFamily && !isAlreadyAssigned && detail.is_available;
+  const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
   
-  // Lecture directe et fluide des informations de profil
-  const name = detail.user?.full_name || 'Aidant';
-  const email = detail.user?.email;
-  const phone = detail.user?.phone;
-  const avatarUrl = detail.user?.avatar_url;
+  // ============================================================
+  // 💡 DÉCODEUR HYBRIDE D'OBJETS REJOINTS (Garantit la lecture si user est un tableau)
+  // ============================================================
+  const aidantUser = Array.isArray(aidant.user) ? aidant.user[0] : aidant.user;
+  
+  const name = aidantUser?.full_name || aidant.full_name || 'Aidant';
+  const email = aidantUser?.email || aidant.email;
+  const phone = aidantUser?.phone || aidant.phone;
+  const avatarUrl = aidantUser?.avatar_url || aidant.avatar_url;
+  const aidantLanguages = (aidant as any).languages as string[] | undefined;
+
+  // 💡 HELPER DE CONSTRUCTION D'URLS PUBLIQUES SUPABASE POUR LES AVATARS RELATIFS
+  const getPublicAvatarUrl = (url: string | null | undefined): string => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    const supabaseUrl = 'https://mrsrogkjthtnppecndyc.supabase.co';
+    const cleanPath = url.replace(/^\/+/, '');
+    if (cleanPath.startsWith('avatars/')) {
+      return `${supabaseUrl}/storage/v1/object/public/${cleanPath}`;
+    }
+    return `${supabaseUrl}/storage/v1/object/public/avatars/${cleanPath}`;
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 pb-24 space-y-5">
@@ -215,7 +215,7 @@ const AidantDetailPage = () => {
           <div className="relative shrink-0">
             {avatarUrl ? (
               <img
-                src={avatarUrl}
+                src={getPublicAvatarUrl(avatarUrl)}
                 alt={name}
                 className="w-20 h-20 rounded-2xl object-cover border border-gray-100 shadow-sm"
                 onError={(e) => {
@@ -232,7 +232,7 @@ const AidantDetailPage = () => {
             >
               {name.charAt(0).toUpperCase()}
             </div>
-            {detail.is_verified && (
+            {aidant.is_verified && (
               <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-lg bg-green-500 text-white flex items-center justify-center border border-white shadow-md" title="Compte vérifié">
                 ✓
               </span>
@@ -250,12 +250,12 @@ const AidantDetailPage = () => {
                 <div className="flex flex-wrap justify-center sm:justify-start gap-2 text-xs mt-1 font-semibold" style={{ color: colors.textLight }}>
                   <span className="flex items-center gap-1">
                     <Star size={13} className="text-yellow-400 fill-yellow-400" />
-                    {Number(detail.rating || 0).toFixed(1)}
+                    {aidant.avg_rating?.toFixed(1) || aidant.rating?.toFixed(1) || '0.0'}
                   </span>
                   <span>•</span>
                   <span className="flex items-center gap-1">
                     <Briefcase size={13} />
-                    {detail.total_missions || 0} missions
+                    {aidant.total_missions || 0} missions
                   </span>
                   {isAlreadyAssigned && (
                     <>
@@ -278,42 +278,42 @@ const AidantDetailPage = () => {
             <div className="mt-4 grid grid-cols-2 gap-2.5 text-xs font-semibold" style={{ color: colors.textLight }}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <MapPin size={13} className="text-gray-400 shrink-0" />
-                <span className="truncate">{detail.zones?.slice(0, 2).join(', ') || '—'}</span>
+                <span className="truncate">{aidant.zones?.slice(0, 2).join(', ') || '—'}</span>
               </div>
 
               <div className="flex items-center gap-1.5">
                 <Clock size={13} className="text-gray-400 shrink-0" />
-                <span>Réponse : {detail.average_response_time || '~5'} min</span>
+                <span>Réponse : {aidant.average_response_time || '~5'} min</span>
               </div>
 
               <div className="flex items-center gap-1.5">
                 <Award size={13} className="text-gray-400 shrink-0" />
-                <span>Expérience : {detail.experience_years || 0} ans</span>
+                <span>Expérience : {aidant.experience_years || 0} ans</span>
               </div>
 
               <div className="flex items-center gap-1.5">
                 <CheckCircle size={13} className="text-gray-400 shrink-0" />
-                <span>Quota : {detail.active_assignments || 0}/{detail.max_assignments || 4} missions</span>
+                <span>Quota : {aidant.active_assignments || 0}/{aidant.max_assignments || 4} missions</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* BIO / PRESENTATION */}
-        {detail.bio && (
+        {aidant.bio && (
           <div className="text-sm bg-gray-50 rounded-xl p-3 italic" style={{ color: colors.text + 'A5', borderColor: colors.primary + '10' }}>
-            "{detail.bio}"
+            "{aidant.bio}"
           </div>
         )}
 
         {/* SPÉCIALITÉS ET LANGUES */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t pt-4" style={{ borderColor: colors.primary + '10' }}>
           {/* Spécialités */}
-          {detail.specialties && detail.specialties.length > 0 && (
+          {aidant.specialties && aidant.specialties.length > 0 && (
             <div className="space-y-1.5">
               <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-400">Spécialités d’aide</h4>
               <div className="flex flex-wrap gap-1.5">
-                {detail.specialties.map((spec: string) => (
+                {aidant.specialties.map((spec: string) => (
                   <span
                     key={spec}
                     className="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
@@ -329,11 +329,11 @@ const AidantDetailPage = () => {
           )}
 
           {/* Langues parlées */}
-          {detail.languages && detail.languages.length > 0 && (
+          {aidantLanguages && aidantLanguages.length > 0 && (
             <div className="space-y-1.5">
               <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-400">Langues parlées</h4>
               <div className="flex flex-wrap gap-1.5">
-                {detail.languages.map((lang: string) => (
+                {aidantLanguages.map((lang: string) => (
                   <span
                     key={lang}
                     className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600"
@@ -406,7 +406,7 @@ const AidantDetailPage = () => {
               <UserCheck size={15} />
               Déjà assigné
             </button>
-          ) : !detail.is_available ? (
+          ) : !aidant.is_available ? (
             <button
               disabled
               className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold flex items-center justify-center gap-1.5 cursor-default"
@@ -432,7 +432,7 @@ const AidantDetailPage = () => {
         <AssignAidantModal
           isOpen={showAssignModal}
           onClose={() => setShowAssignModal(false)}
-          aidant={detail}
+          aidant={aidant}
           patients={patients}
           onSuccess={() => {
             setShowAssignModal(false);
