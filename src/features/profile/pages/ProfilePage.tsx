@@ -1,5 +1,5 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
- 
+
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -36,7 +36,7 @@ import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import { NotificationSoundSelector } from '@/components/settings/NotificationSoundSelector';
 import toast from 'react-hot-toast';
@@ -122,6 +122,8 @@ const sanitizeFileName = (name: string): string => {
 
 const ProfilePage = () => {
   const navigate = useNavigate();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { profile, role, logout, updateProfile, refreshProfile } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
   const { visits, fetchVisits } = useVisitStore();
@@ -142,8 +144,6 @@ const ProfilePage = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [preferenceMessage, setPreferenceMessage] = useState('');
-  
-  // ✅ État de détection de lien cassé d'avatar (S'active si l'image refuse de s'afficher)
   const [imageError, setImageError] = useState(false);
 
   const formRef = useRef<HTMLDivElement>(null);
@@ -160,8 +160,6 @@ const ProfilePage = () => {
     newPassword: '',
     confirmPassword: '',
   });
-
-  const colors = getThemeColors(getThemeByRole(role as any, profile?.patient_category as any));
 
   const getRoleLabel = () => {
     if (role === 'admin') return 'Administrateur';
@@ -191,7 +189,7 @@ const ProfilePage = () => {
       email: profile.email || '' 
     }));
     setAvatarPreview(profile.avatar_url || null);
-    setImageError(false); // Réinitialiser l'état d'erreur lors du rechargement
+    setImageError(false);
   }, [profile]);
 
   useEffect(() => {
@@ -231,7 +229,6 @@ const ProfilePage = () => {
         const fileExt = cleanName.split('.').pop() || 'png';
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
         
-        // ✅ CORRECTIF DE SÉCURITÉ DE LIEN : Ajout du contentType pour forcer le bon type d'image (ex: image/png)
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile, { 
@@ -393,7 +390,7 @@ const ProfilePage = () => {
       )}
 
       {/* HEADER - CARTE PROFIL */}
-      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
+      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <div className="relative mx-auto sm:mx-0">
             <div 
@@ -405,7 +402,7 @@ const ProfilePage = () => {
                   src={avatarPreview} 
                   alt="Avatar" 
                   className="w-full h-full object-cover rounded-3xl" 
-                  onError={() => setImageError(true)} // ✅ Fallback automatique aux initiales si l'image est cassée
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 getInitials(profile?.full_name || '')
@@ -427,7 +424,7 @@ const ProfilePage = () => {
               {profile?.full_name || 'Utilisateur'}
             </h1>
             <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-1">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: colors.textLight }}>
                 {getRoleIcon()}
                 {getRoleLabel()}
               </span>
@@ -444,20 +441,21 @@ const ProfilePage = () => {
 
           <button 
             onClick={() => setIsEditing(!isEditing)} 
-            className="px-4 py-2 rounded-2xl text-xs font-bold transition hover:bg-gray-50 border border-gray-100 shrink-0"
+            className="px-4 py-2 rounded-2xl text-xs font-bold transition hover:bg-gray-50 border shrink-0"
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             {isEditing ? 'Annuler' : 'Modifier'}
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t" style={{ borderColor: colors.border }}>
+        <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
           {quickStats.map((item) => (
             <div key={item.label} className="text-center">
               <div className="flex items-center justify-center gap-1.5 text-xs" style={{ color: colors.text + '70' }}>
                 {item.icon}
                 <span className="font-black" style={{ color: colors.primary }}>{item.value}</span>
               </div>
-              <p className="text-[9px] text-gray-400 uppercase tracking-wider mt-0.5">{item.label}</p>
+              <p className="text-[9px] uppercase tracking-wider mt-0.5" style={{ color: colors.textLight }}>{item.label}</p>
             </div>
           ))}
         </div>
@@ -465,19 +463,21 @@ const ProfilePage = () => {
 
       {/* ÉDITION */}
       {isEditing && (
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
+        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border" style={{ borderColor: colors.primary + '15' }}>
           <h3 className="text-sm font-bold mb-4" style={{ color: colors.text }}>Modifier mes informations</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input 
               value={formData.full_name} 
               onChange={e => setFormData({...formData, full_name: e.target.value})} 
               className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm border"
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
               placeholder="Nom complet"
             />
             <input 
               value={formData.phone} 
               onChange={e => setFormData({...formData, phone: e.target.value})} 
               className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm border"
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
               placeholder="Téléphone"
             />
             <div className="sm:col-span-2">
@@ -485,6 +485,7 @@ const ProfilePage = () => {
                 value={formData.email} 
                 disabled 
                 className="w-full p-3 rounded-2xl bg-gray-100 outline-none text-sm text-gray-400 cursor-not-allowed border"
+                style={{ borderColor: colors.primary + '20' }}
                 placeholder="Email (non modifiable)"
               />
             </div>
@@ -508,9 +509,9 @@ const ProfilePage = () => {
             key={tab} 
             onClick={() => setActiveTab(tab)} 
             className={`px-4 py-2 rounded-xl text-[10px] font-bold capitalize transition-all flex items-center gap-1.5 ${
-              activeTab === tab ? 'bg-white shadow-sm font-black' : 'text-gray-400'
+              activeTab === tab ? 'bg-white shadow-sm font-black' : ''
             }`}
-            style={{ color: activeTab === tab ? colors.primary : undefined }}
+            style={{ color: activeTab === tab ? colors.primary : colors.textLight }}
           >
             {tab === 'profile' && <User size={13} />}
             {tab === 'settings' && <Settings size={13} />}
@@ -523,15 +524,15 @@ const ProfilePage = () => {
       </div>
 
       {/* CONTENU DES TABS */}
-      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-black/5">
+      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border" style={{ borderColor: colors.primary + '15' }}>
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <InfoField label="Nom complet" value={profile?.full_name || '-'} />
-            <InfoField label="Email" value={profile?.email || '-'} />
-            <InfoField label="Téléphone" value={profile?.phone || '-'} />
-            <InfoField label="Rôle" value={getRoleLabel() || '-'} />
-            <InfoField label="Membre depuis" value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'} />
-            <InfoField label="Dernière mise à jour" value={profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString('fr-FR') : '-'} />
+            <InfoField label="Nom complet" value={profile?.full_name || '-'} colors={colors} />
+            <InfoField label="Email" value={profile?.email || '-'} colors={colors} />
+            <InfoField label="Téléphone" value={profile?.phone || '-'} colors={colors} />
+            <InfoField label="Rôle" value={getRoleLabel() || '-'} colors={colors} />
+            <InfoField label="Membre depuis" value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'} colors={colors} />
+            <InfoField label="Dernière mise à jour" value={profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString('fr-FR') : '-'} colors={colors} />
           </div>
         )}
 
@@ -554,7 +555,7 @@ const ProfilePage = () => {
               colors={colors} 
             />
             
-            <div className="border-t pt-4 mt-2">
+            <div className="border-t pt-4 mt-2" style={{ borderColor: colors.primary + '15' }}>
               <div className="flex items-center gap-2 mb-3">
                 <Volume2 size={16} style={{ color: colors.primary }} />
                 <span className="text-sm font-bold" style={{ color: colors.text }}>Son de notification</span>
@@ -565,7 +566,7 @@ const ProfilePage = () => {
             <button 
               onClick={() => setShowLanguageModal(true)} 
               className="w-full flex items-center justify-between p-4 rounded-2xl border hover:bg-gray-50 transition"
-              style={{ borderColor: colors.border }}
+              style={{ borderColor: colors.primary + '20' }}
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: colors.primary + '10', color: colors.primary }}>
@@ -573,7 +574,7 @@ const ProfilePage = () => {
                 </div>
                 <div className="text-left">
                   <p className="font-bold text-sm" style={{ color: colors.text }}>Langue</p>
-                  <p className="text-xs text-gray-400">{formData.preferences.language === 'fr' ? 'Français' : 'English'}</p>
+                  <p className="text-xs" style={{ color: colors.textLight }}>{formData.preferences.language === 'fr' ? 'Français' : 'English'}</p>
                 </div>
               </div>
               <ChevronRight size={16} className="text-gray-400" />
@@ -590,14 +591,14 @@ const ProfilePage = () => {
               onClick={() => setShowPasswordModal(true)} 
               colors={colors} 
             />
-            <div className="flex items-center justify-between p-4 rounded-2xl border" style={{ borderColor: colors.border }}>
+            <div className="flex items-center justify-between p-4 rounded-2xl border" style={{ borderColor: colors.primary + '20' }}>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: colors.primary + '10', color: colors.primary }}>
                   <Smartphone size={16} />
                 </div>
                 <div className="text-left">
                   <p className="font-bold text-sm" style={{ color: colors.text }}>Appareil connecté</p>
-                  <p className="text-xs text-gray-400">{navigator.userAgent?.split(' ').slice(-2).join(' ') || 'Navigateur'}</p>
+                  <p className="text-xs" style={{ color: colors.textLight }}>{navigator.userAgent?.split(' ').slice(-2).join(' ') || 'Navigateur'}</p>
                 </div>
               </div>
               <span className="text-[10px] px-2 py-1 rounded-full bg-green-50 text-green-600 font-bold flex items-center gap-1">
@@ -607,7 +608,8 @@ const ProfilePage = () => {
             </div>
             <button 
               onClick={() => setShowDeleteModal(true)} 
-              className="w-full p-4 rounded-2xl border-2 border-red-200 bg-red-50 text-red-600 font-bold text-left hover:bg-red-100 transition flex items-center gap-3"
+              className="w-full p-4 rounded-2xl border-2 text-red-600 font-bold text-left hover:bg-red-100 transition flex items-center gap-3"
+              style={{ borderColor: '#EF444430', background: '#EF444408' }}
             >
               <Trash2 size={16} />
               <div className="text-left">
@@ -640,27 +642,30 @@ const ProfilePage = () => {
                 <X size={18} />
               </button>
             </div>
-            <p className="text-xs text-gray-400">Entrez votre mot de passe actuel puis choisissez-en un nouveau.</p>
+            <p className="text-xs" style={{ color: colors.textLight }}>Entrez votre mot de passe actuel puis choisissez-en un nouveau.</p>
             <input 
               type="password" 
               placeholder="Mot de passe actuel" 
               className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
               onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})} 
             />
             <input 
               type="password" 
               placeholder="Nouveau mot de passe" 
               className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
               onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})} 
             />
             <input 
               type="password" 
               placeholder="Confirmer" 
               className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
               onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} 
             />
             <div className="flex gap-2 pt-2">
-              <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-2 rounded-xl font-bold text-sm border" style={{ borderColor: colors.border, color: colors.text }}>Annuler</button>
+              <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-2 rounded-xl font-bold text-sm border" style={{ borderColor: colors.primary + '20', color: colors.text }}>Annuler</button>
               <button onClick={handleChangePassword} disabled={isLoading} className="flex-1 py-2 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-1.5" style={{ background: colors.primary }}>
                 {isLoading && <Loader2 className="animate-spin" size={14} />}
                 Valider
@@ -683,12 +688,12 @@ const ProfilePage = () => {
               </button>
             </div>
             <div className="space-y-2">
-              <button onClick={() => handleLanguageChange('fr')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'fr' ? colors.primary : colors.border }}>
-                <span>Français</span>
+              <button onClick={() => handleLanguageChange('fr')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'fr' ? colors.primary : colors.primary + '20' }}>
+                <span style={{ color: colors.text }}>Français</span>
                 {formData.preferences.language === 'fr' && <CheckCircle size={16} style={{ color: colors.primary }} />}
               </button>
-              <button onClick={() => handleLanguageChange('en')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'en' ? colors.primary : colors.border }}>
-                <span>English</span>
+              <button onClick={() => handleLanguageChange('en')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'en' ? colors.primary : colors.primary + '20' }}>
+                <span style={{ color: colors.text }}>English</span>
                 {formData.preferences.language === 'en' && <CheckCircle size={16} style={{ color: colors.primary }} />}
               </button>
             </div>
@@ -704,7 +709,7 @@ const ProfilePage = () => {
                 <AlertCircle size={28} style={{ color: '#EF4444' }} />
               </div>
               <h3 className="font-black text-center" style={{ color: colors.text }}>Supprimer le compte</h3>
-              <p className="text-center text-sm text-gray-500 mt-2">
+              <p className="text-center text-sm mt-2" style={{ color: colors.textLight }}>
                 Cette action est irréversible. Toutes vos données seront supprimées.
               </p>
               <p className="text-center text-sm font-bold text-red-500 mt-2">
@@ -712,7 +717,7 @@ const ProfilePage = () => {
               </p>
             </div>
             <div className="flex gap-2 mt-6">
-              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm border" style={{ borderColor: colors.border, color: colors.text }}>Annuler</button>
+              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm border" style={{ borderColor: colors.primary + '20', color: colors.text }}>Annuler</button>
               <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-1.5" style={{ background: '#EF4444' }}>
                 {isLoading && <Loader2 className="animate-spin" size={14} />}
                 Supprimer
@@ -725,27 +730,39 @@ const ProfilePage = () => {
   );
 };
 
-const InfoField = ({ label, value }: { label: string; value: string }) => (
+// =============================================
+// SOUS-COMPOSANTS
+// =============================================
+
+interface InfoFieldProps {
+  label: string;
+  value: string;
+  colors: any;
+}
+
+const InfoField = ({ label, value, colors }: InfoFieldProps) => (
   <div className="p-4 rounded-2xl bg-gray-50">
-    <p className="text-[10px] font-bold uppercase text-gray-400">{label}</p>
-    <p className="text-sm font-semibold mt-1" style={{ color: 'var(--color-text, #2d2d2d)' }}>{value}</p>
+    <p className="text-[10px] font-bold uppercase" style={{ color: colors.textLight }}>{label}</p>
+    <p className="text-sm font-semibold mt-1" style={{ color: colors.text }}>{value}</p>
   </div>
 );
 
+interface SettingToggleProps {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  active: boolean;
+  onClick: () => void;
+  colors: any;
+}
+
 const SettingToggle = ({ 
   icon, title, description, active, onClick, colors 
-}: { 
-  icon: ReactNode; 
-  title: string; 
-  description: string; 
-  active: boolean; 
-  onClick: () => void; 
-  colors: any 
-}) => (
+}: SettingToggleProps) => (
   <button 
     onClick={onClick} 
     className="w-full flex items-center justify-between p-4 rounded-2xl border hover:bg-gray-50 transition"
-    style={{ borderColor: colors.border }}
+    style={{ borderColor: colors.primary + '20' }}
   >
     <div className="flex items-center gap-3">
       <div 
@@ -756,7 +773,7 @@ const SettingToggle = ({
       </div>
       <div className="text-left">
         <p className="font-bold text-sm" style={{ color: colors.text }}>{title}</p>
-        <p className="text-xs text-gray-400">{description}</p>
+        <p className="text-xs" style={{ color: colors.textLight }}>{description}</p>
       </div>
     </div>
     <div 
@@ -771,21 +788,23 @@ const SettingToggle = ({
   </button>
 );
 
+interface ActionRowProps {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  onClick: () => void;
+  colors: any;
+  danger?: boolean;
+}
+
 const ActionRow = ({ 
   icon, title, description, onClick, colors, danger 
-}: { 
-  icon: ReactNode; 
-  title: string; 
-  description?: string; 
-  onClick: () => void; 
-  colors: any; 
-  danger?: boolean 
-}) => (
+}: ActionRowProps) => (
   <button 
     onClick={onClick} 
     className="w-full flex items-center justify-between p-4 rounded-2xl border transition hover:bg-gray-50"
     style={{ 
-      borderColor: danger ? '#FECACA' : colors.border, 
+      borderColor: danger ? '#FECACA' : colors.primary + '20', 
       background: danger ? '#FEF2F2' : undefined 
     }}
   >
@@ -801,7 +820,7 @@ const ActionRow = ({
       </div>
       <div className="text-left">
         <p className="font-bold text-sm" style={{ color: danger ? '#EF4444' : colors.text }}>{title}</p>
-        {description && <p className="text-xs text-gray-400">{description}</p>}
+        {description && <p className="text-xs" style={{ color: colors.textLight }}>{description}</p>}
       </div>
     </div>
     <ChevronRight size={16} className={danger ? 'text-red-400' : 'text-gray-400'} />
