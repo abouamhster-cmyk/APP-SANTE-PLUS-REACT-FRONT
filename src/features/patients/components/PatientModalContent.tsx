@@ -1,6 +1,5 @@
 // 📁 src/features/patients/components/PatientModalContent.tsx
-// ✅ FORMULAIRE PATIENT : INTERFACE COMPLÈTE ET CORRECTION DES TYPES TS SUR COLORSLIKE POUR LE BUILD VERCEL
-
+ 
 import { useEffect, useState } from 'react';
 import {
   MapPin,
@@ -9,7 +8,6 @@ import {
   User,
   Save,
   Calendar,
-  Heart,
   FileText,
   Pill,
   Stethoscope,
@@ -43,8 +41,6 @@ export const PatientModalContent = ({
   
   const {
     singular,
-    add,
-    edit,
     created,
     updated,
   } = useTerminology();
@@ -73,7 +69,7 @@ export const PatientModalContent = ({
     const canManage = canManagePatients();
     if (profile?.role === 'aidant' || !canManage) {
       setIsAuthorized(false);
-      toast.error('Vous n\'avez pas les droits pour gérer les patients');
+      toast.error('Vous n\'avez pas les droits pour gérer les proches');
       setTimeout(() => onCancel(), 1500);
       return;
     }
@@ -130,12 +126,12 @@ export const PatientModalContent = ({
     e.preventDefault();
 
     if (!canManagePatients() || profile?.role === 'aidant') {
-      toast.error('Vous n\'avez pas les droits pour effectuer cette action');
+      toast.error('Vous n\'avez pas les droits nécessaires');
       return;
     }
 
     if (!formData.first_name.trim()) {
-      toast.error('Veuillez renseigné le prénom');
+      toast.error('Veuillez renseigner le prénom');
       return;
     }
 
@@ -196,11 +192,11 @@ export const PatientModalContent = ({
           ⛔ Accès non autorisé
         </h3>
         <p className="text-sm mt-2" style={{ color: colors.textLight }}>
-          Vous n'avez pas les droits pour gérer les patients.
+          Vous n'avez pas les droits pour gérer les proches.
         </p>
         <button
           onClick={onCancel}
-          className="mt-4 px-6 py-2 rounded-xl text-white font-bold"
+          className="mt-4 px-6 py-2 rounded-xl text-white font-bold text-sm"
           style={{ background: colors.primary }}
         >
           Retour
@@ -210,16 +206,16 @@ export const PatientModalContent = ({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 pb-4">
+    <form onSubmit={handleSubmit} className="space-y-4 max-w-full">
       {/* IDENTITÉ */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <SectionHeader
           title="Identité"
-          description="Informations principales."
+          description="Informations principales du proche."
           colors={colors}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField
             label="Prénom"
             required
@@ -243,7 +239,7 @@ export const PatientModalContent = ({
             value={formData.age}
             onChange={(value) => updateField('age', value)}
             colors={colors}
-            icon={<Calendar size={18} />}
+            icon={<Calendar size={15} />}
           />
 
           <SelectField
@@ -262,7 +258,7 @@ export const PatientModalContent = ({
       </section>
 
       {/* CONTACT */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <SectionHeader
           title="Adresse et contact"
           description="Coordonnées utiles pour l’accompagnement."
@@ -275,17 +271,17 @@ export const PatientModalContent = ({
           value={formData.address}
           onChange={(value) => updateField('address', value)}
           colors={colors}
-          icon={<MapPin size={18} />}
+          icon={<MapPin size={15} />}
           placeholder="Quartier, maison, repère..."
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField
             label="Téléphone"
             value={formData.phone}
             onChange={(value) => updateField('phone', value)}
             colors={colors}
-            icon={<Phone size={18} />}
+            icon={<Phone size={15} />}
             type="tel"
           />
 
@@ -296,7 +292,7 @@ export const PatientModalContent = ({
               updateField('emergency_contact', value)
             }
             colors={colors}
-            icon={<Phone size={18} />}
+            icon={<Phone size={15} />}
             type="tel"
           />
 
@@ -308,18 +304,18 @@ export const PatientModalContent = ({
                 updateField('emergency_contact_name', value)
               }
               colors={colors}
-              icon={<User size={18} />}
-              placeholder="Nom ou lien familial"
+              icon={<User size={15} />}
+              placeholder="Nom complet ou lien familial"
             />
           </div>
         </div>
       </section>
 
       {/* SERVICE */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <SectionHeader
-          title="Service"
-          description="Type d’accompagnement souhaité."
+          title="Type de Profil"
+          description="Univers d’accompagnement de ce proche."
           colors={colors}
         />
 
@@ -337,10 +333,10 @@ export const PatientModalContent = ({
       </section>
 
       {/* INFOS UTILES */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <SectionHeader
           title="Informations utiles"
-          description="Repères importants pour l’équipe."
+          description="Données complémentaires pour l’intervenant."
           colors={colors}
         />
 
@@ -349,27 +345,26 @@ export const PatientModalContent = ({
           value={formData.notes}
           onChange={(value) => updateField('notes', value)}
           colors={colors}
-          icon={<FileText size={18} />}
-          placeholder="Habitudes, précautions, préférences..."
-          rows={3}
+          placeholder="Habitudes de vie, précautions, préférences..."
+          rows={2}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <InputField
-            label="Allergies"
+            label="Allergies éventuelles"
             value={formData.allergies}
             onChange={(value) => updateField('allergies', value)}
             colors={colors}
-            icon={<AlertCircle size={18} />}
+            icon={<AlertCircle size={15} />}
             placeholder="Aucune"
           />
 
           <InputField
-            label="Traitements"
+            label="Traitements réguliers"
             value={formData.treatments}
             onChange={(value) => updateField('treatments', value)}
             colors={colors}
-            icon={<Pill size={18} />}
+            icon={<Pill size={15} />}
             placeholder="Aucun"
           />
         </div>
@@ -379,50 +374,43 @@ export const PatientModalContent = ({
           value={formData.conditions}
           onChange={(value) => updateField('conditions', value)}
           colors={colors}
-          icon={<Stethoscope size={18} />}
-          placeholder="Mobilité, alimentation, surveillance..."
+          icon={<Stethoscope size={15} />}
+          placeholder="Mobilité réduite, autonomie, surveillance..."
         />
 
         <TextareaField
-          label="Historique / contexte"
+          label="Contexte familial / Historique"
           value={formData.medical_history}
           onChange={(value) => updateField('medical_history', value)}
           colors={colors}
-          icon={<FileText size={18} />}
-          placeholder="Contexte utile pour l’équipe..."
-          rows={3}
+          placeholder="Contexte d'aide utile pour l’organisation..."
+          rows={2}
         />
       </section>
 
+      {/* AVERTISSEMENT */}
       <div
-        className="flex items-start gap-3 p-4 rounded-2xl"
-        style={{ background: colors.primary + '10' }}
+        className="flex items-start gap-2.5 p-3 rounded-2xl border"
+        style={{ background: colors.primary + '08', borderColor: colors.primary + '15' }}
       >
         <AlertCircle
-          size={20}
+          size={16}
+          className="shrink-0 mt-0.5 text-gray-500"
           style={{ color: colors.primary }}
-          className="shrink-0 mt-0.5"
         />
-        <p
-          className="text-xs leading-relaxed"
-          style={{ color: colors.textLight }}
-        >
-          Santé Plus Services est un service d'accompagnement non
-          médical. Ces informations servent à mieux organiser le suivi
-          et l’assistance.
+        <p className="text-[10px] sm:text-xs leading-normal" style={{ color: colors.textLight }}>
+          Santé Plus Services propose un service d'accompagnement humain et social à domicile non médical. 
+          Les informations saisies permettent de personnaliser la qualité du suivi.
         </p>
       </div>
 
-      {/* Boutons */}
-      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
+      {/* BOUTONS ACTIONS */}
+      <div className="flex gap-2 pt-4 border-t border-gray-100">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 py-3 rounded-2xl font-bold border transition hover:bg-gray-50 disabled:opacity-50"
-          style={{
-            borderColor: colors.primary + '20',
-            color: colors.text,
-          }}
+          className="flex-1 py-2.5 rounded-xl text-xs font-bold border transition hover:bg-gray-50"
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           Annuler
         </button>
@@ -430,14 +418,14 @@ export const PatientModalContent = ({
         <button
           type="submit"
           disabled={isLoading}
-          className="flex-1 py-3 rounded-2xl text-white font-bold transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
+          className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition hover:opacity-90 flex items-center justify-center gap-2"
           style={{ background: colors.primary }}
         >
           {isLoading ? (
-            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <Loader2 size={15} className="animate-spin text-white" />
           ) : (
             <>
-              <Save size={18} />
+              <Save size={14} />
               {mode === 'create' ? 'Ajouter' : 'Mettre à jour'}
             </>
           )}
@@ -448,14 +436,14 @@ export const PatientModalContent = ({
 };
 
 // =============================================
-// SOUS-COMPOSANTS INTERNES
+// COMPOSANTS INTERNES DE MISE EN PAGE
 // =============================================
 
 interface ColorsLike {
   primary: string;
   text: string;
-  textLight?: string;  // 🟢 CORRECTIF : Déclaré optionnel pour lever l'erreur TS
-  background?: string; // 🟢 CORRECTIF : Déclaré optionnel pour lever l'erreur TS
+  textLight?: string;
+  background?: string;
   border?: string;
 }
 
@@ -467,11 +455,11 @@ interface SectionHeaderProps {
 
 const SectionHeader = ({ title, description, colors }: SectionHeaderProps) => {
   return (
-    <div className="border-b pb-2" style={{ borderColor: colors.primary + '12' }}>
-      <h3 className="font-black leading-tight" style={{ color: colors.text }}>
+    <div className="border-b pb-1 mb-1.5" style={{ borderColor: colors.primary + '10' }}>
+      <h4 className="text-xs sm:text-sm font-black tracking-tight" style={{ color: colors.text }}>
         {title}
-      </h3>
-      <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
+      </h4>
+      <p className="text-[10px] mt-0.5 text-gray-400">
         {description}
       </p>
     </div>
@@ -502,21 +490,14 @@ const InputField = ({
   min,
 }: InputFieldProps) => {
   return (
-    <div>
-      <label
-        className="block text-sm font-bold mb-1.5"
-        style={{ color: colors.text }}
-      >
-        {label}
-        {required ? ' *' : ''}
+    <div className="space-y-1">
+      <label className="block text-[10px] font-black uppercase text-gray-500">
+        {label} {required && '*'}
       </label>
 
       <div className="relative">
         {icon && (
-          <div
-            className="absolute left-3.5 top-1/2 -translate-y-1/2"
-            style={{ color: colors.textLight }}
-          >
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
             {icon}
           </div>
         )}
@@ -528,12 +509,8 @@ const InputField = ({
           onChange={(e) => onChange(e.target.value)}
           required={required}
           placeholder={placeholder}
-          className={`w-full ${icon ? 'pl-11' : 'pl-4'} pr-4 py-3 rounded-2xl border outline-none text-sm transition focus:ring-2`}
-          style={{
-            borderColor: colors.primary + '20',
-            background: colors.background,
-            color: colors.text,
-          }}
+          className={`w-full h-10 ${icon ? 'pl-9' : 'pl-3.5'} pr-3 rounded-xl border outline-none text-xs font-semibold bg-gray-50/50 focus:bg-white transition`}
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         />
       </div>
     </div>
@@ -556,23 +533,16 @@ const SelectField = ({
   children,
 }: SelectFieldProps) => {
   return (
-    <div>
-      <label
-        className="block text-sm font-bold mb-1.5"
-        style={{ color: colors.text }}
-      >
+    <div className="space-y-1">
+      <label className="block text-[10px] font-black uppercase text-gray-500">
         {label}
       </label>
 
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 rounded-2xl border outline-none text-sm transition focus:ring-2"
-        style={{
-          borderColor: colors.primary + '20',
-          background: colors.background,
-          color: colors.text,
-        }}
+        className="w-full h-10 px-3 rounded-xl border outline-none text-xs font-bold bg-white cursor-pointer"
+        style={{ borderColor: colors.primary + '20', color: colors.text }}
       >
         {children}
       </select>
@@ -587,7 +557,6 @@ interface TextareaFieldProps {
   onChange: (value: string) => void;
   placeholder?: string;
   rows?: number;
-  icon?: React.ReactNode;
 }
 
 const TextareaField = ({
@@ -596,41 +565,22 @@ const TextareaField = ({
   colors,
   onChange,
   placeholder,
-  rows = 3,
-  icon,
+  rows = 2,
 }: TextareaFieldProps) => {
   return (
-    <div>
-      <label
-        className="block text-sm font-bold mb-1.5"
-        style={{ color: colors.text }}
-      >
+    <div className="space-y-1">
+      <label className="block text-[10px] font-black uppercase text-gray-500">
         {label}
       </label>
 
-      <div className="relative">
-        {icon && (
-          <div
-            className="absolute left-3.5 top-3"
-            style={{ color: colors.textLight }}
-          >
-            {icon}
-          </div>
-        )}
-
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={rows}
-          placeholder={placeholder}
-          className={`w-full ${icon ? 'pl-11' : 'pl-4'} pr-4 py-3 rounded-2xl border outline-none text-sm resize-none transition focus:ring-2`}
-          style={{
-            borderColor: colors.primary + '20',
-            background: colors.background,
-            color: colors.text,
-          }}
-        />
-      </div>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full px-3 py-2 rounded-xl border outline-none text-xs bg-gray-50/20 focus:bg-white resize-none transition"
+        style={{ borderColor: colors.primary + '20', color: colors.text }}
+      />
     </div>
   );
 };
