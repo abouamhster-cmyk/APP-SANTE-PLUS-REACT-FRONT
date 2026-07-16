@@ -26,7 +26,7 @@ import {
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
 import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
@@ -85,6 +85,8 @@ export const PendingAidantList = ({
 }: PendingAidantListProps) => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
   const { getPendingAidantVisits, assignAidantToVisit, isLoading } = useVisitStore();
   const { fetchAidants, aidants } = useAidantCatalogStore();
 
@@ -99,9 +101,6 @@ export const PendingAidantList = ({
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = propColors || getThemeColors(themeName);
-
   const isAdmin = isAdminOrCoordinator;
 
   // ============================================================
@@ -114,7 +113,6 @@ export const PendingAidantList = ({
     setIsLoadingVisits(true);
     try {
       const pendingVisits = await getPendingAidantVisits();
-      // ✅ CORRECTION : Typage explicite avec as
       setVisits(pendingVisits as PendingVisit[]);
       setFilteredVisits(pendingVisits as PendingVisit[]);
     } catch (error) {
@@ -137,7 +135,6 @@ export const PendingAidantList = ({
   useEffect(() => {
     let filtered = visits;
 
-    // Filtre par recherche
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(v =>
@@ -148,7 +145,6 @@ export const PendingAidantList = ({
       );
     }
 
-    // Filtre par type
     if (filterType === 'patient') {
       filtered = filtered.filter(v => v.target_type === 'patient' || v.patient_id);
     } else if (filterType === 'personal') {
@@ -207,7 +203,7 @@ export const PendingAidantList = ({
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="animate-spin" size={24} style={{ color: colors.primary }} />
-        <span className="ml-2 text-sm text-gray-400">Chargement des visites...</span>
+        <span className="ml-2 text-sm" style={{ color: colors.textLight }}>Chargement des visites...</span>
       </div>
     );
   }
@@ -219,10 +215,9 @@ export const PendingAidantList = ({
   if (compact) {
     return (
       <div className="space-y-2">
-        {/* Entête compacte */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-orange-100 text-orange-600">
+            <div className="p-1.5 rounded-lg" style={{ backgroundColor: '#FF572215', color: '#FF5722' }}>
               <UserPlus size={14} />
             </div>
             <span className="text-xs font-bold" style={{ color: colors.text }}>
@@ -238,11 +233,10 @@ export const PendingAidantList = ({
           </button>
         </div>
 
-        {/* Liste compacte */}
         {visits.length === 0 ? (
           <div className="text-center py-4">
             <CheckCircle size={20} className="mx-auto text-green-400 mb-1" />
-            <p className="text-xs text-gray-400">Aucune visite en attente d'aidant</p>
+            <p className="text-xs" style={{ color: colors.textLight }}>Aucune visite en attente d'aidant</p>
           </div>
         ) : (
           <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -251,13 +245,13 @@ export const PendingAidantList = ({
                 key={visit.id}
                 className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition cursor-pointer"
                 onClick={() => handleViewVisit(visit.id)}
-                style={{ background: 'var(--color-background, #f5f0e8)' }}
+                style={{ background: colors.background }}
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-medium truncate" style={{ color: colors.text }}>
                     {visit.target_name || visit.patient?.first_name || 'Patient'}
                   </p>
-                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                  <div className="flex items-center gap-1.5 text-[10px]" style={{ color: colors.textLight }}>
                     <Calendar size={10} />
                     <span>{formatDate(visit.scheduled_date)}</span>
                     <span>•</span>
@@ -308,10 +302,10 @@ export const PendingAidantList = ({
             <UserPlus size={20} style={{ color: colors.primary }} />
             Visites en attente d'aidant
           </h2>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs" style={{ color: colors.textLight }}>
             {stats.total} visite{stats.total > 1 ? 's' : ''} sans aidant assigné
             {stats.urgent > 0 && (
-              <span className="ml-2 text-red-500 font-semibold">
+              <span className="ml-2 font-semibold" style={{ color: '#EF4444' }}>
                 ⚠️ {stats.urgent} urgent{stats.urgent > 1 ? 's' : ''}
               </span>
             )}
@@ -322,7 +316,7 @@ export const PendingAidantList = ({
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="p-2 rounded-xl hover:bg-gray-100 transition text-gray-500"
+            className="p-2 rounded-xl hover:bg-gray-100 transition" style={{ color: colors.textLight }}
           >
             <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
@@ -336,7 +330,7 @@ export const PendingAidantList = ({
         <CompactStat label="Total" value={stats.total} color={colors.primary} icon={<Users size={14} />} />
         <CompactStat label="Patients" value={stats.patients} color="#4CAF50" icon={<User size={14} />} />
         <CompactStat label="Personnels" value={stats.personal} color="#3B82F6" icon={<User size={14} />} />
-        <CompactStat label="Urgentes" value={stats.urgent} color="#F44336" icon={<AlertCircle size={14} />} />
+        <CompactStat label="Urgentes" value={stats.urgent} color="#EF4444" icon={<AlertCircle size={14} />} />
       </div>
 
       {/* ============================================================
@@ -351,7 +345,7 @@ export const PendingAidantList = ({
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher par nom..."
             className="w-full pl-9 pr-3 py-2 rounded-xl border text-xs outline-none"
-            style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           />
         </div>
 
@@ -359,27 +353,27 @@ export const PendingAidantList = ({
           <button
             onClick={() => setFilterType('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              filterType === 'all' ? 'text-white' : 'bg-gray-100 text-gray-600'
+              filterType === 'all' ? 'text-white' : ''
             }`}
-            style={{ background: filterType === 'all' ? colors.primary : 'transparent' }}
+            style={{ background: filterType === 'all' ? colors.primary : 'transparent', color: filterType === 'all' ? '#ffffff' : colors.textLight }}
           >
             Tous
           </button>
           <button
             onClick={() => setFilterType('patient')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              filterType === 'patient' ? 'text-white' : 'bg-gray-100 text-gray-600'
+              filterType === 'patient' ? 'text-white' : ''
             }`}
-            style={{ background: filterType === 'patient' ? colors.primary : 'transparent' }}
+            style={{ background: filterType === 'patient' ? colors.primary : 'transparent', color: filterType === 'patient' ? '#ffffff' : colors.textLight }}
           >
             👤 Patients
           </button>
           <button
             onClick={() => setFilterType('personal')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-              filterType === 'personal' ? 'text-white' : 'bg-gray-100 text-gray-600'
+              filterType === 'personal' ? 'text-white' : ''
             }`}
-            style={{ background: filterType === 'personal' ? colors.primary : 'transparent' }}
+            style={{ background: filterType === 'personal' ? colors.primary : 'transparent', color: filterType === 'personal' ? '#ffffff' : colors.textLight }}
           >
             👤 Personnels
           </button>
@@ -390,14 +384,14 @@ export const PendingAidantList = ({
       LISTE DES VISITES
       ============================================================ */}
       {filteredVisits.length === 0 ? (
-        <div className="bg-white rounded-2xl p-8 text-center border border-black/5">
+        <div className="bg-white rounded-2xl p-8 text-center border" style={{ borderColor: colors.primary + '15' }}>
           <Illustration type="empty" size="md" className="mx-auto mb-3 opacity-30" />
           <h3 className="text-sm font-bold" style={{ color: colors.text }}>
             {searchTerm || filterType !== 'all'
               ? 'Aucune visite ne correspond à votre recherche'
               : 'Aucune visite en attente d\'aidant'}
           </h3>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs mt-1" style={{ color: colors.textLight }}>
             {searchTerm || filterType !== 'all'
               ? 'Essayez de modifier vos critères de recherche.'
               : 'Toutes les visites ont un aidant assigné. 👍'}
@@ -455,19 +449,24 @@ interface CompactStatProps {
   color: string;
 }
 
-const CompactStat = ({ icon, label, value, color }: CompactStatProps) => (
-  <div className="bg-white rounded-xl p-2.5 shadow-sm border border-black/5">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-        <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
-      </div>
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '12', color }}>
-        {icon}
+const CompactStat = ({ icon, label, value, color }: CompactStatProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
+  return (
+    <div className="bg-white rounded-xl p-2.5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[9px] font-medium uppercase tracking-wider" style={{ color: colors.textLight }}>{label}</p>
+          <p className="text-base font-bold mt-0.5" style={{ color }}>{value}</p>
+        </div>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: color + '12', color }}>
+          {icon}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface PendingVisitCardProps {
   visit: PendingVisit;
@@ -494,7 +493,8 @@ const PendingVisitCard = ({ visit, colors, onAssign, onView }: PendingVisitCardP
 
   return (
     <div
-      className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 hover:shadow-md transition cursor-pointer"
+      className="bg-white rounded-2xl p-4 shadow-sm border hover:shadow-md transition cursor-pointer"
+      style={{ borderColor: colors.primary + '15' }}
       onClick={() => onView()}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -504,7 +504,7 @@ const PendingVisitCard = ({ visit, colors, onAssign, onView }: PendingVisitCardP
             <h3 className="font-bold text-sm truncate" style={{ color: colors.text }}>
               {patientName}
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-100 text-orange-600 flex items-center gap-0.5">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-0.5" style={{ backgroundColor: '#FF572215', color: '#FF5722' }}>
               <UserPlus size={10} />
               En attente
             </span>
@@ -514,12 +514,12 @@ const PendingVisitCard = ({ visit, colors, onAssign, onView }: PendingVisitCardP
                 Urgent
               </span>
             )}
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100" style={{ color: colors.textLight }}>
               {getTypeLabel()}
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-gray-400 mt-1 flex-wrap">
+          <div className="flex items-center gap-3 text-xs flex-wrap mt-1" style={{ color: colors.textLight }}>
             <span className="flex items-center gap-0.5">
               <Calendar size={11} />
               {formatDate(visit.scheduled_date)}
@@ -536,7 +536,7 @@ const PendingVisitCard = ({ visit, colors, onAssign, onView }: PendingVisitCardP
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-[10px] text-gray-400 mt-1">
+          <div className="flex items-center gap-3 text-[10px] mt-1" style={{ color: colors.textLight }}>
             <span className="flex items-center gap-0.5">
               <User size={10} />
               Famille: {familyName}
@@ -549,7 +549,7 @@ const PendingVisitCard = ({ visit, colors, onAssign, onView }: PendingVisitCardP
           </div>
 
           {visit.notes && (
-            <p className="text-xs text-gray-500 mt-1 italic line-clamp-1">"{visit.notes}"</p>
+            <p className="text-xs italic line-clamp-1" style={{ color: colors.textLight }}>"{visit.notes}"</p>
           )}
         </div>
 
@@ -571,7 +571,7 @@ const PendingVisitCard = ({ visit, colors, onAssign, onView }: PendingVisitCardP
               e.stopPropagation();
               onView();
             }}
-            className="p-1.5 rounded-xl hover:bg-gray-100 transition text-gray-400"
+            className="p-1.5 rounded-xl hover:bg-gray-100 transition" style={{ color: colors.textLight }}
           >
             <Eye size={16} />
           </button>
@@ -580,7 +580,7 @@ const PendingVisitCard = ({ visit, colors, onAssign, onView }: PendingVisitCardP
 
       {/* Info supplémentaire : famille */}
       {visit.family && (
-        <div className="mt-2 pt-2 border-t flex items-center gap-3 text-[10px] text-gray-400" style={{ borderColor: colors.border }}>
+        <div className="mt-2 pt-2 border-t flex items-center gap-3 text-[10px]" style={{ borderColor: colors.primary + '10', color: colors.textLight }}>
           <span className="flex items-center gap-0.5">
             <Mail size={10} />
             {visit.family.email || 'Email non renseigné'}
