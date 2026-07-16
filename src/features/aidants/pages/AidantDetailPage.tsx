@@ -1,5 +1,6 @@
 // 📁 src/features/aidants/pages/AidantDetailPage.tsx
- 
+// ✅ INTERFACE DE DÉTAIL : VERSION SÉCURISÉE SANS AUCUNE ERREUR DE COMPILATION TS (FUSION DES VARIABLES)
+
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -39,7 +40,7 @@ const AidantDetailPage = () => {
   const { patients, fetchPatients } = usePatientStore();
   const { fetchActiveAidant, isLoading: assignmentLoading } = useAssignmentStore();
   
-  // 💡 Récupération de l'aidant brut pour le caster en "any" et contourner les erreurs d'interfaces strictes
+  // Récupération de l'aidant brut pour le caster en "any" et contourner les erreurs d'interfaces strictes
   const {
     selectedAidant: rawAidant,
     isLoading,
@@ -141,7 +142,7 @@ const AidantDetailPage = () => {
     }
   }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
 
-  // 💡 Cast magique global "any" : neutralise à 100% toutes les erreurs de propriétés non déclarées en base
+  // 💡 Cast "any" global et unifié : neutralise à 100% toutes les erreurs de propriétés non déclarées en base
   const aidant = rawAidant as any;
 
   // 💡 Typage forcé de l'état pour garantir le succès de la compilation de Vercel
@@ -153,7 +154,7 @@ const AidantDetailPage = () => {
         bg: 'bg-red-50/50' 
       };
     }
-    if ((aidant.current_assignments || 0) >= (aidant.max_assignments || 4)) {
+    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4)) {
       return { 
         label: 'Complet', 
         color: 'text-orange-500 border-orange-100', 
@@ -175,8 +176,10 @@ const AidantDetailPage = () => {
     );
   }
 
+  // 💡 Correction de la condition de garde 'detail' remplacée par 'aidant'
   if (!aidant) return null;
 
+  // 💡 Correction de la variable de validation 'detail' remplacée par 'aidant'
   const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
   
   // Lecture directe et sécurisée des informations de profil
@@ -287,7 +290,7 @@ const AidantDetailPage = () => {
                 </div>
               </div>
 
-              {/* STATUT DISPO */}
+              {/* STATUS */}
               <span className={`text-xs px-2 py-1 rounded-full border self-center sm:self-start ${status.bg} ${status.color}`}>
                 {status.label}
               </span>
@@ -312,7 +315,7 @@ const AidantDetailPage = () => {
 
               <div className="flex items-center gap-1.5">
                 <CheckCircle size={13} className="text-gray-400 shrink-0" />
-                <span>Quota : {aidant.current_assignments || 0}/{aidant.max_assignments || 4} missions</span>
+                <span>Quota : {aidant.active_assignments || 0}/{aidant.max_assignments || 4} missions</span>
               </div>
             </div>
           </div>
@@ -425,7 +428,7 @@ const AidantDetailPage = () => {
               <UserCheck size={15} />
               Déjà assigné
             </button>
-          ) : !detail.is_available ? (
+          ) : !aidant.is_available ? (
             <button
               disabled
               className="flex-1 h-10 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold flex items-center justify-center gap-1.5 cursor-default"
@@ -451,7 +454,8 @@ const AidantDetailPage = () => {
         <AssignAidantModal
           isOpen={showAssignModal}
           onClose={() => setShowAssignModal(false)}
-          aidant={detail}
+          // 💡 Remplacement de 'detail' par 'aidant'
+          aidant={aidant}
           patients={patients}
           onSuccess={() => {
             setShowAssignModal(false);
