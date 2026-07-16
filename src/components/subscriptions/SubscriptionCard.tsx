@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Calendar, CheckCircle, XCircle, Clock, TrendingUp, Package, Calendar as CalendarIcon, User } from 'lucide-react';
 import { Subscription } from '@/types';
 import { formatDate } from '@/utils/helpers';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 
 interface SubscriptionCardProps {
@@ -23,7 +23,9 @@ export const SubscriptionCard = ({
   onCancel,
   onManageDays, 
 }: SubscriptionCardProps) => {
-  // ✅ Jargon dynamique selon le rôle
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
+  
   const {
     singular,
     getCategoryLabel,
@@ -32,14 +34,12 @@ export const SubscriptionCard = ({
     isAdminOrCoordinator,
   } = useTerminology();
 
-  const colors = propColors || getThemeColors('senior');
   const [isLoading, setIsLoading] = useState(false);
 
   const isActive = subscription.status === 'actif';
   const isExpired = subscription.status === 'expire';
   const isPending = subscription.status === 'en_attente';
 
-  // ✅ Libellé dynamique pour le patient (optionnel)
   const getPatientLabel = () => {
     if (isFamily) return 'Proche';
     if (isAidant) return 'Personne accompagnée';
@@ -47,7 +47,6 @@ export const SubscriptionCard = ({
     return 'Patient';
   };
 
-  // ✅ Déterminer si l'abonnement est lié à un patient ou personnel
   const hasPatient = subscription.patient_id;
   const targetType = hasPatient ? 'patient' : 'personal';
   const targetLabel = hasPatient ? getPatientLabel() : 'Personnel';
@@ -84,11 +83,10 @@ export const SubscriptionCard = ({
                '⏳ En attente'}
             </span>
           </div>
-          <p className="text-sm" style={{ color: colors.text + '60' }}>
+          <p className="text-sm" style={{ color: colors.textLight }}>
             {getCategoryLabel(subscription.offre?.category || 'senior')}
           </p>
-          {/* ✅ Affichage du destinataire */}
-          <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: colors.text + '50' }}>
+          <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: colors.textLight }}>
             <User size={12} style={{ color: colors.primary }} />
             <span>
               {targetLabel}: {targetName || 'Non spécifié'}
@@ -106,7 +104,7 @@ export const SubscriptionCard = ({
       </div>
 
       {/* Période */}
-      <div className="flex items-center gap-4 mt-2 text-sm" style={{ color: colors.text + '60' }}>
+      <div className="flex items-center gap-4 mt-2 text-sm" style={{ color: colors.textLight }}>
         <span className="flex items-center gap-1">
           <Calendar size={14} />
           {formatDate(subscription.start_date)} → {formatDate(subscription.end_date)}
@@ -126,7 +124,7 @@ export const SubscriptionCard = ({
             <p className="text-2xl font-bold" style={{ color: colors.primary }}>
               {subscription.remaining_visits || 0}
             </p>
-            <p className="text-xs" style={{ color: colors.text + '40' }}>
+            <p className="text-xs" style={{ color: colors.textLight }}>
               sur {subscription.total_visits || 0} au total
             </p>
           </div>
@@ -173,7 +171,7 @@ export const SubscriptionCard = ({
               <p className="text-lg font-bold" style={{ color: colors.primary }}>
                 {subscription.remaining_orders || 0}
               </p>
-              <p className="text-xs" style={{ color: colors.text + '40' }}>
+              <p className="text-xs" style={{ color: colors.textLight }}>
                 sur {subscription.total_orders || 0} au total
               </p>
             </div>
@@ -192,7 +190,7 @@ export const SubscriptionCard = ({
                   cy="32"
                   r="22"
                   fill="none"
-                  stroke="#c9a84c"
+                  stroke={colors.gold || '#c9a84c'}
                   strokeWidth="5"
                   strokeDasharray={`${2 * Math.PI * 22}`}
                   strokeDashoffset={`${2 * Math.PI * 22 * (1 - progressOrders / 100)}`}
@@ -201,7 +199,7 @@ export const SubscriptionCard = ({
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-bold text-[#c9a84c]">
+                <span className="text-xs font-bold" style={{ color: colors.gold || '#c9a84c' }}>
                   {Math.round(progressOrders)}%
                 </span>
               </div>
@@ -226,7 +224,7 @@ export const SubscriptionCard = ({
               onClick={onCancel}
               disabled={isLoading}
               className="py-2.5 px-4 rounded-xl font-medium text-sm transition hover:bg-red-50"
-              style={{ color: '#F44336', border: '1px solid #F44336' }}
+              style={{ color: '#EF4444', border: '1px solid #EF4444' }}
             >
               Annuler
             </button>
@@ -257,7 +255,7 @@ export const SubscriptionCard = ({
 
       {/* Date d'expiration */}
       {isActive && (
-        <p className="text-xs text-center mt-3" style={{ color: colors.text + '40' }}>
+        <p className="text-xs text-center mt-3" style={{ color: colors.textLight }}>
           Expire le {formatDate(subscription.end_date)}
         </p>
       )}
