@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { supabase } from '@/lib/supabase';
 import { assignmentAPI } from '@/lib/api';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { UserPlus, Loader2, CheckCircle, XCircle, User, Users, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -51,14 +51,15 @@ export const AssignAidantModal = ({
   onSuccess,
   currentAidantId,
 }: AssignAidantModalProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+  
   const [aidants, setAidants] = useState<Aidant[]>([]);
   const [selectedAidant, setSelectedAidant] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [assignmentType, setAssignmentType] = useState('primary');
   const [searchTerm, setSearchTerm] = useState('');
-
-  const colors = getThemeColors('senior');
 
   useEffect(() => {
     if (isOpen) {
@@ -88,7 +89,6 @@ export const AssignAidantModal = ({
       setAidants(data || []);
     } catch (error) {
       console.error('❌ Fetch aidants error:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors du chargement des aidants');
     } finally {
       setIsLoading(false);
@@ -112,7 +112,6 @@ export const AssignAidantModal = ({
 
     setIsSubmitting(true);
     try {
-      // ✅ Trouver l'aidant dans la table aidants pour obtenir son ID
       const { data: aidantData, error: aidantError } = await supabase
         .from('aidants')
         .select('id')
@@ -123,19 +122,15 @@ export const AssignAidantModal = ({
         throw new Error('Aidant non trouvé');
       }
 
-      // ✅ Mettre à jour la cible avec l'aidant
       const table = targetType === 'order' ? 'commandes' : 'visites';
       const updateData: any = {
         aidant_id: aidantData.id,
         updated_at: new Date().toISOString(),
       };
 
-      // ✅ Si c'est une commande, passer en 'en_cours'
       if (targetType === 'order') {
         updateData.status = 'en_cours';
-      }
-      // ✅ Si c'est une visite, passer en 'planifiee' (si elle était expirée ou refusée)
-      else if (targetType === 'visit') {
+      } else if (targetType === 'visit') {
         const { data: visit } = await supabase
           .from('visites')
           .select('status')
@@ -154,7 +149,6 @@ export const AssignAidantModal = ({
 
       if (updateError) throw updateError;
 
-      // ✅ Créer une notification pour l'aidant
       await supabase.from('notifications').insert({
         user_id: selectedAidant,
         title: targetType === 'order' ? '📦 Nouvelle commande assignée' : '📅 Nouvelle visite assignée',
@@ -167,7 +161,6 @@ export const AssignAidantModal = ({
         },
       });
 
-      // ✅ Notification à la famille
       if (targetType === 'visit') {
         const { data: visit } = await supabase
           .from('visites')
@@ -186,13 +179,11 @@ export const AssignAidantModal = ({
         }
       }
 
-      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success(`Aidant assigné avec succès à ${targetName}`);
       onSuccess();
       onClose();
     } catch (error: any) {
       console.error('❌ Assign error:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error.message || 'Erreur lors de l\'assignation');
     } finally {
       setIsSubmitting(false);
@@ -211,7 +202,7 @@ export const AssignAidantModal = ({
           <button
             onClick={onClose}
             className="flex-1 py-2.5 rounded-xl text-sm font-bold border hover:bg-gray-50 transition"
-            style={{ borderColor: colors.border, color: colors.text }}
+            style={{ borderColor: colors.primary + '25', color: colors.text }}
           >
             Annuler
           </button>
@@ -242,16 +233,16 @@ export const AssignAidantModal = ({
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher un aidant par nom ou spécialité..."
             className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm focus:ring-1"
-            style={{ borderColor: colors.border, color: colors.text }}
+            style={{ borderColor: colors.primary + '25', color: colors.text }}
           />
         </div>
 
         {isLoading ? (
           <div className="flex justify-center py-6">
-            <Loader2 size={24} className="animate-spin text-gray-400" />
+            <Loader2 size={24} className="animate-spin" style={{ color: colors.textLight }} />
           </div>
         ) : filteredAidants.length === 0 ? (
-          <div className="text-center py-6 text-gray-400">
+          <div className="text-center py-6" style={{ color: colors.textLight }}>
             <User size={32} className="mx-auto mb-2 opacity-30" />
             <p>Aucun aidant disponible</p>
             <p className="text-xs mt-1">Vérifiez qu'il y a des aidants approuvés et disponibles</p>
@@ -289,10 +280,10 @@ export const AssignAidantModal = ({
                           <p className="font-medium text-sm truncate" style={{ color: colors.text }}>
                             {aidant.user?.full_name || 'Aidant'}
                             {isCurrent && (
-                              <span className="ml-2 text-xs text-gray-400">(actuel)</span>
+                              <span className="ml-2 text-xs" style={{ color: colors.textLight }}>(actuel)</span>
                             )}
                           </p>
-                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <div className="flex items-center gap-2 text-xs" style={{ color: colors.textLight }}>
                             <span>⭐ {aidant.rating || 0}</span>
                             <span>•</span>
                             <span>📋 {aidant.total_missions || 0} missions</span>
@@ -336,7 +327,7 @@ export const AssignAidantModal = ({
                     }`}
                     style={{
                       background: assignmentType === type.value ? colors.primary : 'transparent',
-                      borderColor: assignmentType === type.value ? colors.primary : colors.border,
+                      borderColor: assignmentType === type.value ? colors.primary : colors.primary + '25',
                     }}
                   >
                     {type.label}
@@ -347,8 +338,8 @@ export const AssignAidantModal = ({
 
             {/* Information */}
             {currentAidantId && (
-              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                <p className="text-xs text-amber-700 flex items-center gap-1.5">
+              <div className="p-3 rounded-xl border" style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B30' }}>
+                <p className="text-xs flex items-center gap-1.5" style={{ color: '#92400E' }}>
                   <AlertCircle size={14} />
                   ℹ️ Un aidant est déjà assigné. Le remplacer par un autre.
                 </p>
@@ -360,3 +351,5 @@ export const AssignAidantModal = ({
     </Modal>
   );
 };
+
+export default AssignAidantModal;
