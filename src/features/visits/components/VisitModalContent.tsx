@@ -1,20 +1,7 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
 
 import { useState, useEffect } from 'react';
-import { 
-  Calendar, 
-  Clock, 
-  User, 
-  UserCircle, 
-  Users, 
-  Search, 
-  AlertCircle, 
-  CreditCard, 
-  CheckCircle, 
-  Loader2, 
-  MapPin, 
-  Hospital 
-} from 'lucide-react';
+import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, CheckCircle, Loader2, MapPin, Hospital } from 'lucide-react';
 
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
@@ -25,10 +12,6 @@ import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
 import toast from 'react-hot-toast';
-
-// ============================================================
-// TYPES
-// ============================================================
 
 interface VisitModalContentProps {
   mode: 'create' | 'edit';
@@ -52,10 +35,6 @@ interface Account {
   display_name: string;
   type: 'account_with_patients' | 'personal_account';
 }
-
-// ============================================================
-// COMPOSANT PRINCIPAL
-// ============================================================
 
 export const VisitModalContent = ({
   mode,
@@ -367,7 +346,7 @@ export const VisitModalContent = ({
   };
 
   // ============================================================
-  // INTERFACE-HELPER FUNCTIONS (RÉINTÉGRÉES POUR SÉCURISER TS)
+  // INTERFACE-HELPER FUNCTIONS
   // ============================================================
 
   const renderAccountSelector = () => {
@@ -522,52 +501,6 @@ export const VisitModalContent = ({
     );
   };
 
-  const renderTargetSummary = () => {
-    const isAccount = targetType === 'account';
-
-    if (!isAdmin && profile) {
-      const targetName = isAccount ? profile.full_name : (() => {
-        const selectedPatient = patients.find(p => p.id === formData.patient_id);
-        return selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'un proche';
-      })();
-
-      return (
-        <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.primary + '20' }}>
-          <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
-            {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-bold truncate" style={{ color: colors.text }}>{targetName}</p>
-            <p className="text-[10px] mt-0.5 text-gray-400">
-              {isAccount ? '👤 Planification pour votre propre compte.' : `👨‍👩‍👦 Planification pour votre proche.`}
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    if (!selectedAccount) return null;
-
-    const targetName = isAccount ? selectedAccount.full_name : (() => {
-      const selectedPatient = accountPatients.find(p => p.id === formData.patient_id);
-      return selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'un proche';
-    })();
-
-    return (
-      <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.primary + '20' }}>
-        <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
-          {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-bold truncate" style={{ color: colors.text }}>{targetName}</p>
-          <p className="text-[10px] mt-0.5 text-gray-400">
-            {isAccount ? `👤 Planification pour ${selectedAccount.full_name}.` : `👨‍👩‍👦 Planification pour un proche lié.`}
-          </p>
-        </div>
-      </div>
-    );
-  };
-
   const renderFamilyContent = () => {
     if (isAdmin) return null;
 
@@ -575,13 +508,15 @@ export const VisitModalContent = ({
 
     return (
       <div className="space-y-1.5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500">Pour qui ?</label>
-        <div className="grid grid-cols-2 gap-2">
+        <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">
+          Pour qui ?
+        </label>
+        <div className="grid grid-cols-2 gap-2 w-full min-w-0">
           <button
             type="button"
             onClick={selectPersonnel}
-            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
-              targetType === 'account' ? 'text-white shadow-sm' : 'bg-gray-50 text-gray-500'
+            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
+              targetType === 'account' ? 'text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
             }`}
             style={{
               background: targetType === 'account' ? colors.primary : 'transparent',
@@ -595,8 +530,12 @@ export const VisitModalContent = ({
             type="button"
             onClick={selectPatientType}
             disabled={!hasPatients}
-            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
-              targetType === 'patient' ? 'text-white shadow-sm' : 'bg-gray-50 text-gray-500'
+            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
+              targetType === 'patient'
+                ? 'text-white shadow-sm'
+                : hasPatients
+                  ? 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  : 'opacity-55 cursor-not-allowed bg-gray-100 text-gray-400'
             }`}
             style={{
               background: targetType === 'patient' ? colors.primary : 'transparent',
@@ -606,6 +545,12 @@ export const VisitModalContent = ({
             <Users size={14} /> Un proche
           </button>
         </div>
+        {!hasPatients && (
+          <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1 font-semibold">
+            <AlertCircle size={12} className="shrink-0" />
+            Aucun proche enregistré. Choix personnel actif par défaut.
+          </p>
+        )}
       </div>
     );
   };
@@ -613,8 +558,6 @@ export const VisitModalContent = ({
   // ============================================================
   // BLOC DE RENDU DU CODE
   // ============================================================
-
-  const hasPatients = patients.length > 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full">
@@ -631,27 +574,10 @@ export const VisitModalContent = ({
           </div>
         )}
 
-        {!isAdmin && (
-          <>
-            {hasPatients ? renderFamilyContent() : (
-              <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-gray-50 border border-gray-100">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600">
-                  <User size={15} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-gray-800">{profile?.full_name}</p>
-                  <p className="text-[10px] text-gray-400 font-semibold">Planification sur votre compte personnel</p>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        {!isAdmin && renderFamilyContent()}
 
         {targetType === 'patient' && renderPatientSelector()}
       </div>
-
-      {/* RÉSUMÉ DU DESTINATAIRE */}
-      {renderTargetSummary()}
 
       {/* 2. SÉLECTEUR DE TYPE D'INTERVENTION */}
       <div className="space-y-1">
@@ -716,13 +642,13 @@ export const VisitModalContent = ({
         </div>
       )}
 
-      {/* 6. GRILLE TEMPORELLE (Date / Heure / Durée) */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* 6. GRILLE TEMPORELLE RESPONSIVE (1 col sur mobile, 3 col sur grand écran) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1">
           <label className="block text-[10px] font-black uppercase text-gray-500">Date *</label>
           <div className="relative">
             <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
-            <input type="date" value={formData.scheduled_date} onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })} className="w-full pl-8 pr-2 h-10 rounded-xl border text-xs font-semibold" style={{ borderColor: colors.primary + '20', color: colors.text }} required min={new Date().toISOString().split('T')[0]} />
+            <input type="date" value={formData.scheduled_date} onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })} className="w-full pl-8 pr-2 h-10 rounded-xl border text-xs font-semibold bg-white" style={{ borderColor: colors.primary + '20', color: colors.text }} required min={new Date().toISOString().split('T')[0]} />
           </div>
         </div>
 
@@ -730,7 +656,7 @@ export const VisitModalContent = ({
           <label className="block text-[10px] font-black uppercase text-gray-500">Heure *</label>
           <div className="relative">
             <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400 pointer-events-none" />
-            <input type="time" value={formData.scheduled_time} onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })} className="w-full pl-8 pr-2 h-10 rounded-xl border text-xs font-semibold" style={{ borderColor: colors.primary + '20', color: colors.text }} required />
+            <input type="time" value={formData.scheduled_time} onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })} className="w-full pl-8 pr-2 h-10 rounded-xl border text-xs font-semibold bg-white" style={{ borderColor: colors.primary + '20', color: colors.text }} required />
           </div>
         </div>
 
