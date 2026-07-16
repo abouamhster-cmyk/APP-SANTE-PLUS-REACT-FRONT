@@ -1,10 +1,10 @@
 // 📁 src/components/ui/Modal.tsx
-// ✅ LOGIQUE DE MODAL INTERACTIF PREMIUM : BOUTONS INLINE STYLE H-44PX GARANTISSANT LA COMPATIBILITÉ TAILWIND
 
 import { ReactNode, useEffect, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/utils/helpers';
+import { useBranding } from '@/hooks/useBranding';
 
 // ============================================================
 // TYPES ET PROTOCOLES
@@ -52,6 +52,8 @@ export const Modal = ({
   className,
 }: ModalProps) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const brand = useBranding();
+  const colors = brand.colors;
 
   // Verrouillage propre du défilement d'arrière-plan
   useEffect(() => {
@@ -84,33 +86,54 @@ export const Modal = ({
           <motion.div
             ref={modalRef}
             className={cn(
-              'relative w-full bg-white dark:bg-[#17231d] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border border-gray-100/80 dark:border-[#2c3f35] max-h-[90vh]',
+              'relative w-full bg-white dark:bg-[#17231d] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border max-h-[90vh]',
               MAX_WIDTH_CLASSES[maxWidth],
               className
             )}
+            style={{
+              borderColor: colors.primary + '20',
+            }}
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* INDICATION DE GLISSEMENT MOBILE (POIGNÉE NATIVE) */}
-            <div className="w-12 h-1 bg-gray-200 dark:bg-gray-700/50 rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
+            {/* INDICATION DE GLISSEMENT MOBILE */}
+            <div 
+              className="w-12 h-1 rounded-full mx-auto mt-2.5 sm:hidden shrink-0"
+              style={{ backgroundColor: colors.primary + '30' }}
+            />
 
             {/* HEADER */}
-            <div className="flex-shrink-0 px-5 sm:px-6 py-4 border-b border-gray-100 dark:border-[#2c3f35] bg-white/90 dark:bg-[#17231d]/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between gap-3">
+            <div 
+              className="flex-shrink-0 px-5 sm:px-6 py-4 border-b bg-white/90 dark:bg-[#17231d]/90 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between gap-3"
+              style={{ 
+                borderColor: colors.primary + '15',
+              }}
+            >
               <div className="flex items-center gap-3 min-w-0">
                 {icon && (
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-emerald-50 dark:bg-[#24362d] text-emerald-600 dark:text-emerald-400 shrink-0 border border-emerald-100/50 shadow-inner">
+                  <div 
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border shadow-inner"
+                    style={{ 
+                      background: colors.primary + '12',
+                      borderColor: colors.primary + '20',
+                      color: colors.primary,
+                    }}
+                  >
                     {icon}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-black tracking-tight truncate text-gray-900 dark:text-gray-50">
+                  <h2 
+                    className="text-base sm:text-lg font-black tracking-tight truncate"
+                    style={{ color: colors.text }}
+                  >
                     {title}
                   </h2>
                   {description && (
-                    <p className="text-xs text-gray-400 truncate font-semibold mt-0.5">
+                    <p className="text-xs truncate font-semibold mt-0.5" style={{ color: colors.textLight }}>
                       {description}
                     </p>
                   )}
@@ -120,7 +143,8 @@ export const Modal = ({
               {showClose && (
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-[#24362d] dark:hover:bg-[#1d2d25] transition flex items-center justify-center shrink-0 border border-gray-100 dark:border-gray-800/40"
+                  className="w-8 h-8 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-[#24362d] dark:hover:bg-[#1d2d25] transition flex items-center justify-center shrink-0 border"
+                  style={{ borderColor: colors.primary + '15' }}
                   aria-label="Fermer"
                 >
                   <X size={16} className="text-gray-500 dark:text-gray-300" />
@@ -129,13 +153,19 @@ export const Modal = ({
             </div>
 
             {/* BODY */}
-            <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 overscroll-contain dark:text-gray-200">
+            <div 
+              className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 overscroll-contain"
+              style={{ color: colors.text }}
+            >
               {children}
             </div>
 
             {/* FOOTER */}
             {actions && (
-              <div className="flex-shrink-0 px-5 sm:px-6 py-4 border-t border-gray-100 dark:border-[#2c3f35] bg-white/90 dark:bg-[#17231d]/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe">
+              <div 
+                className="flex-shrink-0 px-5 sm:px-6 py-4 border-t bg-white/90 dark:bg-[#17231d]/90 backdrop-blur-md sticky bottom-0 z-10 pb-safe"
+                style={{ borderColor: colors.primary + '15' }}
+              >
                 {actions}
               </div>
             )}
@@ -147,7 +177,7 @@ export const Modal = ({
 };
 
 // ============================================================
-// 2️⃣ SOUS-COMPOSANT CORE : ACTIONS BOUTONS UNIFIÉS
+// 2️⃣ SOUS-COMPOSANT : ACTIONS BOUTONS UNIFIÉS
 // ============================================================
 
 interface ModalActionsProps {
@@ -171,6 +201,10 @@ export const ModalActions = ({
   confirmButtonType = 'button',
   children,
 }: ModalActionsProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+  const buttonColor = confirmColor || colors.primary;
+
   return (
     <div className="flex flex-col-reverse sm:flex-row gap-2.5 w-full">
       {children ? (
@@ -182,9 +216,13 @@ export const ModalActions = ({
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              // 🟢 SÉCURISATION TACTILE : Forcer la hauteur via inline-style de 44px
-              className="flex-1 rounded-2xl border border-gray-200 dark:border-gray-700 text-xs sm:text-sm font-bold bg-white hover:bg-gray-50 transition active:scale-[0.98] text-gray-700 dark:text-gray-200 dark:bg-transparent dark:hover:bg-[#24362d] disabled:opacity-50 flex items-center justify-center"
-              style={{ height: '44px', minHeight: '44px' }}
+              className="flex-1 rounded-2xl border text-xs sm:text-sm font-bold bg-white hover:bg-gray-50 transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center"
+              style={{
+                borderColor: colors.primary + '25',
+                color: colors.text,
+                height: '44px',
+                minHeight: '44px',
+              }}
             >
               {cancelLabel}
             </button>
@@ -194,10 +232,9 @@ export const ModalActions = ({
             <button
               type={confirmButtonType}
               onClick={confirmButtonType === 'button' ? onConfirm : undefined}
-              // 🟢 SÉCURISATION TACTILE : Forcer la hauteur via inline-style de 44px
-              className="flex-1 text-white font-extrabold flex items-center justify-center gap-2 transition hover:opacity-95 active:scale-[0.98] text-xs sm:text-sm disabled:opacity-55 shadow-md shadow-emerald-900/10"
-              style={{ 
-                background: confirmColor || 'var(--color-primary, #1a4a3a)',
+              className="flex-1 text-white font-extrabold flex items-center justify-center gap-2 transition hover:opacity-95 active:scale-[0.98] text-xs sm:text-sm disabled:opacity-55 shadow-md"
+              style={{
+                background: isLoading ? colors.textLight : buttonColor,
                 height: '44px',
                 minHeight: '44px',
               }}
@@ -247,6 +284,8 @@ export const ModalWithConfirm = ({
   message,
   type = 'info',
 }: ModalWithConfirmProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
   const config = DIALOG_CONFIG[type];
 
   const getDialogIcon = () => {
@@ -277,7 +316,10 @@ export const ModalWithConfirm = ({
         />
       }
     >
-      <div className="py-2 text-center text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300 leading-relaxed">
+      <div 
+        className="py-2 text-center text-xs sm:text-sm font-semibold leading-relaxed"
+        style={{ color: colors.text + '90' }}
+      >
         {message}
       </div>
     </Modal>
