@@ -1,36 +1,52 @@
 // 📁 src/features/auth/components/CGUContent.tsx
 
 import React from "react";
+import { useBranding } from '@/hooks/useBranding';
 
 type SectionProps = {
   title: string;
   children: React.ReactNode;
 };
 
-const Section = ({ title, children }: SectionProps) => (
-  <div className="p-5 rounded-2xl border shadow-sm bg-white/60 backdrop-blur-sm transition hover:shadow-md">
-    <h4 className="font-semibold text-base mb-2 text-[var(--color-text,#1f2937)]">
-      {title}
-    </h4>
-    <div className="text-sm leading-relaxed text-[var(--color-text-light,#6b7280)]">
-      {children}
+const Section = ({ title, children }: SectionProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
+  return (
+    <div className="p-5 rounded-2xl border shadow-sm bg-white/60 backdrop-blur-sm transition hover:shadow-md" style={{ borderColor: colors.primary + '15' }}>
+      <h4 className="font-semibold text-base mb-2" style={{ color: colors.text }}>
+        {title}
+      </h4>
+      <div className="text-sm leading-relaxed" style={{ color: colors.textLight }}>
+        {children}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
-const WarningBox = ({ children }: { children: React.ReactNode }) => (
-  <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl my-3">
-    <p className="text-sm text-amber-800">{children}</p>
-  </div>
-);
+const WarningBox = ({ children }: { children: React.ReactNode }) => {
+  const brand = useBranding();
+  const colors = brand.colors;
 
-const MedicalAlert = ({ children }: { children: React.ReactNode }) => (
-  <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl my-3">
-    <p className="text-sm text-red-800 font-medium">{children}</p>
-  </div>
-);
+  return (
+    <div className="border-l-4 p-4 rounded-r-xl my-3" style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B' }}>
+      <p className="text-sm" style={{ color: '#92400E' }}>{children}</p>
+    </div>
+  );
+};
+
+const MedicalAlert = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <div className="border-l-4 p-4 rounded-r-xl my-3" style={{ backgroundColor: '#FEF2F2', borderColor: '#EF4444' }}>
+      <p className="text-sm font-medium" style={{ color: '#991B1B' }}>{children}</p>
+    </div>
+  );
+};
 
 export const CGUContent = () => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   const today = new Date().toLocaleDateString("fr-FR", {
     day: "numeric",
     month: "long",
@@ -38,13 +54,13 @@ export const CGUContent = () => {
   });
 
   return (
-    <div className="space-y-6 text-sm text-[var(--color-text,#2d2d2d)]">
+    <div className="space-y-6 text-sm" style={{ color: colors.text }}>
 
       {/* ============================================================
       HEADER
       ============================================================ */}
-      <div className="text-center space-y-2 border-b pb-4">
-        <p className="text-xs text-gray-400">
+      <div className="text-center space-y-2 border-b pb-4" style={{ borderColor: colors.primary + '15' }}>
+        <p className="text-xs" style={{ color: colors.textLight }}>
           Version 1.0.0 — Dernière mise à jour : {today}
         </p>
       </div>
@@ -61,7 +77,7 @@ export const CGUContent = () => {
             permettant la mise en relation, la coordination et le suivi de services 
             d'assistance, de santé et de bien-être entre plusieurs types d'utilisateurs.
           </p>
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-xs" style={{ color: colors.textLight }}>
             Accessible via : <strong>https://app.mysanteplus.com</strong>
           </p>
         </Section>
@@ -111,7 +127,7 @@ export const CGUContent = () => {
             <li>de l'accès à son compte</li>
             <li>des actions effectuées</li>
           </ul>
-          <p className="mt-2 text-gray-500">
+          <p className="mt-2" style={{ color: colors.textLight }}>
             Toute connexion est réputée effectuée par le titulaire du compte.
           </p>
         </Section>
@@ -126,7 +142,7 @@ export const CGUContent = () => {
             <li>respecter les intervenants</li>
             <li>ne pas détourner les services</li>
           </ul>
-          <p className="mt-1 text-amber-600 text-xs">
+          <p className="mt-1 text-xs" style={{ color: '#92400E' }}>
             ⚠️ Responsabilité : toute mauvaise information peut entraîner un risque et engage sa responsabilité.
           </p>
 
@@ -137,7 +153,7 @@ export const CGUContent = () => {
             <li>respecter strictement la confidentialité</li>
             <li>signaler toute situation critique</li>
           </ul>
-          <p className="mt-1 font-medium text-red-600 text-xs">
+          <p className="mt-1 font-medium text-xs" style={{ color: '#991B1B' }}>
             🚫 Interdictions : abus de confiance, exploitation financière ou morale.
           </p>
 
@@ -170,7 +186,7 @@ export const CGUContent = () => {
             <li>vérifier les prestations</li>
             <li>effectuer les paiements dans les délais</li>
           </ul>
-          <p className="mt-1 text-amber-600 text-xs">
+          <p className="mt-1 text-xs" style={{ color: '#92400E' }}>
             ⚠️ Le payeur n'est pas nécessairement bénéficiaire direct.
           </p>
         </Section>
@@ -265,10 +281,10 @@ export const CGUContent = () => {
             <li>strictement confidentielles</li>
             <li>accessibles uniquement aux personnes autorisées</li>
           </ul>
-          <p className="mt-2 font-medium text-red-600">
+          <p className="mt-2 font-medium" style={{ color: '#991B1B' }}>
             Toute violation peut entraîner : suspension ou poursuites.
           </p>
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-xs" style={{ color: colors.textLight }}>
             📋 Une politique de confidentialité complète est disponible séparément.
           </p>
         </Section>
@@ -281,7 +297,7 @@ export const CGUContent = () => {
             <li>systèmes d'authentification</li>
             <li>contrôle d'accès</li>
           </ul>
-          <p className="mt-2 text-amber-600">
+          <p className="mt-2" style={{ color: '#92400E' }}>
             ⚠️ L'utilisateur reste responsable de ses accès.
           </p>
         </Section>
@@ -294,7 +310,7 @@ export const CGUContent = () => {
             <li>fraude</li>
             <li>comportement abusif</li>
           </ul>
-          <p className="mt-2 font-medium text-red-600">
+          <p className="mt-2 font-medium" style={{ color: '#991B1B' }}>
             Sans préavis si nécessaire.
           </p>
         </Section>
@@ -328,17 +344,17 @@ export const CGUContent = () => {
         </Section>
 
         {/* 15. AVERTISSEMENT MÉDICAL */}
-        <div className="p-5 rounded-2xl border-2 border-red-200 bg-red-50/50">
-          <h4 className="font-bold text-base mb-2 text-red-700">
+        <div className="p-5 rounded-2xl border-2" style={{ borderColor: '#EF444430', backgroundColor: '#FEF2F2' }}>
+          <h4 className="font-bold text-base mb-2" style={{ color: '#991B1B' }}>
             🚨 AVERTISSEMENT MÉDICAL IMPORTANT
           </h4>
-          <div className="text-sm leading-relaxed text-red-800 space-y-2">
+          <div className="text-sm leading-relaxed" style={{ color: '#991B1B' }}>
             <p>
               <strong>Les services Santé Plus sont des services d'accompagnement, 
               de coordination et de soutien à domicile.</strong> Ils ne remplacent ni un médecin, 
               ni une sage-femme, ni un service d'urgence, ni une hospitalisation.
             </p>
-            <p className="font-medium">
+            <p className="font-medium mt-2">
               En cas de douleur intense, saignement, difficulté respiratoire, 
               baisse des mouvements fœtaux, fièvre importante, convulsions, 
               perte de connaissance, aggravation brutale de l'état général, 
@@ -362,7 +378,7 @@ export const CGUContent = () => {
       {/* ============================================================
       FOOTER
       ============================================================ */}
-      <div className="text-center text-xs text-gray-400 pt-4 border-t">
+      <div className="text-center text-xs pt-4 border-t" style={{ borderColor: colors.primary + '15', color: colors.textLight }}>
         Version 1.0.0 — Dernière mise à jour : {today}
         <br />
         <span className="text-[10px]">
