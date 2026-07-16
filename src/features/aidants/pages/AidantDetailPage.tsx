@@ -139,11 +139,27 @@ const AidantDetailPage = () => {
     }
   }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
 
+  // 💡 Séparation propre des propriétés color et bg pour satisfaire le typage TS du compilateur
   const status = (() => {
-    if (!aidant?.is_available) return { label: 'Indisponible', color: 'text-red-500 border-red-100 bg-red-50/50' };
-    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4))
-      return { label: 'Complet', color: 'text-orange-500 border-orange-100 bg-orange-50/50' };
-    return { label: 'Disponible', color: 'text-green-600 border-green-100 bg-green-50/50' };
+    if (!aidant?.is_available) {
+      return { 
+        label: 'Indisponible', 
+        color: 'text-red-500 border-red-100', 
+        bg: 'bg-red-50/50' 
+      };
+    }
+    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4)) {
+      return { 
+        label: 'Complet', 
+        color: 'text-orange-500 border-orange-100', 
+        bg: 'bg-orange-50/50' 
+      };
+    }
+    return { 
+      label: 'Disponible', 
+      color: 'text-green-600 border-green-100', 
+      bg: 'bg-green-50/50' 
+    };
   })();
 
   if (isLoading || isCheckingAssignment) {
@@ -158,7 +174,7 @@ const AidantDetailPage = () => {
 
   const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
   
-  // 💡 Cast TypeScript explicite pour éviter l'erreur TS sur la propriété absente de l'interface
+  // Cast TypeScript explicite pour éviter l'erreur TS sur la propriété absente de l'interface
   const aidantLanguages = (aidant as any).languages as string[] | undefined;
 
   return (
@@ -248,8 +264,8 @@ const AidantDetailPage = () => {
                 </div>
               </div>
 
-              {/* STATUT DISPO */}
-              <span className={`text-xs px-2 py-1 rounded-full ${status.bg} ${status.color}`}>
+              {/* STATUS */}
+              <span className={`text-xs px-2 py-1 rounded-full border self-center sm:self-start ${status.bg} ${status.color}`}>
                 {status.label}
               </span>
             </div>
@@ -308,7 +324,7 @@ const AidantDetailPage = () => {
             </div>
           )}
 
-          {/* Langues parlées (Correction d'accès typé avec aidantLanguages) */}
+          {/* Langues parlées */}
           {aidantLanguages && aidantLanguages.length > 0 && (
             <div className="space-y-1.5">
               <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-400">Langues parlées</h4>
