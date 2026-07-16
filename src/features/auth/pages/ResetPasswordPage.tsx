@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/ResetPasswordPage.tsx
- 
+
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -14,6 +14,7 @@ import {
 
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/ui/Logo';
+import { useBranding } from '@/hooks/useBranding';
 import toast from 'react-hot-toast';
 
 const ResetPasswordPage = () => {
@@ -25,31 +26,25 @@ const ResetPasswordPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
-  // ✅ Récupérer le thème sauvegardé
-  const [savedTheme, setSavedTheme] = useState<'senior' | 'maman' | null>(null);
-
-  useEffect(() => {
-    const theme = localStorage.getItem('sante_plus_theme') as 'senior' | 'maman' | null;
-    setSavedTheme(theme);
-  }, []);
+  const brand = useBranding();
+  const colors = brand.colors;
+  const primaryColor = colors.primary;
+  const textColor = colors.text;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!password || !confirmPassword) {
-      // ✅ UN SEUL TOAST
       toast.error('Veuillez remplir tous les champs');
       return;
     }
 
     if (password !== confirmPassword) {
-      // ✅ UN SEUL TOAST
       toast.error('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (password.length < 6) {
-      // ✅ UN SEUL TOAST
       toast.error('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
@@ -63,7 +58,6 @@ const ResetPasswordPage = () => {
 
       if (error) throw error;
 
-      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success('Mot de passe réinitialisé avec succès');
       setIsDone(true);
 
@@ -72,42 +66,33 @@ const ResetPasswordPage = () => {
       }, 1200);
     } catch (error: any) {
       console.error('❌ Reset password error:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || 'Erreur lors de la réinitialisation');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ✅ Déterminer le rôle pour le logo
-  const logoRole = savedTheme === 'maman' ? 'maman' : 'general';
-
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center p-4"
-      style={{ background: 'var(--color-background, #f5f0e8)' }}
+      style={{ background: colors.background }}
     >
       <div className="w-full max-w-md">
         <div
           className="bg-white rounded-3xl p-8 shadow-lg border relative"
-          style={{ borderColor: 'var(--color-border, #e5e0d8)' }}
+          style={{ borderColor: colors.primary + '20' }}
         >
-          {/* ✅ Logo dynamique */}
+          {/* Logo dynamique */}
           <div className="absolute -top-12 left-1/2 -translate-x-1/2">
             <div
               className="w-24 h-24 rounded-full bg-white shadow-lg border-4 flex items-center justify-center"
-              style={{ 
-                borderColor: savedTheme === 'maman' 
-                  ? '#e8436a' 
-                  : 'var(--color-primary, #1a4a3a)' 
-              }}
+              style={{ borderColor: primaryColor }}
             >
               <Logo
                 size="md"
                 showText={false}
                 whiteBg={false}
                 className="justify-center"
-                role={logoRole}
               />
             </div>
           </div>
@@ -119,12 +104,8 @@ const ResetPasswordPage = () => {
               <div
                 className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4"
                 style={{
-                  background: savedTheme === 'maman' 
-                    ? '#e8436a12' 
-                    : 'var(--color-primary, #1a4a3a)12',
-                  color: savedTheme === 'maman' 
-                    ? '#e8436a' 
-                    : 'var(--color-primary, #1a4a3a)',
+                  background: colors.primary + '15',
+                  color: primaryColor,
                 }}
               >
                 <CheckCircle size={34} />
@@ -132,14 +113,14 @@ const ResetPasswordPage = () => {
 
               <h1
                 className="text-2xl font-bold"
-                style={{ color: 'var(--color-text, #2d2d2d)' }}
+                style={{ color: textColor }}
               >
                 Mot de passe changé
               </h1>
 
               <p
                 className="text-sm mt-2 leading-relaxed"
-                style={{ color: 'var(--color-text-light, #6b7280)' }}
+                style={{ color: colors.textLight }}
               >
                 Votre mot de passe a été mis à jour. Vous allez être redirigé
                 vers la connexion.
@@ -150,14 +131,14 @@ const ResetPasswordPage = () => {
               <div className="text-center mb-6">
                 <h1
                   className="text-2xl font-bold"
-                  style={{ color: 'var(--color-text, #2d2d2d)' }}
+                  style={{ color: textColor }}
                 >
                   Nouveau mot de passe
                 </h1>
 
                 <p
                   className="text-sm mt-1"
-                  style={{ color: 'var(--color-text-light, #6b7280)' }}
+                  style={{ color: colors.textLight }}
                 >
                   Choisissez un nouveau mot de passe sécurisé.
                 </p>
@@ -167,7 +148,7 @@ const ResetPasswordPage = () => {
                 <div>
                   <label
                     className="block text-sm font-medium mb-1.5"
-                    style={{ color: 'var(--color-text, #2d2d2d)' }}
+                    style={{ color: textColor }}
                   >
                     Nouveau mot de passe
                   </label>
@@ -175,19 +156,20 @@ const ResetPasswordPage = () => {
                   <div className="relative">
                     <Lock
                       className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5"
-                      style={{ color: 'var(--color-text-light, #6b7280)' }}
+                      style={{ color: colors.textLight }}
                     />
 
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-11 py-3.5 rounded-xl border outline-none transition-all duration-300 focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                      className="w-full pl-11 pr-11 py-3.5 rounded-xl border outline-none transition-all duration-300 focus:ring-2"
                       style={{
-                        borderColor: 'var(--color-border, #e5e0d8)',
-                        background: 'var(--color-background, #f5f0e8)',
-                        color: 'var(--color-text, #2d2d2d)',
-                      }}
+                        borderColor: colors.primary + '25',
+                        background: colors.background,
+                        color: textColor,
+                        '--tw-ring-color': colors.primary + '30',
+                      } as any}
                       placeholder="Minimum 6 caractères"
                       disabled={isLoading}
                       autoComplete="new-password"
@@ -199,7 +181,7 @@ const ResetPasswordPage = () => {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2"
-                      style={{ color: 'var(--color-text-light, #6b7280)' }}
+                      style={{ color: colors.textLight }}
                       disabled={isLoading}
                     >
                       {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -210,7 +192,7 @@ const ResetPasswordPage = () => {
                 <div>
                   <label
                     className="block text-sm font-medium mb-1.5"
-                    style={{ color: 'var(--color-text, #2d2d2d)' }}
+                    style={{ color: textColor }}
                   >
                     Confirmer le mot de passe
                   </label>
@@ -218,19 +200,20 @@ const ResetPasswordPage = () => {
                   <div className="relative">
                     <Lock
                       className="absolute left-3.5 top-1/2 -translate-y-1/2 size-5"
-                      style={{ color: 'var(--color-text-light, #6b7280)' }}
+                      style={{ color: colors.textLight }}
                     />
 
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border outline-none transition-all duration-300 focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                      className="w-full pl-11 pr-4 py-3.5 rounded-xl border outline-none transition-all duration-300 focus:ring-2"
                       style={{
-                        borderColor: 'var(--color-border, #e5e0d8)',
-                        background: 'var(--color-background, #f5f0e8)',
-                        color: 'var(--color-text, #2d2d2d)',
-                      }}
+                        borderColor: colors.primary + '25',
+                        background: colors.background,
+                        color: textColor,
+                        '--tw-ring-color': colors.primary + '30',
+                      } as any}
                       placeholder="Confirmez le mot de passe"
                       disabled={isLoading}
                       autoComplete="new-password"
@@ -244,11 +227,7 @@ const ResetPasswordPage = () => {
                   type="submit"
                   disabled={isLoading}
                   className="w-full py-3.5 rounded-xl text-white font-medium transition-all duration-300 flex items-center justify-center gap-2 hover:opacity-90 hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
-                  style={{ 
-                    background: savedTheme === 'maman' 
-                      ? '#e8436a' 
-                      : 'var(--color-primary, #1a4a3a)' 
-                  }}
+                  style={{ background: primaryColor }}
                 >
                   {isLoading ? (
                     <>
@@ -267,11 +246,7 @@ const ResetPasswordPage = () => {
                   <Link
                     to="/login"
                     className="text-sm hover:underline inline-flex items-center gap-1"
-                    style={{ 
-                      color: savedTheme === 'maman' 
-                        ? '#e8436a' 
-                        : 'var(--color-primary, #1a4a3a)' 
-                    }}
+                    style={{ color: primaryColor }}
                   >
                     <ArrowLeft size={14} />
                     Retour à la connexion
