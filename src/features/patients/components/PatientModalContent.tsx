@@ -24,7 +24,7 @@ import { Patient, PatientCategory } from '@/types';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useTerminology } from '@/hooks/useTerminology';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import toast from 'react-hot-toast';
 
 interface PatientModalContentProps {
@@ -42,6 +42,8 @@ export const PatientModalContent = ({
 }: PatientModalContentProps) => {
   const { createPatient, updatePatient, canManagePatients } = usePatientStore();
   const { profile } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   
   const {
     singular,
@@ -54,8 +56,6 @@ export const PatientModalContent = ({
 
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(true);
-
-  const colors = getThemeColors('senior');
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -200,7 +200,7 @@ export const PatientModalContent = ({
         <h3 className="text-lg font-bold" style={{ color: colors.text }}>
           ⛔ Accès non autorisé
         </h3>
-        <p className="text-sm mt-2" style={{ color: colors.text + '60' }}>
+        <p className="text-sm mt-2" style={{ color: colors.textLight }}>
           Vous n'avez pas les droits pour gérer les patients.
         </p>
         <button
@@ -425,7 +425,7 @@ export const PatientModalContent = ({
         />
         <p
           className="text-xs leading-relaxed"
-          style={{ color: colors.text + '80' }}
+          style={{ color: colors.textLight }}
         >
           Santé Plus Services est un service d'accompagnement non
           médical. Ces informations servent à mieux organiser le suivi
@@ -434,13 +434,13 @@ export const PatientModalContent = ({
       </div>
 
       {/* Boutons */}
-      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
         <button
           type="button"
           onClick={onCancel}
           className="flex-1 py-3 rounded-2xl font-bold border transition hover:bg-gray-50 disabled:opacity-50"
           style={{
-            borderColor: colors.border || '#e5e0d8',
+            borderColor: colors.primary + '20',
             color: colors.text,
           }}
         >
@@ -489,7 +489,7 @@ const SectionHeader = ({ title, description, colors }: SectionHeaderProps) => {
       <h3 className="font-black leading-tight" style={{ color: colors.text }}>
         {title}
       </h3>
-      <p className="text-xs mt-0.5" style={{ color: colors.text + '65' }}>
+      <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
         {description}
       </p>
     </div>
@@ -533,7 +533,7 @@ const InputField = ({
         {icon && (
           <div
             className="absolute left-3.5 top-1/2 -translate-y-1/2"
-            style={{ color: colors.text + '45' }}
+            style={{ color: colors.textLight }}
           >
             {icon}
           </div>
@@ -548,8 +548,8 @@ const InputField = ({
           placeholder={placeholder}
           className={`w-full ${icon ? 'pl-11' : 'pl-4'} pr-4 py-3 rounded-2xl border outline-none text-sm transition focus:ring-2`}
           style={{
-            borderColor: colors.border || '#e5e0d8',
-            background: 'var(--color-background, #f5f0e8)',
+            borderColor: colors.primary + '20',
+            background: colors.background,
             color: colors.text,
           }}
         />
@@ -587,8 +587,8 @@ const SelectField = ({
         onChange={(e) => onChange(e.target.value)}
         className="w-full px-4 py-3 rounded-2xl border outline-none text-sm transition focus:ring-2"
         style={{
-          borderColor: colors.border || '#e5e0d8',
-          background: 'var(--color-background, #f5f0e8)',
+          borderColor: colors.primary + '20',
+          background: colors.background,
           color: colors.text,
         }}
       >
@@ -630,7 +630,7 @@ const TextareaField = ({
         {icon && (
           <div
             className="absolute left-3.5 top-3"
-            style={{ color: colors.text + '45' }}
+            style={{ color: colors.textLight }}
           >
             {icon}
           </div>
@@ -643,8 +643,8 @@ const TextareaField = ({
           placeholder={placeholder}
           className={`w-full ${icon ? 'pl-11' : 'pl-4'} pr-4 py-3 rounded-2xl border outline-none text-sm resize-none transition focus:ring-2`}
           style={{
-            borderColor: colors.border || '#e5e0d8',
-            background: 'var(--color-background, #f5f0e8)',
+            borderColor: colors.primary + '20',
+            background: colors.background,
             color: colors.text,
           }}
         />
