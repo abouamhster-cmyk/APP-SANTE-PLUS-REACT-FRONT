@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 import { Visit } from '@/types';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, cn } from '@/utils/helpers';
 
@@ -92,32 +92,32 @@ const STATUS_CONFIG: Record<string, {
   },
   en_attente: {
     label: 'En attente',
-    color: '#FF9800',
-    bg: '#FF980015',
+    color: '#F59E0B',
+    bg: '#F59E0B15',
     icon: <ClockIcon size={12} />,
     progress: 15,
     nextActions: ['Approuver', 'Refuser', 'Annuler'],
   },
   acceptee: {
     label: 'Acceptée',
-    color: '#2196F3',
-    bg: '#2196F315',
+    color: '#3B82F6',
+    bg: '#3B82F615',
     icon: <CheckCircle size={12} />,
     progress: 40,
     nextActions: ['Démarrer', 'Annuler'],
   },
   en_cours: {
     label: 'En cours',
-    color: '#2196F3',
-    bg: '#2196F315',
+    color: '#3B82F6',
+    bg: '#3B82F615',
     icon: <Play size={12} />,
     progress: 60,
     nextActions: ['Terminer'],
   },
   terminee: {
     label: 'Terminée',
-    color: '#9C27B0',
-    bg: '#9C27B015',
+    color: '#8B5CF6',
+    bg: '#8B5CF615',
     icon: <CheckCircle size={12} />,
     progress: 80,
     nextActions: ['Valider', 'Refuser'],
@@ -133,8 +133,8 @@ const STATUS_CONFIG: Record<string, {
   },
   annulee: {
     label: 'Annulée',
-    color: '#F44336',
-    bg: '#F4433615',
+    color: '#EF4444',
+    bg: '#EF444415',
     icon: <XCircle size={12} />,
     progress: 0,
     isFinal: true,
@@ -142,8 +142,8 @@ const STATUS_CONFIG: Record<string, {
   },
   refusee: {
     label: 'Refusée',
-    color: '#F44336',
-    bg: '#F4433615',
+    color: '#EF4444',
+    bg: '#EF444415',
     icon: <XCircle size={12} />,
     progress: 0,
     isFinal: true,
@@ -160,8 +160,8 @@ const STATUS_CONFIG: Record<string, {
   },
   replanifiee: {
     label: 'Replanifiée',
-    color: '#FF5722',
-    bg: '#FF572215',
+    color: '#F59E0B',
+    bg: '#F59E0B15',
     icon: <Calendar size={12} />,
     progress: 20,
     nextActions: ['Approuver', 'Refuser'],
@@ -177,8 +177,8 @@ const STATUS_CONFIG: Record<string, {
   },
   attente_paiement: {
     label: '💳 En attente paiement',
-    color: '#8b5cf6',
-    bg: '#8b5cf615',
+    color: '#8B5CF6',
+    bg: '#8B5CF615',
     icon: <CreditCard size={12} />,
     progress: 5,
     nextActions: ['Payer'],
@@ -222,8 +222,9 @@ export const VisitCard = memo(({
   compact = false,
   colors: propColors,
 }: VisitCardProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-  const colors = propColors || getThemeColors('senior');
 
   // ✅ Caster la visite en ExtendedVisit pour accéder à metadata
   const visit = visitProp as ExtendedVisit;
@@ -421,8 +422,8 @@ export const VisitCard = memo(({
           isWaitingAidant ? "border-dashed" : ""
         )}
         style={{
-          borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
-          borderColor: isWaitingAidant ? '#FF572240' : 'transparent',
+          borderLeftColor: isUrgent ? '#EF4444' : statusConfig.color,
+          borderColor: isWaitingAidant ? '#FF572240' : colors.primary + '15',
         }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -454,7 +455,7 @@ export const VisitCard = memo(({
                 </span>
               )}
               {isDraft && (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-yellow-100 text-yellow-600 flex items-center gap-0.5 shrink-0">
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-medium" style={{ backgroundColor: colors.gold + '20', color: colors.gold }}>
                   <CreditCard size={10} />
                   {requiresPayment ? `${paymentAmount.toLocaleString()} FCFA` : 'Brouillon'}
                 </span>
@@ -494,7 +495,7 @@ export const VisitCard = memo(({
 
             {/* ✅ Expiration du brouillon */}
             {isDraft && draftExpiry && (
-              <p className="text-[9px] text-yellow-600 mt-1 flex items-center gap-0.5">
+              <p className="text-[9px] mt-1 flex items-center gap-0.5" style={{ color: colors.gold }}>
                 <Clock size={10} />
                 Expire dans {draftExpiry}
               </p>
@@ -519,7 +520,7 @@ export const VisitCard = memo(({
                     <button
                       onClick={handleRefuse}
                       className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                      style={{ background: '#F44336' }}
+                      style={{ background: '#EF4444' }}
                       title="Refuser"
                     >
                       <XCircle size={12} />
@@ -544,7 +545,7 @@ export const VisitCard = memo(({
                   <button
                     onClick={handleComplete}
                     className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                    style={{ background: '#2196F3' }}
+                    style={{ background: colors.primary }}
                     title="Terminer"
                   >
                     <CheckCircle size={12} />
@@ -555,7 +556,8 @@ export const VisitCard = memo(({
                 {canPay && (
                   <button
                     onClick={handlePonctualPayment}
-                    className="p-1.5 rounded-lg text-white transition hover:opacity-80 bg-amber-500"
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: colors.gold || '#c9a84c' }}
                     title={`Payer ${paymentAmount.toLocaleString()} FCFA`}
                   >
                     <CreditCard size={12} />
@@ -566,7 +568,8 @@ export const VisitCard = memo(({
                 {canConvertToSubscription && (
                   <button
                     onClick={handleConvertToSubscription}
-                    className="p-1.5 rounded-lg text-white transition hover:opacity-80 bg-green-500"
+                    className="p-1.5 rounded-lg text-white transition hover:opacity-80"
+                    style={{ background: colors.primary }}
                     title="Utiliser mon abonnement"
                   >
                     <Package size={12} />
@@ -602,7 +605,7 @@ export const VisitCard = memo(({
                   <button
                     onClick={handleCancel}
                     className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                    style={{ background: '#F44336' }}
+                    style={{ background: '#EF4444' }}
                     title="Annuler"
                   >
                     <XCircle size={12} />
@@ -640,8 +643,8 @@ export const VisitCard = memo(({
         isWaitingAidant ? "border-dashed" : ""
       )}
       style={{
-        borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
-        borderColor: isWaitingAidant ? '#FF572240' : 'transparent',
+        borderLeftColor: isUrgent ? '#EF4444' : statusConfig.color,
+        borderColor: isWaitingAidant ? '#FF572240' : colors.primary + '15',
       }}
     >
       {/* ============================================================
@@ -700,7 +703,7 @@ export const VisitCard = memo(({
             </span>
           )}
           {isDraft && (
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-600 flex items-center gap-1 shrink-0">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-medium" style={{ backgroundColor: colors.gold + '20', color: colors.gold }}>
               <CreditCard size={12} />
               {requiresPayment ? `${paymentAmount.toLocaleString()} FCFA` : 'Brouillon'}
             </span>
@@ -734,7 +737,7 @@ export const VisitCard = memo(({
           icon={<UserCheck size={14} />}
           label="Aidant"
           value={aidantName}
-          color={visit.aidant_id ? '#4CAF50' : '#F44336'}
+          color={visit.aidant_id ? '#4CAF50' : '#EF4444'}
         />
         <InfoItem
           icon={<Clock size={14} />}
@@ -796,9 +799,9 @@ export const VisitCard = memo(({
       EXPIRATION DU BROUILLON
       ============================================================ */}
       {isDraft && draftExpiry && (
-        <div className="mt-3 p-2 rounded-lg bg-yellow-50 border border-yellow-200 flex items-center gap-2">
-          <Clock size={14} className="text-yellow-600" />
-          <p className="text-xs text-yellow-700 font-medium">
+        <div className="mt-3 p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: colors.gold + '10', border: `1px solid ${colors.gold + '20'}` }}>
+          <Clock size={14} style={{ color: colors.gold }} />
+          <p className="text-xs font-medium" style={{ color: colors.gold }}>
             Expire dans {draftExpiry} • {requiresPayment ? `Paiement de ${paymentAmount.toLocaleString()} FCFA requis` : 'Validez votre visite'}
           </p>
         </div>
@@ -808,9 +811,9 @@ export const VisitCard = memo(({
       VISITE EN ATTENTE D'AIDANT
       ============================================================ */}
       {isWaitingAidant && (
-        <div className="mt-3 p-2 rounded-lg bg-orange-50 border border-orange-200 flex items-center gap-2">
-          <UserPlus size={14} className="text-orange-600" />
-          <p className="text-xs text-orange-700 font-medium">
+        <div className="mt-3 p-2 rounded-lg flex items-center gap-2" style={{ backgroundColor: '#FF572215', border: '1px solid #FF572230' }}>
+          <UserPlus size={14} style={{ color: '#FF5722' }} />
+          <p className="text-xs font-medium" style={{ color: '#FF5722' }}>
             En attente d'aidant • L'administration a été notifiée
           </p>
         </div>
@@ -829,7 +832,7 @@ export const VisitCard = memo(({
       ACTIONS
       ============================================================ */}
       {showActions && (
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: colors.border }}>
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: colors.primary + '15' }}>
           {/* AIDANT : Approuver/Refuser */}
           {canApprove && (
             <>
@@ -844,7 +847,7 @@ export const VisitCard = memo(({
               <button
                 onClick={handleRefuse}
                 className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
-                style={{ background: '#F44336' }}
+                style={{ background: '#EF4444' }}
               >
                 <XCircle size={12} />
                 Refuser
@@ -869,7 +872,7 @@ export const VisitCard = memo(({
             <button
               onClick={handleComplete}
               className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
-              style={{ background: '#2196F3' }}
+              style={{ background: colors.primary }}
             >
               <CheckCircle size={12} />
               Terminer
@@ -880,7 +883,8 @@ export const VisitCard = memo(({
           {canPay && (
             <button
               onClick={handlePonctualPayment}
-              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1 bg-amber-500"
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: colors.gold || '#c9a84c' }}
             >
               <CreditCard size={12} />
               Payer {paymentAmount.toLocaleString()} FCFA
@@ -891,7 +895,8 @@ export const VisitCard = memo(({
           {canConvertToSubscription && (
             <button
               onClick={handleConvertToSubscription}
-              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1 bg-green-500"
+              className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
+              style={{ background: colors.primary }}
             >
               <Package size={12} />
               Utiliser abonnement
@@ -927,7 +932,7 @@ export const VisitCard = memo(({
             <button
               onClick={handleCancel}
               className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
-              style={{ background: '#F44336' }}
+              style={{ background: '#EF4444' }}
             >
               <XCircle size={12} />
               Annuler
@@ -939,7 +944,7 @@ export const VisitCard = memo(({
             <button
               onClick={handleView}
               className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-gray-50 flex items-center justify-center gap-1"
-              style={{ borderColor: colors.border, color: colors.text }}
+              style={{ borderColor: colors.primary + '25', color: colors.text }}
             >
               <Eye size={12} />
               Détails
