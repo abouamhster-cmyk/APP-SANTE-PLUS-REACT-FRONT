@@ -20,7 +20,7 @@ import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
@@ -44,6 +44,8 @@ const VisitsPage = () => {
   const navigate = useNavigate();
 
   const { profile, role, user } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { visits, isLoading, fetchVisits, startVisit, cancelVisit, createVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
 
@@ -105,9 +107,6 @@ const VisitsPage = () => {
 
   // ✅ VERROU DE SÉCURITÉ CONTRE LES DOUBLES-CLICS SUR LES LISTES D'ACTIONS
   const isActionPending = useRef(false);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   const canPlanify = isAdminOrCoordinator || isFamily;
   const canStartVisit = isAidantRole || isAdminOrCoordinator;
@@ -485,13 +484,13 @@ const VisitsPage = () => {
       </div>
 
       {/* CADRE UNIQUE ÉPURÉ */}
-      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 flex flex-col items-center text-center gap-4 shadow-sm backdrop-blur-md">
+      <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 flex flex-col items-center text-center gap-4 shadow-sm backdrop-blur-md" style={{ borderColor: colors.primary + '15' }}>
         
         <div className="space-y-1 relative z-10">
-          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+          <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
             {isAidantRole ? 'Mes missions d\'accompagnement' : 'Planning des visites'}
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
             {isAidantRole 
               ? 'Consultez et validez vos interventions programmées à domicile.' 
               : 'Planification simplifiée de l\'accompagnement de vos proches.'}
@@ -499,14 +498,14 @@ const VisitsPage = () => {
         </div>
 
         {isFamily && (
-          <div className="px-5 py-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/30 text-center max-w-xs w-full relative z-10">
-            <p className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 leading-none">
+          <div className="px-5 py-3 rounded-2xl text-center max-w-xs w-full relative z-10" style={{ backgroundColor: colors.primary + '10', border: `1px solid ${colors.primary + '20'}` }}>
+            <p className="text-[9px] font-extrabold uppercase tracking-wider leading-none" style={{ color: colors.primary }}>
               {hasActiveSubscription ? 'Forfait disponible' : 'Tarification'}
             </p>
-            <p className="text-base font-black text-emerald-800 dark:text-emerald-100 mt-1 leading-none">
+            <p className="text-base font-black mt-1 leading-none" style={{ color: colors.primary }}>
               {hasActiveSubscription ? `${remainingVisits} visite${remainingVisits > 1 ? 's' : ''}` : 'Mode Ponctuel'}
             </p>
-            <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 font-medium mt-1 leading-none">
+            <p className="text-[10px] font-medium mt-1 leading-none" style={{ color: colors.primary + '80' }}>
               {hasActiveSubscription ? 'Crédits d\'interventions actifs' : 'Accompagnement à l\'acte'}
             </p>
           </div>
@@ -515,9 +514,10 @@ const VisitsPage = () => {
         {isFamily && draftCount > 0 && (
           <button
             onClick={() => setFilterStatus('brouillon')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50/50 dark:bg-[#2c2211] border border-amber-100/50 dark:border-amber-900/30 text-[10px] font-extrabold text-amber-800 dark:text-amber-300 transition hover:bg-amber-100/40 relative z-10"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition relative z-10"
+            style={{ backgroundColor: colors.gold + '15', color: colors.gold, border: `1px solid ${colors.gold + '30'}` }}
           >
-            <AlertCircle size={12} className="text-amber-500 animate-pulse" />
+            <AlertCircle size={12} className="animate-pulse" style={{ color: colors.gold }} />
             <span>{draftCount} intervention{draftCount > 1 ? 's' : ''} en attente de paiement</span>
           </button>
         )}
@@ -525,9 +525,10 @@ const VisitsPage = () => {
         {isAdminOrCoordinator && waitingForAidantCount > 0 && (
           <button
             onClick={() => setFilterStatus('en_attente_aidant')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-50/50 dark:bg-[#2c1d11] border border-orange-100/50 dark:border-orange-900/30 text-[10px] font-extrabold text-orange-800 dark:text-orange-300 transition hover:bg-orange-100/40 relative z-10"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition relative z-10"
+            style={{ backgroundColor: '#FF572215', color: '#FF5722', border: '1px solid #FF572230' }}
           >
-            <AlertCircle size={12} className="text-orange-500 animate-pulse" />
+            <AlertCircle size={12} className="animate-pulse" style={{ color: '#FF5722' }} />
             <span>{waitingForAidantCount} visite{waitingForAidantCount > 1 ? 's' : ''} sans auxiliaire rattaché</span>
           </button>
         )}
@@ -558,7 +559,7 @@ const VisitsPage = () => {
             );
           }}
           disabled={isLoading}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
           title="Rafraîchir"
         >
           <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
@@ -568,7 +569,7 @@ const VisitsPage = () => {
 
       {/* FILTRES */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
-        <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
+        <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border gap-1" style={{ borderColor: colors.primary + '10' }}>
           {statusFilterOptions.map((option) => {
             const isActive = filterStatus === option.value;
             const hasDraftBadge = option.value === 'brouillon' && draftCount > 0;
@@ -581,19 +582,22 @@ const VisitsPage = () => {
                 className={cn(
                   "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
                   isActive
-                    ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    ? "bg-white shadow-sm font-extrabold"
+                    : "hover:opacity-80"
                 )}
-                style={isActive ? { color: colors.primary } : undefined}
+                style={{
+                  color: isActive ? colors.primary : colors.textLight,
+                  backgroundColor: isActive ? '#ffffff' : 'transparent',
+                }}
               >
                 <span>{option.label}</span>
                 {hasDraftBadge && (
-                  <span className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none">
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none" style={{ backgroundColor: colors.gold + '20', color: colors.gold }}>
                     {draftCount}
                   </span>
                 )}
                 {hasWaitingBadge && (
-                  <span className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none">
+                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none" style={{ backgroundColor: '#FF572220', color: '#FF5722' }}>
                     {waitingForAidantCount}
                   </span>
                 )}
@@ -643,16 +647,16 @@ const VisitsPage = () => {
         </section>
       ) : (
         /* ÉCRAN VIDE */
-        <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400">
+        <section className="bg-white/40 rounded-2xl py-16 px-6 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm" style={{ borderColor: colors.primary + '15' }}>
+          <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
             <Calendar size={20} />
           </div>
 
           <div className="space-y-1">
-            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
+            <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
               Aucun accompagnement trouvé
             </h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+            <p className="text-xs max-w-xs leading-relaxed" style={{ color: colors.textLight }}>
               {filterStatus !== 'all' 
                 ? 'Essayez de changer les filtres pour afficher d\'autres status.'
                 : 'Planifiez vos interventions d\'aide et d\'accompagnement à domicile.'}
