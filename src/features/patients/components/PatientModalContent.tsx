@@ -1,5 +1,5 @@
 // 📁 src/features/patients/components/PatientModalContent.tsx
-// 📌 Contenu du formulaire patient (sans wrapper modal)
+// ✅ FORMULAIRE PATIENT : INTERFACE COMPLÈTE ET CORRECTION DES TYPES TS SUR COLORSLIKE POUR LE BUILD VERCEL
 
 import { useEffect, useState } from 'react';
 import {
@@ -8,12 +8,8 @@ import {
   AlertCircle,
   User,
   Save,
-  UserPlus,
-  Edit,
   Calendar,
-  UserCircle,
   Heart,
-  Baby,
   FileText,
   Pill,
   Stethoscope,
@@ -51,7 +47,6 @@ export const PatientModalContent = ({
     edit,
     created,
     updated,
-    getCategoryLabel,
   } = useTerminology();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -140,7 +135,7 @@ export const PatientModalContent = ({
     }
 
     if (!formData.first_name.trim()) {
-      toast.error('Veuillez renseigner le prénom');
+      toast.error('Veuillez renseigné le prénom');
       return;
     }
 
@@ -213,11 +208,6 @@ export const PatientModalContent = ({
       </div>
     );
   }
-
-  const modalTitle = mode === 'create' ? add : edit;
-  const modalDescription = mode === 'create'
-    ? 'Renseignez les informations utiles.'
-    : `Mettez à jour les informations du ${singular}.`;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 pb-4">
@@ -341,18 +331,8 @@ export const PatientModalContent = ({
           }
           colors={colors}
         >
-          <option value="senior">
-            <div className="flex items-center gap-2">
-              <User size={14} />
-              Senior
-            </div>
-          </option>
-          <option value="maman_bebe">
-            <div className="flex items-center gap-2">
-              <Heart size={14} />
-              Maman & Bébé
-            </div>
-          </option>
+          <option value="senior">👴 Senior</option>
+          <option value="maman_bebe">👶 Maman & Bébé</option>
         </SelectField>
       </section>
 
@@ -468,12 +448,14 @@ export const PatientModalContent = ({
 };
 
 // =============================================
-// SOUS-COMPOSANTS
+// SOUS-COMPOSANTS INTERNES
 // =============================================
 
 interface ColorsLike {
   primary: string;
   text: string;
+  textLight?: string;  // 🟢 CORRECTIF : Déclaré optionnel pour lever l'erreur TS
+  background?: string; // 🟢 CORRECTIF : Déclaré optionnel pour lever l'erreur TS
   border?: string;
 }
 
