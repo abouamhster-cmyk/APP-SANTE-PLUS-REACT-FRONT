@@ -1,6 +1,5 @@
 // 📁 src/features/map/pages/MapPage.tsx
-// ✅ PAGE CARTE : AFFICHAGE COMPACT ET NETTOYAGE DES DOUBLONS D'INTERVENANTS EN MISSION ACTIVE
-
+ 
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -8,33 +7,31 @@ import { useLocationStore } from '@/stores/locationStore';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuthStore } from '@/stores/authStore';
 import { useBranding } from '@/hooks/useBranding';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Locate } from 'lucide-react'; // 💡 Ajout de Locate pour le bouton GPS
 import toast from 'react-hot-toast';
 
-// Coordonnées par défaut uniquement pour initialiser la caméra (Cotonou)
+// Coordonnées par défaut (Cotonou) pour initialiser la caméra si pas de GPS disponible
 const DEFAULT_CENTER: [number, number] = [2.3912, 6.3703];
-const DEFAULT_LAT = 6.3703;
-const DEFAULT_LNG = 2.3912;
 
-// Helper pour dessiner des marqueurs HTML élégants avec des emojis
+// Helper pour dessiner des marqueurs HTML "Squircle" modernes
 const createHtmlMarker = (emoji: string, color: string) => {
   const el = document.createElement('div');
   el.className = 'custom-checkpoint-marker';
   el.innerHTML = `
     <div style="
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
       background: white;
-      border: 3px solid ${color};
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      border: 2px solid ${color};
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 15px;
       cursor: pointer;
-      transition: transform 0.2s;
-    " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    " onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
       ${emoji}
     </div>
   `;
@@ -45,6 +42,7 @@ const MapPage = () => {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const activeMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const hasCenteredRef = useRef(false); // 💡 Verrou pour ne recentrer automatiquement qu'une seule fois au départ
 
   const brand = useBranding();
   const colors = brand.colors;
@@ -63,10 +61,12 @@ const MapPage = () => {
       container: mapContainer.current!,
       style: 'https://tiles.openfreemap.org/styles/liberty', 
       center: DEFAULT_CENTER,
-      zoom: 13
+      zoom: 13,
+      dragRotate: true,
+      touchZoomRotate: true
     });
 
-    map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.current.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
 
     map.current.on('load', () => {
       map.current?.resize();
@@ -77,14 +77,25 @@ const MapPage = () => {
     };
   }, []);
 
-  // Centrage automatique sur le GPS de l'appareil
+  // 💡 Recentrage automatique UNIQUEMENT au premier signal GPS reçu
   useEffect(() => {
-    if (position && map.current) {
-      map.current.flyTo({ center: [position[1], position[0]], zoom: 15 });
+    if (position && map.current && !hasCenteredRef.current) {
+      map.current.flyTo({ center: [position[1], position[0]], zoom: 14, duration: 1500 });
+      hasCenteredRef.current = true;
     }
   }, [position]);
 
-  // ✅ CALCUL ET RENDU DYNAMIQUE DES CHECKPOINTS GPS REELS UNIQUEMENT
+  // 💡 Fonction de recentrage manuel à la demande
+  const handleCenterOnMe = () => {
+    if (position && map.current) {
+      map.current.flyTo({ center: [position[1], position[0]], zoom: 15, duration: 1200 });
+      toast.success('Recentré sur votre position GPS 📍');
+    } else {
+      toast.error('Coordonnées GPS non disponibles pour le moment');
+    }
+  };
+
+  // Rendu dynamique des Checkpoints GPS réels
   useEffect(() => {
     const currentMap = map.current;
     if (!currentMap) return;
@@ -94,7 +105,7 @@ const MapPage = () => {
 
     const newMarkersList: maplibregl.Marker[] = [];
 
-    // 1️⃣ Afficher ma position actuelle (Moi)
+    // 1️⃣ Ma position actuelle
     if (position) {
       const el = createHtmlMarker('👤', '#3b82f6');
       const marker = new maplibregl.Marker({ element: el })
@@ -108,7 +119,7 @@ const MapPage = () => {
       newMarkersList.push(marker);
     }
 
-    // 2️⃣ Afficher les positions des fiches des bénéficiaires (Patients)
+    // 2️⃣ Fiches des bénéficiaires (Patients)
     locations.patients.forEach((patient: any) => {
       const lat = Number(patient.latitude);
       const lng = Number(patient.longitude);
@@ -128,7 +139,7 @@ const MapPage = () => {
       newMarkersList.push(marker);
     });
 
-    // 3️⃣ 🏠 SÉCURISATION ADMIN : Afficher les positions réelles de connexion des Foyers Familles
+    // 3️⃣ Positions de connexion des Foyers Familles
     if (locations.families && locations.families.length > 0) {
       locations.families.forEach((family: any) => {
         const lat = Number(family.latitude);
@@ -140,7 +151,7 @@ const MapPage = () => {
           .setLngLat([lng, lat])
           .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
             <div style="min-width: 150px; font-family: sans-serif;">
-              <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7c3aed; uppercase">🏠 Foyer de confiance</p>
+              <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7c3aed; text-transform: uppercase;">🏠 Foyer de confiance</p>
               <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px; color: ${colors.text};">Famille ${family.full_name}</p>
               <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563;">📧 ${family.email}</p>
               <p style="margin: 2px 0 0 0; font-size: 9px; color: #9ca3af; line-height: 1.2;">📍 ${family.address}</p>
@@ -151,7 +162,7 @@ const MapPage = () => {
       });
     }
 
-    // 4️⃣ 🦸 MARQUEURS AIDANTS (Pour l'Admin, montre ce qu'ils font en direct sur coordonnées réelles)
+    // 4️⃣ Marqueurs Aidants
     locations.aidants.forEach((aidant: any) => {
       const lat = Number(aidant.latitude);
       const lng = Number(aidant.longitude);
@@ -165,12 +176,12 @@ const MapPage = () => {
       }
 
       let statusEmoji = '🟢';
-      let statusText = 'Disponible (En attente de mission)';
+      let statusText = 'Disponible (En attente)';
       let statusColor = '#10b981';
 
       if (aidant.available === false) {
         statusEmoji = '🔴';
-        statusText = 'Hors-ligne ou Inactif';
+        statusText = 'Inactif';
         statusColor = '#ef4444';
       }
 
@@ -179,16 +190,16 @@ const MapPage = () => {
         .setLngLat([lng, lat])
         .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
           <div style="min-width: 160px; font-family: sans-serif;">
-            <p style="font-weight: 800; margin: 0; font-size: 10px; color: ${statusColor}; uppercase">🦸 Intervenant</p>
+            <p style="font-weight: 800; margin: 0; font-size: 10px; color: ${statusColor}; text-transform: uppercase;">🦸 Intervenant</p>
             <p style="font-weight: 700; margin: 4px 0 0 0; font-size: 12px; color: ${colors.text};">${aidant.full_name}</p>
-            <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563; font-weight: 600;">Statut : ${statusText}</p>
+            <p style="margin: 3.5px 0 0 0; font-size: 10px; color: #4b5563; font-weight: 650;">Statut : ${statusText}</p>
           </div>
         `))
         .addTo(currentMap);
       newMarkersList.push(marker);
     });
 
-    // 5️⃣ Checkpoints de Démarrage (🟢) et d'Arrivée (🏁) des VISITES actives
+    // 5️⃣ Checkpoints de Démarrage (🟢) et d'Arrivée (🏁) des visites actives
     activeVisits.forEach((visit: any) => {
       const targetLabel = visit.target_name || (visit.patient ? `${visit.patient.first_name} ${visit.patient.last_name}` : 'Patient');
       const aidantName = visit.aidant?.user?.full_name || 'Intervenant';
@@ -200,11 +211,7 @@ const MapPage = () => {
         
         if (lat && lng) {
           const el = createHtmlMarker('🟢', '#10B981');
-          
-          const titleText = isAidantRole && isMyVisit
-            ? "🚀 Vous avez démarré la visite"
-            : "🚀 Début de l'accompagnement";
-
+          const titleText = isAidantRole && isMyVisit ? "🚀 Vous avez démarré la visite" : "🚀 Début de l'accompagnement";
           const detailsHtml = isAidantRole && isMyVisit
             ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>`
             : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>
@@ -214,7 +221,7 @@ const MapPage = () => {
             .setLngLat([lng, lat])
             .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
               <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #047857; uppercase">${titleText}</p>
+                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #047857; text-transform: uppercase;">${titleText}</p>
                 ${detailsHtml}
               </div>
             `))
@@ -229,11 +236,7 @@ const MapPage = () => {
         
         if (lat && lng) {
           const el = createHtmlMarker('🏁', '#9C27B0');
-          
-          const titleText = isAidantRole && isMyVisit
-            ? "🏁 Vous avez terminé la visite"
-            : "🏁 Fin de l'accompagnement";
-
+          const titleText = isAidantRole && isMyVisit ? "🏁 Vous avez terminé la visite" : "🏁 Fin de l'accompagnement";
           const detailsHtml = isAidantRole && isMyVisit
             ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>`
             : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Bénéficiaire : ${targetLabel}</p>
@@ -243,7 +246,7 @@ const MapPage = () => {
             .setLngLat([lng, lat])
             .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
               <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7b1fa2; uppercase">${titleText}</p>
+                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #7b1fa2; text-transform: uppercase;">${titleText}</p>
                 ${detailsHtml}
               </div>
             `))
@@ -253,7 +256,7 @@ const MapPage = () => {
       }
     });
 
-    // 6️⃣ Checkpoints de Prise (📦) et de Livraison (🚚) des COMMANDES actives
+    // 6️⃣ Checkpoints de Prise (📦) et de Livraison (🚚) des commandes actives
     activeOrders.forEach((order: any) => {
       const targetLabel = order.target_name || (order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : 'Bénéficiaire');
       const aidantName = order.aidant?.user?.full_name || 'Livreur';
@@ -266,11 +269,7 @@ const MapPage = () => {
 
         if (lat && lng) {
           const el = createHtmlMarker('📦', '#F59E0B');
-
-          const titleText = isAidantRole && isMyOrder
-            ? "📦 Vous avez pris en charge la commande"
-            : "📦 Commande prise en charge";
-
+          const titleText = isAidantRole && isMyOrder ? "📦 Vous avez pris en charge la commande" : "📦 Commande prise en charge";
           const detailsHtml = isAidantRole && isMyOrder
             ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Destinataire : ${targetLabel}</p>`
             : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Livreur : ${aidantName}</p>
@@ -280,7 +279,7 @@ const MapPage = () => {
             .setLngLat([lng, lat])
             .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
               <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #b45309; uppercase">${titleText}</p>
+                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #b45309; text-transform: uppercase;">${titleText}</p>
                 ${detailsHtml}
               </div>
             `))
@@ -295,11 +294,7 @@ const MapPage = () => {
 
         if (lat && lng) {
           const el = createHtmlMarker('🚚', '#2563EB');
-
-          const titleText = isAidantRole && isMyOrder
-            ? "🚚 Vous avez livré la commande"
-            : "🚚 Commande livrée";
-
+          const titleText = isAidantRole && isMyOrder ? "🚚 Vous avez livré la commande" : "🚚 Commande livrée";
           const detailsHtml = isAidantRole && isMyOrder
             ? `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Destinataire : ${targetLabel}</p>`
             : `<p style="font-weight: 700; margin: 4px 0 0 0; font-size: 11px;">Livreur : ${aidantName}</p>
@@ -309,7 +304,7 @@ const MapPage = () => {
             .setLngLat([lng, lat])
             .setPopup(new maplibregl.Popup({ offset: 15 }).setHTML(`
               <div style="min-width: 150px; font-family: sans-serif;">
-                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #1d4ed8; uppercase">${titleText}</p>
+                <p style="font-weight: 800; margin: 0; font-size: 10px; color: #1d4ed8; text-transform: uppercase;">${titleText}</p>
                 ${detailsHtml}
               </div>
             `))
@@ -324,18 +319,37 @@ const MapPage = () => {
   }, [position, locations, activeVisits, activeOrders]);
 
   return (
-    <div className="map-container-wrapper w-full h-[600px] rounded-3xl overflow-hidden shadow-xl border relative" style={{ borderColor: colors.primary + '15' }}>
+    <div 
+      className="map-container-wrapper w-full h-[calc(100vh-170px)] min-h-[400px] max-h-[750px] rounded-3xl overflow-hidden shadow-xl border relative" 
+      style={{ borderColor: colors.primary + '15' }}
+    >
       <div ref={mapContainer} className="w-full h-full" />
       
-      <button 
-        onClick={() => {
-          fetchActiveVisits();
-          toast.success('Positions radar actualisées');
-        }}
-        className="absolute bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition z-10"
-      >
-        <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
-      </button>
+      {/* BOUTONS FLOTTANTS D'INTERACTION SÉCURISÉS */}
+      <div className="absolute bottom-6 right-6 flex flex-col gap-2.5 z-10">
+        {/* Recentrer sur ma position GPS */}
+        <button 
+          onClick={handleCenterOnMe}
+          className="p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition border flex items-center justify-center"
+          style={{ borderColor: colors.primary + '10' }}
+          title="Recentrer sur moi"
+        >
+          <Locate size={20} style={{ color: colors.primary }} />
+        </button>
+
+        {/* Rafraîchir le radar */}
+        <button 
+          onClick={() => {
+            fetchActiveVisits();
+            toast.success('Radar de géolocalisation actualisé 📡');
+          }}
+          className="p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition border flex items-center justify-center"
+          style={{ borderColor: colors.primary + '10' }}
+          title="Actualiser la carte"
+        >
+          <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} style={{ color: colors.primary }} />
+        </button>
+      </div>
     </div>
   );
 };
