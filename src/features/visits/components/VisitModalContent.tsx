@@ -1,5 +1,5 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
- 
+
 import { useState, useEffect } from 'react';
 import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, CheckCircle, Loader2, MapPin, Hospital, Stethoscope } from 'lucide-react';
 
@@ -8,7 +8,7 @@ import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { useTerminology } from '@/hooks/useTerminology';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
 import { cn } from '@/utils/helpers';
@@ -55,6 +55,8 @@ export const VisitModalContent = ({
 }: VisitModalContentProps) => {
   const { createVisit, updateVisit } = useVisitStore();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const {
     hasActiveSubscription,
@@ -68,7 +70,6 @@ export const VisitModalContent = ({
   const { getCategoryLabel } = useTerminology();
 
   const [isLoading, setIsLoading] = useState(false);
-  const colors = getThemeColors('senior');
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showAccountSelector, setShowAccountSelector] = useState(false);
@@ -86,9 +87,7 @@ export const VisitModalContent = ({
     notes: '',
     is_urgent: false,
     address: '',
-    
-    // ✅ PARAMÈTRES PRESTATIONS SPÉCIFIQUES FUSIONNÉES (SORTIE HÔPITAL & RDV MÉDICAL)
-    prestation_type: 'domicile', // 'domicile', 'medical_appointment', 'hospital_discharge'
+    prestation_type: 'domicile',
     hospital_name: '',
     hospital_service: '',
     doctor_name: '',
@@ -290,7 +289,6 @@ export const VisitModalContent = ({
         return;
       }
 
-      // ✅ CONSTITUTION DES METADATA CLINIQUES SELON LE CHOIX DE PRESTATION (SANS CONFLIT DE STRUCTURES)
       const payloadMetadata = {
         prestation_type: formData.prestation_type,
         ...(formData.prestation_type === 'hospital_discharge' ? {
@@ -315,10 +313,10 @@ export const VisitModalContent = ({
         is_urgent: formData.is_urgent,
         actions: [],
         requested_by: profile?.id,
-        address: formData.address.trim(),       
-        latitude: null,                          
+        address: formData.address.trim(),
+        latitude: null,
         longitude: null,
-        metadata: payloadMetadata, // ✅ INJECTION SÉCURISÉE DES MÉDATADONNÉES D'AIGUILLAGE
+        metadata: payloadMetadata,
       };
 
       if (targetType === 'patient' && formData.patient_id) {
@@ -413,7 +411,7 @@ export const VisitModalContent = ({
 
     return (
       <div className="space-y-1">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
           Sélectionner un compte
         </label>
 
@@ -423,8 +421,8 @@ export const VisitModalContent = ({
             onClick={() => setShowAccountSelector(!showAccountSelector)}
             className="w-full px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between transition focus:ring-1 text-xs sm:text-sm font-semibold"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background, #f5f0e8)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           >
@@ -437,9 +435,9 @@ export const VisitModalContent = ({
           {showAccountSelector && (
             <div
               className="absolute z-30 mt-1 left-0 right-0 w-full bg-white rounded-xl border shadow-lg max-h-60 overflow-y-auto"
-              style={{ borderColor: colors.border }}
+              style={{ borderColor: colors.primary + '15' }}
             >
-              <div className="p-2 sticky top-0 bg-white border-b" style={{ borderColor: colors.border }}>
+              <div className="p-2 sticky top-0 bg-white border-b" style={{ borderColor: colors.primary + '15' }}>
                 <div className="relative">
                   <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
@@ -448,15 +446,15 @@ export const VisitModalContent = ({
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Rechercher un compte..."
                     className="w-full pl-8 pr-3 py-1.5 rounded-lg border outline-none text-xs"
-                    style={{ borderColor: colors.border, color: colors.text }}
+                    style={{ borderColor: colors.primary + '20', color: colors.text }}
                   />
                 </div>
               </div>
 
               {isLoadingAccounts ? (
-                <div className="p-3 text-center text-xs text-gray-400">Chargement...</div>
+                <div className="p-3 text-center text-xs" style={{ color: colors.textLight }}>Chargement...</div>
               ) : filteredAccounts.length === 0 ? (
-                <div className="p-3 text-center text-xs text-gray-400">Aucun compte trouvé</div>
+                <div className="p-3 text-center text-xs" style={{ color: colors.textLight }}>Aucun compte trouvé</div>
               ) : (
                 filteredAccounts.map((account) => (
                   <button
@@ -470,13 +468,13 @@ export const VisitModalContent = ({
                       setFormData(prev => ({ ...prev, patient_id: '' }));
                     }}
                     className="w-full px-3.5 py-2.5 text-left hover:bg-gray-50 transition flex items-center justify-between border-b last:border-0"
-                    style={{ borderColor: colors.border + '10' }}
+                    style={{ borderColor: colors.primary + '10' }}
                   >
                     <div className="min-w-0 pr-2">
-                      <p className="text-xs sm:text-sm font-bold truncate text-gray-800">
+                      <p className="text-xs sm:text-sm font-bold truncate" style={{ color: colors.text }}>
                         {account.full_name}
                       </p>
-                      <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                      <p className="text-[10px] truncate mt-0.5" style={{ color: colors.textLight }}>
                         {account.has_patient
                           ? `👨‍👩‍👦 ${account.patients.length} proche(s)`
                           : '👤 Compte personnel'}
@@ -504,7 +502,7 @@ export const VisitModalContent = ({
 
     return (
       <div className="space-y-1.5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
           Planifier pour :
         </label>
         <div className="grid grid-cols-2 gap-2 w-full min-w-0">
@@ -518,7 +516,7 @@ export const VisitModalContent = ({
             }`}
             style={{
               background: targetType === 'account' ? colors.primary : 'transparent',
-              borderColor: targetType === 'account' ? colors.primary : colors.border,
+              borderColor: targetType === 'account' ? colors.primary : colors.primary + '20',
             }}
           >
             <div className="flex items-center gap-1 truncate">
@@ -540,7 +538,7 @@ export const VisitModalContent = ({
             }`}
             style={{
               background: targetType === 'patient' ? colors.primary : 'transparent',
-              borderColor: targetType === 'patient' ? colors.primary : colors.border,
+              borderColor: targetType === 'patient' ? colors.primary : colors.primary + '20',
             }}
           >
             <div className="flex items-center gap-1 truncate">
@@ -565,7 +563,7 @@ export const VisitModalContent = ({
 
     if (patientList.length === 0) {
       return (
-        <div className="p-3 rounded-xl border border-amber-200 text-center" style={{ background: '#FFFBEB' }}>
+        <div className="p-3 rounded-xl border text-center" style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B30' }}>
           <div className="flex items-center justify-center gap-2 text-amber-700">
             <AlertCircle size={16} />
             <p className="text-xs font-bold">Aucun proche enregistré pour ce compte.</p>
@@ -579,7 +577,7 @@ export const VisitModalContent = ({
 
     return (
       <div className="space-y-1">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
           Proche associé *
         </label>
         <div className="relative">
@@ -589,8 +587,8 @@ export const VisitModalContent = ({
             onChange={(e) => handlePatientSelect(e.target.value)}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background, #f5f0e8)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
             required={targetType === 'patient'}
@@ -617,15 +615,15 @@ export const VisitModalContent = ({
       })();
 
       return (
-        <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.border + '40' }}>
+        <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.primary + '20' }}>
           <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
             {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-gray-800 truncate">
+            <p className="text-xs font-bold truncate" style={{ color: colors.text }}>
               {targetName}
             </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <p className="text-[10px] mt-0.5" style={{ color: colors.textLight }}>
               {isAccount ? '👤 Planification pour votre propre compte personnel.' : `👨‍👩‍👦 Planification d'une visite pour votre proche.`}
             </p>
           </div>
@@ -641,15 +639,15 @@ export const VisitModalContent = ({
     })();
 
     return (
-      <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.border + '40' }}>
+      <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.primary + '20' }}>
         <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
           {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-bold text-gray-800 truncate">
+          <p className="text-xs font-bold truncate" style={{ color: colors.text }}>
             {targetName}
           </p>
-          <p className="text-[10px] text-gray-400 mt-0.5">
+          <p className="text-[10px] mt-0.5" style={{ color: colors.textLight }}>
             {isAccount
               ? `👤 Planification pour le titulaire principal de ${selectedAccount.full_name}.`
               : `👨‍👩‍👦 Planification pour un proche lié au compte de ${selectedAccount.full_name}.`}
@@ -666,7 +664,7 @@ export const VisitModalContent = ({
 
     return (
       <div className="space-y-1.5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
           Pour qui ?
         </label>
         <div className="grid grid-cols-2 gap-2 w-full min-w-0">
@@ -680,7 +678,7 @@ export const VisitModalContent = ({
             }`}
             style={{
               background: targetType === 'account' ? colors.primary : 'transparent',
-              borderColor: targetType === 'account' ? colors.primary : colors.border,
+              borderColor: targetType === 'account' ? colors.primary : colors.primary + '20',
             }}
           >
             <UserCircle size={14} />
@@ -700,7 +698,7 @@ export const VisitModalContent = ({
             }`}
             style={{
               background: targetType === 'patient' ? colors.primary : 'transparent',
-              borderColor: targetType === 'patient' ? colors.primary : colors.border,
+              borderColor: targetType === 'patient' ? colors.primary : colors.primary + '20',
             }}
           >
             <Users size={14} />
@@ -734,16 +732,16 @@ export const VisitModalContent = ({
       {/* 🔹 Résumé destinataire de la visite */}
       {renderTargetSummary()}
 
-      {/* ✅ SELECTION DU TYPE D'INTERVENTION (AIGUILLAGE CLINIQUE ET PRESTATIONS) */}
+      {/* ✅ SELECTION DU TYPE D'INTERVENTION */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
           Type d'intervention requis *
         </label>
         <select
           value={formData.prestation_type}
           onChange={(e) => setFormData(prev => ({ ...prev, prestation_type: e.target.value }))}
           className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
-          style={{ borderColor: colors.border, color: colors.text }}
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           <option value="domicile">🏡 Aide, présence et confort à domicile</option>
           <option value="medical_appointment">🩺 Accompagnement à un Rendez-vous médical</option>
@@ -751,10 +749,10 @@ export const VisitModalContent = ({
         </select>
       </div>
 
-      {/* ✅ CHAMPS CLINIQUES EXTENSIBLES CONDITIONNELS */}
+      {/* ✅ CHAMPS CLINIQUES CONDITIONNELS */}
       {(formData.prestation_type === 'hospital_discharge' || formData.prestation_type === 'medical_appointment') && (
         <div className="animate-fadeIn space-y-3.5 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
-          <p className="text-[10px] font-black uppercase text-emerald-600 tracking-wider flex items-center gap-1.5">
+          <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 text-emerald-600">
             <Hospital size={13} />
             Détails de l'établissement hospitalier
           </p>
@@ -768,7 +766,7 @@ export const VisitModalContent = ({
                 onChange={(e) => setFormData(prev => ({ ...prev, hospital_name: e.target.value }))} 
                 placeholder="Ex: CNHU, Hôpital de zone..."
                 className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-white" 
-                style={{ borderColor: colors.border }} 
+                style={{ borderColor: colors.primary + '20' }} 
                 required 
               />
             </div>
@@ -780,7 +778,7 @@ export const VisitModalContent = ({
                 onChange={(e) => setFormData(prev => ({ ...prev, hospital_service: e.target.value }))} 
                 placeholder="Ex: Cardiologie, Postpartum..."
                 className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-white" 
-                style={{ borderColor: colors.border }} 
+                style={{ borderColor: colors.primary + '20' }} 
               />
             </div>
           </div>
@@ -793,7 +791,7 @@ export const VisitModalContent = ({
               onChange={(e) => setFormData(prev => ({ ...prev, doctor_name: e.target.value }))} 
               placeholder="Dr. Nom de famille"
               className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-white" 
-              style={{ borderColor: colors.border }} 
+              style={{ borderColor: colors.primary + '20' }} 
             />
           </div>
         </div>
@@ -801,7 +799,7 @@ export const VisitModalContent = ({
 
       {/* CHAMP ADRESSE DE LA VISITE */}
       <div className="space-y-1">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
           Adresse de l'intervention ou indications de quartier *
         </label>
         <div className="relative">
@@ -813,7 +811,7 @@ export const VisitModalContent = ({
             required
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1 bg-gray-50/50"
             style={{
-              borderColor: colors.border,
+              borderColor: colors.primary + '20',
               color: colors.text,
             }}
             placeholder="Ex: Cotonou Cadjehoun, maison juste à côté de la pharmacie"
@@ -871,7 +869,7 @@ export const VisitModalContent = ({
       {/* Date et Heure */}
       <div className="grid grid-cols-2 gap-3 w-full min-w-0">
         <div className="space-y-1 min-w-0">
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Date *</label>
+          <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Date *</label>
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <input
@@ -880,8 +878,8 @@ export const VisitModalContent = ({
               onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
               className="w-full pl-9 pr-2 py-2 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1"
               style={{
-                borderColor: colors.border,
-                background: 'var(--color-background, #f5f0e8)',
+                borderColor: colors.primary + '20',
+                background: colors.background,
                 color: colors.text,
               }}
               required
@@ -891,7 +889,7 @@ export const VisitModalContent = ({
         </div>
 
         <div className="space-y-1 min-w-0">
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Heure *</label>
+          <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Heure *</label>
           <div className="relative">
             <Clock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
             <input
@@ -900,8 +898,8 @@ export const VisitModalContent = ({
               onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
               className="w-full pl-9 pr-2 py-2 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1"
               style={{
-                borderColor: colors.border,
-                background: 'var(--color-background, #f5f0e8)',
+                borderColor: colors.primary + '20',
+                background: colors.background,
                 color: colors.text,
               }}
               required
@@ -911,14 +909,14 @@ export const VisitModalContent = ({
       </div>
 
       <div className="space-y-1">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Durée estimée</label>
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Durée estimée</label>
         <select
           value={formData.duration_minutes}
           onChange={(e) => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
           className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1"
           style={{
-            borderColor: colors.border,
-            background: 'var(--color-background, #f5f0e8)',
+            borderColor: colors.primary + '20',
+            background: colors.background,
             color: colors.text,
           }}
         >
@@ -931,14 +929,14 @@ export const VisitModalContent = ({
       </div>
 
       <div className="space-y-1">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Notes de préparation</label>
+        <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Notes de préparation</label>
         <textarea
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
           className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs sm:text-sm font-semibold transition focus:ring-1 resize-none"
           style={{
-            borderColor: colors.border,
-            background: 'var(--color-background, #f5f0e8)',
+            borderColor: colors.primary + '20',
+            background: colors.background,
             color: colors.text,
           }}
           rows={3}
@@ -955,17 +953,17 @@ export const VisitModalContent = ({
           className="w-4 h-4 rounded"
           style={{ accentColor: colors.primary }}
         />
-        <label htmlFor="is_urgent" className="text-xs sm:text-sm font-bold text-gray-700 cursor-pointer select-none">
+        <label htmlFor="is_urgent" className="text-xs sm:text-sm font-bold cursor-pointer select-none" style={{ color: colors.text }}>
           ⚠️ Signaler comme visite urgente
         </label>
       </div>
 
-      <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
+      <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
         <button
           type="button"
           onClick={onCancel}
           className="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition hover:bg-gray-50"
-          style={{ borderColor: colors.border, color: colors.text }}
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           Annuler
         </button>
