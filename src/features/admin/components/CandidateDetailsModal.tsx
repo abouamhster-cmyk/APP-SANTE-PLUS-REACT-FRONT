@@ -1,6 +1,7 @@
 // 📁 src/features/admin/components/CandidateDetailsModal.tsx
 
 import { InfoRow } from '@/components/ui/InfoRow';
+import { useBranding } from '@/hooks/useBranding';
 import { formatDate } from '@/utils/helpers';
 import { MapPin, Calendar, Briefcase, Phone, Mail, User, CheckCircle, XCircle, Clock, X, Check } from 'lucide-react';
 
@@ -8,7 +9,7 @@ interface CandidateDetailsModalProps {
   candidate: any;
   onApprove: () => void;
   onReject: () => void;
-  colors: any;
+  colors?: any;
   isProcessing: boolean;
 }
 
@@ -16,13 +17,16 @@ export const CandidateDetailsModal = ({
   candidate,
   onApprove,
   onReject,
-  colors,
+  colors: propColors,
   isProcessing,
 }: CandidateDetailsModalProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
+
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <div className="flex items-center gap-4 pb-4 border-b" style={{ borderColor: colors.border }}>
+      <div className="flex items-center gap-4 pb-4 border-b" style={{ borderColor: colors.primary + '15' }}>
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold shrink-0"
           style={{ background: colors.primary }}
@@ -33,7 +37,7 @@ export const CandidateDetailsModal = ({
           <h3 className="text-lg font-bold truncate" style={{ color: colors.text }}>
             {candidate.user?.full_name || 'Candidat'}
           </h3>
-          <p className="text-sm" style={{ color: colors.text + '60' }}>
+          <p className="text-sm" style={{ color: colors.textLight }}>
             Soumis le {formatDate(candidate.created_at)}
           </p>
         </div>
@@ -64,7 +68,7 @@ export const CandidateDetailsModal = ({
         <InfoRow 
           label="🟢 Disponibilité" 
           value={candidate.available ? '🟢 Disponible' : '🔴 Indisponible'} 
-          color={candidate.available ? '#4CAF50' : '#F44336'}
+          color={candidate.available ? '#4CAF50' : '#EF4444'}
         />
       </div>
 
@@ -88,7 +92,7 @@ export const CandidateDetailsModal = ({
             </span>
           ))}
           {(!candidate.specialties || candidate.specialties.length === 0) && (
-            <span className="text-xs text-gray-400">Aucune spécialité renseignée</span>
+            <span className="text-xs" style={{ color: colors.textLight }}>Aucune spécialité renseignée</span>
           )}
         </div>
       </div>
@@ -102,13 +106,13 @@ export const CandidateDetailsModal = ({
           {candidate.zones?.map((zone: string) => (
             <span
               key={zone}
-              className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+              className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100" style={{ color: colors.textLight }}
             >
               {zone}
             </span>
           ))}
           {(!candidate.zones || candidate.zones.length === 0) && (
-            <span className="text-xs text-gray-400">Aucune zone renseignée</span>
+            <span className="text-xs" style={{ color: colors.textLight }}>Aucune zone renseignée</span>
           )}
         </div>
       </div>
@@ -119,7 +123,7 @@ export const CandidateDetailsModal = ({
           <h4 className="text-sm font-bold mb-1" style={{ color: colors.text }}>
             📝 Présentation
           </h4>
-          <p className="text-sm italic leading-relaxed" style={{ color: colors.text + '70' }}>
+          <p className="text-sm italic leading-relaxed" style={{ color: colors.textLight }}>
             "{candidate.bio}"
           </p>
         </div>
@@ -133,10 +137,10 @@ export const CandidateDetailsModal = ({
         <span
           className="px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1"
           style={{
-            background: candidate.status === 'pending' ? '#FF980015' :
-                       candidate.status === 'approved' ? '#4CAF5015' : '#F4433615',
-            color: candidate.status === 'pending' ? '#FF9800' :
-                   candidate.status === 'approved' ? '#4CAF50' : '#F44336',
+            background: candidate.status === 'pending' ? '#F59E0B15' :
+                       candidate.status === 'approved' ? '#4CAF5015' : '#EF444415',
+            color: candidate.status === 'pending' ? '#F59E0B' :
+                   candidate.status === 'approved' ? '#4CAF50' : '#EF4444',
           }}
         >
           {candidate.status === 'pending' && <Clock size={12} />}
@@ -149,7 +153,7 @@ export const CandidateDetailsModal = ({
 
       {/* Boutons d'action */}
       {candidate.status === 'pending' && (
-        <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+        <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
           <button
             onClick={onReject}
             disabled={isProcessing}
