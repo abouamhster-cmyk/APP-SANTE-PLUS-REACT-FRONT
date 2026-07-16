@@ -22,20 +22,20 @@ import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAssignmentStore } from '@/stores/assignmentStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import toast from 'react-hot-toast';
 import AssignAidantModal from '../components/AssignAidantModal';
-
-// ✅ Importer les types
 import { TargetType } from '@/types/assignment';
+import toast from 'react-hot-toast';
 
 const AidantDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const { profile, role, user } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { patients, fetchPatients } = usePatientStore();
   const { fetchActiveAidant, isLoading: assignmentLoading } = useAssignmentStore();
   const {
@@ -50,9 +50,6 @@ const AidantDetailPage = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [isAlreadyAssigned, setIsAlreadyAssigned] = useState(false);
   const [isCheckingAssignment, setIsCheckingAssignment] = useState(true);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   // ✅ Vérifier si l'aidant est déjà assigné à l'utilisateur ou à ses patients
   useEffect(() => {
@@ -159,7 +156,6 @@ const AidantDetailPage = () => {
 
   if (!aidant) return null;
 
-  // ✅ CORRECTIF : Retirer "&& patients.length > 0" pour autoriser le choix même sans proches enregistrés !
   const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
 
   return (
@@ -178,14 +174,14 @@ const AidantDetailPage = () => {
           <h1 className="text-xl sm:text-2xl font-bold truncate" style={{ color: colors.text }}>
             Profil de l’aidant
           </h1>
-          <p className="text-sm truncate text-gray-500">
+          <p className="text-sm truncate" style={{ color: colors.textLight }}>
             {aidant.user?.full_name}
           </p>
         </div>
       </div>
 
       {/* CARD */}
-      <div className="bg-white rounded-2xl border p-4 sm:p-6 space-y-4">
+      <div className="bg-white rounded-2xl border p-4 sm:p-6 space-y-4" style={{ borderColor: colors.primary + '15' }}>
 
         {/* TOP */}
         <div className="flex gap-4 flex-col sm:flex-row">
@@ -204,11 +200,11 @@ const AidantDetailPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 
               <div className="min-w-0">
-                <h2 className="text-lg sm:text-xl font-bold truncate">
+                <h2 className="text-lg sm:text-xl font-bold truncate" style={{ color: colors.text }}>
                   {aidant.user?.full_name}
                 </h2>
 
-                <div className="flex flex-wrap gap-2 text-xs text-gray-500 mt-1">
+                <div className="flex flex-wrap gap-2 text-xs mt-1" style={{ color: colors.textLight }}>
                   <span className="flex items-center gap-1">
                     <Star size={12} className="text-yellow-400 fill-yellow-400" />
                     {aidant.avg_rating || 0}
@@ -235,8 +231,7 @@ const AidantDetailPage = () => {
             </div>
 
             {/* INFOS */}
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-500">
-
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs" style={{ color: colors.textLight }}>
               <div className="flex items-center gap-1 truncate">
                 <MapPin size={12} />
                 {aidant.zones?.slice(0, 2).join(', ') || '—'}
@@ -256,27 +251,26 @@ const AidantDetailPage = () => {
                 <CheckCircle size={12} />
                 {aidant.active_assignments}/{aidant.max_assignments}
               </div>
-
             </div>
           </div>
         </div>
 
         {/* BIO */}
         {aidant.bio && (
-          <div className="text-sm text-gray-600 bg-gray-50 rounded-xl p-3 italic">
+          <div className="text-sm bg-gray-50 rounded-xl p-3 italic" style={{ color: colors.text + '90' }}>
             "{aidant.bio}"
           </div>
         )}
 
         {/* BANDEAU SI PAS DE PROCHE */}
         {isFamily && patients.length === 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-            <p className="text-sm text-amber-700">
+          <div className="p-3 rounded-xl text-center" style={{ backgroundColor: '#FFFBEB', border: '1px solid #F59E0B30' }}>
+            <p className="text-sm" style={{ color: '#92400E' }}>
               ⚠️ Vous n'avez pas encore de proche enregistré. Vous pouvez l'assigner à votre propre compte.
             </p>
             <button
               onClick={() => navigate('/app/patients')}
-              className="mt-1 text-xs font-medium text-amber-800 hover:underline"
+              className="mt-1 text-xs font-medium hover:underline" style={{ color: '#92400E' }}
             >
               Ajouter un proche
             </button>
@@ -284,11 +278,12 @@ const AidantDetailPage = () => {
         )}
 
         {/* ACTIONS */}
-        <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t">
+        <div className="flex flex-col sm:flex-row gap-2 pt-3 border-t" style={{ borderColor: colors.primary + '15' }}>
 
           <button
             onClick={() => window.open(`mailto:${aidant.user?.email}`)}
             className="w-full py-2 rounded-lg border text-sm"
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             Contacter
           </button>
