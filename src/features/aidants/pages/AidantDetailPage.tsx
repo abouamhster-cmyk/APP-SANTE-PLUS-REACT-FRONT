@@ -16,7 +16,6 @@ import {
   UserCheck,
   UserX,
   Phone,
-  Languages,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -158,6 +157,9 @@ const AidantDetailPage = () => {
   if (!aidant) return null;
 
   const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
+  
+  // 💡 Cast TypeScript explicite pour éviter l'erreur TS sur la propriété absente de l'interface
+  const aidantLanguages = (aidant as any).languages as string[] | undefined;
 
   return (
     <div className="max-w-3xl mx-auto px-4 pb-24 space-y-5">
@@ -247,7 +249,7 @@ const AidantDetailPage = () => {
               </div>
 
               {/* STATUT DISPO */}
-              <span className={`text-[10px] font-bold px-3 py-1 rounded-full border self-center sm:self-start ${status.color}`}>
+              <span className={`text-xs px-2 py-1 rounded-full ${status.bg} ${status.color}`}>
                 {status.label}
               </span>
             </div>
@@ -277,9 +279,9 @@ const AidantDetailPage = () => {
           </div>
         </div>
 
-        {/* SECTION BIO / PRÉSENTATION */}
+        {/* BIO / PRESENTATION */}
         {aidant.bio && (
-          <div className="bg-gray-50/50 rounded-2xl p-4 border italic text-xs leading-relaxed" style={{ color: colors.text + 'A5', borderColor: colors.primary + '10' }}>
+          <div className="text-sm bg-gray-50 rounded-xl p-3 italic" style={{ color: colors.text + 'A5', borderColor: colors.primary + '10' }}>
             "{aidant.bio}"
           </div>
         )}
@@ -306,12 +308,12 @@ const AidantDetailPage = () => {
             </div>
           )}
 
-          {/* Langues */}
-          {aidant.languages && aidant.languages.length > 0 && (
+          {/* Langues parlées (Correction d'accès typé avec aidantLanguages) */}
+          {aidantLanguages && aidantLanguages.length > 0 && (
             <div className="space-y-1.5">
               <h4 className="text-[10px] font-black uppercase tracking-wider text-gray-400">Langues parlées</h4>
               <div className="flex flex-wrap gap-1.5">
-                {aidant.languages.map((lang: string) => (
+                {aidantLanguages.map((lang: string) => (
                   <span
                     key={lang}
                     className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-600"
@@ -339,7 +341,7 @@ const AidantDetailPage = () => {
           </div>
         )}
 
-        {/* BOUTONS ACTIONS / CONTACTS DIRECTS */}
+        {/* ACTIONS / CONTACTS DIRECTS */}
         <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t" style={{ borderColor: colors.primary + '10' }}>
           <div className="flex flex-1 gap-2">
             {/* Bouton Téléphone */}
