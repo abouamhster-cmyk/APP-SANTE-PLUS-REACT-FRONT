@@ -1,4 +1,5 @@
 // 📁 src/lib/branding.ts
+// ✅ CONFIGURATION BRANDING : COULEURS MATES ET SOULAGEANTES POUR ÉVITER LA FATIGUE VISUELLE
 
 export type BrandTheme = 'senior' | 'maman' | 'aidant' | 'coordinator' | 'admin' | 'general';
 
@@ -77,7 +78,7 @@ const LOGOS = {
 };
 
 // ============================================================
-// COULEURS PAR THEME
+// COULEURS PAR THEME (Ajustées pour le contraste et le soulagement oculaire)
 // ============================================================
 
 const COLORS: Record<BrandTheme, BrandColors> = {
@@ -87,12 +88,12 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#f5f0e8',
+    background: '#e8decb', // 🟢 Plus foncé/chaleureux : Beige chaud naturel pour faire flotter les cartes blanches
     surface: '#ffffff',
-    surfaceSoft: '#faf7f1',
+    surfaceSoft: '#f3eade',
     text: '#2d2d2d',
-    textLight: '#6b7280',
-    border: '#e5e0d8',
+    textLight: '#5f6661',
+    border: '#d9cfbe',
     accent: '#c9a84c',
     gold: '#c9a84c',
     shadow: '0 4px 16px rgba(26, 74, 58, 0.08)',
@@ -105,22 +106,22 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     visitImage: '/assets/images/banners/senior-visit.png',
   },
   maman: {
-    primary: '#e8b4b8',
-    primaryDark: '#d4878a',
-    primaryLight: '#f0cccf',
+    primary: '#db4a6d',
+    primaryDark: '#c62850',
+    primaryLight: '#f06292',
     secondary: '#fce4ec',
     secondaryLight: '#fdf0f3',
-    background: '#f8e8e0',
+    background: '#ebd2cb', // 🟢 Plus foncé/chaleureux : Rose-argile apaisant et très doux pour la vue
     surface: '#ffffff',
-    surfaceSoft: '#fdf5f2',
+    surfaceSoft: '#f7e6e0',
     text: '#4a2c2c',
     textLight: '#8a6c6c',
-    border: '#f0dcdc',
-    accent: '#d4878a',
+    border: '#e4c4bf',
+    accent: '#db4a6d',
     gold: '#c9a84c',
-    shadow: '0 4px 16px rgba(232, 180, 184, 0.2)',
-    shadowHover: '0 8px 32px rgba(232, 180, 184, 0.3)',
-    gradient: 'linear-gradient(135deg, #e8b4b8 0%, #d4878a 100%)',
+    shadow: '0 4px 16px rgba(219, 74, 109, 0.2)',
+    shadowHover: '0 8px 32px rgba(219, 74, 109, 0.3)',
+    gradient: 'linear-gradient(135deg, #db4a6d 0%, #c62850 100%)',
     logo: LOGOS.maman.icon,
     logoText: LOGOS.maman.text,
     logoWhiteBg: LOGOS.maman.whiteBg,
@@ -133,12 +134,12 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#3a8a72',
     secondary: '#e8f0ed',
     secondaryLight: '#f0f5f2',
-    background: '#f5faf8',
+    background: '#dbede4', // 🟢 Plus foncé/saturé : Sauge douce relaxante pour les intervenants
     surface: '#ffffff',
-    surfaceSoft: '#f0f7f4',
+    surfaceSoft: '#eaf4f0',
     text: '#1a3a2e',
     textLight: '#5f766d',
-    border: '#dce8e4',
+    border: '#c2dbd4',
     accent: '#3a8a72',
     gold: '#c9a84c',
     shadow: '0 4px 16px rgba(44, 110, 92, 0.08)',
@@ -156,12 +157,12 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#f0f4f8',
+    background: '#d4e2eb', // 🟢 Plus foncé/saturé : Bleu-ardoise doux
     surface: '#ffffff',
-    surfaceSoft: '#f5f8fb',
+    surfaceSoft: '#e5eef4',
     text: '#1a2a3a',
     textLight: '#5f6f80',
-    border: '#dce4ec',
+    border: '#b8ced8',
     accent: '#c9a84c',
     gold: '#c9a84c',
     shadow: '0 4px 16px rgba(26, 74, 58, 0.08)',
@@ -179,12 +180,12 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#f0f4f8',
+    background: '#d4e2eb', // 🟢 Plus foncé/saturé : Bleu-ardoise doux
     surface: '#ffffff',
-    surfaceSoft: '#f5f8fb',
+    surfaceSoft: '#e5eef4',
     text: '#1a2a3a',
     textLight: '#5f6f80',
-    border: '#dce4ec',
+    border: '#b8ced8',
     accent: '#c9a84c',
     gold: '#c9a84c',
     shadow: '0 4px 16px rgba(26, 74, 58, 0.08)',
@@ -202,12 +203,12 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#f5f0e8',
+    background: '#e8decb', // 🟢 Plus foncé/saturé : Beige chaud naturel
     surface: '#ffffff',
-    surfaceSoft: '#faf7f1',
+    surfaceSoft: '#f3eade',
     text: '#2d2d2d',
     textLight: '#6b7280',
-    border: '#e5e0d8',
+    border: '#d9cfbe',
     accent: '#c9a84c',
     gold: '#c9a84c',
     shadow: '0 4px 16px rgba(26, 74, 58, 0.08)',
@@ -225,9 +226,6 @@ const COLORS: Record<BrandTheme, BrandColors> = {
 // FONCTIONS PRINCIPALES
 // ============================================================
 
-/**
- * Détermine le thème à utiliser en fonction du rôle et de la catégorie du patient
- */
 export const getBrandTheme = (
   role: string | null,
   patientCategory?: string | null
@@ -244,9 +242,6 @@ export const getBrandTheme = (
   return 'general';
 };
 
-/**
- * Récupère la configuration complète du branding pour un thème donné
- */
 export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
   const colors = COLORS[theme] || COLORS.general;
   const logo = LOGOS[theme] || LOGOS.general;
@@ -275,9 +270,6 @@ export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
   };
 };
 
-/**
- * Récupère la configuration en fonction du rôle et de la catégorie
- */
 export const getBrandConfigByRole = (
   role: string | null,
   patientCategory?: string | null
@@ -286,33 +278,24 @@ export const getBrandConfigByRole = (
   return getBrandConfig(theme);
 };
 
-/**
- * Applique le thème au DOM
- */
 export const applyBrandTheme = (config: BrandConfig): void => {
   const root = document.documentElement;
   
-  // Appliquer les variables CSS
   Object.entries(config.cssVariables).forEach(([key, value]) => {
     root.style.setProperty(key, value);
   });
   
-  // Appliquer la couleur de la barre de navigation
   const metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {
     metaTheme.setAttribute('content', config.colors.primary);
   }
   
-  // Appliquer le favicon
   const favicon = document.querySelector('link[rel="icon"]');
   if (favicon) {
     favicon.setAttribute('href', config.favicon);
   }
   
-  // Ajouter la classe de thème
   root.className = `theme-${config.theme}`;
-  
-  // Sauvegarder le thème actuel
   localStorage.setItem('sante_plus_theme', config.theme);
 };
 
