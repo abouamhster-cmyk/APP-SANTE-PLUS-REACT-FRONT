@@ -9,7 +9,7 @@ import {
   Loader2,
   ChevronDown,
 } from 'lucide-react';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 
 interface ContractModalContentProps {
   contract: {
@@ -27,7 +27,9 @@ interface ContractModalContentProps {
 }
 
 const ProgressBar = ({ progress }: { progress: number }) => {
-  const colors = getThemeColors('senior');
+  const brand = useBranding();
+  const colors = brand.colors;
+  
   return (
     <div className="w-full h-[2px] bg-black/5 rounded-full overflow-hidden mt-1">
       <div
@@ -47,12 +49,14 @@ export const ContractModalContent = ({
   onCancel,
   isLoading,
 }: ContractModalContentProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+  
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [readTime, setReadTime] = useState(0);
 
   const contentRef = useRef<HTMLDivElement>(null);
-  const colors = getThemeColors('senior');
 
   // Détection du bas de page avec une tolérance de confort de 50px
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -98,7 +102,7 @@ export const ContractModalContent = ({
     return (
       <div className="flex flex-col items-center justify-center py-12 w-full">
         <AlertTriangle size={32} className="text-gray-300 mb-2" />
-        <p className="text-xs text-gray-500 font-medium">Contrat non disponible</p>
+        <p className="text-xs font-medium" style={{ color: colors.textLight }}>Contrat non disponible</p>
       </div>
     );
   }
@@ -121,35 +125,34 @@ export const ContractModalContent = ({
         style={{ color: colors.text }}
       >
         {contract.summary && (
-          <div className="p-3.5 rounded-2xl border border-gray-100/50 bg-white/40 backdrop-blur-sm flex gap-2.5 items-start">
+          <div className="p-3.5 rounded-2xl border flex gap-2.5 items-start" style={{ borderColor: colors.primary + '10', backgroundColor: colors.primary + '04' }}>
             <FileText size={15} className="shrink-0 mt-0.5" style={{ color: colors.primary }} />
             <div className="space-y-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Résumé</p>
-              <p className="text-xs text-gray-600 leading-relaxed font-semibold">
-                {contract.summary}
-              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Résumé</p>
+              <p className="text-xs leading-relaxed font-semibold" style={{ color: colors.text }}>{contract.summary}</p>
             </div>
           </div>
         )}
 
         <div
-          className="prose prose-sm max-w-none text-xs sm:text-sm text-gray-700 leading-relaxed font-semibold"
+          className="prose prose-sm max-w-none text-xs sm:text-sm leading-relaxed font-semibold"
+          style={{ color: colors.text }}
           dangerouslySetInnerHTML={{ __html: contract.content }}
         />
 
-        {/* GUIDE DE DÉFILEMENT SOBRE (S'efface en silence à la fin de la lecture) */}
+        {/* GUIDE DE DÉFILEMENT SOBRE */}
         {!scrolledToBottom && (
           <div className="text-center py-2">
-            <div className="inline-flex items-center gap-1.5 text-[9px] font-black px-3.5 py-1.5 rounded-full bg-black/5 text-gray-400">
-              <ChevronDown size={11} className="animate-bounce text-gray-400" />
+            <div className="inline-flex items-center gap-1.5 text-[9px] font-black px-3.5 py-1.5 rounded-full bg-black/5" style={{ color: colors.textLight }}>
+              <ChevronDown size={11} className="animate-bounce" style={{ color: colors.textLight }} />
               Défiler vers le bas pour valider
             </div>
           </div>
         )}
       </div>
 
-      {/* FOOTER ÉPURÉ TRANSPARENT SANS EFFET DE BLOC */}
-      <div className="flex-shrink-0 pt-3 border-t border-black/5 bg-transparent">
+      {/* FOOTER ÉPURÉ TRANSPARENT */}
+      <div className="flex-shrink-0 pt-3 border-t bg-transparent" style={{ borderColor: colors.primary + '10' }}>
         <div className="flex flex-col gap-3">
           
           <div className="flex items-start gap-2.5">
@@ -162,9 +165,9 @@ export const ContractModalContent = ({
               className="w-4.5 h-4.5 mt-0.5 rounded border border-gray-300 cursor-pointer disabled:cursor-not-allowed"
               style={{ accentColor: colors.primary }}
             />
-            <label htmlFor="accept_terms" className="text-xs font-bold text-gray-700 cursor-pointer select-none">
+            <label htmlFor="accept_terms" className="text-xs font-bold cursor-pointer select-none" style={{ color: colors.text }}>
               J'accepte sans réserve les présentes conditions d'utilisation
-              <span className="block text-[10px] text-gray-400 font-semibold mt-0.5">
+              <span className="block text-[10px] font-semibold mt-0.5" style={{ color: colors.textLight }}>
                 Validation définitive, non révocable.
               </span>
             </label>
@@ -173,7 +176,8 @@ export const ContractModalContent = ({
           <div className="flex gap-2.5">
             <button
               onClick={onCancel}
-              className="flex-1 h-10 rounded-xl border border-red-200 text-red-500 text-xs font-bold hover:bg-red-50 transition-colors"
+              className="flex-1 h-10 rounded-xl border transition-colors text-xs font-bold"
+              style={{ borderColor: '#EF444430', color: '#EF4444' }}
             >
               Refuser
             </button>
