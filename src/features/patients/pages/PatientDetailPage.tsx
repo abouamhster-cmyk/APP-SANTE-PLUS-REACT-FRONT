@@ -31,7 +31,7 @@ import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, cn } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
@@ -47,6 +47,8 @@ const PatientDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const {
     singular,
@@ -88,21 +90,17 @@ const PatientDetailPage = () => {
   const [visitModalMode, setVisitModalMode] = useState<'create' | 'edit'>('create');
   const [patientVisits, setPatientVisits] = useState<any[]>([]);
 
-  // ✅ ÉTATS POUR LIRE LE VRAI ABONNEMENT DU PROCHE (Évite l'erreur d'affichage des 999 visites de l'aidant)
   const [patientSubscription, setPatientSubscription] = useState<any | null>(null);
   const [isLoadingPatientSub, setIsLoadingPatientSub] = useState(false);
 
   const isActionPending = useRef(false);
 
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
   const isAidantRole = role === 'aidant';
   const isFamilyRole = role === 'family';
   const isAdminRole = isAdminOrCoordinator;
 
   const canManage = canManagePatients();
 
-  // ✅ REFRESH - UN SEUL TOAST
   const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       if (id) {
@@ -130,9 +128,6 @@ const PatientDetailPage = () => {
     }
   }, [visits, id]);
 
-  // ============================================================
-  // ✅ DÉCODEUR : RÉCUPÉRATION DE L'ABONNEMENT RÉEL DU PROCHE
-  // ============================================================
   useEffect(() => {
     const fetchPatientSubscription = async () => {
       if (!id || !person) return;
@@ -140,7 +135,6 @@ const PatientDetailPage = () => {
       try {
         let targetFamilyId = person.created_by;
         
-        // Si c'est un compte personnel mappé, son ID est directement l'ID de la famille !
         if (person.last_name === '(Compte Personnel)') {
           targetFamilyId = person.id;
         }
@@ -186,7 +180,6 @@ const PatientDetailPage = () => {
     }
   }, [id, currentPatient]);
 
-  // ✅ CALCUL DES COMPTEURS RÉELS BASÉ SUR L'ABONNEMENT DU PROCHE
   const realRemainingVisits = useMemo(() => {
     if (isFamilyRole) {
       return remainingVisits; 
@@ -216,7 +209,6 @@ const PatientDetailPage = () => {
     return false;
   }, [isFamilyRole, isExpired, patientSubscription]);
 
-  // ✅ APPROUVER - UN SEUL TOAST
   const handleApprove = async (visitId: string) => {
     try {
       await approveVisit(visitId);
@@ -228,7 +220,6 @@ const PatientDetailPage = () => {
     }
   };
 
-  // ✅ REFUSER - UN SEUL TOAST
   const handleRefuse = async (visitId: string) => {
     const reason = prompt('Motif du refus :');
     if (!reason) return;
@@ -242,7 +233,6 @@ const PatientDetailPage = () => {
     }
   };
 
-  // ✅ FINALISER - UN SEUL TOAST
   const handleComplete = async (data: { actions: string[]; notes: string; photos?: string[] }) => {
     if (!activeVisitId) return;
     setIsCompleting(true);
@@ -261,7 +251,6 @@ const PatientDetailPage = () => {
     }
   };
 
-  // ✅ ANNULER - UN SEUL TOAST
   const handleCancel = async (visitId: string) => {
     if (!window.confirm('Annuler cette visite ?')) return;
     try {
@@ -275,7 +264,6 @@ const PatientDetailPage = () => {
     }
   };
 
-  // ✅ SUPPRIMER - UN SEUL TOAST
   const handleDelete = async () => {
     if (!canManage) {
       toast.error('Vous n\'avez pas les droits pour supprimer un patient');
@@ -293,7 +281,6 @@ const PatientDetailPage = () => {
     }
   };
 
-  // ✅ ÉDITER - UN SEUL TOAST
   const handleEdit = () => {
     if (!canManage) {
       toast.error('Vous n\'avez pas les droits pour modifier un patient');
@@ -320,7 +307,7 @@ const PatientDetailPage = () => {
 
     if (isLoadingPatientSub) {
       return (
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center gap-2 text-sm" style={{ color: colors.textLight }}>
           <Loader2 size={14} className="animate-spin" />
           Vérification de l'abonnement...
         </div>
@@ -329,7 +316,7 @@ const PatientDetailPage = () => {
 
     if (realHasActiveSubscription && realRemainingVisits > 0) {
       return (
-        <div className="flex items-center gap-2 text-sm text-green-600">
+        <div className="flex items-center gap-2 text-sm" style={{ color: colors.primary }}>
           <CheckCircle size={14} />
           <span>{realRemainingVisits} visite{realRemainingVisits > 1 ? 's' : ''} restante{realRemainingVisits > 1 ? 's' : ''}</span>
         </div>
@@ -346,14 +333,13 @@ const PatientDetailPage = () => {
     }
 
     return (
-      <div className="flex items-center gap-2 text-sm text-amber-500">
+      <div className="flex items-center gap-2 text-sm" style={{ color: colors.gold || '#c9a84c' }}>
         <AlertCircle size={14} />
         <span>Aucun abonnement actif pour ce proche</span>
       </div>
     );
   };
 
-  // ✅ SI LE PATIENT N'EST PAS CHARGÉ
   if (isLoading || !currentPatient) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -384,16 +370,15 @@ const PatientDetailPage = () => {
             <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
               {person.first_name} {person.last_name !== '(Compte Personnel)' ? person.last_name : ''}
             </h1>
-            <p className="text-sm flex items-center gap-1.5" style={{ color: colors.text + '99' }}>
+            <p className="text-sm flex items-center gap-1.5" style={{ color: colors.textLight }}>
               <User size={14} />
               {getCategoryLabel(person.category)}
-              {isAidant && <span className="text-xs text-amber-600 ml-2">(Assigné)</span>}
+              {isAidant && <span className="text-xs ml-2" style={{ color: colors.gold || '#c9a84c' }}>(Assigné)</span>}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          {/* BOUTON DE RAFRAÎCHISSEMENT */}
           <RefreshButton 
             size="sm" 
             showText={false}
@@ -419,7 +404,7 @@ const PatientDetailPage = () => {
               <button
                 onClick={handleDelete}
                 className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 h-11 rounded-xl font-bold transition hover:opacity-85 text-red-500 text-xs sm:text-sm"
-                style={{ background: '#F44336' + '15' }}
+                style={{ background: '#EF4444' + '15' }}
               >
                 <Trash2 size={16} />
                 <span>Supprimer</span>
@@ -435,32 +420,32 @@ const PatientDetailPage = () => {
         <StatCard
           label="Statut"
           value={person.status === 'active' ? 'Actif' : 'Inactif'}
-          color={person.status === 'active' ? '#4CAF50' : '#F44336'}
+          color={person.status === 'active' ? '#4CAF50' : '#EF4444'}
         />
         <StatCard label="Visites" value={patientVisits.length} color={colors.primary} />
         <StatCard
           label="Restantes"
           value={realHasActiveSubscription ? realRemainingVisits : '0'}
-          color={realRemainingVisits > 0 ? '#4CAF50' : '#F44336'}
+          color={realRemainingVisits > 0 ? '#4CAF50' : '#EF4444'}
         />
         <StatCard
           label="En attente"
           value={pendingVisits.length}
-          color="#FF9800"
+          color="#F59E0B"
           className="col-span-2 md:col-span-1"
         />
       </div>
 
       {/* ACTIONS RAPIDES */}
       {(isAidantRole || isFamilyRole || isAdminRole) && (
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
               <p className="font-bold flex items-center gap-2 text-sm sm:text-base" style={{ color: colors.text }}>
                 <Zap size={16} style={{ color: colors.primary }} />
                 Actions d'accompagnement
               </p>
-              <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.text + '60' }}>
+              <p className="text-xs mt-1 leading-relaxed" style={{ color: colors.textLight }}>
                 {isAidantRole && (
                   <>
                     {realHasActiveSubscription && realRemainingVisits > 0
@@ -474,7 +459,6 @@ const PatientDetailPage = () => {
               <div className="mt-2">{renderSubscriptionStatus()}</div>
             </div>
             
-            {/* ✅ CORRECTIF : Suppression complète du bouton Démarrer ici pour l'aidant */}
             <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
               {isFamilyRole && (
                 <button
@@ -509,8 +493,8 @@ const PatientDetailPage = () => {
           </div>
 
           {activeVisits.length > 0 && (
-            <div className="mt-3.5 p-3.5 rounded-xl bg-blue-50 border border-blue-200">
-              <p className="text-xs text-blue-700 font-semibold flex items-center gap-2 leading-relaxed">
+            <div className="mt-3.5 p-3.5 rounded-xl" style={{ backgroundColor: '#3B82F615', border: '1px solid #3B82F630' }}>
+              <p className="text-xs font-semibold flex items-center gap-2 leading-relaxed" style={{ color: '#3B82F6' }}>
                 <Clock size={16} />
                 Une visite est en cours pour ce patient.
               </p>
@@ -518,8 +502,8 @@ const PatientDetailPage = () => {
           )}
 
           {pendingVisits.length > 0 && isAidantRole && (
-            <div className="mt-3.5 p-3.5 rounded-xl bg-yellow-50 border border-yellow-200">
-              <p className="text-xs text-yellow-700 font-semibold flex items-center gap-2 leading-relaxed">
+            <div className="mt-3.5 p-3.5 rounded-xl" style={{ backgroundColor: '#F59E0B15', border: '1px solid #F59E0B30' }}>
+              <p className="text-xs font-semibold flex items-center gap-2 leading-relaxed" style={{ color: '#F59E0B' }}>
                 <AlertCircle size={16} />
                 {pendingVisits.length} visite(s) en attente d'approbation.
               </p>
@@ -527,8 +511,8 @@ const PatientDetailPage = () => {
           )}
 
           {!realHasActiveSubscription && isAidantRole && (
-            <div className="mt-3.5 p-3.5 rounded-xl bg-red-50 border border-red-200">
-              <p className="text-xs text-red-700 font-semibold flex items-center gap-2 leading-relaxed">
+            <div className="mt-3.5 p-3.5 rounded-xl" style={{ backgroundColor: '#EF444415', border: '1px solid #EF444430' }}>
+              <p className="text-xs font-semibold flex items-center gap-2 leading-relaxed text-red-700">
                 <AlertCircle size={16} />
                 <span>💳 Aucun abonnement actif pour ce bénéficiaire.</span>
               </p>
@@ -538,7 +522,7 @@ const PatientDetailPage = () => {
       )}
 
       {/* TABS */}
-      <div className="w-full overflow-x-auto scrollbar-none border-b" style={{ borderColor: colors.border }}>
+      <div className="w-full overflow-x-auto scrollbar-none border-b" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex min-w-max">
           {['info', 'visits', 'notes'].map((tab) => (
             <button
@@ -549,7 +533,7 @@ const PatientDetailPage = () => {
               }`}
               style={{
                 borderColor: activeTab === tab ? colors.primary : 'transparent',
-                color: activeTab === tab ? colors.primary : colors.text + '60',
+                color: activeTab === tab ? colors.primary : colors.textLight,
               }}
             >
               {tab === 'info' && <User size={13} />}
@@ -564,27 +548,27 @@ const PatientDetailPage = () => {
       </div>
 
       {/* CONTENU DES TABS */}
-      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm">
+      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm" style={{ borderColor: colors.primary + '15' }}>
         {activeTab === 'info' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.text + 'c0' }}>
+            <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.textLight }}>
               <MapPin size={18} className="shrink-0" />
               <span className="leading-relaxed">{person.address}</span>
             </div>
             {person.phone && (
-              <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.text + 'c0' }}>
+              <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.textLight }}>
                 <Phone size={18} className="shrink-0" />
                 <span>{person.phone}</span>
               </div>
             )}
             {person.emergency_contact && (
-              <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.text + 'c0' }}>
-                <ShieldAlert size={18} style={{ color: '#F44336' }} className="shrink-0" />
+              <div className="flex items-center gap-3 text-xs sm:text-sm font-semibold" style={{ color: colors.textLight }}>
+                <ShieldAlert size={18} style={{ color: '#EF4444' }} className="shrink-0" />
                 <span>Urgence: {person.emergency_contact}</span>
               </div>
             )}
             {person.allergies && (
-              <div className="p-3.5 rounded-xl flex items-start gap-3" style={{ background: '#FF5722' + '10' }}>
+              <div className="p-3.5 rounded-xl flex items-start gap-3" style={{ background: '#FF572215' }}>
                 <AlertCircle size={18} style={{ color: '#FF5722' }} className="mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs font-bold" style={{ color: '#FF5722' }}>Allergies</p>
@@ -630,7 +614,7 @@ const PatientDetailPage = () => {
                   ))}
               </div>
             ) : (
-              <div className="text-center py-12" style={{ color: colors.text + '60' }}>
+              <div className="text-center py-12" style={{ color: colors.textLight }}>
                 <Illustration type="calendar" size="lg" className="mx-auto mb-4 opacity-40" />
                 <p className="font-bold text-xs" style={{ color: colors.text }}>{noVisits}</p>
                 {(isFamilyRole || isAdminRole) && (
@@ -648,7 +632,7 @@ const PatientDetailPage = () => {
                   </button>
                 )}
                 {isAidantRole && !realHasActiveSubscription && (
-                  <p className="text-[10px] font-bold text-amber-600 mt-4 uppercase tracking-wide">
+                  <p className="text-[10px] font-bold mt-4 uppercase tracking-wide" style={{ color: colors.gold || '#c9a84c' }}>
                     💳 Aucun abonnement actif. Contactez l'administrateur.
                   </p>
                 )}
@@ -664,7 +648,7 @@ const PatientDetailPage = () => {
                 <p className="text-xs sm:text-sm font-medium leading-relaxed" style={{ color: colors.text }}>{person.notes}</p>
               </div>
             ) : (
-              <div className="text-center py-12" style={{ color: colors.text + '60' }}>
+              <div className="text-center py-12" style={{ color: colors.textLight }}>
                 <Illustration type="empty" size="lg" className="mx-auto mb-4 opacity-30" />
                 <p className="text-xs font-semibold">{noNotes}</p>
               </div>
@@ -721,7 +705,7 @@ interface StatCardProps {
 }
 
 const StatCard = ({ label, value, color, className = '' }: StatCardProps) => (
-  <div className={cn("bg-white rounded-2xl p-4 shadow-sm border border-black/5", className)}>
+  <div className={cn("bg-white rounded-2xl p-4 shadow-sm border", className)} style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
     <p className="text-sm sm:text-base font-black mt-1" style={{ color }}>{value}</p>
   </div>
@@ -755,13 +739,13 @@ const VisitCardCompact = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'planifiee': return '#4CAF50';
-      case 'en_attente': return '#FF9800';
-      case 'acceptee': return '#2196F3';
-      case 'en_cours': return '#2196F3';
-      case 'terminee': return '#9C27B0';
+      case 'en_attente': return '#F59E0B';
+      case 'acceptee': return '#3B82F6';
+      case 'en_cours': return '#3B82F6';
+      case 'terminee': return '#8B5CF6';
       case 'validee': return '#4CAF50';
-      case 'annulee': return '#F44336';
-      case 'refusee': return '#F44336';
+      case 'annulee': return '#EF4444';
+      case 'refusee': return '#EF4444';
       case 'expire': return '#795548';
       default: return '#9E9E9E';
     }
@@ -801,9 +785,9 @@ const VisitCardCompact = ({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5">
-            {visit.status === 'en_cours' ? <Play size={14} style={{ color: '#2196F3' }} /> :
+            {visit.status === 'en_cours' ? <Play size={14} style={{ color: '#3B82F6' }} /> :
              visit.status === 'validee' ? <CheckCircle size={14} style={{ color: '#4CAF50' }} /> :
-             visit.status === 'annulee' ? <XCircle size={14} style={{ color: '#F44336' }} /> :
+             visit.status === 'annulee' ? <XCircle size={14} style={{ color: '#EF4444' }} /> :
              <Calendar size={14} style={{ color: colors.primary }} />}
             <p className="font-bold text-xs" style={{ color: colors.text }}>
               {formatDate(visit.scheduled_date)} à {formatTime(visit.scheduled_time)}
@@ -826,9 +810,9 @@ const VisitCardCompact = ({
           )}
         </div>
         {visit.aidant && (
-          <p className="text-[11px] font-medium flex items-center gap-1 mt-1" style={{ color: colors.text + '60' }}>
+          <p className="text-[11px] font-medium flex items-center gap-1 mt-1" style={{ color: colors.textLight }}>
             <User size={12} />
-            Aidant: <span className="font-semibold">{getAidantName()}</span>
+            Aidant: <span className="font-semibold" style={{ color: colors.text }}>{getAidantName()}</span>
           </p>
         )}
       </div>
@@ -847,7 +831,7 @@ const VisitCardCompact = ({
             <button
               onClick={(e) => { e.stopPropagation(); onRefuse?.(); }}
               className="px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1 transition hover:opacity-85 shadow-sm"
-              style={{ background: '#F44336' }}
+              style={{ background: '#EF4444' }}
             >
               <XCircle size={12} />
               Refuser
@@ -870,7 +854,7 @@ const VisitCardCompact = ({
           <button
             onClick={(e) => { e.stopPropagation(); onCancel?.(); }}
             className="px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1 transition hover:opacity-85 shadow-sm"
-            style={{ background: '#F44336' }}
+            style={{ background: '#EF4444' }}
           >
             <XCircle size={12} />
             Annuler
