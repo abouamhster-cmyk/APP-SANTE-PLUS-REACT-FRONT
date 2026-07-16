@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 import { Order } from '@/types';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatCurrency, cn } from '@/utils/helpers';
 
@@ -43,7 +43,7 @@ interface ExtendedOrder extends Order {
   };
   is_ponctual?: boolean;
   is_paid?: boolean;
-  order_type?: 'subscription' | 'ponctual';  // ✅ Type exact
+  order_type?: 'subscription' | 'ponctual';
 }
 
 interface OrderCardProps {
@@ -82,32 +82,32 @@ const STATUS_CONFIG: Record<string, {
   },
   en_attente: {
     label: 'En attente',
-    color: '#FF9800',
-    bg: '#FF980015',
+    color: '#F59E0B',
+    bg: '#F59E0B15',
     icon: <Clock size={12} />,
     progress: 10,
     nextActions: ['Prendre', 'Annuler'],
   },
   disponible: {
     label: '🚨 Disponible',
-    color: '#F44336',
-    bg: '#F4433615',
+    color: '#EF4444',
+    bg: '#EF444415',
     icon: <AlertCircle size={12} />,
     progress: 15,
     nextActions: ['Prendre (Urgent)'],
   },
   en_cours: {
     label: 'En cours',
-    color: '#2196F3',
-    bg: '#2196F315',
+    color: '#3B82F6',
+    bg: '#3B82F615',
     icon: <Truck size={12} />,
     progress: 40,
     nextActions: ['Livrer', 'Annuler'],
   },
   livree: {
     label: 'Livrée',
-    color: '#2196F3',
-    bg: '#2196F315',
+    color: '#3B82F6',
+    bg: '#3B82F615',
     icon: <CheckCircle size={12} />,
     progress: 70,
     nextActions: ['Valider'],
@@ -122,16 +122,16 @@ const STATUS_CONFIG: Record<string, {
   },
   annulee: {
     label: 'Annulée',
-    color: '#F44336',
-    bg: '#F4433615',
+    color: '#EF4444',
+    bg: '#EF444415',
     icon: <XCircle size={12} />,
     progress: 0,
     nextActions: [],
   },
   attente_paiement: {
     label: '💳 En attente paiement',
-    color: '#8b5cf6',
-    bg: '#8b5cf615',
+    color: '#8B5CF6',
+    bg: '#8B5CF615',
     icon: <CreditCard size={12} />,
     progress: 5,
     nextActions: ['Payer'],
@@ -159,8 +159,9 @@ export const OrderCard = memo(({
   compact = false,
   colors: propColors,
 }: OrderCardProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-  const colors = propColors || getThemeColors('senior');
 
   // ✅ Caster l'order en ExtendedOrder pour accéder à metadata
   const order = orderProp as ExtendedOrder;
@@ -290,8 +291,8 @@ export const OrderCard = memo(({
           isUrgent ? "animate-pulse-slow" : ""
         )}
         style={{ 
-          borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
-          borderColor: isUrgent ? '#F4433630' : 'transparent',
+          borderLeftColor: isUrgent ? '#EF4444' : statusConfig.color,
+          borderColor: isUrgent ? '#EF444430' : colors.primary + '15',
         }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -380,7 +381,7 @@ export const OrderCard = memo(({
                   <button
                     onClick={handleTakeOrder}
                     className={`p-1.5 rounded-lg text-white transition hover:opacity-80 ${isUrgent ? 'animate-pulse' : ''}`}
-                    style={{ background: isUrgent ? '#F44336' : '#FF9800' }}
+                    style={{ background: isUrgent ? '#EF4444' : '#F59E0B' }}
                     title={isUrgent ? 'Prendre (Urgent)' : 'Prendre'}
                   >
                     <Play size={12} />
@@ -392,7 +393,7 @@ export const OrderCard = memo(({
                   <button
                     onClick={handleDeliver}
                     className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                    style={{ background: '#2196F3' }}
+                    style={{ background: '#3B82F6' }}
                     title="Livrer"
                   >
                     <Truck size={12} />
@@ -416,7 +417,7 @@ export const OrderCard = memo(({
                   <button
                     onClick={handleCancel}
                     className="p-1.5 rounded-lg text-white transition hover:opacity-80"
-                    style={{ background: '#F44336' }}
+                    style={{ background: '#EF4444' }}
                     title="Annuler"
                   >
                     <XCircle size={12} />
@@ -453,8 +454,8 @@ export const OrderCard = memo(({
         isUrgent ? "animate-pulse-slow" : ""
       )}
       style={{ 
-        borderLeftColor: isUrgent ? '#F44336' : statusConfig.color,
-        borderColor: isUrgent ? '#F4433630' : 'transparent',
+        borderLeftColor: isUrgent ? '#EF4444' : statusConfig.color,
+        borderColor: isUrgent ? '#EF444430' : colors.primary + '15',
       }}
     >
       {/* ============================================================
@@ -535,7 +536,7 @@ export const OrderCard = memo(({
           icon={<UserCheck size={14} />}
           label="Aidant"
           value={aidantName}
-          color={order.aidant_id ? '#4CAF50' : '#F44336'}
+          color={order.aidant_id ? '#4CAF50' : '#EF4444'}
         />
       </div>
 
@@ -597,13 +598,13 @@ export const OrderCard = memo(({
       ACTIONS
       ============================================================ */}
       {showActions && (
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: colors.border }}>
+        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: colors.primary + '15' }}>
           {/* AIDANT : Prendre une commande disponible */}
           {isAvailable && isAidant && (
             <button
               onClick={handleTakeOrder}
               className={`flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1 ${isUrgent ? 'animate-pulse' : ''}`}
-              style={{ background: isUrgent ? '#F44336' : '#FF9800' }}
+              style={{ background: isUrgent ? '#EF4444' : '#F59E0B' }}
             >
               {isUrgent ? <AlertCircle size={12} /> : <Play size={12} />}
               {isUrgent ? 'Prendre (Urgent)' : 'Prendre'}
@@ -615,7 +616,7 @@ export const OrderCard = memo(({
             <button
               onClick={handleDeliver}
               className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
-              style={{ background: '#2196F3' }}
+              style={{ background: '#3B82F6' }}
             >
               <Truck size={12} />
               Livrer
@@ -651,7 +652,7 @@ export const OrderCard = memo(({
             <button
               onClick={handleCancel}
               className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-white text-xs font-bold transition hover:opacity-80 flex items-center justify-center gap-1"
-              style={{ background: '#F44336' }}
+              style={{ background: '#EF4444' }}
             >
               <X size={12} />
               Annuler
@@ -663,7 +664,7 @@ export const OrderCard = memo(({
             <button
               onClick={handleView}
               className="flex-1 min-w-[80px] px-3 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-gray-50 flex items-center justify-center gap-1"
-              style={{ borderColor: colors.border, color: colors.text }}
+              style={{ borderColor: colors.primary + '25', color: colors.text }}
             >
               <Eye size={12} />
               Détails
