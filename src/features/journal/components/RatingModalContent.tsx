@@ -1,8 +1,8 @@
 // 📁 src/features/journal/components/RatingModalContent.tsx
-// 📌 Contenu de l'évaluation d'une visite (sans wrapper modal)
-
+ 
 import { useState } from 'react';
 import { Star, Calendar, User, MessageCircle, Send, CheckCircle, X } from 'lucide-react';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
@@ -27,8 +27,11 @@ export const RatingModalContent = ({
   visit,
   onSuccess,
   onCancel,
-  colors,
+  colors: propColors,
 }: RatingModalContentProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
+  
   const {
     singular,
     isFamily,
@@ -86,10 +89,10 @@ export const RatingModalContent = ({
     <div className="space-y-6 pb-4">
       {/* Infos de la visite */}
       <div className="text-center p-4 rounded-2xl" style={{ background: colors.primary + '04' }}>
-        <p className="text-sm" style={{ color: colors.text + '60' }}>
+        <p className="text-sm" style={{ color: colors.textLight }}>
           {getRatingMessage()}
         </p>
-        <div className="flex items-center justify-center gap-4 mt-2 text-xs" style={{ color: colors.text + '50' }}>
+        <div className="flex items-center justify-center gap-4 mt-2 text-xs" style={{ color: colors.textLight }}>
           <span className="flex items-center gap-1">
             <Calendar size={13} />
             {new Date(visit.date).toLocaleDateString('fr-FR')}
@@ -99,7 +102,7 @@ export const RatingModalContent = ({
             {visit.patient?.first_name} {visit.patient?.last_name}
           </span>
         </div>
-        <p className="text-xs mt-1" style={{ color: colors.text + '40' }}>
+        <p className="text-xs mt-1" style={{ color: colors.textLight }}>
           avec {visit.aidant?.user?.full_name || 'un aidant'}
         </p>
       </div>
@@ -132,7 +135,7 @@ export const RatingModalContent = ({
 
       {/* Message de la note */}
       <div className="text-center">
-        <p className="text-sm font-medium" style={{ color: rating > 0 ? colors.primary : colors.text + '40' }}>
+        <p className="text-sm font-medium" style={{ color: rating > 0 ? colors.primary : colors.textLight }}>
           {rating > 0 ? (
             <span className="flex items-center justify-center gap-2">
               <span>{getRatingIcon()}</span>
@@ -148,12 +151,12 @@ export const RatingModalContent = ({
       <div>
         <label className="block text-sm font-medium mb-1.5" style={{ color: colors.text }}>
           Votre retour
-          <span className="text-xs ml-1" style={{ color: colors.text + '40' }}>
+          <span className="text-xs ml-1" style={{ color: colors.textLight }}>
             (optionnel)
           </span>
         </label>
         <div className="relative">
-          <MessageCircle size={16} className="absolute left-3.5 top-3.5" style={{ color: colors.text + '30' }} />
+          <MessageCircle size={16} className="absolute left-3.5 top-3.5" style={{ color: colors.textLight }} />
           <textarea
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
@@ -161,24 +164,24 @@ export const RatingModalContent = ({
             placeholder="Partagez votre expérience..."
             className="w-full pl-10 pr-4 py-3 rounded-2xl border outline-none text-sm resize-none transition focus:ring-2"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background, #f5f0e8)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           />
         </div>
-        <p className="text-[10px] mt-1 text-right" style={{ color: colors.text + '30' }}>
+        <p className="text-[10px] mt-1 text-right" style={{ color: colors.textLight }}>
           {feedback.length}/500
         </p>
       </div>
 
       {/* Boutons */}
-      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
         <button
           onClick={onCancel}
           disabled={isSubmitting}
           className="flex-1 py-3 rounded-2xl font-medium border transition hover:bg-gray-50 disabled:opacity-50"
-          style={{ borderColor: colors.border, color: colors.text }}
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           Annuler
         </button>
@@ -202,7 +205,7 @@ export const RatingModalContent = ({
         </button>
       </div>
 
-      <p className="text-[10px] text-center" style={{ color: colors.text + '30' }}>
+      <p className="text-[10px] text-center" style={{ color: colors.textLight }}>
         Votre évaluation aide à améliorer la qualité du service
       </p>
     </div>
