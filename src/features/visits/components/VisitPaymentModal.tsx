@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useAuthStore } from '@/stores/authStore';
 import { useVisitStore } from '@/stores/visitStore';
 import { getPonctualPrice } from '@/lib/constants';
@@ -35,6 +35,8 @@ export const VisitPaymentModal = ({
 }: VisitPaymentModalProps) => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { fetchVisits, invalidateCache } = useVisitStore();
   const [isInternalLoading, setIsInternalLoading] = useState(false);
 
