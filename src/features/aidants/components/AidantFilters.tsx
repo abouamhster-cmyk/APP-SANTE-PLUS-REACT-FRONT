@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { X, Filter, Star, MapPin, Briefcase } from 'lucide-react';
 import { AidantFilters as FiltersType, DEFAULT_FILTERS, AidantSpecialty } from '@/types';
+import { useBranding } from '@/hooks/useBranding';
 
 // ============================================================
 // CONSTANTES
@@ -33,7 +34,7 @@ interface AidantFiltersProps {
   filters: FiltersType;
   onFilterChange: (filters: Partial<FiltersType>) => void;
   onClose: () => void;
-  colors: any;
+  colors?: any;
 }
 
 // ============================================================
@@ -44,8 +45,10 @@ export const AidantFilters = ({
   filters,
   onFilterChange,
   onClose,
-  colors,
+  colors: propColors,
 }: AidantFiltersProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
   const [localFilters, setLocalFilters] = useState<FiltersType>(filters);
 
   // ============================================================
@@ -73,7 +76,7 @@ export const AidantFilters = ({
   // ============================================================
 
   return (
-    <div className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
+    <div className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
       {/* HEADER */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold flex items-center gap-2" style={{ color: colors.text }}>
@@ -102,8 +105,8 @@ export const AidantFilters = ({
             onChange={(e) => handleChange('specialty', e.target.value as AidantSpecialty || undefined)}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           >
@@ -127,8 +130,8 @@ export const AidantFilters = ({
             onChange={(e) => handleChange('zone', e.target.value || undefined)}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           >
@@ -152,8 +155,8 @@ export const AidantFilters = ({
             onChange={(e) => handleChange('minRating', e.target.value ? parseFloat(e.target.value) : undefined)}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           >
@@ -176,8 +179,8 @@ export const AidantFilters = ({
             onChange={(e) => handleChange('minExperience', e.target.value ? parseInt(e.target.value) : undefined)}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           >
@@ -199,8 +202,8 @@ export const AidantFilters = ({
             onChange={(e) => handleChange('sortBy', e.target.value as 'rating' | 'experience_years' | 'total_missions' | 'active_assignments')}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           >
@@ -221,8 +224,8 @@ export const AidantFilters = ({
             onChange={(e) => handleChange('sortOrder', e.target.value as 'asc' | 'desc')}
             className="w-full px-3 py-2 rounded-xl border outline-none text-sm focus:ring-2 transition"
             style={{
-              borderColor: colors.border,
-              background: 'var(--color-background)',
+              borderColor: colors.primary + '20',
+              background: colors.background,
               color: colors.text,
             }}
           >
@@ -249,11 +252,11 @@ export const AidantFilters = ({
       </div>
 
       {/* ACTIONS */}
-      <div className="flex gap-3 mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
+      <div className="flex gap-3 mt-4 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
         <button
           onClick={handleReset}
           className="flex-1 py-2.5 rounded-xl text-sm font-medium border hover:bg-gray-50 transition"
-          style={{ borderColor: colors.border, color: colors.text }}
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           Réinitialiser
         </button>
