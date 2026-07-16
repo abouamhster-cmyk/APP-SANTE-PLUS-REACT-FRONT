@@ -1,7 +1,7 @@
 // 📁 src/components/contract/ContractModal.tsx
-// 📌 WRAPPER DE CONTRAT UNIFIÉ SANS DOUBLE EN-TÊTE
+// 💡 Lecture et acceptation des CGU et des chartes de confiance
 
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
+import { Modal } from '@/components/ui/Modal'; 
 import { ContractModalContent } from './ContractModalContent';
 
 interface ContractModalProps {
@@ -32,11 +32,11 @@ export const ContractModal = ({
   };
 
   return (
-    <ModalFullScreen
+    <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      onBack={handleClose}
       title="📜 Conditions Générales d'Utilisation"  
+      maxWidth="2xl"  
     >
       <ContractModalContent
         contract={contract}
@@ -44,7 +44,7 @@ export const ContractModal = ({
         onCancel={handleClose}
         isLoading={isLoading}
       />
-    </ModalFullScreen>
+    </Modal>
   );
 };
 
