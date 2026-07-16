@@ -1,14 +1,14 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
+// ✅ PAGE DASHBOARD OPTIMISÉE : MENU RAPIDE À TUILES COLORÉES INDIVIDUELLES ET CARTE APRAISANTE DE BAS DE PAGE
 
-import { useEffect, useState, useMemo, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   Calendar,
   ShoppingBag,
   MessageCircle,
   CheckCircle,
-  Heart,
   User,
   ArrowRight,
   CreditCard,
@@ -84,12 +84,12 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     tiles.push(
       { icon: <Users size={20} />, label: 'Proches', color: colors.primary, path: '/app/patients', badge: patientsCount },
       { icon: <Calendar size={20} />, label: 'Visites', color: colors.gold || '#c9a84c', path: '/app/visits', badge: stats.upcomingVisits },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.secondary || '#c9a84c', path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <MessageCircle size={20} />, label: 'Messages', color: colors.accent || colors.primary, path: '/app/messages' },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.primaryLight || '#2a6a4a', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
       { icon: <CreditCard size={20} />, label: 'Abonnement', color: colors.gold || '#c9a84c', path: '/app/billing' },
       { icon: <BookOpen size={20} />, label: 'Journal', color: colors.primaryLight || '#2a6a4a', path: '/app/journal' },
-      { icon: <MapPin size={20} />, label: 'Carte', color: colors.primary, path: '/app/map' },
-      { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
+      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
+      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
     return tiles;
   }
@@ -98,12 +98,12 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     tiles.push(
       { icon: <Users size={20} />, label: 'Bénéficiaires', color: colors.primary, path: '/app/patients', badge: patientsCount },
       { icon: <Calendar size={20} />, label: 'Planning', color: colors.gold || '#c9a84c', path: '/app/planning' },
-      { icon: <Clock size={20} />, label: 'Missions', color: colors.secondary || '#c9a84c', path: '/app/missions', badge: stats.pendingVisits },
-      { icon: <History size={20} />, label: 'Historique', color: colors.primaryLight || '#2a6a4a', path: '/app/history' },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.accent || colors.primary, path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <MessageCircle size={20} />, label: 'Messages', color: colors.gold || '#c9a84c', path: '/app/messages' },
-      { icon: <MapPin size={20} />, label: 'Carte', color: colors.primary, path: '/app/map' },
-      { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
+      { icon: <Clock size={20} />, label: 'Missions', color: colors.primaryLight || '#2a6a4a', path: '/app/missions', badge: stats.pendingVisits },
+      { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
+      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
+      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
     return tiles;
   }
@@ -112,25 +112,25 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
     tiles.push(
       { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: colors.primary, path: '/app/admin' },
       { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.gold || '#c9a84c', path: '/app/registrations', badge: stats.pendingRegistrations },
-      { icon: <UserCheck size={20} />, label: 'Candidatures', color: colors.secondary || '#c9a84c', path: '/app/aidant-candidates', badge: stats.pendingAidants },
-      { icon: <Users size={20} />, label: 'Bénéficiaires', color: colors.accent || colors.primary, path: '/app/patients', badge: stats.totalBeneficiaires },
+      { icon: <UserCheck size={20} />, label: 'Candidatures', color: colors.primaryLight || '#2a6a4a', path: '/app/aidant-candidates', badge: stats.pendingAidants },
+      { icon: <Users size={20} />, label: 'Bénéficiaires', color: '#3b82f6', path: '/app/patients', badge: stats.totalBeneficiaires },
       { icon: <Calendar size={20} />, label: 'Visites', color: colors.gold || '#c9a84c', path: '/app/visits', badge: stats.todayVisits },
       { icon: <FileCheck size={20} />, label: 'Valider visites', color: colors.primaryLight || '#2a6a4a', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.secondary || '#c9a84c', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
       { icon: <DollarSign size={20} />, label: 'Paiements', color: colors.gold || '#c9a84c', path: '/app/admin-payments', badge: stats.totalPayments },
-      { icon: <Award size={20} />, label: 'Abonnements', color: colors.primaryLight || '#2a6a4a', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
-      { icon: <Package size={20} />, label: 'Offres', color: colors.accent || colors.primary, path: '/app/offers' },
-      { icon: <Settings size={20} />, label: 'Paramètres', color: colors.textLight, path: '/app/settings' },
-      { icon: <Bell size={20} />, label: 'Notifications', color: colors.primary, path: '/app/admin-notifications' },
-      { icon: <MapPin size={20} />, label: 'Carte', color: colors.secondary || '#c9a84c', path: '/app/map' },
-      { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
+      { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
+      { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
+      { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
+      { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
+      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
+      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
     return tiles;
   }
 
   tiles.push(
     { icon: <LayoutDashboard size={20} />, label: 'Accueil', color: colors.primary, path: '/app' },
-    { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
+    { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
   );
   return tiles;
 };
@@ -622,11 +622,11 @@ const DashboardPage = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="h-44 rounded-3xl bg-white animate-pulse shadow-sm" />
+      <div className="space-y-6 max-w-5xl mx-auto animate-pulse">
+        <div className="h-44 rounded-3xl bg-white shadow-sm" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 bg-white rounded-xl animate-pulse shadow-sm" />
+            <div key={i} className="h-16 bg-white rounded-xl shadow-sm" />
           ))}
         </div>
       </div>
@@ -639,7 +639,7 @@ const DashboardPage = () => {
       {/* BANNIÈRE BROUILLONS */}
       {isFamily && canConvertDrafts && (
         <div 
-          className="border-l-4 p-4 rounded-xl shadow-sm border"
+          className="border-l-4 p-4 rounded-xl shadow-sm border animate-fadeIn"
           style={{ 
             backgroundColor: colors.gold + '15',
             borderColor: colors.gold,
@@ -660,7 +660,7 @@ const DashboardPage = () => {
             </div>
             <button
               onClick={() => navigate('/app/visits?filter=brouillon')}
-              className="text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0 hover:opacity-90"
+              className="text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0 hover:opacity-90 animate-pulse-marker"
               style={{ background: colors.primary }}
             >
               Consulter mes brouillons
@@ -671,8 +671,8 @@ const DashboardPage = () => {
 
       {/* CARROUSEL INTERACTIF */}
       <section 
-        className="relative overflow-hidden rounded-[2.5rem] border"
-        style={{ backgroundColor: colors.primary, borderColor: colors.primary + '30' }}
+        className="relative overflow-hidden rounded-[2.5rem] border shadow-sm animate-fadeIn"
+        style={{ backgroundColor: colors.primary, borderColor: colors.primary + '20' }}
       >
         <div 
           className="flex transition-transform duration-500 ease-out h-[210px] sm:h-[185px] w-full"
@@ -704,7 +704,7 @@ const DashboardPage = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => navigate(slide.actionPath)}
-                    className="inline-flex items-center gap-1.5 text-white text-[11px] sm:text-xs font-black px-4 py-2 rounded-2xl transition-all shadow-lg active:scale-95"
+                    className="inline-flex items-center gap-1.5 text-white text-[11px] sm:text-xs font-black px-4 py-2 rounded-2xl transition-all shadow-lg active:scale-95 hover:opacity-90"
                     style={{ background: colors.gold || '#c9a84c' }}
                   >
                     {slide.actionText}
@@ -770,7 +770,7 @@ const DashboardPage = () => {
               label="Commandes en cours"
               value={stats.pendingOrders}
               icon={<ShoppingBag size={15} />}
-              color={colors.secondary || '#c9a84c'}
+              color={colors.primaryDark || '#1a4a3a'}
               onClick={() => navigate('/app/orders')}
             />
             <StatCard
@@ -803,7 +803,7 @@ const DashboardPage = () => {
               label="Commandes"
               value={stats.pendingOrders}
               icon={<ShoppingBag size={15} />}
-              color={colors.secondary || '#c9a84c'}
+              color={colors.primaryDark || '#1a4a3a'}
               onClick={() => navigate('/app/orders')}
             />
             <StatCard
@@ -836,7 +836,7 @@ const DashboardPage = () => {
               label="Aidants"
               value={stats.totalAidants}
               icon={<UserCheck size={15} />}
-              color={colors.secondary || '#c9a84c'}
+              color={colors.primaryDark || '#1a4a3a'}
               onClick={() => navigate('/app/aidants')}
             />
             <StatCard
@@ -850,10 +850,10 @@ const DashboardPage = () => {
         )}
       </section>
 
-      {/* MENU DE NAVIGATION GRILLE */}
-      <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+      {/* 🟢 GRILLE DE NAVIGATION PRINCIPALE (Redynamisée avec fonds colorés individuels pour chaque tuile) */}
+      <section className="bg-white rounded-3xl p-5 shadow-sm border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
+          <h2 className="text-xs font-black tracking-wider uppercase" style={{ color: colors.textLight }}>
             Menu rapide
           </h2>
           <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: colors.primary + '10', color: colors.primary }}>
@@ -861,26 +861,29 @@ const DashboardPage = () => {
           </span>
         </div>
 
+        {/* 🟢 Chaque tuile est maintenant une carte flottante individuelle dotée d'une fine bordure et de fonds riches (1a soit 10% d'opacité) */}
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {tiles.map((tile, index) => (
             <button
               key={index}
               onClick={() => navigate(tile.path)}
-              className="flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-300 hover:bg-gray-50/70 hover:shadow-sm active:scale-95 group relative overflow-hidden"
+              className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border border-gray-100 shadow-[0_4px_12px_rgba(0,0,0,0.015)] transition-all duration-300 hover:bg-gray-50/70 hover:shadow-md hover:-translate-y-0.5 active:scale-95 group relative overflow-hidden"
+              style={{ borderColor: colors.primary + '12' }}
             >
+              {/* Fond coloré individuel riche (10% d'opacité avec '1a') pour faire rayonner l'icône */}
               <div
-                className="w-11 h-11 rounded-2xl flex items-center justify-center mb-2 transition-all duration-300 group-hover:scale-105 shadow-inner"
-                style={{ background: tile.color + '0a', color: tile.color }}
+                className="w-11 h-11 rounded-2xl flex items-center justify-center mb-2.5 transition-all duration-300 group-hover:scale-105 shadow-inner"
+                style={{ background: tile.color + '1a', color: tile.color }}
               >
                 {tile.icon}
               </div>
-              <span className="text-[11px] font-semibold text-center leading-tight truncate w-full transition-colors group-hover:text-gray-900" style={{ color: colors.text }}>
+              <span className="text-[11px] font-black text-center leading-tight truncate w-full transition-colors group-hover:text-gray-900" style={{ color: colors.text }}>
                 {tile.label}
               </span>
               {tile.badge !== undefined && tile.badge > 0 && (
                 <span
                   className="mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all"
-                  style={{ background: tile.color + '12', color: tile.color }}
+                  style={{ background: tile.color + '18', color: tile.color }}
                 >
                   {tile.badge}
                 </span>
@@ -892,7 +895,7 @@ const DashboardPage = () => {
 
       {/* PROCHES / BENEFICIAIRES RECENTES */}
       {(isFamily || isAidant) && hasProches && (
-        <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+        <section className="bg-white rounded-3xl p-5 shadow-sm border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
               {getProchesTitle()}
@@ -933,7 +936,7 @@ const DashboardPage = () => {
       {isFamily && (stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stats.upcomingVisits > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+            <section className="bg-white rounded-3xl p-5 shadow-sm border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
               <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
                   Prochaines visites
@@ -958,7 +961,7 @@ const DashboardPage = () => {
           )}
 
           {stats.pendingOrders > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+            <section className="bg-white rounded-3xl p-5 shadow-sm border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
               <div className="flex items-center justify-between mb-3 px-1">
                 <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
                   Commandes récentes
@@ -986,7 +989,7 @@ const DashboardPage = () => {
 
       {/* PLANIFICATION POUR LES AIDANTS */}
       {isAidant && stats.pendingVisits > 0 && (
-        <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+        <section className="bg-white rounded-3xl p-5 shadow-sm border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between mb-3 px-1">
             <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
               📋 Missions à venir
@@ -1012,7 +1015,7 @@ const DashboardPage = () => {
 
       {/* EMPTY STATE PROACTIF */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
-        <section className="bg-white rounded-3xl p-6 text-center border" style={{ borderColor: colors.primary + '15' }}>
+        <section className="bg-white rounded-3xl p-6 text-center border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
             <Lightbulb size={22} style={{ color: colors.primary }} />
           </div>
@@ -1042,6 +1045,17 @@ const DashboardPage = () => {
           </div>
         </section>
       )}
+
+      {/* 🟢 CARD CITATION ÉDITORIALE BAS DE PAGE (Pour meubler l'espace et apporter une signature haut de gamme) */}
+      <section className="bg-white/35 dark:bg-[#17231d]/20 rounded-3xl p-5 border border-black/5 text-center max-w-lg mx-auto animate-fadeIn">
+        <p className="text-xs italic leading-relaxed text-gray-500 font-medium dark:text-gray-400">
+          "Accompagner quelqu’un, c’est ne pas projeter sur lui ses propres désirs mais l'aider à accomplir les siens."
+        </p>
+        <p className="text-[10px] font-black uppercase text-gray-400 dark:text-gray-500 mt-2 tracking-wider">
+          — Philosophie Santé Plus Services —
+        </p>
+      </section>
+
     </div>
   );
 };
