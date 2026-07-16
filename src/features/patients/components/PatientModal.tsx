@@ -1,8 +1,8 @@
 // 📁 src/features/patients/components/PatientModal.tsx
-// 📌 Wrapper pour compatibilité - Redirige vers ModalFullScreen
+// 💡 Wrapper épuré centré utilisant le composant de dialogue classique
 
 import { Patient } from '@/types';
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
+import { Modal } from '@/components/ui/Modal'; // 💡 Remplacement par le Modal classique
 import { PatientModalContent } from './PatientModalContent';
 
 interface PatientModalProps {
@@ -21,11 +21,11 @@ export const PatientModal = ({
   onSuccess,
 }: PatientModalProps) => {
   return (
-    <ModalFullScreen
+    <Modal
       isOpen={isOpen}
       onClose={onClose}
-      onBack={onClose}
       title={mode === 'create' ? 'Ajouter un proche' : 'Modifier le proche'}
+      maxWidth="xl"  
     >
       <PatientModalContent
         mode={mode}
@@ -36,7 +36,7 @@ export const PatientModal = ({
         }}
         onCancel={onClose}
       />
-    </ModalFullScreen>
+    </Modal>
   );
 };
 
