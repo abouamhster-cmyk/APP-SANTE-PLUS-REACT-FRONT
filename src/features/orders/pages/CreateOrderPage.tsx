@@ -12,6 +12,7 @@ import {
   X,
   FileImage,
   ClipboardList,
+  Package,  
   ArrowRight,
   CreditCard,
   Sparkles,
