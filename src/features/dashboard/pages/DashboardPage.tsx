@@ -1,5 +1,5 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
- 
+
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
@@ -30,9 +30,9 @@ import {
   AlertCircle,
   ChevronRight,
   ChevronLeft,
-  TrendingUp,    
-  Compass,       
-  Lightbulb,    
+  TrendingUp,
+  Compass,
+  Lightbulb,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -42,8 +42,8 @@ import { useOrderStore } from '@/stores/orderStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
+import { useBranding } from '@/hooks/useBranding';
 import { getGreeting } from '@/utils/helpers';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { supabase } from '@/lib/supabase';
@@ -75,7 +75,7 @@ interface HeroSlide {
 }
 
 // =============================================
-// DÉFINITION DES TUILES PAR RÔLE (SANS LE DOUBLON SORTIE HÔPITAL)
+// DÉFINITION DES TUILES PAR RÔLE
 // =============================================
 const getTilesForRole = (role: string | null, colors: any, stats: any, patientsCount: number): Tile[] => {
   const tiles: Tile[] = [];
@@ -83,13 +83,13 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
   if (role === 'family') {
     tiles.push(
       { icon: <Users size={20} />, label: 'Proches', color: colors.primary, path: '/app/patients', badge: patientsCount },
-      { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits', badge: stats.upcomingVisits },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
-      { icon: <CreditCard size={20} />, label: 'Abonnement', color: '#8b5cf6', path: '/app/billing' },
-      { icon: <BookOpen size={20} />, label: 'Journal', color: '#b45309', path: '/app/journal' },
-      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
-      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
+      { icon: <Calendar size={20} />, label: 'Visites', color: colors.gold || '#c9a84c', path: '/app/visits', badge: stats.upcomingVisits },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.secondary || '#c9a84c', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <MessageCircle size={20} />, label: 'Messages', color: colors.accent || colors.primary, path: '/app/messages' },
+      { icon: <CreditCard size={20} />, label: 'Abonnement', color: colors.gold || '#c9a84c', path: '/app/billing' },
+      { icon: <BookOpen size={20} />, label: 'Journal', color: colors.primaryLight || '#2a6a4a', path: '/app/journal' },
+      { icon: <MapPin size={20} />, label: 'Carte', color: colors.primary, path: '/app/map' },
+      { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
     );
     return tiles;
   }
@@ -97,40 +97,40 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
   if (role === 'aidant') {
     tiles.push(
       { icon: <Users size={20} />, label: 'Bénéficiaires', color: colors.primary, path: '/app/patients', badge: patientsCount },
-      { icon: <Calendar size={20} />, label: 'Planning', color: '#10b981', path: '/app/planning' },
-      { icon: <Clock size={20} />, label: 'Missions', color: '#8b5cf6', path: '/app/missions', badge: stats.pendingVisits },
-      { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
-      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
-      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
+      { icon: <Calendar size={20} />, label: 'Planning', color: colors.gold || '#c9a84c', path: '/app/planning' },
+      { icon: <Clock size={20} />, label: 'Missions', color: colors.secondary || '#c9a84c', path: '/app/missions', badge: stats.pendingVisits },
+      { icon: <History size={20} />, label: 'Historique', color: colors.primaryLight || '#2a6a4a', path: '/app/history' },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.accent || colors.primary, path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <MessageCircle size={20} />, label: 'Messages', color: colors.gold || '#c9a84c', path: '/app/messages' },
+      { icon: <MapPin size={20} />, label: 'Carte', color: colors.primary, path: '/app/map' },
+      { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
     );
     return tiles;
   }
 
   if (role === 'admin' || role === 'coordinator') {
     tiles.push(
-      { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: '#8b5cf6', path: '/app/admin' },
-      { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.primary, path: '/app/registrations', badge: stats.pendingRegistrations },
-      { icon: <UserCheck size={20} />, label: 'Candidatures', color: '#f59e0b', path: '/app/aidant-candidates', badge: stats.pendingAidants },
-      { icon: <Users size={20} />, label: 'Bénéficiaires', color: '#3b82f6', path: '/app/patients', badge: stats.totalBeneficiaires },
-      { icon: <Calendar size={20} />, label: 'Visites', color: '#10b981', path: '/app/visits', badge: stats.todayVisits },
-      { icon: <FileCheck size={20} />, label: 'Valider visites', color: '#84cc16', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <DollarSign size={20} />, label: 'Paiements', color: '#8b5cf6', path: '/app/admin-payments', badge: stats.totalPayments },
-      { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
-      { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
-      { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
-      { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
-      { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
-      { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
+      { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', color: colors.primary, path: '/app/admin' },
+      { icon: <ClipboardList size={20} />, label: 'Inscriptions', color: colors.gold || '#c9a84c', path: '/app/registrations', badge: stats.pendingRegistrations },
+      { icon: <UserCheck size={20} />, label: 'Candidatures', color: colors.secondary || '#c9a84c', path: '/app/aidant-candidates', badge: stats.pendingAidants },
+      { icon: <Users size={20} />, label: 'Bénéficiaires', color: colors.accent || colors.primary, path: '/app/patients', badge: stats.totalBeneficiaires },
+      { icon: <Calendar size={20} />, label: 'Visites', color: colors.gold || '#c9a84c', path: '/app/visits', badge: stats.todayVisits },
+      { icon: <FileCheck size={20} />, label: 'Valider visites', color: colors.primaryLight || '#2a6a4a', path: '/app/admin/visits/validation', badge: stats.pendingValidations },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.secondary || '#c9a84c', path: '/app/orders', badge: stats.pendingOrders },
+      { icon: <DollarSign size={20} />, label: 'Paiements', color: colors.gold || '#c9a84c', path: '/app/admin-payments', badge: stats.totalPayments },
+      { icon: <Award size={20} />, label: 'Abonnements', color: colors.primaryLight || '#2a6a4a', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
+      { icon: <Package size={20} />, label: 'Offres', color: colors.accent || colors.primary, path: '/app/offers' },
+      { icon: <Settings size={20} />, label: 'Paramètres', color: colors.textLight, path: '/app/settings' },
+      { icon: <Bell size={20} />, label: 'Notifications', color: colors.primary, path: '/app/admin-notifications' },
+      { icon: <MapPin size={20} />, label: 'Carte', color: colors.secondary || '#c9a84c', path: '/app/map' },
+      { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
     );
     return tiles;
   }
 
   tiles.push(
     { icon: <LayoutDashboard size={20} />, label: 'Accueil', color: colors.primary, path: '/app' },
-    { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
+    { icon: <User size={20} />, label: 'Profil', color: colors.textLight, path: '/app/profile' },
   );
   return tiles;
 };
@@ -142,6 +142,8 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
 const DashboardPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const {
     isFamily,
@@ -190,15 +192,12 @@ const DashboardPage = () => {
   });
   const [isLoadingBeneficiaires, setIsLoadingBeneficiaires] = useState(false);
 
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
   const drafts = visits.filter(v => v.status === 'brouillon');
   const hasDrafts = drafts.length > 0;
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
   // ============================================================
-  // ✅ SLIDES DU CARROUSEL ALIGNÉES SUR LES SPÉCIFICATIONS ET FORFAITS (5 SLIDES PAR RÔLE)
+  // SLIDES DU CARROUSEL AVEC COULEURS DU BRANDING
   // ============================================================
   const slides: HeroSlide[] = useMemo(() => {
     const seniorImg = '/assets/images/banners/senior-banner.png';
@@ -211,14 +210,14 @@ const DashboardPage = () => {
       return [
         {
           title: '👔 Supervision de la Plateforme',
-          description: 'Pilotez l’activité globale de Santé Plus Services, gérez les alertes opérationnelles et supervisez les interventions en cours.',
+          description: 'Pilotez l\'activité globale de Santé Plus Services, gérez les alertes opérationnelles et supervisez les interventions en cours.',
           image: coordImg,
           actionText: 'Espace Admin',
           actionPath: '/app/admin',
         },
         {
           title: '📝 Inscriptions en attente',
-          description: 'Validez les nouvelles fiches d’inscriptions des familles locales et de la diaspora béninoise pour activer leurs accès.',
+          description: 'Validez les nouvelles fiches d\'inscriptions des familles locales et de la diaspora béninoise pour activer leurs accès.',
           image: coordImg,
           actionText: 'Voir les inscriptions',
           actionPath: '/app/registrations',
@@ -238,7 +237,7 @@ const DashboardPage = () => {
           actionPath: '/app/offers',
         },
         {
-          title: '📍 Radar d’interventions GPS',
+          title: '📍 Radar d\'interventions GPS',
           description: 'Suivez la position géographique en temps réel des intervenants sur le terrain pour contrôler le bon déroulement des missions.',
           image: coordImg,
           actionText: 'Ouvrir la carte',
@@ -258,7 +257,7 @@ const DashboardPage = () => {
           actionPath: '/app/planning',
         },
         {
-          title: '📍 Suivi d’itinéraire GPS actif',
+          title: '📍 Suivi d\'itinéraire GPS actif',
           description: 'Enregistrez votre départ et arrivée lors des visites pour rassurer la famille et valider la réalité des missions.',
           image: aidantImg,
           actionText: 'Voir la carte',
@@ -273,7 +272,7 @@ const DashboardPage = () => {
         },
         {
           title: '💬 Messagerie et coordination',
-          description: 'Discutez en temps réel avec le coordinateur ou le proche du bénéficiaire pour coordonner l’aide.',
+          description: 'Discutez en temps réel avec le coordinateur ou le proche du bénéficiaire pour coordonner l\'aide.',
           image: aidantImg,
           actionText: 'Mes discussions',
           actionPath: '/app/messages',
@@ -385,7 +384,7 @@ const DashboardPage = () => {
       });
 
       setCurrentSlide((prevIndex) => (prevIndex + 1) % slides.length);
-    }, 4000); 
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [autoplayActive, slides.length]);
@@ -413,17 +412,17 @@ const DashboardPage = () => {
   };
 
   const handleNextSlide = () => {
-    setAutoplayActive(false); 
+    setAutoplayActive(false);
     setCurrentSlide((prev) => (prev + 1) % slides.length);
   };
 
   const handlePrevSlide = () => {
-    setAutoplayActive(false); 
+    setAutoplayActive(false);
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
   const handleDotClick = (index: number) => {
-    setAutoplayActive(false); 
+    setAutoplayActive(false);
     setCurrentSlide(index);
   };
 
@@ -534,7 +533,6 @@ const DashboardPage = () => {
 
       await Promise.all(loaders);
 
-      // ✅ Chargement des statistiques globales UNIQUEMENT pour les administrateurs
       if (isAdminOrCoordinator) {
         await Promise.all([
           fetchBeneficiairesStats(),
@@ -548,7 +546,7 @@ const DashboardPage = () => {
   });
 
   // ============================================================
-  // ✅ CHARGEMENT DE DONNÉES CIBLÉ ET INTÉGRAL PAR RÔLE POUR OPTIMISER LE TEMPS DE RENDU
+  // CHARGEMENT DE DONNÉES
   // ============================================================
   useEffect(() => {
     const loadData = async () => {
@@ -566,7 +564,6 @@ const DashboardPage = () => {
 
       await Promise.all(loaders);
 
-      // ✅ Chargement des statistiques globales UNIQUEMENT pour les administrateurs
       if (isAdminOrCoordinator) {
         await Promise.all([
           fetchBeneficiairesStats(),
@@ -576,9 +573,9 @@ const DashboardPage = () => {
     };
     loadData();
     setGreeting(getGreeting());
-  }, [isAdminOrCoordinator, isFamily, isAidant]);
+    setIsMaman(profile?.patient_category === 'maman_bebe');
+  }, [isAdminOrCoordinator, isFamily, isAidant, profile?.patient_category]);
 
-  // Calcul du loader optimisé selon le rôle
   const hasInMemoryData = patients.length > 0 || visits.length > 0 || orders.length > 0;
   const isLoading = (patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires) && !hasInMemoryData;
 
@@ -592,7 +589,6 @@ const DashboardPage = () => {
     const totalPayments = payments.length;
 
     return {
-      // ✅ COHÉRENCE PARFAITE : Si admin, afficher le total global de la plateforme, sinon afficher le compte local du rôle connecté (famille ou aidant)
       proches: isAdminOrCoordinator ? beneficiairesStats.totalBeneficiaires : patients.length,
       patientsCount: isAdminOrCoordinator ? beneficiairesStats.patientsCount : patients.length,
       personalAccountsCount: isAdminOrCoordinator ? beneficiairesStats.personalAccountsCount : 0,
@@ -642,22 +638,30 @@ const DashboardPage = () => {
       
       {/* BANNIÈRE BROUILLONS */}
       {isFamily && canConvertDrafts && (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-xl shadow-sm border border-yellow-200">
+        <div 
+          className="border-l-4 p-4 rounded-xl shadow-sm border"
+          style={{ 
+            backgroundColor: colors.gold + '15',
+            borderColor: colors.gold,
+            border: `1px solid ${colors.gold}30`,
+          }}
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
-              <AlertCircle className="text-yellow-500 mt-0.5" size={24} />
+              <AlertCircle className="mt-0.5 shrink-0" size={24} style={{ color: colors.gold }} />
               <div>
-                <p className="font-bold text-yellow-800">
+                <p className="font-bold" style={{ color: colors.text }}>
                   📋 {stats.draftCount} visite{stats.draftCount > 1 ? 's' : ''} en attente de validation
                 </p>
-                <p className="text-sm text-yellow-700 font-medium mt-0.5">
+                <p className="text-sm font-medium mt-0.5" style={{ color: colors.text + '80' }}>
                   Une ou plusieurs visites sont sauvegardées. Finalisez-les en un clic avec votre abonnement.
                 </p>
               </div>
             </div>
             <button
               onClick={() => navigate('/app/visits?filter=brouillon')}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0"
+              className="text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm shrink-0 hover:opacity-90"
+              style={{ background: colors.primary }}
             >
               Consulter mes brouillons
             </button>
@@ -667,10 +671,8 @@ const DashboardPage = () => {
 
       {/* CARROUSEL INTERACTIF */}
       <section 
-        className="relative overflow-hidden rounded-[2.5rem] bg-slate-900 border border-white/10"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className="relative overflow-hidden rounded-[2.5rem] border"
+        style={{ backgroundColor: colors.primary, borderColor: colors.primary + '30' }}
       >
         <div 
           className="flex transition-transform duration-500 ease-out h-[210px] sm:h-[185px] w-full"
@@ -703,7 +705,7 @@ const DashboardPage = () => {
                   <button
                     onClick={() => navigate(slide.actionPath)}
                     className="inline-flex items-center gap-1.5 text-white text-[11px] sm:text-xs font-black px-4 py-2 rounded-2xl transition-all shadow-lg active:scale-95"
-                    style={{ background: colors.primary }}
+                    style={{ background: colors.gold || '#c9a84c' }}
                   >
                     {slide.actionText}
                     <ArrowRight size={12} />
@@ -761,21 +763,21 @@ const DashboardPage = () => {
               label="Visites à venir"
               value={stats.upcomingVisits}
               icon={<Calendar size={15} />}
-              color="#10b981"
+              color={colors.gold || '#c9a84c'}
               onClick={() => navigate('/app/visits')}
             />
             <StatCard
               label="Commandes en cours"
               value={stats.pendingOrders}
               icon={<ShoppingBag size={15} />}
-              color="#f59e0b"
+              color={colors.secondary || '#c9a84c'}
               onClick={() => navigate('/app/orders')}
             />
             <StatCard
               label="Visites terminées"
               value={stats.completedVisits}
               icon={<CheckCircle size={15} />}
-              color="#3b82f6"
+              color={colors.primaryLight || '#2a6a4a'}
               onClick={() => navigate('/app/visits')}
             />
           </>
@@ -794,21 +796,21 @@ const DashboardPage = () => {
               label="Missions"
               value={stats.pendingVisits}
               icon={<Calendar size={15} />}
-              color="#10b981"
+              color={colors.gold || '#c9a84c'}
               onClick={() => navigate('/app/planning')}
             />
             <StatCard
               label="Commandes"
               value={stats.pendingOrders}
               icon={<ShoppingBag size={15} />}
-              color="#f59e0b"
+              color={colors.secondary || '#c9a84c'}
               onClick={() => navigate('/app/orders')}
             />
             <StatCard
               label="Interventions"
               value={stats.completedVisits}
               icon={<History size={15} />}
-              color="#78350f"
+              color={colors.primaryLight || '#2a6a4a'}
               onClick={() => navigate('/app/history')}
             />
           </>
@@ -827,21 +829,21 @@ const DashboardPage = () => {
               label="Inscriptions"
               value={stats.pendingRegistrations}
               icon={<ClipboardList size={15} />}
-              color="#f59e0b"
+              color={colors.gold || '#c9a84c'}
               onClick={() => navigate('/app/registrations')}
             />
             <StatCard
               label="Aidants"
               value={stats.totalAidants}
               icon={<UserCheck size={15} />}
-              color="#3b82f6"
+              color={colors.secondary || '#c9a84c'}
               onClick={() => navigate('/app/aidants')}
             />
             <StatCard
               label="Revenus"
               value={`${stats.revenue.toLocaleString()} FCFA`}
               icon={<TrendingUp size={15} />}
-              color="#10b981"
+              color={colors.gold || '#c9a84c'}
               onClick={() => navigate('/app/admin-payments')}
             />
           </>
@@ -849,12 +851,14 @@ const DashboardPage = () => {
       </section>
 
       {/* MENU DE NAVIGATION GRILLE */}
-      <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
+      <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+          <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
             Menu rapide
           </h2>
-          <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full font-semibold">{tiles.length} outils</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: colors.primary + '10', color: colors.primary }}>
+            {tiles.length} outils
+          </span>
         </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
@@ -870,7 +874,7 @@ const DashboardPage = () => {
               >
                 {tile.icon}
               </div>
-              <span className="text-[11px] font-semibold text-center leading-tight text-gray-600 truncate w-full transition-colors group-hover:text-gray-900">
+              <span className="text-[11px] font-semibold text-center leading-tight truncate w-full transition-colors group-hover:text-gray-900" style={{ color: colors.text }}>
                 {tile.label}
               </span>
               {tile.badge !== undefined && tile.badge > 0 && (
@@ -888,9 +892,9 @@ const DashboardPage = () => {
 
       {/* PROCHES / BENEFICIAIRES RECENTES */}
       {(isFamily || isAidant) && hasProches && (
-        <section className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100/50">
+        <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+            <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
               {getProchesTitle()}
             </h2>
             <button
@@ -929,9 +933,9 @@ const DashboardPage = () => {
       {isFamily && (stats.upcomingVisits > 0 || stats.pendingOrders > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stats.upcomingVisits > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
+            <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
               <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+                <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
                   Prochaines visites
                 </h2>
                 <button
@@ -954,15 +958,15 @@ const DashboardPage = () => {
           )}
 
           {stats.pendingOrders > 0 && (
-            <section className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
+            <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
               <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+                <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
                   Commandes récentes
                 </h2>
                 <button
                   onClick={() => navigate('/app/orders')}
                   className="text-xs font-bold hover:underline"
-                  style={{ color: colors.primary}}
+                  style={{ color: colors.primary }}
                 >
                   Tout voir
                 </button>
@@ -982,9 +986,9 @@ const DashboardPage = () => {
 
       {/* PLANIFICATION POUR LES AIDANTS */}
       {isAidant && stats.pendingVisits > 0 && (
-        <section className="bg-white rounded-3xl p-5 shadow-sm border border-black/5">
+        <section className="bg-white rounded-3xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-xs font-bold tracking-wider uppercase text-gray-400">
+            <h2 className="text-xs font-bold tracking-wider uppercase" style={{ color: colors.textLight }}>
               📋 Missions à venir
             </h2>
             <button
@@ -1008,7 +1012,7 @@ const DashboardPage = () => {
 
       {/* EMPTY STATE PROACTIF */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
-        <section className="bg-white rounded-3xl p-6 text-center border border-black/5">
+        <section className="bg-white rounded-3xl p-6 text-center border" style={{ borderColor: colors.primary + '15' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
             <Lightbulb size={22} style={{ color: colors.primary }} />
           </div>
@@ -1021,7 +1025,7 @@ const DashboardPage = () => {
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <button
               onClick={() => navigate('/app/visits')}
-              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm shadow-purple-50"
+              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm"
               style={{ background: colors.primary }}
             >
               <Calendar size={13} />
@@ -1030,7 +1034,7 @@ const DashboardPage = () => {
             <button
               onClick={() => navigate('/app/orders/create')}
               className="px-4 py-2 rounded-xl font-bold text-xs border transition-all hover:bg-gray-50 flex items-center gap-1.5"
-              style={{ borderColor: colors.border, color: colors.text }}
+              style={{ borderColor: colors.primary + '25', color: colors.text }}
             >
               <ShoppingBag size={13} />
               Nouvelle commande
@@ -1038,22 +1042,8 @@ const DashboardPage = () => {
           </div>
         </section>
       )}
-
     </div>
   );
-};
-
-// =============================================
-// COMPOSANT COMPLEMENTAIRE INTERNE
-// =============================================
-interface ActivityIconProps {
-  role: string | null;
-}
-
-const ActivityIcon = ({ role }: ActivityIconProps) => {
-  if (role === 'family') return <Compass size={11} />;
-  if (role === 'aidant') return <Rocket size={11} />;
-  return <LayoutDashboard size={11} />;
 };
 
 // =============================================
@@ -1072,10 +1062,11 @@ const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300 text-left w-full flex items-center justify-between group"
+      className="bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300 text-left w-full flex items-center justify-between group"
+      style={{ borderColor: color + '15' }}
     >
       <div className="space-y-0.5 min-w-0 pr-1">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">
+        <p className="text-[10px] font-bold uppercase tracking-wider truncate" style={{ color: '#6b7280' }}>
           {label}
         </p>
         <p className="text-lg sm:text-xl font-extrabold truncate" style={{ color }}>
@@ -1087,39 +1078,6 @@ const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => {
         style={{ background: color + '0d', color }}
       >
         {icon}
-      </div>
-    </button>
-  );
-};
-
-// =============================================
-// SUGGESTION CARD
-// =============================================
-
-interface SuggestionCardProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  color: string;
-  onClick: () => void;
-  buttonText: string;
-}
-
-const SuggestionCard = ({ icon, title, description, color, onClick, buttonText }: SuggestionCardProps) => {
-  return (
-    <button
-      onClick={onClick}
-      className="bg-white rounded-2xl p-4.5 border border-gray-100 text-left hover:shadow-sm transition-all duration-300 group flex items-start gap-3 w-full"
-    >
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 duration-300 shadow-inner" style={{ background: color + '10', color }}>
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0 space-y-0.5">
-        <h4 className="font-extrabold text-xs" style={{ color }}>{title}</h4>
-        <p className="text-[11px] text-gray-400 leading-normal">{description}</p>
-        <span className="inline-flex items-center gap-0.5 mt-1.5 text-[11px] font-bold group-hover:underline" style={{ color }}>
-          {buttonText} <ArrowRight size={11} className="transition-transform group-hover:translate-x-0.5" />
-        </span>
       </div>
     </button>
   );
