@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MobileTabBar.tsx
-// ✅ BARRE D'ONGLETS MOBILE : HOVERS ET SELECTIONS INTÉGRALEMENT CONVERSES AVEC LES COULEURS DE L'UNIVERS DU COMPTE
+// ✅ BARRE D'ONGLETS MOBILE : SÉCURISATION DU TYPAGE TS ET HOVERS DYNAMIQUES DE L'UNIVERS CONNECTÉ
 
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -31,12 +31,30 @@ import { useState, useEffect } from 'react';
 import { cn } from '@/utils/helpers';
 import { useBranding } from '@/hooks/useBranding';
 
+// ============================================================
+// TYPAGE STRICT DES ÉLÉMENTS DE MENU (Évite les erreurs TS "undefined")
+// ============================================================
+
+interface MainItem {
+  icon: React.ReactNode;
+  label: string;
+  path: string; // 🟢 Requis (non-optionnel)
+}
+
+interface MoreItem {
+  icon: React.ReactNode;
+  label: string;
+  path: string; // 🟢 Requis (non-optionnel)
+  color: string;
+  bg: string;
+}
+
 interface MobileTabBarProps {
   colors?: any;
 }
 
-const getMainItems = (role: string | null) => {
-  const base = [
+const getMainItems = (role: string | null): MainItem[] => {
+  const base: MainItem[] = [
     { icon: <Home size={20} />, label: 'Accueil', path: '/app' },
   ];
 
@@ -70,7 +88,7 @@ const getMainItems = (role: string | null) => {
   return base;
 };
 
-const getMoreItems = (role: string | null, brand: any) => {
+const getMoreItems = (role: string | null, brand: any): MoreItem[] => {
   const colors = brand.colors;
   const primaryColor = colors.primary;
   const goldColor = colors.gold;
@@ -105,7 +123,7 @@ const getMoreItems = (role: string | null, brand: any) => {
       { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
       { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments', color: goldColor, bg: `${goldColor}20` },
       { icon: <Award size={20} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: colors.primary, bg: `${colors.primary}12` },
-      { icon: <Package size={20} />, label: 'Offres', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
+      { icon: <Package size={20} />, label: 'Offres', path: '/app/offers', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
       { icon: <Bell size={20} />, label: 'Notifications', path: '/app/admin-notifications', color: colors.primary, bg: `${colors.primary}10` },
       { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primaryLight, bg: `${colors.primaryLight}12` },
       { icon: <User size={20} />, label: 'Profil', path: '/app/profile', color: colors.gold, bg: `${colors.gold}20` },
@@ -269,7 +287,6 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                       : ""
                   )}
                   style={{
-                    // 🟢 HOVER DYNAMIQUE ET SÉCURISÉ : Opacité contrôlée basée sur la couleur d'univers
                     backgroundColor: active 
                       ? colors.primary 
                       : (isHovered ? colors.primary + '08' : 'transparent'),
