@@ -14,16 +14,12 @@ import {
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { Offer } from '@/types';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
-
-// ✅ IMPORTER LES HELPERS
-import {
-  getPonctualOrderPriceByType,
-} from '@/lib/constants';
+import { getPonctualOrderPriceByType } from '@/lib/constants';
 
 interface PaymentModalContentProps {
   offer?: Offer | null;
@@ -46,6 +42,8 @@ export const PaymentModalContent = ({
   forcePonctual = false,
   patientId: propPatientId = null,
 }: PaymentModalContentProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
   const { createPayment } = usePaymentStore();
   const { profile, role } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
@@ -59,7 +57,6 @@ export const PaymentModalContent = ({
   const selectedOffer = offer || plan;
   const period = selectedOffer?.period || selectedOffer?.type || 'mois';
 
-  // ✅ DÉTECTION PONCTUELLE
   const isPonctual = forcePonctual ||
     period === 'ponctuelle' ||
     period === 'intervention' ||
@@ -72,7 +69,6 @@ export const PaymentModalContent = ({
   const planName = selectedOffer?.name || 'Abonnement Santé Plus';
   const visitsPerWeek = selectedOffer?.visitsPerWeek || selectedOffer?.visits_per_week || null;
 
-  // Détecter si c'est une visite ou une commande
   const isVisit = isPonctual && !!orderData?.visit_id;
   const isOrder = isPonctual && !!orderData?.description && !orderData?.visit_id;
 
@@ -83,15 +79,12 @@ export const PaymentModalContent = ({
   );
   const [selectedTargetName, setSelectedTargetName] = useState<string>('');
 
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
   // Charger les proches de l'utilisateur
   useEffect(() => {
     fetchPatients();
   }, [fetchPatients]);
 
-  // ✅ FILTRAGE COHÉRENT DES PROCHES : Affiche uniquement les proches qui correspondent à la catégorie du forfait
+  // ✅ FILTRAGE COHÉRENT DES PROCHES
   const compatiblePatients = useMemo(() => {
     if (!selectedOffer || isPonctual) return [];
     return patients.filter((p) => p.category === selectedOffer.category);
@@ -199,8 +192,8 @@ export const PaymentModalContent = ({
         description: planName,
         email: profile?.email,
         is_ponctual: isPonctual,
-        is_visit: isVisit,                           
-        visit_id: orderData?.visit_id || null,            
+        is_visit: isVisit,
+        visit_id: orderData?.visit_id || null,
         order_data: orderDataForBackend,
         patient_id: finalPatientId,
         target_type: selectedTargetType,
@@ -255,18 +248,18 @@ export const PaymentModalContent = ({
               {getTitle()}
             </p>
 
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm mt-0.5" style={{ color: colors.textLight }}>
               {getDescription()}
             </p>
 
             {visitsPerWeek && !isPonctual && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs mt-1" style={{ color: colors.textLight }}>
                 📅 {visitsPerWeek} visite{visitsPerWeek > 1 ? 's' : ''} par semaine
               </p>
             )}
 
             {isPonctual && (
-              <p className="text-xs text-orange-500 mt-1 font-medium">
+              <p className="text-xs mt-1 font-medium" style={{ color: colors.gold || '#c9a84c' }}>
                 ⚡ Service ponctuel - Paiement unique
               </p>
             )}
@@ -274,7 +267,7 @@ export const PaymentModalContent = ({
         </div>
 
         <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textLight }}>
             {isPonctual ? 'Montant à payer' : 'Montant'}
           </p>
           <p className="text-3xl font-black mt-1" style={{ color: colors.primary }}>
@@ -283,10 +276,10 @@ export const PaymentModalContent = ({
         </div>
       </div>
 
-      {/* SÉLECTEUR DE BÉNÉFICIAIRE COHÉRENT (Visible s'il y a des proches compatibles) */}
+      {/* SÉLECTEUR DE BÉNÉFICIAIRE COHÉRENT */}
       {compatiblePatients.length > 0 && !isPonctual && (
         <div className="space-y-2.5">
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">
+          <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
             Bénéficiaire du forfait
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -305,7 +298,7 @@ export const PaymentModalContent = ({
               )}
               style={{
                 background: selectedTargetType === 'personal' ? colors.primary : 'transparent',
-                borderColor: selectedTargetType === 'personal' ? colors.primary : colors.border,
+                borderColor: selectedTargetType === 'personal' ? colors.primary : colors.primary + '20',
               }}
             >
               👤 Compte Personnel
@@ -326,7 +319,7 @@ export const PaymentModalContent = ({
               )}
               style={{
                 background: selectedTargetType === 'patient' ? colors.primary : 'transparent',
-                borderColor: selectedTargetType === 'patient' ? colors.primary : colors.border,
+                borderColor: selectedTargetType === 'patient' ? colors.primary : colors.primary + '20',
               }}
             >
               👨‍👩‍👦 Un proche ({compatiblePatients.length})
@@ -335,14 +328,14 @@ export const PaymentModalContent = ({
 
           {selectedTargetType === 'patient' && (
             <div className="animate-fadeIn space-y-1">
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              <label className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
                 Sélectionner le proche
               </label>
               <select
                 value={selectedPatientId || ''}
                 onChange={(e) => handlePatientChange(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold outline-none bg-gray-50/50"
-                style={{ borderColor: colors.border, color: colors.text }}
+                style={{ borderColor: colors.primary + '20', color: colors.text }}
               >
                 {compatiblePatients.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -362,17 +355,17 @@ export const PaymentModalContent = ({
       >
         <AlertCircle size={19} style={{ color: colors.primary }} className="shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <p className="text-xs leading-relaxed text-gray-600">
+          <p className="text-xs leading-relaxed" style={{ color: colors.textLight }}>
             {getInfoMessage()}
           </p>
-          <p className="text-[10px] text-gray-400 font-medium">
+          <p className="text-[10px] font-medium" style={{ color: colors.textLight }}>
             💳 Paiement sécurisé via FedaPay
           </p>
         </div>
       </div>
 
       {/* BOUTONS */}
-      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
         <button
           type="button"
           onClick={onCancel}
