@@ -1,22 +1,15 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
-// ✅ COMPOSANT DE SOUMISSION UNIQUE : CORRECTION DES APPELS DUPLIQUÉS ET DU TYPE D'ASSIGNATION
-
+ 
 import { useState, useEffect } from 'react';
 import { 
-  CheckCircle, 
   AlertCircle, 
   User, 
   Users, 
-  Info, 
-  X, 
   Star,
   Briefcase,
-  MapPin,
-  Clock,
   Shield,
-  Zap,
-  UserPlus,
   Loader2,
+  CheckCircle,
 } from 'lucide-react';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { useAssignmentStore } from '@/stores/assignmentStore';
@@ -30,21 +23,18 @@ const ASSIGNMENT_TYPES_UI = [
     icon: '📌', 
     label: 'Permanente',
     description: 'Suivi sur le long terme',
-    quota: 1,
   },
   { 
     value: 'temporary', 
     icon: '⏳', 
     label: 'Temporaire',
     description: 'Période définie',
-    quota: 1,
   },
   { 
     value: 'secondary', 
     icon: '⚡', 
     label: 'Ponctuelle',
     description: 'Intervention unique',
-    quota: 0,
   },
 ];
 
@@ -72,7 +62,6 @@ export const AssignAidantModalContent = ({
   targetType = 'patient',
   targetId,
   targetName,
-  currentAidantId,
   allowForce = false,
   onAssignAidant,
   isAdmin = false,
@@ -135,9 +124,6 @@ export const AssignAidantModalContent = ({
     }
   };
 
-  // ============================================================
-  // SOUMISSION DU FORMULAIRE UNIQUE
-  // ============================================================
   const handleSubmit = async () => {
     if (targetTypeLocal === 'patient' && !selectedPatientId && targetType !== 'visit') {
       toast.error('Veuillez sélectionner un proche');
@@ -163,7 +149,6 @@ export const AssignAidantModalContent = ({
       
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // ✅ CAS A : Assignation à une visite (Admin)
       if (targetType === 'visit' && targetId && onAssignAidant) {
         await onAssignAidant(
           aidantUserId, 
@@ -176,11 +161,9 @@ export const AssignAidantModalContent = ({
         return;
       }
 
-      // ✅ CAS B : Assignation directe (famille)
       const finalTargetType = targetTypeLocal === 'patient' ? 'patient' : 'personal_account';
       const finalTargetId = targetTypeLocal === 'patient' ? selectedPatientId : user.id;
 
-      // Vérification du quota
       if (assignmentType !== 'secondary' && !forceMode) {
         const selectedAidant = aidants.find(a => a.user_id === aidantUserId) || initialAidant;
         if (selectedAidant) {
@@ -239,56 +222,34 @@ export const AssignAidantModalContent = ({
     return { name, rating, missions, current, max, isFull, availableSlots };
   };
 
-  const getAidantStatus = (aidant: any) => {
-    const { isFull, availableSlots } = getAidantDisplay(aidant);
-    if (isFull) {
-      return { label: 'Complet', color: 'text-red-500', bg: 'bg-red-50' };
-    }
-    if (availableSlots > 0) {
-      return { label: `${availableSlots} place${availableSlots > 1 ? 's' : ''}`, color: 'text-green-500', bg: 'bg-green-50' };
-    }
-    return { label: 'Indisponible', color: 'text-gray-400', bg: 'bg-gray-50' };
-  };
-
   const renderAidantSelection = () => {
     if (initialAidant) {
-      const { name, rating, missions, current, max, isFull } = getAidantDisplay(initialAidant);
-      const status = getAidantStatus(initialAidant);
+      const { name, rating, missions } = getAidantDisplay(initialAidant);
 
       return (
-        <div className="p-4 rounded-xl" style={{ background: colors.primary + '06' }}>
+        <div className="p-3.5 rounded-2xl border" style={{ background: colors.primary + '04', borderColor: colors.primary + '10' }}>
           <div className="flex items-center gap-3">
             <div
-              className="w-12 h-12 rounded-full flex items-center justify-center text-white text-base font-bold shrink-0"
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-black shrink-0"
               style={{ background: colors.primary }}
             >
               {name.charAt(0).toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold truncate" style={{ color: colors.text }}>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-extrabold truncate" style={{ color: colors.text }}>
                 {name}
               </p>
-              <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: colors.textLight }}>
+              <div className="flex items-center gap-2 text-[10px] font-semibold mt-0.5 text-gray-400">
                 <span className="flex items-center gap-0.5">
-                  <Star size={12} className="text-yellow-400 fill-yellow-400" />
+                  <Star size={11} className="text-yellow-400 fill-yellow-400" />
                   {rating.toFixed(1)}
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-0.5">
-                  <Briefcase size={12} />
+                  <Briefcase size={11} />
                   {missions} missions
                 </span>
-                <span>•</span>
-                <span className={status.color}>
-                  {status.label}
-                </span>
               </div>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-xs font-bold" style={{ color: isFull ? '#ef4444' : colors.primary }}>
-                {current}/{max}
-              </p>
-              <p className="text-[10px]" style={{ color: colors.textLight }}>assignations</p>
             </div>
           </div>
         </div>
@@ -298,13 +259,13 @@ export const AssignAidantModalContent = ({
     if (isAdmin && availableAidants.length > 0) {
       return (
         <div className="space-y-1">
-          <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
+          <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">
             Sélectionner un aidant
           </label>
           <select
             value={selectedAidantId}
             onChange={(e) => setSelectedAidantId(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-xs sm:text-sm font-semibold transition"
+            className="w-full px-3 h-10 rounded-xl border outline-none text-xs font-bold transition bg-white"
             style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             <option value="">Sélectionner un aidant...</option>
@@ -327,26 +288,20 @@ export const AssignAidantModalContent = ({
     if (targetTypeLocal === 'personal') return null;
 
     return (
-      <div>
-        <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
-          <Users size={14} className="inline mr-1" />
+      <div className="space-y-1">
+        <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">
           Sélectionner un proche
         </label>
         <select
           value={selectedPatientId}
           onChange={(e) => setSelectedPatientId(e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-sm focus:ring-2 transition"
-          style={{
-            borderColor: colors.primary + '20',
-            background: colors.background,
-            color: colors.text,
-          }}
+          className="w-full px-3 h-10 rounded-xl border outline-none text-xs font-bold transition bg-white"
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           <option value="">Choisir un proche...</option>
           {patients.map((patient: any) => (
             <option key={patient.id} value={patient.id}>
               {patient.first_name} {patient.last_name}
-              {patient.category && ` (${patient.category === 'maman_bebe' ? '👶' : '👴'})`}
             </option>
           ))}
         </select>
@@ -357,15 +312,14 @@ export const AssignAidantModalContent = ({
   const availableAidants = aidants || [];
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="space-y-4 max-w-full">
       {renderAidantSelection()}
 
-      {/* CHOIX DESTINATAIRE (pour famille) */}
+      {/* CHOIX DESTINATAIRE */}
       {!isAdmin && targetType !== 'visit' && hasPatients && (
-        <div>
-          <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
-            <User size={14} className="inline mr-1" />
-            Pour qui ?
+        <div className="space-y-1">
+          <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">
+            Destinataire de l'assignation
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -374,44 +328,32 @@ export const AssignAidantModalContent = ({
                 setTargetTypeLocal('personal');
                 setSelectedPatientId('');
               }}
-              className={`p-3 rounded-xl text-xs font-bold transition text-center ${
-                targetTypeLocal === 'personal'
-                  ? 'text-white shadow-sm scale-[1.02]'
-                  : 'border bg-gray-50 text-gray-600 hover:bg-gray-100'
+              className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
+                targetTypeLocal === 'personal' ? 'text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
               }`}
               style={{
                 background: targetTypeLocal === 'personal' ? colors.primary : 'transparent',
                 borderColor: targetTypeLocal === 'personal' ? colors.primary : colors.primary + '20',
               }}
             >
-              <div className="flex items-center justify-center gap-1.5">
-                <User size={14} />
-                <span>👤 Personnel</span>
-              </div>
-              <p className="text-[8px] opacity-70 mt-0.5">Pour votre compte</p>
+              <User size={14} />
+              <span>Personnel</span>
             </button>
 
             <button
               type="button"
               onClick={() => setTargetTypeLocal('patient')}
               disabled={!hasPatients}
-              className={`p-3 rounded-xl text-xs font-bold transition text-center ${
-                targetTypeLocal === 'patient'
-                  ? 'text-white shadow-sm scale-[1.02]'
-                  : hasPatients
-                    ? 'border bg-gray-50 text-gray-600 hover:bg-gray-100'
-                    : 'opacity-50 cursor-not-allowed border bg-gray-100 text-gray-400'
+              className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border min-w-0 w-full ${
+                targetTypeLocal === 'patient' ? 'text-white' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
               }`}
               style={{
                 background: targetTypeLocal === 'patient' ? colors.primary : 'transparent',
                 borderColor: targetTypeLocal === 'patient' ? colors.primary : colors.primary + '20',
               }}
             >
-              <div className="flex items-center justify-center gap-1.5">
-                <Users size={14} />
-                <span>👨‍👩‍👦 Proche</span>
-              </div>
-              <p className="text-[8px] opacity-70 mt-0.5">Pour un proche</p>
+              <Users size={14} />
+              <span>Un proche</span>
             </button>
           </div>
         </div>
@@ -420,8 +362,8 @@ export const AssignAidantModalContent = ({
       {renderPatientSelection()}
 
       {/* TYPE D'ASSIGNATION */}
-      <div>
-        <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
+      <div className="space-y-1.5">
+        <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">
           Type d'assignation
         </label>
         <div className="grid grid-cols-3 gap-2">
@@ -433,26 +375,16 @@ export const AssignAidantModalContent = ({
                 key={type.value}
                 type="button"
                 onClick={() => setAssignmentType(type.value)}
-                className={`p-2.5 rounded-xl text-xs font-bold transition-all text-center ${
-                  assignmentType === type.value
-                    ? 'text-white shadow-sm scale-[1.02]'
-                    : 'border hover:bg-gray-50'
+                className={`p-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border w-full ${
+                  assignmentType === type.value ? 'text-white shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
                 }`}
                 style={{
                   background: assignmentType === type.value ? colors.primary : 'transparent',
                   borderColor: assignmentType === type.value ? colors.primary : colors.primary + '20',
-                  color: assignmentType === type.value ? 'white' : colors.text,
                 }}
               >
-                <div className="text-base">{type.icon}</div>
-                <div>{type.label}</div>
-                <div className="text-[7px] opacity-60 mt-0.5">{type.description}</div>
-                {type.quota === 0 && (
-                  <div className="text-[7px] text-green-400 mt-0.5">⚡ Sans quota</div>
-                )}
-                {type.quota === 1 && (
-                  <div className="text-[7px] text-yellow-400 mt-0.5">📌 1 quota</div>
-                )}
+                <span>{type.icon} {type.label}</span>
+                <span className="text-[8px] opacity-75 truncate mt-0.5">{type.description}</span>
               </button>
             );
           })}
@@ -465,7 +397,7 @@ export const AssignAidantModalContent = ({
                 type="checkbox"
                 checked={forceMode}
                 onChange={(e) => setForceMode(e.target.checked)}
-                className="w-4 h-4 rounded focus:ring-2"
+                className="w-4 h-4 rounded"
                 style={{ accentColor: colors.primary }}
               />
               <span className="text-xs font-bold text-orange-700 flex items-center gap-1">
@@ -473,38 +405,32 @@ export const AssignAidantModalContent = ({
                 👔 Mode Force (ignore le quota)
               </span>
             </label>
-            <p className="text-[10px] text-orange-600 mt-0.5 ml-6">
-              Permet d'assigner un aidant même s'il est complet (5/4, 6/4, etc.)
-            </p>
           </div>
         )}
       </div>
 
       <div 
-        className={`p-3 rounded-xl flex items-start gap-2 ${
-          forceMode ? 'bg-orange-50 border border-orange-200' :
-          'bg-blue-50 border border-blue-200'
-        }`}
+        className="p-3 rounded-2xl flex items-start gap-2.5 border"
+        style={{ 
+          background: forceMode ? 'rgba(245, 158, 11, 0.05)' : colors.primary + '05', 
+          borderColor: forceMode ? '#F59E0B20' : colors.primary + '15' 
+        }}
       >
-        <AlertCircle size={16} className={forceMode ? 'text-orange-600' : 'text-blue-600'} />
-        <div>
-          <p className="text-xs font-medium" style={{ color: forceMode ? '#92400e' : '#1e3a8a' }}>
-            {forceMode 
-              ? '👔 Mode Force activé - L\'aidant sera assigné même s\'il est complet'
-              : targetType === 'visit' && isAdmin
-                ? '👔 Assignation à une visite - L\'aidant gérera cette visite'
-                : 'La famille et l\'aidant recevront une notification en temps réel'
-            }
-          </p>
-        </div>
+        <AlertCircle size={15} className={forceMode ? 'text-amber-500 shrink-0 mt-0.5' : 'text-gray-500 shrink-0 mt-0.5'} />
+        <p className="text-[10px] sm:text-xs leading-normal" style={{ color: colors.textLight }}>
+          {forceMode 
+            ? '👔 Mode Force actif : ignore la jauge limite pour attribuer l\'intervenant.'
+            : 'Une notification instantanée sera envoyée pour lui proposer la mission.'
+          }
+        </p>
       </div>
 
-      <div className="flex gap-3 pt-2 border-t" style={{ borderColor: colors.primary + '15' }}>
+      <div className="flex gap-2 pt-4 border-t border-gray-100">
         <button
           type="button"
           onClick={onCancel}
           disabled={isLoading}
-          className="flex-1 py-2.5 rounded-xl font-medium border transition hover:bg-gray-50 disabled:opacity-50"
+          className="flex-1 py-2.5 rounded-xl text-xs font-bold border transition hover:bg-gray-50"
           style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           Annuler
@@ -519,19 +445,15 @@ export const AssignAidantModalContent = ({
             (!selectedAidantId && !initialAidant) ||
             (isLoadingAidants)
           }
-          className="flex-1 py-2.5 rounded-xl text-white font-bold transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          style={{ 
-            background: (isLoading || (targetTypeLocal === 'patient' && !selectedPatientId && targetType !== 'visit') || (!selectedAidantId && !initialAidant)) 
-              ? '#9CA3AF' 
-              : colors.primary 
-          }}
+          className="flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition flex items-center justify-center gap-1.5"
+          style={{ background: colors.primary }}
         >
           {isLoading ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2 size={15} className="animate-spin" />
           ) : (
             <>
-              <CheckCircle size={16} />
-              Assigner l'aidant
+              <CheckCircle size={14} />
+              Assigner la mission
             </>
           )}
         </button>
