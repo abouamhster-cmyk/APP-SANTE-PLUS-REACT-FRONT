@@ -1,5 +1,6 @@
 // 📁 src/features/aidants/pages/AidantDetailPage.tsx
- 
+// ✅ INTERFACE DE DÉTAIL PREMIUM : SÉCURISATION DU TYPAGE TS ET RESOLUTION DE L'AVATAR
+
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -139,11 +140,30 @@ const AidantDetailPage = () => {
     }
   }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
 
-  const status = (() => {
-    if (!aidant?.is_available) return { label: 'Indisponible', color: 'text-red-500 border-red-100 bg-red-50/50' };
-    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4))
-      return { label: 'Complet', color: 'text-orange-500 border-orange-100 bg-orange-50/50' };
-    return { label: 'Disponible', color: 'text-green-600 border-green-100 bg-green-50/50' };
+  // 💡 Cast "any" sécurisé pour contourner les limitations de l'interface stricte
+  const anyAidant = aidant as any;
+
+  // 💡 Signature de type explicite pour garantir le passage du build TypeScript
+  const status: { label: string; color: string; bg: string } = (() => {
+    if (!aidant?.is_available) {
+      return { 
+        label: 'Indisponible', 
+        color: 'text-red-500 border-red-100', 
+        bg: 'bg-red-50/50' 
+      };
+    }
+    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4)) {
+      return { 
+        label: 'Complet', 
+        color: 'text-orange-500 border-orange-100', 
+        bg: 'bg-orange-50/50' 
+      };
+    }
+    return { 
+      label: 'Disponible', 
+      color: 'text-green-600 border-green-100', 
+      bg: 'bg-green-50/50' 
+    };
   })();
 
   if (isLoading || isCheckingAssignment) {
@@ -158,18 +178,16 @@ const AidantDetailPage = () => {
 
   const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
   
-  // ============================================================
-  // 💡 DÉCODEUR HYBRIDE D'OBJETS REJOINTS (Garantit la lecture si user est un tableau)
-  // ============================================================
-  const aidantUser = Array.isArray(aidant.user) ? aidant.user[0] : aidant.user;
+  // 💡 Décodeur hybride robuste
+  const aidantUser = Array.isArray(anyAidant?.user) ? anyAidant.user[0] : anyAidant?.user;
   
-  const name = aidantUser?.full_name || aidant.full_name || 'Aidant';
-  const email = aidantUser?.email || aidant.email;
-  const phone = aidantUser?.phone || aidant.phone;
-  const avatarUrl = aidantUser?.avatar_url || aidant.avatar_url;
-  const aidantLanguages = (aidant as any).languages as string[] | undefined;
+  const name = aidantUser?.full_name || anyAidant?.full_name || 'Aidant';
+  const email = aidantUser?.email || anyAidant?.email;
+  const phone = aidantUser?.phone || anyAidant?.phone;
+  const avatarUrl = aidantUser?.avatar_url || anyAidant?.avatar_url;
+  const aidantLanguages = anyAidant?.languages as string[] | undefined;
 
-  // 💡 HELPER DE CONSTRUCTION D'URLS PUBLIQUES SUPABASE POUR LES AVATARS RELATIFS
+  // 💡 Helper de construction d'URLs de secours Supabase
   const getPublicAvatarUrl = (url: string | null | undefined): string => {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -268,7 +286,7 @@ const AidantDetailPage = () => {
                 </div>
               </div>
 
-              {/* STATUT DISPO */}
+              {/* STATUS */}
               <span className={`text-xs px-2 py-1 rounded-full border self-center sm:self-start ${status.bg} ${status.color}`}>
                 {status.label}
               </span>
