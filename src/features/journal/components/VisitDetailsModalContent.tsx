@@ -1,7 +1,7 @@
 // 📁 src/features/journal/components/VisitDetailsModalContent.tsx
-// 📌 Contenu des détails d'une visite (sans wrapper modal)
-
+ 
 import { X, Calendar, Clock, User, MapPin, Image, Music, FileText, Star, CheckCircle, Award, Mic, Camera, FileCheck, Edit3 } from 'lucide-react';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
 
@@ -11,7 +11,10 @@ interface VisitDetailsModalContentProps {
   colors: any;
 }
 
-export const VisitDetailsModalContent = ({ visit, onClose, colors }: VisitDetailsModalContentProps) => {
+export const VisitDetailsModalContent = ({ visit, onClose, colors: propColors }: VisitDetailsModalContentProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
+  
   const {
     singular,
     isFamily,
@@ -48,11 +51,11 @@ export const VisitDetailsModalContent = ({ visit, onClose, colors }: VisitDetail
 
   const getStatusColor = (status: string) => {
     if (status === 'validee') return '#4CAF50';
-    if (status === 'en_cours') return '#2196F3';
-    if (status === 'terminee') return '#9C27B0';
-    if (status === 'annulee') return '#F44336';
+    if (status === 'en_cours') return '#3B82F6';
+    if (status === 'terminee') return '#8B5CF6';
+    if (status === 'annulee') return '#EF4444';
     if (status === 'planifiee') return '#4CAF50';
-    return '#FF9800';
+    return '#F59E0B';
   };
 
   return (
@@ -69,7 +72,7 @@ export const VisitDetailsModalContent = ({ visit, onClose, colors }: VisitDetail
           <h3 className="font-bold text-lg" style={{ color: colors.text }}>
             {visit.patient?.first_name} {visit.patient?.last_name}
           </h3>
-          <div className="flex items-center gap-2 text-sm" style={{ color: colors.text + '60' }}>
+          <div className="flex items-center gap-2 text-sm" style={{ color: colors.textLight }}>
             <User size={14} />
             <span>{getPatientLabel()}</span>
             <span className="opacity-40">•</span>
@@ -162,7 +165,7 @@ export const VisitDetailsModalContent = ({ visit, onClose, colors }: VisitDetail
             </h4>
           </div>
           <div className="p-4 rounded-xl" style={{ background: colors.primary + '05' }}>
-            <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: colors.text + '80' }}>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: colors.textLight }}>
               {visit.notes}
             </p>
           </div>
@@ -185,7 +188,8 @@ export const VisitDetailsModalContent = ({ visit, onClose, colors }: VisitDetail
             {visit.photos.map((photo: string, index: number) => (
               <div 
                 key={index} 
-                className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-black/5 cursor-pointer hover:opacity-80 transition"
+                className="aspect-square rounded-xl overflow-hidden bg-gray-100 border cursor-pointer hover:opacity-80 transition"
+                style={{ borderColor: colors.primary + '15' }}
                 onClick={() => window.open(photo, '_blank')}
               >
                 <img
@@ -221,7 +225,7 @@ export const VisitDetailsModalContent = ({ visit, onClose, colors }: VisitDetail
       )}
 
       {/* Bouton fermer */}
-      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+      <div className="flex gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
         <button
           onClick={onClose}
           className="flex-1 py-3 rounded-xl font-bold transition hover:opacity-80 flex items-center justify-center gap-2"
