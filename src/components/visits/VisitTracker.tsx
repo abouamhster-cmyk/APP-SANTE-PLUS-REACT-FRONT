@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Compass, Play, CheckCircle, Clock, MapPin, Loader2 } from 'lucide-react';
-import { getThemeColors } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 
 interface VisitTrackerProps {
   visit: any;
@@ -17,7 +17,8 @@ export const VisitTracker = ({
   onComplete,
   isSubmitting = false,
 }: VisitTrackerProps) => {
-  const colors = getThemeColors('senior');
+  const brand = useBranding();
+  const colors = brand.colors;
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
 
   // Calcul du chronomètre de mission en direct
@@ -51,21 +52,21 @@ export const VisitTracker = ({
   const isInProgress = visit.status === 'en_cours';
 
   return (
-    <div className="bg-white rounded-2xl p-4 border border-black/5 shadow-sm space-y-4">
+    <div className="bg-white rounded-2xl p-4 border shadow-sm space-y-4" style={{ borderColor: colors.primary + '15' }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div 
             className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
             style={{ 
               background: isInProgress ? 'rgba(33, 150, 243, 0.1)' : 'rgba(74, 175, 80, 0.1)',
-              color: isInProgress ? '#2196F3' : '#4CAF50'
+              color: isInProgress ? '#3B82F6' : '#4CAF50'
             }}
           >
             <Compass size={16} className={isInProgress ? 'animate-spin' : ''} style={{ animationDuration: '6s' }} />
           </div>
           <div>
-            <h4 className="font-bold text-xs sm:text-sm text-gray-800">Suivi d'itinéraire GPS</h4>
-            <p className="text-[10px] text-gray-400">Position partagée en temps réel avec la famille</p>
+            <h4 className="font-bold text-xs sm:text-sm" style={{ color: colors.text }}>Suivi d'itinéraire GPS</h4>
+            <p className="text-[10px]" style={{ color: colors.textLight }}>Position partagée en temps réel avec la famille</p>
           </div>
         </div>
 
@@ -83,9 +84,9 @@ export const VisitTracker = ({
         <div className="p-3 bg-gray-50 rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-gray-400 animate-pulse" />
-            <span className="text-xs text-gray-500 font-semibold">Temps de visite</span>
+            <span className="text-xs font-semibold" style={{ color: colors.textLight }}>Temps de visite</span>
           </div>
-          <span className="text-sm font-black tracking-wider text-gray-700 font-mono">
+          <span className="text-sm font-black tracking-wider font-mono" style={{ color: colors.text }}>
             {elapsedTime}
           </span>
         </div>
@@ -93,13 +94,13 @@ export const VisitTracker = ({
 
       {/* Position de départ */}
       {visit.location_start && (
-        <div className="text-xs space-y-1 text-gray-500">
+        <div className="text-xs space-y-1" style={{ color: colors.textLight }}>
           <p className="flex items-center gap-1.5 font-medium">
             <MapPin size={12} className="text-green-500" />
             Départ enregistré : {visit.location_start.lat.toFixed(4)}, {visit.location_start.lng.toFixed(4)}
           </p>
           {visit.start_time && (
-            <p className="text-[10px] text-gray-400 pl-4">
+            <p className="text-[10px] pl-4" style={{ color: colors.textLight }}>
               Démarré le {new Date(visit.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
@@ -147,3 +148,5 @@ export const VisitTracker = ({
     </div>
   );
 };
+
+export default VisitTracker;
