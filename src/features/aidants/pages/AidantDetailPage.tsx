@@ -139,27 +139,11 @@ const AidantDetailPage = () => {
     }
   }, [id, isFamily, fetchAidantById, fetchPatients, fetchMyAssignments]);
 
-  // 💡 Séparation propre des propriétés color et bg pour satisfaire le typage TS du compilateur
   const status = (() => {
-    if (!aidant?.is_available) {
-      return { 
-        label: 'Indisponible', 
-        color: 'text-red-500 border-red-100', 
-        bg: 'bg-red-50/50' 
-      };
-    }
-    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4)) {
-      return { 
-        label: 'Complet', 
-        color: 'text-orange-500 border-orange-100', 
-        bg: 'bg-orange-50/50' 
-      };
-    }
-    return { 
-      label: 'Disponible', 
-      color: 'text-green-600 border-green-100', 
-      bg: 'bg-green-50/50' 
-    };
+    if (!aidant?.is_available) return { label: 'Indisponible', color: 'text-red-500 border-red-100 bg-red-50/50' };
+    if ((aidant.active_assignments || 0) >= (aidant.max_assignments || 4))
+      return { label: 'Complet', color: 'text-orange-500 border-orange-100 bg-orange-50/50' };
+    return { label: 'Disponible', color: 'text-green-600 border-green-100 bg-green-50/50' };
   })();
 
   if (isLoading || isCheckingAssignment) {
@@ -174,8 +158,30 @@ const AidantDetailPage = () => {
 
   const canAssign = isFamily && !isAlreadyAssigned && aidant.is_available;
   
-  // Cast TypeScript explicite pour éviter l'erreur TS sur la propriété absente de l'interface
+  // ============================================================
+  // 💡 DÉCODEUR HYBRIDE D'OBJETS REJOINTS (Garantit la lecture si user est un tableau)
+  // ============================================================
+  const aidantUser = Array.isArray(aidant.user) ? aidant.user[0] : aidant.user;
+  
+  const name = aidantUser?.full_name || aidant.full_name || 'Aidant';
+  const email = aidantUser?.email || aidant.email;
+  const phone = aidantUser?.phone || aidant.phone;
+  const avatarUrl = aidantUser?.avatar_url || aidant.avatar_url;
   const aidantLanguages = (aidant as any).languages as string[] | undefined;
+
+  // 💡 HELPER DE CONSTRUCTION D'URLS PUBLIQUES SUPABASE POUR LES AVATARS RELATIFS
+  const getPublicAvatarUrl = (url: string | null | undefined): string => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    const supabaseUrl = 'https://mrsrogkjthtnppecndyc.supabase.co';
+    const cleanPath = url.replace(/^\/+/, '');
+    if (cleanPath.startsWith('avatars/')) {
+      return `${supabaseUrl}/storage/v1/object/public/${cleanPath}`;
+    }
+    return `${supabaseUrl}/storage/v1/object/public/avatars/${cleanPath}`;
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 pb-24 space-y-5">
@@ -194,7 +200,7 @@ const AidantDetailPage = () => {
             Profil de l’aidant
           </h1>
           <p className="text-xs truncate font-semibold" style={{ color: colors.textLight }}>
-            {aidant.user?.full_name}
+            {name}
           </p>
         </div>
       </div>
@@ -207,26 +213,24 @@ const AidantDetailPage = () => {
 
           {/* Photo de profil réelle ou initiales en fallback */}
           <div className="relative shrink-0">
-            {aidant.user?.avatar_url ? (
+            {avatarUrl ? (
               <img
-                src={aidant.user.avatar_url}
-                alt={aidant.user.full_name || 'Photo de profil'}
+                src={getPublicAvatarUrl(avatarUrl)}
+                alt={name}
                 className="w-20 h-20 rounded-2xl object-cover border border-gray-100 shadow-sm"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
-                  const parent = (e.target as HTMLImageElement).parentElement;
-                  if (parent) {
-                    const fallback = parent.querySelector('.avatar-fallback');
-                    if (fallback) fallback.classList.remove('hidden');
-                  }
+                  const fallback = document.getElementById('avatar-fallback');
+                  if (fallback) fallback.classList.remove('hidden');
                 }}
               />
             ) : null}
             <div
-              className={`avatar-fallback w-20 h-20 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-sm ${aidant.user?.avatar_url ? 'hidden' : ''}`}
+              id="avatar-fallback"
+              className={`avatar-fallback w-20 h-20 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-sm ${avatarUrl ? 'hidden' : ''}`}
               style={{ background: colors.primary }}
             >
-              {aidant.user?.full_name?.charAt(0).toUpperCase() || 'A'}
+              {name.charAt(0).toUpperCase()}
             </div>
             {aidant.is_verified && (
               <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-lg bg-green-500 text-white flex items-center justify-center border border-white shadow-md" title="Compte vérifié">
@@ -240,7 +244,7 @@ const AidantDetailPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="text-lg sm:text-xl font-black truncate" style={{ color: colors.text }}>
-                  {aidant.user?.full_name}
+                  {name}
                 </h2>
 
                 <div className="flex flex-wrap justify-center sm:justify-start gap-2 text-xs mt-1 font-semibold" style={{ color: colors.textLight }}>
@@ -256,7 +260,7 @@ const AidantDetailPage = () => {
                   {isAlreadyAssigned && (
                     <>
                       <span>•</span>
-                      <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                      <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100 font-bold">
                         📌 Mon aidant
                       </span>
                     </>
@@ -264,7 +268,7 @@ const AidantDetailPage = () => {
                 </div>
               </div>
 
-              {/* STATUS */}
+              {/* STATUT DISPO */}
               <span className={`text-xs px-2 py-1 rounded-full border self-center sm:self-start ${status.bg} ${status.color}`}>
                 {status.label}
               </span>
@@ -361,9 +365,9 @@ const AidantDetailPage = () => {
         <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t" style={{ borderColor: colors.primary + '10' }}>
           <div className="flex flex-1 gap-2">
             {/* Bouton Téléphone */}
-            {aidant.user?.phone && (
+            {phone && (
               <button
-                onClick={() => window.open(`tel:${aidant.user?.phone}`)}
+                onClick={() => window.open(`tel:${phone}`)}
                 className="flex-1 h-10 rounded-xl border text-xs font-bold transition hover:bg-gray-50 flex items-center justify-center gap-1.5"
                 style={{ borderColor: colors.primary + '20', color: colors.text }}
               >
@@ -373,14 +377,16 @@ const AidantDetailPage = () => {
             )}
 
             {/* Bouton Email */}
-            <button
-              onClick={() => window.open(`mailto:${aidant.user?.email}`)}
-              className="flex-1 h-10 rounded-xl border text-xs font-bold transition hover:bg-gray-50 flex items-center justify-center gap-1.5"
-              style={{ borderColor: colors.primary + '20', color: colors.text }}
-            >
-              <Mail size={14} />
-              Écrire
-            </button>
+            {email && (
+              <button
+                onClick={() => window.open(`mailto:${email}`)}
+                className="flex-1 h-10 rounded-xl border text-xs font-bold transition hover:bg-gray-50 flex items-center justify-center gap-1.5"
+                style={{ borderColor: colors.primary + '20', color: colors.text }}
+              >
+                <Mail size={14} />
+                Écrire
+              </button>
+            )}
           </div>
 
           {canAssign ? (
