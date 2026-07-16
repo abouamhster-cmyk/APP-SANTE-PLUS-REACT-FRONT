@@ -1,5 +1,5 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
- 
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -23,7 +23,7 @@ import {
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, formatCurrency, cn } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +34,8 @@ type TabType = 'missions' | 'deliveries' | 'available';
 const MissionsPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { visits, fetchVisits, startVisit, approveVisit, refuseVisit, isLoading } = useVisitStore();
   const { orders, fetchOrders, takeOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
 
@@ -46,17 +48,10 @@ const MissionsPage = () => {
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
-  // ÉTATS DE PULL-TO-REFRESH MOBILE
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
 
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
-
-  // ============================================================
-  // 🔥 DÉFINITIONS INCONDITIONNELLES DES HOOKS AU SOMMET
-  // ============================================================
   const myMissions = useMemo(() => visits.filter(v => v.aidant_id === aidantId), [visits, aidantId]);
   const assignedOrders = useMemo(() => orders.filter(o => o.aidant_id === aidantId), [orders, aidantId]);
   const availableOrders = useMemo(() => orders.filter(o => o.status === 'en_attente' || o.status === 'disponible'), [orders]);
@@ -89,10 +84,8 @@ const MissionsPage = () => {
     };
   }, [myMissions, assignedOrders, availableOrders]);
 
-  // COMBINAISON DES CHARGEMENTS POUR SÉCURISER L'ÉTAT CONTEXTUEL
   const isLoading_ = isLoading || ordersLoading;
 
-  // FILTRES SECONDAIRES DYNAMIQUES EN HARMONIE AVEC LE CYCLE DE VIE
   const missionSubFilters = useMemo(() => [
     { key: 'all', label: 'Toutes' },
     { key: 'pending', label: `⏳ À valider (${stats.missions.pending})` },
@@ -105,14 +98,6 @@ const MissionsPage = () => {
     { key: 'active', label: `🔄 En cours (${stats.deliveries.inProgress})` },
     { key: 'history', label: `📦 Livrées (${stats.deliveries.completed})` }
   ], [stats.deliveries]);
-
-  // ✅ Fonction pour obtenir le nom de l'aidant
-  const getAidantName = (visit: any) => {
-    if (visit.aidant?.user?.full_name) {
-      return visit.aidant.user.full_name;
-    }
-    return 'Non assigné';
-  };
 
   useEffect(() => {
     const checkAidantStatus = async () => {
@@ -191,7 +176,6 @@ const MissionsPage = () => {
     }
   }, [isVerified, fetchVisits, fetchOrders]);
 
-  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -313,7 +297,6 @@ const MissionsPage = () => {
     setIsRefreshing(false);
   };
 
-  // ✅ Mutation de l'onglet et réalignement du statut par défaut
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'missions') {
@@ -339,7 +322,7 @@ const MissionsPage = () => {
       creee: '#6B7280',
       disponible: '#EF4444',
       livree: '#3B82F6',
-      attente_paiement: '#8b5cf6',
+      attente_paiement: '#8B5CF6',
     };
     return map[status] || '#9E9E9E';
   };
@@ -363,15 +346,11 @@ const MissionsPage = () => {
     return map[status] || status;
   };
 
-  // ============================================================
-  // RENDUS SÉCURISÉS
-  // ============================================================
-
   if (isChecking) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-3" style={{ borderColor: colors.primary, borderTopColor: 'transparent' }} />
           <p className="text-sm font-semibold" style={{ color: colors.text }}>Vérification des droits...</p>
         </div>
       </div>
@@ -381,13 +360,13 @@ const MissionsPage = () => {
   if (!isVerified) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px] text-center p-4">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-100">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-amber-50 border border-amber-100">
           <ShieldAlert size={30} className="text-amber-600" />
         </div>
-        <h2 className="text-base font-black text-gray-800 dark:text-gray-100">
+        <h2 className="text-base font-black" style={{ color: colors.text }}>
           ⏳ Compte en cours d'homologation
         </h2>
-        <p className="text-xs text-gray-500 max-w-sm mt-1 leading-relaxed">
+        <p className="text-xs max-w-sm mt-1 leading-relaxed" style={{ color: colors.textLight }}>
           Votre dossier d'intervenant est actuellement examiné par nos coordinateurs. Vous serez alerté dès sa validation.
         </p>
         <button
@@ -404,10 +383,10 @@ const MissionsPage = () => {
   if (isLoading_) {
     return (
       <div className="space-y-6">
-        <div className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
+        <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
+            <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -421,7 +400,6 @@ const MissionsPage = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* 🆕 INDICATEUR DE PULL-TO-REFRESH MOBILE (EXPANSION ÉLASTIQUE) */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -429,7 +407,7 @@ const MissionsPage = () => {
           opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
         }}
       >
-        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600">
           <RefreshCw 
             size={13} 
             className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
@@ -441,14 +419,13 @@ const MissionsPage = () => {
         </div>
       </div>
 
-      {/* HEADER ÉDITORIAL DANS UN CADRE GLASSMORPHIC */}
-      <section className="relative overflow-hidden bg-white/60 dark:bg-[#17231d]/60 border border-gray-100/80 dark:border-gray-800/40 rounded-2xl p-6 text-center shadow-sm backdrop-blur-md">
+      <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 text-center shadow-sm backdrop-blur-md" style={{ borderColor: colors.primary + '15' }}>
         <div className="space-y-1.5 relative z-10">
-          <h1 className="text-base sm:text-lg font-black tracking-tight text-gray-800 dark:text-gray-100">
+          <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
             Espace Intervenant à domicile
           </h1>
-          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-sm mx-auto leading-relaxed">
-            Consultez votre planning d’interventions et gérez vos courses de livraisons d'urgence auprès de vos bénéficiaires.
+          <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
+            Consultez votre planning d'interventions et gérez vos courses de livraisons d'urgence auprès de vos bénéficiaires.
           </p>
         </div>
 
@@ -464,69 +441,62 @@ const MissionsPage = () => {
             );
           }}
           disabled={isRefreshing}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
           title="Actualiser"
         >
           <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
         </button>
       </section>
 
-      {/* ============================================================
-          WIDGET BENTO D'ACTIVITÉ MODERNE DE L'INTERVENANT
-          ============================================================ */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
-        {/* Bento Card 1 : Accompagnements */}
-        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
+        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Visites</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Visites</span>
             <Calendar size={13} className="text-emerald-500 shrink-0" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none truncate">
+            <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.missions.total} planifiées
             </p>
-            <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
+            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
               {stats.missions.pending} à valider
             </p>
           </div>
         </div>
 
-        {/* Bento Card 2 : Livraisons rattachées */}
-        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100/80 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
+        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Courses</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
             <ShoppingBag size={13} className="text-blue-500 shrink-0" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black text-gray-800 dark:text-gray-100 leading-none truncate">
+            <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.deliveries.inProgress} en cours
             </p>
-            <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
+            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
               {stats.deliveries.completed} livrées
             </p>
           </div>
         </div>
 
-        {/* Bento Card 3 : Courses urgentes disponibles */}
-        <div className="bg-white dark:bg-[#17231d] p-3.5 rounded-2xl border border-gray-100 dark:border-gray-800/60 shadow-sm flex flex-col justify-between h-28">
+        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 truncate mr-1">Dispos</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Dispos</span>
             <AlertCircle size={13} className="text-amber-500 shrink-0 animate-pulse" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black text-gray-950 dark:text-white leading-none truncate">
+            <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.canTakeCount} urgentes
             </p>
-            <p className="text-[10px] text-gray-500 leading-tight mt-1 truncate">
+            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
               À prendre
             </p>
           </div>
         </div>
       </section>
 
-      {/* TABS DE SEGMENTATION PREMIER NIVEAU */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
-        <div className="inline-flex p-1 bg-gray-100/80 dark:bg-[#1c2a21]/50 rounded-2xl border border-gray-200/10 dark:border-[#2c3f35]/20 gap-1">
+        <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border gap-1" style={{ borderColor: colors.primary + '10' }}>
           {[
             { key: 'missions', label: `📋 Missions (${stats.missions.total})` },
             { key: 'deliveries', label: `🚚 Livraisons (${stats.deliveries.total})` },
@@ -538,10 +508,13 @@ const MissionsPage = () => {
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
                 activeTab === tab.key
-                  ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm font-extrabold"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
+                  ? "bg-white shadow-sm font-extrabold"
+                  : "hover:opacity-80"
               )}
-              style={activeTab === tab.key ? { color: colors.primary } : undefined}
+              style={{
+                color: activeTab === tab.key ? colors.primary : colors.textLight,
+                backgroundColor: activeTab === tab.key ? '#ffffff' : 'transparent',
+              }}
             >
               {tab.label}
             </button>
@@ -549,10 +522,9 @@ const MissionsPage = () => {
         </div>
       </section>
 
-      {/* FILTRES SECONDAIRES DYNAMIQUES */}
       {activeTab === 'missions' && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
-          <div className="inline-flex p-0.5 bg-gray-100/40 dark:bg-[#111a15]/30 rounded-xl border border-gray-200/5 dark:border-[#2c3f35]/15 gap-1">
+          <div className="inline-flex p-0.5 bg-gray-100/40 rounded-xl border gap-1" style={{ borderColor: colors.primary + '5' }}>
             {missionSubFilters.map((sub) => {
               const isActive = filterStatus === sub.key;
               return (
@@ -562,10 +534,13 @@ const MissionsPage = () => {
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
                     isActive
-                      ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm"
-                      : "text-gray-400 dark:text-gray-500 hover:text-gray-600"
+                      ? "bg-white shadow-sm"
+                      : "hover:opacity-80"
                   )}
-                  style={isActive ? { color: colors.primary } : undefined}
+                  style={{
+                    color: isActive ? colors.primary : colors.textLight,
+                    backgroundColor: isActive ? '#ffffff' : 'transparent',
+                  }}
                 >
                   {sub.label}
                 </button>
@@ -577,7 +552,7 @@ const MissionsPage = () => {
 
       {activeTab === 'deliveries' && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
-          <div className="inline-flex p-0.5 bg-gray-100/40 dark:bg-[#111a15]/30 rounded-xl border border-gray-200/5 dark:border-[#2c3f35]/15 gap-1">
+          <div className="inline-flex p-0.5 bg-gray-100/40 rounded-xl border gap-1" style={{ borderColor: colors.primary + '5' }}>
             {deliverySubFilters.map((sub) => {
               const isActive = filterStatus === sub.key;
               return (
@@ -587,10 +562,13 @@ const MissionsPage = () => {
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
                     isActive
-                      ? "bg-white dark:bg-[#17231d] text-gray-900 dark:text-white shadow-sm"
-                      : "text-gray-400 dark:text-gray-500 hover:text-gray-600"
+                      ? "bg-white shadow-sm"
+                      : "hover:opacity-80"
                   )}
-                  style={isActive ? { color: colors.primary } : undefined}
+                  style={{
+                    color: isActive ? colors.primary : colors.textLight,
+                    backgroundColor: isActive ? '#ffffff' : 'transparent',
+                  }}
                 >
                   {sub.label}
                 </button>
@@ -600,7 +578,6 @@ const MissionsPage = () => {
         </section>
       )}
 
-      {/* LISTE DES MISSIONS ET COMMANDES */}
       {filteredItems.length > 0 ? (
         <section className="space-y-3">
           {filteredItems.map((item) => (
@@ -631,20 +608,20 @@ const MissionsPage = () => {
           ))}
         </section>
       ) : (
-        <section className="bg-white/40 dark:bg-[#17231d]/40 rounded-2xl py-16 px-6 text-center border border-gray-100 dark:border-gray-800/40 max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400">
+        <section className="bg-white/40 rounded-2xl py-16 px-6 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm" style={{ borderColor: colors.primary + '15' }}>
+          <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
             {activeTab === 'missions' ? <ClipboardList size={20} /> :
              activeTab === 'deliveries' ? <Truck size={20} /> :
              <Package size={20} />}
           </div>
 
           <div className="space-y-1">
-            <h3 className="font-extrabold text-sm text-gray-800 dark:text-gray-100">
+            <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
               {activeTab === 'missions' && 'Aucune mission planifiée'}
               {activeTab === 'deliveries' && 'Aucune livraison en cours'}
               {activeTab === 'available' && 'Aucune commande disponible'}
             </h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 max-w-xs leading-relaxed">
+            <p className="text-xs max-w-xs leading-relaxed" style={{ color: colors.textLight }}>
               {activeTab === 'missions' && 'Revenez plus tard ou contactez la coordination pour de nouveaux accompagnements.'}
               {activeTab === 'deliveries' && 'Vos livraisons en cours s\'afficheront ici pour un suivi GPS réactif.'}
               {activeTab === 'available' && 'Toutes les courses d\'urgences ont été pourvues par nos équipes de confiance.'}
@@ -709,22 +686,22 @@ const MissionItemCompact = ({
   if (isMission) {
     return (
       <div
-        className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 cursor-pointer hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        className="bg-white rounded-2xl p-4 shadow-sm border cursor-pointer hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        style={{ borderColor: colors.primary + '15' }}
         onClick={onView}
       >
         <div className="flex items-center gap-3.5 min-w-0">
-          {/* Liseré vertical dynamique épuré au lieu d'une bordure brute */}
           <div 
             className="w-1 h-10 rounded-full shrink-0" 
             style={{ backgroundColor: getStatusColor(item.status) }} 
           />
 
           <div className="min-w-0 space-y-0.5">
-            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Accompagnement d'aide</span>
-            <p className="font-extrabold text-sm text-gray-900 dark:text-gray-100 truncate">
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: colors.textLight }}>Accompagnement d'aide</span>
+            <p className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
               {item.patient?.first_name} {item.patient?.last_name}
             </p>
-            <div className="flex items-center gap-2 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-[11px] flex-wrap" style={{ color: colors.textLight }}>
               <span className="flex items-center gap-0.5">
                 <Calendar size={11} className="text-gray-400" /> {formatDate(item.scheduled_date)}
               </span>
@@ -783,7 +760,8 @@ const MissionItemCompact = ({
 
           <button
             onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-850 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center justify-center transition-all"
+            className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-700 flex items-center justify-center transition-all"
+            style={{ borderColor: colors.primary + '10' }}
           >
             <Eye size={13} />
           </button>
@@ -807,23 +785,23 @@ const MissionItemCompact = ({
 
   return (
     <div
-      className="bg-white dark:bg-[#17231d] rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800/60 cursor-pointer hover:shadow-md transition-all duration-200"
+      className="bg-white rounded-2xl p-4 shadow-sm border cursor-pointer hover:shadow-md transition-all duration-200"
+      style={{ borderColor: colors.primary + '15' }}
       onClick={onView}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3.5 min-w-0">
-          {/* Liseré vertical dynamique épuré */}
           <div 
             className="w-1 h-10 rounded-full shrink-0" 
             style={{ backgroundColor: getStatusColor(item.status) }} 
           />
 
           <div className="min-w-0 space-y-0.5">
-            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">Livraison active</span>
-            <p className="font-extrabold text-sm text-gray-900 dark:text-gray-100 truncate">
+            <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: colors.textLight }}>Livraison active</span>
+            <p className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
               📦 {item.description || 'Commande'}
             </p>
-            <div className="flex items-center gap-2 text-[11px] flex-wrap text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-[11px] flex-wrap" style={{ color: colors.textLight }}>
               <span className="flex items-center gap-0.5">
                 <User size={11} className="text-gray-400" /> {getPatientName()}
               </span>
@@ -873,14 +851,14 @@ const MissionItemCompact = ({
 
           <button
             onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-850 text-gray-400 hover:text-gray-800 flex items-center justify-center transition-all"
+            className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-800 flex items-center justify-center transition-all"
+            style={{ borderColor: colors.primary + '10' }}
           >
             <Eye size={13} />
           </button>
         </div>
       </div>
 
-      {/* Barre de progression simplifiée */}
       {item.status !== 'annulee' && item.status !== 'validee' && item.status !== 'attente_paiement' && (
         <div className="mt-4 flex items-center gap-2 pl-4">
           {['creee', 'en_cours', 'livree'].map((status, index) => {
@@ -892,7 +870,7 @@ const MissionItemCompact = ({
               <div key={status} className="flex items-center flex-1">
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
-                    isDone ? "text-white" : "bg-gray-100 text-gray-400 dark:bg-gray-800"
+                    isDone ? "text-white" : "bg-gray-100 text-gray-400"
                   }`}
                   style={{ background: isDone ? colors.primary : undefined }}
                 >
@@ -901,14 +879,14 @@ const MissionItemCompact = ({
                 {index < 2 && (
                   <div
                     className={`flex-1 h-0.5 mx-1 transition-all ${
-                      isDone && currentIndex > statusIndex ? "bg-green-500" : "bg-gray-100 dark:bg-gray-800"
+                      isDone && currentIndex > statusIndex ? "bg-green-500" : "bg-gray-100"
                     }`}
                   />
                 )}
               </div>
             );
           })}
-          <span className="text-[10px] ml-1.5 text-gray-400 font-bold shrink-0">
+          <span className="text-[10px] ml-1.5 font-bold shrink-0" style={{ color: colors.textLight }}>
             {Math.round((['creee', 'en_cours', 'livree'].indexOf(item.status) + 1) / 3 * 100)}%
           </span>
         </div>
