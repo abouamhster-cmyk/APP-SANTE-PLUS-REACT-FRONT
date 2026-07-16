@@ -1,6 +1,7 @@
 // 📁 src/components/ui/ModalFullScreen.tsx
 
 import { ReactNode, useEffect } from 'react';
+import { createPortal } from 'react-dom'; // 💡 Importation du Portal
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, X } from 'lucide-react';
 import { cn } from '@/utils/helpers';
@@ -36,13 +37,17 @@ export const ModalFullScreen = ({
   const brand = useBranding();
   const colors = brand.colors;
 
+  // 💡 Verrouillage robuste du défilement (HTML + Body) contre le scroll d'arrière-plan sur mobile
   useEffect(() => {
     if (isOpen) {
+      document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } else {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     }
     return () => {
+      document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
   }, [isOpen]);
@@ -59,13 +64,15 @@ export const ModalFullScreen = ({
   }, [isOpen, onClose, onBack]);
 
   if (!isOpen) return null;
+  if (typeof window === 'undefined') return null;
 
   const handleBack = () => {
     if (onBack) onBack();
     else onClose();
   };
 
-  return (
+  // 💡 Injection du Modal Plein Écran à la racine (document.body) pour contourner les contextes d'empilement
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -161,7 +168,8 @@ export const ModalFullScreen = ({
           )}
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
