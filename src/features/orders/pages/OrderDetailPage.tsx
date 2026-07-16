@@ -729,35 +729,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* ARTICLES */}
-      {order.items && order.items.length > 0 && (
-        <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
-          <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
-            <ShoppingBag size={18} style={{ color: colors.primary }} />
-            Articles
-          </h2>
-
-          <div className="space-y-2">
-            {order.items.map((item: any, index: number) => (
-              <div
-                key={index}
-                className="flex items-center justify-between gap-3 rounded-2xl bg-gray-50 p-3"
-              >
-                <div>
-                  <p className="font-semibold" style={{ color: colors.text }}>{item.name}</p>
-                  <p className="text-sm" style={{ color: colors.textLight }}>
-                    Qté : {item.quantity}
-                  </p>
-                </div>
-
-                <p className="font-black" style={{ color: colors.primary }}>
-                  {formatCurrency(item.total || item.price * item.quantity)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    
 
       {/* DOCUMENTS */}
       {(order.prescription_url || order.proof_url) && (
