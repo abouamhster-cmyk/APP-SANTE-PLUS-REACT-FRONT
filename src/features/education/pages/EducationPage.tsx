@@ -9,7 +9,7 @@ import {
   Clock, Users, Home, Coffee
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -17,11 +17,12 @@ import toast from 'react-hot-toast';
 const EducationPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   
-  // ✅ Jargon dynamique selon le rôle
   const {
-    singular,        // "proche" / "personne accompagnée" / "bénéficiaire"
-    plural,          // "proches" / "personnes accompagnées" / "bénéficiaires"
+    singular,
+    plural,
     getCategoryLabel,
     isFamily,
     isAidant,
@@ -31,9 +32,6 @@ const EducationPage = () => {
   const [isValidated, setIsValidated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<'maman' | 'senior' | 'general'>('general');
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   useEffect(() => {
     checkValidation();
@@ -46,7 +44,6 @@ const EducationPage = () => {
     }
 
     try {
-      // Vérifier si l'utilisateur a une inscription validée
       const { data, error } = await supabase
         .from('inscriptions')
         .select('status')
@@ -59,11 +56,9 @@ const EducationPage = () => {
         console.error('Check validation error:', error);
       }
 
-      // Si une inscription validée existe ou si l'utilisateur est admin/coordinator
       if (data?.status === 'validee' || isAdminOrCoordinator) {
         setIsValidated(true);
       } else {
-        // Vérifier si l'utilisateur a un abonnement actif
         const { data: subscription } = await supabase
           .from('abonnements')
           .select('status')
@@ -83,7 +78,6 @@ const EducationPage = () => {
     }
   };
 
-  // ✅ Libellé dynamique pour le message d'accès restreint
   const getRestrictedMessage = () => {
     if (isFamily) {
       return 'L\'accès à la bibliothèque éducative est disponible après validation de votre inscription.';
@@ -94,7 +88,6 @@ const EducationPage = () => {
     return 'L\'accès à la bibliothèque éducative est disponible après validation de votre inscription.';
   };
 
-  // ✅ Libellé dynamique pour le titre de la page
   const getPageTitle = () => {
     if (isFamily) return '📚 Espace éducatif - Proches';
     if (isAidant) return '📚 Espace éducatif - Aidant';
@@ -102,7 +95,6 @@ const EducationPage = () => {
     return '📚 Espace éducatif';
   };
 
-  // ✅ Libellé dynamique pour la description
   const getPageDescription = () => {
     if (isFamily) {
       return 'Des conseils et informations pour mieux accompagner vos proches au quotidien.';
@@ -268,28 +260,27 @@ const EducationPage = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: colors.primary, borderTopColor: 'transparent' }} />
           <p style={{ color: colors.text }}>Chargement...</p>
         </div>
       </div>
     );
   }
 
-  // ✅ Si non validé, afficher un message d'accès restreint
   if (!isValidated) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="bg-white rounded-2xl p-12 text-center max-w-md shadow-sm">
+        <div className="bg-white rounded-2xl p-12 text-center max-w-md shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
           <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: colors.primary + '15' }}>
             <BookOpen size={40} style={{ color: colors.primary }} />
           </div>
           <h2 className="text-xl font-bold mb-2" style={{ color: colors.text }}>
             Contenu éducatif restreint
           </h2>
-          <p className="text-sm" style={{ color: colors.text + '80' }}>
+          <p className="text-sm" style={{ color: colors.textLight }}>
             {getRestrictedMessage()}
           </p>
-          <p className="text-sm mt-2" style={{ color: colors.text + '60' }}>
+          <p className="text-sm mt-2" style={{ color: colors.textLight }}>
             Notre équipe traite votre demande dans les plus brefs délais.
           </p>
           <button
@@ -306,32 +297,22 @@ const EducationPage = () => {
 
   const currentContent = content[selectedCategory as keyof typeof content] || content.general;
 
-  // ✅ Déterminer les catégories à afficher selon le rôle
   const getAvailableCategories = () => {
     const categories = [
       { id: 'general', label: '📖 Général' },
     ];
 
-    // Famille avec un proche Maman & Bébé
     if (isFamily && profile?.patient_category === 'maman_bebe') {
       categories.push({ id: 'maman', label: '👶 Maman & Bébé' });
-    }
-    // Famille avec un proche Senior
-    else if (isFamily && profile?.patient_category === 'senior') {
+    } else if (isFamily && profile?.patient_category === 'senior') {
       categories.push({ id: 'senior', label: '👴 Senior' });
-    }
-    // Aidant - les deux catégories
-    else if (isAidant) {
+    } else if (isAidant) {
       categories.push({ id: 'maman', label: '👶 Maman & Bébé' });
       categories.push({ id: 'senior', label: '👴 Senior' });
-    }
-    // Admin/Coordinator - les deux catégories
-    else if (isAdminOrCoordinator) {
+    } else if (isAdminOrCoordinator) {
       categories.push({ id: 'maman', label: '👶 Maman & Bébé' });
       categories.push({ id: 'senior', label: '👴 Senior' });
-    }
-    // Fallback - afficher tout
-    else {
+    } else {
       categories.push({ id: 'maman', label: '👶 Maman & Bébé' });
       categories.push({ id: 'senior', label: '👴 Senior' });
     }
@@ -348,7 +329,7 @@ const EducationPage = () => {
         <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
           {getPageTitle()}
         </h1>
-        <p className="mt-1" style={{ color: colors.text + '99' }}>
+        <p className="mt-1" style={{ color: colors.textLight }}>
           {getPageDescription()}
         </p>
       </div>
@@ -389,8 +370,8 @@ const EducationPage = () => {
         {currentContent.articles.map((article, index) => (
           <div
             key={index}
-            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-            style={{ border: `1px solid ${colors.border}` }}
+            className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group border"
+            style={{ borderColor: colors.primary + '15' }}
           >
             <div className="flex items-start space-x-3">
               <div className="p-2 rounded-xl flex-shrink-0" style={{ background: colors.primary + '10', color: colors.primary }}>
@@ -400,11 +381,11 @@ const EducationPage = () => {
                 <h3 className="font-semibold text-sm" style={{ color: colors.text }}>
                   {article.title}
                 </h3>
-                <p className="text-xs mt-1" style={{ color: colors.text + '60' }}>
+                <p className="text-xs mt-1" style={{ color: colors.textLight }}>
                   {article.description}
                 </p>
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-xs" style={{ color: colors.text + '40' }}>
+                  <span className="text-xs" style={{ color: colors.textLight }}>
                     <Clock size={12} className="inline mr-1" />
                     {article.readTime}
                   </span>
@@ -419,8 +400,8 @@ const EducationPage = () => {
       </div>
 
       {/* Disclaimer */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: `1px solid ${colors.border}` }}>
-        <p className="text-xs" style={{ color: colors.text + '50' }}>
+      <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: colors.primary + '15' }}>
+        <p className="text-xs" style={{ color: colors.textLight }}>
           📋 Ces informations sont fournies à titre éducatif et informatif. 
           Elles ne remplacent pas un avis médical professionnel. 
           En cas de doute, consultez votre médecin.
