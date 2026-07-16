@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useContractStore } from '@/stores/contractStore';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ContractModal } from '@/components/contract/ContractModal';
+import { useBranding } from '@/hooks/useBranding';
 import { useEffect, useState, useRef } from 'react';
 import { Scale, ShieldAlert } from 'lucide-react';
 
@@ -20,6 +21,9 @@ export const ProtectedRoute = ({
   redirectTo = '/login'
 }: ProtectedRouteProps) => {
   const location = useLocation();
+  const brand = useBranding();
+  const colors = brand.colors;
+  
   const { 
     isAuthenticated, 
     isInitialized, 
@@ -92,7 +96,7 @@ export const ProtectedRoute = ({
     return (
       <div
         className="min-h-screen w-full flex items-center justify-center"
-        style={{ background: 'var(--color-background, #f5f0e8)' }}
+        style={{ background: colors.background }}
       >
         <LoadingSpinner size="lg" text="Chargement..." />
       </div>
@@ -119,25 +123,28 @@ export const ProtectedRoute = ({
     return (
       <div 
         className="min-h-screen w-full flex items-center justify-center p-4"
-        style={{ background: 'var(--color-background, #f5f0e8)' }}
+        style={{ background: colors.background }}
       >
-        <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-sm border border-black/5">
+        <div 
+          className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-sm border"
+          style={{ borderColor: colors.primary + '15' }}
+        >
           <div 
             className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: 'var(--color-primary)15' }}
+            style={{ background: colors.primary + '15' }}
           >
-            <ShieldAlert size={40} style={{ color: 'var(--color-primary)' }} />
+            <ShieldAlert size={40} style={{ color: colors.primary }} />
           </div>
-          <h2 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
+          <h2 className="text-xl font-bold" style={{ color: colors.text }}>
             ⛔ Accès non autorisé
           </h2>
-          <p className="text-sm mt-2" style={{ color: 'var(--color-text-light)' }}>
+          <p className="text-sm mt-2" style={{ color: colors.textLight }}>
             Vous n'avez pas les droits nécessaires pour accéder à cette page.
           </p>
           <button
             onClick={() => window.location.href = '/app'}
             className="mt-4 px-6 py-2 rounded-xl text-white font-bold text-sm transition hover:opacity-90"
-            style={{ background: 'var(--color-primary)' }}
+            style={{ background: colors.primary }}
           >
             Retourner au tableau de bord
           </button>
@@ -168,7 +175,6 @@ export const ProtectedRoute = ({
             setIsBlocked(false);
           }}
           onClose={() => {
-            // ✅ Ne pas déconnecter, juste fermer
             console.log('📜 Contrat non accepté - accès refusé');
           }}
         />
@@ -176,19 +182,19 @@ export const ProtectedRoute = ({
         {/* Overlay de fond */}
         <div 
           className="fixed inset-0 z-[99998] flex items-center justify-center pointer-events-none"
-          style={{ background: 'var(--color-background, #f5f0e8)' }}
+          style={{ background: colors.background }}
         >
           <div className="text-center pointer-events-auto">
             <div 
               className="w-24 h-24 mx-auto mb-4 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--color-primary)15' }}
+              style={{ background: colors.primary + '15' }}
             >
-              <Scale size={48} style={{ color: 'var(--color-primary)' }} />
+              <Scale size={48} style={{ color: colors.primary }} />
             </div>
-            <h2 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>
+            <h2 className="text-xl font-bold" style={{ color: colors.text }}>
               📜 Conditions Générales
             </h2>
-            <p className="text-sm mt-2" style={{ color: 'var(--color-text-light)' }}>
+            <p className="text-sm mt-2" style={{ color: colors.textLight }}>
               Veuillez lire et accepter les conditions générales pour continuer.
             </p>
           </div>
