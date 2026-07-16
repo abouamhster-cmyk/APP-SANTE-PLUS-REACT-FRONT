@@ -1,4 +1,5 @@
 /* 📁 frontend/src/index.css */
+/* ✅ STYLES DE PRODUCTION COMPLETS : HARMONISATION DES TOKENS DE COULEURS ET SUPPRESSION DES VALEURS VERTES EN DUR */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -11,7 +12,7 @@
 ============================================================ */
 
 :root {
-  /* Senior / Corporate - Default */
+  /* Thème par défaut */
   --color-primary: #1a4a3a;
   --color-primary-dark: #0d2a22;
   --color-primary-light: #2a6a4a;
@@ -31,7 +32,7 @@
 }
 
 /* ============================================================
-   VARIABLES — MODE SOMBRE
+   VARIABLES — MODE SOMBRE SÉCURISÉES
 ============================================================ */
 
 html.dark,
@@ -76,7 +77,7 @@ body {
 }
 
 /* ============================================================
-   DARK MODE — OVERRIDES POUR TAILWIND
+   🟢 CORRECTIFS D'ÉTANCHÉITÉ DES THÈMES EN MODE SOMBRE
 ============================================================ */
 
 html.dark .bg-white,
@@ -91,7 +92,7 @@ html[data-theme='dark'] .bg-gray-50 {
 
 html.dark .bg-gray-100,
 html[data-theme='dark'] .bg-gray-100 {
-  background-color: #24362d !important;
+  background-color: var(--color-surface-soft) !important;  
 }
 
 html.dark .text-gray-900,
@@ -103,7 +104,7 @@ html.dark .text-gray-800,
 html[data-theme='dark'] .text-gray-800,
 html.dark .text-gray-700,
 html[data-theme='dark'] .text-gray-700 {
-  color: #dce6e1 !important;
+  color: var(--color-text) !important;
 }
 
 html.dark .text-gray-600,
@@ -115,7 +116,7 @@ html[data-theme='dark'] .text-gray-500 {
 
 html.dark .text-gray-400,
 html[data-theme='dark'] .text-gray-400 {
-  color: #83958d !important;
+  color: var(--color-text-light) !important;  
 }
 
 html.dark .border-gray-200,
@@ -124,7 +125,7 @@ html.dark .border-black\/5,
 html[data-theme='dark'] .border-black\/5,
 html.dark .border,
 html[data-theme='dark'] .border {
-  border-color: var(--color-border) !important;
+  border-color: var(--color-border) !important; 
 }
 
 html.dark .shadow-sm,
@@ -227,58 +228,6 @@ body::-webkit-scrollbar {
 }
 
 /* ============================================================
-   FIX LEAFLET MAP Z-INDEX
-============================================================ */
-
-.map-page-shell {
-  position: relative;
-  z-index: 0;
-}
-
-.map-page-shell .leaflet-container {
-  position: relative;
-  z-index: 0 !important;
-}
-
-.map-page-shell .leaflet-pane {
-  z-index: 1 !important;
-}
-
-.map-page-shell .leaflet-tile-pane {
-  z-index: 1 !important;
-}
-
-.map-page-shell .leaflet-overlay-pane {
-  z-index: 2 !important;
-}
-
-.map-page-shell .leaflet-shadow-pane {
-  z-index: 2 !important;
-}
-
-.map-page-shell .leaflet-marker-pane {
-  z-index: 3 !important;
-}
-
-.map-page-shell .leaflet-tooltip-pane {
-  z-index: 4 !important;
-}
-
-.map-page-shell .leaflet-popup-pane {
-  z-index: 5 !important;
-}
-
-.map-page-shell .leaflet-control-container,
-.map-page-shell .leaflet-top,
-.map-page-shell .leaflet-bottom {
-  z-index: 6 !important;
-}
-
-.map-page-shell .leaflet-control {
-  z-index: 6 !important;
-}
-
-/* ============================================================
    ANIMATIONS
 ============================================================ */
 
@@ -340,7 +289,7 @@ html[data-theme='dark'] .bg-gray-50 {
 
 html.dark .bg-gray-100,
 html[data-theme='dark'] .bg-gray-100 {
-  background-color: #24362d !important;
+  background-color: var(--color-surface-soft) !important;
 }
 
 html.dark .text-gray-900,
@@ -361,7 +310,7 @@ html[data-theme='dark'] .text-gray-500 {
 
 html.dark .text-gray-400,
 html[data-theme='dark'] .text-gray-400 {
-  color: #7f9189 !important;
+  color: var(--color-text-light) !important;
 }
 
 html.dark .border,
@@ -372,7 +321,7 @@ html.dark .border-gray-100,
 html[data-theme='dark'] .border-gray-100,
 html.dark .border-gray-200,
 html[data-theme='dark'] .border-gray-200 {
-  border-color: #2c3f35 !important;
+  border-color: var(--color-border) !important;
 }
 
 html.dark input,
@@ -381,29 +330,30 @@ html.dark select,
 html[data-theme='dark'] input,
 html[data-theme='dark'] textarea,
 html[data-theme='dark'] select {
-  background-color: #1d2d25 !important;
-  color: #f4f7f5 !important;
-  border-color: #2c3f35 !important;
+  background-color: var(--color-surface-soft) !important;
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder,
 html[data-theme='dark'] input::placeholder,
 html[data-theme='dark'] textarea::placeholder {
-  color: #7f9189 !important;
+  color: var(--color-text-light) !important;  
+  opacity: 0.65;
 }
 
 html.dark .hover\:bg-gray-50:hover,
 html[data-theme='dark'] .hover\:bg-gray-50:hover,
 html.dark .hover\:bg-gray-100:hover,
 html[data-theme='dark'] .hover\:bg-gray-100:hover {
-  background-color: #1d2d25 !important;
+  background-color: var(--color-surface-soft) !important;
 }
 
 html.dark .fixed .bg-white,
 html[data-theme='dark'] .fixed .bg-white {
-  background-color: #17231d !important;
-  color: #f4f7f5 !important;
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
 }
 
 html.dark .bg-red-50,
@@ -413,9 +363,9 @@ html[data-theme='dark'] .bg-red-50 {
 
 html.dark .card,
 html[data-theme='dark'] .card {
-  background-color: #17231d !important;
-  color: #f4f7f5 !important;
-  border-color: #2c3f35 !important;
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
 }
 
 html.dark [class*="shadow"],
@@ -424,10 +374,9 @@ html[data-theme='dark'] [class*="shadow"] {
 }
 
 /* ============================================================
-   ✅ MODALES - Z-INDEX ÉLEVÉ POUR TOUJOURS ÊTRE AU-DESSUS
+   MODALES - Z-INDEX ÉLEVÉ POUR TOUJOURS ÊTRE AU-DESSUS
    ============================================================ */
 
-/* ✅ Conteneur de modale - z-index maximum */
 .modal-overlay {
   position: fixed !important;
   inset: 0 !important;
@@ -443,7 +392,6 @@ html[data-theme='dark'] [class*="shadow"] {
   pointer-events: auto !important;
 }
 
-/* ✅ Carte modale - centrée parfaite */
 .modal-card {
   position: relative !important;
   width: 100% !important;
@@ -459,7 +407,6 @@ html[data-theme='dark'] [class*="shadow"] {
   pointer-events: auto !important;
 }
 
-/* ✅ Header fixe */
 .modal-header {
   flex-shrink: 0 !important;
   padding: 16px 20px !important;
@@ -470,7 +417,6 @@ html[data-theme='dark'] [class*="shadow"] {
   top: 0 !important;
 }
 
-/* ✅ Body scrollable */
 .modal-body {
   flex: 1 !important;
   overflow-y: auto !important;
@@ -480,7 +426,6 @@ html[data-theme='dark'] [class*="shadow"] {
   max-height: calc(92vh - 140px) !important;
 }
 
-/* ✅ Footer fixe */
 .modal-footer {
   flex-shrink: 0 !important;
   padding: 16px 20px !important;
@@ -492,7 +437,6 @@ html[data-theme='dark'] [class*="shadow"] {
   padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
 }
 
-/* ✅ Animation */
 @keyframes modalSlideUp {
   from {
     opacity: 0;
@@ -504,7 +448,6 @@ html[data-theme='dark'] [class*="shadow"] {
   }
 }
 
-/* ✅ Pour les très petits écrans */
 @media (max-width: 480px) {
   .modal-overlay {
     padding: 8px !important;
@@ -531,14 +474,12 @@ html[data-theme='dark'] [class*="shadow"] {
   }
 }
 
-/* ✅ Pour les écrans avec notch */
 @supports (padding: max(0px)) {
   .modal-footer {
     padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
   }
 }
 
-/* ✅ Scrollbar stylisée dans les modales */
 .modal-body::-webkit-scrollbar {
   width: 4px !important;
 }
@@ -556,7 +497,6 @@ html[data-theme='dark'] [class*="shadow"] {
   background: #9ca3af !important;
 }
 
-/* ✅ Toutes les modales fixes avec z-index élevé */
 .fixed.inset-0.z-50,
 .fixed.inset-0.z-\[100\],
 .fixed.inset-0.z-\[120\],
@@ -576,7 +516,6 @@ html[data-theme='dark'] [class*="shadow"] {
   overflow: hidden !important;
 }
 
-/* ✅ Pour les modales sur mobile - s'assurer qu'elles sont en haut */
 @media (max-width: 480px) {
   .fixed.inset-0.z-50,
   .fixed.inset-0.z-\[100\],
@@ -600,7 +539,6 @@ html[data-theme='dark'] [class*="shadow"] {
   }
 }
 
-/* ✅ Skeleton / Shimmer */
 .shimmer {
   position: relative;
   overflow: hidden;
@@ -626,31 +564,21 @@ html[data-theme='dark'] [class*="shadow"] {
   }
 }
 
-/* ✅ FIX POUR MAPLIBRE : Forcer le conteneur à remplir l'espace */
-.maplibregl-map {
-  width: 100% !important;
-  height: 100% !important;
-  background-color: #ffffff !important;
-}
-
-/* S'assurer que le container parent laisse la carte se dessiner */
 .map-container-wrapper {
   width: 100%;
   height: 600px;
   position: relative;
-  background-color: #f5f0e8; /* Couleur de fond par défaut pendant le chargement */
+  background-color: var(--color-background);
 }
 
-/* Forcer le canvas à s'afficher */
+.maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: var(--color-surface) !important;
+}
+
 .maplibregl-canvas {
   display: block !important;
   width: 100% !important;
   height: 100% !important;
-}
-/* Forcer l'affichage de la carte */
-.maplibregl-map {
-  background-color: #ffffff !important;
-}
-.maplibregl-canvas {
-  display: block !important;
 }
