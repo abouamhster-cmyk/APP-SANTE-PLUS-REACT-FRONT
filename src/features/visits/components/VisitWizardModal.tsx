@@ -22,8 +22,9 @@ import {
   Award,
   Check,
 } from 'lucide-react';
+
 import { supabase } from '@/lib/supabase';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
 
@@ -212,7 +213,7 @@ const AidantCard = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
+          <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap" style={{ color: colors.textLight }}>
             <span className="flex items-center gap-0.5">
               <Star size={11} className="text-yellow-400 fill-yellow-400" />
               {rating.toFixed(1)}
@@ -246,7 +247,7 @@ const AidantCard = ({
                 </span>
               ))}
               {specialties.length > 2 && (
-                <span className="text-[8px] text-gray-400">+{specialties.length - 2}</span>
+                <span className="text-[8px]" style={{ color: colors.textLight }}>+{specialties.length - 2}</span>
               )}
             </div>
           )}
@@ -283,14 +284,14 @@ const AidantCard = ({
           {/* Zones d'intervention */}
           {zones.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: colors.textLight }}>
                 📍 Zones d'intervention
               </p>
               <div className="flex flex-wrap gap-1">
                 {zones.map((zone) => (
                   <span
                     key={zone}
-                    className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-gray-100 text-gray-600"
+                    className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-gray-100" style={{ color: colors.textLight }}
                   >
                     {zone}
                   </span>
@@ -302,20 +303,20 @@ const AidantCard = ({
           {/* Bio */}
           {bio && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: colors.textLight }}>
                 📝 Présentation
               </p>
-              <p className="text-xs text-gray-600 italic leading-relaxed">"{bio}"</p>
+              <p className="text-xs italic leading-relaxed" style={{ color: colors.textLight }}>"{bio}"</p>
             </div>
           )}
 
           {/* Contact */}
           {(phone || email) && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: colors.textLight }}>
                 📞 Contact
               </p>
-              <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+              <div className="flex flex-wrap gap-3 text-xs" style={{ color: colors.textLight }}>
                 {phone && (
                   <span className="flex items-center gap-1">
                     <Phone size={11} />
@@ -334,7 +335,7 @@ const AidantCard = ({
 
           {/* Quota détaillé */}
           <div>
-            <div className="flex justify-between text-[10px] text-gray-500">
+            <div className="flex justify-between text-[10px]" style={{ color: colors.textLight }}>
               <span>Assignations</span>
               <span>{currentAssignments}/{maxAssignments}</span>
             </div>
@@ -355,7 +356,6 @@ const AidantCard = ({
               e.stopPropagation();
               if (canSelect) {
                 onSelect();
-                // Fermer l'accordéon après sélection
                 setIsExpanded(false);
               }
             }}
@@ -406,15 +406,15 @@ export const VisitWizardModal = ({
   colors: propColors,
 }: VisitWizardModalProps) => {
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [wizardData, setWizardData] = useState<WizardData | null>(null);
   const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [selectedOption, setSelectedOption] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = propColors || getThemeColors(themeName);
 
   const isAdmin = role === 'admin' || role === 'coordinator';
   const isFamily = role === 'family';
@@ -473,12 +473,10 @@ export const VisitWizardModal = ({
 
       setWizardData(result.data);
 
-      // ✅ Sélectionner automatiquement le premier aidant si disponible
       if (result.data.aidants && result.data.aidants.length > 0) {
         setSelectedAidantId(result.data.aidants[0].user_id || result.data.aidants[0].id);
       }
 
-      // ✅ Si un aidant est déjà assigné, sélectionner automatiquement
       if (result.data.hasAidant) {
         setSelectedOption('auto');
       } else if (result.data.allFull) {
@@ -500,7 +498,6 @@ export const VisitWizardModal = ({
   // ============================================================
 
   const handleSubmit = async () => {
-    // ✅ Cas 1: Un aidant est déjà assigné
     if (wizardData?.hasAidant) {
       onSuccess({
         aidantId: null,
@@ -510,7 +507,6 @@ export const VisitWizardModal = ({
       return;
     }
 
-    // ✅ Cas 2: Tous les aidants sont full → Planifier sans aidant
     if (wizardData?.allFull) {
       if (selectedOption === 'without_aidant') {
         onSuccess({
@@ -524,7 +520,6 @@ export const VisitWizardModal = ({
       return;
     }
 
-    // ✅ Cas 3: Aidants disponibles
     if (!selectedAidantId) {
       toast.error('Veuillez sélectionner un aidant');
       return;
@@ -535,13 +530,11 @@ export const VisitWizardModal = ({
       return;
     }
 
-    // ✅ Vérifier si l'option est 'force' et que l'utilisateur est admin
     if (selectedOption === 'force' && !isAdmin) {
       toast.error('Seuls les administrateurs peuvent forcer une assignation');
       return;
     }
 
-    // ✅ Vérifier le quota pour l'option 'permanente'
     if (selectedOption === 'permanente') {
       const selectedAidant = wizardData?.aidants?.find(
         (a) => (a.user_id || a.id) === selectedAidantId
@@ -598,7 +591,7 @@ export const VisitWizardModal = ({
             <h3 className="text-lg font-bold" style={{ color: colors.text }}>
               Erreur
             </h3>
-            <p className="text-sm mt-1" style={{ color: colors.text + '70' }}>
+            <p className="text-sm mt-1" style={{ color: colors.textLight }}>
               {error}
             </p>
             <button
@@ -719,7 +712,7 @@ export const VisitWizardModal = ({
                   <p className="font-bold text-sm" style={{ color: colors.text }}>
                     ⚡ Planifier sans aidant
                   </p>
-                  <p className="text-xs" style={{ color: colors.text + '50' }}>
+                  <p className="text-xs" style={{ color: colors.textLight }}>
                     L'admin sera notifié pour assigner un aidant
                   </p>
                 </div>
@@ -755,7 +748,7 @@ export const VisitWizardModal = ({
                     <p className="font-bold text-sm" style={{ color: colors.text }}>
                       👔 Forcer l'assignation (Admin)
                     </p>
-                    <p className="text-xs" style={{ color: colors.text + '50' }}>
+                    <p className="text-xs" style={{ color: colors.textLight }}>
                       Ignorer le quota (5/4, 6/4, etc.)
                     </p>
                   </div>
@@ -770,8 +763,8 @@ export const VisitWizardModal = ({
             )}
           </div>
 
-          <div className="flex gap-2 mt-4 pt-4 border-t" style={{ borderColor: colors.border }}>
-            <button onClick={onClose} className="flex-1 py-3 rounded-xl font-medium border">
+          <div className="flex gap-2 mt-4 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
+            <button onClick={onClose} className="flex-1 py-3 rounded-xl font-medium border" style={{ borderColor: colors.primary + '20', color: colors.text }}>
               Annuler
             </button>
             <button
@@ -801,13 +794,13 @@ export const VisitWizardModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
         {/* Header */}
-        <div className="sticky top-0 bg-white z-10 p-5 border-b" style={{ borderColor: colors.border }}>
+        <div className="sticky top-0 bg-white z-10 p-5 border-b" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold" style={{ color: colors.text }}>
                 🦸 Choisir un aidant
               </h2>
-              <p className="text-xs mt-0.5" style={{ color: colors.text + '50' }}>
+              <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
                 Pour {targetName || 'la visite'} {scheduledDate && `le ${scheduledDate}`}
               </p>
             </div>
@@ -854,7 +847,7 @@ export const VisitWizardModal = ({
               })}
             </div>
           ) : (
-            <p className="text-center text-xs text-gray-400 py-4">
+            <p className="text-center text-xs" style={{ color: colors.textLight }}>
               Aucun aidant disponible pour le moment
             </p>
           )}
@@ -910,7 +903,7 @@ export const VisitWizardModal = ({
                           <p className="font-bold text-sm" style={{ color: colors.text }}>
                             {option.label}
                           </p>
-                          <p className="text-xs" style={{ color: colors.text + '50' }}>
+                          <p className="text-xs" style={{ color: colors.textLight }}>
                             {option.description}
                           </p>
                           {option.type === 'permanente' && selectedAidant && (
@@ -933,11 +926,11 @@ export const VisitWizardModal = ({
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.border }}>
+          <div className="flex gap-2 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
             <button
               onClick={onClose}
               className="flex-1 py-3 rounded-xl font-medium border transition hover:bg-gray-50"
-              style={{ borderColor: colors.border, color: colors.text }}
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
             >
               Annuler
             </button>
