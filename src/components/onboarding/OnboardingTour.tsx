@@ -17,8 +17,8 @@ import {
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
-import { useContractStore } from '@/stores/contractStore'; // 🟢 Pour coordonner l'ouverture après le contrat
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useContractStore } from '@/stores/contractStore';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { cn } from '@/utils/helpers';
 
@@ -45,12 +45,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const location = useLocation();
 
   const { profile, role, isAuthenticated, isInitialized, user } = useAuthStore();
-  const { needsAcceptance } = useContractStore(); // 🟢 État du contrat d'utilisation
+  const { needsAcceptance } = useContractStore();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const {
-    singular,        // "proche"
-    plural,          // "proches"
-    add,             // "Ajouter un proche"
+    singular,
+    plural,
+    add,
   } = useTerminology();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -61,9 +63,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const [hasAttemptedShow, setHasAttemptedShow] = useState(false);
 
   const showTimeoutRef = useRef<TimerType>(null);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   const isMaman = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
 
@@ -86,7 +85,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, []);
 
   // ============================================================
-  // 2. DÉFINITION DES ÉTAPES AUTONOMES (ZÉRO REQUÊTE RÉSEAU ENCOMBRANTE)
+  // 2. DÉFINITION DES ÉTAPES AVEC COULEURS DYNAMIQUES
   // ============================================================
   const steps: TourStep[] = useMemo(() => {
     if (!isAuthenticated || !role) return [];
@@ -227,14 +226,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. RETENIR L'AFFICHAGE JUSQU'À L'ACCEPTATION DU CONTRAT (SANS CHEVAUCHEMENT)
+  // 3. RETENIR L'AFFICHAGE JUSQU'À L'ACCEPTATION DU CONTRAT
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
     if (!isInitialized) return;
     if (!isAuthenticated) return;
     if (hasSeenTour) return;
-    if (needsAcceptance) return; // 🟢 CORRECTIF : Bloque l'ouverture de l'onboarding tant que la signature du contrat n'est pas validée !
+    if (needsAcceptance) return;
     if (steps.length === 0) return;
     if (hasAttemptedShow) return;
 
@@ -253,7 +252,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
     
-    // Déclencher après l'acceptation avec un léger décalage fluide (1.2s)
     showTimeoutRef.current = setTimeout(() => {
       setShouldShow(true);
       setIsOpen(true);
@@ -327,17 +325,16 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const totalSteps = steps.length;
 
   return (
-    // 🟢 ENVELOPE FLOUTANTE GLOBALE : Bloque l'accès aux clics externes
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm">
       
-      {/* 🟢 BANDEAU IMMERSIF PREMIUM (Prend tout l'écran sur mobile, s'affiche en carte centrée sur ordi) */}
       <div 
         className={cn(
-          "relative w-full h-full sm:h-[620px] sm:max-w-lg bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border border-black/5 flex flex-col justify-between animate-fadeIn",
+          "relative w-full h-full sm:h-[620px] sm:max-w-lg bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn",
         )}
+        style={{ borderColor: colors.primary + '15' }}
       >
         {/* Progress bar line supérieure */}
-        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gray-100/50 z-20">
+        <div className="absolute top-0 left-0 right-0 h-[3px] z-20" style={{ backgroundColor: colors.primary + '15' }}>
           <div
             className="h-full transition-all duration-500 ease-out"
             style={{
@@ -347,17 +344,16 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           />
         </div>
 
-        {/* 🟢 IMAGE FLOTTANTE BRANDING SUPÉRIEURE (Inclusion de l'univers de l'abonné) */}
+        {/* IMAGE FLOTTANTE BRANDING SUPÉRIEURE */}
         <div 
-          className="w-full h-56 sm:h-64 relative bg-gray-900 overflow-hidden shrink-0 border-b"
-          style={{ borderColor: colors.border + '30' }}
+          className="w-full h-56 sm:h-64 relative overflow-hidden shrink-0 border-b"
+          style={{ borderColor: colors.primary + '15' }}
         >
           <img 
             src={step.image} 
             alt={step.title} 
             className="w-full h-full object-cover opacity-85"
           />
-          {/* Dégradé doux */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         </div>
 
@@ -368,11 +364,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
               {step.icon}
             </div>
             
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight leading-tight">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight leading-tight" style={{ color: colors.text }}>
               {step.title}
             </h2>
             
-            <p className="text-xs sm:text-sm text-gray-500 leading-relaxed max-w-sm mx-auto font-medium">
+            <p className="text-xs sm:text-sm leading-relaxed max-w-sm mx-auto font-medium" style={{ color: colors.textLight }}>
               {step.description}
             </p>
           </div>
@@ -392,12 +388,13 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           </div>
         </div>
 
-        {/* 🟢 PIED DE PAGE MINIMALISTE SANS EFFET DE BLOC (Raccords "Ignorer" et "Suivant") */}
-        <div className="p-5 sm:p-6 border-t border-gray-100/50 flex items-center justify-between bg-gray-50/50 shrink-0">
+        {/* PIED DE PAGE MINIMALISTE */}
+        <div className="p-5 sm:p-6 border-t flex items-center justify-between shrink-0" style={{ borderColor: colors.primary + '10', backgroundColor: colors.primary + '04' }}>
           <button
             type="button"
             onClick={handleComplete}
-            className="text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-wider select-none px-2 py-1"
+            className="text-xs font-bold uppercase tracking-wider select-none px-2 py-1 transition-colors"
+            style={{ color: colors.textLight }}
           >
             Ignorer
           </button>
@@ -416,3 +413,5 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     </div>
   );
 };
+
+export default OnboardingTour;
