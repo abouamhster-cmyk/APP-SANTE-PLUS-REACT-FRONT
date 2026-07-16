@@ -1,6 +1,5 @@
 // 📁 frontend/src/features/admin/pages/AdminVisitValidationPage.tsx
-// ✅ PAGE VALIDATION VISITES : ALIGNEMENT DES CONTROLES H-11 ET BOUTONS ACTIONS FLEXIBLES MOBILE
-
+ 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -29,16 +28,15 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useVisitStore } from '@/stores/visitStore';
-import { supabase } from '@/lib/supabase';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime } from '@/utils/helpers';
+import { supabase } from '@/lib/supabase';
 import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 import { VisitWizardModal } from '@/features/visits/components/VisitWizardModal';
 import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
 import toast from 'react-hot-toast';
 
-// ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 // ============================================================
@@ -121,42 +119,41 @@ interface VisitToValidate {
   } | null;
 }
 
-// ✅ STATUTS AVEC ICÔNES
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   terminee: {
     label: '⏳ En attente',
-    color: '#f59e0b',
-    bg: '#f59e0b15',
+    color: '#F59E0B',
+    bg: '#F59E0B15',
     icon: <Clock size={14} />,
   },
   validee: {
     label: '✅ Validée',
-    color: '#10b981',
-    bg: '#10b98115',
+    color: '#10B981',
+    bg: '#10B98115',
     icon: <CheckCircle size={14} />,
   },
   replanifiee: {
     label: '🔄 À refaire',
-    color: '#3b82f6',
-    bg: '#3b82f615',
+    color: '#3B82F6',
+    bg: '#3B82F615',
     icon: <Calendar size={14} />,
   },
   expire: {
     label: '⏰ Expirée',
-    color: '#ef4444',
-    bg: '#ef444415',
+    color: '#EF4444',
+    bg: '#EF444415',
     icon: <AlertCircle size={14} />,
   },
   refusee: {
     label: '❌ Refusée',
-    color: '#ef4444',
-    bg: '#ef444415',
+    color: '#EF4444',
+    bg: '#EF444415',
     icon: <XCircle size={14} />,
   },
   attente_paiement: {
     label: '💳 En attente paiement',
-    color: '#8b5cf6',
-    bg: '#8b5cf615',
+    color: '#8B5CF6',
+    bg: '#8B5CF615',
     icon: <CreditCard size={14} />,
   },
   en_attente_aidant: {
@@ -223,10 +220,10 @@ const VisitDetailModal = ({
   };
 
   const getAidantColor = () => {
-    if (visit.aidant) return '#10b981';
-    if (visit.metadata?.selected_aidant) return '#f59e0b';
+    if (visit.aidant) return '#10B981';
+    if (visit.metadata?.selected_aidant) return '#F59E0B';
     if (isWaitingAidant) return '#FF5722';
-    return '#ef4444';
+    return '#EF4444';
   };
 
   const hasPhotos = visit.photos && visit.photos.length > 0;
@@ -247,7 +244,7 @@ const VisitDetailModal = ({
             <h3 className="text-xl font-bold" style={{ color: colors.text }}>
               {visit.patient ? `${visit.patient.first_name} ${visit.patient.last_name}` : visit.target_name || 'Patient'}
             </h3>
-            <p className="text-sm" style={{ color: colors.text + '70' }}>
+            <p className="text-sm" style={{ color: colors.textLight }}>
               {visit.patient?.address || 'Adresse non renseignée'}
             </p>
           </div>
@@ -287,12 +284,12 @@ const VisitDetailModal = ({
             icon={visit.is_urgent ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
             label="Urgence"
             value={visit.is_urgent ? '⚠️ Urgent' : 'Normal'}
-            color={visit.is_urgent ? '#ef4444' : '#10b981'}
+            color={visit.is_urgent ? '#EF4444' : '#10B981'}
           />
         </div>
 
         {/* AIDANT */}
-        <div className="p-4 rounded-2xl border" style={{ borderColor: colors.border }}>
+        <div className="p-4 rounded-2xl border" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
@@ -304,7 +301,7 @@ const VisitDetailModal = ({
               <p className="font-bold text-sm" style={{ color: colors.text }}>
                 {getAidantDisplayName()}
               </p>
-              <div className="flex items-center gap-2 text-xs" style={{ color: colors.text + '60' }}>
+              <div className="flex items-center gap-2 text-xs" style={{ color: colors.textLight }}>
                 <span>{getAidantStatus()}</span>
                 {visit.aidant && (
                   <>
@@ -327,19 +324,19 @@ const VisitDetailModal = ({
 
         {/* HORAIRES DE LA VISITE */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-xl border" style={{ borderColor: colors.border }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '40' }}>
+          <div className="p-3 rounded-xl border" style={{ borderColor: colors.primary + '15' }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
               Début
             </p>
-            <p className="font-bold text-sm" style={{ color: visit.start_time ? '#10b981' : colors.text + '50' }}>
+            <p className="font-bold text-sm" style={{ color: visit.start_time ? '#10B981' : colors.textLight }}>
               {visit.start_time ? formatTime(visit.start_time) : 'Non démarrée'}
             </p>
           </div>
-          <div className="p-3 rounded-xl border" style={{ borderColor: colors.border }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.text + '40' }}>
+          <div className="p-3 rounded-xl border" style={{ borderColor: colors.primary + '15' }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
               Fin
             </p>
-            <p className="font-bold text-sm" style={{ color: visit.end_time ? '#ef4444' : colors.text + '50' }}>
+            <p className="font-bold text-sm" style={{ color: visit.end_time ? '#EF4444' : colors.textLight }}>
               {visit.end_time ? formatTime(visit.end_time) : 'Non terminée'}
             </p>
           </div>
@@ -348,7 +345,7 @@ const VisitDetailModal = ({
         {/* ACTIONS RÉALISÉES */}
         {visit.actions && visit.actions.length > 0 && (
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.text + '40' }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.textLight }}>
               📋 Actions réalisées ({visit.actions.length})
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -367,8 +364,8 @@ const VisitDetailModal = ({
 
         {/* NOTES / RAPPORT */}
         {(visit.notes || visit.report) && (
-          <div className="p-4 rounded-2xl border" style={{ borderColor: colors.border, background: colors.primary + '04' }}>
-            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: colors.text + '40' }}>
+          <div className="p-4 rounded-2xl border" style={{ borderColor: colors.primary + '15', background: colors.primary + '04' }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: colors.textLight }}>
               📝 Rapport
             </p>
             <p className="text-sm leading-relaxed" style={{ color: colors.text }}>
@@ -380,7 +377,7 @@ const VisitDetailModal = ({
         {/* PHOTOS */}
         {hasPhotos && (
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.text + '40' }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.textLight }}>
               📸 Photos ({visit.photos!.length})
             </p>
             <div className="grid grid-cols-3 gap-2">
@@ -388,7 +385,7 @@ const VisitDetailModal = ({
                 <div
                   key={index}
                   className="aspect-square rounded-xl overflow-hidden border cursor-pointer hover:opacity-90 transition"
-                  style={{ borderColor: colors.border }}
+                  style={{ borderColor: colors.primary + '15' }}
                   onClick={() => window.open(photo.photo_url, '_blank')}
                 >
                   <img
@@ -413,10 +410,10 @@ const VisitDetailModal = ({
         {/* AUDIO */}
         {hasAudio && (
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.text + '40' }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: colors.textLight }}>
               🎙️ Enregistrement audio
             </p>
-            <div className="p-3 rounded-xl border flex items-center gap-3" style={{ borderColor: colors.border }}>
+            <div className="p-3 rounded-xl border flex items-center gap-3" style={{ borderColor: colors.primary + '15' }}>
               <Volume2 size={20} style={{ color: colors.primary }} />
               <audio controls className="flex-1">
                 <source src={visit.metadata.audio_url!} />
@@ -427,7 +424,7 @@ const VisitDetailModal = ({
         )}
 
         {/* ACTIONS SELON LE STATUT */}
-        <div className="flex flex-wrap gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+        <div className="flex flex-wrap gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
           {isTerminee && (
             <>
               <div className="w-full">
@@ -436,7 +433,7 @@ const VisitDetailModal = ({
                   onChange={(e) => setValidationComment(e.target.value)}
                   placeholder="Note ou motif de refus (optionnel)..."
                   className="w-full px-3.5 py-2.5 rounded-xl border outline-none text-xs resize-none"
-                  style={{ borderColor: colors.border, background: 'var(--color-background)' }}
+                  style={{ borderColor: colors.primary + '20', background: colors.background }}
                   rows={2}
                 />
               </div>
@@ -462,12 +459,12 @@ const VisitDetailModal = ({
 
           {isWaitingAidant && (
             <div className="w-full space-y-3">
-              <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 flex items-start gap-3">
+              <div className="p-3 rounded-xl flex items-start gap-3" style={{ backgroundColor: '#FF572215', border: '1px solid #FF572230' }}>
                 <UserPlus size={18} className="text-orange-500 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-orange-700">Cette visite est en attente d'aidant</p>
+                  <p className="text-sm font-bold" style={{ color: '#FF5722' }}>Cette visite est en attente d'aidant</p>
                   {visit.metadata?.waiting_for_aidant_since && (
-                    <p className="text-xs text-orange-600">
+                    <p className="text-xs" style={{ color: '#FF5722' }}>
                       En attente depuis {formatDate(visit.metadata.waiting_for_aidant_since)}
                     </p>
                   )}
@@ -510,19 +507,24 @@ interface InfoItemProps {
   color: string;
 }
 
-const InfoItem = ({ icon, label, value, color }: InfoItemProps) => (
-  <div className="p-3 rounded-xl border" style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
-    <div className="flex items-center gap-1.5">
-      <span style={{ color }}>{icon}</span>
-      <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: color + '90' }}>
-        {label}
+const InfoItem = ({ icon, label, value, color }: InfoItemProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
+  return (
+    <div className="p-3 rounded-xl border" style={{ borderColor: colors.primary + '15' }}>
+      <div className="flex items-center gap-1.5">
+        <span style={{ color }}>{icon}</span>
+        <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: color + '90' }}>
+          {label}
+        </p>
+      </div>
+      <p className="text-sm font-bold mt-0.5" style={{ color }}>
+        {value}
       </p>
     </div>
-    <p className="text-sm font-bold mt-0.5" style={{ color }}>
-      {value}
-    </p>
-  </div>
-);
+  );
+};
 
 // =============================================
 // COMPOSANT PRINCIPAL
@@ -531,6 +533,8 @@ const InfoItem = ({ icon, label, value, color }: InfoItemProps) => (
 const AdminVisitValidationPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { fetchVisits } = useVisitStore();
 
   const [visits, setVisits] = useState<VisitToValidate[]>([]);
@@ -546,9 +550,6 @@ const AdminVisitValidationPage = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showWizardModal, setShowWizardModal] = useState(false);
   const [selectedVisitForAssign, setSelectedVisitForAssign] = useState<VisitToValidate | null>(null);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   useEffect(() => {
     fetchVisitsToValidate();
@@ -805,8 +806,7 @@ const AdminVisitValidationPage = () => {
     <div className="space-y-6 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       {/* HEADER */}
       <section 
-        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
-        style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
+        className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border" style={{ borderColor: colors.primary + '15', background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -816,7 +816,7 @@ const AdminVisitValidationPage = () => {
             <p className="text-xs font-semibold" style={{ color: colors.textLight }}>
               {stats.pending} en attente • {stats.expired} expirées • {stats.refused} refusées
               {stats.waitingAidant > 0 && (
-                <span className="ml-2 text-orange-500 font-bold">
+                <span className="ml-2 font-bold" style={{ color: '#FF5722' }}>
                   • 🦸 {stats.waitingAidant} en attente d'aidant
                 </span>
               )}
@@ -825,21 +825,20 @@ const AdminVisitValidationPage = () => {
           <button
             onClick={fetchVisitsToValidate}
             className="h-11 px-4 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-center"
-            style={{ borderColor: colors.border, color: colors.text }}
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             <RefreshCw size={14} /> Actualiser
           </button>
         </div>
 
-        {/* ALERTE */}
         {stats.waitingAidant > 0 && (
           <div className="relative z-10 mt-4 flex flex-wrap gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border" style={{ backgroundColor: '#FF572215', color: '#FF5722', borderColor: '#FF572230' }}>
               <UserPlus size={14} />
               {stats.waitingAidant} visite{stats.waitingAidant > 1 ? 's' : ''} en attente d'aidant
               <button
                 onClick={() => setFilterStatus('en_attente_aidant')}
-                className="ml-2 text-orange-600 hover:underline font-bold"
+                className="ml-2 hover:underline font-bold" style={{ color: '#FF5722' }}
               >
                 Voir
               </button>
@@ -851,10 +850,10 @@ const AdminVisitValidationPage = () => {
       {/* METRIQUES */}
       <section className="grid grid-cols-2 md:grid-cols-6 gap-2.5">
         <CompactStat label="Total" value={stats.total} color={colors.primary} />
-        <CompactStat label="En attente" value={stats.pending} color="#f59e0b" />
-        <CompactStat label="Validées" value={stats.validated} color="#10b981" />
-        <CompactStat label="Expirées" value={stats.expired} color="#ef4444" />
-        <CompactStat label="Refusées" value={stats.refused} color="#ef4444" />
+        <CompactStat label="En attente" value={stats.pending} color="#F59E0B" />
+        <CompactStat label="Validées" value={stats.validated} color="#10B981" />
+        <CompactStat label="Expirées" value={stats.expired} color="#EF4444" />
+        <CompactStat label="Refusées" value={stats.refused} color="#EF4444" />
         <CompactStat 
           label="🦸 En attente" 
           value={stats.waitingAidant} 
@@ -864,22 +863,22 @@ const AdminVisitValidationPage = () => {
       </section>
 
       {/* RECHERCHE & FILTRES */}
-      <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-3">
+      <section className="bg-white rounded-2xl p-3 shadow-sm border flex flex-col sm:flex-row gap-3" style={{ borderColor: colors.primary + '15' }}>
         <div className="relative flex-1">
           <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher par patient ou aidant..."
-            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white border-gray-100 dark:border-gray-800/60 text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
-            style={{ borderColor: colors.border, color: colors.text }}
+            className="w-full h-11 pl-11 pr-4 rounded-xl border outline-none bg-white text-xs font-semibold focus:border-emerald-500/50 transition-all shadow-sm"
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as any)}
-          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white border-gray-100 dark:border-gray-800/60 shrink-0 sm:w-56 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
-          style={{ borderColor: colors.border, background: 'var(--color-background)', color: colors.text }}
+          className="h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-white shrink-0 sm:w-56 shadow-sm cursor-pointer focus:border-emerald-500/50 transition-all"
+          style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
           {filterOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -892,7 +891,7 @@ const AdminVisitValidationPage = () => {
       {/* LISTE DES VISITES */}
       <section className="space-y-3">
         {filteredVisits.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center text-gray-400 text-xs font-medium border">
+          <div className="bg-white rounded-3xl p-12 text-center text-xs font-medium border" style={{ color: colors.textLight, borderColor: colors.primary + '15' }}>
             {searchTerm || filterStatus !== 'all' 
               ? 'Aucune visite ne correspond aux critères' 
               : 'Aucune visite en attente de traitement'}
@@ -919,47 +918,47 @@ const AdminVisitValidationPage = () => {
               >
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-xs sm:text-sm text-gray-800">
+                    <p className="font-bold text-xs sm:text-sm" style={{ color: colors.text }}>
                       {visit.patient?.first_name || visit.target_name} {visit.patient?.last_name || ''}
                     </p>
                     <span className="text-[10px] font-semibold" style={{ color: getStatusColor(visit.status) }}>
                       {getStatusLabel(visit.status)}
                     </span>
                     {isWaitingAidant && (
-                      <span className="text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-orange-200">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border" style={{ backgroundColor: '#FF572215', color: '#FF5722', borderColor: '#FF572230' }}>
                         <UserPlus size={10} />
                         En attente
                       </span>
                     )}
                     {isExpired && (
-                      <span className="text-[10px] font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-red-200 animate-pulse">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border animate-pulse" style={{ backgroundColor: '#EF444415', color: '#EF4444', borderColor: '#EF444430' }}>
                         <AlertCircle size={10} />
                         Expirée
                       </span>
                     )}
                     {isPendingPayment && (
-                      <span className="text-[10px] font-bold bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full flex items-center gap-1 border border-purple-200">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border" style={{ backgroundColor: '#8B5CF615', color: '#8B5CF6', borderColor: '#8B5CF630' }}>
                         <CreditCard size={10} />
                         En attente paiement
                       </span>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-2.5 text-[10px] text-gray-400 font-bold uppercase tracking-wider flex-wrap mt-0.5">
+                  <div className="flex items-center gap-2.5 text-[10px] font-bold uppercase tracking-wider flex-wrap mt-0.5" style={{ color: colors.textLight }}>
                     <span>📅 {formatDate(visit.scheduled_date)}</span>
                     <span className="hidden sm:inline">•</span>
                     <span className="truncate max-w-[200px]">📍 {visit.patient?.address || 'Adresse non renseignée'}</span>
                     <span className="hidden sm:inline">•</span>
                     <span className="flex items-center gap-1 shrink-0">
                       <User size={12} className="text-gray-400" />
-                      <span className={isAssigned ? 'text-green-600 font-bold' : 'text-red-500 font-bold'}>
+                      <span className={isAssigned ? 'font-bold' : 'font-bold'} style={{ color: isAssigned ? '#10B981' : '#EF4444' }}>
                         {aidantName}
                       </span>
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 flex-wrap w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0" style={{ borderColor: colors.primary + '10' }}>
                   {isWaitingAidant && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleReassign(visit.id); }}
@@ -986,7 +985,7 @@ const AdminVisitValidationPage = () => {
                   <button
                     onClick={(e) => { e.stopPropagation(); handleViewDetails(visit); }}
                     className="flex-1 sm:flex-initial h-9 px-4 rounded-xl text-xs font-bold border bg-gray-50/50 hover:bg-gray-100 flex items-center justify-center gap-1.5 transition-colors"
-                    style={{ borderColor: colors.border, color: colors.text }}
+                    style={{ borderColor: colors.primary + '20', color: colors.text }}
                   >
                     <Eye size={12} />
                     Détails
@@ -1045,13 +1044,22 @@ interface CompactStatProps {
   className?: string;
 }
 
-const CompactStat = ({ label, value, color, className = '' }: CompactStatProps) => (
-  <div className={`bg-white rounded-xl p-2.5 shadow-sm border border-black/5 flex items-center justify-between gap-2 ${className}`}>
-    <div className="space-y-0.5 min-w-0 pr-1">
-      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider truncate">{label}</p>
-      <p className="text-sm sm:text-base font-black truncate" style={{ color }}>{value}</p>
+const CompactStat = ({ label, value, color, className = '' }: CompactStatProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
+  return (
+    <div className={`bg-white rounded-xl p-2.5 shadow-sm border flex items-center justify-between gap-2 ${className}`} style={{ borderColor: colors.primary + '15' }}>
+      <div className="space-y-0.5 min-w-0 pr-1">
+        <p className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: colors.textLight }}>
+          {label}
+        </p>
+        <p className="text-sm sm:text-base font-black truncate" style={{ color }}>
+          {value}
+        </p>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default AdminVisitValidationPage;
