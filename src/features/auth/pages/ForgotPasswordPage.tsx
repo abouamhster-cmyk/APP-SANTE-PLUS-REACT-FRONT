@@ -1,6 +1,6 @@
 // 📁 src/features/auth/pages/ForgotPasswordPage.tsx
- 
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Mail,
@@ -12,6 +12,7 @@ import {
 
 import { supabase } from '@/lib/supabase';
 import { Logo } from '@/components/ui/Logo';
+import { useBranding } from '@/hooks/useBranding';
 import toast from 'react-hot-toast';
 
 const ForgotPasswordPage = () => {
@@ -19,12 +20,10 @@ const ForgotPasswordPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
 
-  const [savedTheme, setSavedTheme] = useState<'senior' | 'maman' | null>(null);
-
-  useEffect(() => {
-    const theme = localStorage.getItem('sante_plus_theme') as 'senior' | 'maman' | null;
-    setSavedTheme(theme);
-  }, []);
+  const brand = useBranding();
+  const colors = brand.colors;
+  const primaryColor = colors.primary;
+  const textColor = colors.text;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +31,6 @@ const ForgotPasswordPage = () => {
     const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
-      // ✅ UN SEUL TOAST
       toast.error('Veuillez saisir votre email');
       return;
     }
@@ -47,38 +45,32 @@ const ForgotPasswordPage = () => {
       if (error) throw error;
 
       setIsSent(true);
-      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success('Email de réinitialisation envoyé');
     } catch (error: any) {
       console.error('❌ Forgot password error:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error(error?.message || "Erreur lors de l'envoi");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logoRole = savedTheme === 'maman' ? 'maman' : 'general';
-  const primaryBrandColor = savedTheme === 'maman' ? '#db4a6d' : '#113f30';
-  const textBrandColor = savedTheme === 'maman' ? '#371e24' : '#1f2937';
-
   return (
     <div
       className="min-h-screen w-full flex items-center justify-center p-3"
-      style={{ background: 'var(--color-background, #faf9f6)' }}
+      style={{ background: colors.background }}
     >
       <div className="w-full max-w-md">
         <div
           className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border"
-          style={{ borderColor: 'var(--color-border, #e5e7eb)' }}
+          style={{ borderColor: colors.primary + '20' }}
         >
           {/* Logo */}
           <div className="flex justify-center mb-4">
             <div
               className="w-14 h-14 rounded-xl border flex items-center justify-center"
               style={{ 
-                borderColor: primaryBrandColor,
-                background: 'var(--color-background, #faf9f6)'
+                borderColor: primaryColor,
+                background: colors.background
               }}
             >
               <Logo
@@ -86,7 +78,6 @@ const ForgotPasswordPage = () => {
                 showText={false}
                 whiteBg={false}
                 className="justify-center"
-                role={logoRole}
               />
             </div>
           </div>
@@ -96,8 +87,8 @@ const ForgotPasswordPage = () => {
               <div
                 className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center"
                 style={{
-                  background: `${primaryBrandColor}12`,
-                  color: primaryBrandColor,
+                  background: colors.primary + '15',
+                  color: primaryColor,
                 }}
               >
                 <CheckCircle size={24} />
@@ -105,20 +96,20 @@ const ForgotPasswordPage = () => {
 
               <h1
                 className="text-lg font-extrabold"
-                style={{ color: textBrandColor }}
+                style={{ color: textColor }}
               >
                 Email envoyé
               </h1>
 
               <p
                 className="text-xs leading-relaxed"
-                style={{ color: 'var(--color-text-light, #4b5563)' }}
+                style={{ color: colors.textLight }}
               >
                 Un lien de réinitialisation a été envoyé à :
                 <br />
                 <span
                   className="font-bold text-xs inline-block mt-1 break-all"
-                  style={{ color: textBrandColor }}
+                  style={{ color: textColor }}
                 >
                   {email}
                 </span>
@@ -127,7 +118,7 @@ const ForgotPasswordPage = () => {
               <Link
                 to="/login"
                 className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
-                style={{ background: primaryBrandColor }}
+                style={{ background: primaryColor }}
               >
                 Retour à la connexion
                 <ArrowRight size={14} />
@@ -138,14 +129,14 @@ const ForgotPasswordPage = () => {
               <div className="text-center mb-4">
                 <h1
                   className="text-lg font-extrabold"
-                  style={{ color: textBrandColor }}
+                  style={{ color: textColor }}
                 >
                   Mot de passe oublié
                 </h1>
 
                 <p
                   className="text-[11px] mt-0.5"
-                  style={{ color: 'var(--color-text-light, #4b5563)' }}
+                  style={{ color: colors.textLight }}
                 >
                   Saisissez votre e-mail pour recevoir les instructions.
                 </p>
@@ -155,7 +146,7 @@ const ForgotPasswordPage = () => {
                 <div>
                   <label
                     className="block text-[11px] font-semibold mb-0.5"
-                    style={{ color: textBrandColor }}
+                    style={{ color: textColor }}
                   >
                     Adresse e-mail
                   </label>
@@ -163,7 +154,7 @@ const ForgotPasswordPage = () => {
                   <div className="relative">
                     <Mail
                       className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5"
-                      style={{ color: 'var(--color-text-light, #4b5563)' }}
+                      style={{ color: colors.textLight }}
                     />
 
                     <input
@@ -172,9 +163,9 @@ const ForgotPasswordPage = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-8 pr-3 py-2 rounded-xl border outline-none text-xs"
                       style={{
-                        borderColor: 'var(--color-border, #e5e7eb)',
-                        background: '#ffffff',
-                        color: 'var(--color-text)',
+                        borderColor: colors.primary + '25',
+                        background: colors.background,
+                        color: textColor,
                       }}
                       placeholder="exemple@email.com"
                       disabled={isLoading}
@@ -187,7 +178,7 @@ const ForgotPasswordPage = () => {
                   type="submit"
                   disabled={isLoading}
                   className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75"
-                  style={{ background: primaryBrandColor }}
+                  style={{ background: primaryColor }}
                 >
                   {isLoading ? (
                     <>
@@ -207,7 +198,7 @@ const ForgotPasswordPage = () => {
                 <Link
                   to="/login"
                   className="text-[11px] font-semibold hover:underline inline-flex items-center gap-1"
-                  style={{ color: primaryBrandColor }}
+                  style={{ color: primaryColor }}
                 >
                   <ArrowLeft size={12} />
                   Retour à la connexion
