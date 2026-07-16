@@ -21,7 +21,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useAuthStore } from '@/stores/authStore';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency } from '@/utils/helpers';
@@ -29,8 +29,6 @@ import { useRefreshableData } from '@/hooks/useRefreshableData';
 import { RefreshButton } from '@/components/ui/RefreshButton';
 import { AdminStats } from '@/components/admin/AdminStats';
 import toast from 'react-hot-toast';
-
-// ✅ toast CONSERVÉ - C'est une page, c'est ici qu'on affiche les toasts
 
 // ============================================================
 // TYPES
@@ -59,9 +57,7 @@ interface DashboardStats {
   ordersPendingPayment: number;
   assignedCount: number;
   unassignedCount: number;
-  // ✅ NOUVEAU : Visites en attente d'aidant
   pendingAidantVisits: number;
-  // ✅ NOUVEAU : Commandes disponibles
   availableOrders: number;
 }
 
@@ -72,6 +68,8 @@ interface DashboardStats {
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
   const { profile, role } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
@@ -100,9 +98,6 @@ const AdminDashboardPage = () => {
     pendingAidantVisits: 0,
     availableOrders: 0,
   });
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   // ✅ Chargement des données globales
   const fetchDashboardData = async () => {
@@ -166,7 +161,6 @@ const AdminDashboardPage = () => {
         { count: visitsWaitingApproval },
         { count: visitsExpired },
         { count: visitsPendingPayment },
-        // ✅ NOUVEAU : Visites en attente d'aidant
         { count: pendingAidantVisits },
       ] = await Promise.all([
         supabase.from('visites').select('*', { count: 'exact', head: true }).eq('scheduled_date', today),
@@ -174,7 +168,6 @@ const AdminDashboardPage = () => {
         supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'planifiee').is('approved_at', null).is('refused_at', null),
         supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'expire'),
         supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'attente_paiement'),
-        // ✅ NOUVEAU
         supabase.from('visites').select('*', { count: 'exact', head: true }).eq('status', 'en_attente_aidant'),
       ]);
 
@@ -244,17 +237,14 @@ const AdminDashboardPage = () => {
         ordersPendingPayment: ordersPendingPayment || 0,
         assignedCount: assignedCount || 0,
         unassignedCount: unassignedCount,
-        // ✅ NOUVEAUX
         pendingAidantVisits: pendingAidantVisits || 0,
         availableOrders: ordersAvailable || 0,
       });
       
-      // ✅ UN SEUL TOAST DE SUCCÈS
       toast.success('✅ Données du tableau de bord actualisées');
       
     } catch (error) {
       console.error('Fetch dashboard error:', error);
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors du chargement du tableau de bord');
     } finally {
       setIsLoading(false);
@@ -264,7 +254,6 @@ const AdminDashboardPage = () => {
   useRefreshableData({
     onRefresh: fetchDashboardData,
     onError: () => {
-      // ✅ UN SEUL TOAST D'ERREUR
       toast.error('Erreur lors du rafraîchissement des données');
     },
   });
@@ -273,7 +262,6 @@ const AdminDashboardPage = () => {
     fetchDashboardData();
   }, []);
 
-  // ✅ handleRefresh - UN SEUL TOAST DE SUCCÈS
   const handleRefresh = () => {
     fetchDashboardData();
   };
@@ -310,7 +298,7 @@ const AdminDashboardPage = () => {
       value: stats.totalBeneficiaires,
       sub: `${stats.totalPatients} patients • ${stats.personalAccounts} comptes • ${stats.unassignedCount} non assignés`,
       icon: <UserCheck size={15} />,
-      color: '#10b981',
+      color: colors.primary,
       onClick: () => navigate('/app/patients'),
     },
     {
@@ -318,7 +306,7 @@ const AdminDashboardPage = () => {
       value: stats.totalAidants,
       sub: `${stats.assignedCount} assignés`,
       icon: <UserCheck size={15} />,
-      color: '#3b82f6',
+      color: colors.secondary || '#c9a84c',
       onClick: () => navigate('/app/aidants'),
     },
     {
@@ -326,7 +314,7 @@ const AdminDashboardPage = () => {
       value: stats.visitsToday,
       sub: `${stats.visitsInProgress} en cours`,
       icon: <Calendar size={15} />,
-      color: '#4CAF50',
+      color: colors.gold || '#c9a84c',
       onClick: () => navigate('/app/visits'),
     },
     {
@@ -334,7 +322,7 @@ const AdminDashboardPage = () => {
       value: stats.totalOrders,
       sub: `${stats.pendingOrders} en attente`,
       icon: <ShoppingBag size={15} />,
-      color: '#f59e0b',
+      color: colors.secondary || '#c9a84c',
       onClick: () => navigate('/app/orders'),
     },
     {
@@ -342,7 +330,7 @@ const AdminDashboardPage = () => {
       value: formatCurrency(stats.monthlyRevenue),
       sub: `Cumul : ${formatCurrency(stats.totalRevenue)}`,
       icon: <DollarSign size={15} />,
-      color: '#10b981',
+      color: colors.gold || '#c9a84c',
       onClick: () => navigate('/app/admin-payments'),
     },
   ];
@@ -363,8 +351,8 @@ const AdminDashboardPage = () => {
       label: 'Commandes disponibles',
       value: stats.availableOrders,
       icon: <Package size={18} />,
-      color: '#F44336',
-      bg: '#F4433615',
+      color: '#EF4444',
+      bg: '#EF444415',
       onClick: () => navigate('/app/orders'),
       badge: '🚨 À prendre',
       isAlert: stats.availableOrders > 0,
@@ -373,8 +361,8 @@ const AdminDashboardPage = () => {
       label: 'Visites en attente validation',
       value: stats.visitsWaitingApproval,
       icon: <Clock size={18} />,
-      color: '#FF9800',
-      bg: '#FF980015',
+      color: '#F59E0B',
+      bg: '#F59E0B15',
       onClick: () => navigate('/app/admin/visits/validation'),
       badge: '⏳ En attente',
       isAlert: stats.visitsWaitingApproval > 0,
@@ -383,8 +371,8 @@ const AdminDashboardPage = () => {
       label: 'Visites expirées',
       value: stats.visitsExpired,
       icon: <AlertCircle size={18} />,
-      color: '#F44336',
-      bg: '#F4433615',
+      color: '#EF4444',
+      bg: '#EF444415',
       onClick: () => navigate('/app/admin/visits/validation'),
       badge: '❌ Expirées',
       isAlert: stats.visitsExpired > 0,
@@ -397,15 +385,15 @@ const AdminDashboardPage = () => {
       {/* ============================================================
       EN-TÊTE SUPERVISION SIMPLE
       ============================================================ */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b" style={{ borderColor: colors.primary + '15' }}>
         <div>
-          <h1 className="text-xl font-black text-gray-800" style={{ color: colors.text }}>
+          <h1 className="text-xl font-black" style={{ color: colors.text }}>
             Tableau de bord Admin
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs" style={{ color: colors.textLight }}>
             Supervision de l'activité globale, de la trésorerie et des interventions à domicile.
             {stats.pendingAidantVisits > 0 && (
-              <span className="ml-2 text-orange-500 font-bold">
+              <span className="ml-2 font-bold" style={{ color: '#FF5722' }}>
                 ⚠️ {stats.pendingAidantVisits} visite(s) sans aidant
               </span>
             )}
@@ -458,7 +446,7 @@ const AdminDashboardPage = () => {
       ALERTES ET ACTIONS REQUISES (INTERACTIF)
       ============================================================ */}
       <div className="space-y-2">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400">
+        <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
           ⚠️ Actions requises
         </h2>
         
@@ -485,7 +473,7 @@ const AdminDashboardPage = () => {
             label="Visites à valider"
             value={stats.visitsWaitingApproval}
             icon={<Clock size={15} />}
-            color="#FF9800"
+            color="#F59E0B"
             onClick={() => navigate('/app/visits')}
             badge="En attente"
             isAlert={stats.visitsWaitingApproval > 0}
@@ -494,7 +482,7 @@ const AdminDashboardPage = () => {
             label="Commandes disponibles"
             value={stats.availableOrders}
             icon={<Package size={15} />}
-            color="#F44336"
+            color="#EF4444"
             onClick={() => navigate('/app/orders')}
             badge="🚨 Urgentes"
             isAlert={stats.availableOrders > 0}
@@ -508,10 +496,10 @@ const AdminDashboardPage = () => {
       <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         
         {/* Taux de croissance mensuel */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border flex flex-col justify-between" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={15} style={{ color: colors.primary }} />
-            <h2 className="font-bold text-[10px] tracking-wider uppercase text-gray-400">
+            <h2 className="font-bold text-[10px] tracking-wider uppercase" style={{ color: colors.textLight }}>
               Croissance des revenus
             </h2>
           </div>
@@ -521,7 +509,7 @@ const AdminDashboardPage = () => {
               <p className="text-2xl font-black" style={{ color: colors.primary }}>
                 {stats.growth > 0 ? '+' : ''}{stats.growth.toFixed(1)}%
               </p>
-              <p className="text-[10px] text-gray-400">Par rapport au mois dernier</p>
+              <p className="text-[10px]" style={{ color: colors.textLight }}>Par rapport au mois dernier</p>
             </div>
             
             <div
@@ -536,36 +524,36 @@ const AdminDashboardPage = () => {
         </div>
 
         {/* Synthèse rapide de la plateforme */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-black/5 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border flex flex-col justify-between" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center gap-2 mb-3">
             <Award size={15} style={{ color: colors.primary }} />
-            <h2 className="font-bold text-[10px] tracking-wider uppercase text-gray-400">
+            <h2 className="font-bold text-[10px] tracking-wider uppercase" style={{ color: colors.textLight }}>
               Activité de la communauté
             </h2>
           </div>
           
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="p-2 rounded-xl bg-gray-50 flex flex-col justify-center">
-              <span className="text-sm font-bold text-gray-800">{stats.activeUsers}</span>
-              <span className="text-[9px] text-gray-400">Profils actifs</span>
+              <span className="text-sm font-bold" style={{ color: colors.text }}>{stats.activeUsers}</span>
+              <span className="text-[9px]" style={{ color: colors.textLight }}>Profils actifs</span>
             </div>
             <div className="p-2 rounded-xl bg-gray-50 flex flex-col justify-center">
-              <span className="text-sm font-bold text-gray-800">{stats.totalAidants}</span>
-              <span className="text-[9px] text-gray-400">Aidants inscrits</span>
+              <span className="text-sm font-bold" style={{ color: colors.text }}>{stats.totalAidants}</span>
+              <span className="text-[9px]" style={{ color: colors.textLight }}>Aidants inscrits</span>
             </div>
             <div className="p-2 rounded-xl bg-gray-50 flex flex-col justify-center">
-              <span className="text-sm font-bold text-gray-800">{stats.visitsToday}</span>
-              <span className="text-[9px] text-gray-400">Visites aujourd'hui</span>
+              <span className="text-sm font-bold" style={{ color: colors.text }}>{stats.visitsToday}</span>
+              <span className="text-[9px]" style={{ color: colors.textLight }}>Visites aujourd'hui</span>
             </div>
             <div className="p-2 rounded-xl bg-gray-50 flex flex-col justify-center">
-              <span className="text-sm font-bold text-gray-800">
+              <span className="text-sm font-bold" style={{ color: colors.text }}>
                 {stats.pendingAidantVisits > 0 ? (
-                  <span className="text-orange-500">{stats.pendingAidantVisits}</span>
+                  <span style={{ color: '#FF5722' }}>{stats.pendingAidantVisits}</span>
                 ) : (
                   stats.pendingAidantVisits
                 )}
               </span>
-              <span className="text-[9px] text-gray-400">
+              <span className="text-[9px]" style={{ color: colors.textLight }}>
                 Visites sans aidant
                 {stats.pendingAidantVisits > 0 && ' ⚠️'}
               </span>
@@ -577,22 +565,23 @@ const AdminDashboardPage = () => {
 
       {/* ✅ BANDEAU D'ALERTE VISITES SANS AIDANT */}
       {stats.pendingAidantVisits > 0 && (
-        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-xl shadow-sm border border-orange-200">
+        <div className="border-l-4 p-4 rounded-xl shadow-sm border" style={{ backgroundColor: '#FF572215', borderColor: '#FF5722', border: `1px solid #FF572230` }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
-              <UserPlus size={20} className="text-orange-500 mt-0.5 shrink-0" />
+              <UserPlus size={20} className="mt-0.5 shrink-0" style={{ color: '#FF5722' }} />
               <div>
-                <p className="font-bold text-orange-800">
+                <p className="font-bold" style={{ color: '#FF5722' }}>
                   🦸 {stats.pendingAidantVisits} visite{stats.pendingAidantVisits > 1 ? 's' : ''} en attente d'aidant
                 </p>
-                <p className="text-sm text-orange-700">
+                <p className="text-sm" style={{ color: '#FF5722' + 'CC' }}>
                   Tous les aidants sont complets (4/4). Assignez un aidant à ces visites depuis la page des notifications.
                 </p>
               </div>
             </div>
             <button
               onClick={() => navigate('/app/admin/notifications')}
-              className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition"
+              className="text-white px-4 py-2 rounded-xl text-sm font-bold transition hover:opacity-90"
+              style={{ background: '#FF5722' }}
             >
               👔 Voir et assigner
             </button>
@@ -601,7 +590,7 @@ const AdminDashboardPage = () => {
       )}
 
       <footer className="text-center py-4">
-        <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1 font-medium">
+        <p className="text-[10px] flex items-center justify-center gap-1 font-medium" style={{ color: colors.textLight }}>
           <Shield size={10} className="text-green-400" />
           Santé Plus Services — Administration
         </p>
@@ -635,26 +624,27 @@ const AlertCard = ({
   badge, 
   isAlert = false 
 }: AlertCardProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
   const hasValue = value > 0;
   const isActive = isAlert && hasValue;
   
   return (
     <button
       onClick={onClick}
-      className={`bg-white rounded-2xl p-4 shadow-sm border-l-4 transition hover:shadow-md text-left w-full flex items-center justify-between ${
-        isActive ? 'hover:scale-[1.01]' : 'opacity-60'
-      }`}
+      className="bg-white rounded-2xl p-4 shadow-sm border-l-4 transition hover:shadow-md text-left w-full flex items-center justify-between"
       style={{ 
-        borderLeftColor: isActive ? color : '#e5e7eb',
+        borderLeftColor: isActive ? color : colors.primary + '20',
         background: isActive ? bg : 'transparent',
+        borderColor: isActive ? color + '30' : colors.primary + '15',
       }}
     >
       <div className="space-y-0.5 min-w-0 pr-1">
-        <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5 truncate">
+        <p className="text-[9px] font-semibold uppercase tracking-wider flex items-center gap-1.5 truncate" style={{ color: colors.textLight }}>
           {icon}
           {label}
         </p>
-        <p className="text-lg font-extrabold" style={{ color: isActive ? color : '#9ca3af' }}>
+        <p className="text-lg font-extrabold" style={{ color: isActive ? color : colors.textLight }}>
           {value}
         </p>
       </div>
@@ -685,13 +675,17 @@ interface CompactStatProps {
 }
 
 const CompactStat = ({ label, value, sub, icon, color, onClick }: CompactStatProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl p-4 shadow-sm border border-black/5 flex flex-col justify-between min-h-[100px] hover:shadow-md transition text-left"
+      className="bg-white rounded-2xl p-4 shadow-sm border flex flex-col justify-between min-h-[100px] hover:shadow-md transition text-left"
+      style={{ borderColor: colors.primary + '15' }}
     >
       <div className="flex items-start justify-between gap-1">
-        <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400 truncate">
+        <p className="text-[9px] font-semibold uppercase tracking-wider truncate" style={{ color: colors.textLight }}>
           {label}
         </p>
         <div
@@ -705,7 +699,7 @@ const CompactStat = ({ label, value, sub, icon, color, onClick }: CompactStatPro
         <p className="text-sm sm:text-base font-extrabold truncate" style={{ color }}>
           {value}
         </p>
-        <p className="text-[9px] font-medium text-gray-400 truncate">{sub}</p>
+        <p className="text-[9px] font-medium truncate" style={{ color: colors.textLight }}>{sub}</p>
       </div>
     </button>
   );
