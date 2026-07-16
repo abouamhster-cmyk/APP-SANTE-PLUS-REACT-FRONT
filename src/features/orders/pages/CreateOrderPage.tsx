@@ -27,7 +27,7 @@ import {
 import { useOrderStore } from '@/stores/orderStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
-import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
@@ -41,6 +41,8 @@ import toast from 'react-hot-toast';
 const CreateOrderPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { createOrder, isLoading } = useOrderStore();
   const { patients, fetchPatients } = usePatientStore();
 
@@ -79,7 +81,7 @@ const CreateOrderPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRedirecting = useRef(false);
   
-  // ✅ VERROU DE SÉCURITÉ SYNCHRONE (Bloque instantanément les doubles clics)
+  // ✅ VERROU DE SÉCURITÉ SYNCHRONE
   const isSubmittingRef = useRef(false);
 
   const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
@@ -100,9 +102,6 @@ const CreateOrderPage = () => {
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
   const [prescriptionPreview, setPrescriptionPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-
-  const themeName = getThemeByRole(role, profile?.patient_category as any);
-  const colors = getThemeColors(themeName);
 
   const canUseSubscription = (): boolean => {
     return hasActiveSubscription && remainingOrders > 0;
@@ -372,7 +371,6 @@ const CreateOrderPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Bloquer immédiatement si soumis
     if (isSubmittingRef.current) return;
 
     if (isAidant && !canTakeOrder()) {
@@ -383,7 +381,6 @@ const CreateOrderPage = () => {
     if (orderType === 'ponctual') {
       isSubmittingRef.current = true;
       await handlePonctualPayment();
-      // On libère le verrou car le modal FedaPay va s'occuper de la suite, ou en cas de fermeture
       isSubmittingRef.current = false;
       return;
     }
@@ -469,7 +466,7 @@ const CreateOrderPage = () => {
     } catch (error) {
       console.error('❌ Erreur création:', error);
       toast.error('Erreur lors de la création de la commande');
-      isSubmittingRef.current = false; // Libérer le verrou en cas d'erreur
+      isSubmittingRef.current = false;
     } finally {
       setIsUploading(false);
     }
@@ -484,13 +481,13 @@ const CreateOrderPage = () => {
   return (
     <div className="space-y-6 pb-10">
       {/* HEADER */}
-      <section className="bg-white rounded-[1.75rem] p-4 sm:p-5 md:p-6 shadow-sm border border-black/5">
+      <section className="bg-white rounded-[1.75rem] p-4 sm:p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-3">
             <button
               onClick={() => navigate('/app/orders')}
               className="w-11 h-11 rounded-2xl flex items-center justify-center border hover:bg-gray-50 transition shrink-0"
-              style={{ borderColor: colors.border || '#e5e0d8', color: colors.text }}
+              style={{ borderColor: colors.primary + '20', color: colors.text }}
             >
               <ArrowLeft size={20} />
             </button>
@@ -532,12 +529,12 @@ const CreateOrderPage = () => {
         <div className="space-y-6">
           {/* POUR QUI ? */}
           {hasPatients && (
-            <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+            <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
               <div className="flex items-start gap-3 mb-5">
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: colors.primary + '14', color: colors.primary }}><Users size={20} /></div>
                 <div>
-                  <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">Pour qui ?</h2>
-                  <p className="text-sm text-gray-500 mt-1">Choisissez le destinataire de cette commande.</p>
+                  <h2 className="text-lg md:text-xl font-black tracking-tight" style={{ color: colors.text }}>Pour qui ?</h2>
+                  <p className="text-sm" style={{ color: colors.textLight }}>Choisissez le destinataire de cette commande.</p>
                 </div>
               </div>
 
@@ -547,7 +544,7 @@ const CreateOrderPage = () => {
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: targetType === 'personal' ? colors.primary + '15' : '#f3f4f6', color: targetType === 'personal' ? colors.primary : '#9ca3af' }}><User size={20} /></div>
                     <div>
                       <p className="font-bold">👤 Personnel</p>
-                      <p className="text-xs text-gray-400">Pour vous-même</p>
+                      <p className="text-xs" style={{ color: colors.textLight }}>Pour vous-même</p>
                     </div>
                   </div>
                 </button>
@@ -557,7 +554,7 @@ const CreateOrderPage = () => {
                     <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: targetType === 'patient' ? colors.primary + '15' : '#f3f4f6', color: targetType === 'patient' ? colors.primary : '#9ca3af' }}><Users size={20} /></div>
                     <div>
                       <p className="font-bold">👨‍👩‍👦 Patient</p>
-                      <p className="text-xs text-gray-400">Pour un proche</p>
+                      <p className="text-xs" style={{ color: colors.textLight }}>Pour un proche</p>
                     </div>
                   </div>
                 </button>
@@ -566,7 +563,7 @@ const CreateOrderPage = () => {
               {targetType === 'patient' && patients.length > 0 && (
                 <div className="mt-4">
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>Sélectionner le proche</label>
-                  <select value={targetPatientId} onChange={(e) => setTargetPatientId(e.target.value)} className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-sm" style={{ borderColor: colors.border, color: colors.text }}>
+                  <select value={targetPatientId} onChange={(e) => setTargetPatientId(e.target.value)} className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-sm" style={{ borderColor: colors.primary + '20', color: colors.text }}>
                     {patients.map((patient) => (
                       <option key={patient.id} value={patient.id}>{patient.first_name} {patient.last_name} — {getCategoryLabel(patient.category)}</option>
                     ))}
@@ -577,12 +574,12 @@ const CreateOrderPage = () => {
           )}
 
           {/* TYPE DE COMMANDE */}
-          <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+          <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
             <div className="flex items-start gap-3 mb-5">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: colors.primary + '14', color: colors.primary }}><Sparkles size={20} /></div>
               <div>
-                <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">Type de commande</h2>
-                <p className="text-sm text-gray-500 mt-1">Choisissez votre méthode de facturation.</p>
+                <h2 className="text-lg md:text-xl font-black tracking-tight" style={{ color: colors.text }}>Type de commande</h2>
+                <p className="text-sm" style={{ color: colors.textLight }}>Choisissez votre méthode de facturation.</p>
               </div>
             </div>
 
@@ -592,7 +589,7 @@ const CreateOrderPage = () => {
                   <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: orderType === 'subscription' ? colors.primary + '15' : '#f3f4f6', color: orderType === 'subscription' ? colors.primary : '#9ca3af' }}><Package size={20} /></div>
                   <div>
                     <p className="font-bold">Avec abonnement</p>
-                    <p className="text-xs text-gray-400">{canUseSubscription() ? `${remainingOrders} restantes` : 'Abonnement requis/vide'}</p>
+                    <p className="text-xs" style={{ color: colors.textLight }}>{canUseSubscription() ? `${remainingOrders} restantes` : 'Abonnement requis/vide'}</p>
                   </div>
                 </div>
               </button>
@@ -602,7 +599,7 @@ const CreateOrderPage = () => {
                   <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: orderType === 'ponctual' ? colors.primary + '15' : '#f3f4f6', color: orderType === 'ponctual' ? colors.primary : '#9ca3af' }}><CreditCard size={20} /></div>
                   <div>
                     <p className="font-bold">Ponctuelle</p>
-                    <p className="text-xs text-gray-400">Paiement à la demande</p>
+                    <p className="text-xs" style={{ color: colors.textLight }}>Paiement à la demande</p>
                   </div>
                 </div>
               </button>
@@ -613,7 +610,7 @@ const CreateOrderPage = () => {
           <ModernPanel icon={<ClipboardList size={20} />} title="Informations complémentaires" subtitle="Renseignez l'adresse de livraison et la description." color={colors.primary}>
             <div className="space-y-4">
               <Field label="Description" required color={colors.text}>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50 resize-none" style={{ borderColor: colors.border || '#e5e0d8' }} rows={3} placeholder="Détaillez votre commande..." required />
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50 resize-none" style={{ borderColor: colors.primary + '20' }} rows={3} placeholder="Détaillez votre commande..." required />
               </Field>
 
               <Field label="Adresse de livraison" required color={colors.text}>
@@ -624,7 +621,7 @@ const CreateOrderPage = () => {
                     value={formData.address} 
                     onChange={(e) => handleAddressChange(e.target.value)} 
                     className="w-full pl-10 pr-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50" 
-                    style={{ borderColor: colors.border || '#e5e0d8' }} 
+                    style={{ borderColor: colors.primary + '20' }} 
                     placeholder="Quartier, indications de rue pour le livreur..." 
                     required 
                   />
@@ -653,7 +650,7 @@ const CreateOrderPage = () => {
           <ModernPanel icon={<ShoppingBag size={20} />} title="Articles de la commande" subtitle="Renseignez les lignes d'achats." color={colors.primary}>
             <div className="space-y-3">
               {formData.items.map((item, index) => (
-                <div key={index} className="flex flex-col sm:flex-row gap-2 items-center rounded-2xl bg-gray-50 border p-3" style={{ borderColor: colors.border || '#e5e0d8' }}>
+                <div key={index} className="flex flex-col sm:flex-row gap-2 items-center rounded-2xl bg-gray-50 border p-3" style={{ borderColor: colors.primary + '20' }}>
                   <input type="text" value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)} className="w-full sm:flex-1 px-3 py-2 rounded-xl border text-sm" placeholder="Nom de l'article" />
                   <input type="number" value={item.quantity} onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)} className="w-20 px-3 py-2 rounded-xl border text-sm" min="1" />
                   <input type="number" value={item.price} onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value) || 0)} className="w-28 px-3 py-2 rounded-xl border text-sm" min="0" placeholder="Prix" />
@@ -662,20 +659,20 @@ const CreateOrderPage = () => {
                   )}
                 </div>
               ))}
-              <button type="button" onClick={addItem} className="text-xs font-bold flex items-center gap-1.5 px-3 py-2 rounded-xl border" style={{ color: colors.primary, borderColor: colors.border }}><Plus size={14} /> Ajouter une ligne</button>
+              <button type="button" onClick={addItem} className="text-xs font-bold flex items-center gap-1.5 px-3 py-2 rounded-xl border" style={{ color: colors.primary, borderColor: colors.primary + '20' }}><Plus size={14} /> Ajouter une ligne</button>
             </div>
           </ModernPanel>
         </div>
 
         {/* COLONNE COMPACTE DROITE (RÉSUMÉ) */}
         <aside className="xl:sticky xl:top-24 h-fit">
-          <div className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5 space-y-4">
+          <div className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border space-y-4" style={{ borderColor: colors.primary + '15' }}>
             <h2 className="text-lg font-black" style={{ color: colors.text }}>Résumé</h2>
             <SummaryLine label="Destinataire" value={targetType === 'personal' ? '👤 Personnel' : `👨‍👩‍👦 ${selectedPatientObj?.first_name || 'Patient'}`} />
             <SummaryLine label="Mode" value={orderType === 'subscription' ? 'Abonnement' : 'Ponctuel'} />
             
             <div className="rounded-2xl p-4" style={{ background: colors.primary + '10' }}>
-              <p className="text-xs font-medium text-gray-500">Estimation totale</p>
+              <p className="text-xs font-medium" style={{ color: colors.textLight }}>Estimation totale</p>
               <p className="text-2xl font-black mt-1" style={{ color: colors.primary }}>
                 {orderType === 'subscription' ? `${remainingOrders} restantes` : `${getPonctualPrice().toLocaleString()} FCFA`}
               </p>
@@ -686,7 +683,7 @@ const CreateOrderPage = () => {
                 {isLoading_ ? <Loader2 size={18} className="animate-spin" /> : orderType === 'ponctual' ? `Payer ${getPonctualPrice().toLocaleString()} FCFA` : 'Créer la commande'}
                 <ArrowRight size={16} />
               </button>
-              <button type="button" onClick={() => navigate('/app/orders')} className="w-full py-3 rounded-2xl border text-center text-sm font-semibold" style={{ borderColor: colors.border }}>Annuler</button>
+              <button type="button" onClick={() => navigate('/app/orders')} className="w-full py-3 rounded-2xl border text-center text-sm font-semibold" style={{ borderColor: colors.primary + '20' }}>Annuler</button>
             </div>
           </div>
         </aside>
@@ -713,8 +710,11 @@ interface ModernPanelProps {
 }
 
 const ModernPanel = ({ icon, title, subtitle, color, children }: ModernPanelProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
-    <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border border-black/5">
+    <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
       <div className="flex items-start gap-3 mb-5">
         <div
           className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
@@ -727,10 +727,10 @@ const ModernPanel = ({ icon, title, subtitle, color, children }: ModernPanelProp
         </div>
 
         <div>
-          <h2 className="text-lg md:text-xl font-black tracking-tight text-gray-900">
+          <h2 className="text-lg md:text-xl font-black tracking-tight" style={{ color: colors.text }}>
             {title}
           </h2>
-          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+          <p className="text-sm" style={{ color: colors.textLight }}>
             {subtitle}
           </p>
         </div>
@@ -750,6 +750,9 @@ interface FieldProps {
 }
 
 const Field = ({ label, required, optional, color, children }: FieldProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
     <div className="block">
       <div className="flex items-center justify-between mb-1.5">
@@ -759,7 +762,7 @@ const Field = ({ label, required, optional, color, children }: FieldProps) => {
         </span>
 
         {optional && (
-          <span className="text-[11px] uppercase tracking-wide text-gray-400">
+          <span className="text-[11px] uppercase tracking-wide" style={{ color: colors.textLight }}>
             Optionnel
           </span>
         )}
@@ -777,8 +780,11 @@ interface CompactHeaderStatProps {
 }
 
 const CompactHeaderStat = ({ label, value, color }: CompactHeaderStatProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
-    <div className="rounded-2xl bg-gray-50 border border-black/5 px-3 py-2.5 text-center">
+    <div className="rounded-2xl bg-gray-50 border p-3 text-center" style={{ borderColor: colors.primary + '10' }}>
       <p className="text-[11px] text-gray-500 leading-tight">
         {label}
       </p>
@@ -796,10 +802,13 @@ interface SummaryLineProps {
 }
 
 const SummaryLine = ({ label, value, color }: SummaryLineProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-semibold text-gray-900 text-right" style={{ color }}>
+    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3" style={{ borderColor: colors.primary + '10' }}>
+      <span className="text-sm" style={{ color: colors.textLight }}>{label}</span>
+      <span className="text-sm font-semibold text-right" style={{ color: color || colors.text }}>
         {value}
       </span>
     </div>
