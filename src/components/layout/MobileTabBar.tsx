@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MobileTabBar.tsx
- 
+
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -28,9 +28,10 @@ import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useState, useEffect } from 'react';
 import { cn } from '@/utils/helpers';
+import { useBranding } from '@/hooks/useBranding';
 
 interface MobileTabBarProps {
-  colors: any;
+  colors?: any;
 }
 
 const getMainItems = (role: string | null) => {
@@ -69,59 +70,64 @@ const getMainItems = (role: string | null) => {
 };
 
 // ============================================================
-// ÉLÉMENTS DU MENU PLUS AVEC COULEURS COMPATIBLES DU BRANDING (SANS SORTIE HÔPITAL)
+// ÉLÉMENTS DU MENU PLUS AVEC COULEURS DU BRANDING
 // ============================================================
-const getMoreItems = (role: string | null, colors: any) => {
+const getMoreItems = (role: string | null, brand: any) => {
+  const colors = brand.colors;
   const primaryColor = colors.primary;
+  const goldColor = colors.gold;
 
   if (role === 'family') {
     return [
       { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing', color: '#10B981', bg: '#10B98112' },
-      { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
-       { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.secondary, bg: `${colors.secondary}25` },
+      { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing', color: goldColor, bg: `${goldColor}20` },
+      { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
+      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primary, bg: `${colors.primary}10` },
+      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: colors.secondary, bg: `${colors.secondary}20` },
     ];
   }
 
   if (role === 'aidant') {
     return [
       { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <History size={20} />, label: 'Historique', path: '/app/history', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: '#EF4444', bg: '#EF444412' },
-      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: '#F59E0B', bg: '#F59E0B12' },
+      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.secondary, bg: `${colors.secondary}25` },
+      { icon: <History size={20} />, label: 'Historique', path: '/app/history', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
+      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primary, bg: `${colors.primary}10` },
+      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: colors.secondary, bg: `${colors.secondary}20` },
     ];
   }
 
   if (role === 'admin' || role === 'coordinator') {
     return [
       { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/app/admin', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <ClipboardList size={20} />, label: 'Candidatures', path: '/app/aidant-candidates', color: '#3B82F6', bg: '#3B82F612' },
-      { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits', color: '#10B981', bg: '#10B98112' },
-      { icon: <FileCheck size={20} />, label: 'Rapports', path: '/app/admin/visits/validation', color: '#8B5CF6', bg: '#8B5CF612' },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: '#F59E0B', bg: '#F59E0B12' },
-      { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments', color: '#EC4899', bg: '#EC489912' },
-      { icon: <Award size={20} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: '#6366F1', bg: '#6366F112' },
-      { icon: <Package size={20} />, label: 'Offres', path: '/app/offers', color: '#14B8A6', bg: '#14B8A612' },
-      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/admin-notifications', color: '#EF4444', bg: '#EF444412' },
-      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: '#06B6D4', bg: '#06B6D412' },
-      { icon: <User size={20} />, label: 'Profil', path: '/app/profile', color: '#84CC16', bg: '#84CC1612' },
+      { icon: <ClipboardList size={20} />, label: 'Candidatures', path: '/app/aidant-candidates', color: colors.secondary, bg: `${colors.secondary}25` },
+      { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits', color: goldColor, bg: `${goldColor}20` },
+      { icon: <FileCheck size={20} />, label: 'Rapports', path: '/app/admin/visits/validation', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: colors.secondary, bg: `${colors.secondary}20` },
+      { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments', color: goldColor, bg: `${goldColor}20` },
+      { icon: <Award size={20} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: colors.primary, bg: `${colors.primary}12` },
+      { icon: <Package size={20} />, label: 'Offres', path: '/app/offers', color: colors.secondary, bg: `${colors.secondary}20` },
+      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/admin-notifications', color: colors.primary, bg: `${colors.primary}10` },
+      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primaryLight, bg: `${colors.primaryLight}12` },
+      { icon: <User size={20} />, label: 'Profil', path: '/app/profile', color: colors.gold, bg: `${colors.gold}20` },
     ];
   }
 
   return [];
 };
 
-export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
+export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
   const location = useLocation();
   const { role } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
+  
   const [showMore, setShowMore] = useState(false);
 
   const mainItems = getMainItems(role);
-  const moreItems = getMoreItems(role, colors);
+  const moreItems = getMoreItems(role, brand);
 
   useEffect(() => {
     if (showMore) {
@@ -159,32 +165,34 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
       )}
 
       {/* ============================================================
-          BOTTOM SHEET PLUS (Mise à l'échelle élastique et floutée)
+          BOTTOM SHEET PLUS
           ============================================================ */}
       <div
         className={cn(
-          "fixed left-4 right-4 z-[48] bg-white/95 dark:bg-[#121c16]/95 backdrop-blur-xl rounded-[2.5rem] border border-gray-100/50 dark:border-[#2c3f35]/50 shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
+          "fixed left-4 right-4 z-[48] bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-xl rounded-[2.5rem] border shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
           showMore 
             ? "scale-100 opacity-100 translate-y-0 blur-none pointer-events-auto" 
             : "scale-90 opacity-0 translate-y-4 blur-sm pointer-events-none"
         )}
         style={{
+          borderColor: colors.primary + '20',
           boxShadow: '0 -10px 40px -15px rgba(0, 0, 0, 0.12), 0 15px 40px rgba(0,0,0,0.08)',
         }}
       >
-        <div className="flex items-center justify-between mb-5 border-b pb-3 dark:border-[#2c3f35]">
+        <div className="flex items-center justify-between mb-5 border-b pb-3 dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '15' }}>
           <div className="space-y-0.5">
-            <h3 className="text-sm font-extrabold text-gray-800 dark:text-gray-100">Plus d'outils</h3>
+            <h3 className="text-sm font-extrabold" style={{ color: colors.text }}>Plus d'outils</h3>
           </div>
           <button
             onClick={() => setShowMore(false)}
-            className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 transition shadow-sm"
+            className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center transition shadow-sm"
+            style={{ color: colors.text + '80' }}
           >
             <X size={14} />
           </button>
         </div>
 
-        {/* Grille scrollable sécurisée et colorée */}
+        {/* Grille scrollable */}
         <div className="grid grid-cols-3 gap-3.5 max-h-[42vh] overflow-y-auto pr-1 py-1 scrollbar-none">
           {moreItems.map((item) => {
             const active = isActive(item.path);
@@ -197,11 +205,12 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                 className={cn(
                   "flex flex-col items-center justify-center text-center p-4 rounded-3xl transition-all border",
                   active
-                    ? "bg-white dark:bg-[#1d2d25] border-gray-100 dark:border-[#2c3f35] shadow-md font-bold"
-                    : "bg-gray-50/50 dark:bg-[#111a15]/30 border-transparent hover:bg-gray-50 dark:hover:bg-[#1c2a21]/50 text-gray-600 dark:text-gray-300"
+                    ? "bg-white dark:bg-[#1d2d25] shadow-md font-bold"
+                    : "bg-gray-50/50 dark:bg-[#111a15]/30 border-transparent hover:bg-gray-50 dark:hover:bg-[#1c2a21]/50"
                 )}
                 style={{
-                  borderColor: active ? colors.primary : undefined,
+                  borderColor: active ? colors.primary : 'transparent',
+                  color: active ? colors.text : colors.textLight,
                 }}
               >
                 <div
@@ -216,8 +225,9 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                 <span 
                   className={cn(
                     "text-[10px] tracking-tight line-clamp-1 leading-snug",
-                    active ? "text-gray-800 dark:text-white font-extrabold" : "text-gray-600 dark:text-gray-300 font-medium"
+                    active ? "font-extrabold" : "font-medium"
                   )}
+                  style={{ color: active ? colors.text : colors.textLight }}
                 >
                   {item.label}
                 </span>
@@ -228,12 +238,13 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
       </div>
 
       {/* ============================================================
-          FLOATING DOCK "FLOATING ISLAND" TACTILE (CERCLES ACTIFS DE RÔLE)
+          FLOATING DOCK
           ============================================================ */}
       <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
         <div
-          className="w-full max-w-lg bg-white/80 dark:bg-[#121c16]/80 backdrop-blur-xl border border-white/20 dark:border-[#2c3f35]/20 shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
+          className="w-full max-w-lg bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-xl border shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
           style={{
+            borderColor: colors.primary + '20',
             boxShadow: '0 20px 40px -15px rgba(15,31,25,0.15), 0 0 1px 1px rgba(255,255,255,0.15) inset',
           }}
         >
@@ -253,10 +264,11 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                     "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
                     active 
                       ? "text-white scale-105 shadow-md shadow-black/10" 
-                      : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
+                      : "hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
                   )}
                   style={{
                     backgroundColor: active ? colors.primary : 'transparent',
+                    color: active ? '#ffffff' : colors.textLight,
                   }}
                 >
                   <div className="transition-transform duration-200">
@@ -269,7 +281,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                     "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
                     active ? "opacity-100 font-extrabold" : "opacity-60"
                   )}
-                  style={{ color: active ? colors.primary : '#9CA3AF' }}
+                  style={{ color: active ? colors.primary : colors.textLight }}
                 >
                   {item.label}
                 </span>
@@ -298,10 +310,11 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                     "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
                     showMore || isMoreActive
                       ? "text-white scale-105 shadow-md shadow-black/10"
-                      : "text-gray-400 dark:text-gray-500 hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
+                      : "hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
                   )}
                   style={{
                     backgroundColor: showMore || isMoreActive ? colors.primary : 'transparent',
+                    color: showMore || isMoreActive ? '#ffffff' : colors.textLight,
                   }}
                 >
                   <div className={cn("transition-transform duration-300", showMore ? "rotate-90" : "")}>
@@ -314,7 +327,7 @@ export const MobileTabBar = ({ colors }: MobileTabBarProps) => {
                     "text-[9px] font-bold tracking-tight transition-all duration-200 mt-1",
                     showMore || isMoreActive ? "opacity-100 font-extrabold" : "opacity-60"
                   )}
-                  style={{ color: showMore || isMoreActive ? colors.primary : '#9CA3AF' }}
+                  style={{ color: showMore || isMoreActive ? colors.primary : colors.textLight }}
                 >
                   {showMore ? 'Fermer' : 'Plus'}
                 </span>
