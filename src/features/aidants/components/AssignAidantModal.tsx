@@ -1,7 +1,7 @@
 // 📁 src/features/aidants/components/AssignAidantModal.tsx
-
-import { ModalFullScreen } from '@/components/ui/ModalFullScreen';
-import AssignAidantModalContent from './AssignAidantModalContent';
+ 
+import { Modal } from '@/components/ui/Modal'; 
+import { AssignAidantModalContent } from './AssignAidantModalContent';
 
 interface AssignAidantModalProps {
   isOpen: boolean;
@@ -10,7 +10,7 @@ interface AssignAidantModalProps {
   patients?: any[];
   onSuccess: () => void;
   colors: any;
-   targetType?: 'visit' | 'patient' | 'personal_account';
+  targetType?: 'visit' | 'patient' | 'personal_account';
   targetId?: string;
   targetName?: string;
   currentAidantId?: string | null;
@@ -35,11 +35,11 @@ export const AssignAidantModal = ({
   isAdmin = false,
 }: AssignAidantModalProps) => {
   return (
-    <ModalFullScreen
+    <Modal
       isOpen={isOpen}
       onClose={onClose}
-      onBack={onClose}
       title={isAdmin ? '👔 Assigner un aidant' : '🦸 Choisir un aidant'}
+      maxWidth="xl"  
     >
       <AssignAidantModalContent
         aidant={aidant}
@@ -58,7 +58,7 @@ export const AssignAidantModal = ({
         onAssignAidant={onAssignAidant}
         isAdmin={isAdmin}
       />
-    </ModalFullScreen>
+    </Modal>
   );
 };
 
