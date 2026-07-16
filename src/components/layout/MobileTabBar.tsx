@@ -1,4 +1,5 @@
 // 📁 src/components/layout/MobileTabBar.tsx
+// ✅ BARRE D'ONGLETS MOBILE : HOVERS ET SELECTIONS INTÉGRALEMENT CONVERSES AVEC LES COULEURS DE L'UNIVERS DU COMPTE
 
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -69,9 +70,6 @@ const getMainItems = (role: string | null) => {
   return base;
 };
 
-// ============================================================
-// ÉLÉMENTS DU MENU PLUS AVEC COULEURS DU BRANDING
-// ============================================================
 const getMoreItems = (role: string | null, brand: any) => {
   const colors = brand.colors;
   const primaryColor = colors.primary;
@@ -80,34 +78,34 @@ const getMoreItems = (role: string | null, brand: any) => {
   if (role === 'family') {
     return [
       { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.secondary, bg: `${colors.secondary}25` },
+      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}18` },
       { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing', color: goldColor, bg: `${goldColor}20` },
       { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
       { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primary, bg: `${colors.primary}10` },
-      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: colors.secondary, bg: `${colors.secondary}20` },
+      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
     ];
   }
 
   if (role === 'aidant') {
     return [
       { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.secondary, bg: `${colors.secondary}25` },
+      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}18` },
       { icon: <History size={20} />, label: 'Historique', path: '/app/history', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
       { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primary, bg: `${colors.primary}10` },
-      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: colors.secondary, bg: `${colors.secondary}20` },
+      { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
     ];
   }
 
   if (role === 'admin' || role === 'coordinator') {
     return [
       { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/app/admin', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <ClipboardList size={20} />, label: 'Candidatures', path: '/app/aidant-candidates', color: colors.secondary, bg: `${colors.secondary}25` },
+      { icon: <ClipboardList size={20} />, label: 'Candidatures', path: '/app/aidant-candidates', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}18` },
       { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits', color: goldColor, bg: `${goldColor}20` },
       { icon: <FileCheck size={20} />, label: 'Rapports', path: '/app/admin/visits/validation', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
-      { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: colors.secondary, bg: `${colors.secondary}20` },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
       { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments', color: goldColor, bg: `${goldColor}20` },
       { icon: <Award size={20} />, label: 'Souscriptions', path: '/app/admin-subscriptions', color: colors.primary, bg: `${colors.primary}12` },
-      { icon: <Package size={20} />, label: 'Offres', path: '/app/offers', color: colors.secondary, bg: `${colors.secondary}20` },
+      { icon: <Package size={20} />, label: 'Offres', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
       { icon: <Bell size={20} />, label: 'Notifications', path: '/app/admin-notifications', color: colors.primary, bg: `${colors.primary}10` },
       { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primaryLight, bg: `${colors.primaryLight}12` },
       { icon: <User size={20} />, label: 'Profil', path: '/app/profile', color: colors.gold, bg: `${colors.gold}20` },
@@ -125,6 +123,7 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
   const colors = propColors || brand.colors;
   
   const [showMore, setShowMore] = useState(false);
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
   const mainItems = getMainItems(role);
   const moreItems = getMoreItems(role, brand);
@@ -159,7 +158,7 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
       {/* Fond flouté sombre derrière le BottomSheet */}
       {showMore && (
         <div 
-          className="fixed inset-0 z-[45] bg-black/25 backdrop-blur-sm transition-opacity duration-300 ease-out" 
+          className="fixed inset-0 z-[45] bg-black/25 backdrop-blur-sm transition-opacity duration-300 ease-out animate-fadeIn" 
           onClick={() => setShowMore(false)} 
         />
       )}
@@ -251,12 +250,15 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
           {/* BOUTONS PRINCIPAUX */}
           {mainItems.map((item) => {
             const active = isActive(item.path);
+            const isHovered = hoveredPath === item.path;
 
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 onClick={handleLinkClick}
+                onMouseEnter={() => setHoveredPath(item.path)}
+                onMouseLeave={() => setHoveredPath(null)}
                 className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
               >
                 <div
@@ -264,10 +266,13 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                     "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
                     active 
                       ? "text-white scale-105 shadow-md shadow-black/10" 
-                      : "hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
+                      : ""
                   )}
                   style={{
-                    backgroundColor: active ? colors.primary : 'transparent',
+                    // 🟢 HOVER DYNAMIQUE ET SÉCURISÉ : Opacité contrôlée basée sur la couleur d'univers
+                    backgroundColor: active 
+                      ? colors.primary 
+                      : (isHovered ? colors.primary + '08' : 'transparent'),
                     color: active ? '#ffffff' : colors.textLight,
                   }}
                 >
