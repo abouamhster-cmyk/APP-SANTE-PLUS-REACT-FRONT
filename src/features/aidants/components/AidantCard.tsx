@@ -1,7 +1,7 @@
 // 📁 src/features/aidants/components/AidantCard.tsx
 // ✅ INTERFACE CATALOGUE COMPLÈTE : ÉTAT D'ASSIGNATION ET RÉVOCATION EN DIRECT
 
-import { memo, useMemo, useCallback, useState } from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import {
   Star,
   MapPin,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { AidantProfile } from '@/types/aidant';
 import { cn } from '@/utils/helpers';
+import { useBranding } from '@/hooks/useBranding';
 
 interface AidantCardProps {
   aidant: AidantProfile & {
@@ -33,29 +34,31 @@ interface AidantCardProps {
   };
   onClick: () => void;
   onAssign: () => void;
-  onRevoke?: () => void; // ✅ NOUVEAU
-  colors: any;
+  onRevoke?: () => void;
+  colors?: any;
   compact?: boolean;
   showActions?: boolean;
   showQuota?: boolean;
   showOrderQuota?: boolean;
-  isAssigned?: boolean; // ✅ NOUVEAU
-  assignedTargetName?: string | null; // ✅ NOUVEAU
+  isAssigned?: boolean;
+  assignedTargetName?: string | null;
 }
 
 export const AidantCard = memo(({
   aidant,
   onClick,
   onAssign,
-  colors,
+  colors: propColors,
   compact = false,
   showActions = true,
   showQuota = true,
   showOrderQuota = false,
-  isAssigned = false, // ✅ Par défaut faux
-  assignedTargetName = null, // ✅ Nom du proche assigné
-  onRevoke, // ✅ Fonction de révocation
+  isAssigned = false,
+  assignedTargetName = null,
+  onRevoke,
 }: AidantCardProps) => {
+  const brand = useBranding();
+  const colors = propColors || brand.colors;
 
   const status = useMemo(() => {
     const current = aidant.current_assignments || 0;
@@ -175,7 +178,7 @@ export const AidantCard = memo(({
           "hover:shadow-md active:scale-[0.99]",
           isAssigned && "border-blue-200 bg-blue-50/10"
         )}
-        style={{ borderColor: isAssigned ? '#3B82F6' : colors.border }}
+        style={{ borderColor: isAssigned ? '#3B82F6' : colors.primary + '20' }}
       >
         <div className="flex items-center gap-3">
           <div
@@ -189,7 +192,7 @@ export const AidantCard = memo(({
             <h4 className="font-semibold text-sm truncate" style={{ color: colors.text }}>
               {name}
             </h4>
-            <p className="text-[10px] text-gray-400 truncate">
+            <p className="text-[10px] truncate" style={{ color: colors.textLight }}>
               {isAssigned ? `📌 Assigné à ${assignedTargetName || 'mon compte'}` : `${zones}`}
             </p>
           </div>
@@ -225,7 +228,7 @@ export const AidantCard = memo(({
         "hover:shadow-md active:scale-[0.99]",
         isAssigned && "border-blue-200 bg-blue-50/10"
       )}
-      style={{ borderColor: isAssigned ? '#3B82F6' : colors.border }}
+      style={{ borderColor: isAssigned ? '#3B82F6' : colors.primary + '20' }}
     >
       <div className="flex items-start gap-4">
         {/* Avatar */}
@@ -243,7 +246,7 @@ export const AidantCard = memo(({
               <h3 className="font-bold text-base truncate" style={{ color: colors.text }}>
                 {name}
               </h3>
-              <div className="flex items-center gap-2 text-xs mt-0.5 text-gray-500 flex-wrap">
+              <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap" style={{ color: colors.textLight }}>
                 <span className="flex items-center gap-1">
                   <Star size={13} className="text-yellow-400 fill-yellow-400" />
                   {rating.toFixed(1)}
@@ -287,7 +290,7 @@ export const AidantCard = memo(({
       </div>
 
       {/* INFOS SECONDAIRES */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-500">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs" style={{ color: colors.textLight }}>
         <div className="flex items-center gap-1.5">
           <MapPin size={14} className="text-gray-400" />
           <span className="truncate">{zones}</span>
@@ -311,7 +314,7 @@ export const AidantCard = memo(({
         {showQuota && (
           <div>
             <div className="flex items-center justify-between text-[10px]">
-              <span className="flex items-center gap-1 text-gray-500">
+              <span className="flex items-center gap-1" style={{ color: colors.textLight }}>
                 <Users size={12} />
                 Assignations
               </span>
@@ -341,11 +344,11 @@ export const AidantCard = memo(({
 
       {/* ACTIONS */}
       {showActions && (
-        <div className="mt-4 flex gap-3 pt-4 border-t" style={{ borderColor: colors.border }}>
+        <div className="mt-4 flex gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
           <button
             onClick={handleClick}
             className="flex-1 py-2.5 rounded-xl text-sm font-medium border transition hover:bg-gray-50 flex items-center justify-center gap-1.5"
-            style={{ borderColor: colors.border, color: colors.text }}
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             <User size={16} />
             Voir le profil
