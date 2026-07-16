@@ -1,7 +1,20 @@
 // 📁 src/features/visits/components/VisitModalContent.tsx
 
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, UserCircle, Users, Search, AlertCircle, CreditCard, CheckCircle, Loader2, MapPin, Hospital } from 'lucide-react';
+import { 
+  Calendar, 
+  Clock, 
+  User, 
+  UserCircle, 
+  Users, 
+  Search, 
+  AlertCircle, 
+  CreditCard, 
+  CheckCircle, 
+  Loader2, 
+  MapPin, 
+  Hospital 
+} from 'lucide-react';
 
 import { Visit, Patient } from '@/types';
 import { useVisitStore } from '@/stores/visitStore';
@@ -12,6 +25,10 @@ import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import { getPonctualPrice } from '@/lib/constants';
 import toast from 'react-hot-toast';
+
+// ============================================================
+// TYPES
+// ============================================================
 
 interface VisitModalContentProps {
   mode: 'create' | 'edit';
@@ -35,6 +52,10 @@ interface Account {
   display_name: string;
   type: 'account_with_patients' | 'personal_account';
 }
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
 
 export const VisitModalContent = ({
   mode,
@@ -304,7 +325,6 @@ export const VisitModalContent = ({
         try {
           const result = await createVisit(data);
           if (result?.status === 'brouillon') {
-            const price = getPonctualPrice(formData.duration_minutes || 60);
             toast.success(`💳 Visite créée en brouillon. Paiement requis.`);
           } else if (result?.status === 'en_attente_aidant') {
             toast.success('🦸 Visite créée en attente d\'aidant.');
@@ -346,11 +366,259 @@ export const VisitModalContent = ({
     }
   };
 
+  // ============================================================
+  // INTERFACE-HELPER FUNCTIONS (RÉINTÉGRÉES POUR SÉCURISER TS)
+  // ============================================================
+
+  const renderAccountSelector = () => {
+    if (!isAdmin) return null;
+
+    return (
+      <div className="space-y-1 mb-2">
+        <label className="block text-[10px] font-black uppercase text-gray-500">
+          Sélectionner un compte
+        </label>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowAccountSelector(!showAccountSelector)}
+            className="w-full px-3 py-2 rounded-xl border text-left flex items-center justify-between transition focus:ring-1 text-xs font-semibold bg-white"
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
+          >
+            <span className="truncate">
+              {selectedAccount ? selectedAccount.display_name : 'Choisir un compte...'}
+            </span>
+            <span className="text-gray-400 text-xs shrink-0">▼</span>
+          </button>
+
+          {showAccountSelector && (
+            <div className="absolute z-30 mt-1 left-0 right-0 w-full bg-white rounded-xl border shadow-lg max-h-60 overflow-y-auto" style={{ borderColor: colors.primary + '15' }}>
+              <div className="p-2 sticky top-0 bg-white border-b" style={{ borderColor: colors.primary + '15' }}>
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Rechercher..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border outline-none text-xs"
+                    style={{ borderColor: colors.primary + '20', color: colors.text }}
+                  />
+                </div>
+              </div>
+
+              {isLoadingAccounts ? (
+                <div className="p-3 text-center text-xs text-gray-400">Chargement...</div>
+              ) : filteredAccounts.length === 0 ? (
+                <div className="p-3 text-center text-xs text-gray-400">Aucun compte</div>
+              ) : (
+                filteredAccounts.map((account) => (
+                  <button
+                    key={account.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedAccountId(account.id);
+                      setShowAccountSelector(false);
+                      setSearchTerm('');
+                      setTargetType('account');
+                      setFormData(prev => ({ ...prev, patient_id: '' }));
+                    }}
+                    className="w-full px-3.5 py-2.5 text-left hover:bg-gray-50 transition flex items-center justify-between border-b last:border-0 text-xs"
+                    style={{ borderColor: colors.primary + '10' }}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <p className="font-bold truncate" style={{ color: colors.text }}>{account.full_name}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {account.has_patient ? `👨‍👩‍👦 ${account.patients.length} proche(s)` : '👤 Personnel'}
+                      </p>
+                    </div>
+                    {selectedAccountId === account.id && <span className="text-green-500 text-xs font-bold">✓</span>}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTargetTypeSelector = () => {
+    if (!isAdmin || !selectedAccount) return null;
+    if (!selectedAccount.has_patient) return null;
+
+    return (
+      <div className="space-y-1 mb-2">
+        <label className="block text-[10px] font-black uppercase text-gray-500">Planifier pour :</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={selectPersonnel}
+            className={`p-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-0.5 border ${
+              targetType === 'account' ? 'text-white' : 'bg-gray-50 text-gray-500'
+            }`}
+            style={{
+              background: targetType === 'account' ? colors.primary : 'transparent',
+              borderColor: targetType === 'account' ? colors.primary : colors.primary + '20',
+            }}
+          >
+            <div className="flex items-center gap-1"><UserCircle size={13} />Le compte</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={selectPatientType}
+            className={`p-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-0.5 border ${
+              targetType === 'patient' ? 'text-white' : 'bg-gray-50 text-gray-500'
+            }`}
+            style={{
+              background: targetType === 'patient' ? colors.primary : 'transparent',
+              borderColor: targetType === 'patient' ? colors.primary : colors.primary + '20',
+            }}
+          >
+            <div className="flex items-center gap-1"><Users size={13} />Un proche</div>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPatientSelector = () => {
+    if (targetType !== 'patient') return null;
+
+    const patientList = isAdmin && selectedAccount?.has_patient ? accountPatients : patients;
+
+    if (patientList.length === 0) {
+      return (
+        <div className="p-3 rounded-xl border text-center" style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B30' }}>
+          <p className="text-xs font-bold text-amber-700">Aucun proche enregistré pour ce compte.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-1">
+        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500">
+          Proche associé *
+        </label>
+        <div className="relative">
+          <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+          <select
+            value={formData.patient_id}
+            onChange={(e) => handlePatientSelect(e.target.value)}
+            className="w-full pl-9 pr-3 h-11 rounded-xl border outline-none text-xs font-semibold bg-gray-50/50"
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
+            required={targetType === 'patient'}
+          >
+            <option value="">Sélectionner un proche</option>
+            {patientList.map((patient) => (
+              <option key={patient.id} value={patient.id}>
+                {patient.first_name} {patient.last_name} - {getCategoryLabel(patient.category)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTargetSummary = () => {
+    const isAccount = targetType === 'account';
+
+    if (!isAdmin && profile) {
+      const targetName = isAccount ? profile.full_name : (() => {
+        const selectedPatient = patients.find(p => p.id === formData.patient_id);
+        return selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'un proche';
+      })();
+
+      return (
+        <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.primary + '20' }}>
+          <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
+            {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold truncate" style={{ color: colors.text }}>{targetName}</p>
+            <p className="text-[10px] mt-0.5 text-gray-400">
+              {isAccount ? '👤 Planification pour votre propre compte.' : `👨‍👩‍👦 Planification pour votre proche.`}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (!selectedAccount) return null;
+
+    const targetName = isAccount ? selectedAccount.full_name : (() => {
+      const selectedPatient = accountPatients.find(p => p.id === formData.patient_id);
+      return selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : 'un proche';
+    })();
+
+    return (
+      <div className="p-3 rounded-xl flex items-start gap-2.5 border bg-gray-50/20" style={{ borderColor: colors.primary + '20' }}>
+        <div className="p-1.5 bg-white rounded-lg shrink-0 border border-gray-100" style={{ color: colors.primary }}>
+          {isAccount ? <UserCircle size={15} /> : <Users size={15} />}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-bold truncate" style={{ color: colors.text }}>{targetName}</p>
+          <p className="text-[10px] mt-0.5 text-gray-400">
+            {isAccount ? `👤 Planification pour ${selectedAccount.full_name}.` : `👨‍👩‍👦 Planification pour un proche lié.`}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFamilyContent = () => {
+    if (isAdmin) return null;
+
+    const hasPatients = patients.length > 0;
+
+    return (
+      <div className="space-y-1.5">
+        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500">Pour qui ?</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={selectPersonnel}
+            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+              targetType === 'account' ? 'text-white shadow-sm' : 'bg-gray-50 text-gray-500'
+            }`}
+            style={{
+              background: targetType === 'account' ? colors.primary : 'transparent',
+              borderColor: targetType === 'account' ? colors.primary : colors.primary + '20',
+            }}
+          >
+            <UserCircle size={14} /> Personnel
+          </button>
+
+          <button
+            type="button"
+            onClick={selectPatientType}
+            disabled={!hasPatients}
+            className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+              targetType === 'patient' ? 'text-white shadow-sm' : 'bg-gray-50 text-gray-500'
+            }`}
+            style={{
+              background: targetType === 'patient' ? colors.primary : 'transparent',
+              borderColor: targetType === 'patient' ? colors.primary : colors.primary + '20',
+            }}
+          >
+            <Users size={14} /> Un proche
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  // BLOC DE RENDU DU CODE
+  // ============================================================
+
   const hasPatients = patients.length > 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 max-w-full">
-      {/* 1. SECTEUR DESTINATAIRE INTELLIGENT (Pas de bouton si aucun proche) */}
+      {/* 1. SECTEUR DESTINATAIRE INTELLIGENT */}
       <div className="space-y-2">
         <label className="block text-xs font-black uppercase tracking-wider text-gray-500">
           Destinataire de l'intervention
@@ -365,32 +633,7 @@ export const VisitModalContent = ({
 
         {!isAdmin && (
           <>
-            {hasPatients ? (
-              // Affichage compact s'il y a des proches enregistrés
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={selectPersonnel}
-                  className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
-                    targetType === 'account' ? 'text-white' : 'bg-gray-50 text-gray-500'
-                  }`}
-                  style={{ background: targetType === 'account' ? colors.primary : 'transparent', borderColor: colors.primary + '20' }}
-                >
-                  <UserCircle size={14} /> Personnel
-                </button>
-                <button
-                  type="button"
-                  onClick={selectPatientType}
-                  className={`p-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
-                    targetType === 'patient' ? 'text-white' : 'bg-gray-50 text-gray-500'
-                  }`}
-                  style={{ background: targetType === 'patient' ? colors.primary : 'transparent', borderColor: colors.primary + '20' }}
-                >
-                  <Users size={14} /> Un proche
-                </button>
-              </div>
-            ) : (
-              // Badge élégant et épuré à la place du gros avertissement si aucun proche
+            {hasPatients ? renderFamilyContent() : (
               <div className="flex items-center gap-2.5 p-3 rounded-2xl bg-gray-50 border border-gray-100">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600">
                   <User size={15} />
@@ -407,6 +650,9 @@ export const VisitModalContent = ({
         {targetType === 'patient' && renderPatientSelector()}
       </div>
 
+      {/* RÉSUMÉ DU DESTINATAIRE */}
+      {renderTargetSummary()}
+
       {/* 2. SÉLECTEUR DE TYPE D'INTERVENTION */}
       <div className="space-y-1">
         <label className="block text-xs font-black uppercase tracking-wider text-gray-500">
@@ -418,7 +664,7 @@ export const VisitModalContent = ({
           className="w-full h-11 px-3.5 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
           style={{ borderColor: colors.primary + '20', color: colors.text }}
         >
-          <option value="domicile">🏡 Présence, confort et quotidien à domicile</option>
+          <option value="domicile">🏡 Aide, présence et confort à domicile</option>
           <option value="medical_appointment">🩺 Accompagnement à un Rendez-vous médical</option>
           <option value="hospital_discharge">🏥 Accompagnement / Sortie d'hôpital</option>
         </select>
@@ -470,7 +716,7 @@ export const VisitModalContent = ({
         </div>
       )}
 
-      {/* 6. GRILLE TEMPORELLE (Date / Heure / Durée réunis pour un gain de place) */}
+      {/* 6. GRILLE TEMPORELLE (Date / Heure / Durée) */}
       <div className="grid grid-cols-3 gap-2">
         <div className="space-y-1">
           <label className="block text-[10px] font-black uppercase text-gray-500">Date *</label>
