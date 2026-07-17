@@ -179,6 +179,39 @@ const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
   );
 };
 
+interface StatusBadgeProps {
+  status: string;
+  colors: any;
+}
+
+const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
+  const getStatusConfig = (status: string) => {
+    const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
+      creee: { icon: <Package size={14} />, color: '#9E9E9E', bg: '#9E9E9E15', label: 'Créée' },
+      en_attente: { icon: <Clock size={14} />, color: '#F59E0B', bg: '#F59E0B15', label: 'En attente' },
+      disponible: { icon: <AlertCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Disponible' },
+      en_cours: { icon: <Clock size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'En cours' },
+      livree: { icon: <Truck size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'Livrée' },
+      validee: { icon: <CheckCircle size={14} />, color: '#4CAF50', bg: '#4CAF5015', label: 'Validée' },
+      annulee: { icon: <XCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Annulée' },
+      attente_paiement: { icon: <CreditCard size={14} />, color: '#8B5CF6', bg: '#8B5CF615', label: 'En attente paiement' },
+    };
+    return map[status] || map['creee'];
+  };
+
+  const config = getStatusConfig(status);
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+      style={{ background: config.bg, color: config.color }}
+    >
+      {config.icon}
+      {config.label}
+    </span>
+  );
+};
+
 // =============================================
 // COMPOSANT PRINCIPAL
 // =============================================
@@ -263,7 +296,7 @@ const OrderDetailPage = () => {
     }
   }, [showAssignModal, fetchAidants]);
 
-  // ✅ CONCORDANCE ET CALCUL DE PROVISIONS SÉCURISÉES
+  // ✅ CONCORDANCE ET CALCUL DE PROVISIONS SÉCURISÉES DE SECOURS (DÉTECTION DE FLUX)
   const financialData = useMemo(() => {
     if (!order) return { purchaseAmount: 0, withdrawalFee: 0 };
 
@@ -271,12 +304,14 @@ const OrderDetailPage = () => {
     const dbPurchase = Number(order.purchase_amount || 0);
     const dbFee = Number(order.withdrawal_fee || 0);
 
+    // Si colonnes DB déjà renseignées, les utiliser d'office (Cas nominal de notre V2)
     if (dbPurchase > 0) {
       return { purchaseAmount: dbPurchase, withdrawalFee: dbFee };
     }
 
+    // Fallback dynamique s'il y a eu un paiement de provision global mais que les colonnes individuelles sont à 0 (Données de test)
     if (estimated > 0) {
-      const baseServicePrice = 500; 
+      const baseServicePrice = 500; // Tarif de base de l'acte unifié
       const estimatedPurchase = Math.max(0, estimated - baseServicePrice);
       const calculatedFee = calculateWithdrawalFeeLocal(estimatedPurchase, order.withdrawal_operator || 'mtn_moov');
       
@@ -552,6 +587,7 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
+              {/* ✅ SÉCURISÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses de livraison simples ! */}
               {isPaid && financialData.purchaseAmount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
@@ -771,18 +807,21 @@ const OrderDetailPage = () => {
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
           <span className="text-sm font-extrabold text-gray-750">
+             {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
              {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">💵 Frais de retrait MM</span>
           <span className="text-sm font-extrabold text-gray-750">
+             {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
              {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
           <span className="text-sm font-extrabold text-emerald-600">
+             {/* ✅ CORRIGÉ : Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
              {order.subscription_id 
               ? 'Gratuit (Abonnement)' 
               : (order.delivery_fee > 0 
@@ -792,7 +831,8 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+      {/* PERSONNES CONCERNÉES - ✅ CORRIGÉ POUR RETIRER LA REDONDANCE DES COMPTES PERSONNELS */}
+      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
           Personnes concernées
@@ -870,7 +910,7 @@ const OrderDetailPage = () => {
             {order.prescription_url && (
               <DocButton
                 icon={<ImageIcon size={19} />}
-                title={order.type === 'medicaments' ? "Ordonnance médicale" : "Photo de l'article / objet"}  
+                title={order.type === 'medicaments' ? "Ordonnance médicale" : "Photo de l'article / objet"} // ✅ Label dynamique intelligent
                 color={colors.primary}
                 onClick={() => openUrl(order.prescription_url)}
               />
@@ -978,7 +1018,8 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-         {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
+        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
+        {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
@@ -988,7 +1029,8 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-         {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
+        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
+        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
             <div>
