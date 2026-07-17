@@ -271,6 +271,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: false });
       return order;
     } catch (error: any) {
+      console.error('❌ Take order error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -368,6 +369,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Complete delivery error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -388,6 +390,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
+      console.error('❌ Confirm cash payment error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
