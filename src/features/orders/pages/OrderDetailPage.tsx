@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET VISIBILITÉ DE LA DESCRIPTION & PROVISION PAYÉE
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET TRADUCTION DES CATÉGORIES
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -28,11 +28,12 @@ import {
   Loader2,
   CreditCard,
   Navigation as NavIcon,
+  Info, // ✅ Ajouté pour les alertes informatives
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useBranding } from '@/hooks/useBranding'; // ✅ CORRIGÉ : Importation corrigée vers le bon dossier de hooks
+import { useBranding } from '@/hooks/useBranding'; 
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; 
 
@@ -240,7 +241,6 @@ const OrderDetailPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ✅ 1. DÉFINITION IMMÉDIATE POUR ÉVITER LES ERREURS DE SCOPE DE VARIABLE
   const order = currentOrder as any;
 
   const [isUpdating, setIsUpdating] = useState(false);
@@ -253,12 +253,10 @@ const OrderDetailPage = () => {
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>('online');
   const [cashReceivedInput, setCashReceivedInput] = useState<number>(0);
 
-  // ✅ 2. DÉFINITION DE LA RÉFÉRENCE MODALE ET DU CONTROLE ANTICIPÉ
   const modalRef = useRef<HTMLDivElement>(null); 
   const isActionPending = useRef(false);
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
-  // ✅ 3. DÉFINITION INTÉGRÉE DE L'OUVERTURE DE LIENS WEB
   const openUrl = (url: string | null) => { 
     if (!url) {
       toast.error('URL non disponible');
@@ -467,7 +465,7 @@ const OrderDetailPage = () => {
         orderType: 'delivery',
         items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee, total: order.delivery_fee }], 
         address: order.address,
-        targetType: order.target_type,
+        targetType: order.target_type as any,
         targetName: order.target_name || 'Personnel',
         patientId: order.patient_id,
       });
@@ -528,7 +526,8 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
-              {isPaid && (
+              {/* ✅ CORRIGÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses simples ! */}
+              {isPaid && order.purchase_amount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
                   Provision Payée
@@ -711,7 +710,7 @@ const OrderDetailPage = () => {
 
       {/* RÉSUMÉ - ✅ FILTRÉ À 3 COLONNES DÉSORMAIS (CARTE TYPE ÉLIMINÉE !) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* ✅ Affiche désormais estimated_amount si payé, ou purchase_amount + MM */}
+        {/* ✅ Affiche désormais estimated_amount si payé d'avance, ou purchase_amount + MM */}
         <MiniCard
           icon={<Banknote size={20} />}
           label="Provision Totale Payée"
@@ -744,7 +743,14 @@ const OrderDetailPage = () => {
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
-          <span className="text-sm font-extrabold text-emerald-600">{order.delivery_fee > 0 ? `${order.delivery_fee.toLocaleString()} FCFA (${order.delivery_payment_method === 'cash' ? 'Espèces' : 'En ligne'})` : 'Gratuit (Abonnement)'}</span>
+          <span className="text-sm font-extrabold text-emerald-600">
+            {/* ✅ CORRIGÉ : Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
+            {order.subscription_id 
+              ? 'Gratuit (Abonnement)' 
+              : (order.delivery_fee > 0 
+                  ? `${order.delivery_fee.toLocaleString()} FCFA (${order.delivery_payment_method === 'cash' ? 'Espèces' : 'En ligne'})` 
+                  : 'À payer à la livraison')}
+          </span>
         </div>
       </div>
 
@@ -912,12 +918,26 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {isPonctual && isPaid && (
+        {/* ✅ CORRIGÉ : N'afficher la bannière de provision payée d'avance que s'il y a un montant d'achat réel (>0) ! */}
+        {isPonctual && isPaid && order.purchase_amount > 0 && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
               <p className="text-sm font-medium text-green-700">Paiement effectué</p>
               <p className="text-xs text-green-600">Commande ponctuelle - Paiement de provision validé.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ AJOUT BANDEAU INFORMATIF : Commande simple en mode ponctuel en cours, pour rappeler le règlement à l'arrivée */}
+        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && (
+          <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
+            <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-700">Prestation payable à la livraison</p>
+              <p className="text-xs text-blue-600">
+                Paiement de transport à l'arrivée. L'intervenant saisira les frais de livraison lors du dépôt, et vous réglerez directement en ligne ou en espèces.
+              </p>
             </div>
           </div>
         )}
