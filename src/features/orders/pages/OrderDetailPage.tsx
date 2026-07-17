@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE CASH SECURISEE CLIENT ET DEPOT SÉCURISÉ LIVREUR SANS MODALE COMPLIQUÉE
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET VISIBILITÉ DE LA DESCRIPTION & PROVISION PAYÉE
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -240,6 +240,7 @@ const OrderDetailPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
+  // ✅ 1. DÉFINITION IMMÉDIATE POUR ÉVITER LES ERREURS DE SCOPE DE VARIABLE
   const order = currentOrder as any;
 
   const [isUpdating, setIsUpdating] = useState(false);
@@ -252,10 +253,12 @@ const OrderDetailPage = () => {
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>('online');
   const [cashReceivedInput, setCashReceivedInput] = useState<number>(0);
 
+  // ✅ 2. DÉFINITION DE LA RÉFÉRENCE MODALE ET DU CONTROLE ANTICIPÉ
   const modalRef = useRef<HTMLDivElement>(null); 
   const isActionPending = useRef(false);
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
+  // ✅ 3. DÉFINITION INTÉGRÉE DE L'OUVERTURE DE LIENS WEB
   const openUrl = (url: string | null) => { 
     if (!url) {
       toast.error('URL non disponible');
@@ -540,10 +543,10 @@ const OrderDetailPage = () => {
             </div>
 
             <h1
-              className="text-xl md:text-2xl font-black leading-tight break-words"
+              className="text-xl md:text-2xl font-black leading-tight break-words mt-1"
               style={{ color: colors.text }}
             >
-              {order.description || 'Détail de commande'}
+              {order.target_name}
             </h1>
 
             <p className="text-sm mt-1 flex items-center gap-2" style={{ color: colors.textLight }}>
@@ -611,7 +614,7 @@ const OrderDetailPage = () => {
       </div>
 
       {/* ✅ BLOC SÉCURITÉ CASH (ÉCRAN CLIENT SÉCURISÉ) */}
-      {isPendingCashConfirmation && isFamily && ( // ✅ Corrigé de isFamilyUser à isFamily
+      {isPendingCashConfirmation && isFamily && ( 
         <div className="p-5 rounded-3xl bg-amber-50/50 border border-amber-200 space-y-4 animate-fadeIn">
           <div className="flex items-start gap-3">
             <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5 animate-pulse" />
@@ -645,7 +648,7 @@ const OrderDetailPage = () => {
       )}
 
       {/* ✅ FRAIS DE PORT EN ATTENTE - MODALITÉ EN LIGNE (ÉCRAN CLIENT) */}
-      {order.status === 'livree' && order.delivery_payment_method === 'online' && isFamily && ( // ✅ Corrigé de isFamilyUser à isFamily
+      {order.status === 'livree' && order.delivery_payment_method === 'online' && isFamily && ( 
         <div className="p-5 rounded-3xl bg-purple-50 border border-purple-200 space-y-3 animate-fadeIn">
           <div className="flex items-start gap-3">
             <CreditCard size={18} className="text-purple-600 shrink-0 mt-0.5" />
@@ -700,29 +703,30 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* RÉSUMÉ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MiniCard
-          icon={<Package size={20} />}
-          label="Type"
-          value={order.type || 'Non précisé'}
-          color={colors.primary}
-        />
+      {/* ✅ DESCRIPTION VISIBLE DÉDIÉE SANS TRONCATURE */}
+      <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-2">
+        <span className="text-[10px] text-gray-400 font-bold uppercase block">📝 Description détaillée du besoin</span>
+        <p className="text-xs sm:text-sm font-semibold text-gray-800 leading-relaxed whitespace-pre-wrap">{order.description || "Aucun détail complémentaire."}</p>
+      </div>
+
+      {/* RÉSUMÉ - ✅ FILTRÉ À 3 COLONNES DÉSORMAIS (CARTE TYPE ÉLIMINÉE !) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* ✅ Affiche désormais estimated_amount si payé, ou purchase_amount + MM */}
         <MiniCard
           icon={<Banknote size={20} />}
-          label="Montant"
+          label="Provision Totale Payée"
           value={formatCurrency(order.estimated_amount || 0)}
           color={colors.primary}
         />
         <MiniCard
           icon={<MapPin size={20} />}
-          label="Adresse"
+          label="Adresse de livraison"
           value={order.address || 'Non précisée'}
           color={colors.gold || '#c9a84c'}
         />
         <MiniCard
           icon={<Clock size={20} />}
-          label="Statut"
+          label="Statut actuel"
           value={getStatusLabel(order.status)}
           color={getStatusColor(order.status)}
         />
