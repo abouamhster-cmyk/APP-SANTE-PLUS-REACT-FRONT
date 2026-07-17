@@ -89,7 +89,7 @@ export const MissionsPage = () => {
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<any | null>(null);
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isActionPending, setIsActionPending] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false); // ✅ Rattaché à setShowReportModal
+  const [showReportModal, setShowReportModal] = useState(false);
 
   // Formulaire de Rapport de visite
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
@@ -330,7 +330,7 @@ export const MissionsPage = () => {
     }
   };
 
-  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES (checkpoint nulled si déjà démarré)
+  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES (L'APPEL EXECUTE CORRECTEMENT LES PARAMÈTRES GPS)
   const handleStartPlannedIntervention = async (id: string) => {
     if (isActionPending) return;
     setIsActionPending(true);
@@ -354,8 +354,8 @@ export const MissionsPage = () => {
     }
 
     try {
-      // ✅ Sécurisation de l'appel à startVisit avec passage d'arguments fallbacks indispensables
-      await startVisit(id, startLat, startLng); // 🟢 Corrigé de 1 à 3 arguments requis pour le build
+      // ✅ APPEL DE DÉMARRAGE AVEC LES CHECKPOINTS GPS FINAUX REQUIS PAR LE STORE
+      await startVisit(id, startLat, startLng); // 🟢 Corrigé à 3 arguments requis pour le build
       toast.success('🚀 Intervention commencée !');
       await fetchVisits();
     } catch (error: any) {
@@ -402,7 +402,7 @@ export const MissionsPage = () => {
       });
 
       toast.success('🎉 Rapport transmis ! Intervention archivée.');
-      setShowReportModal(false); // ✅ Corrigé de setShowCompleteModal
+      setShowReportModal(false); 
       setSelectedActions([]);
       setReportNotes('');
     } catch (error: any) {
@@ -642,7 +642,7 @@ export const MissionsPage = () => {
               <p className="text-sm font-mono font-black text-gray-800 mt-0.5">{elapsedTime}</p>
             </div>
             <button
-              onClick={() => setShowReportModal(true)} // ✅ Corrigé
+              onClick={() => setShowReportModal(true)} 
               className="flex-1 md:flex-none h-11 px-5 rounded-2xl text-white font-bold text-xs shadow-md transition-all hover:opacity-90 flex items-center justify-center gap-1.5"
               style={{ background: colors.primary }}
             >
@@ -673,7 +673,7 @@ export const MissionsPage = () => {
         <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
             <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
-            <ShoppingBag size={13} className="text-blue-500 shrink-0 animate-pulse" />
+            <ShoppingBag size={13} className="text-blue-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
@@ -711,7 +711,7 @@ export const MissionsPage = () => {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => handleTabChangeLocal(tab.key as TabType)} // ✅ Remplacé
+              onClick={() => handleTabChangeLocal(tab.key as TabType)} 
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
                 activeTab === tab.key ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
@@ -786,7 +786,6 @@ export const MissionsPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignments.length > 0 ? (
             assignments.map((link: any) => {
-              // ✅ Cast explicite 'any' du paramètre link pour éviter les erreurs TS de type non défini
               const isPersonal = (link as any).target_type === 'personal_account' || (link as any).is_personal;
               const name = (link as any).target_name || 'Bénéficiaire';
               const address = isPersonal ? (link as any).family?.address : (link as any).patient?.address;
@@ -1022,7 +1021,7 @@ export const MissionsPage = () => {
                 </h2>
               </div>
               <button
-                onClick={() => setShowReportModal(false)} // ✅ Corrigé
+                onClick={() => setShowReportModal(false)} 
                 className="p-1.5 hover:bg-gray-100 rounded-xl transition"
               >
                 <X size={18} />
@@ -1073,7 +1072,7 @@ export const MissionsPage = () => {
             <div className="flex gap-2.5 pt-4 border-t">
               <button
                 type="button"
-                onClick={() => setShowReportModal(false)} // ✅ Corrigé
+                onClick={() => setShowReportModal(false)} 
                 className="flex-1 h-12 font-bold text-gray-500 hover:bg-gray-50 transition border rounded-2xl"
               >
                 Retour
@@ -1109,8 +1108,8 @@ interface MissionItemCompactProps {
   type: TabType;
   colors: any;
   aidantId: string | null;
-  onApprove?: () => void; // ✅ Optionnel
-  onRefuse?: () => void;  // ✅ Optionnel
+  onApprove?: () => void; 
+  onRefuse?: () => void;  
   onStart: () => void;
   onTakeOrder: () => void;
   onDeliver: () => void;
