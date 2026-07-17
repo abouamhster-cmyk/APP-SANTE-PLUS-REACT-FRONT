@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET FILTRAGE DE RÔLE SÉCURISÉ
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET GESTION DYNAMIQUE DES ATTRIBUTIONS CLIENTS
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -28,7 +28,7 @@ import {
   Loader2,
   CreditCard,
   Navigation as NavIcon,
-  Info, // ✅ Utilisé pour les alertes de rôle
+  Info,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -166,62 +166,6 @@ const getStatusColor = (status: string): string => {
   return colors[status] || '#9E9E9E';
 };
 
-interface ActionButtonProps {
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  disabled?: boolean;
-  onClick: () => void;
-  isLoading?: boolean;
-}
-
-const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled || isLoading}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
-      style={{ background: color }}
-    >
-      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
-      {isLoading ? 'Chargement...' : label}
-    </button>
-  );
-};
-
-interface StatusBadgeProps {
-  status: string;
-  colors: any;
-}
-
-const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
-  const getStatusConfig = (status: string) => {
-    const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
-      creee: { icon: <Package size={14} />, color: '#9E9E9E', bg: '#9E9E9E15', label: 'Créée' },
-      en_attente: { icon: <Clock size={14} />, color: '#F59E0B', bg: '#F59E0B15', label: 'En attente' },
-      disponible: { icon: <AlertCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Disponible' },
-      en_cours: { icon: <Clock size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'En cours' },
-      livree: { icon: <Truck size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'Livrée' },
-      validee: { icon: <CheckCircle size={14} />, color: '#4CAF50', bg: '#4CAF5015', label: 'Validée' },
-      annulee: { icon: <XCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Annulée' },
-      attente_paiement: { icon: <CreditCard size={14} />, color: '#8B5CF6', bg: '#8B5CF615', label: 'En attente paiement' },
-    };
-    return map[status] || map['creee'];
-  };
-
-  const config = getStatusConfig(status);
-
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ background: config.bg, color: config.color }}
-    >
-      {config.icon}
-      {config.label}
-    </span>
-  );
-};
-
 // =============================================
 // COMPOSANT PRINCIPAL
 // =============================================
@@ -255,7 +199,6 @@ const OrderDetailPage = () => {
 
   const modalRef = useRef<HTMLDivElement>(null); 
   const isActionPending = useRef(false);
-  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
   const openUrl = (url: string | null) => { 
     if (!url) {
@@ -754,46 +697,69 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* PERSONNES */}
+      {/* PERSONNES CONCERNÉES - ✅ CORRIGÉ POUR RETIRER LA REDONDANCE DES COMPTES PERSONNELS */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
           Personnes concernées
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <PersonBox
-            icon={<User size={18} />}
-            title={beneficiaryLabel}
-            name={
-              order.patient
-                ? `${order.patient.first_name} ${order.patient.last_name}`
-                : order.target_name || 'Non spécifié'
-            }
-            detail={order.patient?.phone || 'Aucun téléphone'}
-            detailIcon={<Phone size={12} />}
-          />
+        {/* ✅ Si target_type === 'personal' ou qu'il n'y a pas de patient_id associé, on masque la redondance destinataire/famille */}
+        {order.target_type === 'personal' || !order.patient_id ? (
+          /* ✅ CAS A : Compte personnel (Course pour soi-même) -> Grid à 2 colonnes épurée */
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <PersonBox
+              icon={<User size={18} />}
+              title="Client (Compte personnel)"
+              name={order.family?.full_name || order.target_name || 'Bénéficiaire'}
+              detail={order.family?.phone || 'Aucun téléphone'}
+              detailIcon={<Phone size={12} />}
+            />
 
-          <PersonBox
-            icon={<Users size={18} />}
-            title="Famille"
-            name={order.family?.full_name || 'Non spécifiée'}
-            detail={order.family?.email || 'Aucun email'}
-            detailIcon={<Mail size={12} />}
-          />
+            <PersonBox
+              icon={<User size={18} />}
+              title="Aidant"
+              name={order.aidant?.user?.full_name || 'Non assigné'}
+              detail={
+                order.aidant
+                  ? `${order.aidant.rating || 0} ⭐ • ${order.aidant.total_missions || 0} missions`
+                  : 'En attente'
+              }
+              detailIcon={order.aidant ? <Star size={12} /> : undefined}
+            />
+          </div>
+        ) : (
+          /* ✅ CAS B : Pour un proche (Patient) -> Grid à 3 colonnes d'origine */
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <PersonBox
+              icon={<User size={18} />}
+              title="Proche (Patient)"
+              name={order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : 'Bénéficiaire'}
+              detail={order.patient?.phone || 'Aucun téléphone'}
+              detailIcon={<Phone size={12} />}
+            />
 
-          <PersonBox
-            icon={<User size={18} />}
-            title="Aidant"
-            name={order.aidant?.user?.full_name || 'Non assigné'}
-            detail={
-              order.aidant
-                ? `${order.aidant.rating || 0} • ${order.aidant.total_missions || 0} missions`
-                : 'En attente'
-            }
-            detailIcon={order.aidant ? <Star size={12} /> : undefined}
-          />
-        </div>
+            <PersonBox
+              icon={<Users size={18} />}
+              title="Famille (Client / Garant)"
+              name={order.family?.full_name || 'Non spécifiée'}
+              detail={order.family?.phone || order.family?.email || 'Aucun contact'}
+              detailIcon={<Mail size={12} />}
+            />
+
+            <PersonBox
+              icon={<User size={18} />}
+              title="Aidant"
+              name={order.aidant?.user?.full_name || 'Non assigné'}
+              detail={
+                order.aidant
+                  ? `${order.aidant.rating || 0} ⭐ • ${order.aidant.total_missions || 0} missions`
+                  : 'En attente'
+              }
+              detailIcon={order.aidant ? <Star size={12} /> : undefined}
+            />
+          </div>
+        )}
       </div>
 
     
@@ -810,7 +776,7 @@ const OrderDetailPage = () => {
             {order.prescription_url && (
               <DocButton
                 icon={<ImageIcon size={19} />}
-                title="Ordonnance"
+                title={order.type === 'medicaments' ? "Ordonnance médicale" : "Photo de l'article / objet"} // ✅ Label dynamique intelligent
                 color={colors.primary}
                 onClick={() => openUrl(order.prescription_url)}
               />
