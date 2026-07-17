@@ -1,7 +1,6 @@
-// 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
-// ✅ CRÉATION DE COMMANDE SÉCURISÉE AVEC VERROU ANTI DOUBLE-CLIC SYNCHRONE
-
-import { useState, useEffect, useRef } from 'react';
+// 📁 src/features/orders/pages/CreateOrderPage.tsx
+ 
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -29,8 +28,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
-import { getPonctualOrderPriceByType } from '@/lib/constants';
-
+import { calculateWithdrawalFee } from '@/stores/aidantCatalogStore'; // Import direct
 import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
@@ -43,19 +41,8 @@ const CreateOrderPage = () => {
   const { createOrder, isLoading } = useOrderStore();
   const { patients, fetchPatients } = usePatientStore();
 
-  const {
-    getCategoryLabel,
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
-  } = useTerminology();
-
-  const {
-    hasActiveSubscription,
-    remainingOrders,
-    getActionMessage,
-    isLoading: subLoading,
-  } = useSubscriptionGuard();
+  const { getCategoryLabel, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+  const { hasActiveSubscription, remainingOrders, getActionMessage, isLoading: subLoading } = useSubscriptionGuard();
 
   const {
     isPaymentModalOpen,
@@ -69,29 +56,27 @@ const CreateOrderPage = () => {
       isRedirecting.current = true;
       sessionStorage.removeItem('create_order_form');
       navigate('/app/orders');
-      toast.success('Commande créée après paiement !');
+      toast.success('Commande créée avec sa provision !');
     },
     redirectPath: '/app/orders',
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRedirecting = useRef(false);
-  
-  // ✅ VERROU DE SÉCURITÉ SYNCHRONE
   const isSubmittingRef = useRef(false);
 
-  const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
   const [targetPatientId, setTargetPatientId] = useState<string>('');
 
+  // Nouveaux états de provision
+  const [needsPurchase, setNeedsPurchase] = useState<boolean>(false);
+  const [purchaseAmount, setPurchaseAmount] = useState<number>(0);
+  const [operator, setOperator] = useState<'mtn_moov' | 'celtiis'>('mtn_moov');
+
   const [formData, setFormData] = useState({
-    patient_id: '',
     type: 'medicaments',
     description: '',
     address: '',
-    latitude: null as number | null,
-    longitude: null as number | null,
-    estimated_amount: '',
   });
 
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
@@ -124,6 +109,13 @@ const CreateOrderPage = () => {
     }
   };
 
+  const withdrawalFee = useMemo(() => {
+    if (!needsPurchase || purchaseAmount <= 0) return 0;
+    return calculateWithdrawalFee(purchaseAmount, operator);
+  }, [needsPurchase, purchaseAmount, operator]);
+
+  const totalAdvanceAmount = purchaseAmount + withdrawalFee;
+
   const subscriptionInfo = (() => {
     if (isAidant || isAdminOrCoordinator) return null;
     
@@ -132,16 +124,7 @@ const CreateOrderPage = () => {
         type: 'success',
         icon: <CheckCircle size={18} />,
         title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
-        description: 'Utilisez votre abonnement pour ne pas payer de frais supplémentaires.',
-      };
-    }
-    
-    if (hasActiveSubscription && remainingOrders === 0) {
-      return {
-        type: 'warning',
-        icon: <AlertCircle size={18} />,
-        title: '⚠️ Plus de commandes disponibles',
-        description: 'Vous avez utilisé toutes vos commandes. Passez en mode ponctuel ou renouvelez votre abonnement.',
+        description: 'Votre abonnement couvre les frais de livraison de cette course.',
       };
     }
     
@@ -149,13 +132,9 @@ const CreateOrderPage = () => {
       type: 'info',
       icon: <Sparkles size={18} />,
       title: '💡 Mode ponctuel',
-      description: 'Vous n\'avez pas d\'abonnement actif. Utilisez le mode ponctuel pour payer à l\'acte.',
+      description: 'Prestation à la carte. Les frais de transport seront payables à la livraison.',
     };
   })();
-
-  const getPonctualPrice = (): number => {
-    return getPonctualOrderPriceByType(formData.type);
-  };
 
   const canTakeOrder = (): boolean => {
     if (!isAidant) return true;
@@ -174,7 +153,7 @@ const CreateOrderPage = () => {
         const phoneSuffix = selectedPatient.phone ? ` (Tél: ${selectedPatient.phone})` : '';
         setFormData(prev => ({
           ...prev,
-          address: `${selectedPatient.address || ''}${phoneSuffix}`.trim(),
+          address: `${selectedPatient.address || ''}${phoneSuffix}`,
         }));
       }
     } else {
@@ -187,62 +166,29 @@ const CreateOrderPage = () => {
     }
   }, [targetPatientId, targetType, patients, profile]);
 
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isRedirecting.current) return;
-      if (formData.description.trim()) {
-        e.preventDefault();
-        e.returnValue = 'Vous avez des données non sauvegardées. Voulez-vous vraiment quitter ?';
-        return e.returnValue;
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [formData]);
-
-  const handleAddressChange = (value: string) => {
-    setFormData(prev => ({ ...prev, address: value }));
-  };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("L'image ne doit pas dépasser 5MB");
-      return;
-    }
     setPrescriptionFile(file);
     const reader = new FileReader();
-    reader.onload = (event) => {
-      setPrescriptionPreview(event.target?.result as string);
-    };
+    reader.onload = (event) => setPrescriptionPreview(event.target?.result as string);
     reader.readAsDataURL(file);
   };
 
   const removePrescription = () => {
     setPrescriptionFile(null);
     setPrescriptionPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   const validateOrderData = (): boolean => {
-    if (!formData.description || formData.description.trim() === '') {
+    if (!formData.description.trim()) {
       toast.error('Veuillez ajouter une description de votre besoin');
       return false;
     }
-
-    if (!formData.address || formData.address.trim() === '') {
+    if (!formData.address.trim()) {
       toast.error('Veuillez ajouter une adresse de livraison');
       return false;
     }
-
     return true;
   };
 
@@ -261,7 +207,6 @@ const CreateOrderPage = () => {
         .upload(filePath, prescriptionFile);
 
       if (error) {
-        console.error('Upload error:', error);
         toast.error("Erreur lors de l'upload de la prescription");
         return null;
       }
@@ -276,21 +221,16 @@ const CreateOrderPage = () => {
       ? profile?.full_name || 'Personnel'
       : selectedPatientObj ? `${selectedPatientObj.first_name} ${selectedPatientObj.last_name}` : 'Patient';
 
-    const finalPatientId = targetType === 'patient' ? targetPatientId : null;
-
     return {
-      patient_id: finalPatientId,
+      patient_id: targetType === 'patient' ? targetPatientId : null,
       type: formData.type as any,
       description: formData.description.trim(),
       address: formData.address.trim(),
       latitude: null,  
       longitude: null, 
-      estimated_amount: finalEstimatedAmount || null,
-      items: [], // Plus d'articles
+      purchase_amount: needsPurchase ? purchaseAmount : 0,
+      withdrawal_operator: needsPurchase ? operator : null,
       prescription_url: prescriptionUrl,
-      order_type: 'ponctual',
-      is_paid: false,
-      category: 'ponctuelle',
       target_type: finalTargetType,
       target_name: finalTargetName,
     };
@@ -314,7 +254,7 @@ const CreateOrderPage = () => {
         targetName: orderData.target_name,
         patientId: orderData.patient_id,
       });
-    } catch (err) {
+    } catch {
       isSubmittingRef.current = false;
     }
   };
@@ -329,73 +269,33 @@ const CreateOrderPage = () => {
       return;
     }
 
-    if (orderType === 'ponctual') {
+    // S'il y a achat physique d'avance, rediriger d'office vers FedaPay (indépendant du forfait)
+    if (needsPurchase) {
       isSubmittingRef.current = true;
       await handlePonctualPayment();
       isSubmittingRef.current = false;
       return;
     }
 
-    if (orderType === 'subscription') {
-      if (!canUseSubscription()) {
-        const msg = getActionMessage('order');
-        toast.error(msg.description);
-        return;
-      }
-      isSubmittingRef.current = true;
-      await createOrderWithSubscription();
-    }
+    // Simple course de récupération
+    isSubmittingRef.current = true;
+    await createOrderWithSubscription();
   };
 
   const createOrderWithSubscription = async () => {
-    if (!validateOrderData()) {
+    const orderData = await prepareOrderData();
+    if (!orderData) {
       isSubmittingRef.current = false;
       return;
     }
 
     setIsUploading(true);
     try {
-      let prescriptionUrl = null;
-
-      if (prescriptionFile) {
-        const fileExt = prescriptionFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `prescriptions/${fileName}`;
-
-        const { error } = await supabase.storage
-          .from('orders')
-          .upload(filePath, prescriptionFile);
-
-        if (error) {
-          toast.error("Erreur lors de l'upload de la prescription");
-          isSubmittingRef.current = false;
-          return;
-        }
-
-        const { data: { publicUrl } } = supabase.storage.from('orders').getPublicUrl(filePath);
-        prescriptionUrl = publicUrl;
-      }
-
-      const selectedPatientObj = patients.find((p) => p.id === targetPatientId);
-      const finalTargetType = targetType;
-      const finalTargetName = targetType === 'personal' 
-        ? profile?.full_name || 'Personnel'
-        : selectedPatientObj ? `${selectedPatientObj.first_name} ${selectedPatientObj.last_name}` : 'Patient';
-
+      const isSubUsed = canUseSubscription();
       const result = await createOrder({
-        patient_id: targetType === 'patient' ? targetPatientId : null,
-        type: formData.type as any,
-        description: formData.description.trim(),
-        address: formData.address.trim(),
-        latitude: null, 
-        longitude: null, 
-        estimated_amount: finalEstimatedAmount || null,
-        items: [],
-        prescription_url: prescriptionUrl,
-        order_type: 'subscription',
-        is_paid: true,
-        target_type: finalTargetType,
-        target_name: finalTargetName,
+        ...orderData,
+        order_type: isSubUsed ? 'subscription' : 'ponctual',
+        is_paid: true, // Pas de provision attendue
       });
 
       toast.success('Commande créée avec succès !');
@@ -407,8 +307,7 @@ const CreateOrderPage = () => {
       } else {
         navigate('/app/orders');
       }
-    } catch (error) {
-      console.error('❌ Erreur création:', error);
+    } catch {
       toast.error('Erreur lors de la création de la commande');
       isSubmittingRef.current = false;
     } finally {
@@ -417,8 +316,6 @@ const CreateOrderPage = () => {
   };
 
   const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
-  const selectedPatientObj = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
-  const finalEstimatedAmount = formData.estimated_amount ? parseFloat(formData.estimated_amount) : 0;
   const hasPatients = patients.length > 0;
 
   return (
@@ -429,192 +326,160 @@ const CreateOrderPage = () => {
           <div className="flex items-start gap-3">
             <button
               onClick={() => navigate('/app/orders')}
-              className="w-11 h-11 rounded-2xl flex items-center justify-center border hover:bg-gray-50 transition shrink-0"
+              className="w-11 h-11 rounded-2xl border flex items-center justify-center hover:bg-gray-50 transition shrink-0"
               style={{ borderColor: colors.primary + '20', color: colors.text }}
             >
               <ArrowLeft size={20} />
             </button>
-
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2" style={{ background: colors.primary + '12', color: colors.primary }}>
-                <ShoppingBag size={13} />
-                Nouvelle commande
-              </div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight leading-tight" style={{ color: colors.text }}>
-                Créer une commande
+              <h1 className="text-xl sm:text-2xl font-black leading-tight" style={{ color: colors.text }}>
+                Créer une commande ou course
               </h1>
-              <p className="text-sm mt-1 max-w-xl leading-relaxed" style={{ color: colors.text + '75' }}>
-                Renseignez les informations nécessaires pour envoyer une demande claire à l'équipe.
-              </p>
+              <p className="text-xs text-gray-500 mt-1">Saisissez les informations de livraison et de provision d'achats.</p>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 md:min-w-[200px]">
-            <CompactHeaderStat label="Destinataire" value={targetType === 'personal' ? 'Personnel' : (selectedPatientObj ? `${selectedPatientObj.first_name}` : 'Patient')} color={colors.primary} />
-            <CompactHeaderStat label="Photo" value={prescriptionFile ? 'Ajoutée' : 'Non'} color={colors.primary} />
           </div>
         </div>
       </section>
 
-      {/* BANDEAU D'ABONNEMENT */}
+      {/* BANDEAU FORFAIT */}
       {isFamily && subscriptionInfo && (
-        <div className={`rounded-xl p-4 border flex items-start gap-3 ${subscriptionInfo.type === 'success' ? 'bg-green-50 border-green-200' : subscriptionInfo.type === 'warning' ? 'bg-yellow-50 border-yellow-200' : 'bg-blue-50 border-blue-200'}`}>
-          <div className={`mt-0.5 ${subscriptionInfo.type === 'success' ? 'text-green-600' : subscriptionInfo.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'}`}>{subscriptionInfo.icon}</div>
+        <div className={`rounded-xl p-4 border flex items-start gap-3 ${subscriptionInfo.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+          <div className="mt-0.5">{subscriptionInfo.icon}</div>
           <div>
-            <p className={`text-sm font-bold ${subscriptionInfo.type === 'success' ? 'text-green-700' : subscriptionInfo.type === 'warning' ? 'text-yellow-700' : 'text-blue-700'}`}>{subscriptionInfo.title}</p>
-            <p className={`text-xs ${subscriptionInfo.type === 'success' ? 'text-green-600' : subscriptionInfo.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'}`}>{subscriptionInfo.description}</p>
+            <p className="text-sm font-bold">{subscriptionInfo.title}</p>
+            <p className="text-xs">{subscriptionInfo.description}</p>
           </div>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
-        <div className="space-y-6">
-          {/* POUR QUI ? */}
+        <div className="space-y-6 bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+          
+          {/* CIBLE */}
           {hasPatients && (
-            <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
-              <div className="flex items-start gap-3 mb-5">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: colors.primary + '14', color: colors.primary }}><Users size={20} /></div>
-                <div>
-                  <h2 className="text-lg md:text-xl font-black tracking-tight" style={{ color: colors.text }}>Pour qui ?</h2>
-                  <p className="text-sm" style={{ color: colors.textLight }}>Choisissez le destinataire de cette commande.</p>
-                </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Pour qui ?</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => { setTargetType('personal'); setTargetPatientId(''); }} className={cn("p-4 rounded-2xl border text-center transition font-bold text-xs", targetType === 'personal' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950 shadow-sm' : 'bg-white')}>👤 Pour moi</button>
+                <button type="button" onClick={() => { setTargetType('patient'); if (patients.length > 0) setTargetPatientId(patients[0].id); }} className={cn("p-4 rounded-2xl border text-center transition font-bold text-xs", targetType === 'patient' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950 shadow-sm' : 'bg-white')}>👥 Pour un proche</button>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button type="button" onClick={() => { setTargetType('personal'); setTargetPatientId(''); }} className={`p-5 rounded-2xl border-2 text-left transition-all ${targetType === 'personal' ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md' : 'border-gray-200'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: targetType === 'personal' ? colors.primary + '15' : '#f3f4f6', color: targetType === 'personal' ? colors.primary : '#9ca3af' }}><User size={20} /></div>
-                    <div>
-                      <p className="font-bold">👤 Personnel</p>
-                      <p className="text-xs" style={{ color: colors.textLight }}>Pour vous-même</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button type="button" onClick={() => { setTargetType('patient'); if (patients.length > 0) setTargetPatientId(patients[0].id); }} className={`p-5 rounded-2xl border-2 text-left transition-all ${targetType === 'patient' ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md' : 'border-gray-200'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: targetType === 'patient' ? colors.primary + '15' : '#f3f4f6', color: targetType === 'patient' ? colors.primary : '#9ca3af' }}><Users size={20} /></div>
-                    <div>
-                      <p className="font-bold">👨‍👩‍👦 Patient</p>
-                      <p className="text-xs" style={{ color: colors.textLight }}>Pour un proche</p>
-                    </div>
-                  </div>
-                </button>
-              </div>
-
               {targetType === 'patient' && patients.length > 0 && (
-                <div className="mt-4">
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>Sélectionner le proche</label>
-                  <select value={targetPatientId} onChange={(e) => setTargetPatientId(e.target.value)} className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-sm" style={{ borderColor: colors.primary + '20', color: colors.text }}>
-                    {patients.map((patient) => (
-                      <option key={patient.id} value={patient.id}>{patient.first_name} {patient.last_name} — {getCategoryLabel(patient.category)}</option>
-                    ))}
+                <div className="mt-2">
+                  <select value={targetPatientId} onChange={(e) => setTargetPatientId(e.target.value)} className="w-full px-3.5 h-11 border rounded-xl text-xs font-semibold outline-none bg-white">
+                    {patients.map(p => <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>)}
                   </select>
                 </div>
               )}
-            </section>
+            </div>
           )}
 
-          {/* TYPE DE COMMANDE */}
-          <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
-            <div className="flex items-start gap-3 mb-5">
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: colors.primary + '14', color: colors.primary }}><Sparkles size={20} /></div>
-              <div>
-                <h2 className="text-lg md:text-xl font-black tracking-tight" style={{ color: colors.text }}>Type de commande</h2>
-                <p className="text-sm" style={{ color: colors.textLight }}>Choisissez votre méthode de facturation.</p>
-              </div>
+          {/* SÉLECTION ACHAT VS SIMPLE RÉCUPÉRATION */}
+          <div className="space-y-2 pt-4 border-t">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Type d'opération</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setNeedsPurchase(false)} className={cn("p-4 rounded-2xl border text-center transition font-bold text-xs", !needsPurchase ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950 shadow-sm' : 'bg-white')}>📦 Course de récupération (Simple)</button>
+              <button type="button" onClick={() => setNeedsPurchase(true)} className={cn("p-4 rounded-2xl border text-center transition font-bold text-xs", needsPurchase ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950 shadow-sm' : 'bg-white')}>🛒 Achat de marchandises (Courses / Pharmacie)</button>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button type="button" onClick={() => setOrderType('subscription')} disabled={!canUseSubscription()} className={`p-5 rounded-2xl border-2 text-left transition-all ${orderType === 'subscription' ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md' : 'border-gray-200'} ${!canUseSubscription() ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: orderType === 'subscription' ? colors.primary + '15' : '#f3f4f6', color: orderType === 'subscription' ? colors.primary : '#9ca3af' }}><Package size={20} /></div>
-                  <div>
-                    <p className="font-bold">Avec abonnement</p>
-                    <p className="text-xs" style={{ color: colors.textLight }}>{canUseSubscription() ? `${remainingOrders} restantes` : 'Abonnement requis/vide'}</p>
-                  </div>
-                </div>
-              </button>
-
-              <button type="button" onClick={() => setOrderType('ponctual')} className={`p-5 rounded-2xl border-2 text-left transition-all ${orderType === 'ponctual' ? 'border-[--color-primary] bg-[--color-primary]08 shadow-md' : 'border-gray-200'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: orderType === 'ponctual' ? colors.primary + '15' : '#f3f4f6', color: orderType === 'ponctual' ? colors.primary : '#9ca3af' }}><CreditCard size={20} /></div>
-                  <div>
-                    <p className="font-bold">Ponctuelle</p>
-                    <p className="text-xs" style={{ color: colors.textLight }}>Paiement à la demande</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </section>
-
-          {/* INFOS COMPLEMENTAIRES */}
-          <ModernPanel icon={<ClipboardList size={20} />} title="Informations complémentaires" subtitle="Renseignez l'adresse de livraison et la description." color={colors.primary}>
-            <div className="space-y-4">
-              <Field label="Description du besoin" required color={colors.text}>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50 resize-none" style={{ borderColor: colors.primary + '20' }} rows={4} placeholder="Détaillez votre besoin..." required />
-              </Field>
-
-              <Field label="Adresse de livraison" required color={colors.text}>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
-                  <input 
-                    type="text" 
-                    value={formData.address} 
-                    onChange={(e) => handleAddressChange(e.target.value)} 
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl border outline-none text-sm bg-gray-50" 
-                    style={{ borderColor: colors.primary + '20' }} 
-                    placeholder="Quartier, indications de rue..." 
-                    required 
+          {/* CALCUL DE PROVISION SÉCURISÉ BÉNIN */}
+          {needsPurchase && (
+            <div className="p-4 rounded-2xl bg-gray-50 border space-y-4 animate-fadeIn">
+              <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">💰 Évaluation financière des achats</span>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500">Montant d'achat estimé (FCFA)</label>
+                  <input
+                    type="number"
+                    value={purchaseAmount || ''}
+                    onChange={(e) => setPurchaseAmount(Number(e.target.value))}
+                    className="w-full h-10 px-3.5 border rounded-xl text-xs font-bold bg-white mt-1.5 outline-none"
+                    placeholder="Ex: 15000"
+                    required={needsPurchase}
                   />
                 </div>
-              </Field>
-            </div>
-          </ModernPanel>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500">Réseau GSM pour le retrait</label>
+                  <select
+                    value={operator}
+                    onChange={(e) => setOperator(e.target.value as any)}
+                    className="w-full h-10 px-3 border rounded-xl text-xs font-bold bg-white mt-1.5 outline-none"
+                  >
+                    <option value="mtn_moov">MTN / Moov Bénin</option>
+                    <option value="celtiis">Celtiis Cash Bénin</option>
+                  </select>
+                </div>
+              </div>
 
-          {/* PHOTO / ORDONNANCE */}
-          <ModernPanel icon={<FileImage size={20} />} title="Ordonnance ou photo" subtitle="Chargez un document ou une photo." color={colors.primary}>
+              <div className="flex justify-between border-t pt-3.5 text-xs text-gray-600 font-semibold">
+                <span>Frais de retrait Mobile Money :</span>
+                <span className="text-gray-900">{withdrawalFee.toLocaleString()} FCFA</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 font-semibold">
+                <span>Total de la provision exigée d'avance :</span>
+                <span className="text-emerald-600 font-extrabold">{totalAdvanceAmount.toLocaleString()} FCFA</span>
+              </div>
+            </div>
+          )}
+
+          {/* DESCRIPTION */}
+          <div className="space-y-4 pt-4 border-t">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Description du besoin</label>
+              <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} placeholder="Précisez les détails de l'achat ou de la course..." className="w-full px-3.5 py-2.5 border rounded-2xl text-xs sm:text-sm font-semibold outline-none resize-none bg-gray-50/50" required />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Adresse de livraison</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
+                <input type="text" value={formData.address} onChange={(e) => handleAddressChange(e.target.value)} placeholder="Quartier, indications de rue..." className="w-full pl-9 pr-3.5 h-11 border rounded-2xl text-xs font-semibold outline-none bg-gray-50/50" required />
+              </div>
+            </div>
+          </div>
+
+          {/* PHOTO */}
+          <div className="pt-4 border-t">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Photo d'ordonnance ou de l'objet</label>
             {!prescriptionPreview ? (
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full min-h-[140px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition" style={{ borderColor: colors.primary + '35' }}>
-                <Camera size={24} className="text-gray-400 mb-2" />
-                <span className="text-xs font-bold">Ajouter une photo (Max 5MB)</span>
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full min-h-[120px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition">
+                <Camera size={20} className="text-gray-400 mb-1" />
+                <span className="text-[10px] font-bold text-gray-400">Ajouter une photo (Max 5MB)</span>
               </button>
             ) : (
               <div className="relative rounded-2xl overflow-hidden border">
-                <img src={prescriptionPreview} alt="Aperçu" className="max-h-60 w-full object-cover" />
-                <button type="button" onClick={removePrescription} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition"><X size={16} /></button>
+                <img src={prescriptionPreview} alt="Aperçu" className="max-h-52 w-full object-cover" />
+                <button type="button" onClick={removePrescription} className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full"><X size={14} /></button>
               </div>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-          </ModernPanel>
+          </div>
         </div>
 
-        {/* COLONNE COMPACTE DROITE (RÉSUMÉ) */}
+        {/* SUMMARY COL */}
         <aside className="xl:sticky xl:top-24 h-fit">
-          <div className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border space-y-4" style={{ borderColor: colors.primary + '15' }}>
-            <h2 className="text-lg font-black" style={{ color: colors.text }}>Résumé</h2>
-            <SummaryLine label="Destinataire" value={targetType === 'personal' ? '👤 Personnel' : `👨‍👩‍👦 ${selectedPatientObj?.first_name || 'Patient'}`} />
-            <SummaryLine label="Mode" value={orderType === 'subscription' ? 'Abonnement' : 'Ponctuel'} />
+          <div className="bg-white rounded-3xl p-5 border shadow-sm space-y-4">
+            <h2 className="text-base font-black">Résumé</h2>
+            <SummaryLine label="Opération" value={needsPurchase ? '🛒 Achat' : '📦 Récupération'} />
+            <SummaryLine label="Facturation" value={needsPurchase ? 'Provision d\'avance' : (canUseSubscription() ? 'Abonnement' : 'Ponctuel')} />
             
-            <div className="rounded-2xl p-4" style={{ background: colors.primary + '10' }}>
-              <p className="text-xs font-medium" style={{ color: colors.textLight }}>Estimation totale</p>
-              <p className="text-2xl font-black mt-1" style={{ color: colors.primary }}>
-                {orderType === 'subscription' ? `${remainingOrders} restantes` : `${getPonctualPrice().toLocaleString()} FCFA`}
-              </p>
+            <div className="rounded-2xl p-4 bg-gray-50 text-center">
+              <span className="text-[10px] text-gray-400 block font-bold">Total provision d'avance</span>
+              <span className="text-xl font-black mt-1 block" style={{ color: colors.primary }}>
+                {needsPurchase ? `${totalAdvanceAmount.toLocaleString()} FCFA` : '0 FCFA'}
+              </span>
             </div>
 
-            <div className="space-y-2 pt-2">
-              <button type="submit" disabled={isLoading_} className="w-full py-3 rounded-2xl text-white font-bold flex items-center justify-center gap-2" style={{ background: colors.primary }}>
-                {isLoading_ ? <Loader2 size={18} className="animate-spin" /> : orderType === 'ponctual' ? `Payer ${getPonctualPrice().toLocaleString()} FCFA` : 'Créer la commande'}
-                <ArrowRight size={16} />
-              </button>
-              <button type="button" onClick={() => navigate('/app/orders')} className="w-full py-3 rounded-2xl border text-center text-sm font-semibold" style={{ borderColor: colors.primary + '20' }}>Annuler</button>
-            </div>
+            <button type="submit" disabled={isLoading_} className="w-full h-11 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-1" style={{ background: colors.primary }}>
+              {isLoading_ ? <Loader2 size={16} className="animate-spin" /> : needsPurchase ? `Payer ${totalAdvanceAmount.toLocaleString()} FCFA` : 'Créer la commande'}
+              <ArrowRight size={13} />
+            </button>
           </div>
         </aside>
       </form>
 
-      {/* MODAL FEDAPAY */}
+      {/* FEDAPAY MODAL */}
       {isPaymentModalOpen && pendingPaymentData && (
         <PonctualPaymentModal isOpen={isPaymentModalOpen} onClose={handlePaymentCancel} onSuccess={handlePaymentSuccess} paymentData={pendingPaymentData} redirectPath="/app/orders" />
       )}
@@ -623,121 +488,14 @@ const CreateOrderPage = () => {
 };
 
 // =============================================
-// SOUS-COMPOSANTS
+// SUB-COMPONENTS
 // =============================================
 
-interface ModernPanelProps {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  color: string;
-  children: React.ReactNode;
-}
-
-const ModernPanel = ({ icon, title, subtitle, color, children }: ModernPanelProps) => {
-  const brand = useBranding();
-  const colors = brand.colors;
-
-  return (
-    <section className="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
-      <div className="flex items-start gap-3 mb-5">
-        <div
-          className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
-          style={{
-            background: color + '14',
-            color,
-          }}
-        >
-          {icon}
-        </div>
-
-        <div>
-          <h2 className="text-lg md:text-xl font-black tracking-tight" style={{ color: colors.text }}>
-            {title}
-          </h2>
-          <p className="text-sm" style={{ color: colors.textLight }}>
-            {subtitle}
-          </p>
-        </div>
-      </div>
-
-      {children}
-    </section>
-  );
-};
-
-interface FieldProps {
-  label: string;
-  required?: boolean;
-  optional?: boolean;
-  color: string;
-  children: React.ReactNode;
-}
-
-const Field = ({ label, required, optional, color, children }: FieldProps) => {
-  const brand = useBranding();
-  const colors = brand.colors;
-
-  return (
-    <div className="block">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-semibold" style={{ color }}>
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </span>
-
-        {optional && (
-          <span className="text-[11px] uppercase tracking-wide" style={{ color: colors.textLight }}>
-            Optionnel
-          </span>
-        )}
-      </div>
-
-      {children}
-    </div>
-  );
-};
-
-interface CompactHeaderStatProps {
-  label: string;
-  value: string | number;
-  color: string;
-}
-
-const CompactHeaderStat = ({ label, value, color }: CompactHeaderStatProps) => {
-  const brand = useBranding();
-  const colors = brand.colors;
-
-  return (
-    <div className="rounded-2xl bg-gray-50 border p-3 text-center" style={{ borderColor: colors.primary + '10' }}>
-      <p className="text-[11px] text-gray-500 leading-tight">
-        {label}
-      </p>
-      <p className="text-sm font-bold mt-0.5 truncate" style={{ color }}>
-        {value}
-      </p>
-    </div>
-  );
-};
-
-interface SummaryLineProps {
-  label: string;
-  value: string;
-  color?: string;
-}
-
-const SummaryLine = ({ label, value, color }: SummaryLineProps) => {
-  const brand = useBranding();
-  const colors = brand.colors;
-
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-3" style={{ borderColor: colors.primary + '10' }}>
-      <span className="text-sm" style={{ color: colors.textLight }}>{label}</span>
-      <span className="text-sm font-semibold text-right" style={{ color: color || colors.text }}>
-        {value}
-      </span>
-    </div>
-  );
-};
+const SummaryLine = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex justify-between border-b pb-2 text-xs">
+    <span className="text-gray-400">{label}</span>
+    <span className="font-bold">{value}</span>
+  </div>
+);
 
 export default CreateOrderPage;
