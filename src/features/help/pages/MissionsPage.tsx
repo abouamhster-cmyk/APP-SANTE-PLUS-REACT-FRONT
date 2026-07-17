@@ -76,7 +76,7 @@ const MissionsPage = () => {
   // Modals de rapports
   const [showVisitReportModal, setShowVisitReportModal] = useState(false);
   const [showDeliveryReportModal, setShowDeliveryReportModal] = useState(false);
-  const [selectedOrderForDelivery, setSelectedOrderForAssign] = useState<any | null>(null);
+  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState<any | null>(null); // ✅ CORRIGÉ : Nom de setter corrigé
 
   // Formulaires de rapports
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
@@ -279,9 +279,35 @@ const MissionsPage = () => {
     setPullY(0);
   };
 
-  // ============================================================
+  const getFilteredItems = () => {
+    if (activeTab === 'missions') {
+      if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
+      if (filterStatus === 'beneficiaires') return []; 
+      if (filterStatus === 'pending') {
+        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
+      }
+      if (filterStatus === 'history') {
+        return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
+      }
+    }
+    if (activeTab === 'deliveries') {
+      if (filterStatus === 'active') {
+        return deliveryOrders.filter(o => o.status === 'en_cours');
+      }
+      if (filterStatus === 'history') {
+        return assignedOrders.filter(o => ['livree', 'validee', 'annulee'].includes(o.status));
+      }
+      return deliveryOrders;
+    }
+    if (activeTab === 'available') {
+      return availableOrders;
+    }
+    return [];
+  };
+
+  const filteredItems = getFilteredItems(); // ✅ UNIQUE DÉCLARATION RETENUE (Doublon supprimé !)
+
   // ✅ ACTIONS DE DÉMARRAGE AD-HOC (À LA VOLÉE)
-  // ============================================================
   const handleStartAdHocIntervention = async (beneficiary: any) => {
     if (isActionPending) return;
 
@@ -325,9 +351,7 @@ const MissionsPage = () => {
     }
   };
 
-  // ============================================================
   // ✅ DEPARTS DE MISSIONS PROGRAMMÉES
-  // ============================================================
   const handleStartPlannedIntervention = async (id: string) => {
     if (isActionPending) return;
     setIsActionPending(true);
@@ -361,9 +385,7 @@ const MissionsPage = () => {
     }
   };
 
-  // ============================================================
   // ✅ TRANSMISSION DU RAPPORT ET POINT GPS D'ARRIVÉE
-  // ============================================================
   const handleCompleteIntervention = async () => {
     if (!activeIntervention) return;
     if (selectedActions.length === 0) {
@@ -409,34 +431,6 @@ const MissionsPage = () => {
       setIsActionPending(false);
     }
   };
-
-  const getFilteredItems = () => {
-    if (activeTab === 'missions') {
-      if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
-      if (filterStatus === 'beneficiaires') return []; 
-      if (filterStatus === 'pending') {
-        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
-      }
-      if (filterStatus === 'history') {
-        return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
-      }
-    }
-    if (activeTab === 'deliveries') {
-      if (filterStatus === 'active') {
-        return deliveryOrders.filter(o => o.status === 'en_cours');
-      }
-      if (filterStatus === 'history') {
-        return assignedOrders.filter(o => ['livree', 'validee', 'annulee'].includes(o.status));
-      }
-      return deliveryOrders;
-    }
-    if (activeTab === 'available') {
-      return availableOrders;
-    }
-    return [];
-  };
-
-  const filteredItems = getFilteredItems();
 
   const handleTakeOrder = async (id: string) => {
     try {
@@ -510,6 +504,12 @@ const MissionsPage = () => {
     } else {
       setFilterStatus('all');
     }
+  };
+
+  const toggleActionSelection = (id: string) => {
+    setSelectedActions(prev =>
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    );
   };
 
   const getActionOptions = () => {
@@ -818,7 +818,7 @@ const MissionsPage = () => {
               onStart={() => handleStartPlannedIntervention(item.id)}
               onTakeOrder={() => handleTakeOrder(item.id)}
               onDeliver={() => {
-                setSelectedOrderForDelivery(item);
+                setSelectedOrderForDelivery(item); // ✅ CORRIGÉ : Nom du setter correct associé à l'état
                 setShowDeliveryReportModal(true);
               }}
               onView={() => {
@@ -861,6 +861,7 @@ const MissionsPage = () => {
       {selectedBeneficiary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-[2rem] w-full max-w-xl max-h-[88vh] overflow-y-auto shadow-2xl p-6 md:p-8 space-y-6 relative animate-fadeIn scrollbar-none">
+            
             <button
               onClick={() => setSelectedBeneficiary(null)}
               className="absolute top-4 right-4 w-9 h-9 bg-gray-50 hover:bg-gray-100 rounded-full flex items-center justify-center text-gray-400"
@@ -868,6 +869,7 @@ const MissionsPage = () => {
               <X size={18} />
             </button>
 
+            {/* En-tête Dossier */}
             <div className="flex items-center gap-4 border-b pb-4">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-base font-black shadow-md shrink-0" style={{ background: colors.primary }}>
                 {selectedBeneficiary.target_name?.charAt(0).toUpperCase()}
@@ -885,7 +887,9 @@ const MissionsPage = () => {
               </div>
             </div>
 
+            {/* Corps du Dossier Bénéficiaire */}
             <div className="space-y-5 text-xs sm:text-sm">
+              
               <div className="space-y-2">
                 <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
                   <User size={14} style={{ color: colors.primary }} /> Informations Générales
@@ -1013,7 +1017,7 @@ const MissionsPage = () => {
                     <button
                       key={action.id}
                       type="button"
-                      onClick={() => toggleActionSelection(action.label)}
+                      onClick={() => toggleActionSelection(action.label)} // ✅ CORRIGÉ : Portée lexicale restaurée !
                       className={cn(
                         "p-3 rounded-xl border text-left flex items-center justify-between transition-all text-xs font-semibold",
                         isChecked ? "border-emerald-500 bg-emerald-50/30 text-emerald-900" : "bg-white hover:bg-gray-50 text-gray-600"
