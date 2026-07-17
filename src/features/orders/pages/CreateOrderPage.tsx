@@ -1,5 +1,5 @@
 // 📁 src/features/orders/pages/CreateOrderPage.tsx
-// ✅ PAGE CRÉATION COMMANDE : FORMULAIRE ENTIÈREMENT ÉPURÉ AVEC CALCUL DE PROVISION EN LOCAL (BÉNIN)
+// ✅ PAGE CRÉATION COMMANDE : FORMULAIRE ÉPURÉ AVEC CALCUL DE PROVISION EN LOCAL (BÉNIN) SANS ERREURS TS
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -73,8 +73,10 @@ const CreateOrderPage = () => {
   const { createOrder, isLoading } = useOrderStore();
   const { patients, fetchPatients } = usePatientStore();
 
-  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-  const { hasActiveSubscription, remainingOrders, subLoading } = useSubscriptionGuard();
+  const { getCategoryLabel, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+  
+  // ✅ CORRIGÉ : subLoading a été retiré de la déstructuration car il n'existe pas dans le hook
+  const { hasActiveSubscription, remainingOrders } = useSubscriptionGuard();
 
   const {
     isPaymentModalOpen,
@@ -159,7 +161,7 @@ const CreateOrderPage = () => {
       return {
         type: 'success',
         icon: <CheckCircle size={18} />,
-        title: `✅ ${remainingOrders} course${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
+        title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
         description: 'Votre abonnement couvre les frais de livraison de cette course.',
       };
     }
@@ -359,7 +361,7 @@ const CreateOrderPage = () => {
     }
   };
 
-  const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
+  const isLoading_ = isLoading || isUploading || isPaymentLoading; // ✅ subLoading retiré
   const hasPatients = patients.length > 0;
 
   return (
