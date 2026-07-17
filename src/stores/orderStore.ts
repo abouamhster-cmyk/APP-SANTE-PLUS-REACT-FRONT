@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
 import { useAuthStore } from './authStore';
 import api from '@/lib/api';
-import toast from 'react-hot-toast'; 
 
 // ✅ URL UNIQUE
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -20,12 +19,9 @@ const MAX_ORDERS_IN_PROGRESS = 2;
 // HELPERS DE CACHE
 // =============================================
 
-const CACHE_KEY = 'sante_plus_orders_cache';
-const CACHE_DURATION = 60000;
-
 const getCachedOrders = (): { data: Order[]; timestamp: number } | null => {
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cached = localStorage.getItem('sante_plus_orders_cache');
     if (cached) return JSON.parse(cached);
     return null;
   } catch { return null; }
@@ -33,7 +29,7 @@ const getCachedOrders = (): { data: Order[]; timestamp: number } | null => {
 
 const setCachedOrders = (orders: Order[]) => {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({
+    localStorage.setItem('sante_plus_orders_cache', JSON.stringify({
       data: orders,
       timestamp: Date.now(),
     }));
@@ -42,7 +38,7 @@ const setCachedOrders = (orders: Order[]) => {
 
 const clearCachedOrders = () => {
   try {
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem('sante_plus_orders_cache');
   } catch { /* ignore */ }
 };
 
@@ -176,48 +172,13 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
   fetchOrders: async (force = false) => {
     const state = get();
-    
-    if (state.isLoading && !force) {
-      console.log('ℹ️ Déjà en cours de chargement, skip...');
-      return;
-    }
-
-    if (state.isCacheInvalidated) {
-      force = true;
-    }
-
-    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
-      return;
-    }
-
-    if (!force) {
-      const cached = getCachedOrders();
-      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-        set({ 
-          orders: cached.data, 
-          isLoading: false, 
-          isInitialized: true,
-          lastFetch: cached.timestamp,
-          isCacheInvalidated: false,
-        });
-        return;
-      }
-    }
+    if (state.isLoading && !force) return;
 
     try {
-      set({ isLoading: true, error: null, isCacheInvalidated: false });
-      
-      const { user } = useAuthStore.getState();
-      if (!user) {
-        set({ orders: [], isLoading: false });
-        return;
-      }
-
+      set({ isLoading: true, error: null });
       const response = await api.get('/orders');
       const ordersData = response.data || [];
 
-      setCachedOrders(ordersData);
-      
       set({ 
         orders: ordersData, 
         isLoading: false,
@@ -226,48 +187,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         isCacheInvalidated: false,
       });
     } catch (error: any) {
-      console.error('❌ Fetch orders error:', error);
-      
-      const cached = getCachedOrders();
-      if (cached && cached.data.length > 0) {
-        set({
-          orders: cached.data,
-          isLoading: false,
-          isInitialized: true,
-          lastFetch: cached.timestamp,
-          error: error.message || 'Erreur de chargement (cache utilisé)',
-          isCacheInvalidated: false,
-        });
-      } else {
-        set({ error: error.message, isLoading: false });
-      }
+      set({ error: error.message, isLoading: false });
     }
   },
 
   fetchOrderById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
-      
-      const state = get();
-      const cachedOrder = state.orders.find(o => o.id === id);
-      if (cachedOrder) {
-        set({ currentOrder: cachedOrder, isLoading: false });
-        return;
-      }
-
       const response = await api.get(`/orders/${id}`);
-      const order = response.data;
-
-      if (!order) {
-        set({ error: 'Commande non trouvée', isLoading: false });
-        return;
-      }
-
-      set({ currentOrder: order, isLoading: false });
+      set({ currentOrder: response.data, isLoading: false });
     } catch (error: any) {
-      console.error('❌ Fetch order error:', error);
       set({ error: error.message, isLoading: false });
-      throw error;
     }
   },
 
@@ -284,7 +214,21 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       return newOrder;
     } catch (error: any) {
-      console.error('❌ Create order error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // ✅ METHODE DE MISE À JOUR GLOBAL DE COMMANDE
+  updateOrder: async (id: string, data: Partial<Order>) => {
+    try {
+      set({ isLoading: true, error: null });
+      await api.put(`/orders/${id}`, data);
+      
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -293,21 +237,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   confirmPayment: async (id: string, transactionId: string) => {
     try {
       set({ isLoading: true, error: null });
-
-      const response = await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
-      const order = response.data?.order || response.data;
-
-      set((state) => ({
-        orders: state.orders.map(o => o.id === id ? order : o),
-        currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
-      }));
-
+      await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
       get().invalidateCache();
       await get().fetchOrders(true);
-
-      set({ isLoading: false });
     } catch (error: any) {
-      console.error('❌ Confirm payment error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -338,7 +271,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: false });
       return order;
     } catch (error: any) {
-      console.error('❌ Take order error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -376,7 +308,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: false });
     } catch (error: any) {
       console.error('❌ Prepare order error:', error);
-      toast.error(error.message);
       set({ isLoading: false });
     }
   },
@@ -394,7 +325,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: false });
     } catch (error: any) {
       console.error('❌ Mark ready error:', error);
-      toast.error(error.message);
       set({ isLoading: false });
     }
   },
@@ -412,7 +342,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: false });
     } catch (error: any) {
       console.error('❌ Start delivery error:', error);
-      toast.error(error.message);
       set({ isLoading: false });
     }
   },
@@ -439,7 +368,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
-      console.error('❌ Complete delivery error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -460,7 +388,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       await get().fetchOrders(true);
       set({ isLoading: false });
     } catch (error: any) {
-      console.error('❌ Confirm cash payment error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -490,7 +417,6 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ isLoading: false });
     } catch (error: any) {
       console.error('❌ Auto-validate error:', error);
-      toast.error(error.message);
       set({ error: error.message, isLoading: false });
     }
   },
