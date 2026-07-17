@@ -1,5 +1,6 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
- 
+// ✅ PAGE HUB DE L'INTERVENANT : CORRECTION TYPESCRIPT, IMPORTS ET DOUBLONS DE VARIABLES
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,6 +26,13 @@ import {
   Mail,
   Star,
   Camera,
+  X,
+  Stethoscope,
+  Pill,
+  FileText,
+  Check,
+  Loader2,
+  Navigation
 } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
@@ -41,7 +49,7 @@ type TabType = 'missions' | 'deliveries' | 'available';
 
 const MissionsPage = () => {
   const navigate = useNavigate();
-  const { profile, role, user } = useAuthStore();
+  const { user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
   
@@ -50,7 +58,7 @@ const MissionsPage = () => {
   const { orders, fetchOrders, takeOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
   const { assignments, fetchMyAssignments, isLoading: isAssignmentsLoading } = useAidantCatalogStore();
 
-  const { isAidant } = useTerminology();
+  const { isAidant, getCategoryLabel } = useTerminology();
 
   // États locaux
   const [activeTab, setActiveTab] = useState<TabType>('missions');
@@ -59,6 +67,7 @@ const MissionsPage = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<any | null>(null);
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
@@ -270,34 +279,6 @@ const MissionsPage = () => {
     setPullY(0);
   };
 
-  const getFilteredItems = () => {
-    if (activeTab === 'missions') {
-      if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
-      if (filterStatus === 'beneficiaires') return []; // Géré séparément
-      if (filterStatus === 'pending') {
-        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
-      }
-      if (filterStatus === 'history') {
-        return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
-      }
-    }
-    if (activeTab === 'deliveries') {
-      if (filterStatus === 'active') {
-        return deliveryOrders.filter(o => o.status === 'en_cours');
-      }
-      if (filterStatus === 'history') {
-        return assignedOrders.filter(o => ['livree', 'validee', 'annulee'].includes(o.status));
-      }
-      return deliveryOrders;
-    }
-    if (activeTab === 'available') {
-      return availableOrders;
-    }
-    return [];
-  };
-
-  const filteredItems = getFilteredItems();
-
   // ✅ DÉMARRAGE À LA VOLÉE (AD-HOC) AVEC POINT GPS DE DÉPART
   const handleStartAdHocIntervention = async (beneficiary: any) => {
     if (isActionPending) return;
@@ -322,8 +303,8 @@ const MissionsPage = () => {
         startLat = position.coords.latitude;
         startLng = position.coords.longitude;
       }
-    } catch {
-      console.warn("Géolocalisation non capturée.");
+    } catch (e) {
+      console.warn("⚠️ Géolocalisation non capturée.");
     }
 
     try {
@@ -341,11 +322,11 @@ const MissionsPage = () => {
     }
   };
 
-  // ✅ DÉMARRER INTERVENTION PROGRAMMÉE (CHECKPOINT GPS)
+  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES
   const handleStartPlannedIntervention = async (id: string) => {
     if (isActionPending) return;
     setIsActionPending(true);
-
+    
     let startLat: number | null = null;
     let startLng: number | null = null;
 
@@ -360,8 +341,8 @@ const MissionsPage = () => {
         startLat = position.coords.latitude;
         startLng = position.coords.longitude;
       }
-    } catch {
-      console.warn("GPS non capturé.");
+    } catch (e) {
+      console.warn("⚠️ Géolocalisation non capturée.");
     }
 
     try {
@@ -398,8 +379,8 @@ const MissionsPage = () => {
         endLat = position.coords.latitude;
         endLng = position.coords.longitude;
       }
-    } catch {
-      console.warn("GPS non capturé.");
+    } catch (e) {
+      console.warn("⚠️ Géolocalisation non capturée.");
     }
 
     try {
@@ -422,6 +403,34 @@ const MissionsPage = () => {
     }
   };
 
+  const getFilteredItems = () => {
+    if (activeTab === 'missions') {
+      if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
+      if (filterStatus === 'beneficiaires') return []; 
+      if (filterStatus === 'pending') {
+        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente' || v.status === 'acceptee');
+      }
+      if (filterStatus === 'history') {
+        return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
+      }
+    }
+    if (activeTab === 'deliveries') {
+      if (filterStatus === 'active') {
+        return deliveryOrders.filter(o => o.status === 'en_cours');
+      }
+      if (filterStatus === 'history') {
+        return assignedOrders.filter(o => ['livree', 'validee', 'annulee'].includes(o.status));
+      }
+      return deliveryOrders;
+    }
+    if (activeTab === 'available') {
+      return availableOrders;
+    }
+    return [];
+  };
+
+  const filteredItems = getFilteredItems();
+
   const handleTakeOrder = async (id: string) => {
     try {
       await takeOrder(id);
@@ -432,7 +441,6 @@ const MissionsPage = () => {
     }
   };
 
-  // ✅ LIVRAISON AVEC DOUBLE MODALITE ET CHECKPOINT GPS (CORRECTION TS DE TS2554)
   const handleDeliverOrder = async () => {
     if (!selectedOrderForDelivery) return;
     if (deliveryFeeInput <= 0 && !selectedOrderForDelivery.subscription_id) {
@@ -464,7 +472,6 @@ const MissionsPage = () => {
     }
 
     try {
-      // ✅ APPEL DU STORE AVEC TOUS LES PARAMÈTRES REQUIS (2 arguments complets)
       await completeDelivery(selectedOrderForDelivery.id, {
         proof_url: null,
         delivery_fee: selectedOrderForDelivery.subscription_id ? 0 : Number(deliveryFeeInput || 0),
@@ -518,32 +525,28 @@ const MissionsPage = () => {
       en_cours: '#3B82F6',
       terminee: '#8B5CF6',
       validee: '#10B981',
-      annulee: '#EF4444',
+      annulee: '#6B7280',
       refusee: '#EF4444',
-      expire: '#6B7280',
       creee: '#6B7280',
       disponible: '#EF4444',
       livree: '#3B82F6',
-      attente_paiement: '#8B5CF6',
     };
     return map[status] || '#9E9E9E';
   };
 
   const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
-      planifiee: 'À valider',
+      planifiee: 'Prévue',
       en_attente: 'En attente',
-      acceptee: 'Acceptée',
+      acceptee: 'Confirmée',
       en_cours: 'En cours',
-      terminee: 'Terminée',
+      terminee: 'Terminée (Rapport)',
       validee: 'Validée',
       annulee: 'Annulée',
       refusee: 'Refusée',
-      expire: 'Expirée',
       creee: 'Créée',
       disponible: 'Disponible (urgent)',
       livree: 'Livrée',
-      attente_paiement: 'En attente paiement',
     };
     return map[status] || status;
   };
@@ -582,11 +585,22 @@ const MissionsPage = () => {
     );
   }
 
-  const filteredItems = getFilteredItems();
+  if (isLoading_) {
+    return (
+      <div className="space-y-6">
+        <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-3 gap-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
-      className="space-y-6 pb-6 px-1 sm:px-0"
+      className="space-y-6 pb-6 px-2 sm:px-0"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -610,7 +624,6 @@ const MissionsPage = () => {
         </div>
       </div>
 
-      {/* HEADER HERO */}
       <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 text-center shadow-sm backdrop-blur-md" style={{ borderColor: colors.primary + '15' }}>
         <div className="space-y-1.5 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
@@ -628,14 +641,14 @@ const MissionsPage = () => {
             setIsRefreshing(false);
           }}
           disabled={isRefreshing || isLoading_}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
           title="Actualiser"
         >
           <RefreshCw size={13} className={isRefreshing || isLoading_ ? 'animate-spin' : ''} />
         </button>
       </section>
 
-      {/* BANDEAU ACTIVE INTERVENTION */}
+      {/* BANDEAU INTERVENTION ACTIVE */}
       {activeIntervention && (
         <div className="bg-white rounded-3xl p-5 border shadow-[0_10px_30px_rgba(0,0,0,0.06)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fadeIn" style={{ borderColor: colors.primary + '20' }}>
           <div className="flex items-center gap-3.5 min-w-0">
@@ -673,46 +686,46 @@ const MissionsPage = () => {
 
       {/* STATS BENTO */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
-        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Visites</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Visites</span>
             <Calendar size={13} className="text-emerald-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.missions.total} total
             </p>
-            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
-              {stats.missions.pending} à valider
+            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
+              {stats.missions.planned} prévues
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
             <ShoppingBag size={13} className="text-blue-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.deliveries.inProgress} en cours
             </p>
-            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
+            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
               {stats.deliveries.completed} livrées
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Dispos</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Urgentes</span>
             <AlertCircle size={13} className="text-amber-500 shrink-0 animate-pulse" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
-              {stats.available} urgentes
+              {stats.available} disponibles
             </p>
-            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
+            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
               À prendre
             </p>
           </div>
@@ -745,7 +758,7 @@ const MissionsPage = () => {
         </div>
       </section>
 
-      {/* SOUS FILTRES ACCONS */}
+      {/* SOUS FILTRES */}
       {activeTab === 'missions' && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
           <div className="inline-flex p-0.5 bg-gray-100/40 rounded-xl border gap-1" style={{ borderColor: colors.primary + '5' }}>
@@ -800,10 +813,9 @@ const MissionsPage = () => {
 
       {/* AFFICHAGES LISTES */}
       {activeTab === 'missions' && filterStatus === 'beneficiaires' ? (
-        /* ✅ RENDU DIRECT DES BÉNÉFICIAIRES ASSIGNÉS (DOSSIERS PATIENTS) */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignments.length > 0 ? (
-            assignments.map((link) => {
+            assignments.map((link: any) => {
               const isPersonal = link.target_type === 'personal_account' || link.is_personal;
               const name = link.target_name || 'Bénéficiaire';
               const address = isPersonal ? link.family?.address : link.patient?.address;
@@ -879,22 +891,23 @@ const MissionsPage = () => {
 
           <div className="space-y-1">
             <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
-              Aucun résultat
+              {activeTab === 'missions' && 'Aucune mission planifiée'}
+              {activeTab === 'deliveries' && 'Aucune livraison en cours'}
+              {activeTab === 'available' && 'Aucune commande disponible'}
             </h3>
             <p className="text-xs max-w-xs leading-relaxed" style={{ color: colors.textLight }}>
-              Aucun élément ne correspond à ce filtre actuellement.
+              {activeTab === 'missions' && 'Revenez plus tard ou contactez la coordination pour de nouveaux accompagnements.'}
+              {activeTab === 'deliveries' && 'Vos livraisons en cours s\'afficheront ici pour un suivi GPS réactif.'}
+              {activeTab === 'available' && 'Toutes les courses d\'urgences ont été pourvues par nos équipes de confiance.'}
             </p>
           </div>
         </section>
       )}
 
-      {/* ============================================================
-          MODAL 1 : FICHE CLINIQUE / DOSSIER PATIENT (DÉMARRAGE VOLÉE)
-          ============================================================ */}
+      {/* MODAL FICHE BÉNÉFICIAIRE (DÉMARRAGE VOLÉE) */}
       {selectedBeneficiary && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-[2rem] w-full max-w-xl max-h-[88vh] overflow-y-auto shadow-2xl p-6 md:p-8 space-y-6 relative animate-fadeIn scrollbar-none">
-            
             <button
               onClick={() => setSelectedBeneficiary(null)}
               className="absolute top-4 right-4 w-9 h-9 bg-gray-50 hover:bg-gray-100 rounded-full flex items-center justify-center text-gray-400"
@@ -902,14 +915,13 @@ const MissionsPage = () => {
               <X size={18} />
             </button>
 
-            {/* En-tête Dossier */}
             <div className="flex items-center gap-4 border-b pb-4">
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-base font-black shadow-md shrink-0" style={{ background: colors.primary }}>
                 {selectedBeneficiary.target_name?.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                  📁 DOSSIER PATIENT SÉCURISÉ
+                  📁 DOSSIER PATIENT
                 </span>
                 <h2 className="text-lg md:text-xl font-black text-gray-800 truncate mt-1">
                   {selectedBeneficiary.target_name}
@@ -920,9 +932,7 @@ const MissionsPage = () => {
               </div>
             </div>
 
-            {/* Corps du Dossier Bénéficiaire */}
             <div className="space-y-5 text-xs sm:text-sm">
-              
               <div className="space-y-2">
                 <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
                   <User size={14} style={{ color: colors.primary }} /> Informations Générales
@@ -937,7 +947,7 @@ const MissionsPage = () => {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-gray-400 block font-bold">Sexe / Genre</span>
+                    <span className="text-[10px] text-gray-400 block font-bold">Sexe</span>
                     <span className="font-extrabold text-gray-700 uppercase">
                       {selectedBeneficiary.target_type === 'patient' 
                         ? (selectedBeneficiary.patient?.gender === 'male' ? 'Homme' : 'Femme') 
@@ -947,7 +957,6 @@ const MissionsPage = () => {
                 </div>
               </div>
 
-              {/* Pathologies & Traitements */}
               {selectedBeneficiary.target_type === 'patient' && selectedBeneficiary.patient && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -963,7 +972,7 @@ const MissionsPage = () => {
 
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
-                      <Pill size={14} className="text-blue-500" /> Traitements réguliers
+                      <Pill size={14} className="text-blue-500" /> Traitements
                     </h4>
                     <div className="p-3 bg-blue-50/20 border border-blue-100 rounded-xl min-h-[58px]">
                       <p className="font-semibold text-blue-900 leading-normal">
@@ -974,10 +983,9 @@ const MissionsPage = () => {
                 </div>
               )}
 
-              {/* Allergies & Notes de Confort */}
               <div className="space-y-2">
                 <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
-                  <FileText size={14} style={{ color: colors.primary }} /> Allergies et Notes d'aide
+                  <FileText size={14} style={{ color: colors.primary }} /> Notes d'aide
                 </h4>
                 <div className="p-4 bg-gray-50/50 rounded-2xl border space-y-3">
                   {selectedBeneficiary.target_type === 'patient' && selectedBeneficiary.patient?.allergies && (
@@ -987,24 +995,23 @@ const MissionsPage = () => {
                     </div>
                   )}
                   <div>
-                    <span className="text-[10px] text-gray-400 font-extrabold block uppercase tracking-wider">📝 Notes de confort du proche</span>
+                    <span className="text-[10px] text-gray-400 font-extrabold block uppercase tracking-wider">📝 Confort</span>
                     <p className="font-medium text-gray-600 mt-1 leading-relaxed">
                       {selectedBeneficiary.target_type === 'patient' 
-                        ? (selectedBeneficiary.patient?.notes || "Pas de note complémentaire spécifiée.") 
+                        ? (selectedBeneficiary.patient?.notes || "Pas de note spécifiée.") 
                         : "Accompagnement de confort personnel."}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Bouton d'action principal */}
               <div className="pt-4 border-t flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedBeneficiary(null)}
                   className="flex-1 h-12 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition border"
                 >
-                  Fermer le dossier
+                  Fermer
                 </button>
                 <button
                   type="button"
@@ -1021,13 +1028,10 @@ const MissionsPage = () => {
         </div>
       )}
 
-      {/* ============================================================
-          MODAL 2 : SOUMETTRE LE RAPPORT CLASSIQUE DE VISITE
-          ============================================================ */}
-      {showReportModal && activeIntervention && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
+      {/* MODAL RAPPORT DE VISITE */}
+      {showVisitReportModal && activeIntervention && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-[2rem] w-full max-w-xl p-6 md:p-8 space-y-6 relative animate-fadeIn scrollbar-none my-8">
-            
             <div className="flex items-center justify-between border-b pb-4">
               <div>
                 <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600">
@@ -1038,17 +1042,16 @@ const MissionsPage = () => {
                 </h2>
               </div>
               <button
-                onClick={() => setShowReportModal(false)}
+                onClick={() => setShowVisitReportModal(false)}
                 className="p-1.5 hover:bg-gray-100 rounded-xl transition"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Actions d'accompagnement sous forme de checkbox */}
             <div className="space-y-2">
               <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                Cochez les actions d'aide accomplies *
+                Cochez les actions accomplies *
               </label>
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                 {getActionOptions().map((action) => {
@@ -1071,25 +1074,23 @@ const MissionsPage = () => {
               </div>
             </div>
 
-            {/* Observations textuelles */}
             <div className="space-y-2">
               <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider">
-                Observations de visite & Rapport
+                Observations & Rapport
               </label>
               <textarea
                 value={reportNotes}
                 onChange={(e) => setReportNotes(e.target.value)}
                 rows={3}
-                placeholder="Décrivez comment s'est déroulé l'accompagnement, observations importantes..."
+                placeholder="Décrivez comment s'est déroulé l'accompagnement..."
                 className="w-full px-3 py-2.5 border rounded-2xl text-xs sm:text-sm font-semibold outline-none resize-none bg-gray-50/50 focus:bg-white transition"
               />
             </div>
 
-            {/* Controles de soumission */}
             <div className="flex gap-2.5 pt-4 border-t">
               <button
                 type="button"
-                onClick={() => setShowReportModal(false)}
+                onClick={() => setShowVisitReportModal(false)}
                 className="flex-1 h-12 font-bold text-gray-500 hover:bg-gray-50 transition border rounded-2xl"
               >
                 Retour
@@ -1108,25 +1109,21 @@ const MissionsPage = () => {
                 Transmettre
               </button>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* ============================================================
-          MODAL 3 : SOUMETTRE LE RAPPORT DE LIVRAISON SÉCURISÉ (LIVREUR)
-          ============================================================ */}
+      {/* MODAL RAPPORT LIVRAISON */}
       {showDeliveryReportModal && selectedOrderForDelivery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-6 shadow-2xl my-8 space-y-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b pb-3">
               <h2 className="text-sm sm:text-base font-black">🏁 Clôturer la livraison</h2>
               <button onClick={() => setShowDeliveryReportModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
             </div>
 
-            <p className="text-xs text-gray-500">Veuillez renseigner les détails de transport et de règlement pour finaliser l'envoi.</p>
+            <p className="text-xs text-gray-500">Renseignez les détails de transport et de règlement.</p>
 
-            {/* Saisie des frais de transport et du mode de règlement s'il n'y a pas d'abonnement */}
             {!selectedOrderForDelivery.subscription_id ? (
               <div className="space-y-3">
                 <div>
@@ -1144,7 +1141,7 @@ const MissionsPage = () => {
                   <label className="block text-[10px] font-bold text-gray-500 uppercase">Règlement client</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" onClick={() => setPaymentMethod('online')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'online' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💳 En ligne (Momo)</button>
-                    <button type="button" onClick={() => setPaymentMethod('cash')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💵 En Espèces (Main)</button>
+                    <button type="button" onClick={() => setPaymentMethod('cash')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💵 Espèces (Main)</button>
                   </div>
                 </div>
 
@@ -1163,13 +1160,14 @@ const MissionsPage = () => {
               </div>
             ) : (
               <p className="text-xs font-bold text-emerald-600 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-                ✅ Livraison gratuite (couverte à 100 % par l'abonnement du client).
+                ✅ Livraison gratuite (couverte par abonnement).
               </p>
             )}
 
             <div className="grid grid-cols-2 gap-2 pt-3 border-t">
               <button onClick={() => setShowDeliveryReportModal(false)} className="h-11 rounded-xl font-bold text-gray-500 border">Annuler</button>
-              <button onClick={handleDeliverOrder} className="h-11 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5">
+              <button onClick={handleDeliverOrder} disabled={isUpdating} className="h-11 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5">
+                {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 Valider
               </button>
             </div>
@@ -1184,27 +1182,10 @@ const MissionsPage = () => {
 // MISSION ITEM COMPACT
 // =============================================
 
-interface MissionItemCompactProps {
-  item: any;
-  type: TabType;
-  colors: any;
-  aidantId: string | null;
-  onStart: () => void;
-  onTakeOrder: () => void;
-  onDeliver: () => void;
-  onView: () => void;
-  getStatusColor: (status: string) => string;
-  getStatusLabel: (status: string) => string;
-  formatDate: (date: string) => string;
-  formatTime: (time: string) => string;
-  formatCurrency: (amount: number) => string;
-}
-
 const MissionItemCompact = ({
   item,
   type,
   colors,
-  aidantId,
   onStart,
   onTakeOrder,
   onDeliver,
@@ -1214,7 +1195,7 @@ const MissionItemCompact = ({
   formatDate,
   formatTime,
   formatCurrency,
-}: MissionItemCompactProps) => {
+}: any) => {
   const isMission = type === 'missions';
   const isAccepted = item.status === 'acceptee' || item.status === 'planifiee';
 
@@ -1236,38 +1217,20 @@ const MissionItemCompact = ({
         onClick={onView}
       >
         <div className="flex items-center gap-3.5 min-w-0">
-          <div 
-            className="w-1 h-10 rounded-full shrink-0" 
-            style={{ backgroundColor: getStatusColor(item.status) }} 
-          />
-
+          <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: getStatusColor(item.status) }} />
           <div className="min-w-0 space-y-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: colors.textLight }}>Accompagnement d'aide</span>
             <p className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
               {getPatientName()}
             </p>
             <div className="flex items-center gap-2 text-[11px] flex-wrap" style={{ color: colors.textLight }}>
-              <span className="flex items-center gap-0.5">
-                <Calendar size={11} className="text-gray-400" /> {formatDate(item.scheduled_date)}
-              </span>
+              <span className="flex items-center gap-0.5"><Calendar size={11} className="text-gray-400" /> {formatDate(item.scheduled_date)}</span>
               <span>•</span>
-              <span className="flex items-center gap-0.5">
-                <Clock size={11} className="text-gray-400" /> {formatTime(item.scheduled_time)}
-              </span>
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                style={{
-                  background: getStatusColor(item.status) + '12',
-                  color: getStatusColor(item.status),
-                }}
-              >
+              <span className="flex items-center gap-0.5"><Clock size={11} className="text-gray-400" /> {formatTime(item.scheduled_time)}</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: getStatusColor(item.status) + '12', color: getStatusColor(item.status) }}>
                 {getStatusLabel(item.status)}
               </span>
-              {item.is_urgent && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-100/35">
-                  ⚠️ Urgent
-                </span>
-              )}
+              {item.is_urgent && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-100/35">⚠️ Urgent</span>}
             </div>
           </div>
         </div>
@@ -1279,16 +1242,10 @@ const MissionItemCompact = ({
               className="px-3.5 h-8 rounded-xl text-white flex items-center justify-center gap-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm hover:opacity-90 transition-all bg-emerald-500"
               title="Démarrer l'itinéraire"
             >
-              <Play size={12} fill="#ffffff" />
-              <span>Démarrer</span>
+              <Play size={12} fill="#ffffff" /> <span>Démarrer</span>
             </button>
           )}
-
-          <button
-            onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-700 flex items-center justify-center transition-all"
-            style={{ borderColor: colors.primary + '10' }}
-          >
+          <button onClick={(e) => { e.stopPropagation(); onView(); }} className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-700 flex items-center justify-center transition-all" style={{ borderColor: colors.primary + '10' }}>
             <Eye size={13} />
           </button>
         </div>
@@ -1307,38 +1264,20 @@ const MissionItemCompact = ({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3.5 min-w-0">
-          <div 
-            className="w-1 h-10 rounded-full shrink-0" 
-            style={{ backgroundColor: getStatusColor(item.status) }} 
-          />
-
+          <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: getStatusColor(item.status) }} />
           <div className="min-w-0 space-y-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: colors.textLight }}>Livraison active</span>
             <p className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
               📦 {item.description || 'Commande'}
             </p>
             <div className="flex items-center gap-2 text-[11px] flex-wrap" style={{ color: colors.textLight }}>
-              <span className="flex items-center gap-0.5">
-                <User size={11} className="text-gray-400" /> {getPatientName()}
-              </span>
+              <span className="flex items-center gap-0.5"><User size={11} className="text-gray-400" /> {getPatientName()}</span>
               <span>•</span>
-              <span className="flex items-center gap-0.5">
-                <Package size={11} className="text-gray-400" /> {formatCurrency(item.estimated_amount || 0)}
-              </span>
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                style={{
-                  background: getStatusColor(item.status) + '12',
-                  color: getStatusColor(item.status),
-                }}
-              >
+              <span className="flex items-center gap-0.5"><Package size={11} className="text-gray-400" /> {formatCurrency(item.estimated_amount || 0)}</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: getStatusColor(item.status) + '12', color: getStatusColor(item.status) }}>
                 {getStatusLabel(item.status)}
               </span>
-              {item.status === 'disponible' && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 animate-pulse">
-                  🚨 Urgent
-                </span>
-              )}
+              {item.status === 'disponible' && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-600 animate-pulse">🚨 Urgent</span>}
             </div>
           </div>
         </div>
@@ -1350,8 +1289,7 @@ const MissionItemCompact = ({
               className="px-3.5 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm hover:opacity-90 transition-all"
               style={{ background: item.status === 'disponible' ? '#EF4444' : '#F59E0B' }}
             >
-              <Package size={12} />
-              <span>Prendre</span>
+              <Package size={12} /> <span>Prendre</span>
             </button>
           )}
 
@@ -1360,53 +1298,15 @@ const MissionItemCompact = ({
               onClick={(e) => { e.stopPropagation(); onDeliver(); }}
               className="px-3.5 h-8 rounded-xl text-white text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 shadow-sm hover:opacity-90 transition-all bg-blue-500"
             >
-              <Truck size={12} />
-              <span>Livrer</span>
+              <Truck size={12} /> <span>Livrer</span>
             </button>
           )}
 
-          <button
-            onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-800 flex items-center justify-center transition-all"
-            style={{ borderColor: colors.primary + '10' }}
-          >
+          <button onClick={(e) => { e.stopPropagation(); onView(); }} className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-800 flex items-center justify-center transition-all" style={{ borderColor: colors.primary + '10' }}>
             <Eye size={13} />
           </button>
         </div>
       </div>
-
-      {item.status !== 'annulee' && item.status !== 'validee' && item.status !== 'attente_paiement' && (
-        <div className="mt-4 flex items-center gap-2 pl-4">
-          {['creee', 'en_cours', 'livree'].map((status, index) => {
-            const statusIndex = ['creee', 'en_cours', 'livree'].indexOf(status);
-            const currentIndex = ['creee', 'en_cours', 'livree'].indexOf(item.status);
-            const isDone = currentIndex >= statusIndex;
-
-            return (
-              <div key={status} className="flex items-center flex-1">
-                <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
-                    isDone ? "text-white" : "bg-gray-100 text-gray-400"
-                  }`}
-                  style={{ background: isDone ? colors.primary : undefined }}
-                >
-                  {isDone ? <CheckCircle size={10} /> : index + 1}
-                </div>
-                {index < 2 && (
-                  <div
-                    className={`flex-1 h-0.5 mx-1 transition-all ${
-                      isDone && currentIndex > statusIndex ? "bg-green-500" : "bg-gray-100"
-                    }`}
-                  />
-                )}
-              </div>
-            );
-          })}
-          <span className="text-[10px] ml-1.5 font-bold shrink-0" style={{ color: colors.textLight }}>
-            {Math.round((['creee', 'en_cours', 'livree'].indexOf(item.status) + 1) / 3 * 100)}%
-          </span>
-        </div>
-      )}
     </div>
   );
 };
