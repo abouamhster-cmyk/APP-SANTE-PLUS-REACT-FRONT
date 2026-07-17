@@ -44,7 +44,7 @@ interface AssignAidantModalContentProps {
   onSuccess: () => void;
   onCancel: () => void;
   colors?: any;
-  targetType?: 'visit' | 'patient' | 'personal_account';
+  targetType?: 'visit' | 'patient' | 'personal_account' | 'order'; // ✅ AJOUTÉ : 'order' supporté
   targetId?: string;
   targetName?: string;
   currentAidantId?: string | null;
@@ -125,13 +125,13 @@ export const AssignAidantModalContent = ({
   };
 
   const handleSubmit = async () => {
-    if (targetTypeLocal === 'patient' && !selectedPatientId && targetType !== 'visit') {
+    if (targetTypeLocal === 'patient' && !selectedPatientId && targetType !== 'visit' && targetType !== 'order') {
       toast.error('Veuillez sélectionner un proche');
       return;
     }
 
-    if (targetType === 'visit' && !targetId) {
-      toast.error('Cible de visite non spécifiée');
+    if ((targetType === 'visit' || targetType === 'order') && !targetId) {
+      toast.error('Cible de mission non spécifiée');
       return;
     }
 
@@ -149,14 +149,15 @@ export const AssignAidantModalContent = ({
       
       if (!user) throw new Error('Utilisateur non connecté');
 
-      if (targetType === 'visit' && targetId && onAssignAidant) {
+      // ✅ CLÔTURE ASSIGNATION SÉCURISÉE : Délègue l'appel d'assignation s'il s'agit d'une visite ou d'une commande
+      if ((targetType === 'visit' || targetType === 'order') && targetId && onAssignAidant) {
         await onAssignAidant(
           aidantUserId, 
           assignmentType === 'primary' ? 'permanente' : 
           assignmentType === 'temporary' ? 'temporaire' : 'ponctuelle',
           forceMode
         );
-        toast.success(`Aidant assigné à la visite ${targetName || ''}`);
+        toast.success(`Aidant assigné à la mission ${targetName || ''}`);
         onSuccess();
         return;
       }
@@ -283,7 +284,7 @@ export const AssignAidantModalContent = ({
   };
 
   const renderPatientSelection = () => {
-    if (targetType === 'visit') return null;
+    if (targetType === 'visit' || targetType === 'order') return null; // ✅ Ne pas afficher pour les visites et commandes
     if (!hasPatients) return null;
     if (targetTypeLocal === 'personal') return null;
 
@@ -316,7 +317,7 @@ export const AssignAidantModalContent = ({
       {renderAidantSelection()}
 
       {/* CHOIX DESTINATAIRE */}
-      {!isAdmin && targetType !== 'visit' && hasPatients && (
+      {!isAdmin && targetType !== 'visit' && targetType !== 'order' && hasPatients && (
         <div className="space-y-1">
           <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">
             Destinataire de l'assignation
@@ -368,7 +369,7 @@ export const AssignAidantModalContent = ({
         </label>
         <div className="grid grid-cols-3 gap-2">
           {ASSIGNMENT_TYPES_UI.map((type) => {
-            if (targetType === 'visit' && !isAdmin && type.value === 'secondary') return null;
+            if ((targetType === 'visit' || targetType === 'order') && !isAdmin && type.value === 'secondary') return null;
 
             return (
               <button
@@ -441,7 +442,7 @@ export const AssignAidantModalContent = ({
           onClick={handleSubmit}
           disabled={
             isLoading ||
-            (targetTypeLocal === 'patient' && !selectedPatientId && targetType !== 'visit') ||
+            (targetTypeLocal === 'patient' && !selectedPatientId && targetType !== 'visit' && targetType !== 'order') ||
             (!selectedAidantId && !initialAidant) ||
             (isLoadingAidants)
           }
