@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE CASH SECURISEE CLIENT ET DEPOT SÉCURISÉ LIVREUR
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE CASH SECURISEE CLIENT ET DEPOT SÉCURISÉ LIVREUR SANS MODALE CLUNKY
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -32,9 +32,9 @@ import {
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useBranding } from '@/hooks/useBranding';
+import { useBranding } from '@/stores/brandingStore'; // Ou hook selon structure
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; // ✅ cn importé
+import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; 
 
 import {
   isOrderPendingPayment,
@@ -43,12 +43,12 @@ import {
 } from '@/utils/helpers';
 
 import { supabase } from '@/lib/supabase';
-import { usePonctualPayment } from '@/hooks/usePonctualPayment'; // ✅ Importation ajoutée
+import { usePonctualPayment } from '@/hooks/usePonctualPayment'; 
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// HELPERS LOCAUX (DÉFINITIONS SÉCURISÉES SANS DOUBLONS EN BAS)
+// HELPERS LOCAUX
 // ============================================================
 
 interface MiniCardProps {
@@ -59,8 +59,7 @@ interface MiniCardProps {
 }
 
 const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
-  const brand = useBranding();
-  const colors = brand.colors;
+  const { colors } = useBranding();
 
   return (
     <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border min-w-0" style={{ borderColor: colors.primary + '15' }}>
@@ -87,8 +86,7 @@ interface PersonBoxProps {
 }
 
 const PersonBox = ({ icon, title, name, detail, detailIcon }: PersonBoxProps) => {
-  const brand = useBranding();
-  const colors = brand.colors;
+  const { colors } = useBranding();
 
   return (
     <div className="rounded-2xl bg-gray-50 p-4 border" style={{ borderColor: colors.primary + '15' }}>
@@ -113,8 +111,7 @@ interface DocButtonProps {
 }
 
 const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
-  const brand = useBranding();
-  const colors = brand.colors;
+  const { colors } = useBranding();
 
   return (
     <button
@@ -165,29 +162,6 @@ const getStatusColor = (status: string): string => {
   return colors[status] || '#9E9E9E';
 };
 
-interface ActionButtonProps {
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  disabled?: boolean;
-  onClick: () => void;
-  isLoading?: boolean;
-}
-
-const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled || isLoading}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
-      style={{ background: color }}
-    >
-      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
-      {isLoading ? 'Chargement...' : label}
-    </button>
-  );
-};
-
 interface StatusBadgeProps {
   status: string;
   colors: any;
@@ -229,9 +203,8 @@ const OrderDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { profile, role, user } = useAuthStore();
-  const brand = useBranding();
-  const colors = brand.colors;
+  const { role, user } = useAuthStore();
+  const { colors } = useBranding();
   const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, completeDelivery, confirmCashPayment, isLoading } = useOrderStore();
 
   const {
@@ -267,10 +240,11 @@ const OrderDetailPage = () => {
     window.open(url, '_blank');
   };
 
+  // ✅ REDIRECTION DIRECTE SANS ETAPE INTERMEDIAIRE (MODAL SHUNTE !)
   const {
+    executePayment,
     isPaymentModalOpen,
     pendingPaymentData,
-    payOrderPonctual,
     handlePaymentSuccess,
     handlePaymentCancel,
     isLoading: isPaymentLoading,
@@ -456,17 +430,20 @@ const OrderDetailPage = () => {
     }
   };
 
+  // ✅ DÉCLENCHEMENT DIRECT SANS ETAPE INTERMEDIAIRE (MODAL SHUNTE !)
   const handlePayDeliveryOnline = async () => {
     try {
-      await payOrderPonctual({
+      await executePayment({
+        type: 'order',
+        amount: order.delivery_fee,
         description: `Frais de transport - Commande #${order.id.slice(0, 8)}`,
+        orderId: order.id,
         orderType: 'delivery',
-        items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee }], 
+        items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee, total: order.delivery_fee }], 
         address: order.address,
-        targetType: order.target_type as any,
+        targetType: order.target_type,
         targetName: order.target_name || 'Personnel',
         patientId: order.patient_id,
-        orderId: order.id,
       });
     } catch {
       toast.error('Erreur lancement paiement');
@@ -570,14 +547,14 @@ const OrderDetailPage = () => {
           )}
 
           {canAccept && (
-            <ActionButton
-              label="Accepter"
-              color="#4CAF50"
-              icon={<Play size={17} />}
-              disabled={isUpdating}
+            <button
               onClick={() => handleStatusChange('en_cours')}
-              isLoading={isUpdating}
-            />
+              disabled={isUpdating}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center bg-emerald-500"
+            >
+              {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Play size={17} />}
+              <span>Accepter</span>
+            </button>
           )}
 
           {isMyActiveDelivery && (
@@ -591,14 +568,14 @@ const OrderDetailPage = () => {
           )}
 
           {canCancel && (
-            <ActionButton
-              label="Annuler"
-              color="#EF4444"
-              icon={<XCircle size={17} />}
-              disabled={isUpdating}
+            <button
               onClick={() => handleStatusChange('annulee')}
-              isLoading={isUpdating}
-            />
+              disabled={isUpdating}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center bg-red-500"
+            >
+              {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={17} />}
+              <span>Annuler</span>
+            </button>
           )}
 
           {order.status === 'validee' && (
