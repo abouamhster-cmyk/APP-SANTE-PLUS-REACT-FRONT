@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
-// ✅ PAGE DÉTAIL VISITE : CAPTURE DU CHECKPOINT GPS DE DÉPART ET D'ARRIVÉE DES MISSIONS EN DIRECT
+// ✅ PAGE DÉTAIL VISITE : LECTURE SEULE POUR LA FAMILLE ET RAPPORT IMMERSIF EN DIRECT
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -14,7 +14,6 @@ import {
   Phone,
   Heart,
   AlertCircle,
-  CreditCard,
   UserPlus,
   Clock,
   UserCheck,
@@ -36,9 +35,7 @@ import {
   getVisitDisplayName,
   getVisitDisplayAddress,
 } from '@/utils/helpers';
-import { getPonctualPrice } from '@/lib/constants';
 import { CompleteVisitModal } from '@/components/visits/CompleteVisitModal';
-import { VisitPaymentModal } from '@/features/visits/components/VisitPaymentModal';
 import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
@@ -58,8 +55,6 @@ const VisitDetailPage = () => {
     startVisit,
     completeVisit,
     cancelVisit,
-    approveVisit,
-    refuseVisit,
     isLoading,
     fetchVisits,
   } = useVisitStore();
@@ -73,7 +68,6 @@ const VisitDetailPage = () => {
 
   const { fetchAidants } = useAidantCatalogStore();
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,7 +88,7 @@ const VisitDetailPage = () => {
     return [];
   }, [currentVisit]);
 
-  // Récupération sécurisée et hybride du mémoc vocal de la visite
+  // Récupération sécurisée et hybride du mémo vocal de la visite
   const audioUrl = useMemo(() => {
     if (!currentVisit) return null;
     const visitObj = currentVisit as any;
@@ -129,64 +123,6 @@ const VisitDetailPage = () => {
       fetchAidants({ onlyAvailable: true });
     }
   }, [showAssignModal, fetchAidants]);
-
-  const handleOpenPayment = () => {
-    if (!currentVisit || isActionPending.current) return;
-    if (currentVisit.status === 'brouillon' && currentVisit.metadata?.requires_payment) {
-      setShowPaymentModal(true);
-    }
-  };
-
-  const handlePaymentSuccess = () => {
-    setShowPaymentModal(false);
-    toast.success('✅ Visite planifiée après paiement !');
-    if (id) {
-      useVisitStore.getState().invalidateCache();
-      fetchVisitById(id);
-      fetchVisits();
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!id || isActionPending.current) return;
-    isActionPending.current = true;
-    setIsUpdating(true);
-    try {
-      await approveVisit(id);
-      toast.success('✅ Visite approuvée');
-      useVisitStore.getState().invalidateCache();
-      await fetchVisitById(id);
-      await fetchVisits();
-    } catch (error: any) {
-      console.error('❌ Erreur approbation:', error);
-      toast.error(error.message || 'Erreur lors de l\'approbation');
-    } finally {
-      setIsUpdating(false);
-      isActionPending.current = false;
-    }
-  };
-
-  const handleRefuse = async () => {
-    if (!id || isActionPending.current) return;
-    const reason = prompt('Motif du refus :');
-    if (!reason) return;
-
-    isActionPending.current = true;
-    setIsUpdating(true);
-    try {
-      await refuseVisit(id, reason);
-      toast.error('❌ Visite refusée');
-      useVisitStore.getState().invalidateCache();
-      await fetchVisitById(id);
-      await fetchVisits();
-    } catch (error: any) {
-      console.error('❌ Erreur refus:', error);
-      toast.error(error.message || 'Erreur lors du refus');
-    } finally {
-      setIsUpdating(false);
-      isActionPending.current = false;
-    }
-  };
 
   // ✅ CAPTURE DU POINT DE DÉPART DE MISSION EN DIRECT (CHECKPOINT)
   const handleStart = async () => {
@@ -389,9 +325,9 @@ const VisitDetailPage = () => {
     const labels: Record<string, string> = {
       planifiee: 'Planifiée',
       en_attente: 'En attente',
-      acceptee: 'Acceptée',
+      acceptee: 'Prête',
       en_cours: 'En cours',
-      terminee: 'Terminée',
+      terminee: 'Terminée (Rapport)',
       validee: 'Validée',
       annulee: 'Annulée',
       refusee: 'Refusée',
@@ -423,18 +359,6 @@ const VisitDetailPage = () => {
     }
   };
 
-  const getDraftExpiryText = () => {
-    if (!currentVisit?.draft_expires_at) return null;
-    const expiry = new Date(currentVisit.draft_expires_at);
-    const now = new Date();
-    const diff = expiry.getTime() - now.getTime();
-    if (diff <= 0) return 'Expiré';
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    if (hours > 0) return `${hours}h ${minutes}min`;
-    return `${minutes}min`;
-  };
-
   const getAidantDisplayStatus = () => {
     const aidantName = currentVisit?.aidant?.user?.full_name || 'Non assigné';
 
@@ -456,15 +380,6 @@ const VisitDetailPage = () => {
       };
     }
 
-    if (currentVisit?.aidant_id) {
-      return {
-        label: 'En attente de validation',
-        sub: `⏳ ${aidantName} doit approuver la visite`,
-        color: '#F59E0B',
-        icon: <Clock size={15} />
-      };
-    }
-
     return {
       label: 'Non assigné',
       sub: 'En attente d\'assignation',
@@ -479,7 +394,7 @@ const VisitDetailPage = () => {
     const visitObj = currentVisit as any;
     if (visitObj.metadata?.is_discharge) {
       return (
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1" style={{ backgroundColor: '#FCE4EC', color: '#D81B60', border: '1px solid #F8BBD0' }}>
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1 bg-[#FCE4EC] text-[#D81B60] border border-[#F8BBD0]">
           <Hospital size={11} />
           Sortie d'hôpital
         </span>
@@ -487,7 +402,7 @@ const VisitDetailPage = () => {
     }
     if (visitObj.metadata?.is_medical_appointment) {
       return (
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1" style={{ backgroundColor: '#E3F2FD', color: '#1565C0', border: '1px solid #BBDEFB' }}>
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1 bg-[#E3F2FD] text-[#1565C0] border border-[#BBDEFB]">
           <Stethoscope size={11} />
           Rendez-vous médical
         </span>
@@ -501,23 +416,15 @@ const VisitDetailPage = () => {
     );
   };
 
-  const isDraft = currentVisit?.status === 'brouillon';
-  const isPendingApproval = currentVisit?.status === 'planifiee' || currentVisit?.status === 'en_attente';
-  const isAccepted = currentVisit?.status === 'acceptee';
+  const isPendingApproval = currentVisit?.status === 'planifiee';
   const isInProgress = currentVisit?.status === 'en_cours';
   const isCompleted = currentVisit?.status === 'terminee';
-  const isExpired = currentVisit?.status === 'expire';
-  const isRefused = currentVisit?.status === 'refusee';
   const isWaitingAidant = currentVisit?.status === 'en_attente_aidant';
   const hasNoAidant = !currentVisit?.aidant_id;
 
-  const isOwner = currentVisit?.user_id === profile?.id;
-  const requiresPayment = isDraft && currentVisit?.metadata?.requires_payment && isOwner;
-  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isExpired || isRefused || isWaitingAidant);
+  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isWaitingAidant);
 
   const aidantStatus = getAidantDisplayStatus();
-  const draftExpiry = getDraftExpiryText();
-  const paymentAmount = currentVisit?.metadata?.payment_amount || getPonctualPrice(currentVisit?.duration_minutes || 60);
 
   // RETOUR ANTICIPÉ DE CHARGEMENT
   if (isLoading || !currentVisit) {
@@ -580,33 +487,10 @@ const VisitDetailPage = () => {
         {/* ACTIONS STATUTS */}
         <div className="flex flex-wrap gap-1.5">
           {isPendingApproval && isAidant && (
-            <>
-              <button
-                onClick={handleApprove}
-                disabled={isUpdating || isActionPending.current}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#4CAF50' }}
-              >
-                <CheckCircle size={14} />
-                <span>Approuver</span>
-              </button>
-              <button
-                onClick={handleRefuse}
-                disabled={isUpdating || isActionPending.current}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#EF4444' }}
-              >
-                <XCircle size={14} />
-                <span>Refuser</span>
-              </button>
-            </>
-          )}
-
-          {isAccepted && isAidant && (
             <button
               onClick={handleStart}
               disabled={isUpdating || isActionPending.current}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 h-10 rounded-xl text-white text-xs font-bold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#4CAF50' }}
             >
               <Play size={14} />
@@ -618,7 +502,7 @@ const VisitDetailPage = () => {
             <button
               onClick={() => setShowCompleteModal(true)}
               disabled={isUpdating || isActionPending.current}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-4 h-10 rounded-xl text-white text-xs font-bold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: colors.primary }}
             >
               <CheckCircle size={14} />
@@ -626,11 +510,12 @@ const VisitDetailPage = () => {
             </button>
           )}
 
-          {(isPendingApproval || isAccepted) && (isAdminOrCoordinator || isFamily) && (
+          {/* Annulation exclusive à l'administration */}
+          {isAdminOrCoordinator && (visit.status === 'planifiee' || visit.status === 'acceptee') && (
             <button
               onClick={handleCancel}
               disabled={isUpdating || isActionPending.current}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 h-10 rounded-xl text-white text-xs font-semibold transition hover:opacity-90 disabled:opacity-50"
               style={{ background: '#EF4444' }}
             >
               <XCircle size={14} />
@@ -656,7 +541,7 @@ const VisitDetailPage = () => {
                   isActionPending.current = false;
                 }
               }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
+              className="flex items-center gap-1.5 px-3.5 h-10 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
               style={{ background: '#8B5CF6' }}
             >
               <CheckCircle size={14} />
@@ -667,7 +552,7 @@ const VisitDetailPage = () => {
           {canAssignAidant && (
             <button
               onClick={() => setShowAssignModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
+              className="flex items-center gap-1.5 px-3.5 h-10 rounded-xl text-white text-xs font-semibold transition hover:opacity-90"
               style={{ background: '#FF5722' }}
             >
               <UserPlus size={14} />
@@ -679,64 +564,22 @@ const VisitDetailPage = () => {
 
       {/* BANDEAU D'INFORMATION AIDANT */}
       {isAidant && visit.aidant_id && (
-        <div className="p-4 rounded-xl" style={{ backgroundColor: '#E3F2FD', borderLeft: '4px solid #3B82F6' }}>
+        <div className="p-4 rounded-xl shadow-sm border border-blue-100" style={{ backgroundColor: '#E3F2FD', borderLeft: '4px solid #3B82F6' }}>
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-full" style={{ backgroundColor: '#BBDEFB' }}>
               <UserCheck size={20} className="text-blue-600" />
             </div>
             <div>
-              <p className="font-bold text-blue-800">✅ Vous êtes assigné à cette visite</p>
-              <p className="text-sm text-blue-600">
+              <p className="font-bold text-blue-800 text-xs sm:text-sm">✅ Vous êtes assigné à cette visite</p>
+              <p className="text-xs text-blue-600 mt-0.5">
                 {visit.status === 'planifiee'
-                  ? '👆 Approuvez cette visite pour confirmer votre présence.'
-                  : visit.status === 'acceptee'
-                    ? '✅ La visite est confirmée. Préparez-vous à intervenir.'
-                    : visit.status === 'en_cours'
-                      ? '🔄 Vous êtes actuellement en visite.'
-                      : '📋 Visite en cours de traitement.'}
+                  ? '👆 Appuyez sur démarrer lors de votre arrivée sur place.'
+                  : visit.status === 'en_cours'
+                    ? '🔄 Vous êtes actuellement en intervention.'
+                    : '📋 Visite terminée.'}
               </p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* BANDEAU DE PAIEMENT */}
-      {requiresPayment && (
-        <div
-          className="rounded-2xl p-4 border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-          style={{
-            background: colors.primary + '08',
-            borderColor: colors.primary + '20',
-          }}
-        >
-          <div className="flex items-start gap-3 min-w-0">
-            <div
-              className="p-2 rounded-xl shrink-0"
-              style={{
-                background: colors.primary + '15',
-                color: colors.primary,
-              }}
-            >
-              <CreditCard size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-bold" style={{ color: colors.text }}>
-                💳 Paiement requis pour valider la visite
-              </p>
-              <p className="text-[11px] font-medium mt-0.5 flex flex-wrap items-center gap-1" style={{ color: colors.text + '70' }}>
-                <span>Montant : <strong style={{ color: colors.primary }}>{paymentAmount.toLocaleString()} FCFA</strong></span>
-                <span>•</span>
-                <span>{draftExpiry ? `Expire dans : ${draftExpiry}` : 'Expire bientôt'}</span>
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleOpenPayment}
-            className="w-full sm:w-auto px-5 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-90 shadow-sm text-center shrink-0"
-            style={{ background: colors.primary }}
-          >
-            Payer maintenant
-          </button>
         </div>
       )}
 
@@ -989,9 +832,7 @@ const VisitDetailPage = () => {
           ) : (
             <div className="bg-white rounded-2xl p-6 text-center border" style={{ borderColor: colors.primary + '10' }}>
               <p className="text-xs font-medium" style={{ color: colors.textLight }}>
-                {isAidant
-                  ? '📝 Une fois la visite terminée, vous pourrez ajouter un compte-rendu, des photos et un rapport.'
-                  : 'Le compte-rendu, les photos et les rapports de visite apparaîtront ici une fois complétés par l\'aidant.'}
+                Le compte-rendu, les photos et les rapports de visite apparaîtront ici une fois complétés par l'aidant.
               </p>
             </div>
           )}
@@ -1078,16 +919,6 @@ const VisitDetailPage = () => {
         </div>
 
       </div>
-
-      {/* MODALS */}
-      {showPaymentModal && currentVisit && (
-        <VisitPaymentModal
-          isOpen={true}
-          onClose={() => setShowPaymentModal(false)}
-          visit={currentVisit}
-          onSuccess={handlePaymentSuccess}
-        />
-      )}
 
       {showCompleteModal && (
         <CompleteVisitModal
