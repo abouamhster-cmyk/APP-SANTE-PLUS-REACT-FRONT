@@ -1,11 +1,11 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
- 
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE CASH SECURISEE CLIENT ET DEPOT SÉCURISÉ LIVREUR
+
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Package,
-  MiniCard,
   MapPin,
   User,
   Users,
@@ -13,10 +13,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  DocButton,
   Eye,
   Camera,
-  PersonBox, 
   Image as ImageIcon,
   Banknote,
   Play,
@@ -50,63 +48,8 @@ import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// HELPERS LOCAUX (DÉFINITIONS SÉCURISÉES)
+// HELPERS LOCAUX (DÉFINITIONS SÉCURISÉES SANS DOUBLONS EN BAS)
 // ============================================================
-
-const getStatusLabel = (status: string): string => {
-  const map: Record<string, string> = {
-    creee: 'Créée',
-    en_attente: 'En attente',
-    disponible: 'Disponible (urgent)',
-    en_cours: 'En cours',
-    livree: 'Livrée (En attente)',
-    validee: 'Validée',
-    annulee: 'Annulée',
-    attente_paiement: 'En attente paiement',
-  };
-  return map[status] || status;
-};
-
-const getStatusColor = (status: string): string => {
-  const colors: Record<string, string> = {
-    creee: '#9E9E9E',
-    en_attente: '#F59E0B',
-    disponible: '#EF4444',
-    en_cours: '#3B82F6',
-    livree: '#3B82F6',
-    validee: '#4CAF50',
-    annulee: '#9E9E9E',
-    attente_paiement: '#8B5CF6',
-  };
-  return colors[status] || '#9E9E9E';
-};
-
-// =============================================
-// SOUS-COMPOSANTS (UNIFIÉS ICI SANS DOUBLONS EN BAS)
-// =============================================
-
-interface ActionButtonProps {
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  disabled?: boolean;
-  onClick: () => void;
-  isLoading?: boolean;
-}
-
-const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled || isLoading}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
-      style={{ background: color }}
-    >
-      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
-      {isLoading ? 'Chargement...' : label}
-    </button>
-  );
-};
 
 interface MiniCardProps {
   icon: React.ReactNode;
@@ -194,6 +137,57 @@ const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
   );
 };
 
+const getStatusLabel = (status: string): string => {
+  const map: Record<string, string> = {
+    creee: 'Créée',
+    en_attente: 'En attente',
+    disponible: 'Disponible (urgent)',
+    en_cours: 'En cours',
+    livree: 'Livrée (En attente)',
+    validee: 'Validée',
+    annulee: 'Annulée',
+    attente_paiement: 'En attente paiement',
+  };
+  return map[status] || status;
+};
+
+const getStatusColor = (status: string): string => {
+  const colors: Record<string, string> = {
+    creee: '#9E9E9E',
+    en_attente: '#F59E0B',
+    disponible: '#EF4444',
+    en_cours: '#3B82F6',
+    livree: '#3B82F6',
+    validee: '#4CAF50',
+    annulee: '#9E9E9E',
+    attente_paiement: '#8B5CF6',
+  };
+  return colors[status] || '#9E9E9E';
+};
+
+interface ActionButtonProps {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  disabled?: boolean;
+  onClick: () => void;
+  isLoading?: boolean;
+}
+
+const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || isLoading}
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
+      style={{ background: color }}
+    >
+      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
+      {isLoading ? 'Chargement...' : label}
+    </button>
+  );
+};
+
 interface StatusBadgeProps {
   status: string;
   colors: any;
@@ -206,10 +200,10 @@ const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
       en_attente: { icon: <Clock size={14} />, color: '#F59E0B', bg: '#F59E0B15', label: 'En attente' },
       disponible: { icon: <AlertCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Disponible' },
       en_cours: { icon: <Clock size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'En cours' },
-      livree: { icon: <Truck size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'Livrée (En attente)' },
+      livree: { icon: <Truck size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'Livrée' },
       validee: { icon: <CheckCircle size={14} />, color: '#4CAF50', bg: '#4CAF5015', label: 'Validée' },
       annulee: { icon: <XCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Annulée' },
-      attente_paiement: { icon: <CreditCard size={14} />, color: '#8B5CF6', bg: '#8B5CF615', label: 'Provision en attente' },
+      attente_paiement: { icon: <CreditCard size={14} />, color: '#8B5CF6', bg: '#8B5CF615', label: 'En attente paiement' },
     };
     return map[status] || map['creee'];
   };
@@ -241,7 +235,7 @@ const OrderDetailPage = () => {
   const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, completeDelivery, confirmCashPayment, isLoading } = useOrderStore();
 
   const {
-    isFamily, // ✅ Modifié de isFamilyUser
+    isFamily,
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
@@ -259,10 +253,19 @@ const OrderDetailPage = () => {
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>('online');
   const [cashReceivedInput, setCashReceivedInput] = useState<number>(0);
 
-  // ✅ 2. DÉFINITION DU MODAL REF ET DES LABELS UTILES
-  const modalRef = useRef<HTMLDivElement>(null); // ✅ Référence configurée
+  // ✅ 2. DÉFINITION DE LA RÉFÉRENCE MODALE ET DU CONTROLE ANTICIPÉ
+  const modalRef = useRef<HTMLDivElement>(null); 
   const isActionPending = useRef(false);
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
+
+  // ✅ 3. DÉFINITION INTÉGRÉE DE L'OUVERTURE DE LIENS WEB
+  const openUrl = (url: string | null) => { 
+    if (!url) {
+      toast.error('URL non disponible');
+      return;
+    }
+    window.open(url, '_blank');
+  };
 
   const {
     isPaymentModalOpen,
@@ -294,24 +297,16 @@ const OrderDetailPage = () => {
     };
   }, [showProofModal]);
 
-  const handleStatusChange = async (status: string) => {
+  const handleStatusChange = (status: string) => {
     if (!id) return;
-    if (isActionPending.current) return;
-    
-    isActionPending.current = true;
-    setIsUpdating(true);
-
-    try {
-      await updateOrderStatus(id, status as any);
-      toast.success(`Commande ${getStatusLabel(status)}`);
-      await fetchOrderById(id);
-    } catch (error: any) {
-      console.error('❌ Erreur mise à jour statut:', error);
-      toast.error(error.message || 'Erreur lors de la mise à jour');
-    } finally {
-      setIsUpdating(false);
-      isActionPending.current = false;
-    }
+    updateOrderStatus(id, status as any)
+      .then(() => {
+        toast.success(`Commande ${getStatusLabel(status)}`);
+        fetchOrderById(id);
+      })
+      .catch((error: any) => {
+        toast.error(error.message || 'Erreur lors de la mise à jour');
+      });
   };
 
   // ✅ CAPTURE DU POINT DE DÉPART DE MISSION LORS DE LA PRISE EN CHARGE (CHECKPOINT)
@@ -466,7 +461,7 @@ const OrderDetailPage = () => {
       await payOrderPonctual({
         description: `Frais de transport - Commande #${order.id.slice(0, 8)}`,
         orderType: 'delivery',
-        items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee }], // 🟢 Suppression du paramètre obsolète 'total'
+        items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee }], 
         address: order.address,
         targetType: order.target_type as any,
         targetName: order.target_name || 'Personnel',
@@ -477,6 +472,20 @@ const OrderDetailPage = () => {
       toast.error('Erreur lancement paiement');
     }
   };
+
+  if (isLoading || !currentOrder) {
+    return (
+      <div className="min-h-[420px] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2
+            className="w-12 h-12 animate-spin mx-auto mb-4"
+            style={{ color: colors.primary }}
+          />
+          <p style={{ color: colors.text }}>Chargement...</p>
+        </div>
+      </div>
+    );
+  }
 
   const isPendingPayment = order.status === 'attente_paiement';
   const isPonctual = order.order_type === 'ponctual' || order.is_ponctual === true;
@@ -593,7 +602,7 @@ const OrderDetailPage = () => {
           )}
 
           {order.status === 'validee' && (
-            <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-green-600 font-bold text-sm bg-green-50 border border-green-200">
+            <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-green-600 font-bold text-sm bg-green-50 border-green-200">
               <CheckCircle size={17} />
               Validée automatiquement
             </span>
@@ -602,7 +611,7 @@ const OrderDetailPage = () => {
       </div>
 
       {/* ✅ BLOC SÉCURITÉ CASH (ÉCRAN CLIENT SÉCURISÉ) */}
-      {isPendingCashConfirmation && isFamily && ( // ✅ Remplacé isFamilyUser par isFamily
+      {isPendingCashConfirmation && isFamily && ( // ✅ Corrigé de isFamilyUser à isFamily
         <div className="p-5 rounded-3xl bg-amber-50/50 border border-amber-200 space-y-4 animate-fadeIn">
           <div className="flex items-start gap-3">
             <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5 animate-pulse" />
@@ -636,7 +645,7 @@ const OrderDetailPage = () => {
       )}
 
       {/* ✅ FRAIS DE PORT EN ATTENTE - MODALITÉ EN LIGNE (ÉCRAN CLIENT) */}
-      {order.status === 'livree' && order.delivery_payment_method === 'online' && isFamily && ( // ✅ Remplacé isFamilyUser par isFamily
+      {order.status === 'livree' && order.delivery_payment_method === 'online' && isFamily && ( // ✅ Corrigé de isFamilyUser à isFamily
         <div className="p-5 rounded-3xl bg-purple-50 border border-purple-200 space-y-3 animate-fadeIn">
           <div className="flex items-start gap-3">
             <CreditCard size={18} className="text-purple-600 shrink-0 mt-0.5" />
@@ -723,11 +732,11 @@ const OrderDetailPage = () => {
       <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
-          <span className="text-sm font-extrabold text-gray-700">{order.purchase_amount > 0 ? `${order.purchase_amount.toLocaleString()} FCFA` : 'Aucun achat'}</span>
+          <span className="text-sm font-extrabold text-gray-750">{order.purchase_amount > 0 ? `${order.purchase_amount.toLocaleString()} FCFA` : 'Aucun achat'}</span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">💵 Frais de retrait MM</span>
-          <span className="text-sm font-extrabold text-gray-700">{order.withdrawal_fee > 0 ? `${order.withdrawal_fee.toLocaleString()} FCFA (${order.withdrawal_operator?.toUpperCase()})` : '0 FCFA'}</span>
+          <span className="text-sm font-extrabold text-gray-750">{order.withdrawal_fee > 0 ? `${order.withdrawal_fee.toLocaleString()} FCFA (${order.withdrawal_operator?.toUpperCase()})` : '0 FCFA'}</span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
@@ -894,7 +903,7 @@ const OrderDetailPage = () => {
             <Clock size={18} style={{ color: '#3B82F6' }} className="mt-0.5" />
             <div>
               <p className="text-sm font-medium text-blue-700">Validation automatique</p>
-              <p className="text-xs text-blue-600">Cette commande sera automatiquement validée dans 12h.</p>
+              <p className="text-xs text-blue-600">Cette commande sera automatiquement validée dans 48h.</p>
             </div>
           </div>
         )}
@@ -1055,46 +1064,5 @@ const OrderDetailPage = () => {
     </div>
   );
 };
-
-// =============================================
-// HELPER COMPONENTS (DÉCORATIONS UNIQUES DÉPLACÉES ICI SANS CONFLITS)
-// =============================================
-
-const MiniCard = ({ icon, label, value, color }: any) => (
-  <div className="bg-white rounded-2xl p-4 border flex flex-col justify-between h-24">
-    <div className="flex items-center justify-between">
-      <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider truncate mr-1">{label}</span>
-      <div className="shrink-0" style={{ color }}>{icon}</div>
-    </div>
-    <span className="font-black text-xs sm:text-sm truncate mt-1" style={{ color }}>{value}</span>
-  </div>
-);
-
-const PersonBox = ({ icon, title, name, detail, detailIcon }: any) => (
-  <div className="p-3 bg-gray-50 rounded-xl text-xs flex flex-col justify-between">
-    <div>
-      <span className="text-[10px] text-gray-400 font-bold block flex items-center gap-1">
-        {icon} {title}
-      </span>
-      <span className="font-extrabold text-gray-700 block mt-1">{name}</span>
-    </div>
-    {detail && (
-      <span className="text-[10px] text-gray-400 block mt-1.5 flex items-center gap-1">
-        {detailIcon} {detail}
-      </span>
-    )}
-  </div>
-);
-
-const DocButton = ({ icon, title, color, onClick }: any) => (
-  <button onClick={onClick} className="p-3 bg-gray-50 hover:bg-gray-100 rounded-2xl border text-left text-xs font-bold flex items-center justify-between">
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: color + '15', color }}>
-        {icon}
-      </div>
-      <span>{title}</span>
-    </div>
-  </button>
-);
 
 export default OrderDetailPage;
