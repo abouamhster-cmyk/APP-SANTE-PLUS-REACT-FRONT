@@ -1,6 +1,6 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
  
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -47,8 +47,46 @@ import { usePonctualPayment } from '@/hooks/usePonctualPayment';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
 
+// ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ POUR CONCORDANCE DE PROVISION
+const calculateWithdrawalFeeLocal = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
+  if (amount <= 0) return 0;
+  const amt = Math.round(amount);
+
+  if (operator === 'celtiis') {
+    if (amt <= 500) return 50;
+    if (amt <= 5000) return 120;
+    if (amt <= 10000) return 200;
+    if (amt <= 20000) return 300;
+    if (amt <= 50000) return 600;
+    if (amt <= 75000) return 900;
+    if (amt <= 100000) return 1000;
+    if (amt <= 200000) return 2000;
+    if (amt <= 300000) return 3000;
+    if (amt <= 500000) return 3500;
+    if (amt <= 750000) return 5000;
+    if (amt <= 1000000) return 5800;
+    if (amt <= 1500000) return 7800;
+    return 9800;
+  } else {
+    // MTN & Moov
+    if (amt <= 500) return 50;
+    if (amt <= 5000) return 125;
+    if (amt <= 10000) return 225;
+    if (amt <= 20000) return 375;
+    if (amt <= 50000) return 700;
+    if (amt <= 100000) return 1000;
+    if (amt <= 200000) return 2000;
+    if (amt <= 300000) return 3000;
+    if (amt <= 500000) return 3500;
+    if (amt <= 750000) return 5000;
+    if (amt <= 1000000) return 6000;
+    if (amt <= 1500000) return 8000;
+    return 9900;
+  }
+};
+
 // ============================================================
-// HELPERS LOCAUX (DÉFINITIONS SÉCURISÉES)
+// HELPERS LOCAUX
 // ============================================================
 
 interface MiniCardProps {
@@ -137,106 +175,6 @@ const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
   );
 };
 
-// ✅ TEXTE DE STATUT DE COMMANDE
-const getStatusLabel = (status: string): string => {
-  const map: Record<string, string> = {
-    creee: 'Créée',
-    en_attente: 'En attente',
-    disponible: 'Disponible (urgent)',
-    en_cours: 'En cours',
-    livree: 'Livrée (En attente)',
-    validee: 'Validée',
-    annulee: 'Annulée',
-    attente_paiement: 'En attente paiement',
-  };
-  return map[status] || status;
-};
-
-// ✅ COULEUR DE STATUT DE COMMANDE
-const getStatusColor = (status: string): string => {
-  const colors: Record<string, string> = {
-    creee: '#9E9E9E',
-    en_attente: '#F59E0B',
-    disponible: '#EF4444',
-    en_cours: '#3B82F6',
-    livree: '#3B82F6',
-    validee: '#4CAF50',
-    annulee: '#9E9E9E',
-    attente_paiement: '#8B5CF6',
-  };
-  return colors[status] || '#9E9E9E';
-};
-
-// ✅ TRADUCTION DES CATÉGORIES EN FRANÇAIS (MAPPING PROPRE)
-const getCategoryTypeLabel = (type: string): string => {
-  const map: Record<string, string> = {
-    medicaments: '💊 Pharmacie / Médicaments',
-    produits_bebe: '🧸 Articles de Bébé (Couches, lait...)',
-    produits_hygiene: "🧴 Produits d'hygiène / Cosmétiques",
-    courses: '🛒 Courses alimentaires / Marché',
-    repas: '🍲 Repas préparés / Plats',
-    autre: '📝 Autre demande spécifique',
-  };
-  return map[type] || type || 'Non précisé';
-};
-
-interface StatusBadgeProps {
-  status: string;
-  colors: any;
-}
-
-// ✅ LE COMPOSANT REQUIS POUR L'ÉTAT DU PIPELINE VERROUILLÉ EN LOCAL
-const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
-  const getStatusConfig = (status: string) => {
-    const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
-      creee: { icon: <Package size={14} />, color: '#9E9E9E', bg: '#9E9E9E15', label: 'Créée' },
-      en_attente: { icon: <Clock size={14} />, color: '#F59E0B', bg: '#F59E0B15', label: 'En attente' },
-      disponible: { icon: <AlertCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Disponible' },
-      en_cours: { icon: <Clock size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'En cours' },
-      livree: { icon: <Truck size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'Livrée' },
-      validee: { icon: <CheckCircle size={14} />, color: '#4CAF50', bg: '#4CAF5015', label: 'Validée' },
-      annulee: { icon: <XCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Annulée' },
-      attente_paiement: { icon: <CreditCard size={14} />, color: '#8B5CF6', bg: '#8B5CF615', label: 'En attente paiement' },
-    };
-    return map[status] || map['creee'];
-  };
-
-  const config = getStatusConfig(status);
-
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ background: config.bg, color: config.color }}
-    >
-      {config.icon}
-      {config.label}
-    </span>
-  );
-};
-
-interface ActionButtonProps {
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  disabled?: boolean;
-  onClick: () => void;
-  isLoading?: boolean;
-}
-
-const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled || isLoading}
-      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
-      style={{ background: color }}
-    >
-      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
-      {isLoading ? 'Chargement...' : label}
-    </button>
-  );
-};
-
 // =============================================
 // COMPOSANT PRINCIPAL
 // =============================================
@@ -310,6 +248,37 @@ const OrderDetailPage = () => {
       document.body.style.overflow = 'unset';
     };
   }, [showProofModal]);
+
+  // ============================================================
+  // ✅ CONCORDANCE ET CALCUL DE PROVISIONS SÉCURISÉES DE SECOURS (DÉTECTION DE FLUX)
+  // ============================================================
+  
+  const financialData = useMemo(() => {
+    if (!order) return { purchaseAmount: 0, withdrawalFee: 0 };
+
+    const estimated = Number(order.estimated_amount || 0);
+    const dbPurchase = Number(order.purchase_amount || 0);
+    const dbFee = Number(order.withdrawal_fee || 0);
+
+    // Si colonnes DB déjà renseignées, les utiliser d'office (Cas nominal de notre V2)
+    if (dbPurchase > 0) {
+      return { purchaseAmount: dbPurchase, withdrawalFee: dbFee };
+    }
+
+    // Fallback dynamique s'il y a eu un paiement de provision global mais que les colonnes individuelles sont à 0 (Données de test)
+    if (estimated > 0) {
+      const baseServicePrice = 500; // Tarif de base de l'acte unifié
+      const estimatedPurchase = Math.max(0, estimated - baseServicePrice);
+      const calculatedFee = calculateWithdrawalFeeLocal(estimatedPurchase, order.withdrawal_operator || 'mtn_moov');
+      
+      return {
+        purchaseAmount: Math.max(0, estimatedPurchase - calculatedFee),
+        withdrawalFee: calculatedFee,
+      };
+    }
+
+    return { purchaseAmount: 0, withdrawalFee: 0 };
+  }, [order]);
 
   const handleStatusChange = (status: string) => {
     if (!id) return;
@@ -542,7 +511,7 @@ const OrderDetailPage = () => {
                 </span>
               )}
               {/* ✅ SÉCURISÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses de livraison simples ! */}
-              {isPaid && order.purchase_amount > 0 && (
+              {isPaid && financialData.purchaseAmount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
                   Provision Payée
@@ -750,11 +719,17 @@ const OrderDetailPage = () => {
       <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
-          <span className="text-sm font-extrabold text-gray-750">{order.purchase_amount > 0 ? `${order.purchase_amount.toLocaleString()} FCFA` : 'Aucun achat'}</span>
+          <span className="text-sm font-extrabold text-gray-750">
+            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
+            {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
+          </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">💵 Frais de retrait MM</span>
-          <span className="text-sm font-extrabold text-gray-750">{order.withdrawal_fee > 0 ? `${order.withdrawal_fee.toLocaleString()} FCFA (${order.withdrawal_operator?.toUpperCase()})` : '0 FCFA'}</span>
+          <span className="text-sm font-extrabold text-gray-750">
+            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
+            {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
+          </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
@@ -769,7 +744,8 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+      {/* PERSONNES CONCERNÉES - ✅ CORRIGÉ POUR RETIRER LA REDONDANCE DES COMPTES PERSONNELS */}
+      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
           Personnes concernées
@@ -955,7 +931,8 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-         {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
+        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
+        {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
@@ -965,7 +942,8 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-         {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
+        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
+        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
             <div>
