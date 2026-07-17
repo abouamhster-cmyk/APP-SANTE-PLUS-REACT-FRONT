@@ -1,5 +1,6 @@
 // 📁 src/features/orders/pages/CreateOrderPage.tsx
- 
+// ✅ PAGE CRÉATION COMMANDE : CONCORDANCE DE PROVISION ET CALCUL DES FRAIS MOBILE MONEY DU BÉNIN EN LOCAL
+
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -32,7 +33,7 @@ import { getPonctualOrderPriceByType } from '@/lib/constants';
 
 import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
-import { cn } from '@/utils/helpers'; // ✅ cn importé
+import { cn } from '@/utils/helpers'; 
 import toast from 'react-hot-toast';
 
 // ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ ET AUTONOME
@@ -155,7 +156,7 @@ const CreateOrderPage = () => {
 
   const withdrawalFee = useMemo(() => {
     if (!needsPurchase || purchaseAmount <= 0) return 0;
-    return calculateWithdrawalFee(purchaseAmount, operator);
+    return calculateWithdrawalFee(purchaseAmount, operator); // ✅ Appel local corrigé
   }, [needsPurchase, purchaseAmount, operator]);
 
   const totalAdvanceAmount = purchaseAmount + withdrawalFee;
@@ -292,6 +293,7 @@ const CreateOrderPage = () => {
     }
 
     try {
+      // ✅ SÉCURITÉ TRANSMISSION PROVISION : Passage des 3 paramètres requis pour le Webhook
       await payOrderPonctual({
         description: orderData.description,
         orderType: orderData.type,
@@ -301,6 +303,9 @@ const CreateOrderPage = () => {
         targetType: orderData.target_type as 'personal' | 'patient',
         targetName: orderData.target_name,
         patientId: orderData.patient_id,
+        purchase_amount: orderData.purchase_amount,
+        withdrawal_operator: orderData.withdrawal_operator || undefined,
+        withdrawal_fee: withdrawalFee,
       });
     } catch {
       isSubmittingRef.current = false;
@@ -343,7 +348,7 @@ const CreateOrderPage = () => {
       const result = await createOrder({
         ...orderData,
         order_type: isSubUsed ? 'subscription' : 'ponctual',
-        is_paid: true, // Pas de provision attendue
+        is_paid: true, 
       });
 
       toast.success('Commande créée avec succès !');
