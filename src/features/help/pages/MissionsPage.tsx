@@ -1,5 +1,6 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
- 
+// ✅ PAGE HUB DE L'INTERVENANT : DOSSIER PATIENT IMMERSIF, ACTIONS GPS DIRECTES ET SUIVI DES COURSES
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -28,8 +29,8 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  FileText,  
-  Check,     
+  FileText, 
+  Check,    
   Loader2,  
 } from 'lucide-react';
 
@@ -89,7 +90,7 @@ export const MissionsPage = () => {
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<any | null>(null);
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isActionPending, setIsActionPending] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false); // ✅ Corrigé de setShowCompleteModal
+  const [showReportModal, setShowReportModal] = useState(false); // ✅ Rattaché à setShowReportModal
 
   // Formulaire de Rapport de visite
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
@@ -167,7 +168,7 @@ export const MissionsPage = () => {
     };
   }, [myMissions, assignedOrders, availableOrders]);
 
-  const isLoading_ = isVisitsLoading || ordersLoading || isAssignmentsLoading; // ✅ Corrigé isLoading non défini
+  const isLoading_ = isVisitsLoading || ordersLoading || isAssignmentsLoading; 
 
   const missionSubFilters = useMemo(() => [
     { key: 'all', label: 'Toutes' },
@@ -288,7 +289,6 @@ export const MissionsPage = () => {
     setPullY(0);
   };
 
-  // ✅ DÉMARRAGE À LA VOLÉE (AD-HOC) AVEC POINT GPS DE DÉPART
   const handleStartAdHocIntervention = async (beneficiary: any) => {
     if (isActionPending) return;
 
@@ -331,7 +331,7 @@ export const MissionsPage = () => {
     }
   };
 
-  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES (checkpoint nulled si déjà démarré)
+  // ✅ DÉPART DE MISSION SÉCURISÉ AVEC CHECKPOINTS
   const handleStartPlannedIntervention = async (id: string) => {
     if (isActionPending) return;
     setIsActionPending(true);
@@ -355,7 +355,6 @@ export const MissionsPage = () => {
     }
 
     try {
-      // ✅ Sécurisation de l'appel à startVisit avec passage d'arguments fallbacks
       await startVisit(id, startLat, startLng);
       toast.success('🚀 Intervention commencée !');
       await fetchVisits();
@@ -610,13 +609,49 @@ export const MissionsPage = () => {
               }
             );
           }}
-          disabled={isLoading_} // ✅ Remplacé isLoading par isLoading_
+          disabled={isLoading_} // ✅ Corrigé de isLoading à isLoading_
           className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
           title="Actualiser"
         >
           <RefreshCw size={13} className={isLoading_ ? 'animate-spin' : ''} />
         </button>
       </section>
+
+      {/* ⚠️ BANDEAU INTERVENTION ACTIVE */}
+      {activeIntervention && (
+        <div className="bg-white rounded-3xl p-5 border shadow-[0_10px_30px_rgba(0,0,0,0.06)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fadeIn" style={{ borderColor: colors.primary + '20' }}>
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-green-50 text-green-500 animate-pulse border border-green-200">
+              <Clock size={20} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-wider text-green-600 flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping" />
+                Intervention active
+              </span>
+              <h2 className="text-sm sm:text-base font-black truncate text-gray-800 mt-0.5">
+                Accompagnement de {activeIntervention.target_name}
+              </h2>
+              <p className="text-xs text-gray-500 truncate mt-0.5">📍 {activeIntervention.address || "Lieu d'intervention"}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+            <div className="px-4 py-2 bg-gray-50 border rounded-2xl text-center shrink-0">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Temps écoulé</p>
+              <p className="text-sm font-mono font-black text-gray-800 mt-0.5">{elapsedTime}</p>
+            </div>
+            <button
+              onClick={() => setShowReportModal(true)} // ✅ Corrigé
+              className="flex-1 md:flex-none h-11 px-5 rounded-2xl text-white font-bold text-xs shadow-md transition-all hover:opacity-90 flex items-center justify-center gap-1.5"
+              style={{ background: colors.primary }}
+            >
+              <CheckCircle size={15} />
+              Finaliser (Rapport)
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* BENTO STATS COMPACT */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
@@ -676,7 +711,7 @@ export const MissionsPage = () => {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => handleTabChangeLocal(tab.key as TabType)} // ✅ Remplacé handleTabChange par handleTabChangeLocal
+              onClick={() => handleTabChangeLocal(tab.key as TabType)} // ✅ Remplacé
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
                 activeTab === tab.key ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
@@ -987,7 +1022,7 @@ export const MissionsPage = () => {
                 </h2>
               </div>
               <button
-                onClick={() => setShowReportModal(false)} // ✅ Corrigé de setShowCompleteModal
+                onClick={() => setShowReportModal(false)} // ✅ Corrigé
                 className="p-1.5 hover:bg-gray-100 rounded-xl transition"
               >
                 <X size={18} />
@@ -1038,7 +1073,7 @@ export const MissionsPage = () => {
             <div className="flex gap-2.5 pt-4 border-t">
               <button
                 type="button"
-                onClick={() => setShowReportModal(false)} // ✅ Corrigé de setShowCompleteModal
+                onClick={() => setShowReportModal(false)} // ✅ Corrigé
                 className="flex-1 h-12 font-bold text-gray-500 hover:bg-gray-50 transition border rounded-2xl"
               >
                 Retour
@@ -1074,8 +1109,8 @@ interface MissionItemCompactProps {
   type: TabType;
   colors: any;
   aidantId: string | null;
-  onApprove: () => void;
-  onRefuse: () => void;
+  onApprove?: () => void; // ✅ Optionnel
+  onRefuse?: () => void;  // ✅ Optionnel
   onStart: () => void;
   onTakeOrder: () => void;
   onDeliver: () => void;
