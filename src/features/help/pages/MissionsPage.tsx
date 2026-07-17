@@ -1,4 +1,5 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
+// ✅ PAGE HUB DE L'INTERVENANT : DOSSIER PATIENT IMMERSIF, ACTIONS GPS DIRECTES ET SUIVI DES COURSES
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,18 +15,28 @@ import {
   ShoppingBag,
   Truck,
   Package,
-  Filter,
   Eye,
   ClipboardList,
   ShieldAlert,
   AlertCircle,
+  Users,
+  Phone,
+  Mail,
+  Heart,
+  Stethoscope,
+  Pill,
+  Mic,
+  ChevronRight,
+  X,
 } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, formatCurrency, cn } from '@/utils/helpers';
+import { VISIT_ACTIONS_SENIOR, VISIT_ACTIONS_MAMAN } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -36,11 +47,34 @@ const MissionsPage = () => {
   const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
-  const { visits, fetchVisits, startVisit, approveVisit, refuseVisit, isLoading } = useVisitStore();
-  const { orders, fetchOrders, takeOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
 
-  const { isAidant } = useTerminology();
+  // Stores
+  const { 
+    visits, 
+    fetchVisits, 
+    startVisit, 
+    startAdHocVisit, // ✅ Ajouté pour le démarrage à la volée
+    completeVisit,
+    isLoading 
+  } = useVisitStore();
 
+  const { 
+    orders, 
+    fetchOrders, 
+    takeOrder, 
+    completeDelivery, 
+    isLoading: ordersLoading 
+  } = useOrderStore();
+
+  const { 
+    assignments, 
+    fetchMyAssignments, 
+    isLoading: isAssignmentsLoading 
+  } = useAidantCatalogStore();
+
+  const { getCategoryLabel } = useTerminology();
+
+  // États locaux
   const [activeTab, setActiveTab] = useState<TabType>('missions');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [aidantId, setAidantId] = useState<string | null>(null);
@@ -48,18 +82,65 @@ const MissionsPage = () => {
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
+  const [selectedBeneficiary, setSelectedBeneficiary] = useState<any | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
+  const [isActionPending, setIsActionPending] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // Formulaire de Rapport de visite
+  const [selectedActions, setSelectedActions] = useState<string[]>([]);
+  const [reportNotes, setReportNotes] = useState('');
+
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Mappings mémorisés
   const myMissions = useMemo(() => visits.filter(v => v.aidant_id === aidantId), [visits, aidantId]);
   const assignedOrders = useMemo(() => orders.filter(o => o.aidant_id === aidantId), [orders, aidantId]);
   const availableOrders = useMemo(() => orders.filter(o => o.status === 'en_attente' || o.status === 'disponible'), [orders]);
   const deliveryOrders = useMemo(() => assignedOrders.filter(o => o.status === 'en_cours' || o.status === 'livree'), [assignedOrders]);
 
+  // ✅ Intervention en cours
+  const activeIntervention = useMemo(() => {
+    return visits.find(v => v.status === 'en_cours');
+  }, [visits]);
+
+  // Chronomètre
+  useEffect(() => {
+    if (activeIntervention?.start_time) {
+      const startTime = new Date(activeIntervention.start_time).getTime();
+
+      const updateTimer = () => {
+        const now = new Date().getTime();
+        const difference = now - startTime;
+
+        if (difference > 0) {
+          const hours = Math.floor(difference / (1000 * 60 * 60));
+          const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+          setElapsedTime(
+            `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+          );
+        }
+      };
+
+      updateTimer();
+      timerRef.current = setInterval(updateTimer, 1000);
+    } else {
+      setElapsedTime('00:00:00');
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [activeIntervention]);
+
   const stats = useMemo(() => {
-    const pendingMissionsCount = myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente').length;
-    const acceptedMissionsCount = myMissions.filter(v => v.status === 'acceptee').length;
+    const plannedMissionsCount = myMissions.filter(v => v.status === 'planifiee').length;
     const inProgressMissionsCount = myMissions.filter(v => v.status === 'en_cours').length;
     const completedMissionsCount = myMissions.filter(v => ['terminee', 'validee'].includes(v.status)).length;
 
@@ -69,8 +150,7 @@ const MissionsPage = () => {
     return {
       missions: {
         total: myMissions.length,
-        pending: pendingMissionsCount,
-        accepted: acceptedMissionsCount,
+        planned: plannedMissionsCount,
         inProgress: inProgressMissionsCount,
         completed: completedMissionsCount,
       },
@@ -80,25 +160,24 @@ const MissionsPage = () => {
         completed: completedDeliveriesCount,
       },
       available: availableOrders.length,
-      canTakeCount: availableOrders.length,
     };
   }, [myMissions, assignedOrders, availableOrders]);
 
-  const isLoading_ = isLoading || ordersLoading;
+  const isLoading_ = isLoading || ordersLoading || isAssignmentsLoading;
 
   const missionSubFilters = useMemo(() => [
     { key: 'all', label: 'Toutes' },
-    { key: 'pending', label: `⏳ À valider (${stats.missions.pending})` },
-    { key: 'upcoming', label: `📅 Confirmées (${stats.missions.accepted})` },
-    { key: 'en_cours', label: `🔄 En cours (${stats.missions.inProgress})` },
+    { key: 'beneficiaires', label: `👥 Assignés (${assignments.length})` },
+    { key: 'planned', label: `📅 Programmées (${stats.missions.planned})` },
     { key: 'history', label: `📝 Historique (${stats.missions.completed})` }
-  ], [stats.missions]);
+  ], [stats.missions, assignments.length]);
 
   const deliverySubFilters = useMemo(() => [
     { key: 'active', label: `🔄 En cours (${stats.deliveries.inProgress})` },
     { key: 'history', label: `📦 Livrées (${stats.deliveries.completed})` }
   ], [stats.deliveries]);
 
+  // Vérification de l'homologation
   useEffect(() => {
     const checkAidantStatus = async () => {
       if (!user) {
@@ -114,7 +193,6 @@ const MissionsPage = () => {
           .single();
 
         if (profileError) {
-          console.error('Error checking profile status:', profileError);
           setIsVerified(false);
           return;
         }
@@ -126,7 +204,6 @@ const MissionsPage = () => {
           .single();
 
         if (aidantError) {
-          console.error('Error checking aidant status:', aidantError);
           setIsVerified(false);
           return;
         }
@@ -138,7 +215,6 @@ const MissionsPage = () => {
 
         setIsVerified(isVerified);
       } catch (error) {
-        console.error('Error:', error);
         setIsVerified(false);
       } finally {
         setIsChecking(false);
@@ -148,6 +224,7 @@ const MissionsPage = () => {
     checkAidantStatus();
   }, [user]);
 
+  // Récupération de l'aidant ID
   useEffect(() => {
     const getAidantId = async () => {
       if (!user) return;
@@ -158,11 +235,7 @@ const MissionsPage = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (error) {
-        console.error('Error fetching aidant:', error);
-        return;
-      }
-
+      if (error) return;
       setAidantId(data?.id || null);
     };
 
@@ -173,8 +246,9 @@ const MissionsPage = () => {
     if (isVerified) {
       fetchVisits();
       fetchOrders();
+      fetchMyAssignments();
     }
-  }, [isVerified, fetchVisits, fetchOrders]);
+  }, [isVerified, fetchVisits, fetchOrders, fetchMyAssignments]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
@@ -199,10 +273,10 @@ const MissionsPage = () => {
     setIsPulling(false);
     if (pullY >= 50) {
       toast.promise(
-        Promise.all([fetchVisits(), fetchOrders()]),
+        Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments()]),
         {
-          loading: 'Actualisation des plannings...',
-          success: 'Missions à jour !',
+          loading: 'Actualisation...',
+          success: 'Plannings synchronisés !',
           error: 'Échec de synchronisation.',
         }
       );
@@ -210,17 +284,137 @@ const MissionsPage = () => {
     setPullY(0);
   };
 
+  // ✅ DÉMARRAGE À LA VOLÉE (AD-HOC) AVEC POINT GPS DE DÉPART
+  const handleStartAdHocIntervention = async (beneficiary: any) => {
+    if (isActionPending) return;
+
+    if (activeIntervention) {
+      toast.error('Vous avez déjà une autre intervention en cours. Veuillez d’abord la clore.');
+      return;
+    }
+
+    setIsActionPending(true);
+    let startLat: number | null = null;
+    let startLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        startLat = position.coords.latitude;
+        startLng = position.coords.longitude;
+        console.log(`📍 GPS Départ Capturé : ${startLat}, ${startLng}`);
+      }
+    } catch (e) {
+      console.warn("⚠️ Géolocalisation non capturée.");
+    }
+
+    try {
+      const targetId = beneficiary.target_type === 'patient' ? beneficiary.patient_id : beneficiary.family_id;
+      const result = await startAdHocVisit(beneficiary.target_type, targetId, startLat, startLng);
+
+      if (result) {
+        toast.success(`🚀 Intervention commencée pour ${beneficiary.target_name} !`);
+        setSelectedBeneficiary(null); // fermer la fiche
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Impossible de démarrer l’intervention');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES
+  const handleStartPlannedIntervention = async (id: string) => {
+    if (isActionPending) return;
+    setIsActionPending(true);
+    
+    let startLat: number | null = null;
+    let startLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        startLat = position.coords.latitude;
+        startLng = position.coords.longitude;
+      }
+    } catch (e) {
+      console.warn("⚠️ Géolocalisation non capturée.");
+    }
+
+    try {
+      await startVisit(id, startLat, startLng);
+      toast.success('🚀 Intervention commencée !');
+      await fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du démarrage');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  // ✅ TRANSMISSION DU RAPPORT ET POINT GPS D'ARRIVÉE
+  const handleCompleteIntervention = async () => {
+    if (!activeIntervention) return;
+    if (selectedActions.length === 0) {
+      toast.error('Veuillez cocher au moins une action d’accompagnement effectuée.');
+      return;
+    }
+
+    setIsActionPending(true);
+    let endLat: number | null = null;
+    let endLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        endLat = position.coords.latitude;
+        endLng = position.coords.longitude;
+      }
+    } catch (e) {
+      console.warn("⚠️ Géolocalisation non capturée.");
+    }
+
+    try {
+      await completeVisit(activeIntervention.id, {
+        actions: selectedActions,
+        notes: reportNotes.trim(),
+        photos: [], 
+        lat: endLat,
+        lng: endLng,
+      });
+
+      toast.success('🎉 Rapport transmis ! Intervention archivée.');
+      setShowReportModal(false);
+      setSelectedActions([]);
+      setReportNotes('');
+    } catch (error: any) {
+      toast.error('Erreur de transmission du rapport');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
   const getFilteredItems = () => {
     if (activeTab === 'missions') {
-      if (filterStatus === 'all') return myMissions;
-      if (filterStatus === 'pending') {
-        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
-      }
-      if (filterStatus === 'upcoming') {
-        return myMissions.filter(v => v.status === 'acceptee');
-      }
-      if (filterStatus === 'en_cours') {
-        return myMissions.filter(v => v.status === 'en_cours');
+      if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
+      if (filterStatus === 'beneficiaires') return []; // Géré séparément
+      if (filterStatus === 'planned') {
+        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente' || v.status === 'acceptee');
       }
       if (filterStatus === 'history') {
         return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
@@ -243,36 +437,6 @@ const MissionsPage = () => {
 
   const filteredItems = getFilteredItems();
 
-  const handleApprove = async (id: string) => {
-    try {
-      await approveVisit(id);
-      fetchVisits();
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur lors de l\'approbation');
-    }
-  };
-
-  const handleRefuse = async (id: string) => {
-    const reason = prompt('Motif du refus :');
-    if (!reason) return;
-
-    try {
-      await refuseVisit(id, reason);
-      fetchVisits();
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur lors du refus');
-    }
-  };
-
-  const handleStart = async (id: string) => {
-    try {
-      await startVisit(id);
-      fetchVisits();
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur lors du démarrage');
-    }
-  };
-
   const handleTakeOrder = async (id: string) => {
     try {
       await takeOrder(id);
@@ -291,21 +455,16 @@ const MissionsPage = () => {
     }
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await Promise.all([fetchVisits(), fetchOrders()]);
-    setIsRefreshing(false);
+  const getActionOptions = () => {
+    if (!activeIntervention) return [];
+    const isMaman = activeIntervention.patient?.category === 'maman_bebe';
+    return isMaman ? VISIT_ACTIONS_MAMAN : VISIT_ACTIONS_SENIOR;
   };
 
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    if (tab === 'missions') {
-      setFilterStatus('all');
-    } else if (tab === 'deliveries') {
-      setFilterStatus('active');
-    } else {
-      setFilterStatus('all');
-    }
+  const toggleActionSelection = (id: string) => {
+    setSelectedActions(prev =>
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -316,32 +475,28 @@ const MissionsPage = () => {
       en_cours: '#3B82F6',
       terminee: '#8B5CF6',
       validee: '#10B981',
-      annulee: '#EF4444',
+      annulee: '#6B7280',
       refusee: '#EF4444',
-      expire: '#6B7280',
       creee: '#6B7280',
       disponible: '#EF4444',
       livree: '#3B82F6',
-      attente_paiement: '#8B5CF6',
     };
     return map[status] || '#9E9E9E';
   };
 
   const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
-      planifiee: 'À valider',
+      planifiee: 'Prévue',
       en_attente: 'En attente',
-      acceptee: 'Acceptée',
+      acceptee: 'Confirmée',
       en_cours: 'En cours',
-      terminee: 'Terminée',
+      terminee: 'Terminée (Rapport)',
       validee: 'Validée',
       annulee: 'Annulée',
       refusee: 'Refusée',
-      expire: 'Expirée',
       creee: 'Créée',
       disponible: 'Disponible (urgent)',
       livree: 'Livrée',
-      attente_paiement: 'En attente paiement',
     };
     return map[status] || status;
   };
@@ -395,7 +550,7 @@ const MissionsPage = () => {
 
   return (
     <div 
-      className="space-y-6 pb-6"
+      className="space-y-6 pb-6 px-2 sm:px-0"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -425,80 +580,118 @@ const MissionsPage = () => {
             Espace Intervenant à domicile
           </h1>
           <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
-            Consultez votre planning d'interventions et gérez vos courses de livraisons d'urgence auprès de vos bénéficiaires.
+            Accédez aux fiches cliniques de vos patients rattachés, démarrez l'aide en direct ou gérez vos courses de livraisons.
           </p>
         </div>
 
         <button
           onClick={async () => {
             toast.promise(
-              Promise.all([fetchVisits(), fetchOrders()]),
+              Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments()]),
               {
                 loading: 'Mise à jour...',
-                success: 'Planning actualisé !',
+                success: 'Données actualisées !',
                 error: 'Échec de la mise à jour',
               }
             );
           }}
-          disabled={isRefreshing}
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+          disabled={isLoading_}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
           title="Actualiser"
         >
-          <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+          <RefreshCw size={13} className={isLoading_ ? 'animate-spin' : ''} />
         </button>
       </section>
 
+      {/* ⚠️ BANDEAU INTERVENTION ACTIVE */}
+      {activeIntervention && (
+        <div className="bg-white rounded-3xl p-5 border shadow-[0_10px_30px_rgba(0,0,0,0.06)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fadeIn" style={{ borderColor: colors.primary + '20' }}>
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-green-50 text-green-500 animate-pulse border border-green-200">
+              <Clock size={20} />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-wider text-green-600 flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping" />
+                Intervention active
+              </span>
+              <h2 className="text-sm sm:text-base font-black truncate text-gray-800 mt-0.5">
+                Accompagnement de {activeIntervention.target_name}
+              </h2>
+              <p className="text-xs text-gray-500 truncate mt-0.5">📍 {activeIntervention.address || "Lieu d'intervention"}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+            <div className="px-4 py-2 bg-gray-50 border rounded-2xl text-center shrink-0">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Temps écoulé</p>
+              <p className="text-sm font-mono font-black text-gray-800 mt-0.5">{elapsedTime}</p>
+            </div>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="flex-1 md:flex-none h-11 px-5 rounded-2xl text-white font-bold text-xs shadow-md transition-all hover:opacity-90 flex items-center justify-center gap-1.5"
+              style={{ background: colors.primary }}
+            >
+              <CheckCircle size={15} />
+              Finaliser (Rapport)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BENTO STATS COMPACT */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
-        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Visites</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Visites</span>
             <Calendar size={13} className="text-emerald-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
-              {stats.missions.total} planifiées
+              {stats.missions.total} total
             </p>
-            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
-              {stats.missions.pending} à valider
+            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
+              {stats.missions.planned} prévues
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
             <ShoppingBag size={13} className="text-blue-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.deliveries.inProgress} en cours
             </p>
-            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
+            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
               {stats.deliveries.completed} livrées
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Dispos</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Urgentes</span>
             <AlertCircle size={13} className="text-amber-500 shrink-0 animate-pulse" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
-              {stats.canTakeCount} urgentes
+              {stats.available} disponibles
             </p>
-            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
+            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
               À prendre
             </p>
           </div>
         </div>
       </section>
 
+      {/* TABS PRINCIPAUX */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border gap-1" style={{ borderColor: colors.primary + '10' }}>
           {[
-            { key: 'missions', label: `📋 Missions (${stats.missions.total})` },
+            { key: 'missions', label: `📋 Accompagnements (${stats.missions.total})` },
             { key: 'deliveries', label: `🚚 Livraisons (${stats.deliveries.total})` },
             { key: 'available', label: `📦 Disponibles (${stats.available})` },
           ].map((tab) => (
@@ -507,9 +700,7 @@ const MissionsPage = () => {
               onClick={() => handleTabChange(tab.key as TabType)}
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
-                activeTab === tab.key
-                  ? "bg-white shadow-sm font-extrabold"
-                  : "hover:opacity-80"
+                activeTab === tab.key ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
               )}
               style={{
                 color: activeTab === tab.key ? colors.primary : colors.textLight,
@@ -522,6 +713,7 @@ const MissionsPage = () => {
         </div>
       </section>
 
+      {/* SOUS-ONGLETS VISITES (INCLUS LES ASSIGNÉS DIRECTS) */}
       {activeTab === 'missions' && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
           <div className="inline-flex p-0.5 bg-gray-100/40 rounded-xl border gap-1" style={{ borderColor: colors.primary + '5' }}>
@@ -533,9 +725,7 @@ const MissionsPage = () => {
                   onClick={() => setFilterStatus(sub.key)}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
-                    isActive
-                      ? "bg-white shadow-sm"
-                      : "hover:opacity-80"
+                    isActive ? "bg-white shadow-sm" : "hover:opacity-80"
                   )}
                   style={{
                     color: isActive ? colors.primary : colors.textLight,
@@ -561,9 +751,7 @@ const MissionsPage = () => {
                   onClick={() => setFilterStatus(sub.key)}
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
-                    isActive
-                      ? "bg-white shadow-sm"
-                      : "hover:opacity-80"
+                    isActive ? "bg-white shadow-sm" : "hover:opacity-80"
                   )}
                   style={{
                     color: isActive ? colors.primary : colors.textLight,
@@ -578,7 +766,48 @@ const MissionsPage = () => {
         </section>
       )}
 
-      {filteredItems.length > 0 ? (
+      {/* RENDU DES LISTES */}
+      {activeTab === 'missions' && filterStatus === 'beneficiaires' ? (
+        /* ✅ RENDU DIRECT DES BÉNÉFICIAIRES ASSIGNÉS (DOSSIERS PATIENTS) */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {assignments.length > 0 ? (
+            assignments.map((link) => {
+              const isPersonal = link.target_type === 'personal_account' || link.is_personal;
+              const name = link.target_name || 'Bénéficiaire';
+              const address = isPersonal ? link.family?.address : link.patient?.address;
+              const category = isPersonal ? 'senior' : link.patient?.category;
+
+              return (
+                <div
+                  key={link.id}
+                  onClick={() => setSelectedBeneficiary(link)}
+                  className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition duration-200 cursor-pointer flex items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-sm font-black shrink-0 shadow-sm" style={{ background: colors.primary }}>
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.primary + '10', color: colors.primary }}>
+                        {isPersonal ? '👤 Compte direct' : `👵 Proche (${getCategoryLabel(category || 'senior')})`}
+                      </span>
+                      <h3 className="font-extrabold text-sm sm:text-base text-gray-800 truncate mt-1">{name}</h3>
+                      <p className="text-xs text-gray-400 truncate mt-0.5">📍 {address || 'Adresse non renseignée'}</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-gray-400 shrink-0" />
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-2 bg-white rounded-3xl p-10 text-center border border-gray-100">
+              <User size={36} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-sm font-bold text-gray-700">Aucun bénéficiaire rattaché</p>
+              <p className="text-xs text-gray-400 mt-1">Vous serez mis au courant dès que l'administration vous assignera un bénéficiaire.</p>
+            </div>
+          )}
+        </div>
+      ) : filteredItems.length > 0 ? (
         <section className="space-y-3">
           {filteredItems.map((item) => (
             <MissionItemCompact
@@ -587,9 +816,7 @@ const MissionsPage = () => {
               type={activeTab}
               colors={colors}
               aidantId={aidantId}
-              onApprove={() => handleApprove(item.id)}
-              onRefuse={() => handleRefuse(item.id)}
-              onStart={() => handleStart(item.id)}
+              onStart={() => handleStartPlannedIntervention(item.id)}
               onTakeOrder={() => handleTakeOrder(item.id)}
               onDeliver={() => handleDeliverOrder(item.id)}
               onView={() => {
@@ -629,6 +856,231 @@ const MissionsPage = () => {
           </div>
         </section>
       )}
+
+      {/* ============================================================
+          MODAL 1 : FICHE CLINIQUE / DOSSIER PATIENT (LECTURE SEULE + DÉMARRAGE VOLÉE)
+          ============================================================ */}
+      {selectedBeneficiary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-[2rem] w-full max-w-xl max-h-[88vh] overflow-y-auto shadow-2xl p-6 md:p-8 space-y-6 relative animate-fadeIn scrollbar-none">
+            
+            <button
+              onClick={() => setSelectedBeneficiary(null)}
+              className="absolute top-4 right-4 w-9 h-9 bg-gray-50 hover:bg-gray-100 rounded-full flex items-center justify-center text-gray-400"
+            >
+              <X size={18} />
+            </button>
+
+            {/* En-tête Dossier */}
+            <div className="flex items-center gap-4 border-b pb-4">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-base font-black shadow-md shrink-0" style={{ background: colors.primary }}>
+                {selectedBeneficiary.target_name?.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                  📁 DOSSIER PATIENT SÉCURISÉ
+                </span>
+                <h2 className="text-lg md:text-xl font-black text-gray-800 truncate mt-1">
+                  {selectedBeneficiary.target_name}
+                </h2>
+                <p className="text-xs text-gray-400 truncate mt-0.5">
+                  📍 {selectedBeneficiary.target_type === 'patient' ? selectedBeneficiary.patient?.address : selectedBeneficiary.family?.address}
+                </p>
+              </div>
+            </div>
+
+            {/* Corps du Dossier Bénéficiaire */}
+            <div className="space-y-5 text-xs sm:text-sm">
+              
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
+                  <User size={14} style={{ color: colors.primary }} /> Informations Générales
+                </h4>
+                <div className="grid grid-cols-2 gap-3 bg-gray-50/50 p-3 rounded-2xl border">
+                  <div>
+                    <span className="text-[10px] text-gray-400 block font-bold">Âge</span>
+                    <span className="font-extrabold text-gray-700">
+                      {selectedBeneficiary.target_type === 'patient' 
+                        ? (selectedBeneficiary.patient?.age ? `${selectedBeneficiary.patient.age} ans` : 'Non renseigné') 
+                        : 'Compte majeur'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-400 block font-bold">Sexe / Genre</span>
+                    <span className="font-extrabold text-gray-700 uppercase">
+                      {selectedBeneficiary.target_type === 'patient' 
+                        ? (selectedBeneficiary.patient?.gender === 'male' ? 'Homme' : 'Femme') 
+                        : 'Non spécifié'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pathologies & Traitements */}
+              {selectedBeneficiary.target_type === 'patient' && selectedBeneficiary.patient && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
+                      <Stethoscope size={14} className="text-red-500" /> Diagnostics & Pathologies
+                    </h4>
+                    <div className="p-3 bg-red-50/20 border border-red-100 rounded-xl min-h-[58px]">
+                      <p className="font-semibold text-red-900 leading-normal">
+                        {selectedBeneficiary.patient.conditions || "Aucune pathologie chronique signalée."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
+                      <Pill size={14} className="text-blue-500" /> Traitements réguliers
+                    </h4>
+                    <div className="p-3 bg-blue-50/20 border border-blue-100 rounded-xl min-h-[58px]">
+                      <p className="font-semibold text-blue-900 leading-normal">
+                        {selectedBeneficiary.patient.treatments || "Pas de traitement médical en cours."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Allergies & Notes de Confort */}
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
+                  <FileText size={14} style={{ color: colors.primary }} /> Allergies et Notes d'aide
+                </h4>
+                <div className="p-4 bg-gray-50/50 rounded-2xl border space-y-3">
+                  {selectedBeneficiary.target_type === 'patient' && selectedBeneficiary.patient?.allergies && (
+                    <div>
+                      <span className="text-[10px] text-red-600 font-extrabold block uppercase tracking-wider">⚠️ Allergies signalées</span>
+                      <p className="font-bold text-red-700 mt-0.5">{selectedBeneficiary.patient.allergies}</p>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-[10px] text-gray-400 font-extrabold block uppercase tracking-wider">📝 Notes de confort du proche</span>
+                    <p className="font-medium text-gray-600 mt-1 leading-relaxed">
+                      {selectedBeneficiary.target_type === 'patient' 
+                        ? (selectedBeneficiary.patient?.notes || "Pas de note complémentaire spécifiée.") 
+                        : "Accompagnement de confort personnel."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bouton d'action principal */}
+              <div className="pt-4 border-t flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedBeneficiary(null)}
+                  className="flex-1 h-12 rounded-2xl font-bold text-gray-500 hover:bg-gray-50 transition border"
+                >
+                  Fermer le dossier
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStartAdHocIntervention(selectedBeneficiary)}
+                  className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black transition flex items-center justify-center gap-2"
+                >
+                  <Play size={16} fill="white" />
+                  Démarrer l'accompagnement
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          MODAL 2 : SOUMETTRE LE RAPPORT CLASSIQUE DE VISITE
+          ============================================================ */}
+      {showReportModal && activeIntervention && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-[2rem] w-full max-w-xl p-6 md:p-8 space-y-6 relative animate-fadeIn scrollbar-none my-8">
+            
+            <div className="flex items-center justify-between border-b pb-4">
+              <div>
+                <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                  🏁 Rapport de fin de mission
+                </span>
+                <h2 className="text-base sm:text-lg font-black text-gray-800 mt-1">
+                  Accompagnement de {activeIntervention.target_name}
+                </h2>
+              </div>
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-xl transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Actions d'accompagnement sous forme de checkbox */}
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider">
+                Cochez les actions d'aide accomplies *
+              </label>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                {getActionOptions().map((action) => {
+                  const isChecked = selectedActions.includes(action.label);
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={() => toggleActionSelection(action.label)}
+                      className={cn(
+                        "p-3 rounded-xl border text-left flex items-center justify-between transition-all text-xs font-semibold",
+                        isChecked ? "border-emerald-500 bg-emerald-50/30 text-emerald-900" : "bg-white hover:bg-gray-50 text-gray-600"
+                      )}
+                    >
+                      <span className="truncate">{action.icon} {action.label}</span>
+                      {isChecked && <Check size={14} className="text-emerald-600 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Observations textuelles */}
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black uppercase text-gray-400 tracking-wider">
+                Observations de visite & Rapport
+              </label>
+              <textarea
+                value={reportNotes}
+                onChange={(e) => setReportNotes(e.target.value)}
+                rows={3}
+                placeholder="Décrivez comment s'est déroulé l'accompagnement, observations importantes..."
+                className="w-full px-3 py-2.5 border rounded-2xl text-xs sm:text-sm font-semibold outline-none resize-none bg-gray-50/50 focus:bg-white transition"
+              />
+            </div>
+
+            {/* Controles de soumission */}
+            <div className="flex gap-2.5 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowReportModal(false)}
+                className="flex-1 h-12 font-bold text-gray-500 hover:bg-gray-50 transition border rounded-2xl"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                onClick={handleCompleteIntervention}
+                disabled={selectedActions.length === 0 || isActionPending}
+                className="flex-1 h-12 text-white font-black text-sm rounded-2xl flex items-center justify-center gap-1.5 transition"
+                style={{ 
+                  background: selectedActions.length > 0 ? colors.primary : '#9CA3AF',
+                  cursor: selectedActions.length > 0 ? 'pointer' : 'not-allowed'
+                }}
+              >
+                {isActionPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                Transmettre
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -642,8 +1094,6 @@ interface MissionItemCompactProps {
   type: TabType;
   colors: any;
   aidantId: string | null;
-  onApprove: () => void;
-  onRefuse: () => void;
   onStart: () => void;
   onTakeOrder: () => void;
   onDeliver: () => void;
@@ -660,8 +1110,6 @@ const MissionItemCompact = ({
   type,
   colors,
   aidantId,
-  onApprove,
-  onRefuse,
   onStart,
   onTakeOrder,
   onDeliver,
@@ -673,14 +1121,16 @@ const MissionItemCompact = ({
   formatCurrency,
 }: MissionItemCompactProps) => {
   const isMission = type === 'missions';
-  const isPending = item.status === 'planifiee' || item.status === 'en_attente';
-  const isAccepted = item.status === 'acceptee';
+  const isAccepted = item.status === 'acceptee' || item.status === 'planifiee';
 
-  const getAidantName = () => {
-    if (item.aidant?.user?.full_name) {
-      return item.aidant.user.full_name;
+  const getPatientName = () => {
+    if (item.patient) {
+      return `${item.patient.first_name} ${item.patient.last_name}`;
     }
-    return 'Non assigné';
+    if (item.family?.full_name) {
+      return item.family.full_name;
+    }
+    return item.target_name || 'Bénéficiaire';
   };
 
   if (isMission) {
@@ -699,7 +1149,7 @@ const MissionItemCompact = ({
           <div className="min-w-0 space-y-0.5">
             <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: colors.textLight }}>Accompagnement d'aide</span>
             <p className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
-              {item.patient?.first_name} {item.patient?.last_name}
+              {getPatientName()}
             </p>
             <div className="flex items-center gap-2 text-[11px] flex-wrap" style={{ color: colors.textLight }}>
               <span className="flex items-center gap-0.5">
@@ -728,25 +1178,6 @@ const MissionItemCompact = ({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-          {isPending && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); onApprove(); }}
-                className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm hover:opacity-90 transition-all bg-emerald-500"
-                title="Approuver"
-              >
-                <CheckCircle size={14} />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onRefuse(); }}
-                className="w-8 h-8 rounded-xl text-white flex items-center justify-center shadow-sm hover:opacity-90 transition-all bg-red-500"
-                title="Refuser"
-              >
-                <XCircle size={14} />
-              </button>
-            </>
-          )}
-
           {isAccepted && (
             <button
               onClick={(e) => { e.stopPropagation(); onStart(); }}
@@ -772,16 +1203,6 @@ const MissionItemCompact = ({
 
   const isAvailable = item.status === 'en_attente' || item.status === 'disponible';
   const isAcceptedOrder = item.status === 'en_cours';
-
-  const getPatientName = () => {
-    if (item.patient) {
-      return `${item.patient.first_name} ${item.patient.last_name}`;
-    }
-    if (item.family?.full_name) {
-      return item.family.full_name;
-    }
-    return 'Client';
-  };
 
   return (
     <div
