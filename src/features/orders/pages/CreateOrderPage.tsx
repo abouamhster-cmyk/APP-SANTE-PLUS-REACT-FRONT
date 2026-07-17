@@ -1,25 +1,17 @@
 // 📁 src/features/orders/pages/CreateOrderPage.tsx
-// ✅ PAGE CRÉATION COMMANDE : CONCORDANCE DE PROVISION ET CALCUL DES FRAIS MOBILE MONEY DU BÉNIN EN LOCAL
-
+ 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   ShoppingBag,
-  User,
   MapPin,
   Camera,
   X,
-  FileImage,
-  ClipboardList,
-  Package,  
   ArrowRight,
-  CreditCard,
-  Sparkles,
   CheckCircle,
   Loader2,
-  AlertCircle,
-  Users,
+  Sparkles
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -29,15 +21,14 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
-import { getPonctualOrderPriceByType } from '@/lib/constants';
-
+import { calculateWithdrawalFee } from '@/stores/aidantCatalogStore';
 import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import { cn } from '@/utils/helpers'; 
 import toast from 'react-hot-toast';
 
 // ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ ET AUTONOME
-const calculateWithdrawalFee = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
+const calculateWithdrawalFeeLocal = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
   if (amount <= 0) return 0;
   const amt = Math.round(amount);
 
@@ -82,8 +73,8 @@ const CreateOrderPage = () => {
   const { createOrder, isLoading } = useOrderStore();
   const { patients, fetchPatients } = usePatientStore();
 
-  const { getCategoryLabel, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-  const { hasActiveSubscription, remainingOrders, getActionMessage, isLoading: subLoading } = useSubscriptionGuard();
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+  const { hasActiveSubscription, remainingOrders, subLoading } = useSubscriptionGuard();
 
   const {
     isPaymentModalOpen,
@@ -116,7 +107,7 @@ const CreateOrderPage = () => {
 
   const [formData, setFormData] = useState({
     patient_id: '',
-    type: 'medicaments',
+    type: 'autre', // ✅ Toujours défini sur 'autre' pour le schéma DB
     description: '',
     address: '',
     latitude: null as number | null,
@@ -156,7 +147,7 @@ const CreateOrderPage = () => {
 
   const withdrawalFee = useMemo(() => {
     if (!needsPurchase || purchaseAmount <= 0) return 0;
-    return calculateWithdrawalFee(purchaseAmount, operator); // ✅ Appel local corrigé
+    return calculateWithdrawalFeeLocal(purchaseAmount, operator); 
   }, [needsPurchase, purchaseAmount, operator]);
 
   const totalAdvanceAmount = purchaseAmount + withdrawalFee;
@@ -168,8 +159,8 @@ const CreateOrderPage = () => {
       return {
         type: 'success',
         icon: <CheckCircle size={18} />,
-        title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
-        description: 'Votre abonnement couvre les frais de livraison de cette course.',
+        title: `✅ ${remainingOrders} course(s) restante(s)`,
+        description: 'Votre abonnement couvre les frais de transport de cette livraison.',
       };
     }
     
@@ -293,7 +284,6 @@ const CreateOrderPage = () => {
     }
 
     try {
-      // ✅ SÉCURITÉ TRANSMISSION PROVISION : Passage des 3 paramètres requis pour le Webhook
       await payOrderPonctual({
         description: orderData.description,
         orderType: orderData.type,
@@ -322,7 +312,6 @@ const CreateOrderPage = () => {
       return;
     }
 
-    // S'il y a achat physique d'avance, rediriger d'office vers FedaPay (indépendant du forfait)
     if (needsPurchase) {
       isSubmittingRef.current = true;
       await handlePonctualPayment();
@@ -330,7 +319,6 @@ const CreateOrderPage = () => {
       return;
     }
 
-    // Simple course de récupération
     isSubmittingRef.current = true;
     await createOrderWithSubscription();
   };
