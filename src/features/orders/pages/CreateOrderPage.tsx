@@ -28,10 +28,50 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
-import { calculateWithdrawalFee } from '@/stores/aidantCatalogStore'; // Import direct
+import { getPonctualOrderPriceByType } from '@/lib/constants';
+
 import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
+
+// ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ ET AUTONOME
+const calculateWithdrawalFee = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
+  if (amount <= 0) return 0;
+  const amt = Math.round(amount);
+
+  if (operator === 'celtiis') {
+    if (amt <= 500) return 50;
+    if (amt <= 5000) return 120;
+    if (amt <= 10000) return 200;
+    if (amt <= 20000) return 300;
+    if (amt <= 50000) return 600;
+    if (amt <= 75000) return 900;
+    if (amt <= 100000) return 1000;
+    if (amt <= 200000) return 2000;
+    if (amt <= 300000) return 3000;
+    if (amt <= 500000) return 3500;
+    if (amt <= 750000) return 5000;
+    if (amt <= 1000000) return 5800;
+    if (amt <= 1500000) return 7800;
+    return 9800;
+  } else {
+    // MTN & Moov
+    if (amt <= 500) return 50;
+    if (amt <= 5000) return 125;
+    if (amt <= 10000) return 225;
+    if (amt <= 20000) return 375;
+    if (amt <= 50000) return 700;
+    if (amt <= 100000) return 1000;
+    if (amt <= 200000) return 2000;
+    if (amt <= 300000) return 3000;
+    if (amt <= 500000) return 3500;
+    if (amt <= 750000) return 5000;
+    if (amt <= 1000000) return 6000;
+    if (amt <= 1500000) return 8000;
+    return 9900;
+  }
+};
 
 const CreateOrderPage = () => {
   const navigate = useNavigate();
@@ -65,6 +105,7 @@ const CreateOrderPage = () => {
   const isRedirecting = useRef(false);
   const isSubmittingRef = useRef(false);
 
+  const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
   const [targetPatientId, setTargetPatientId] = useState<string>('');
 
@@ -74,9 +115,13 @@ const CreateOrderPage = () => {
   const [operator, setOperator] = useState<'mtn_moov' | 'celtiis'>('mtn_moov');
 
   const [formData, setFormData] = useState({
+    patient_id: '',
     type: 'medicaments',
     description: '',
     address: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+    estimated_amount: '',
   });
 
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
@@ -316,6 +361,8 @@ const CreateOrderPage = () => {
   };
 
   const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
+  const selectedPatientObj = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
+  const finalEstimatedAmount = formData.estimated_amount ? parseFloat(formData.estimated_amount) : 0;
   const hasPatients = patients.length > 0;
 
   return (
@@ -326,7 +373,7 @@ const CreateOrderPage = () => {
           <div className="flex items-start gap-3">
             <button
               onClick={() => navigate('/app/orders')}
-              className="w-11 h-11 rounded-2xl border flex items-center justify-center hover:bg-gray-50 transition shrink-0"
+              className="w-11 h-11 rounded-2xl flex items-center justify-center border hover:bg-gray-50 transition shrink-0"
               style={{ borderColor: colors.primary + '20', color: colors.text }}
             >
               <ArrowLeft size={20} />
@@ -434,7 +481,7 @@ const CreateOrderPage = () => {
               <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Adresse de livraison</label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
-                <input type="text" value={formData.address} onChange={(e) => handleAddressChange(e.target.value)} placeholder="Quartier, indications de rue..." className="w-full pl-9 pr-3.5 h-11 border rounded-2xl text-xs font-semibold outline-none bg-gray-50/50" required />
+                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Quartier, indications de rue..." className="w-full pl-9 pr-3.5 h-11 border rounded-2xl text-xs font-semibold outline-none bg-gray-50/50" required />
               </div>
             </div>
           </div>
