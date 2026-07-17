@@ -1,5 +1,4 @@
 // 📁 src/components/layout/MobileTabBar.tsx
-// ✅ BARRE D'ONGLETS MOBILE : SÉCURISATION DU TYPAGE TS ET HOVERS DYNAMIQUES DE L'UNIVERS CONNECTÉ
 
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -9,7 +8,6 @@ import {
   User,
   X,
   Menu,
-  MessageCircle,
   CreditCard,
   BookOpen,
   MapPin,
@@ -32,19 +30,19 @@ import { cn } from '@/utils/helpers';
 import { useBranding } from '@/hooks/useBranding';
 
 // ============================================================
-// TYPAGE STRICT DES ÉLÉMENTS DE MENU (Évite les erreurs TS "undefined")
+// TYPAGE STRICT DES ÉLÉMENTS DE MENU
 // ============================================================
 
 interface MainItem {
   icon: React.ReactNode;
   label: string;
-  path: string; // 🟢 Requis (non-optionnel)
+  path: string;
 }
 
 interface MoreItem {
   icon: React.ReactNode;
   label: string;
-  path: string; // 🟢 Requis (non-optionnel)
+  path: string;
   color: string;
   bg: string;
 }
@@ -95,8 +93,6 @@ const getMoreItems = (role: string | null, brand: any): MoreItem[] => {
 
   if (role === 'family') {
     return [
-      { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}18` },
       { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing', color: goldColor, bg: `${goldColor}20` },
       { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
       { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primary, bg: `${colors.primary}10` },
@@ -107,7 +103,6 @@ const getMoreItems = (role: string | null, brand: any): MoreItem[] => {
   if (role === 'aidant') {
     return [
       { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', color: primaryColor, bg: `${primaryColor}12` },
-      { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}18` },
       { icon: <History size={20} />, label: 'Historique', path: '/app/history', color: colors.primaryLight, bg: `${colors.primaryLight}15` },
       { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', color: colors.primary, bg: `${colors.primary}10` },
       { icon: <Bell size={20} />, label: 'Notifications', path: '/app/notifications', color: colors.accent || primaryColor, bg: `${colors.accent || primaryColor}20` },
@@ -173,7 +168,6 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
 
   return (
     <>
-      {/* Fond flouté sombre derrière le BottomSheet */}
       {showMore && (
         <div 
           className="fixed inset-0 z-[45] bg-black/25 backdrop-blur-sm transition-opacity duration-300 ease-out animate-fadeIn" 
@@ -182,11 +176,11 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
       )}
 
       {/* ============================================================
-          BOTTOM SHEET PLUS
+          BOTTOM SHEET PLUS (MESSAGES ET CATALOGUE AIDANTS RETIRÉS)
           ============================================================ */}
       <div
         className={cn(
-          "fixed left-4 right-4 z-[48] bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-xl rounded-[2.5rem] border shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
+          "fixed left-4 right-4 z-[48] bg-white/95 backdrop-blur-xl rounded-[2.5rem] border shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
           showMore 
             ? "scale-100 opacity-100 translate-y-0 blur-none pointer-events-auto" 
             : "scale-90 opacity-0 translate-y-4 blur-sm pointer-events-none"
@@ -196,20 +190,19 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
           boxShadow: '0 -10px 40px -15px rgba(0, 0, 0, 0.12), 0 15px 40px rgba(0,0,0,0.08)',
         }}
       >
-        <div className="flex items-center justify-between mb-5 border-b pb-3 dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '15' }}>
+        <div className="flex items-center justify-between mb-5 border-b pb-3" style={{ borderColor: colors.primary + '15' }}>
           <div className="space-y-0.5">
             <h3 className="text-sm font-extrabold" style={{ color: colors.text }}>Plus d'outils</h3>
           </div>
           <button
             onClick={() => setShowMore(false)}
-            className="w-8 h-8 rounded-full bg-gray-50 dark:bg-[#24362d] flex items-center justify-center transition shadow-sm"
+            className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center transition shadow-sm"
             style={{ color: colors.text + '80' }}
           >
             <X size={14} />
           </button>
         </div>
 
-        {/* Grille scrollable */}
         <div className="grid grid-cols-3 gap-3.5 max-h-[42vh] overflow-y-auto pr-1 py-1 scrollbar-none">
           {moreItems.map((item) => {
             const active = isActive(item.path);
@@ -222,8 +215,8 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                 className={cn(
                   "flex flex-col items-center justify-center text-center p-4 rounded-3xl transition-all border",
                   active
-                    ? "bg-white dark:bg-[#1d2d25] shadow-md font-bold"
-                    : "bg-gray-50/50 dark:bg-[#111a15]/30 border-transparent hover:bg-gray-50 dark:hover:bg-[#1c2a21]/50"
+                    ? "bg-white shadow-md font-bold"
+                    : "bg-gray-50/50 border-transparent hover:bg-gray-50"
                 )}
                 style={{
                   borderColor: active ? colors.primary : 'transparent',
@@ -259,13 +252,12 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
           ============================================================ */}
       <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
         <div
-          className="w-full max-w-lg bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-xl border shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
+          className="w-full max-w-lg bg-white/80 backdrop-blur-xl border shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
           style={{
             borderColor: colors.primary + '20',
             boxShadow: '0 20px 40px -15px rgba(15,31,25,0.15), 0 0 1px 1px rgba(255,255,255,0.15) inset',
           }}
         >
-          {/* BOUTONS PRINCIPAUX */}
           {mainItems.map((item) => {
             const active = isActive(item.path);
             const isHovered = hoveredPath === item.path;
@@ -320,7 +312,6 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
             );
           })}
 
-          {/* BOUTON PLUS */}
           {moreItems.length > 0 && (
             <div className="relative">
               <button
@@ -332,7 +323,7 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                     "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
                     showMore || isMoreActive
                       ? "text-white scale-105 shadow-md shadow-black/10"
-                      : "hover:bg-gray-100/50 dark:hover:bg-gray-800/40"
+                      : "hover:bg-gray-100/50"
                   )}
                   style={{
                     backgroundColor: showMore || isMoreActive ? colors.primary : 'transparent',
