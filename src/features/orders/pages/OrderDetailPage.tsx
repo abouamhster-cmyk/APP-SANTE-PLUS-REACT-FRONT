@@ -179,11 +179,42 @@ const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
   );
 };
 
+// ✅ OBTENIR LE LIBELLÉ DU STATUT
+const getStatusLabel = (status: string): string => {
+  const map: Record<string, string> = {
+    creee: 'Créée',
+    en_attente: 'En attente',
+    disponible: 'Disponible (urgent)',
+    en_cours: 'En cours',
+    livree: 'Livrée (En attente)',
+    validee: 'Validée',
+    annulee: 'Annulée',
+    attente_paiement: 'En attente paiement',
+  };
+  return map[status] || status;
+};
+
+// ✅ OBTENIR LA COULEUR DU STATUT
+const getStatusColor = (status: string): string => {
+  const colors: Record<string, string> = {
+    creee: '#9E9E9E',
+    en_attente: '#F59E0B',
+    disponible: '#EF4444',
+    en_cours: '#3B82F6',
+    livree: '#3B82F6',
+    validee: '#4CAF50',
+    annulee: '#9E9E9E',
+    attente_paiement: '#8B5CF6',
+  };
+  return colors[status] || '#9E9E9E';
+};
+
 interface StatusBadgeProps {
   status: string;
   colors: any;
 }
 
+// ✅ LE COMPOSANT DE BADGE DE STATUT REQUIS
 const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
   const getStatusConfig = (status: string) => {
     const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
@@ -259,7 +290,7 @@ const OrderDetailPage = () => {
     window.open(url, '_blank');
   };
 
-  // ✅ REDIRECTION DIRECTE SANS ETAPE INTERMEDIAIRE
+  // ✅ REDIRECTION DIRECTE SANS ETAPE INTERMEDIAIRE (MODAL SHUNTE !)
   const {
     executePayment,
     isPaymentModalOpen,
@@ -587,7 +618,6 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
-              {/* ✅ SÉCURISÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses de livraison simples ! */}
               {isPaid && financialData.purchaseAmount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
@@ -807,22 +837,22 @@ const OrderDetailPage = () => {
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
           <span className="text-sm font-extrabold text-gray-750">
-             {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
-             {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
+            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
+            {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">💵 Frais de retrait MM</span>
           <span className="text-sm font-extrabold text-gray-750">
-             {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
-             {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
+            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
+            {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
           <span className="text-sm font-extrabold text-emerald-600">
-             {/* ✅ CORRIGÉ : Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
-             {order.subscription_id 
+            {/* ✅ CORRIGÉ : Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
+            {order.subscription_id 
               ? 'Gratuit (Abonnement)' 
               : (order.delivery_fee > 0 
                   ? `${order.delivery_fee.toLocaleString()} FCFA (${order.delivery_payment_method === 'cash' ? 'Espèces' : 'En ligne'})` 
