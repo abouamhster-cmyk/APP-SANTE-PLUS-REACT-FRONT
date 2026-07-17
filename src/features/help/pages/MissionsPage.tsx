@@ -19,20 +19,13 @@ import {
   ShieldAlert,
   AlertCircle,
   Users,
-  Phone,
-  Mail,
-  Heart,
-  Stethoscope,
-  Pill,
   Mic,
   ChevronRight,
-  ChevronDown,
-  X,
-  FileText, 
-  Check,    
-  Loader2,  
+  Phone,
+  Mail,
+  Star,
+  Camera,
 } from 'lucide-react';
-
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -46,42 +39,23 @@ import toast from 'react-hot-toast';
 
 type TabType = 'missions' | 'deliveries' | 'available';
 
-export const MissionsPage = () => {
+const MissionsPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
-
-  const { getCategoryLabel } = useTerminology();
-
+  
   // Stores
-  const { 
-    visits, 
-    fetchVisits, 
-    startVisit, 
-    startAdHocVisit, 
-    completeVisit, 
-    isLoading: isVisitsLoading 
-  } = useVisitStore();
+  const { visits, fetchVisits, startVisit, startAdHocVisit, completeVisit, isLoading } = useVisitStore();
+  const { orders, fetchOrders, takeOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
+  const { assignments, fetchMyAssignments, isLoading: isAssignmentsLoading } = useAidantCatalogStore();
 
-  const { 
-    orders, 
-    fetchOrders, 
-    takeOrder, 
-    completeDelivery, 
-    isLoading: ordersLoading 
-  } = useOrderStore();
-
-  const { 
-    assignments, 
-    fetchMyAssignments, 
-    isLoading: isAssignmentsLoading 
-  } = useAidantCatalogStore();
+  const { isAidant } = useTerminology();
 
   // États locaux
   const [activeTab, setActiveTab] = useState<TabType>('missions');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [aidantId, setAidantId] = useState<string | null>(null);
+  const [aidantId, setSetAidantId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
@@ -89,26 +63,34 @@ export const MissionsPage = () => {
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<any | null>(null);
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isActionPending, setIsActionPending] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
+  
+  // Modals de rapports
+  const [showVisitReportModal, setShowVisitReportModal] = useState(false);
+  const [showDeliveryReportModal, setShowDeliveryReportModal] = useState(false);
+  const [selectedOrderForDelivery, setSelectedOrderForAssign] = useState<any | null>(null);
 
-  // Formulaire de Rapport de visite
+  // Formulaires de rapports
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [reportNotes, setReportNotes] = useState('');
+  
+  const [deliveryFeeInput, setDeliveryFeeInput] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>('online');
+  const [cashReceivedInput, setCashReceivedInput] = useState<number>(0);
 
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mappings mémorisés avec typage explicite
-  const myMissions = useMemo(() => visits.filter((v: any) => v.aidant_id === aidantId), [visits, aidantId]);
-  const assignedOrders = useMemo(() => orders.filter((o: any) => o.aidant_id === aidantId), [orders, aidantId]);
-  const availableOrders = useMemo(() => orders.filter((o: any) => o.status === 'en_attente' || o.status === 'disponible'), [orders]);
-  const deliveryOrders = useMemo(() => assignedOrders.filter((o: any) => o.status === 'en_cours' || o.status === 'livree'), [assignedOrders]);
+  // Mappings mémorisés
+  const myMissions = useMemo(() => visits.filter(v => v.aidant_id === aidantId), [visits, aidantId]);
+  const assignedOrders = useMemo(() => orders.filter(o => o.aidant_id === aidantId), [orders, aidantId]);
+  const availableOrders = useMemo(() => orders.filter(o => o.status === 'en_attente' || o.status === 'disponible'), [orders]);
+  const deliveryOrders = useMemo(() => assignedOrders.filter(o => o.status === 'en_cours' || o.status === 'livree'), [assignedOrders]);
 
-  // Intervention en cours
+  // Détection intervention active
   const activeIntervention = useMemo(() => {
-    return visits.find((v: any) => v.status === 'en_cours');
+    return visits.find(v => v.status === 'en_cours');
   }, [visits]);
 
   // Chronomètre
@@ -144,17 +126,19 @@ export const MissionsPage = () => {
   }, [activeIntervention]);
 
   const stats = useMemo(() => {
-    const plannedMissionsCount = myMissions.filter((v: any) => v.status === 'planifiee').length;
-    const inProgressMissionsCount = myMissions.filter((v: any) => v.status === 'en_cours').length;
-    const completedMissionsCount = myMissions.filter((v: any) => ['terminee', 'validee'].includes(v.status)).length;
+    const pendingMissionsCount = myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente').length;
+    const acceptedMissionsCount = myMissions.filter(v => v.status === 'acceptee').length;
+    const inProgressMissionsCount = myMissions.filter(v => v.status === 'en_cours').length;
+    const completedMissionsCount = myMissions.filter(v => ['terminee', 'validee'].includes(v.status)).length;
 
-    const inProgressDeliveriesCount = assignedOrders.filter((o: any) => o.status === 'en_cours').length;
-    const completedDeliveriesCount = assignedOrders.filter((o: any) => ['livree', 'validee'].includes(o.status)).length;
+    const inProgressDeliveriesCount = assignedOrders.filter(o => o.status === 'en_cours').length;
+    const completedDeliveriesCount = assignedOrders.filter(o => ['livree', 'validee'].includes(o.status)).length;
 
     return {
       missions: {
         total: myMissions.length,
-        planned: plannedMissionsCount,
+        pending: pendingMissionsCount,
+        accepted: acceptedMissionsCount,
         inProgress: inProgressMissionsCount,
         completed: completedMissionsCount,
       },
@@ -167,12 +151,12 @@ export const MissionsPage = () => {
     };
   }, [myMissions, assignedOrders, availableOrders]);
 
-  const isLoading_ = isVisitsLoading || ordersLoading || isAssignmentsLoading; 
+  const isLoading_ = isLoading || ordersLoading || isAssignmentsLoading;
 
   const missionSubFilters = useMemo(() => [
     { key: 'all', label: 'Toutes' },
-    { key: 'beneficiaires', label: `👥 Assignés (${assignments.length})` },
-    { key: 'planned', label: `📅 Programmées (${stats.missions.planned})` },
+    { key: 'beneficiaires', label: `👥 Bénéficiaires (${assignments.length})` },
+    { key: 'pending', label: `⏳ Programmées (${stats.missions.pending})` },
     { key: 'history', label: `📝 Historique (${stats.missions.completed})` }
   ], [stats.missions, assignments.length]);
 
@@ -181,7 +165,6 @@ export const MissionsPage = () => {
     { key: 'history', label: `📦 Livrées (${stats.deliveries.completed})` }
   ], [stats.deliveries]);
 
-  // Vérification de l'homologation
   useEffect(() => {
     const checkAidantStatus = async () => {
       if (!user) {
@@ -228,7 +211,6 @@ export const MissionsPage = () => {
     checkAidantStatus();
   }, [user]);
 
-  // Récupération de l'aidant ID
   useEffect(() => {
     const getAidantId = async () => {
       if (!user) return;
@@ -240,7 +222,7 @@ export const MissionsPage = () => {
         .single();
 
       if (error) return;
-      setAidantId(data?.id || null);
+      setSetAidantId(data?.id || null);
     };
 
     getAidantId();
@@ -279,8 +261,8 @@ export const MissionsPage = () => {
       toast.promise(
         Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments()]),
         {
-          loading: 'Actualisation...',
-          success: 'Plannings synchronisés !',
+          loading: 'Actualisation des plannings...',
+          success: 'Missions à jour !',
           error: 'Échec de synchronisation.',
         }
       );
@@ -288,6 +270,35 @@ export const MissionsPage = () => {
     setPullY(0);
   };
 
+  const getFilteredItems = () => {
+    if (activeTab === 'missions') {
+      if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
+      if (filterStatus === 'beneficiaires') return []; // Géré séparément
+      if (filterStatus === 'pending') {
+        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente');
+      }
+      if (filterStatus === 'history') {
+        return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
+      }
+    }
+    if (activeTab === 'deliveries') {
+      if (filterStatus === 'active') {
+        return deliveryOrders.filter(o => o.status === 'en_cours');
+      }
+      if (filterStatus === 'history') {
+        return assignedOrders.filter(o => ['livree', 'validee', 'annulee'].includes(o.status));
+      }
+      return deliveryOrders;
+    }
+    if (activeTab === 'available') {
+      return availableOrders;
+    }
+    return [];
+  };
+
+  const filteredItems = getFilteredItems();
+
+  // ✅ DÉMARRAGE À LA VOLÉE (AD-HOC) AVEC POINT GPS DE DÉPART
   const handleStartAdHocIntervention = async (beneficiary: any) => {
     if (isActionPending) return;
 
@@ -311,8 +322,8 @@ export const MissionsPage = () => {
         startLat = position.coords.latitude;
         startLng = position.coords.longitude;
       }
-    } catch (e) {
-      console.warn("⚠️ Géolocalisation non capturée.");
+    } catch {
+      console.warn("Géolocalisation non capturée.");
     }
 
     try {
@@ -321,7 +332,7 @@ export const MissionsPage = () => {
 
       if (result) {
         toast.success(`🚀 Intervention commencée pour ${beneficiary.target_name} !`);
-        setSelectedBeneficiary(null); 
+        setSelectedBeneficiary(null); // fermer la fiche
       }
     } catch (error: any) {
       toast.error(error.message || 'Impossible de démarrer l’intervention');
@@ -330,11 +341,11 @@ export const MissionsPage = () => {
     }
   };
 
-  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES (L'APPEL EXECUTE CORRECTEMENT LES PARAMÈTRES GPS)
+  // ✅ DÉMARRER INTERVENTION PROGRAMMÉE (CHECKPOINT GPS)
   const handleStartPlannedIntervention = async (id: string) => {
     if (isActionPending) return;
     setIsActionPending(true);
-    
+
     let startLat: number | null = null;
     let startLng: number | null = null;
 
@@ -349,13 +360,12 @@ export const MissionsPage = () => {
         startLat = position.coords.latitude;
         startLng = position.coords.longitude;
       }
-    } catch (e) {
-      console.warn("⚠️ Géolocalisation non capturée.");
+    } catch {
+      console.warn("GPS non capturé.");
     }
 
     try {
-      // ✅ APPEL DE DÉMARRAGE AVEC LES CHECKPOINTS GPS FINAUX REQUIS PAR LE STORE
-      await startVisit(id, startLat, startLng); // 🟢 Corrigé à 3 arguments requis pour le build
+      await startVisit(id, startLat, startLng);
       toast.success('🚀 Intervention commencée !');
       await fetchVisits();
     } catch (error: any) {
@@ -388,8 +398,8 @@ export const MissionsPage = () => {
         endLat = position.coords.latitude;
         endLng = position.coords.longitude;
       }
-    } catch (e) {
-      console.warn("⚠️ Géolocalisation non capturée.");
+    } catch {
+      console.warn("GPS non capturé.");
     }
 
     try {
@@ -402,7 +412,7 @@ export const MissionsPage = () => {
       });
 
       toast.success('🎉 Rapport transmis ! Intervention archivée.');
-      setShowReportModal(false); 
+      setShowVisitReportModal(false);
       setSelectedActions([]);
       setReportNotes('');
     } catch (error: any) {
@@ -412,65 +422,72 @@ export const MissionsPage = () => {
     }
   };
 
-  const getFilteredItems = () => {
-    if (activeTab === 'missions') {
-      if (filterStatus === 'all') return myMissions.filter((v: any) => v.status !== 'brouillon');
-      if (filterStatus === 'beneficiaires') return []; 
-      if (filterStatus === 'planned') {
-        return myMissions.filter((v: any) => v.status === 'planifiee' || v.status === 'en_attente' || v.status === 'acceptee');
-      }
-      if (filterStatus === 'history') {
-        return myMissions.filter((v: any) => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
-      }
-    }
-    if (activeTab === 'deliveries') {
-      if (filterStatus === 'active') {
-        return deliveryOrders.filter((o: any) => o.status === 'en_cours');
-      }
-      if (filterStatus === 'history') {
-        return assignedOrders.filter((o: any) => ['livree', 'validee', 'annulee'].includes(o.status));
-      }
-      return deliveryOrders;
-    }
-    if (activeTab === 'available') {
-      return availableOrders;
-    }
-    return [];
-  };
-
-  const filteredItems = getFilteredItems();
-
   const handleTakeOrder = async (id: string) => {
     try {
       await takeOrder(id);
       fetchOrders();
+      toast.success('Commande prise en charge !');
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la prise de commande');
     }
   };
 
-  const handleDeliverOrder = async (id: string) => {
+  // ✅ LIVRAISON AVEC DOUBLE MODALITE ET CHECKPOINT GPS (CORRECTION TS DE TS2554)
+  const handleDeliverOrder = async () => {
+    if (!selectedOrderForDelivery) return;
+    if (deliveryFeeInput <= 0 && !selectedOrderForDelivery.subscription_id) {
+      toast.error('Veuillez renseigner les frais de transport');
+      return;
+    }
+    if (paymentMethod === 'cash' && cashReceivedInput <= 0) {
+      toast.error('Veuillez spécifier la somme reçue en espèces');
+      return;
+    }
+
+    setIsUpdating(true);
+    let endLat: number | null = null;
+    let endLng: number | null = null;
+
     try {
-      await completeDelivery(id);
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        endLat = position.coords.latitude;
+        endLng = position.coords.longitude;
+      }
+    } catch {
+      console.warn("GPS non capturé.");
+    }
+
+    try {
+      // ✅ APPEL DU STORE AVEC TOUS LES PARAMÈTRES REQUIS (2 arguments complets)
+      await completeDelivery(selectedOrderForDelivery.id, {
+        proof_url: null,
+        delivery_fee: selectedOrderForDelivery.subscription_id ? 0 : Number(deliveryFeeInput || 0),
+        payment_method: paymentMethod,
+        cash_amount_received: paymentMethod === 'cash' ? Number(cashReceivedInput || 0) : 0,
+        lat: endLat,
+        lng: endLng,
+      });
+
+      toast.success('Livraison validée avec succès !');
+      setShowDeliveryReportModal(false);
+      setDeliveryFeeInput(0);
+      setCashReceivedInput(0);
+      setPaymentMethod('online');
       fetchOrders();
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la livraison');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const getActionOptions = () => {
-    if (!activeIntervention) return [];
-    const isMaman = activeIntervention.patient?.category === 'maman_bebe';
-    return isMaman ? VISIT_ACTIONS_MAMAN : VISIT_ACTIONS_SENIOR;
-  };
-
-  const toggleActionSelection = (id: string) => {
-    setSelectedActions(prev =>
-      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
-    );
-  };
-
-  const handleTabChangeLocal = (tab: TabType) => {
+  const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'missions') {
       setFilterStatus('all');
@@ -481,7 +498,19 @@ export const MissionsPage = () => {
     }
   };
 
-  const getStatusColorLocal = (status: string) => {
+  const toggleActionSelection = (id: string) => {
+    setSelectedActions(prev =>
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    );
+  };
+
+  const getActionOptions = () => {
+    if (!activeIntervention) return [];
+    const isMaman = activeIntervention.patient?.category === 'maman_bebe';
+    return isMaman ? VISIT_ACTIONS_MAMAN : VISIT_ACTIONS_SENIOR;
+  };
+
+  const getStatusColor = (status: string) => {
     const map: Record<string, string> = {
       planifiee: '#10B981',
       en_attente: '#F59E0B',
@@ -489,28 +518,32 @@ export const MissionsPage = () => {
       en_cours: '#3B82F6',
       terminee: '#8B5CF6',
       validee: '#10B981',
-      annulee: '#6B7280',
+      annulee: '#EF4444',
       refusee: '#EF4444',
+      expire: '#6B7280',
       creee: '#6B7280',
       disponible: '#EF4444',
       livree: '#3B82F6',
+      attente_paiement: '#8B5CF6',
     };
     return map[status] || '#9E9E9E';
   };
 
-  const getStatusLabelLocal = (status: string) => {
+  const getStatusLabel = (status: string) => {
     const map: Record<string, string> = {
-      planifiee: 'Prévue',
+      planifiee: 'À valider',
       en_attente: 'En attente',
-      acceptee: 'Confirmée',
+      acceptee: 'Acceptée',
       en_cours: 'En cours',
-      terminee: 'Terminée (Rapport)',
+      terminee: 'Terminée',
       validee: 'Validée',
       annulee: 'Annulée',
       refusee: 'Refusée',
+      expire: 'Expirée',
       creee: 'Créée',
       disponible: 'Disponible (urgent)',
       livree: 'Livrée',
+      attente_paiement: 'En attente paiement',
     };
     return map[status] || status;
   };
@@ -549,22 +582,11 @@ export const MissionsPage = () => {
     );
   }
 
-  if (isLoading_) {
-    return (
-      <div className="space-y-6">
-        <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-3 gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const filteredItems = getFilteredItems();
 
   return (
     <div 
-      className="space-y-6 pb-6"
+      className="space-y-6 pb-6 px-1 sm:px-0"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -588,36 +610,32 @@ export const MissionsPage = () => {
         </div>
       </div>
 
+      {/* HEADER HERO */}
       <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 text-center shadow-sm backdrop-blur-md" style={{ borderColor: colors.primary + '15' }}>
         <div className="space-y-1.5 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
             Espace Intervenant à domicile
           </h1>
           <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
-            Accédez aux fiches cliniques de vos patients rattachés, démarrez l'aide en direct ou gérez vos courses de livraisons.
+            Accédez aux fiches de vos patients assignés, démarrez des visites en direct ou gérez vos courses et livraisons.
           </p>
         </div>
 
         <button
           onClick={async () => {
-            toast.promise(
-              Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments()]),
-              {
-                loading: 'Mise à jour...',
-                success: 'Données actualisées !',
-                error: 'Échec de la mise à jour',
-              }
-            );
+            setIsRefreshing(true);
+            await Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments()]);
+            setIsRefreshing(false);
           }}
-          disabled={isLoading_} // ✅ Corrigé de isLoading à isLoading_
-          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
+          disabled={isRefreshing || isLoading_}
+          className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
           title="Actualiser"
         >
-          <RefreshCw size={13} className={isLoading_ ? 'animate-spin' : ''} />
+          <RefreshCw size={13} className={isRefreshing || isLoading_ ? 'animate-spin' : ''} />
         </button>
       </section>
 
-      {/* ⚠️ BANDEAU INTERVENTION ACTIVE */}
+      {/* BANDEAU ACTIVE INTERVENTION */}
       {activeIntervention && (
         <div className="bg-white rounded-3xl p-5 border shadow-[0_10px_30px_rgba(0,0,0,0.06)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fadeIn" style={{ borderColor: colors.primary + '20' }}>
           <div className="flex items-center gap-3.5 min-w-0">
@@ -642,7 +660,7 @@ export const MissionsPage = () => {
               <p className="text-sm font-mono font-black text-gray-800 mt-0.5">{elapsedTime}</p>
             </div>
             <button
-              onClick={() => setShowReportModal(true)} 
+              onClick={() => setShowVisitReportModal(true)}
               className="flex-1 md:flex-none h-11 px-5 rounded-2xl text-white font-bold text-xs shadow-md transition-all hover:opacity-90 flex items-center justify-center gap-1.5"
               style={{ background: colors.primary }}
             >
@@ -653,55 +671,55 @@ export const MissionsPage = () => {
         </div>
       )}
 
-      {/* BENTO STATS COMPACT */}
+      {/* STATS BENTO */}
       <section className="grid grid-cols-3 gap-2.5 w-full">
-        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Visites</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Visites</span>
             <Calendar size={13} className="text-emerald-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.missions.total} total
             </p>
-            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
-              {stats.missions.planned} prévues
+            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
+              {stats.missions.pending} à valider
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Courses</span>
             <ShoppingBag size={13} className="text-blue-500 shrink-0" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.deliveries.inProgress} en cours
             </p>
-            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
+            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
               {stats.deliveries.completed} livrées
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-3 rounded-2xl border shadow-sm flex flex-col justify-between h-24" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white p-3.5 rounded-2xl border shadow-sm flex flex-col justify-between h-28" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Dispos</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider truncate mr-1" style={{ color: colors.textLight }}>Dispos</span>
             <AlertCircle size={13} className="text-amber-500 shrink-0 animate-pulse" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
-              {stats.available} disponibles
+              {stats.available} urgentes
             </p>
-            <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
+            <p className="text-[10px] leading-tight mt-1 truncate" style={{ color: colors.textLight }}>
               À prendre
             </p>
           </div>
         </div>
       </section>
 
-      {/* TABS PRINCIPAUX */}
+      {/* NAVIGATION TABS */}
       <section className="w-full overflow-x-auto scrollbar-none py-1">
         <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border gap-1" style={{ borderColor: colors.primary + '10' }}>
           {[
@@ -711,7 +729,7 @@ export const MissionsPage = () => {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => handleTabChangeLocal(tab.key as TabType)} 
+              onClick={() => handleTabChange(tab.key as TabType)}
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
                 activeTab === tab.key ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
@@ -727,7 +745,7 @@ export const MissionsPage = () => {
         </div>
       </section>
 
-      {/* SOUS-ONGLETS VISITES (INCLUS LES ASSIGNÉS DIRECTS) */}
+      {/* SOUS FILTRES ACCONS */}
       {activeTab === 'missions' && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
           <div className="inline-flex p-0.5 bg-gray-100/40 rounded-xl border gap-1" style={{ borderColor: colors.primary + '5' }}>
@@ -780,16 +798,16 @@ export const MissionsPage = () => {
         </section>
       )}
 
-      {/* RENDU DES LISTES */}
+      {/* AFFICHAGES LISTES */}
       {activeTab === 'missions' && filterStatus === 'beneficiaires' ? (
         /* ✅ RENDU DIRECT DES BÉNÉFICIAIRES ASSIGNÉS (DOSSIERS PATIENTS) */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignments.length > 0 ? (
-            assignments.map((link: any) => {
-              const isPersonal = (link as any).target_type === 'personal_account' || (link as any).is_personal;
-              const name = (link as any).target_name || 'Bénéficiaire';
-              const address = isPersonal ? (link as any).family?.address : (link as any).patient?.address;
-              const category = isPersonal ? 'senior' : (link as any).patient?.category;
+            assignments.map((link) => {
+              const isPersonal = link.target_type === 'personal_account' || link.is_personal;
+              const name = link.target_name || 'Bénéficiaire';
+              const address = isPersonal ? link.family?.address : link.patient?.address;
+              const category = isPersonal ? 'senior' : link.patient?.category;
 
               return (
                 <div
@@ -822,8 +840,8 @@ export const MissionsPage = () => {
           )}
         </div>
       ) : filteredItems.length > 0 ? (
-        <section className="space-y-3">
-          {filteredItems.map((item: any) => (
+        <section className="space-y-3 animate-fadeIn">
+          {filteredItems.map((item) => (
             <MissionItemCompact
               key={item.id}
               item={item}
@@ -832,7 +850,10 @@ export const MissionsPage = () => {
               aidantId={aidantId}
               onStart={() => handleStartPlannedIntervention(item.id)}
               onTakeOrder={() => handleTakeOrder(item.id)}
-              onDeliver={() => handleDeliverOrder(item.id)}
+              onDeliver={() => {
+                setSelectedOrderForAssign(item);
+                setShowDeliveryReportModal(true);
+              }}
               onView={() => {
                 if (activeTab === 'missions' && item?.id) {
                   navigate(`/app/visits/${item.id}`);
@@ -840,8 +861,8 @@ export const MissionsPage = () => {
                   navigate(`/app/orders/${item.id}`);
                 }
               }}
-              getStatusColor={getStatusColorLocal}
-              getStatusLabel={getStatusLabelLocal}
+              getStatusColor={getStatusColor}
+              getStatusLabel={getStatusLabel}
               formatDate={formatDate}
               formatTime={formatTime}
               formatCurrency={formatCurrency}
@@ -858,21 +879,17 @@ export const MissionsPage = () => {
 
           <div className="space-y-1">
             <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
-              {activeTab === 'missions' && 'Aucune mission planifiée'}
-              {activeTab === 'deliveries' && 'Aucune livraison en cours'}
-              {activeTab === 'available' && 'Aucune commande disponible'}
+              Aucun résultat
             </h3>
             <p className="text-xs max-w-xs leading-relaxed" style={{ color: colors.textLight }}>
-              {activeTab === 'missions' && 'Revenez plus tard ou contactez la coordination pour de nouveaux accompagnements.'}
-              {activeTab === 'deliveries' && 'Vos livraisons en cours s\'afficheront ici pour un suivi GPS réactif.'}
-              {activeTab === 'available' && 'Toutes les courses d\'urgences ont été pourvues par nos équipes de confiance.'}
+              Aucun élément ne correspond à ce filtre actuellement.
             </p>
           </div>
         </section>
       )}
 
       {/* ============================================================
-          MODAL 1 : FICHE CLINIQUE / DOSSIER PATIENT (LECTURE SEULE + DÉMARRAGE VOLÉE)
+          MODAL 1 : FICHE CLINIQUE / DOSSIER PATIENT (DÉMARRAGE VOLÉE)
           ============================================================ */}
       {selectedBeneficiary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
@@ -1021,7 +1038,7 @@ export const MissionsPage = () => {
                 </h2>
               </div>
               <button
-                onClick={() => setShowReportModal(false)} 
+                onClick={() => setShowReportModal(false)}
                 className="p-1.5 hover:bg-gray-100 rounded-xl transition"
               >
                 <X size={18} />
@@ -1072,7 +1089,7 @@ export const MissionsPage = () => {
             <div className="flex gap-2.5 pt-4 border-t">
               <button
                 type="button"
-                onClick={() => setShowReportModal(false)} 
+                onClick={() => setShowReportModal(false)}
                 className="flex-1 h-12 font-bold text-gray-500 hover:bg-gray-50 transition border rounded-2xl"
               >
                 Retour
@@ -1095,6 +1112,70 @@ export const MissionsPage = () => {
           </div>
         </div>
       )}
+
+      {/* ============================================================
+          MODAL 3 : SOUMETTRE LE RAPPORT DE LIVRAISON SÉCURISÉ (LIVREUR)
+          ============================================================ */}
+      {showDeliveryReportModal && selectedOrderForDelivery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-6 shadow-2xl my-8 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b pb-3">
+              <h2 className="text-sm sm:text-base font-black">🏁 Clôturer la livraison</h2>
+              <button onClick={() => setShowDeliveryReportModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+
+            <p className="text-xs text-gray-500">Veuillez renseigner les détails de transport et de règlement pour finaliser l'envoi.</p>
+
+            {/* Saisie des frais de transport et du mode de règlement s'il n'y a pas d'abonnement */}
+            {!selectedOrderForDelivery.subscription_id ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase">Frais de livraison réels (FCFA)</label>
+                  <input
+                    type="number"
+                    value={deliveryFeeInput || ''}
+                    onChange={(e) => setDeliveryFeeInput(Number(e.target.value))}
+                    className="w-full h-10 px-3.5 border rounded-xl text-xs font-bold bg-white mt-1 outline-none"
+                    placeholder="Ex: 1500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase">Règlement client</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => setPaymentMethod('online')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'online' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💳 En ligne (Momo)</button>
+                    <button type="button" onClick={() => setPaymentMethod('cash')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💵 En Espèces (Main)</button>
+                  </div>
+                </div>
+
+                {paymentMethod === 'cash' && (
+                  <div className="animate-fadeIn">
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase">Montant exact reçu (FCFA)</label>
+                    <input
+                      type="number"
+                      value={cashReceivedInput || ''}
+                      onChange={(e) => setCashReceivedInput(Number(e.target.value))}
+                      className="w-full h-10 px-3.5 border rounded-xl text-xs font-bold bg-white mt-1 outline-none"
+                      placeholder="Ex: 1500"
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs font-bold text-emerald-600 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                ✅ Livraison gratuite (couverte à 100 % par l'abonnement du client).
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 pt-3 border-t">
+              <button onClick={() => setShowDeliveryReportModal(false)} className="h-11 rounded-xl font-bold text-gray-500 border">Annuler</button>
+              <button onClick={handleDeliverOrder} className="h-11 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5">
+                Valider
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1108,8 +1189,6 @@ interface MissionItemCompactProps {
   type: TabType;
   colors: any;
   aidantId: string | null;
-  onApprove?: () => void; 
-  onRefuse?: () => void;  
   onStart: () => void;
   onTakeOrder: () => void;
   onDeliver: () => void;
@@ -1288,7 +1367,7 @@ const MissionItemCompact = ({
 
           <button
             onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-850 flex items-center justify-center transition-all"
+            className="w-8 h-8 rounded-xl bg-gray-50 border text-gray-400 hover:text-gray-800 flex items-center justify-center transition-all"
             style={{ borderColor: colors.primary + '10' }}
           >
             <Eye size={13} />
