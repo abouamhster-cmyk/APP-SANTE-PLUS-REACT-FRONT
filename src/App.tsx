@@ -12,7 +12,7 @@ import { RoleGuard } from '@/components/auth/RoleGuard';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
-import { AuthLayout } from '@/components/layout/AuthLayout';
+import { AuthLayout } from '@/layout/AuthLayout';
 
 import { supabase } from '@/lib/supabase';
 import { useVisitStore } from '@/stores/visitStore';
@@ -42,7 +42,6 @@ import VisitDetailPage from '@/features/visits/pages/VisitDetailPage';
 import OrdersPage from '@/features/orders/pages/OrdersPage';
 import CreateOrderPage from '@/features/orders/pages/CreateOrderPage';
 import OrderDetailPage from '@/features/orders/pages/OrderDetailPage';
-import MessagesPage from '@/features/messages/pages/MessagesPage';
 import BillingPage from '@/features/billing/pages/BillingPage';
 import MapPage from '@/features/map/pages/MapPage';
 import NotificationsPage from '@/features/notifications/pages/NotificationsPage';
@@ -50,8 +49,6 @@ import ProfilePage from '@/features/profile/pages/ProfilePage';
 import EducationPage from '@/features/education/pages/EducationPage';
 import JournalPage from '@/features/journal/pages/JournalPage';
 import DischargePage from '@/features/discharge/pages/DischargePage';
-import AidantCatalogPage from '@/features/aidants/pages/AidantCatalogPage';
-import AidantDetailPage from '@/features/aidants/pages/AidantDetailPage';
 
 // ============================================================
 // AIDANT / HELP PAGES
@@ -124,18 +121,18 @@ function App() {
   }, []);
 
   // ============================================================
-  // ✅ UNIQUE & OPTIMISÉ - REALTIME AUTO-REFRESH DEBOUNCÉ DES VISITES ET COMMANDES
+  // ✅ TEMPS RÉEL - AUTO-REFRESH DEBOUNCÉ DES VISITES ET COMMANDES
   // ============================================================
   useEffect(() => {
     if (!isAuthenticated || !isAuthInitialized) return;
 
-    console.log('📡 [Realtime] Initialisation du canal temps réel unique et optimisé...');
+    console.log('📡 [Realtime] Initialisation du canal temps réel unique...');
 
     let visitTimeout: any;
     const debouncedFetchVisits = () => {
       clearTimeout(visitTimeout);
       visitTimeout = setTimeout(() => {
-        console.log('🔄 [Realtime] Rechargement consolidé des visites...');
+        console.log('🔄 [Realtime] Rechargement des visites...');
         useVisitStore.getState().invalidateCache();
         useVisitStore.getState().fetchVisits(true);
       }, 300);
@@ -145,7 +142,7 @@ function App() {
     const debouncedFetchOrders = () => {
       clearTimeout(orderTimeout);
       orderTimeout = setTimeout(() => {
-        console.log('🔄 [Realtime] Rechargement consolidé des commandes...');
+        console.log('🔄 [Realtime] Rechargement des commandes...');
         useOrderStore.getState().invalidateCache();
         useOrderStore.getState().fetchOrders(true);
       }, 300);
@@ -291,7 +288,6 @@ function App() {
             <Route path="/app/orders" element={<OrdersPage />} />
             <Route path="/app/orders/create" element={<CreateOrderPage />} />
             <Route path="/app/orders/:id" element={<OrderDetailPage />} />
-            <Route path="/app/messages" element={<MessagesPage />} />
             <Route path="/app/billing" element={<BillingPage />} />
             <Route path="/app/map" element={<MapPage />} />
             <Route path="/app/notifications" element={<NotificationsPage />} />
@@ -302,8 +298,6 @@ function App() {
             <Route path="/app/education" element={<EducationPage />} />
             <Route path="/app/journal" element={<JournalPage />} />
             <Route path="/app/discharge" element={<DischargePage />} />
-            <Route path="/app/aidants" element={<AidantCatalogPage />} />
-            <Route path="/app/aidants/:id" element={<AidantDetailPage />} />
 
             {/* ROUTES ADMIN */}
             <Route 
@@ -359,7 +353,7 @@ function App() {
               element={
                 <RoleGuard allowedRoles={['admin', 'coordinator']}>
                   <RegistrationDetailsPage />
-                </RoleGuard> // ✅ CORRECTIF : Fermeture de balise corrigée de </Route> vers </RoleGuard>
+                </RoleGuard>
               } 
             />
             <Route 
