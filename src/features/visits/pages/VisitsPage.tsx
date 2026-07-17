@@ -14,6 +14,7 @@ import {
 
 import { useVisitStore } from '@/stores/visitStore';
 import { usePatientStore } from '@/stores/patientStore';
+import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { useBranding } from '@/hooks/useBranding';
