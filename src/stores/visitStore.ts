@@ -1,6 +1,5 @@
 // 📁 src/stores/visitStore.ts
-// ✅ STORE VISITES COMPLET : FUSION DES CHECKPOINTS GPS ET SÉCURISATION DU TYPAGE TS EN TOUTE CIRCONSTANCE
-
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Visit, VisitStatus } from '@/types';
@@ -8,8 +7,6 @@ import { useAuthStore } from './authStore';
 import { assignmentAPI } from '@/lib/api';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-
-import { getVisitStatusForCreation, requiresPonctualPayment } from '@/lib/constants';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
@@ -98,6 +95,7 @@ interface VisitState {
   refuseVisit: (id: string, reason: string) => Promise<void>;
   reassignVisit: (id: string, newAidantId: string, assignmentType: string) => Promise<void>;
   startVisit: (id: string, lat?: number | null, lng?: number | null) => Promise<void>;
+  startAdHocVisit: (targetType: string, targetId: string, lat?: number | null, lng?: number | null) => Promise<any>; // ✅ NOUVEAU ACTION STORE
   completeVisit: (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string; lat?: number | null; lng?: number | null }) => Promise<void>;
   validateVisit: (id: string) => Promise<void>;
   cancelVisit: (id: string) => Promise<void>;
@@ -339,80 +337,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const { user, profile } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
 
-      if (profile?.role === 'aidant') {
-        throw new Error('Les aidants ne peuvent pas créer de visites');
+      const isManualAdmin = ['admin', 'coordinator'].includes(profile?.role || '');
+      if (!isManualAdmin) {
+        throw new Error('Seule l’administration de Santé Plus peut planifier des visites.');
       }
 
       const targetType = data.target_type || (data.patient_id ? 'patient' : 'personal');
       const targetName = data.target_name || (data.patient_id ? null : profile?.full_name || 'Personnel');
       const targetUserId = data.target_user_id || (data.patient_id ? null : user.id);
-
-      const isPonctual = data.visit_type === 'ponctuelle' || data.is_ponctual || false;
-      let status: VisitStatus = 'planifiee';
-      let requiresPayment = false;
-      let paymentAmount = 0;
-
-      if (isPonctual) {
-        requiresPayment = true;
-        status = 'brouillon';
-        paymentAmount = getPonctualPrice(data.duration_minutes || 60);
-      } else {
-        const { data: subscription } = await supabase
-          .from('abonnements')
-          .select('id, remaining_visits, status')
-          .eq('user_id', targetUserId || user.id)
-          .eq('status', 'actif')
-          .maybeSingle();
-
-        if (!subscription || subscription.remaining_visits <= 0) {
-          requiresPayment = true;
-          status = 'brouillon';
-          paymentAmount = getPonctualPrice(data.duration_minutes || 60);
-        }
-      }
-
-      let finalAidantId = data.aidant_id || null;
-      let autoAssigned = false;
-      let wizardChoice = data.wizard_choice || null;
-      let selectedAidantId = data.selected_aidant_id || null;
-
-      if (wizardChoice === 'without_aidant') {
-        status = 'en_attente_aidant';
-        finalAidantId = null;
-        requiresPayment = false;
-      }
-
-      if (selectedAidantId) {
-        finalAidantId = selectedAidantId;
-      }
-
-      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
-        const patientId = data.patient_id || undefined;
-        const familyId = targetUserId || user.id;
-        
-        finalAidantId = await get().getActiveAidantForVisit(
-          patientId ?? undefined, 
-          familyId ?? undefined
-        );
-        autoAssigned = !!finalAidantId;
-      }
-
-      if (!finalAidantId && status !== 'brouillon' && status !== 'en_attente_aidant') {
-        const wizardError: any = new Error('Aucun aidant disponible');
-        wizardError.response = {
-          status: 422,
-          data: {
-            wizard_required: true,
-            targetType: targetType === 'patient' ? 'patient' : 'personal_account',
-            targetId: data.patient_id || targetUserId || user.id,
-            targetName: targetName || 'Personnel',
-            familyId: targetUserId || user.id,
-            scheduledDate: data.scheduled_date,
-            scheduledTime: data.scheduled_time,
-          }
-        };
-        throw wizardError;
-      }
 
       const visitData = {
         reference: generateVisitReference(),
@@ -420,94 +352,73 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         patient_id: data.patient_id || null,
         target_type: targetType,
         target_name: targetName,
-        aidant_id: finalAidantId,
-        coordinator_id: profile?.role === 'family' ? null : user.id,
+        aidant_id: data.aidant_id || null,
+        coordinator_id: user.id,
         scheduled_date: data.scheduled_date || new Date().toISOString().split('T')[0],
         scheduled_time: data.scheduled_time || new Date().toTimeString().slice(0, 5),
         duration_minutes: data.duration_minutes || 60,
-        status: status,
-        is_draft: requiresPayment,
-        is_ponctual: isPonctual, 
-        requires_payment: requiresPayment,           
+        status: 'planifiee',
+        is_draft: false,
+        is_ponctual: false, 
+        requires_payment: false,           
         is_urgent: data.is_urgent || false,
         requested_by: user.id,
         actions: data.actions || [],
         notes: data.notes || null,
-        visit_type: data.visit_type || (requiresPayment ? 'ponctuelle' : 'permanente'),
-        assignment_type: data.assignment_type || 'ponctuelle',
-        draft_expires_at: requiresPayment ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
-        is_permanent: wizardChoice === 'permanente',
-        assigned_by_admin: profile?.role === 'admin' || profile?.role === 'coordinator',
-        admin_assigned_at: (profile?.role === 'admin' || profile?.role === 'coordinator') ? new Date().toISOString() : null,
-        waiting_for_aidant_since: status === 'en_attente_aidant' ? new Date().toISOString() : null,
+        visit_type: 'permanente',
+        assignment_type: 'permanente',
+        assigned_by_admin: true,
+        admin_assigned_at: new Date().toISOString(),
         address: data.address || null,
         latitude: data.latitude || null,
         longitude: data.longitude || null,
-        wizard_choice: wizardChoice,
-        selected_aidant_id: selectedAidantId,
         metadata: {
           created_by: user.id,
           created_at: new Date().toISOString(),
-          is_ponctual: isPonctual || requiresPayment,
-          requires_payment: requiresPayment,
-          is_draft: requiresPayment,
-          payment_amount: requiresPayment ? paymentAmount : null,
-          scheduled_from_draft: false,
-          target_user_id: targetUserId || user.id,
-          auto_assigned_aidant: autoAssigned,
-          wizard_choice: wizardChoice || null,
-          selected_aidant: selectedAidantId || null,
-          waiting_for_aidant: status === 'en_attente_aidant',
-          is_personal_account: targetType === 'personal' && !data.patient_id,
+          manual_admin_planning: true,
           ...(data.metadata || {}), 
         }
       };
 
-      let newVisit;
-      try {
-        const response = await api.post('/visits', visitData);
-        newVisit = response.data?.visit || response.data;
-
-        if (!newVisit) {
-          throw new Error('Erreur de création : réponse vide');
-        }
-      } catch (apiError: any) {
-        throw apiError;
-      }
-
-      let patient = null;
-      let aidant = null;
-
-      if (newVisit.patient_id) {
-        const { data: patientData } = await supabase
-          .from('patients')
-          .select('*')
-          .eq('id', newVisit.patient_id)
-          .single();
-        patient = patientData;
-      }
-
-      if (newVisit.aidant_id) {
-        const { data: aidantData } = await supabase
-          .from('aidants')
-          .select('*, user:profiles!user_id(*)')
-          .eq('id', newVisit.aidant_id)
-          .single();
-        aidant = aidantData;
-      }
-
-      const fullVisit = {
-        ...newVisit,
-        patient,
-        aidant,
-      };
+      const response = await api.post('/visits', visitData);
+      const newVisit = response.data?.visit || response.data;
 
       get().invalidateCache();
       await get().fetchVisits(true);
 
-      return fullVisit;
+      return newVisit;
     } catch (error: any) {
       console.error('❌ Create visit error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // ✅ ACTION DE CRÉATION DE VISITE À LA VOLÉE DIRECTEMENT DEPUIS LES STORES
+  startAdHocVisit: async (targetType: string, targetId: string, lat?: number | null, lng?: number | null): Promise<any> => {
+    try {
+      set({ error: null, isLoading: true });
+      
+      const response = await api.post('/visits/start-adhoc', {
+        targetType,
+        targetId,
+        lat,
+        lng
+      });
+
+      const newVisit = response.data?.visit || response.data;
+
+      get().invalidateCache();
+      await get().fetchVisits(true);
+
+      set({ 
+        currentVisit: newVisit,
+        isLoading: false
+      });
+
+      return newVisit;
+    } catch (error: any) {
+      console.error('❌ startAdHocVisit store error:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -574,7 +485,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ✅ CAPTURE GPS : Transmet le point de départ de l'intervenant lors du démarrage
   startVisit: async (id: string, lat?: number | null, lng?: number | null) => {
     try {
       set({ error: null });
@@ -588,7 +498,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
     }
   },
 
-  // ✅ CAPTURE GPS : Transmet le point d'arrivée de l'intervenant lors de la finalisation
   completeVisit: async (id: string, data: { actions: string[]; notes: string; photos?: string[]; audio_url?: string; lat?: number | null; lng?: number | null }) => {
     try {
       set({ error: null });
@@ -633,9 +542,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Session expirée');
-      }
+      if (!token) throw new Error('Session expirée');
 
       const response = await fetch(`${API_URL}/visits/admin/assign-aidant`, {
         method: 'POST',
@@ -673,14 +580,10 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Session expirée');
-      }
+      if (!token) throw new Error('Session expirée');
 
-      const response = await fetch(`${API_URL}/visits/pending-ant`, { // Garde le point de l'url du backend
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch(`${API_URL}/visits/pending-aidant`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -689,7 +592,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       const result = await response.json();
-
       return result.data || [];
     } catch (error: any) {
       console.error('❌ getPendingAidantVisits error:', error);
@@ -705,18 +607,14 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Session expirée');
-      }
+      if (!token) throw new Error('Session expirée');
 
       const params = new URLSearchParams();
       if (targetType) params.append('targetType', targetType);
       if (targetId) params.append('targetId', targetId);
 
       const response = await fetch(`${API_URL}/visits/available-aidants?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -725,7 +623,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       const result = await response.json();
-
       return result.data || [];
     } catch (error: any) {
       console.error('❌ getAvailableAidantsForVisit error:', error);
@@ -741,9 +638,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) {
-        throw new Error('Session expirée');
-      }
+      if (!token) throw new Error('Session expirée');
 
       const params = new URLSearchParams({
         targetType,
@@ -752,9 +647,7 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       if (familyId) params.append('familyId', familyId);
 
       const response = await fetch(`${API_URL}/visits/wizard-options?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) {
@@ -763,7 +656,6 @@ export const useVisitStore = create<VisitState>((set, get) => ({
       }
 
       const result = await response.json();
-
       return result.data;
     } catch (error: any) {
       console.error('❌ getVisitWizardOptions error:', error);
@@ -834,9 +726,9 @@ export const useVisitStore = create<VisitState>((set, get) => ({
         .from('aidants')
         .select('id')
         .eq('user_id', user.id)
-        .maybeSingle(); // ✅ Remplacé par maybeSingle() pour la sécurité en production
+        .maybeSingle(); 
 
-      if (!aidant) return []; // ✅ CORRIGÉ : Typo 'ant' corrigée en 'aidant' pour valider le typage TS
+      if (!aidant) return []; 
 
       const { data, error } = await supabase
         .from('visites')
