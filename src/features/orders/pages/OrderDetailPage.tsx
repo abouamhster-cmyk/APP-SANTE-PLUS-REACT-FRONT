@@ -26,15 +26,17 @@ import {
   AlertCircle,
   Loader2,
   CreditCard,
+  UserPlus, 
   Navigation as NavIcon,
   Info,
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useBranding } from '@/hooks/useBranding'; 
+import { useBranding } from '@/hooks/useBranding'; // ✅ CORRIGÉ : Importation vers le dossier des hooks
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; 
+import { useAidantCatalogStore } from '@/stores/aidantCatalogStore'; 
 
 import {
   isOrderPendingPayment,
@@ -45,9 +47,15 @@ import {
 import { supabase } from '@/lib/supabase';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment'; 
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal'; 
 import toast from 'react-hot-toast';
 
-// ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ POUR CONCORDANCE DE PROVISION
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+
+// ============================================================
+// HELPERS LOCAUX
+// ============================================================
+
 const calculateWithdrawalFeeLocal = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
   if (amount <= 0) return 0;
   const amt = Math.round(amount);
@@ -84,10 +92,6 @@ const calculateWithdrawalFeeLocal = (amount: number, operator: 'mtn_moov' | 'cel
     return 9900;
   }
 };
-
-// ============================================================
-// HELPERS LOCAUX
-// ============================================================
 
 interface MiniCardProps {
   icon: React.ReactNode;
@@ -194,6 +198,8 @@ const OrderDetailPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
+  const { fetchAidants } = useAidantCatalogStore();
+
   const order = currentOrder as any;
 
   const [isUpdating, setIsUpdating] = useState(false);
@@ -210,6 +216,8 @@ const OrderDetailPage = () => {
   const isActionPending = useRef(false);
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
+  const [showAssignModal, setShowAssignModal] = useState(false);
+
   const openUrl = (url: string | null) => { 
     if (!url) {
       toast.error('URL non disponible');
@@ -218,7 +226,7 @@ const OrderDetailPage = () => {
     window.open(url, '_blank');
   };
 
-  // ✅ REDIRECTION DIRECTE SANS ETAPE INTERMEDIAIRE (MODAL SHUNTE !)
+  // ✅ REDIRECTION DIRECTE SANS ETAPE INTERMEDIAIRE
   const {
     executePayment,
     isPaymentModalOpen,
@@ -249,10 +257,13 @@ const OrderDetailPage = () => {
     };
   }, [showProofModal]);
 
-  // ============================================================
-  // ✅ CONCORDANCE ET CALCUL DE PROVISIONS SÉCURISÉES DE SECOURS (DÉTECTION DE FLUX)
-  // ============================================================
-  
+  useEffect(() => {
+    if (showAssignModal) {
+      fetchAidants({ onlyAvailable: true });
+    }
+  }, [showAssignModal, fetchAidants]);
+
+  // ✅ CONCORDANCE ET CALCUL DE PROVISIONS SÉCURISÉES
   const financialData = useMemo(() => {
     if (!order) return { purchaseAmount: 0, withdrawalFee: 0 };
 
@@ -260,14 +271,12 @@ const OrderDetailPage = () => {
     const dbPurchase = Number(order.purchase_amount || 0);
     const dbFee = Number(order.withdrawal_fee || 0);
 
-    // Si colonnes DB déjà renseignées, les utiliser d'office (Cas nominal de notre V2)
     if (dbPurchase > 0) {
       return { purchaseAmount: dbPurchase, withdrawalFee: dbFee };
     }
 
-    // Fallback dynamique s'il y a eu un paiement de provision global mais que les colonnes individuelles sont à 0 (Données de test)
     if (estimated > 0) {
-      const baseServicePrice = 500; // Tarif de base de l'acte unifié
+      const baseServicePrice = 500; 
       const estimatedPurchase = Math.max(0, estimated - baseServicePrice);
       const calculatedFee = calculateWithdrawalFeeLocal(estimatedPurchase, order.withdrawal_operator || 'mtn_moov');
       
@@ -292,7 +301,6 @@ const OrderDetailPage = () => {
       });
   };
 
-  // ✅ CAPTURE DU POINT DE DÉPART DE MISSION LORS DE LA PRISE EN CHARGE (CHECKPOINT)
   const handleTakeOrder = async () => {
     if (!id) return;
     if (isActionPending.current) return;
@@ -313,10 +321,9 @@ const OrderDetailPage = () => {
         });
         takeLat = position.coords.latitude;
         takeLng = position.coords.longitude;
-        console.log(`📍 Checkpoint Prise de Commande GPS capturé: ${takeLat}, ${takeLng}`);
       }
     } catch (e) {
-      console.warn("⚠️ Impossible de récupérer la position GPS au moment d'accepter la commande");
+      console.warn("⚠️ Pas de GPS");
     }
     
     try {
@@ -324,7 +331,6 @@ const OrderDetailPage = () => {
       toast.success('Commande prise en charge ✅ (GPS enregistré)');
       await fetchOrderById(id);
     } catch (error: any) {
-      console.error('❌ Erreur prise commande:', error);
       toast.error(error.message || 'Erreur lors de la prise de commande');
     } finally {
       setIsUpdating(false);
@@ -356,7 +362,6 @@ const OrderDetailPage = () => {
     reader.readAsDataURL(file);
   };
 
-  // ✅ ENREGISTREMENT COMPLET DE LA LIVRAISON (AVEC PARAMETRAGE METHODE ET CHECKPOINT GPS)
   const handleCompleteDelivery = async () => {
     if (!id) return;
     if (deliveryFeeInput <= 0 && !order.subscription_id) {
@@ -420,7 +425,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  // ✅ CONFIRMER OU CONTESTER LE CASH REÇU PAR LE LIVREUR
   const handleConfirmCash = async (isConfirmed: boolean) => {
     if (!id || isUpdating) return;
     setIsUpdating(true);
@@ -458,6 +462,45 @@ const OrderDetailPage = () => {
     }
   };
 
+  // ✅ ADMIN ASSIGNATION : Communication directe avec notre nouvel endpoint backend
+  const handleAdminAssignAidant = async (aidantUserId: string, type: string, force: boolean = false) => {
+    isActionPending.current = true;
+    setIsUpdating(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Token de session manquant');
+
+      const response = await fetch(`${API_URL}/orders/${id}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          aidantUserId,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Erreur d’assignation');
+
+      toast.success('Intervenant rattaché à la livraison par l’administration !');
+      setShowAssignModal(false);
+      fetchOrderById(id!);
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur d’assignation');
+    } finally {
+      setIsUpdating(false);
+      isActionPending.current = false;
+    }
+  };
+
+  const handleAssignSuccess = () => {
+    setShowAssignModal(false);
+    fetchOrderById(id!);
+  };
+
   if (isLoading || !currentOrder) {
     return (
       <div className="min-h-[420px] flex items-center justify-center">
@@ -479,7 +522,6 @@ const OrderDetailPage = () => {
   const canTake = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
   const canAccept = order.status === 'creee' && isAdminOrCoordinator;
   
-  // ✅ RAPPROCHEMENT PAR TOKENS UTILISATEURS POUR DEBLOQUER LA LIVRAISON DE L'INTERVENANT ACTIF
   const isMyActiveDelivery = isAidant && order.status === 'en_cours' && (order.taken_by === user?.id);
 
   const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
@@ -510,7 +552,6 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
-              {/* ✅ SÉCURISÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses de livraison simples ! */}
               {isPaid && financialData.purchaseAmount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
@@ -573,6 +614,16 @@ const OrderDetailPage = () => {
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
             >
               <Truck size={14} /> Déclarer le dépôt & Finaliser
+            </button>
+          )}
+
+          {/* ✅ ASSIGNER UN AIDANT (ÉCRAN ADMIN) : Dispo s'il n'y a pas d'aidant rattaché et que l'ordre est actif */}
+          {isAdminOrCoordinator && !order.aidant_id && ['creee', 'en_attente', 'disponible'].includes(order.status) && (
+            <button 
+              onClick={() => setShowAssignModal(true)} 
+              className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99]"
+            >
+              <UserPlus size={14} /> Assigner un aidant (Admin)
             </button>
           )}
 
@@ -720,22 +771,19 @@ const OrderDetailPage = () => {
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
           <span className="text-sm font-extrabold text-gray-750">
-            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
-            {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
+             {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">💵 Frais de retrait MM</span>
           <span className="text-sm font-extrabold text-gray-750">
-            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
-            {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
+             {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
           <span className="text-sm font-extrabold text-emerald-600">
-            {/* ✅ CORRIGÉ : Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
-            {order.subscription_id 
+             {order.subscription_id 
               ? 'Gratuit (Abonnement)' 
               : (order.delivery_fee > 0 
                   ? `${order.delivery_fee.toLocaleString()} FCFA (${order.delivery_payment_method === 'cash' ? 'Espèces' : 'En ligne'})` 
@@ -744,8 +792,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* PERSONNES CONCERNÉES - ✅ CORRIGÉ POUR RETIRER LA REDONDANCE DES COMPTES PERSONNELS */}
-      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
           Personnes concernées
@@ -823,7 +870,7 @@ const OrderDetailPage = () => {
             {order.prescription_url && (
               <DocButton
                 icon={<ImageIcon size={19} />}
-                title={order.type === 'medicaments' ? "Ordonnance médicale" : "Photo de l'article / objet"} // ✅ Label dynamique intelligent
+                title={order.type === 'medicaments' ? "Ordonnance médicale" : "Photo de l'article / objet"}  
                 color={colors.primary}
                 onClick={() => openUrl(order.prescription_url)}
               />
@@ -931,8 +978,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
-        {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
+         {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
@@ -942,8 +988,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
-        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
+         {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
             <div>
@@ -1097,6 +1142,23 @@ const OrderDetailPage = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ✅ MODAL D'ASSIGNATION D'AIDANT PREMIUM HARMONISÉ (Mis à jour pour cibler dynamiquement l'objet order !) */}
+      {showAssignModal && (
+        <AssignAidantModal
+          isOpen={showAssignModal}
+          onClose={handleAssignSuccess}
+          targetType="order" 
+          targetId={order.id} 
+          targetName={order.target_name || `${order.patient?.first_name || ''} ${order.patient?.last_name || ''}`.trim()}
+          onSuccess={handleAssignSuccess}
+          currentAidantId={order.aidant_id}  
+          colors={colors}
+          allowForce={true}
+          onAssignAidant={handleAdminAssignAidant}
+          isAdmin={true}
+        />
       )}
     </div>
   );
