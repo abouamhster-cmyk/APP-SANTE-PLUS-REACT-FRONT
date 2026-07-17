@@ -1,5 +1,6 @@
 // 📁 src/features/orders/pages/CreateOrderPage.tsx
- 
+// ✅ PAGE CRÉATION COMMANDE : FORMULAIRE ENTIÈREMENT ÉPURÉ AVEC CALCUL DE PROVISION EN LOCAL (BÉNIN)
+
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -21,14 +22,13 @@ import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
-import { calculateWithdrawalFee } from '@/stores/aidantCatalogStore';
 import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import { cn } from '@/utils/helpers'; 
 import toast from 'react-hot-toast';
 
 // ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ ET AUTONOME
-const calculateWithdrawalFeeLocal = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
+const calculateWithdrawalFee = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
   if (amount <= 0) return 0;
   const amt = Math.round(amount);
 
@@ -107,7 +107,7 @@ const CreateOrderPage = () => {
 
   const [formData, setFormData] = useState({
     patient_id: '',
-    type: 'autre', // ✅ Toujours défini sur 'autre' pour le schéma DB
+    type: 'autre', // ✅ Type par défaut unifié sur 'autre' pour la compatibilité base de données
     description: '',
     address: '',
     latitude: null as number | null,
@@ -147,7 +147,7 @@ const CreateOrderPage = () => {
 
   const withdrawalFee = useMemo(() => {
     if (!needsPurchase || purchaseAmount <= 0) return 0;
-    return calculateWithdrawalFeeLocal(purchaseAmount, operator); 
+    return calculateWithdrawalFee(purchaseAmount, operator);
   }, [needsPurchase, purchaseAmount, operator]);
 
   const totalAdvanceAmount = purchaseAmount + withdrawalFee;
@@ -159,8 +159,8 @@ const CreateOrderPage = () => {
       return {
         type: 'success',
         icon: <CheckCircle size={18} />,
-        title: `✅ ${remainingOrders} course(s) restante(s)`,
-        description: 'Votre abonnement couvre les frais de transport de cette livraison.',
+        title: `✅ ${remainingOrders} course${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
+        description: 'Votre abonnement couvre les frais de livraison de cette course.',
       };
     }
     
@@ -284,6 +284,7 @@ const CreateOrderPage = () => {
     }
 
     try {
+      // ✅ SÉCURITÉ TRANSMISSION PROVISION : Passage des paramètres requis pour le Webhook
       await payOrderPonctual({
         description: orderData.description,
         orderType: orderData.type,
@@ -312,6 +313,7 @@ const CreateOrderPage = () => {
       return;
     }
 
+    // S'il y a achat physique d'avance, rediriger d'office vers FedaPay (indépendant du forfait)
     if (needsPurchase) {
       isSubmittingRef.current = true;
       await handlePonctualPayment();
@@ -319,6 +321,7 @@ const CreateOrderPage = () => {
       return;
     }
 
+    // Simple course de récupération
     isSubmittingRef.current = true;
     await createOrderWithSubscription();
   };
@@ -336,7 +339,7 @@ const CreateOrderPage = () => {
       const result = await createOrder({
         ...orderData,
         order_type: isSubUsed ? 'subscription' : 'ponctual',
-        is_paid: true, 
+        is_paid: true, // Pas de provision attendue
       });
 
       toast.success('Commande créée avec succès !');
