@@ -8,17 +8,12 @@ import {
   AssignAidantRequest,
   AssignAidantResponse,
   TargetType,
-  AssignmentStatus,
 } from '@/types/assignment';
 import { useAuthStore } from './authStore';
 
- 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 export const useAssignmentStore = create<AssignmentState>((set, get) => ({
-  // ============================================================
-  // ÉTAT INITIAL
-  // ============================================================
   assignments: [],
   activeAidant: null,
   allAidants: [],
@@ -26,9 +21,6 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
   error: null,
   isInitialized: false,
 
-  // ============================================================
-  // FETCH ASSIGNMENTS - AVEC DÉTECTION DU RÔLE
-  // ============================================================
   fetchAssignments: async (filters?: AssignmentFilters) => {
     try {
       set({ isLoading: true, error: null });
@@ -37,24 +29,18 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
       const token = sessionData?.session?.access_token;
 
       if (!token) {
-        throw new Error('Token manquant');
+        throw new Error('Token de session manquant');
       }
 
       const { profile } = useAuthStore.getState();
       
-      // ✅ Déterminer l'endpoint selon le rôle
       let endpoint = '/assignments';
       
-      // ✅ Si famille, utiliser /my
       if (profile?.role === 'family') {
         endpoint = '/assignments/my';
-      } 
-      // ✅ Si admin/coordinator, utiliser /
-      else if (profile?.role === 'admin' || profile?.role === 'coordinator') {
+      } else if (profile?.role === 'admin' || profile?.role === 'coordinator') {
         endpoint = '/assignments';
-      }
-      // ✅ Si aidant, utiliser /aidant/:userId
-      else if (profile?.role === 'aidant') {
+      } else if (profile?.role === 'aidant') {
         endpoint = `/assignments/aidant/${profile.id}`;
       }
 
@@ -92,9 +78,6 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // FETCH ACTIVE AIDANT
-  // ============================================================
   fetchActiveAidant: async (targetType: TargetType, targetId: string, familyId?: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -103,7 +86,7 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
       const token = sessionData?.session?.access_token;
 
       if (!token) {
-        throw new Error('Token manquant');
+        throw new Error('Token de session manquant');
       }
 
       const params = new URLSearchParams({
@@ -135,9 +118,6 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // FETCH ALL AIDANTS
-  // ============================================================
   fetchAllAidants: async (targetType: TargetType, targetId: string, familyId?: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -146,7 +126,7 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
       const token = sessionData?.session?.access_token;
 
       if (!token) {
-        throw new Error('Token manquant');
+        throw new Error('Token de session manquant');
       }
 
       const params = new URLSearchParams({
@@ -178,29 +158,25 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // ASSIGN AIDANT - SANS TOAST
-  // ============================================================
   assignAidant: async (data: AssignAidantRequest): Promise<AssignAidantResponse> => {
     try {
       set({ isLoading: true, error: null });
+
+      const { profile } = useAuthStore.getState();
+      
+      // 🔒 Bloquer les actions d'écriture pour les familles
+      if (profile?.role === 'family') {
+        throw new Error("L'attribution d'un aidant est gérée par l'administration de Santé Plus. Veuillez les contacter.");
+      }
 
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
       if (!token) {
-        throw new Error('Token manquant');
+        throw new Error('Token de session manquant');
       }
 
-      const { profile } = useAuthStore.getState();
-      
-      // ✅ Déterminer l'endpoint selon le rôle
-      let endpoint = '/assignments';
-      if (profile?.role === 'family') {
-        endpoint = '/assignments/family/assign';
-      }
-
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -216,33 +192,33 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
 
       const result = await response.json();
 
-      // ✅ Rafraîchir les données
       await get().fetchAssignments();
 
       set({ isLoading: false });
-
-      // ✅ SUPPRIMÉ : toast.success('Aidant assigné avec succès');
       return result;
     } catch (error: any) {
       console.error('❌ Assign aidant error:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
-  // ============================================================
-  // REVOKE ASSIGNMENT - SANS TOAST
-  // ============================================================
   revokeAssignment: async (assignmentId: string, reason?: string) => {
     try {
       set({ isLoading: true, error: null });
+
+      const { profile } = useAuthStore.getState();
+      
+      // 🔒 Bloquer les révocations pour les familles
+      if (profile?.role === 'family') {
+        throw new Error("Seule l'administration de Santé Plus peut révoquer ou modifier une assignation.");
+      }
 
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
       if (!token) {
-        throw new Error('Token manquant');
+        throw new Error('Token de session manquant');
       }
 
       const response = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
@@ -259,25 +235,16 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
         throw new Error(error.error || 'Erreur lors de la révocation');
       }
 
-      const result = await response.json();
-
-      // ✅ Rafraîchir les données
       await get().fetchAssignments();
 
       set({ isLoading: false });
-
-      // ✅ SUPPRIMÉ : toast.success('Assignation révoquée avec succès');
     } catch (error: any) {
       console.error('❌ Revoke assignment error:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message || 'Erreur lors de la révocation');
       throw error;
     }
   },
 
-  // ============================================================
-  // CHECK ASSIGNMENT
-  // ============================================================
   checkAssignment: async (aidantUserId: string, targetType: TargetType, targetId: string): Promise<boolean> => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -311,9 +278,6 @@ export const useAssignmentStore = create<AssignmentState>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // UTILITIES
-  // ============================================================
   clearError: () => set({ error: null }),
   
   reset: () => {
