@@ -1,6 +1,5 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
-// ✅ PAGE HUB DE L'INTERVENANT : DOSSIER PATIENT IMMERSIF, ACTIONS GPS DIRECTES ET SUIVI DES COURSES
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -27,8 +26,13 @@ import {
   Pill,
   Mic,
   ChevronRight,
+  ChevronDown,
   X,
+  FileText,
+  Check,
+  Loader2,
 } from 'lucide-react';
+
 import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -42,20 +46,22 @@ import toast from 'react-hot-toast';
 
 type TabType = 'missions' | 'deliveries' | 'available';
 
-const MissionsPage = () => {
+export const MissionsPage = () => {
   const navigate = useNavigate();
   const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
+
+  const { getCategoryLabel } = useTerminology();
 
   // Stores
   const { 
     visits, 
     fetchVisits, 
     startVisit, 
-    startAdHocVisit, // ✅ Ajouté pour le démarrage à la volée
-    completeVisit,
-    isLoading 
+    startAdHocVisit, 
+    completeVisit, 
+    isLoading: isVisitsLoading 
   } = useVisitStore();
 
   const { 
@@ -72,8 +78,6 @@ const MissionsPage = () => {
     isLoading: isAssignmentsLoading 
   } = useAidantCatalogStore();
 
-  const { getCategoryLabel } = useTerminology();
-
   // États locaux
   const [activeTab, setActiveTab] = useState<TabType>('missions');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -85,7 +89,7 @@ const MissionsPage = () => {
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<any | null>(null);
   const [elapsedTime, setElapsedTime] = useState<string>('00:00:00');
   const [isActionPending, setIsActionPending] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [showReportModal, setShowCompleteModal] = useState(false);
 
   // Formulaire de Rapport de visite
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
@@ -96,15 +100,15 @@ const MissionsPage = () => {
   const startTouchY = useRef(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mappings mémorisés
-  const myMissions = useMemo(() => visits.filter(v => v.aidant_id === aidantId), [visits, aidantId]);
-  const assignedOrders = useMemo(() => orders.filter(o => o.aidant_id === aidantId), [orders, aidantId]);
-  const availableOrders = useMemo(() => orders.filter(o => o.status === 'en_attente' || o.status === 'disponible'), [orders]);
-  const deliveryOrders = useMemo(() => assignedOrders.filter(o => o.status === 'en_cours' || o.status === 'livree'), [assignedOrders]);
+  // Mappings mémorisés avec typage explicite
+  const myMissions = useMemo(() => visits.filter((v: any) => v.aidant_id === aidantId), [visits, aidantId]);
+  const assignedOrders = useMemo(() => orders.filter((o: any) => o.aidant_id === aidantId), [orders, aidantId]);
+  const availableOrders = useMemo(() => orders.filter((o: any) => o.status === 'en_attente' || o.status === 'disponible'), [orders]);
+  const deliveryOrders = useMemo(() => assignedOrders.filter((o: any) => o.status === 'en_cours' || o.status === 'livree'), [assignedOrders]);
 
-  // ✅ Intervention en cours
+  // Intervention en cours
   const activeIntervention = useMemo(() => {
-    return visits.find(v => v.status === 'en_cours');
+    return visits.find((v: any) => v.status === 'en_cours');
   }, [visits]);
 
   // Chronomètre
@@ -140,12 +144,12 @@ const MissionsPage = () => {
   }, [activeIntervention]);
 
   const stats = useMemo(() => {
-    const plannedMissionsCount = myMissions.filter(v => v.status === 'planifiee').length;
-    const inProgressMissionsCount = myMissions.filter(v => v.status === 'en_cours').length;
-    const completedMissionsCount = myMissions.filter(v => ['terminee', 'validee'].includes(v.status)).length;
+    const plannedMissionsCount = myMissions.filter((v: any) => v.status === 'planifiee').length;
+    const inProgressMissionsCount = myMissions.filter((v: any) => v.status === 'en_cours').length;
+    const completedMissionsCount = myMissions.filter((v: any) => ['terminee', 'validee'].includes(v.status)).length;
 
-    const inProgressDeliveriesCount = assignedOrders.filter(o => o.status === 'en_cours').length;
-    const completedDeliveriesCount = assignedOrders.filter(o => ['livree', 'validee'].includes(o.status)).length;
+    const inProgressDeliveriesCount = assignedOrders.filter((o: any) => o.status === 'en_cours').length;
+    const completedDeliveriesCount = assignedOrders.filter((o: any) => ['livree', 'validee'].includes(o.status)).length;
 
     return {
       missions: {
@@ -284,7 +288,6 @@ const MissionsPage = () => {
     setPullY(0);
   };
 
-  // ✅ DÉMARRAGE À LA VOLÉE (AD-HOC) AVEC POINT GPS DE DÉPART
   const handleStartAdHocIntervention = async (beneficiary: any) => {
     if (isActionPending) return;
 
@@ -307,7 +310,6 @@ const MissionsPage = () => {
         });
         startLat = position.coords.latitude;
         startLng = position.coords.longitude;
-        console.log(`📍 GPS Départ Capturé : ${startLat}, ${startLng}`);
       }
     } catch (e) {
       console.warn("⚠️ Géolocalisation non capturée.");
@@ -319,7 +321,7 @@ const MissionsPage = () => {
 
       if (result) {
         toast.success(`🚀 Intervention commencée pour ${beneficiary.target_name} !`);
-        setSelectedBeneficiary(null); // fermer la fiche
+        setSelectedBeneficiary(null); 
       }
     } catch (error: any) {
       toast.error(error.message || 'Impossible de démarrer l’intervention');
@@ -328,7 +330,6 @@ const MissionsPage = () => {
     }
   };
 
-  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES
   const handleStartPlannedIntervention = async (id: string) => {
     if (isActionPending) return;
     setIsActionPending(true);
@@ -362,7 +363,6 @@ const MissionsPage = () => {
     }
   };
 
-  // ✅ TRANSMISSION DU RAPPORT ET POINT GPS D'ARRIVÉE
   const handleCompleteIntervention = async () => {
     if (!activeIntervention) return;
     if (selectedActions.length === 0) {
@@ -399,7 +399,7 @@ const MissionsPage = () => {
       });
 
       toast.success('🎉 Rapport transmis ! Intervention archivée.');
-      setShowReportModal(false);
+      setShowCompleteModal(false);
       setSelectedActions([]);
       setReportNotes('');
     } catch (error: any) {
@@ -411,21 +411,21 @@ const MissionsPage = () => {
 
   const getFilteredItems = () => {
     if (activeTab === 'missions') {
-      if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
-      if (filterStatus === 'beneficiaires') return []; // Géré séparément
+      if (filterStatus === 'all') return myMissions.filter((v: any) => v.status !== 'brouillon');
+      if (filterStatus === 'beneficiaires') return []; 
       if (filterStatus === 'planned') {
-        return myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente' || v.status === 'acceptee');
+        return myMissions.filter((v: any) => v.status === 'planifiee' || v.status === 'en_attente' || v.status === 'acceptee');
       }
       if (filterStatus === 'history') {
-        return myMissions.filter(v => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
+        return myMissions.filter((v: any) => ['terminee', 'validee', 'annulee', 'refusee'].includes(v.status));
       }
     }
     if (activeTab === 'deliveries') {
       if (filterStatus === 'active') {
-        return deliveryOrders.filter(o => o.status === 'en_cours');
+        return deliveryOrders.filter((o: any) => o.status === 'en_cours');
       }
       if (filterStatus === 'history') {
-        return assignedOrders.filter(o => ['livree', 'validee', 'annulee'].includes(o.status));
+        return assignedOrders.filter((o: any) => ['livree', 'validee', 'annulee'].includes(o.status));
       }
       return deliveryOrders;
     }
@@ -467,38 +467,23 @@ const MissionsPage = () => {
     );
   };
 
-  const getStatusColor = (status: string) => {
-    const map: Record<string, string> = {
-      planifiee: '#10B981',
-      en_attente: '#F59E0B',
-      acceptee: '#3B82F6',
-      en_cours: '#3B82F6',
-      terminee: '#8B5CF6',
-      validee: '#10B981',
-      annulee: '#6B7280',
-      refusee: '#EF4444',
-      creee: '#6B7280',
-      disponible: '#EF4444',
-      livree: '#3B82F6',
-    };
-    return map[status] || '#9E9E9E';
+  const handleTabChangeLocal = (tab: TabType) => {
+    setActiveTab(tab);
+    if (tab === 'missions') {
+      setFilterStatus('all');
+    } else if (tab === 'deliveries') {
+      setFilterStatus('active');
+    } else {
+      setFilterStatus('all');
+    }
   };
 
-  const getStatusLabel = (status: string) => {
-    const map: Record<string, string> = {
-      planifiee: 'Prévue',
-      en_attente: 'En attente',
-      acceptee: 'Confirmée',
-      en_cours: 'En cours',
-      terminee: 'Terminée (Rapport)',
-      validee: 'Validée',
-      annulee: 'Annulée',
-      refusee: 'Refusée',
-      creee: 'Créée',
-      disponible: 'Disponible (urgent)',
-      livree: 'Livrée',
-    };
-    return map[status] || status;
+  const getStatusColorLocal = (status: string) => {
+    return getStatusColor(status);
+  };
+
+  const getStatusLabelLocal = (status: string) => {
+    return getStatusLabel(status);
   };
 
   if (isChecking) {
@@ -550,7 +535,7 @@ const MissionsPage = () => {
 
   return (
     <div 
-      className="space-y-6 pb-6 px-2 sm:px-0"
+      className="space-y-6 pb-6"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -697,7 +682,7 @@ const MissionsPage = () => {
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => handleTabChange(tab.key as TabType)}
+              onClick={() => handleTabChangeLocal(tab.key as TabType)}
               className={cn(
                 "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none",
                 activeTab === tab.key ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
@@ -771,7 +756,7 @@ const MissionsPage = () => {
         /* ✅ RENDU DIRECT DES BÉNÉFICIAIRES ASSIGNÉS (DOSSIERS PATIENTS) */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignments.length > 0 ? (
-            assignments.map((link) => {
+            assignments.map((link: any) => {
               const isPersonal = link.target_type === 'personal_account' || link.is_personal;
               const name = link.target_name || 'Bénéficiaire';
               const address = isPersonal ? link.family?.address : link.patient?.address;
@@ -809,13 +794,15 @@ const MissionsPage = () => {
         </div>
       ) : filteredItems.length > 0 ? (
         <section className="space-y-3">
-          {filteredItems.map((item) => (
+          {filteredItems.map((item: any) => (
             <MissionItemCompact
               key={item.id}
               item={item}
               type={activeTab}
               colors={colors}
               aidantId={aidantId}
+              onApprove={() => {}}
+              onRefuse={() => {}}
               onStart={() => handleStartPlannedIntervention(item.id)}
               onTakeOrder={() => handleTakeOrder(item.id)}
               onDeliver={() => handleDeliverOrder(item.id)}
@@ -826,8 +813,8 @@ const MissionsPage = () => {
                   navigate(`/app/orders/${item.id}`);
                 }
               }}
-              getStatusColor={getStatusColor}
-              getStatusLabel={getStatusLabel}
+              getStatusColor={getStatusColorLocal}
+              getStatusLabel={getStatusLabelLocal}
               formatDate={formatDate}
               formatTime={formatTime}
               formatCurrency={formatCurrency}
@@ -1007,7 +994,7 @@ const MissionsPage = () => {
                 </h2>
               </div>
               <button
-                onClick={() => setShowReportModal(false)}
+                onClick={() => setShowCompleteModal(false)}
                 className="p-1.5 hover:bg-gray-100 rounded-xl transition"
               >
                 <X size={18} />
@@ -1058,7 +1045,7 @@ const MissionsPage = () => {
             <div className="flex gap-2.5 pt-4 border-t">
               <button
                 type="button"
-                onClick={() => setShowReportModal(false)}
+                onClick={() => setShowCompleteModal(false)}
                 className="flex-1 h-12 font-bold text-gray-500 hover:bg-gray-50 transition border rounded-2xl"
               >
                 Retour
@@ -1094,6 +1081,8 @@ interface MissionItemCompactProps {
   type: TabType;
   colors: any;
   aidantId: string | null;
+  onApprove: () => void;
+  onRefuse: () => void;
   onStart: () => void;
   onTakeOrder: () => void;
   onDeliver: () => void;
