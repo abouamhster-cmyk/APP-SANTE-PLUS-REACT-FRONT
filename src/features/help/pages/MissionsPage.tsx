@@ -1,5 +1,6 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
- 
+// ✅ PAGE HUB DE L'INTERVENANT : SYNCHRONISATION DES ACTIONS GPS, DES DOSSIERS PATIENTS ET DU PLANNING
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -161,7 +162,6 @@ const MissionsPage = () => {
 
   const isLoading_ = isLoading || ordersLoading || isAssignmentsLoading;
 
-  // ✅ CORRIGÉ : Remplacement de stats.missions.planned par stats.missions.pending
   const missionSubFilters = useMemo(() => [
     { key: 'all', label: 'Toutes' },
     { key: 'beneficiaires', label: `👥 Bénéficiaires (${assignments.length})` },
@@ -279,6 +279,137 @@ const MissionsPage = () => {
     setPullY(0);
   };
 
+  // ============================================================
+  // ✅ ACTIONS DE DÉMARRAGE AD-HOC (À LA VOLÉE)
+  // ============================================================
+  const handleStartAdHocIntervention = async (beneficiary: any) => {
+    if (isActionPending) return;
+
+    if (activeIntervention) {
+      toast.error('Vous avez déjà une autre intervention en cours. Veuillez d’abord la clore.');
+      return;
+    }
+
+    setIsActionPending(true);
+    let startLat: number | null = null;
+    let startLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        startLat = position.coords.latitude;
+        startLng = position.coords.longitude;
+      }
+    } catch {
+      console.warn("⚠️ Géolocalisation non capturée.");
+    }
+
+    try {
+      const targetId = beneficiary.target_type === 'patient' ? beneficiary.patient_id : beneficiary.family_id;
+      const result = await startAdHocVisit(beneficiary.target_type, targetId, startLat, startLng);
+
+      if (result) {
+        toast.success(`🚀 Intervention commencée pour ${beneficiary.target_name} !`);
+        setSelectedBeneficiary(null); // fermer la fiche
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur de démarrage ad-hoc:', error);
+      toast.error(error.message || 'Impossible de démarrer l’intervention');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  // ============================================================
+  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES
+  // ============================================================
+  const handleStartPlannedIntervention = async (id: string) => {
+    if (isActionPending) return;
+    setIsActionPending(true);
+    
+    let startLat: number | null = null;
+    let startLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        startLat = position.coords.latitude;
+        startLng = position.coords.longitude;
+      }
+    } catch (e) {
+      console.warn("⚠️ Géolocalisation non capturée.");
+    }
+
+    try {
+      await startVisit(id, startLat, startLng);
+      toast.success('🚀 Intervention commencée !');
+      await fetchVisits();
+    } catch (error: any) {
+      toast.error(error.message || 'Erreur lors du démarrage');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  // ============================================================
+  // ✅ TRANSMISSION DU RAPPORT ET POINT GPS D'ARRIVÉE
+  // ============================================================
+  const handleCompleteIntervention = async () => {
+    if (!activeIntervention) return;
+    if (selectedActions.length === 0) {
+      toast.error('Veuillez cocher au moins une action d’accompagnement effectuée.');
+      return;
+    }
+
+    setIsActionPending(true);
+    let endLat: number | null = null;
+    let endLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          });
+        });
+        endLat = position.coords.latitude;
+        endLng = position.coords.longitude;
+      }
+    } catch {
+      console.warn("⚠️ Géolocalisation non capturée.");
+    }
+
+    try {
+      await completeVisit(activeIntervention.id, {
+        actions: selectedActions,
+        notes: reportNotes.trim(),
+        photos: [], 
+        lat: endLat,
+        lng: endLng,
+      });
+
+      toast.success('🎉 Rapport transmis ! Intervention archivée.');
+      setShowVisitReportModal(false);
+      setSelectedActions([]);
+      setReportNotes('');
+    } catch (error: any) {
+      toast.error('Erreur de transmission du rapport');
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
   const getFilteredItems = () => {
     if (activeTab === 'missions') {
       if (filterStatus === 'all') return myMissions.filter(v => v.status !== 'brouillon');
@@ -379,12 +510,6 @@ const MissionsPage = () => {
     } else {
       setFilterStatus('all');
     }
-  };
-
-  const toggleActionSelection = (id: string) => {
-    setSelectedActions(prev =>
-      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
-    );
   };
 
   const getActionOptions = () => {
@@ -525,7 +650,6 @@ const MissionsPage = () => {
             <p className="text-sm font-black leading-none truncate" style={{ color: colors.text }}>
               {stats.missions.total} total
             </p>
-            {/* ✅ CORRIGÉ : stats.missions.pending au lieu de stats.missions.planned */}
             <p className="text-[9px] mt-1" style={{ color: colors.textLight }}>
               {stats.missions.pending} prévues
             </p>
@@ -642,7 +766,7 @@ const MissionsPage = () => {
         </section>
       )}
 
-      {/* RENDU DES LISTES */}
+      {/* AFFICHAGES LISTES */}
       {activeTab === 'missions' && filterStatus === 'beneficiaires' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {assignments.length > 0 ? (
@@ -694,7 +818,7 @@ const MissionsPage = () => {
               onStart={() => handleStartPlannedIntervention(item.id)}
               onTakeOrder={() => handleTakeOrder(item.id)}
               onDeliver={() => {
-                setSelectedOrderForAssign(item);
+                setSelectedOrderForDelivery(item);
                 setShowDeliveryReportModal(true);
               }}
               onView={() => {
