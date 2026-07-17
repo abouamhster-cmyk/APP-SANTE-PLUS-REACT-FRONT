@@ -1,5 +1,5 @@
 // 📁 src/hooks/usePonctualPayment.ts
-// ✅ Hook pour gérer les paiements ponctuels unifiés
+// ✅ HOOK DE PAIEMENT PONCTUEL CORRIGÉ : GESTION DES MÉTADONNÉES DE PROVISIONS ET CALCUL DE DOUBLE COURSES
 
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +42,10 @@ export interface OrderPaymentData {
   targetType: 'personal' | 'patient';
   targetName: string;
   patientId?: string | null;
+  // ✅ AJOUT DES PROVISIONS POUR ENVOI AU WEBHOOK
+  purchase_amount?: number;
+  withdrawal_operator?: string;
+  withdrawal_fee?: number;
 }
 
 // ============================================================
@@ -92,11 +96,12 @@ export const usePonctualPayment = (options: UsePonctualPaymentOptions = {}) => {
   }, []);
 
   // ============================================================
-  // PAYER UNE COMMANDE PONCTUELLE
+  // PAYER UNE COMMANDE PONCTUELLE (PROVISION INCLUSE)
   // ============================================================
 
   const payOrderPonctual = useCallback(async (data: OrderPaymentData) => {
-    const amount = getPonctualOrderPriceByType(data.orderType, data.items);
+    const baseAmount = getPonctualOrderPriceByType(data.orderType, data.items);
+    const amount = baseAmount + (data.purchase_amount || 0) + (data.withdrawal_fee || 0); // ✅ Calcul cumulé de l'avance
     
     const paymentData = {
       type: 'order' as const,
@@ -110,6 +115,10 @@ export const usePonctualPayment = (options: UsePonctualPaymentOptions = {}) => {
       targetType: data.targetType,
       targetName: data.targetName,
       patientId: data.patientId || null,
+      // ✅ TRANSMISSION DES PROVISIONS
+      purchase_amount: data.purchase_amount || 0,
+      withdrawal_operator: data.withdrawal_operator || null,
+      withdrawal_fee: data.withdrawal_fee || 0,
     };
 
     // ✅ Ouvrir le modal de paiement
@@ -120,7 +129,7 @@ export const usePonctualPayment = (options: UsePonctualPaymentOptions = {}) => {
   }, []);
 
   // ============================================================
-  // EXÉCUTER LE PAIEMENT (APPEL API)
+  // EXÉCUTER LE PAIEMENT DIRECT (AVEC APPEL FEDAPAY WEBHOOK)
   // ============================================================
 
   const executePayment = useCallback(async (paymentData: any) => {
@@ -150,6 +159,10 @@ export const usePonctualPayment = (options: UsePonctualPaymentOptions = {}) => {
         prescription_url: paymentData.prescriptionUrl || null,
         target_type: paymentData.targetType,
         target_name: paymentData.targetName,
+        // ✅ TRANSMISSION DANS LA CHAINE DE CRÉATION DE COMMANDE PONCTUELLE
+        purchase_amount: paymentData.purchase_amount || 0,
+        withdrawal_operator: paymentData.withdrawal_operator || null,
+        withdrawal_fee: paymentData.withdrawal_fee || 0,
       };
 
       console.log('📤 Exécution paiement ponctuel:', {
@@ -167,15 +180,18 @@ export const usePonctualPayment = (options: UsePonctualPaymentOptions = {}) => {
         is_ponctual: true,
         is_visit: isVisit,
         visit_id: paymentData.visitId || null,
+        orderId: paymentData.orderId || null, // Relier la commande existante si frais finaux
         order_data: orderData,
         patient_id: paymentData.patientId || null,
         target_type: paymentData.targetType,
         target_name: paymentData.targetName,
+        type: isVisit ? 'visit' : 'order', // type de transaction
         metadata: {
           type: isVisit ? 'visit' : 'order',
           is_ponctual: true,
           is_visit: isVisit,
           visit_id: paymentData.visitId || null,
+          order_id: paymentData.orderId || null, // Relier la commande existante si frais finaux
           order_data: orderData,
         },
       });
@@ -186,7 +202,7 @@ export const usePonctualPayment = (options: UsePonctualPaymentOptions = {}) => {
         throw new Error("Le lien de paiement n'a pas été généré");
       }
 
-      // ✅ Sauvegarder les données en attente
+      // ✅ Sauvegarder les données de suivi locales
       const pendingData = {
         type: paymentData.type,
         id: paymentData.visitId || paymentData.orderId,
@@ -275,7 +291,7 @@ export const usePonctualPayment = (options: UsePonctualPaymentOptions = {}) => {
     // Actions principales
     payVisitPonctual,
     payOrderPonctual,
-    executePayment,
+    executePayment,  
     handlePaymentSuccess,
     handlePaymentCancel,
     
