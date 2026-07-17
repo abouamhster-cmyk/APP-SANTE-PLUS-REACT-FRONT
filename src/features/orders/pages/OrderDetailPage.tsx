@@ -1,6 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET GESTION DYNAMIQUE DES ATTRIBUTIONS CLIENTS
-
+ 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -49,7 +48,7 @@ import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// HELPERS LOCAUX
+// HELPERS LOCAUX (DÉFINITIONS SÉCURISÉES)
 // ============================================================
 
 interface MiniCardProps {
@@ -138,6 +137,7 @@ const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
   );
 };
 
+// ✅ TEXTE DE STATUT DE COMMANDE
 const getStatusLabel = (status: string): string => {
   const map: Record<string, string> = {
     creee: 'Créée',
@@ -152,6 +152,7 @@ const getStatusLabel = (status: string): string => {
   return map[status] || status;
 };
 
+// ✅ COULEUR DE STATUT DE COMMANDE
 const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
     creee: '#9E9E9E',
@@ -164,6 +165,76 @@ const getStatusColor = (status: string): string => {
     attente_paiement: '#8B5CF6',
   };
   return colors[status] || '#9E9E9E';
+};
+
+// ✅ TRADUCTION DES CATÉGORIES EN FRANÇAIS (MAPPING PROPRE)
+const getCategoryTypeLabel = (type: string): string => {
+  const map: Record<string, string> = {
+    medicaments: '💊 Pharmacie / Médicaments',
+    produits_bebe: '🧸 Articles de Bébé (Couches, lait...)',
+    produits_hygiene: "🧴 Produits d'hygiène / Cosmétiques",
+    courses: '🛒 Courses alimentaires / Marché',
+    repas: '🍲 Repas préparés / Plats',
+    autre: '📝 Autre demande spécifique',
+  };
+  return map[type] || type || 'Non précisé';
+};
+
+interface StatusBadgeProps {
+  status: string;
+  colors: any;
+}
+
+// ✅ LE COMPOSANT REQUIS POUR L'ÉTAT DU PIPELINE VERROUILLÉ EN LOCAL
+const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
+  const getStatusConfig = (status: string) => {
+    const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
+      creee: { icon: <Package size={14} />, color: '#9E9E9E', bg: '#9E9E9E15', label: 'Créée' },
+      en_attente: { icon: <Clock size={14} />, color: '#F59E0B', bg: '#F59E0B15', label: 'En attente' },
+      disponible: { icon: <AlertCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Disponible' },
+      en_cours: { icon: <Clock size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'En cours' },
+      livree: { icon: <Truck size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'Livrée' },
+      validee: { icon: <CheckCircle size={14} />, color: '#4CAF50', bg: '#4CAF5015', label: 'Validée' },
+      annulee: { icon: <XCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Annulée' },
+      attente_paiement: { icon: <CreditCard size={14} />, color: '#8B5CF6', bg: '#8B5CF615', label: 'En attente paiement' },
+    };
+    return map[status] || map['creee'];
+  };
+
+  const config = getStatusConfig(status);
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+      style={{ background: config.bg, color: config.color }}
+    >
+      {config.icon}
+      {config.label}
+    </span>
+  );
+};
+
+interface ActionButtonProps {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  disabled?: boolean;
+  onClick: () => void;
+  isLoading?: boolean;
+}
+
+const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || isLoading}
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
+      style={{ background: color }}
+    >
+      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
+      {isLoading ? 'Chargement...' : label}
+    </button>
+  );
 };
 
 // =============================================
@@ -199,6 +270,7 @@ const OrderDetailPage = () => {
 
   const modalRef = useRef<HTMLDivElement>(null); 
   const isActionPending = useRef(false);
+  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
   const openUrl = (url: string | null) => { 
     if (!url) {
@@ -697,8 +769,7 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
-      {/* PERSONNES CONCERNÉES - ✅ CORRIGÉ POUR RETIRER LA REDONDANCE DES COMPTES PERSONNELS */}
-      <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <h2 className="font-black mb-4 flex items-center gap-2" style={{ color: colors.text }}>
           <Users size={18} style={{ color: colors.primary }} />
           Personnes concernées
@@ -884,8 +955,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
-        {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
+         {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
@@ -895,8 +965,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
-        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
+         {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
             <div>
