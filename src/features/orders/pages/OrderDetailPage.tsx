@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET TRADUCTION DES CATÉGORIES
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET FILTRAGE DE RÔLE SÉCURISÉ
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -28,7 +28,7 @@ import {
   Loader2,
   CreditCard,
   Navigation as NavIcon,
-  Info, // ✅ Ajouté pour les alertes informatives
+  Info, // ✅ Utilisé pour les alertes de rôle
 } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
@@ -465,7 +465,7 @@ const OrderDetailPage = () => {
         orderType: 'delivery',
         items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee, total: order.delivery_fee }], 
         address: order.address,
-        targetType: order.target_type as any,
+        targetType: order.target_type,
         targetName: order.target_name || 'Personnel',
         patientId: order.patient_id,
       });
@@ -526,7 +526,7 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
-              {/* ✅ CORRIGÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses simples ! */}
+              {/* ✅ SÉCURISÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses de livraison simples ! */}
               {isPaid && order.purchase_amount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
@@ -918,8 +918,8 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRIGÉ : N'afficher la bannière de provision payée d'avance que s'il y a un montant d'achat réel (>0) ! */}
-        {isPonctual && isPaid && order.purchase_amount > 0 && (
+        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
+        {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
@@ -929,8 +929,8 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ AJOUT BANDEAU INFORMATIF : Commande simple en mode ponctuel en cours, pour rappeler le règlement à l'arrivée */}
-        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && (
+        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
+        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
             <div>
