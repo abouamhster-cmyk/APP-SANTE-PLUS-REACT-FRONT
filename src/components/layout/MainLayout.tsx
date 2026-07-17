@@ -10,7 +10,6 @@ import {
   Users,
   Calendar,
   ShoppingBag,
-  MessageCircle,
   LayoutDashboard,
   Briefcase,
   MapPin,
@@ -57,8 +56,6 @@ const MainLayout = () => {
   const colors = brand.colors;
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  // ✅ ÉTATS POUR LE HEADER FLOTTANT IMMERSIF
   const [showHeader, setShowHeader] = useState(true);
 
   const draftCount = visits.filter(v => v.status === 'brouillon').length;
@@ -114,7 +111,7 @@ const MainLayout = () => {
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
   // =============================================
-  // NAVIGATION PAR RÔLE
+  // NAVIGATION PAR RÔLE (MESSAGES ET CATALOGUE AIDANTS RETIRÉS)
   // =============================================
   const navItems = useMemo(() => {
     const base = [
@@ -125,10 +122,8 @@ const MainLayout = () => {
       return [
         ...base,
         { icon: <Users size={20} />, label: 'Proches', path: '/app/patients' },
-        { icon: <UserCheck size={20} />, label: 'Aidants', path: '/app/aidants' },
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
         { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing' },
         { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal' },
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
@@ -143,7 +138,6 @@ const MainLayout = () => {
         { icon: <Calendar size={20} />, label: 'Planning', path: '/app/planning' },
         { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },
         { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
         { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
       ];
@@ -159,7 +153,6 @@ const MainLayout = () => {
         { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
         { icon: <FileCheck size={20} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
         { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MessageCircle size={20} />, label: 'Messages', path: '/app/messages' },  
         { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments' },
         { icon: <Award size={20} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
         { icon: <Package size={20} />, label: 'Offres', path: '/app/offers' },
@@ -185,7 +178,6 @@ const MainLayout = () => {
       '/app/orders': 'Commandes',
       '/app/patients': 'Bénéficiaires',
       '/app/visits': 'Visites',
-      '/app/messages': 'Messages',
       '/app/billing': 'Abonnement',
       '/app/profile': 'Profil',
       '/app/notifications': 'Notifications',
@@ -243,20 +235,14 @@ const MainLayout = () => {
         </aside>
       )}
 
-      {/* ========================================== */}
-      {/* PAGE CONTENT */}
-      {/* ========================================== */}
       <div className="min-h-screen w-full md:pl-72">
-        
-        {/* ========================================== */}
         {/* HEADER IMMERSIF */}
-        {/* ========================================== */}
         <header
           className={cn(
             "fixed top-0 left-0 right-0 z-30 transition-all duration-300 transform",
             isMobile 
               ? "bg-transparent border-none px-4 py-3" 
-              : "bg-white/95 dark:bg-[#17231d]/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4",
+              : "bg-white/95 backdrop-blur-lg border-b px-5 md:px-6 py-3.5 md:py-4",
             showHeader ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none"
           )}
           style={{
@@ -326,7 +312,7 @@ const MainLayout = () => {
                 )}
 
                 <span
-                  className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-gray-100/80 dark:bg-[#1d2d25]/80"
+                  className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-gray-100/80"
                   style={{
                     color: colors.primary,
                   }}
@@ -346,14 +332,14 @@ const MainLayout = () => {
                   className={cn(
                     "relative transition flex items-center justify-center shrink-0",
                     isMobile 
-                      ? "w-9 h-9 rounded-full bg-white/80 dark:bg-[#17231d]/80 backdrop-blur-md border shadow-sm"
-                      : "w-10 h-10 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] border"
+                      ? "w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border shadow-sm"
+                      : "w-10 h-10 rounded-xl hover:bg-gray-100 border"
                   )}
                   style={{
                     borderColor: colors.primary + '20',
                   }}
                 >
-                  <Bell size={18} className="text-gray-500 dark:text-gray-300" />
+                  <Bell size={18} className="text-gray-500" />
                   {unreadCount > 0 && (
                     <span
                       className="absolute top-0 right-0 min-w-4 h-4 px-1 text-[8px] text-white rounded-full flex items-center justify-center font-black animate-pulse"
@@ -377,7 +363,7 @@ const MainLayout = () => {
         </main>
       </div>
 
-      {/* TABS MOBILE COMPACT */}
+      {/* TABS MOBILE */}
       {isMobile && <MobileTabBar colors={colors} />}
     </div>
   );
@@ -441,10 +427,10 @@ const SidebarContent = ({
   };
 
   return (
-    <div className="flex h-full flex-col bg-white dark:bg-[#17231d]">
-      <div className="flex items-center justify-between px-5 py-4 border-b dark:border-[#2c3f35]" style={{ borderColor: colors.primary + '20' }}>
+    <div className="flex h-full flex-col bg-white">
+      <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: colors.primary + '20' }}>
         <div className="flex items-center gap-2.5">
-          <img src={logoConfig.icon} alt="Logo" className="w-8 h-8 object-contain" />
+          <img src={logoConfig.whiteBg} alt="Logo" className="w-8 h-8 object-contain" />
           <div className="min-w-0">
             <p className="font-black text-sm leading-tight truncate" style={{ color: colors.primary }}>
               Santé Plus Services
@@ -467,7 +453,6 @@ const SidebarContent = ({
               className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 min-w-0 font-medium"
               style={{
                 color: active ? colors.primary : colors.textLight,
-                // 🟢 HOVER DYNAMIQUE ET SÉCURISÉ : Plus de vert forcé en mode sombre, s'ajuste à l'opacité de l'univers connecté
                 backgroundColor: active 
                   ? colors.primary + '18' 
                   : (isHovered ? colors.primary + '08' : 'transparent'),
@@ -480,11 +465,10 @@ const SidebarContent = ({
         })}
       </div>
 
-      {/* Profil de bas de colonne */}
-      <div className="p-4 border-t dark:border-[#2c3f35] space-y-2 bg-gray-50/50 dark:bg-[#111a15]/30" style={{ borderColor: colors.primary + '20' }}>
+      <div className="p-4 border-t space-y-2 bg-gray-50/50" style={{ borderColor: colors.primary + '20' }}>
         <Link
           to="/app/profile"
-          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-[#1d2d25] transition min-w-0"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 transition min-w-0"
         >
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm overflow-hidden"
@@ -496,7 +480,6 @@ const SidebarContent = ({
                 alt="Avatar"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  console.warn('⚠️ Erreur chargement avatar, fallback sur initiales');
                   (e.target as HTMLImageElement).style.display = 'none';
                   const parent = (e.target as HTMLImageElement).parentElement;
                   if (parent) {
@@ -528,7 +511,7 @@ const SidebarContent = ({
 
         <button
           onClick={onLogout}
-          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 w-full transition text-red-500 font-bold text-xs"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-red-50 w-full transition text-red-500 font-bold text-xs"
         >
           <LogOut size={16} className="shrink-0" />
           <span className="truncate">Déconnexion</span>
@@ -536,13 +519,6 @@ const SidebarContent = ({
       </div>
     </div>
   );
-};
-
-const isActivePath = (itemPath: string, currentPath: string): boolean => {
-  if (itemPath === '/app') {
-    return currentPath === '/app' || currentPath === '/app/dashboard';
-  }
-  return currentPath.startsWith(itemPath);
 };
 
 export default MainLayout;
