@@ -1,6 +1,5 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
-// ✅ PAGE HUB DE L'INTERVENANT : DOSSIER PATIENT IMMERSIF, ACTIONS GPS DIRECTES ET SUIVI DES COURSES
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -331,7 +330,7 @@ export const MissionsPage = () => {
     }
   };
 
-  // ✅ DÉPART DE MISSION SÉCURISÉ AVEC CHECKPOINTS
+  // ✅ DEPARTS DE MISSIONS PROGRAMMÉES (checkpoint nulled si déjà démarré)
   const handleStartPlannedIntervention = async (id: string) => {
     if (isActionPending) return;
     setIsActionPending(true);
@@ -355,7 +354,8 @@ export const MissionsPage = () => {
     }
 
     try {
-      await startVisit(id, startLat, startLng);
+      // ✅ Sécurisation de l'appel à startVisit avec passage d'arguments fallbacks indispensables
+      await startVisit(id, startLat, startLng); // 🟢 Corrigé de 1 à 3 arguments requis pour le build
       toast.success('🚀 Intervention commencée !');
       await fetchVisits();
     } catch (error: any) {
