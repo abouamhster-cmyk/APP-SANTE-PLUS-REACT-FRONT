@@ -1,487 +1,564 @@
-// 📁 frontend/src/hooks/useOrder.ts
-// ✅ HOOK DE COMMANDES COMPLET : INTEGRATION DE LA DOUBLE FACTURATION ET DES SERVICES DE SECURISATION DES ESPECES
-
-import { useCallback, useMemo, useEffect, useState } from 'react';
-import { useOrderStore } from '@/stores/orderStore';
-import { useAuthStore } from '@/stores/authStore';
+// 📁 src/stores/orderStore.ts
+ 
+import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
-import toast from 'react-hot-toast';
+import { useAuthStore } from './authStore';
+import api from '@/lib/api';
+import toast from 'react-hot-toast'; 
 
-// ============================================================
-// TYPES ÉTENDUS
-// ============================================================
+// ✅ URL UNIQUE
+const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-interface ExtendedOrder extends Order {
-  metadata?: {
-    ponctual_mode?: boolean;
-    is_ponctual?: boolean;
-    delivery_payment_method?: 'online' | 'cash';
-    cash_confirmation_status?: 'pending' | 'confirmed' | 'disputed' | 'auto_confirmed';
-    [key: string]: any;
-  };
-  is_ponctual?: boolean;
-  order_type?: 'subscription' | 'ponctual';
-  purchase_amount?: number;
-  withdrawal_operator?: string;
-  withdrawal_fee?: number;
-}
+// =============================================
+// CONSTANTES
+// =============================================
 
-interface OrderQuota {
-  current: number;
-  max: number;
-  available: number;
-  canTake: boolean;
-}
+const MAX_ORDERS_IN_PROGRESS = 2;
 
-interface UseOrderOptions {
-  autoFetch?: boolean;
-  autoFetchQuota?: boolean;
-}
+// =============================================
+// HELPERS DE CACHE
+// =============================================
 
-interface UseOrderReturn {
-  // État
+const CACHE_KEY = 'sante_plus_orders_cache';
+const CACHE_DURATION = 60000;
+
+const getCachedOrders = (): { data: Order[]; timestamp: number } | null => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+    return null;
+  } catch { return null; }
+};
+
+const setCachedOrders = (orders: Order[]) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      data: orders,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignore */ }
+};
+
+const clearCachedOrders = () => {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch { /* ignore */ }
+};
+
+// =============================================
+// ORDER STORE
+// =============================================
+
+interface OrderState {
   orders: Order[];
+  currentOrder: Order | null;
   isLoading: boolean;
   error: string | null;
-  quota: OrderQuota | null;
-  isQuotaLoading: boolean;
-  availableOrders: Order[];
-  activeOrders: Order[];
-  completedOrders: Order[];
-  pendingPaymentOrders: Order[];
-  ponctualOrders: Order[];
-  stats: {
-    total: number;
-    pending: number;
-    available: number;
-    inProgress: number;
-    delivered: number;
-    validated: number;
-    cancelled: number;
-    pendingPayment: number;
-    ponctual: number;
-  };
-
-  // Actions
+  isInitialized: boolean;
+  lastFetch: number | null;
+  isCacheInvalidated: boolean;
+  
   fetchOrders: (force?: boolean) => Promise<void>;
-  fetchQuota: () => Promise<void>;
-  takeOrder: (orderId: string) => Promise<boolean>;
-  deliverOrder: (
-    orderId: string, 
-    proofUrl?: string, 
-    location?: any, 
-    deliveryFee?: number, 
-    paymentMethod?: 'online' | 'cash', 
-    cashAmountReceived?: number
-  ) => Promise<boolean>;
-  confirmCashPayment: (orderId: string, isConfirmed: boolean) => Promise<boolean>; // ✅ Ajouté
-  cancelOrder: (orderId: string, reason?: string) => Promise<boolean>;
-  validateOrder: (orderId: string, comment?: string) => Promise<boolean>;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<boolean>;
-  getOrderById: (orderId: string) => Order | undefined;
-  getOrdersByPatient: (patientId: string) => Order[];
-  getOrdersByStatus: (status: OrderStatus) => Order[];
+  fetchOrderById: (id: string) => Promise<void>;
+  createOrder: (data: any) => Promise<Order>;
+  updateOrder: (id: string, data: Partial<Order>) => Promise<void>;
+  updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
+  deleteOrder: (id: string) => Promise<void>;
+  confirmPayment: (id: string, transactionId: string) => Promise<void>;
+  takeOrder: (id: string, lat?: number | null, lng?: number | null) => Promise<any>;
+  acceptOrder: (id: string) => Promise<void>;
+  prepareOrder: (id: string) => Promise<void>;
+  markOrderReady: (id: string) => Promise<void>;
+  startDelivery: (id: string, location?: { lat: number; lng: number }) => Promise<void>;
+  completeDelivery: (id: string, data: {
+    proof_url: string | null;
+    delivery_fee: number;
+    payment_method: 'online' | 'cash';
+    cash_amount_received?: number;
+    lat?: number | null;
+    lng?: number | null;
+  }) => Promise<void>;
+  confirmCashPayment: (id: string, isConfirmed: boolean) => Promise<void>;
+  getAssignedOrders: () => Order[];
   getAvailableOrders: () => Promise<Order[]>;
+  getDeliveryOrders: () => Order[];
+  canManageOrders: () => boolean;
+  invalidateCache: () => void;
   refresh: () => Promise<void>;
-
-  // Utilitaires
-  canTakeOrder: boolean;
-  getQuotaMessage: () => string;
-  getQuotaColor: () => string;
-  getAvailableCount: () => number;
-  getPendingCount: () => number;
+  clearError: () => void;
+  
+  checkOrderQuota: () => Promise<{ current: number; max: number; available: number; canTake: boolean }>;
+  getQuotaInfo: () => { current: number; max: number; available: number; canTake: boolean };
+  autoValidateOrder: (id: string) => Promise<void>;
 }
 
-// ============================================================
-// HOOK COMPOSANT
-// ============================================================
+export const useOrderStore = create<OrderState>((set, get) => ({
+  orders: [],
+  currentOrder: null,
+  isLoading: false,
+  error: null,
+  isInitialized: false,
+  lastFetch: null,
+  isCacheInvalidated: false,
 
-export const useOrder = (options: UseOrderOptions = {}): UseOrderReturn => {
-  const { autoFetch = true, autoFetchQuota = true } = options;
+  canManageOrders: () => {
+    const { profile } = useAuthStore.getState();
+    return profile?.role === 'admin' || profile?.role === 'coordinator';
+  },
 
-  const { user, profile } = useAuthStore();
-  const isAidant = profile?.role === 'aidant';
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'coordinator';
-  const isFamily = profile?.role === 'family';
+  invalidateCache: () => {
+    clearCachedOrders();
+    set({ 
+      isCacheInvalidated: true,
+      isInitialized: false,
+      lastFetch: null,
+    });
+  },
 
-  const {
-    orders,
-    isLoading: storeLoading,
-    error: storeError,
-    fetchOrders: storeFetchOrders,
-    takeOrder: storeTakeOrder,
-    completeDelivery: storeCompleteDelivery,
-    confirmCashPayment: storeConfirmCashPayment, // Action store
-    updateOrderStatus: storeUpdateStatus,
-    getAvailableOrders: storeGetAvailableOrders,
-    invalidateCache,
-  } = useOrderStore();
+  refresh: async () => {
+    get().invalidateCache();
+    await get().fetchOrders(true);
+  },
 
-  const [quota, setQuota] = useState<OrderQuota | null>(null);
-  const [isQuotaLoading, setIsQuotaLoading] = useState(false);
-  const [availableOrders, setAvailableOrders] = useState<Order[]>([]);
-
-  const isLoading = storeLoading || isQuotaLoading;
-  const error = storeError;
-
-  // ============================================================
-  // RÉCUPÉRATION DU QUOTA
-  // ============================================================
-
-  const fetchQuota = useCallback(async () => {
-    if (!isAidant || !user) {
-      setQuota(null);
-      return;
-    }
-
-    setIsQuotaLoading(true);
+  checkOrderQuota: async () => {
     try {
-      const { data: aidant, error } = await supabase
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        return { current: 0, max: MAX_ORDERS_IN_PROGRESS, available: 0, canTake: false };
+      }
+
+      const { data: aidant } = await supabase
         .from('aidants')
         .select('current_orders, max_orders')
         .eq('user_id', user.id)
         .single();
 
-      if (error) {
-        console.error('❌ fetchQuota error:', error);
-        return;
+      if (!aidant) {
+        return { current: 0, max: MAX_ORDERS_IN_PROGRESS, available: 0, canTake: false };
       }
 
-      const current = aidant?.current_orders || 0;
-      const max = aidant?.max_orders || 2;
+      const current = aidant.current_orders || 0;
+      const max = aidant.max_orders || MAX_ORDERS_IN_PROGRESS;
       const available = max - current;
 
-      setQuota({
+      return {
         current,
         max,
         available,
         canTake: current < max,
-      });
+      };
     } catch (error) {
-      console.error('❌ fetchQuota error:', error);
-    } finally {
-      setIsQuotaLoading(false);
+      console.error('❌ checkOrderQuota error:', error);
+      return { current: 0, max: MAX_ORDERS_IN_PROGRESS, available: 0, canTake: false };
     }
-  }, [isAidant, user]);
+  },
 
-  // ============================================================
-  // RÉCUPÉRER LES COMMANDES DISPONIBLES (AIDANTS)
-  // ============================================================
+  getQuotaInfo: () => {
+    const state = get();
+    const { user } = useAuthStore.getState();
+    
+    const inProgressOrders = state.orders.filter(
+      (o: any) => o.status === 'en_cours' && o.aidant_id === user?.id
+    );
+    
+    const current = inProgressOrders.length;
+    const max = MAX_ORDERS_IN_PROGRESS;
+    const available = max - current;
 
-  const fetchAvailableOrders = useCallback(async () => {
+    return {
+      current,
+      max,
+      available,
+      canTake: current < max,
+    };
+  },
+
+  fetchOrders: async (force = false) => {
+    const state = get();
+    
+    if (state.isLoading && !force) {
+      console.log('ℹ️ Déjà en cours de chargement, skip...');
+      return;
+    }
+
+    if (state.isCacheInvalidated) {
+      force = true;
+    }
+
+    if (!force && state.lastFetch && (Date.now() - state.lastFetch < CACHE_DURATION)) {
+      return;
+    }
+
+    if (!force) {
+      const cached = getCachedOrders();
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        set({ 
+          orders: cached.data, 
+          isLoading: false, 
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          isCacheInvalidated: false,
+        });
+        return;
+      }
+    }
+
     try {
-      const { data, error } = await supabase
-        .from('commandes')
-        .select(`
-          *,
-          patient:patients(*),
-          aidant:aidants!commandes_aidant_id_fkey(*, user:profiles(*))
-        `)
-        .in('status', ['creee', 'en_attente', 'disponible'])
-        .order('created_at', { ascending: true });
+      set({ isLoading: true, error: null, isCacheInvalidated: false });
+      
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        set({ orders: [], isLoading: false });
+        return;
+      }
 
-      if (error) throw error;
-      setAvailableOrders(data || []);
-      return data || [];
-    } catch (error) {
-      console.error('❌ fetchAvailableOrders error:', error);
+      const response = await api.get('/orders');
+      const ordersData = response.data || [];
+
+      setCachedOrders(ordersData);
+      
+      set({ 
+        orders: ordersData, 
+        isLoading: false,
+        isInitialized: true,
+        lastFetch: Date.now(),
+        isCacheInvalidated: false,
+      });
+    } catch (error: any) {
+      console.error('❌ Fetch orders error:', error);
+      
+      const cached = getCachedOrders();
+      if (cached && cached.data.length > 0) {
+        set({
+          orders: cached.data,
+          isLoading: false,
+          isInitialized: true,
+          lastFetch: cached.timestamp,
+          error: error.message || 'Erreur de chargement (cache utilisé)',
+          isCacheInvalidated: false,
+        });
+      } else {
+        set({ error: error.message, isLoading: false });
+      }
+    }
+  },
+
+  fetchOrderById: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const state = get();
+      const cachedOrder = state.orders.find(o => o.id === id);
+      if (cachedOrder) {
+        set({ currentOrder: cachedOrder, isLoading: false });
+        return;
+      }
+
+      const response = await api.get(`/orders/${id}`);
+      const order = response.data;
+
+      if (!order) {
+        set({ error: 'Commande non trouvée', isLoading: false });
+        return;
+      }
+
+      set({ currentOrder: order, isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Fetch order error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  createOrder: async (data: any): Promise<Order> => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await api.post('/orders', data);
+      const newOrder = response.data?.order || response.data;
+
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
+
+      return newOrder;
+    } catch (error: any) {
+      console.error('❌ Create order error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  confirmPayment: async (id: string, transactionId: string) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const response = await api.post(`/orders/${id}/confirm-payment`, { transaction_id: transactionId });
+      const order = response.data?.order || response.data;
+
+      set((state) => ({
+        orders: state.orders.map(o => o.id === id ? order : o),
+        currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
+      }));
+
+      get().invalidateCache();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Confirm payment error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  takeOrder: async (id: string, lat?: number | null, lng?: number | null) => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const { user } = useAuthStore.getState();
+      if (!user) throw new Error('Utilisateur non connecté');
+
+      const response = await api.post(`/orders/${id}/take`, { lat, lng });
+      const order = response.data?.order || response.data;
+
+      if (!order) {
+        throw new Error('Erreur lors de la prise de commande');
+      }
+
+      set((state) => ({
+        orders: state.orders.map(o => o.id === id ? order : o),
+        currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
+      }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+
+      set({ isLoading: false });
+      return order;
+    } catch (error: any) {
+      console.error('❌ Take order error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  acceptOrder: async (id: string) => {
+    let startLat: number | null = null;
+    let startLng: number | null = null;
+
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+        });
+        startLat = position.coords.latitude;
+        startLng = position.coords.longitude;
+      }
+    } catch (e) {
+      console.warn("⚠️ Impossible de récupérer le GPS");
+    }
+
+    return get().takeOrder(id, startLat, startLng);
+  },
+
+  prepareOrder: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await api.post(`/orders/${id}/prepare`);
+      const order = response.data?.order || response.data;
+      
+      set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Prepare order error:', error);
+      toast.error(error.message);
+      set({ isLoading: false });
+    }
+  },
+
+  markOrderReady: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await api.post(`/orders/${id}/status`, { status: 'disponible' });
+      const order = response.data?.order || response.data;
+      
+      set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Mark ready error:', error);
+      toast.error(error.message);
+      set({ isLoading: false });
+    }
+  },
+
+  startDelivery: async (id: string, location?: { lat: number; lng: number }) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await api.post(`/orders/${id}/deliver`, { location });
+      const order = response.data?.order || response.data;
+      
+      set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Start delivery error:', error);
+      toast.error(error.message);
+      set({ isLoading: false });
+    }
+  },
+
+  completeDelivery: async (id: string, data: {
+    proof_url: string | null;
+    delivery_fee: number;
+    payment_method: 'online' | 'cash';
+    cash_amount_received?: number;
+    lat?: number | null;
+    lng?: number | null;
+  }) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await api.post(`/orders/${id}/deliver`, data);
+      const order = response.data?.order || response.data;
+      
+      set((state) => ({ 
+        orders: state.orders.map(o => o.id === id ? order : o),
+        currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
+      }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Complete delivery error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  confirmCashPayment: async (id: string, isConfirmed: boolean) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await api.post(`/orders/${id}/confirm-cash`, { is_confirmed: isConfirmed });
+      const order = response.data?.order || response.data;
+      
+      set((state) => ({ 
+        orders: state.orders.map(o => o.id === id ? order : o),
+        currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
+      }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Confirm cash payment error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  autoValidateOrder: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      const response = await fetch(`${API_URL}/orders/${id}/auto-validate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+      const order = result?.order || result;
+      
+      set((state) => ({ orders: state.orders.map(o => o.id === id ? order : o) }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Auto-validate error:', error);
+      toast.error(error.message);
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  updateOrderStatus: async (id: string, status: OrderStatus) => {
+    try {
+      set({ isLoading: true, error: null });
+      const response = await api.post(`/orders/${id}/status`, { status });
+      const order = response.data?.order || response.data;
+
+      set((state) => ({
+        orders: state.orders.map(o => o.id === id ? order : o),
+        currentOrder: state.currentOrder?.id === id ? order : state.currentOrder
+      }));
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Update order status error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  deleteOrder: async (id: string) => {
+    try {
+      set({ isLoading: true, error: null });
+      await api.delete(`/orders/${id}`);
+
+      clearCachedOrders();
+      await get().fetchOrders(true);
+      set({ isLoading: false });
+    } catch (error: any) {
+      console.error('❌ Delete order error:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  getAvailableOrders: async (): Promise<Order[]> => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      
+      const response = await fetch(`${API_URL}/orders/available`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const result = await response.json();
+      return result.data || [];
+    } catch (error: any) {
+      console.error('❌ Get available orders error:', error);
       return [];
     }
-  }, []);
+  },
 
-  // ============================================================
-  // EFFETS DE CHARGEMENT
-  // ============================================================
+  getAssignedOrders: () => {
+    const { user } = useAuthStore.getState();
+    const state = get();
+    return state.orders.filter((o: any) => o.aidant_id === user?.id);
+  },
 
-  useEffect(() => {
-    if (autoFetch) {
-      storeFetchOrders();
-    }
-  }, [autoFetch, storeFetchOrders]);
+  getDeliveryOrders: () => {
+    const state = get();
+    return state.orders.filter((o: any) => o.status === 'en_cours');
+  },
 
-  useEffect(() => {
-    if (autoFetchQuota && isAidant) {
-      fetchQuota();
-    }
-  }, [autoFetchQuota, isAidant, fetchQuota]);
+  clearError: () => set({ error: null }),
+}));
 
-  useEffect(() => {
-    if (isAidant) {
-      fetchAvailableOrders();
-    }
-  }, [isAidant, orders, fetchAvailableOrders]);
-
-  // ============================================================
-  // ACTIONS ET METHODES DU HOOK (AVEC PROTECTION GPS)
-  // ============================================================
-
-  const fetchOrders = useCallback(async (force = false) => {
-    await storeFetchOrders(force);
-    if (isAidant) {
-      await fetchAvailableOrders();
-      await fetchQuota();
-    }
-  }, [storeFetchOrders, isAidant, fetchAvailableOrders, fetchQuota]);
-
-  // ✅ CAPTURE GPS SÉCURISÉE LORS DE LA PRISE DE COMMANDE DEPUIS LES GRILLES
-  const takeOrder = useCallback(async (orderId: string): Promise<boolean> => {
-    try {
-      let startLat: number | null = null;
-      let startLng: number | null = null;
-
-      try {
-        if (navigator.geolocation) {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000 });
-          });
-          startLat = position.coords.latitude;
-          startLng = position.coords.longitude;
-          console.log(`📍 GPS Départ Commande Capturé (Hook) : ${startLat}, ${startLng}`);
-        }
-      } catch (e) {
-        console.warn("⚠️ Impossible de capturer le GPS lors de la prise de commande depuis la grille");
-      }
-
-      await storeTakeOrder(orderId, startLat, startLng); 
-      
-      await fetchQuota();
-      await fetchAvailableOrders();
-      toast.success('Commande prise en charge ✅ (GPS enregistré)');
-      return true;
-    } catch (error: any) {
-      console.error('❌ takeOrder error:', error);
-      toast.error(error.message || 'Erreur lors de la prise de commande');
-      return false;
-    }
-  }, [storeTakeOrder, fetchQuota, fetchAvailableOrders]);
-
-  // ✅ APPEL DE FIN DE LIVRAISON AVEC DOUBLE MODALITE SÉCURISÉE (CASH OU LIGNE)
-  const deliverOrder = useCallback(async (
-    orderId: string,
-    proofUrl?: string,
-    location?: any,
-    deliveryFee: number = 0,
-    paymentMethod: 'online' | 'cash' = 'online',
-    cashAmountReceived: number = 0
-  ): Promise<boolean> => {
-    try {
-      await storeCompleteDelivery(orderId, {
-        proof_url: proofUrl || null,
-        delivery_fee: deliveryFee,
-        payment_method: paymentMethod,
-        cash_amount_received: cashAmountReceived,
-        lat: location?.lat || null,
-        lng: location?.lng || null,
-      });
-
-      await fetchOrders(true);
-      if (isAidant) {
-        await fetchQuota();
-      }
-      return true;
-    } catch (error: any) {
-      console.error('❌ deliverOrder error:', error);
-      toast.error(error.message || 'Erreur lors de la livraison');
-      return false;
-    }
-  }, [storeCompleteDelivery, fetchOrders, isAidant, fetchQuota]);
-
-  // ✅ CONFIRMER OU CONTESTER LE CASH REÇU PAR LE LIVREUR
-  const confirmCashPayment = useCallback(async (orderId: string, isConfirmed: boolean): Promise<boolean> => {
-    try {
-      await storeConfirmCashPayment(orderId, isConfirmed);
-      await fetchOrders(true);
-      return true;
-    } catch (error: any) {
-      console.error('❌ confirmCashPayment error:', error);
-      toast.error(error.message || 'Erreur lors de la confirmation espèces');
-      return false;
-    }
-  }, [storeConfirmCashPayment, fetchOrders]);
-
-  const cancelOrder = useCallback(async (orderId: string, reason?: string): Promise<boolean> => {
-    try {
-      await storeUpdateStatus(orderId, 'annulee' as OrderStatus);
-      
-      await fetchOrders(true);
-      if (isAidant) {
-        await fetchQuota();
-      }
-      
-      toast.success('Commande annulée');
-      return true;
-    } catch (error: any) {
-      console.error('❌ cancelOrder error:', error);
-      toast.error(error.message || 'Erreur lors de l\'annulation');
-      return false;
-    }
-  }, [storeUpdateStatus, fetchOrders, isAidant, fetchQuota]);
-
-  const validateOrder = useCallback(async (orderId: string, comment?: string): Promise<boolean> => {
-    try {
-      await storeUpdateStatus(orderId, 'validee' as OrderStatus);
-      
-      await fetchOrders(true);
-      
-      toast.success('Commande validée ✅');
-      return true;
-    } catch (error: any) {
-      console.error('❌ validateOrder error:', error);
-      toast.error(error.message || 'Erreur lors de la validation');
-      return false;
-    }
-  }, [storeUpdateStatus, fetchOrders]);
-
-  const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus): Promise<boolean> => {
-    try {
-      await storeUpdateStatus(orderId, status);
-      
-      await fetchOrders(true);
-      if (isAidant && (status === 'annulee' || status === 'livree')) {
-        await fetchQuota();
-      }
-      
-      return true;
-    } catch (error: any) {
-      console.error('❌ updateOrderStatus error:', error);
-      toast.error(error.message || 'Erreur lors de la mise à jour');
-      return false;
-    }
-  }, [storeUpdateStatus, fetchOrders, isAidant, fetchQuota]);
-
-  const getOrderById = useCallback((orderId: string): Order | undefined => {
-    return orders.find(o => o.id === orderId);
-  }, [orders]);
-
-  const getOrdersByPatient = useCallback((patientId: string): Order[] => {
-    return orders.filter(o => o.patient_id === patientId);
-  }, [orders]);
-
-  const getOrdersByStatus = useCallback((status: OrderStatus): Order[] => {
-    return orders.filter(o => o.status === status);
-  }, [orders]);
-
-  const refresh = useCallback(async () => {
-    invalidateCache();
-    await fetchOrders(true);
-    if (isAidant) {
-      await fetchQuota();
-      await fetchAvailableOrders();
-    }
-  }, [invalidateCache, fetchOrders, isAidant, fetchQuota, fetchAvailableOrders]);
-
-  // ============================================================
-  // STATISTIQUES
-  // ============================================================
-
-  const stats = useMemo(() => ({
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'en_attente').length,
-    available: orders.filter(o => o.status === 'disponible').length,
-    inProgress: orders.filter(o => o.status === 'en_cours').length,
-    delivered: orders.filter(o => o.status === 'livree').length,
-    validated: orders.filter(o => o.status === 'validee').length,
-    cancelled: orders.filter(o => o.status === 'annulee').length,
-    pendingPayment: orders.filter(o => o.status === 'attente_paiement').length,
-    ponctual: orders.filter(o => {
-      const ext = o as ExtendedOrder;
-      return ext.order_type === 'ponctual' || 
-             ext.is_ponctual === true || 
-             (ext.metadata && ext.metadata.ponctual_mode === true);
-    }).length,
-  }), [orders]);
-
-  const activeOrders = useMemo(() => {
-    return orders.filter(o => ['creee', 'en_attente', 'en_cours'].includes(o.status));
-  }, [orders]);
-
-  const completedOrders = useMemo(() => {
-    return orders.filter(o => ['livree', 'validee'].includes(o.status));
-  }, [orders]);
-
-  const pendingPaymentOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'attente_paiement');
-  }, [orders]);
-
-  const ponctualOrders = useMemo(() => {
-    return orders.filter(o => {
-      const ext = o as ExtendedOrder;
-      return ext.order_type === 'ponctual' || 
-             ext.is_ponctual === true || 
-             (ext.metadata && ext.metadata.ponctual_mode === true);
-    });
-  }, [orders]);
-
-  // ============================================================
-  // UTILITAIRES DE RENSEIGNEMENT DE QUOTA
-  // ============================================================
-
-  const canTakeOrder = useMemo((): boolean => {
-    if (!isAidant) return false;
-    if (!quota) return false;
-    return quota.canTake && stats.available > 0;
-  }, [isAidant, quota, stats.available]);
-
-  const getQuotaMessage = useCallback((): string => {
-    if (!isAidant) return '';
-    if (!quota) return 'Chargement du quota...';
-    if (quota.canTake) {
-      return `${quota.available} place${quota.available > 1 ? 's' : ''} disponible${quota.available > 1 ? 's' : ''}`;
-    }
-    return `Quota atteint (${quota.current}/${quota.max})`;
-  }, [isAidant, quota]);
-
-  const getQuotaColor = useCallback((): string => {
-    if (!isAidant) return '#9CA3AF';
-    if (!quota) return '#9CA3AF';
-    return quota.canTake ? '#4CAF50' : '#F44336';
-  }, [isAidant, quota]);
-
-  const getAvailableCount = useCallback((): number => {
-    return stats.available || 0;
-  }, [stats.available]);
-
-  const getPendingCount = useCallback((): number => {
-    return stats.pending || 0;
-  }, [stats.pending]);
-
-  return {
-    // État
-    orders,
-    isLoading,
-    error,
-    quota,
-    isQuotaLoading,
-    availableOrders,
-    activeOrders,
-    completedOrders,
-    pendingPaymentOrders,
-    ponctualOrders,
-    stats,
-
-    // Actions
-    fetchOrders,
-    fetchQuota,
-    takeOrder,
-    deliverOrder,
-    confirmCashPayment, // ✅ Injecté
-    cancelOrder,
-    validateOrder,
-    updateOrderStatus,
-    getOrderById,
-    getOrdersByPatient,
-    getOrdersByStatus,
-    getAvailableOrders: fetchAvailableOrders,
-    refresh,
-
-    // Utilitaires
-    canTakeOrder,
-    getQuotaMessage,
-    getQuotaColor,
-    getAvailableCount,
-    getPendingCount,
-  };
-};
-
-export default useOrder;
+export default useOrderStore;
