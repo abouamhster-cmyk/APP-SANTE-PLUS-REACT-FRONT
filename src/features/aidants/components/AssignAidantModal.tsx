@@ -1,5 +1,6 @@
 // 📁 src/features/aidants/components/AssignAidantModal.tsx
- 
+// ✅ ENVELOPPE DE MODALE ASSIGNATION : SUPPORT TYPÉ DE LA CIBLE COMMANDE 'ORDER'
+
 import { Modal } from '@/components/ui/Modal'; 
 import { AssignAidantModalContent } from './AssignAidantModalContent';
 
@@ -10,7 +11,7 @@ interface AssignAidantModalProps {
   patients?: any[];
   onSuccess: () => void;
   colors: any;
-  targetType?: 'visit' | 'patient' | 'personal_account';
+  targetType?: 'visit' | 'patient' | 'personal_account' | 'order'; // ✅ AJOUTÉ : 'order' supporté
   targetId?: string;
   targetName?: string;
   currentAidantId?: string | null;
