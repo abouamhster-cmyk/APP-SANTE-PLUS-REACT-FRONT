@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Package,
+  MiniCard,
   MapPin,
   User,
   Users,
@@ -12,8 +13,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  DocButton,
   Eye,
   Camera,
+  PersonBox, 
   Image as ImageIcon,
   Banknote,
   Play,
