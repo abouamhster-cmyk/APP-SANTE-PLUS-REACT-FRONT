@@ -1,6 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE CASH SECURISEE CLIENT ET DEPOT SÉCURISÉ LIVREUR
-
+ 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -34,7 +33,7 @@ import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatCurrency, formatDateTime } from '@/utils/helpers';
+import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; // ✅ cn importé
 
 import {
   isOrderPendingPayment,
@@ -43,10 +42,12 @@ import {
 } from '@/utils/helpers';
 
 import { supabase } from '@/lib/supabase';
+import { usePonctualPayment } from '@/hooks/usePonctualPayment'; // ✅ Importation ajoutée
+import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// HELPERS LOCAUX
+// HELPERS LOCAUX (DÉFINITIONS SÉCURISÉES)
 // ============================================================
 
 const getStatusLabel = (status: string): string => {
@@ -78,7 +79,7 @@ const getStatusColor = (status: string): string => {
 };
 
 // =============================================
-// SOUS-COMPOSANTS
+// SOUS-COMPOSANTS (UNIFIÉS ICI SANS DOUBLONS EN BAS)
 // =============================================
 
 interface ActionButtonProps {
@@ -198,54 +199,14 @@ interface StatusBadgeProps {
 const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
   const getStatusConfig = (status: string) => {
     const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
-      creee: { 
-        icon: <Package size={14} />, 
-        color: '#9E9E9E', 
-        bg: '#9E9E9E15', 
-        label: 'Créée' 
-      },
-      en_attente: { 
-        icon: <Clock size={14} />, 
-        color: '#F59E0B', 
-        bg: '#F59E0B15', 
-        label: 'En attente' 
-      },
-      disponible: { 
-        icon: <AlertCircle size={14} />, 
-        color: '#EF4444', 
-        bg: '#EF444415', 
-        label: 'Disponible' 
-      },
-      en_cours: { 
-        icon: <Clock size={14} />, 
-        color: '#3B82F6', 
-        bg: '#3B82F615', 
-        label: 'En cours' 
-      },
-      livree: { 
-        icon: <Truck size={14} />, 
-        color: '#3B82F6', 
-        bg: '#3B82F615', 
-        label: 'Livrée' 
-      },
-      validee: { 
-        icon: <CheckCircle size={14} />, 
-        color: '#4CAF50', 
-        bg: '#4CAF5015', 
-        label: 'Validée' 
-      },
-      annulee: { 
-        icon: <XCircle size={14} />, 
-        color: '#EF4444', 
-        bg: '#EF444415', 
-        label: 'Annulée' 
-      },
-      attente_paiement: { 
-        icon: <CreditCard size={14} />, 
-        color: '#8B5CF6', 
-        bg: '#8B5CF615', 
-        label: 'En attente paiement' 
-      },
+      creee: { icon: <Package size={14} />, color: '#9E9E9E', bg: '#9E9E9E15', label: 'Créée' },
+      en_attente: { icon: <Clock size={14} />, color: '#F59E0B', bg: '#F59E0B15', label: 'En attente' },
+      disponible: { icon: <AlertCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Disponible' },
+      en_cours: { icon: <Clock size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'En cours' },
+      livree: { icon: <Truck size={14} />, color: '#3B82F6', bg: '#3B82F615', label: 'Livrée (En attente)' },
+      validee: { icon: <CheckCircle size={14} />, color: '#4CAF50', bg: '#4CAF5015', label: 'Validée' },
+      annulee: { icon: <XCircle size={14} />, color: '#EF4444', bg: '#EF444415', label: 'Annulée' },
+      attente_paiement: { icon: <CreditCard size={14} />, color: '#8B5CF6', bg: '#8B5CF615', label: 'Provision en attente' },
     };
     return map[status] || map['creee'];
   };
@@ -274,11 +235,10 @@ const OrderDetailPage = () => {
   const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
-  
   const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, completeDelivery, confirmCashPayment, isLoading } = useOrderStore();
 
   const {
-    isFamily,
+    isFamily, // ✅ Modifié de isFamilyUser
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
@@ -297,7 +257,7 @@ const OrderDetailPage = () => {
   const [cashReceivedInput, setCashReceivedInput] = useState<number>(0);
 
   // ✅ 2. DÉFINITION DU MODAL REF ET DES LABELS UTILES
-  const modalRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null); // ✅ Référence configurée
   const isActionPending = useRef(false);
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
@@ -515,28 +475,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  const openUrl = (url: string | null) => {
-    if (!url) {
-      toast.error('URL non disponible');
-      return;
-    }
-    window.open(url, '_blank');
-  };
-
-  if (isLoading || !currentOrder) {
-    return (
-      <div className="min-h-[420px] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2
-            className="w-12 h-12 animate-spin mx-auto mb-4"
-            style={{ color: colors.primary }}
-          />
-          <p style={{ color: colors.text }}>Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
   const isPendingPayment = order.status === 'attente_paiement';
   const isPonctual = order.order_type === 'ponctual' || order.is_ponctual === true;
   const isPaid = order.is_paid === true;
@@ -559,18 +497,8 @@ const OrderDetailPage = () => {
       {/* HEADER */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-start gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-11 h-11 rounded-2xl border flex items-center justify-center hover:bg-gray-50 shrink-0"
-            style={{
-              borderColor: colors.primary + '20',
-              color: colors.text,
-            }}
-          >
-            <ArrowLeft size={20} />
-          </button>
-
-          <div className="min-w-0 flex-1">
+          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl border flex items-center justify-center hover:bg-gray-50"><ArrowLeft size={18} /></button>
+          <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <StatusBadge status={order.status} colors={colors} />
               {isUrgent && (
@@ -671,7 +599,7 @@ const OrderDetailPage = () => {
       </div>
 
       {/* ✅ BLOC SÉCURITÉ CASH (ÉCRAN CLIENT SÉCURISÉ) */}
-      {isPendingCashConfirmation && isFamilyUser && (
+      {isPendingCashConfirmation && isFamily && ( // ✅ Remplacé isFamilyUser par isFamily
         <div className="p-5 rounded-3xl bg-amber-50/50 border border-amber-200 space-y-4 animate-fadeIn">
           <div className="flex items-start gap-3">
             <AlertCircle size={20} className="text-amber-600 shrink-0 mt-0.5 animate-pulse" />
@@ -705,7 +633,7 @@ const OrderDetailPage = () => {
       )}
 
       {/* ✅ FRAIS DE PORT EN ATTENTE - MODALITÉ EN LIGNE (ÉCRAN CLIENT) */}
-      {order.status === 'livree' && order.delivery_payment_method === 'online' && isFamilyUser && (
+      {order.status === 'livree' && order.delivery_payment_method === 'online' && isFamily && ( // ✅ Remplacé isFamilyUser par isFamily
         <div className="p-5 rounded-3xl bg-purple-50 border border-purple-200 space-y-3 animate-fadeIn">
           <div className="flex items-start gap-3">
             <CreditCard size={18} className="text-purple-600 shrink-0 mt-0.5" />
@@ -846,6 +774,8 @@ const OrderDetailPage = () => {
         </div>
       </div>
 
+    
+
       {/* DOCUMENTS */}
       {(order.prescription_url || order.proof_url) && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
@@ -961,7 +891,7 @@ const OrderDetailPage = () => {
             <Clock size={18} style={{ color: '#3B82F6' }} className="mt-0.5" />
             <div>
               <p className="text-sm font-medium text-blue-700">Validation automatique</p>
-              <p className="text-xs text-blue-600">Cette commande sera automatiquement validée dans 48h.</p>
+              <p className="text-xs text-blue-600">Cette commande sera automatiquement validée dans 12h.</p>
             </div>
           </div>
         )}
@@ -997,7 +927,7 @@ const OrderDetailPage = () => {
         >
           <div 
             className="bg-white rounded-[2rem] w-full max-w-md p-5 shadow-2xl my-8 space-y-4"
-            ref={modalRef}
+            ref={modalRef} // ✅ modalRef est défini correctement
           >
             <div className="flex items-center justify-between mb-4 border-b pb-3">
               <h2 className="text-base sm:text-lg font-black" style={{ color: colors.text }}>
@@ -1021,7 +951,7 @@ const OrderDetailPage = () => {
                   <img
                     src={proofPreview}
                     alt="Preuve"
-                    className="max-h-[220px] w-full object-cover rounded-2xl"
+                    className="max-h-[280px] w-full object-cover rounded-2xl"
                   />
                   <button
                     type="button"
@@ -1124,7 +1054,7 @@ const OrderDetailPage = () => {
 };
 
 // =============================================
-// HELPER COMPONENTS
+// HELPER COMPONENTS (DÉCORATIONS UNIQUES DÉPLACÉES ICI SANS CONFLITS)
 // =============================================
 
 const MiniCard = ({ icon, label, value, color }: any) => (
@@ -1165,4 +1095,3 @@ const DocButton = ({ icon, title, color, onClick }: any) => (
 );
 
 export default OrderDetailPage;
-
