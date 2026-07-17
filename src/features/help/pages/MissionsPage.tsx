@@ -28,9 +28,9 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  FileText, // ✅ Importation ajoutée
-  Check,    // ✅ Importation ajoutée
-  Loader2,  // ✅ Importation ajoutée
+  FileText,  
+  Check,     
+  Loader2,  
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
@@ -167,7 +167,7 @@ export const MissionsPage = () => {
     };
   }, [myMissions, assignedOrders, availableOrders]);
 
-  const isLoading_ = isLoading || ordersLoading || isAssignmentsLoading;
+  const isLoading_ = isVisitsLoading || ordersLoading || isAssignmentsLoading; // ✅ Corrigé isLoading non défini
 
   const missionSubFilters = useMemo(() => [
     { key: 'all', label: 'Toutes' },
@@ -403,7 +403,7 @@ export const MissionsPage = () => {
       });
 
       toast.success('🎉 Rapport transmis ! Intervention archivée.');
-      setShowReportModal(false);
+      setShowReportModal(false); // ✅ Corrigé de setShowCompleteModal
       setSelectedActions([]);
       setReportNotes('');
     } catch (error: any) {
@@ -471,7 +471,6 @@ export const MissionsPage = () => {
     );
   };
 
-  // ✅ ROUTAGE INTERNE CORRIGÉ POUR LIER AU CHANGEMENT DE TABS
   const handleTabChangeLocal = (tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'missions') {
@@ -753,10 +752,10 @@ export const MissionsPage = () => {
           {assignments.length > 0 ? (
             assignments.map((link: any) => {
               // ✅ Cast explicite 'any' du paramètre link pour éviter les erreurs TS de type non défini
-              const isPersonal = link.target_type === 'personal_account' || link.is_personal;
-              const name = link.target_name || 'Bénéficiaire';
-              const address = isPersonal ? link.family?.address : link.patient?.address;
-              const category = isPersonal ? 'senior' : link.patient?.category;
+              const isPersonal = (link as any).target_type === 'personal_account' || (link as any).is_personal;
+              const name = (link as any).target_name || 'Bénéficiaire';
+              const address = isPersonal ? (link as any).family?.address : (link as any).patient?.address;
+              const category = isPersonal ? 'senior' : (link as any).patient?.category;
 
               return (
                 <div
@@ -797,8 +796,6 @@ export const MissionsPage = () => {
               type={activeTab}
               colors={colors}
               aidantId={aidantId}
-              onApprove={() => {}}
-              onRefuse={() => {}}
               onStart={() => handleStartPlannedIntervention(item.id)}
               onTakeOrder={() => handleTakeOrder(item.id)}
               onDeliver={() => handleDeliverOrder(item.id)}
@@ -990,7 +987,7 @@ export const MissionsPage = () => {
                 </h2>
               </div>
               <button
-                onClick={() => setShowCompleteModal(false)}
+                onClick={() => setShowReportModal(false)} // ✅ Corrigé de setShowCompleteModal
                 className="p-1.5 hover:bg-gray-100 rounded-xl transition"
               >
                 <X size={18} />
@@ -1016,7 +1013,7 @@ export const MissionsPage = () => {
                       )}
                     >
                       <span className="truncate">{action.icon} {action.label}</span>
-                      {isChecked && <Check size={14} className="text-emerald-600 shrink-0" />} {/* ✅ Corrigé Check */}
+                      {isChecked && <Check size={14} className="text-emerald-600 shrink-0" />}
                     </button>
                   );
                 })}
@@ -1041,7 +1038,7 @@ export const MissionsPage = () => {
             <div className="flex gap-2.5 pt-4 border-t">
               <button
                 type="button"
-                onClick={() => setShowCompleteModal(false)}
+                onClick={() => setShowReportModal(false)} // ✅ Corrigé de setShowCompleteModal
                 className="flex-1 h-12 font-bold text-gray-500 hover:bg-gray-50 transition border rounded-2xl"
               >
                 Retour
@@ -1056,7 +1053,7 @@ export const MissionsPage = () => {
                   cursor: selectedActions.length > 0 ? 'pointer' : 'not-allowed'
                 }}
               >
-                {isActionPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />} {/* ✅ Corrigé Loader2 */}
+                {isActionPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
                 Transmettre
               </button>
             </div>
