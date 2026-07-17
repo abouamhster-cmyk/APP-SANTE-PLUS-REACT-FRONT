@@ -1,8 +1,7 @@
 // 📁 src/components/subscriptions/SubscriptionCard.tsx
-// 📌 Carte d'abonnement - LIÉE AU COMPTE
-
+ 
 import { useState } from 'react';
-import { Calendar, CheckCircle, XCircle, Clock, TrendingUp, Package, Calendar as CalendarIcon, User } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Calendar as CalendarIcon, User, XCircle } from 'lucide-react';
 import { Subscription } from '@/types';
 import { formatDate } from '@/utils/helpers';
 import { useBranding } from '@/hooks/useBranding';
@@ -27,7 +26,6 @@ export const SubscriptionCard = ({
   const colors = propColors || brand.colors;
   
   const {
-    singular,
     getCategoryLabel,
     isFamily,
     isAidant,
