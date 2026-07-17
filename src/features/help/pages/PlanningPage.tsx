@@ -1,5 +1,5 @@
 // 📁 src/features/help/pages/PlanningPage.tsx
-
+ 
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -8,18 +8,12 @@ import {
   ChevronRight, 
   Clock, 
   MapPin, 
-  User, 
   CheckCircle, 
   XCircle,
-  CalendarDays,
   List,
-  Eye,
-  Users,
-  Home,
-  AlertCircle,
-  Play,
-  Circle,
+  ChevronRight as ChevronRightIcon,
   RefreshCw,
+  Play,
 } from 'lucide-react';
 import { useVisitStore } from '@/stores/visitStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -80,16 +74,9 @@ const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string; 
 
 const PlanningPage = () => {
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
-  const brand = useBranding();
-  const colors = brand.colors;
+  const { colors } = useBranding();
   const { visits, fetchVisits, isLoading } = useVisitStore();
-
-  const {
-    singular,
-    getCategoryLabel,
-    isAidant,
-  } = useTerminology();
+  const { isAidant } = useTerminology();
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -187,23 +174,17 @@ const PlanningPage = () => {
             <div key={item} className="h-16 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
-        <div className="space-y-3">
-          {[1, 2].map((item) => (
-            <div key={item} className="h-20 bg-gray-100 rounded-2xl animate-pulse" />
-          ))}
-        </div>
       </div>
     );
   }
 
   return (
     <div 
-      className="space-y-6 pb-6"
+      className="space-y-6 pb-6 px-1 sm:px-0"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -231,9 +212,7 @@ const PlanningPage = () => {
               onClick={() => setView('day')}
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
-                view === 'day'
-                  ? "bg-white shadow-sm font-extrabold"
-                  : "hover:opacity-80"
+                view === 'day' ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
               )}
               style={{
                 color: view === 'day' ? colors.primary : colors.textLight,
@@ -246,9 +225,7 @@ const PlanningPage = () => {
               onClick={() => setView('week')}
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all select-none",
-                view === 'week'
-                  ? "bg-white shadow-sm font-extrabold"
-                  : "hover:opacity-80"
+                view === 'week' ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
               )}
               style={{
                 color: view === 'week' ? colors.primary : colors.textLight,
@@ -283,7 +260,7 @@ const PlanningPage = () => {
             {getPageTitle()}
           </h1>
           <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
-            Consultez et organisez vos interventions d'aide et d'assistance à la journée ou à la semaine.
+            Consultez et organisez vos interventions d'aide et d'accompagnement à la journée ou à la semaine.
           </p>
         </div>
       </section>
@@ -397,7 +374,7 @@ const PlanningPage = () => {
                     style={{ borderColor: colors.primary + '10' }}
                   >
                     <div 
-                      className="absolute -left-[19px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm z-10 animate-pulse"
+                      className="absolute -left-[19px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm z-10"
                       style={{ background: statusConfig.color }}
                     />
 
@@ -409,11 +386,11 @@ const PlanningPage = () => {
 
                       <div className="min-w-0">
                         <p className="font-extrabold text-xs sm:text-sm truncate" style={{ color: colors.text }}>
-                          {visit.patient?.first_name} {visit.patient?.last_name}
+                          {visit.target_name || 'Bénéficiaire'}
                         </p>
                         <p className="text-[11px] truncate flex items-center gap-1 mt-0.5" style={{ color: colors.textLight }}>
                           <MapPin size={10} className="shrink-0 text-gray-400" />
-                          <span>{visit.patient?.address || 'Adresse non renseignée'}</span>
+                          <span>{visit.address || 'Adresse non renseignée'}</span>
                         </p>
                       </div>
                     </div>
@@ -437,7 +414,7 @@ const PlanningPage = () => {
                       )}
 
                       <div className="p-1 text-gray-400 group-hover:text-gray-700 transition-colors hidden sm:block">
-                        <ChevronRight size={14} />
+                        <ChevronRightIcon size={14} />
                       </div>
                     </div>
                   </div>
