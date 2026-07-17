@@ -32,7 +32,7 @@ import { getPonctualOrderPriceByType } from '@/lib/constants';
 
 import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
-import { cn } from '@/utils/helpers';
+import { cn } from '@/utils/helpers'; // ✅ cn importé
 import toast from 'react-hot-toast';
 
 // ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ ET AUTONOME
@@ -105,7 +105,6 @@ const CreateOrderPage = () => {
   const isRedirecting = useRef(false);
   const isSubmittingRef = useRef(false);
 
-  const [orderType, setOrderType] = useState<'subscription' | 'ponctual'>('subscription');
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
   const [targetPatientId, setTargetPatientId] = useState<string>('');
 
@@ -210,6 +209,10 @@ const CreateOrderPage = () => {
       }));
     }
   }, [targetPatientId, targetType, patients, profile]);
+
+  const handleAddressChange = (value: string) => {
+    setFormData(prev => ({ ...prev, address: value }));
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -361,8 +364,6 @@ const CreateOrderPage = () => {
   };
 
   const isLoading_ = isLoading || isUploading || isPaymentLoading || subLoading;
-  const selectedPatientObj = patients.find((p) => p.id === targetPatientId || p.id === formData.patient_id);
-  const finalEstimatedAmount = formData.estimated_amount ? parseFloat(formData.estimated_amount) : 0;
   const hasPatients = patients.length > 0;
 
   return (
@@ -481,7 +482,7 @@ const CreateOrderPage = () => {
               <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Adresse de livraison</label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 size-4" />
-                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Quartier, indications de rue..." className="w-full pl-9 pr-3.5 h-11 border rounded-2xl text-xs font-semibold outline-none bg-gray-50/50" required />
+                <input type="text" value={formData.address} onChange={(e) => handleAddressChange(e.target.value)} placeholder="Quartier, indications de rue..." className="w-full pl-9 pr-3.5 h-11 border rounded-2xl text-xs font-semibold outline-none bg-gray-50/50" required />
               </div>
             </div>
           </div>
