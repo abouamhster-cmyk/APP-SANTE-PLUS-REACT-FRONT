@@ -10,7 +10,6 @@ import {
   AidantCatalogState
 } from '@/types';
 
- 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
 interface AidantWithQuota extends AidantProfile {
@@ -72,9 +71,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     onlyCanTakeOrders: false,
   },
 
-  // ============================================================
-  // GET AVAILABLE FOR FAMILY - SANS TOAST
-  // ============================================================
   getAvailableForFamily: async (familyId: string, filters = {}) => {
     try {
       set({ isLoadingQuota: true, error: null });
@@ -82,7 +78,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) throw new Error('Token manquant');
+      if (!token) throw new Error('Token de session manquant');
 
       const params = new URLSearchParams({
         familyId,
@@ -131,9 +127,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // GET AIDANTS WITH QUOTA - SANS TOAST
-  // ============================================================
   getAidantsWithQuota: async (filters = {}) => {
     try {
       set({ isLoadingQuota: true, error: null });
@@ -242,9 +235,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     await state.fetchAidants();
   },
 
-  // ============================================================
-  // FETCH AIDANTS - SANS TOAST
-  // ============================================================
   fetchAidants: async (filters = {}) => {
     try {
       set({ isLoading: true, error: null });
@@ -252,7 +242,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) throw new Error('Token manquant');
+      if (!token) throw new Error('Token de session manquant');
 
       const params = new URLSearchParams();
       Object.entries(currentFilters).forEach(([key, value]) => {
@@ -300,9 +290,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // FETCH AIDANT BY ID - SANS TOAST
-  // ============================================================
   fetchAidantById: async (id: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -347,9 +334,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // FETCH MY ASSIGNMENTS - SANS TOAST
-  // ============================================================
   fetchMyAssignments: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -357,7 +341,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) throw new Error('Token manquant');
+      if (!token) throw new Error('Token de session manquant');
 
       const { profile } = useAuthStore.getState();
       let endpoint = '/assignments';
@@ -403,17 +387,21 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
-  // ============================================================
-  // ASSIGN AIDANT - SANS TOAST
-  // ============================================================
   assignAidant: async (aidantId: string, patientId: string | null = null, assignmentType = 'permanente') => {
     try {
       set({ isLoading: true, error: null });
 
+      const { profile } = useAuthStore.getState();
+      
+      // 🔒 Bloquer les tentatives des familles
+      if (profile?.role === 'family') {
+        throw new Error("L'attribution d'un aidant est gérée par l'administration de Santé Plus. Veuillez les contacter.");
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) throw new Error('Token manquant');
+      if (!token) throw new Error('Token de session manquant');
 
       const quota = await get().getAidantQuotaById(aidantId);
       if (quota && assignmentType === 'permanente' && quota.currentAssignments >= quota.maxAssignments) {
@@ -438,13 +426,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
         reason: patientId ? `Assignation au patient ${patientId}` : 'Assignation personnelle',
       };
 
-      const { profile } = useAuthStore.getState();
-      let endpoint = '/assignments';
-      if (profile?.role === 'family') {
-        endpoint = '/assignments/family/assign';
-      }
-
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -460,8 +442,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       const result = await response.json();
 
-      // ✅ SUPPRIMÉ : toast.success('✅ Aidant assigné avec succès !');
-
       await get().fetchMyAssignments();
       await get().fetchAidants();
       await get().refreshQuota();
@@ -471,22 +451,25 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Assign aidant error:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
 
-  // ============================================================
-  // REVOKE ASSIGNMENT - SANS TOAST
-  // ============================================================
   revokeAssignment: async (assignmentId: string) => {
     try {
       set({ isLoading: true, error: null });
 
+      const { profile } = useAuthStore.getState();
+      
+      // 🔒 Bloquer les tentatives des familles
+      if (profile?.role === 'family') {
+        throw new Error("Seule l'administration de Santé Plus peut révoquer ou modifier une assignation.");
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
-      if (!token) throw new Error('Token manquant');
+      if (!token) throw new Error('Token de session manquant');
 
       const response = await fetch(`${API_BASE_URL}/assignments/${assignmentId}`, {
         method: 'DELETE',
@@ -500,8 +483,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       const result = await response.json();
 
-      // ✅ SUPPRIMÉ : toast.success('✅ Assignation révoquée');
-
       await get().fetchMyAssignments();
       await get().fetchAidants();
       await get().refreshQuota();
@@ -511,7 +492,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     } catch (error: any) {
       console.error('❌ Revoke assignment error:', error);
       set({ error: error.message, isLoading: false });
-      // ✅ SUPPRIMÉ : toast.error(error.message);
       throw error;
     }
   },
