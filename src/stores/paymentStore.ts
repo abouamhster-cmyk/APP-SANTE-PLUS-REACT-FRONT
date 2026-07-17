@@ -1,5 +1,5 @@
 // 📁 src/stores/paymentStore.ts
-
+ 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Subscription, Payment } from '@/types';
@@ -11,7 +11,6 @@ import {
   getPonctualOrderPrice,
 } from '@/lib/constants';
 
- 
 interface CreatePaymentData {
   amount: number;
   description?: string;
@@ -25,12 +24,15 @@ interface CreatePaymentData {
   patient_id?: string | null;
   target_type?: 'personal' | 'patient';
   target_name?: string;
-  // ✅ NOUVEAU : type explicite pour le webhook
+  orderId?: string | null;        
+  order_id?: string | null;   
+  type?: 'visit' | 'order' | 'subscription'; 
   metadata?: {
     type?: 'visit' | 'order' | 'subscription';
     is_ponctual?: boolean;
     is_visit?: boolean;
     visit_id?: string | null;
+    order_id?: string | null;   
     order_data?: any;
   };
 }
@@ -339,7 +341,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // ✅ CREATE PAYMENT - SANS TOAST
+  // ✅ CREATE PAYMENT - ENVOI EXPLICITE DE L'ORDER_ID AU BACKEND
   // =============================================
   createPayment: async (data: CreatePaymentData) => {
     try {
@@ -367,29 +369,20 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       const isPonctual = data.is_ponctual || false;
       const isVisit = data.is_visit || false;
       const visitId = data.visit_id || null;
+      const finalOrderId = data.orderId || data.order_id || null; // ✅ Capture de l'orderId
 
       const patientId = data.patient_id || null;
       const targetType = data.target_type || (patientId ? 'patient' : 'personal');
       const targetName = data.target_name || profile?.full_name || user.email || 'Client';
 
-      // ✅ DÉTERMINER LE TYPE EXPLICITE POUR LE WEBHOOK
       let type: 'visit' | 'order' | 'subscription' = 'subscription';
       if (isVisit) {
         type = 'visit';
-      } else if (isPonctual && data.order_data) {
-        type = 'order';
       } else if (isPonctual) {
         type = 'order';
       }
 
-      console.log('📤 Envoi paiement avec is_ponctual:', isPonctual);
-      console.log('📤 Envoi paiement avec is_visit:', isVisit);
-      console.log('📤 Envoi paiement avec visit_id:', visitId);
-      console.log('📤 Envoi paiement avec abonnement_id:', data.abonnement_id);
-      console.log('📤 Envoi paiement avec patient_id:', patientId);
-      console.log('📤 Envoi paiement avec target_type:', targetType);
-      console.log('📤 Envoi paiement avec target_name:', targetName);
-      console.log('📤 Envoi paiement avec type explicite:', type);
+      console.log('📤 Envoi paiement avec order_id :', finalOrderId);
 
       const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
         method: 'POST',
@@ -410,11 +403,11 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           is_ponctual: isPonctual,
           is_visit: isVisit,
           visit_id: visitId,
-          order_data: data.order_data || null,
+          order_id: finalOrderId, 
+          order_data: isPonctual && data.order_data ? data.order_data : null,
           patient_id: patientId,
           target_type: targetType,
           target_name: targetName,
-          // ✅ AJOUTER LE TYPE EXPLICITE
           type: type,
         }),
       });
@@ -431,7 +424,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         throw new Error("Le lien de paiement n'a pas été généré");
       }
 
-      // ✅ Enregistrer le paiement avec les métadonnées complètes
+      // Enregistrer le paiement en local
       const { data: payment, error: dbError } = await supabase
         .from('paiements')
         .insert({
@@ -449,11 +442,11 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
             is_ponctual: isPonctual,
             is_visit: isVisit,
             visit_id: visitId,
+            order_id: finalOrderId,  
             order_data: data.order_data || null,
             patient_id: patientId,
             target_type: targetType,
             target_name: targetName,
-            // ✅ AJOUTER LE TYPE EXPLICITE POUR LE WEBHOOK
             type: type,
           },
         })
@@ -461,7 +454,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         .single();
 
       if (dbError) {
-        console.warn('⚠️ Erreur sauvegarde paiement:', dbError);
+        console.warn('⚠️ Erreur sauvegarde paiement local :', dbError);
       }
 
       get().invalidateCache();
@@ -471,15 +464,12 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       ]);
 
       set({ isLoading: false });
-
-      // ✅ SUPPRIMÉ : toast.success('Redirection vers FedaPay...');
       
       return {
         success: true,
         payment_url: paymentUrl,
         transaction_id: result.transaction_id,
         reference: result.reference,
-        // ✅ RETOURNER LE TYPE POUR LE FRONTEND
         type: type,
       };
     } catch (error: any) {
@@ -489,19 +479,15 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // CREATE PONCTUAL PAYMENT - DÉPRÉCIÉ, UTILISER createPayment
-  // =============================================
   createPonctualPayment: async (data: { amount: number; description: string; orderId?: string }) => {
     try {
-      // ✅ REDIRIGER VERS createPayment
       const result = await get().createPayment({
         amount: data.amount,
         description: data.description,
         is_ponctual: true,
+        orderId: data.orderId || null,
         order_data: data.orderId ? { order_id: data.orderId } : null,
       });
-      
       return result;
     } catch (error: any) {
       console.error('Create ponctual payment error:', error);
@@ -510,9 +496,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // SUBSCRIBE TO OFFER - patient_id OPTIONNEL
-  // =============================================
   subscribeToOffer: async (offreId: string, patientId?: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -551,7 +534,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           break;
       }
 
-      // ✅ patient_id est optionnel
       const subscriptionData: any = {
         user_id: user.id,
         offre_id: offreId,
@@ -565,7 +547,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         remaining_orders: offre.total_orders || 0,
       };
 
-      // ✅ patient_id n'est ajouté que s'il est fourni
       if (patientId) {
         subscriptionData.patient_id = patientId;
       }
@@ -607,9 +588,6 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
     }
   },
 
-  // =============================================
-  // CANCEL SUBSCRIPTION
-  // =============================================
   cancelSubscription: async (subscriptionId: string) => {
     try {
       set({ isLoading: true, error: null });
