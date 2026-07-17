@@ -12,7 +12,7 @@ import { RoleGuard } from '@/components/auth/RoleGuard';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
-import { AuthLayout } from '@/layout/AuthLayout';
+import { AuthLayout } from '@/components/layout/AuthLayout'; 
 
 import { supabase } from '@/lib/supabase';
 import { useVisitStore } from '@/stores/visitStore';
