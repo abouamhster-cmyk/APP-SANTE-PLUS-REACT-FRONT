@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE CASH SECURISEE CLIENT ET DEPOT SÉCURISÉ LIVREUR SANS MODALE CLUNKY
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE CASH SECURISEE CLIENT ET DEPOT SÉCURISÉ LIVREUR SANS MODALE COMPLIQUÉE
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -32,7 +32,7 @@ import {
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useBranding } from '@/stores/brandingStore'; // Ou hook selon structure
+import { useBranding } from '@/hooks/useBranding'; // ✅ CORRIGÉ : Importation corrigée vers le bon dossier de hooks
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; 
 
@@ -59,7 +59,8 @@ interface MiniCardProps {
 }
 
 const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
-  const { colors } = useBranding();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   return (
     <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border min-w-0" style={{ borderColor: colors.primary + '15' }}>
@@ -86,7 +87,8 @@ interface PersonBoxProps {
 }
 
 const PersonBox = ({ icon, title, name, detail, detailIcon }: PersonBoxProps) => {
-  const { colors } = useBranding();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   return (
     <div className="rounded-2xl bg-gray-50 p-4 border" style={{ borderColor: colors.primary + '15' }}>
@@ -111,7 +113,8 @@ interface DocButtonProps {
 }
 
 const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
-  const { colors } = useBranding();
+  const brand = useBranding();
+  const colors = brand.colors;
 
   return (
     <button
@@ -162,6 +165,29 @@ const getStatusColor = (status: string): string => {
   return colors[status] || '#9E9E9E';
 };
 
+interface ActionButtonProps {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  disabled?: boolean;
+  onClick: () => void;
+  isLoading?: boolean;
+}
+
+const ActionButton = ({ label, icon, color, disabled, onClick, isLoading }: ActionButtonProps) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || isLoading}
+      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center"
+      style={{ background: color }}
+    >
+      {isLoading ? <Loader2 size={16} className="animate-spin" /> : icon}
+      {isLoading ? 'Chargement...' : label}
+    </button>
+  );
+};
+
 interface StatusBadgeProps {
   status: string;
   colors: any;
@@ -204,7 +230,8 @@ const OrderDetailPage = () => {
   const navigate = useNavigate();
 
   const { role, user } = useAuthStore();
-  const { colors } = useBranding();
+  const brand = useBranding();
+  const colors = brand.colors;
   const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, completeDelivery, confirmCashPayment, isLoading } = useOrderStore();
 
   const {
@@ -213,7 +240,6 @@ const OrderDetailPage = () => {
     isAdminOrCoordinator,
   } = useTerminology();
 
-  // ✅ 1. DÉFINITION IMMÉDIATE POUR ÉVITER LES ERREURS DE SCOPE DE VARIABLE
   const order = currentOrder as any;
 
   const [isUpdating, setIsUpdating] = useState(false);
@@ -226,12 +252,10 @@ const OrderDetailPage = () => {
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>('online');
   const [cashReceivedInput, setCashReceivedInput] = useState<number>(0);
 
-  // ✅ 2. DÉFINITION DE LA RÉFÉRENCE MODALE ET DU CONTROLE ANTICIPÉ
   const modalRef = useRef<HTMLDivElement>(null); 
   const isActionPending = useRef(false);
   const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
-  // ✅ 3. DÉFINITION INTÉGRÉE DE L'OUVERTURE DE LIENS WEB
   const openUrl = (url: string | null) => { 
     if (!url) {
       toast.error('URL non disponible');
@@ -430,7 +454,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  // ✅ DÉCLENCHEMENT DIRECT SANS ETAPE INTERMEDIAIRE (MODAL SHUNTE !)
   const handlePayDeliveryOnline = async () => {
     try {
       await executePayment({
@@ -916,7 +939,7 @@ const OrderDetailPage = () => {
         >
           <div 
             className="bg-white rounded-[2rem] w-full max-w-md p-5 shadow-2xl my-8 space-y-4"
-            ref={modalRef} // ✅ modalRef est défini correctement
+            ref={modalRef} 
           >
             <div className="flex items-center justify-between mb-4 border-b pb-3">
               <h2 className="text-base sm:text-lg font-black" style={{ color: colors.text }}>
