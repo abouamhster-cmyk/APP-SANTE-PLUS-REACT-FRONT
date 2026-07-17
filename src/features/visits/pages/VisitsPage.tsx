@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitsPage.tsx
-// ✅ PAGE DES VISITES COMPLETE : PLANIFICATION ET COMPATIBILITÉ SANS RESTRICTION ET SÉCURISATION ANTI DOUBLE-CLIC
+// ✅ PAGE DES VISITES COMPLETE : PLANIFICATION RÉSERVÉE AUX ADMINS ET AGENDA EN LECTURE SEULE POUR LES FAMILLES
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -7,38 +7,24 @@ import {
   Calendar,
   Plus,
   AlertCircle,
-  CreditCard,
   CheckCircle,
-  Sparkles,
   Users,
   RefreshCw,
-  X,
 } from 'lucide-react';
 
 import { useVisitStore } from '@/stores/visitStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
-import { usePonctualPayment } from '@/hooks/usePonctualPayment';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { VisitCard } from '@/components/visits/VisitCard';
 import { VisitModal } from '../components/VisitModal';
-import { VisitWizardModal } from '../components/VisitWizardModal';
-import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
 import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
-import { getPonctualPrice } from '@/lib/constants';
-import { supabase } from '@/lib/supabase';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
-
-interface VisitWizardData {
-  aidantId?: string | null;
-  wizardChoice?: string;
-  assignmentType?: string;
-}
 
 const VisitsPage = () => {
   const navigate = useNavigate();
@@ -46,57 +32,22 @@ const VisitsPage = () => {
   const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
-  const { visits, isLoading, fetchVisits, startVisit, cancelVisit, createVisit } = useVisitStore();
+  const { visits, isLoading, fetchVisits, startVisit, cancelVisit } = useVisitStore();
   const { patients, fetchPatients } = usePatientStore();
 
   const {
     hasActiveSubscription,
     remainingVisits,
-    can,
-    getActionMessage,
     isFamily,
     isAidant: isAidantRole,
     isAdminOrCoordinator,
     isLoading: subLoading,
   } = useSubscriptionGuard();
 
-  const {
-    singular,
-  } = useTerminology();
-
-  const {
-    isPaymentModalOpen,
-    pendingPaymentData,
-    payVisitPonctual,
-    handlePaymentSuccess,
-    handlePaymentCancel,
-    isLoading: isPaymentLoading,
-  } = usePonctualPayment({
-    onSuccess: () => {
-      fetchVisits();
-      toast.success('Visite planifiée après paiement !');
-    },
-    redirectPath: '/app/visits',
-  });
-
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-
-  const [showWizard, setShowWizard] = useState(false);
-  const [wizardData, setWizardData] = useState<{
-    targetType: 'patient' | 'personal_account' | 'personal';
-    targetId: string;
-    targetName: string;
-    familyId?: string;
-    scheduledDate?: string;
-    scheduledTime?: string;
-    visitData?: any;
-  } | null>(null);
-  const [isWizardLoading, setIsWizardLoading] = useState(false);
-
-  const [isConverting, setIsConverting] = useState(false);
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedVisitForAssign, setSelectedVisitForAssign] = useState<any>(null);
@@ -108,11 +59,10 @@ const VisitsPage = () => {
   // ✅ VERROU DE SÉCURITÉ CONTRE LES DOUBLES-CLICS SUR LES LISTES D'ACTIONS
   const isActionPending = useRef(false);
 
-  const canPlanify = isAdminOrCoordinator || isFamily;
+  // 🔒 Planification réservée à l'admin et au coordinateur
+  const canPlanify = isAdminOrCoordinator;
   const canStartVisit = isAidantRole || isAdminOrCoordinator;
-  const canCancelVisit = isAdminOrCoordinator || isFamily;
-
-  const canCreateWithSubscription = isFamily && hasActiveSubscription && remainingVisits > 0;
+  const canCancelVisit = isAdminOrCoordinator;
 
   useEffect(() => {
     fetchVisits();
@@ -132,41 +82,27 @@ const VisitsPage = () => {
     return [
       { value: 'all', label: 'Toutes les visites' },
       { value: 'planifiee', label: 'Planifiées' },
-      { value: 'acceptee', label: 'Confirmées' },
       { value: 'en_cours', label: 'En cours' },
       { value: 'terminee', label: 'Terminées' },
-      { value: 'brouillon', label: 'En attente' },
-      { value: 'ponctuel', label: 'Mode ponctuel' },
-      { value: 'en_attente_aidant', label: 'Attente d\'aidant' },
+      { value: 'validee', label: 'Validées' },
+      { value: 'annulee', label: 'Annulées' },
     ];
   }, [isAidantRole]);
 
   const sortedVisits = useMemo(() => {
     return visits
       .filter((visit) => {
-        if (filterStatus === 'all') return true;
-        if (filterStatus === 'ponctuel') {
-          return visit.metadata?.ponctual_mode === true || 
-                 visit.metadata?.is_ponctual === true ||
-                 visit.visit_type === 'ponctuelle';
-        }
+        if (filterStatus === 'all') return visit.status !== 'brouillon'; // Exclure les brouillons résiduels
         return visit.status === filterStatus;
       })
       .sort(
         (a, b) =>
-          new Date(a.scheduled_date).getTime() -
-          new Date(b.scheduled_date).getTime()
+          new Date(b.scheduled_date).getTime() -
+          new Date(a.scheduled_date).getTime() // Plus récent au plus ancien
       );
   }, [visits, filterStatus]);
 
-  const draftCount = visits.filter(v => v.status === 'brouillon').length;
-  const ponctualCount = visits.filter(v => 
-    v.metadata?.ponctual_mode === true || 
-    v.metadata?.is_ponctual === true ||
-    v.visit_type === 'ponctuelle'
-  ).length;
   const waitingForAidantCount = visits.filter(v => v.status === 'en_attente_aidant').length;
-  const canConvertDrafts = draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
@@ -203,137 +139,6 @@ const VisitsPage = () => {
       );
     }
     setPullY(0);
-  };
-
-  const handleCreateVisitWithWizard = async (visitData: any) => {
-    if (isActionPending.current) return;
-    
-    let targetType: 'patient' | 'personal_account' | 'personal' = 'personal';
-    let targetId = user?.id || '';
-    let targetName = profile?.full_name || 'Personnel';
-    let familyId = user?.id || '';
-
-    if (visitData.patient_id) {
-      targetType = 'patient';
-      targetId = visitData.patient_id;
-      const patient = patients.find(p => p.id === visitData.patient_id);
-      targetName = patient ? `${patient.first_name} ${patient.last_name}` : 'Patient';
-    } else if (visitData.target_user_id) {
-      targetType = 'personal_account';
-      targetId = visitData.target_user_id;
-      targetName = visitData.target_name || 'Compte personnel';
-    }
-
-    setWizardData({
-      targetType,
-      targetId,
-      targetName,
-      familyId,
-      scheduledDate: visitData.scheduled_date,
-      scheduledTime: visitData.scheduled_time,
-      visitData,
-    });
-    setShowWizard(true);
-  };
-
-  const handleWizardSuccess = async (data: VisitWizardData) => {
-    if (!wizardData || isActionPending.current) return;
-
-    isActionPending.current = true;
-    setIsWizardLoading(true);
-    setShowWizard(false);
-
-    try {
-      const visitPayload = {
-        ...wizardData.visitData,
-        wizard_choice: data.wizardChoice,
-        selected_aidant_id: data.aidantId,
-        assignment_type: data.assignmentType || 'ponctuelle',
-      };
-
-      const result = await createVisit(visitPayload);
-
-      if (result?.status === 'en_attente_aidant') {
-        toast.success('Visite créée en attente d\'aidant. L\'administration a été notifiée.');
-      } else if (result?.status === 'brouillon') {
-        const price = getPonctualPrice(result.duration_minutes || 60);
-        toast.success(`💳 Visite créée en brouillon. Paiement de ${price.toLocaleString()} FCFA requis.`);
-        handlePonctualPayment(result);
-      } else {
-        toast.success('Visite planifiée avec succès !');
-      }
-
-      await fetchVisits();
-    } catch (error: any) {
-      console.error('❌ Erreur création visite:', error);
-      toast.error(error.message || 'Erreur lors de la création de la visite');
-    } finally {
-      setIsWizardLoading(false);
-      setWizardData(null);
-      isActionPending.current = false;
-    }
-  };
-
-  const handleWizardClose = () => {
-    setShowWizard(false);
-    setWizardData(null);
-  };
-
-  const handleConvertToSubscription = async (visitId: string) => {
-    if (isConverting || isActionPending.current) return;
-
-    isActionPending.current = true;
-    setIsConverting(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-
-      if (!token) {
-        toast.error('Session expirée, veuillez vous reconnecter');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/visits/${visitId}/convert-to-subscription`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Erreur lors de la conversion');
-      }
-
-      toast.success(`Visite validée avec votre abonnement ! Il vous reste ${result.remaining_visits || 0} visite(s).`);
-      await fetchVisits();
-    } catch (error: any) {
-      console.error('❌ Erreur conversion:', error);
-      toast.error(error.message || 'Erreur lors de la conversion');
-    } finally {
-      setIsConverting(false);
-      isActionPending.current = false;
-    }
-  };
-
-  const handlePonctualPayment = (visit: any) => {
-    const patientName = visit.patient 
-      ? `${visit.patient.first_name} ${visit.patient.last_name}` 
-      : visit.target_name || 'Personnel';
-
-    payVisitPonctual({
-      visitId: visit.id,
-      scheduledDate: visit.scheduled_date,
-      scheduledTime: visit.scheduled_time,
-      durationMinutes: visit.duration_minutes || 60,
-      patientName: patientName,
-      patientId: visit.patient_id || null,
-      targetType: visit.target_type || 'personal',
-      targetName: visit.target_name || 'Personnel',
-      address: visit.patient?.address || 'Adresse non spécifiée',
-    });
   };
 
   const handleShowAssignAidantModal = (visit: any) => {
@@ -392,7 +197,7 @@ const VisitsPage = () => {
 
   const handleAdd = () => {
     if (!canPlanify) {
-      toast.error('Vous n\'avez pas les droits pour planifier une visite');
+      toast.error('La planification manuelle est réservée à l’administration de Santé Plus.');
       return;
     }
     setSelectedVisit(null);
@@ -400,13 +205,9 @@ const VisitsPage = () => {
     setIsModalOpen(true);
   };
 
-  const handleModalSuccess = (newVisit?: any) => {
+  const handleModalSuccess = () => {
     fetchVisits();
     setIsModalOpen(false);
-
-    if (newVisit && newVisit.metadata?.requires_payment) {
-      handlePonctualPayment(newVisit);
-    }
   };
 
   const handleStartVisit = async (visitId: string) => {
@@ -445,10 +246,10 @@ const VisitsPage = () => {
   if (isLoading || subLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
+        <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[1, 2].map((i) => (
-            <div key={i} className="h-44 bg-gray-100 dark:bg-gray-800/30 rounded-2xl animate-pulse" />
+            <div key={i} className="h-44 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -471,7 +272,7 @@ const VisitsPage = () => {
           opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
         }}
       >
-        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600">
           <RefreshCw 
             size={13} 
             className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
@@ -492,8 +293,8 @@ const VisitsPage = () => {
           </h1>
           <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
             {isAidantRole 
-              ? 'Consultez et validez vos interventions programmées à domicile.' 
-              : 'Planification simplifiée de l\'accompagnement de vos proches.'}
+              ? 'Consultez votre emploi du temps d\'interventions programmées.' 
+              : 'Consultez l\'agenda des interventions d\'aide à domicile programmées par l’administration.'}
           </p>
         </div>
 
@@ -509,17 +310,6 @@ const VisitsPage = () => {
               {hasActiveSubscription ? 'Crédits d\'interventions actifs' : 'Accompagnement à l\'acte'}
             </p>
           </div>
-        )}
-
-        {isFamily && draftCount > 0 && (
-          <button
-            onClick={() => setFilterStatus('brouillon')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-extrabold transition relative z-10"
-            style={{ backgroundColor: colors.gold + '15', color: colors.gold, border: `1px solid ${colors.gold + '30'}` }}
-          >
-            <AlertCircle size={12} className="animate-pulse" style={{ color: colors.gold }} />
-            <span>{draftCount} intervention{draftCount > 1 ? 's' : ''} en attente de paiement</span>
-          </button>
         )}
 
         {isAdminOrCoordinator && waitingForAidantCount > 0 && (
@@ -540,7 +330,7 @@ const VisitsPage = () => {
             style={{ background: colors.primary }}
           >
             <Plus size={13} strokeWidth={2.5} />
-            <span>Planifier une visite</span>
+            <span>Planifier une visite (Admin)</span>
           </button>
         )}
 
@@ -572,7 +362,6 @@ const VisitsPage = () => {
         <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border gap-1" style={{ borderColor: colors.primary + '10' }}>
           {statusFilterOptions.map((option) => {
             const isActive = filterStatus === option.value;
-            const hasDraftBadge = option.value === 'brouillon' && draftCount > 0;
             const hasWaitingBadge = option.value === 'en_attente_aidant' && waitingForAidantCount > 0;
 
             return (
@@ -581,9 +370,7 @@ const VisitsPage = () => {
                 onClick={() => setFilterStatus(option.value)}
                 className={cn(
                   "px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap select-none flex items-center gap-1.5",
-                  isActive
-                    ? "bg-white shadow-sm font-extrabold"
-                    : "hover:opacity-80"
+                  isActive ? "bg-white shadow-sm font-extrabold" : "hover:opacity-80"
                 )}
                 style={{
                   color: isActive ? colors.primary : colors.textLight,
@@ -591,11 +378,6 @@ const VisitsPage = () => {
                 }}
               >
                 <span>{option.label}</span>
-                {hasDraftBadge && (
-                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none" style={{ backgroundColor: colors.gold + '20', color: colors.gold }}>
-                    {draftCount}
-                  </span>
-                )}
                 {hasWaitingBadge && (
                   <span className="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold leading-none" style={{ backgroundColor: '#FF572220', color: '#FF5722' }}>
                     {waitingForAidantCount}
@@ -622,18 +404,8 @@ const VisitsPage = () => {
                     : undefined
                 }
                 onCancel={
-                  canCancelVisit && (visit.status === 'planifiee' || visit.status === 'en_attente' || visit.status === 'brouillon')
+                  canCancelVisit && (visit.status === 'planifiee' || visit.status === 'en_attente')
                     ? () => handleCancelVisit(visit.id)
-                    : undefined
-                }
-                onConvertToSubscription={
-                  visit.status === 'brouillon' && hasActiveSubscription && remainingVisits > 0
-                    ? () => handleConvertToSubscription(visit.id)
-                    : undefined
-                }
-                onPonctualPayment={
-                  visit.status === 'brouillon'
-                    ? () => handlePonctualPayment(visit)
                     : undefined
                 }
                 onShowAssignAidantModal={
@@ -657,9 +429,7 @@ const VisitsPage = () => {
               Aucun accompagnement trouvé
             </h3>
             <p className="text-xs max-w-xs leading-relaxed" style={{ color: colors.textLight }}>
-              {filterStatus !== 'all' 
-                ? 'Essayez de changer les filtres pour afficher d\'autres status.'
-                : 'Planifiez vos interventions d\'aide et d\'accompagnement à domicile.'}
+              Aucun accompagnement programmé ne correspond à ce filtre de statut.
             </p>
           </div>
 
@@ -676,7 +446,7 @@ const VisitsPage = () => {
         </section>
       )}
 
-      {/* BOUTON FLOATING MOBILE */}
+      {/* BOUTON FLOATING MOBILE ADMIN */}
       {canPlanify && (
         <button
           onClick={handleAdd}
@@ -691,40 +461,15 @@ const VisitsPage = () => {
         </button>
       )}
 
-      {/* MODALES */}
-      <VisitModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        mode={modalMode}
-        visit={selectedVisit}
-        patients={patients}
-        onSuccess={(newVisit?: any) => {
-          handleModalSuccess(newVisit);
-        }}
-      />
-
-      {showWizard && wizardData && (
-        <VisitWizardModal
-          isOpen={showWizard}
-          onClose={handleWizardClose}
-          onSuccess={handleWizardSuccess}
-          targetType={wizardData.targetType}
-          targetId={wizardData.targetId}
-          targetName={wizardData.targetName}
-          familyId={wizardData.familyId}
-          scheduledDate={wizardData.scheduledDate}
-          scheduledTime={wizardData.scheduledTime}
-          colors={colors}
-        />
-      )}
-
-      {isPaymentModalOpen && pendingPaymentData && (
-        <PonctualPaymentModal
-          isOpen={isPaymentModalOpen}
-          onClose={handlePaymentCancel}
-          onSuccess={handlePaymentSuccess}
-          paymentData={pendingPaymentData}
-          redirectPath="/app/visits"
+      {/* MODALE DE CRÉATION ADMIN */}
+      {canPlanify && (
+        <VisitModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          mode={modalMode}
+          visit={selectedVisit}
+          patients={patients}
+          onSuccess={handleModalSuccess}
         />
       )}
 
