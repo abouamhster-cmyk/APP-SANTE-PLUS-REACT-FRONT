@@ -483,7 +483,7 @@ const OrdersPage = () => {
               <OrderCard
                 order={order}
                 onClick={() => navigate(`/app/orders/${order.id}`)}
-                onStatusChange={(status) => handleStatusChange(order.id, status)}
+                onStatusChange={(status: string) => handleStatusChange(order.id, status)} 
                 onTakeOrder={isAidant || isAdminOrCoordinator ? () => handleTakeOrder(order.id) : undefined}
                 onShowAssignAidantModal={
                   isAdminOrCoordinator ? () => handleShowAssignAidantModal(order) : undefined
