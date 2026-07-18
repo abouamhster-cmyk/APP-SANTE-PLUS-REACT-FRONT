@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET ARBORESCENCE JSX PARFAITEMENT VALIDE SANS ERREURS DE BUILD
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE, ACCÈS CONCORDANT ET SÉCURITÉ DE RÔLES SANS ERREURS TS
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -395,7 +395,7 @@ const OrderDetailPage = () => {
     
     try {
       await takeOrder(id, takeLat, takeLng);
-      toast.success('Commande prise en charge');
+      toast.success('Commande prise en charge ✅ (GPS enregistré)');
       await fetchOrderById(id);
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la prise de commande');
@@ -585,6 +585,7 @@ const OrderDetailPage = () => {
   const isPendingPayment = order.status === 'attente_paiement';
   const isPonctual = order.order_type === 'ponctual' || order.is_ponctual === true;
   const isPaid = order.is_paid === true;
+  const isCompleted = ['validee', 'annulee', 'livree'].includes(order.status);  
 
   const canTake = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
   const canAccept = order.status === 'creee' && isAdminOrCoordinator;
@@ -600,7 +601,7 @@ const OrderDetailPage = () => {
 
   return (
     <div className="space-y-5 pb-10">
-      {/* HEADER */}
+      {/* HEADER CARD */}
       <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-start gap-3">
           <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-2xl border flex items-center justify-center hover:bg-gray-50"><ArrowLeft size={18} /></button>
@@ -619,6 +620,7 @@ const OrderDetailPage = () => {
                   Ponctuelle
                 </span>
               )}
+              {/* ✅ SÉCURISÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses simples ! */}
               {isPaid && financialData.purchaseAmount > 0 && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
                   <CheckCircle size={14} />
@@ -706,7 +708,7 @@ const OrderDetailPage = () => {
             </span>
           )}
         </div>
-      </div> {/*   Fermeture de l'enveloppe Header Card (balise div réintroduite) */}
+      </div> {/* ✅ RE-FERME LA CARTE HEADER ICI (résout TS17008) */}
         
       {/* ✅ BLOC SÉCURITÉ CASH (ÉCRAN CLIENT SÉCURISÉ) */}
       {isPendingCashConfirmation && isFamily && ( 
@@ -832,7 +834,7 @@ const OrderDetailPage = () => {
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
           <span className="text-sm font-extrabold text-gray-750">
-             {/* Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
+             {/*   Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
              {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
           </span>
         </div>
@@ -846,7 +848,7 @@ const OrderDetailPage = () => {
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
           <span className="text-sm font-extrabold text-emerald-600">
-             {/* ✅  Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
+             {/*  Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
              {order.subscription_id 
               ? 'Gratuit (Abonnement)' 
               : (order.delivery_fee > 0 
@@ -1043,7 +1045,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/*  ÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
+        {/*  Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
         {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
@@ -1054,7 +1056,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/*  SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
+        {/*  Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
         {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
