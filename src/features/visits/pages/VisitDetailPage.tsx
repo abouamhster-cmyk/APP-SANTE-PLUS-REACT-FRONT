@@ -1,5 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
-// ✅ PAGE DÉTAIL VISITE : LECTURE SEULE POUR LA FAMILLE ET RAPPORT IMMERSIF EN DIRECT
+// ✅ PAGE DÉTAIL VISITE : AGENDA ÉPURÉ (SANS DOUBLONS SÉMANTIQUES), ACCOMPAGNEMENT DIRECT ET TERMINOLOGIE "DÉBUT / FIN"
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -18,7 +18,6 @@ import {
   UserPlus,
   Clock,
   UserCheck,
-  Award,
   Navigation as NavIcon,
   Mic,
   Hospital,
@@ -440,6 +439,7 @@ const VisitDetailPage = () => {
   }
 
   const visit = currentVisit as any;
+  const isAdHoc = visit.metadata?.ad_hoc === true; // ✅ Détection dynamique de visite lancée en direct [23]
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -455,7 +455,7 @@ const VisitDetailPage = () => {
           </button>
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
-              Visite du {formatDate(visit.scheduled_date)}
+              {isAdHoc ? `Visite en direct de ${visit.target_name}` : `Visite du ${formatDate(visit.scheduled_date)}`}
             </h1>
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
               {getPrestationBadge()}
@@ -630,99 +630,40 @@ const VisitDetailPage = () => {
               icon={<User size={15} />}
               label="Bénéficiaire"
               value={getVisitDisplayName(visit)}
-              sub={getCategoryLabel(visit.patient?.category || 'senior')}
+              sub={visit.patient_id ? getCategoryLabel(visit.patient?.category || 'senior') : 'Compte Personnel'}
               color={colors.text}
             />
+            
+            {/*   Afficher le démarrage live si visite en direct, sinon planification standard [23] */}
+            {isAdHoc ? (
+              <InfoCard
+                icon={<Clock size={15} />}
+                label="Démarrage en direct"
+                value={visit.start_time ? `Débuté à ${new Date(visit.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En direct'}
+                sub={formatDate(visit.scheduled_date)}
+                color={colors.primary}
+              />
+            ) : (
+              <InfoCard
+                icon={<Calendar size={15} />}
+                label="Planification"
+                value={formatDate(visit.scheduled_date)}
+                sub={`${visit.scheduled_time} (${visit.duration_minutes} min)`}
+                color={colors.text}
+              />
+            )}
+
+            {/*  Afficher la durée réelle si ad-hoc, sinon l'id aidant (Boutons superflus du bas supprimés !) [23] */}
             <InfoCard
-              icon={<Calendar size={15} />}
-              label="Planification"
-              value={formatDate(visit.scheduled_date)}
-              sub={`${visit.scheduled_time} (${visit.duration_minutes} min)`}
-              color={colors.text}
-            />
-            <InfoCard
-              icon={aidantStatus.icon}
-              label="Intervenant"
-              value={aidantStatus.label}
-              sub={aidantStatus.sub}
-              color={aidantStatus.color}
+              icon={<Clock size={15} />}
+              label="Durée d'accompagnement"
+              value={visit.actual_duration_minutes ? `${visit.actual_duration_minutes} minutes` : `${visit.duration_minutes || 60} minutes`}
+              sub={isAdHoc ? 'Session à la volée' : 'Planifiée'}
+              color={colors.primary}
             />
           </div>
 
-          {/* STATS AIDANT */}
-          {isAidant && visit.aidant && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard
-                icon={<Award size={14} />}
-                label="Ma note"
-                value={visit.aidant.rating || 0}
-                sub={`${visit.aidant.total_missions || 0} missions`}
-                color={colors.primary}
-              />
-              <StatCard
-                icon={<Clock size={14} />}
-                label="Durée estimée"
-                value={`${visit.duration_minutes || 60} min`}
-                sub="Intervention"
-                color={colors.primary}
-              />
-              <StatCard
-                icon={<Calendar size={14} />}
-                label="Date"
-                value={formatDate(visit.scheduled_date)}
-                sub={visit.scheduled_time}
-                color={colors.primary}
-              />
-              <StatCard
-                icon={<MapPin size={14} />}
-                label="Adresse"
-                value={getVisitDisplayAddress(visit)}
-                sub="Lieu d'intervention"
-                color={colors.primary}
-              />
-            </div>
-          )}
-
-          {/* ✅ BLOC CLINIQUE ET HOSPITALISATION CONDITIONNEL DYNAMIQUE */}
-          {(visit.metadata?.is_discharge || visit.metadata?.is_medical_appointment) && (
-            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border space-y-4" style={{ borderColor: colors.primary + '10' }}>
-              <h3 className="font-extrabold text-xs sm:text-sm uppercase tracking-wider border-b pb-2 flex items-center gap-2" style={{ color: colors.textLight }}>
-                <Hospital size={16} className="text-emerald-500 shrink-0" />
-                Détails de l'admission hospitalière
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                <div className="p-3 bg-gray-50/50 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1.5" style={{ color: colors.textLight }}>Établissement</p>
-                  <p className="font-bold text-xs sm:text-sm mt-1 leading-normal truncate" style={{ color: colors.text }}>
-                    🏥 {visit.metadata.hospital_name || 'Non spécifié'}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-gray-50/50 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1.5" style={{ color: colors.textLight }}>Service médical</p>
-                  <p className="font-bold text-xs sm:text-sm mt-1 leading-normal truncate" style={{ color: colors.text }}>
-                    🩺 {visit.metadata.hospital_service || 'Non précisé'}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-gray-50/50 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider leading-none mb-1.5" style={{ color: colors.textLight }}>Médecin traitant</p>
-                  <p className="font-bold text-xs sm:text-sm mt-1 leading-normal truncate" style={{ color: colors.text }}>
-                    👤 {visit.metadata.doctor_name || 'Non renseigné'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl text-xs leading-relaxed font-semibold" style={{ backgroundColor: '#E3F2FD', color: '#1565C0' }}>
-                ℹ️ {visit.metadata?.is_discharge
-                  ? "Cet accompagnement comprend l'aide à la sortie, le transport de retour et la réinstallation de confort à domicile."
-                  : "Cet accompagnement comprend la présence lors du rendez-vous, la prise de notes et le compte-rendu médical."}
-              </div>
-            </div>
-          )}
-
-          {/* COMPTE-RENDU DE VISITE GROUPÉ */}
+          {/* ✅ COMPTE-RENDU DE VISITE GROUPÉ (TOUS LES CHAMPS SUPERFLUS DE GAUCHE ONT ÉTÉ ENLEVÉS !) [23] */}
           {(visit.actions?.length > 0 || visit.notes || (photosList && photosList.length > 0) || visit.report || audioUrl) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border space-y-5" style={{ borderColor: colors.primary + '10' }}>
               <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ borderColor: colors.primary + '10', color: colors.text }}>
@@ -753,7 +694,8 @@ const VisitDetailPage = () => {
               {/* Notes de préparation & Rapport */}
               {(visit.notes || visit.report) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {visit.notes && (
+                  {/* Ne pas dupliquer si les notes et le rapport sont identiques (cas ad-hoc) [23] */}
+                  {visit.notes && visit.notes !== visit.report && (
                     <div className="bg-gray-50/60 p-4 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
                       <h4 className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: colors.textLight }}>
                         Notes de préparation
@@ -778,20 +720,21 @@ const VisitDetailPage = () => {
 
               {/* COMPTE-RENDU AUDIO */}
               {audioUrl && (
-                <div className="pt-3 border-t" style={{ borderColor: colors.primary + '10' }}>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: colors.textLight }}>
+                <div className="pt-3 border-t animate-fadeIn" style={{ borderColor: colors.primary + '10' }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: colors.textLight }}>
                     <Mic size={14} className="text-blue-500 animate-pulse" />
                     Note vocale de l'intervenant
                   </h4>
-                  <div className="bg-gray-50/80 p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderColor: colors.primary + '10' }}>
+                  {/*  Lecteur audio responsive 100% étirable sans débordement sur mobiles [23] */}
+                  <div className="bg-gray-50/80 p-4 rounded-2xl border space-y-2.5" style={{ borderColor: colors.primary + '10' }}>
                     <div className="flex items-center gap-2">
-                      <Play size={16} className="text-gray-400" />
-                      <span className="text-xs font-semibold" style={{ color: colors.textLight }}>Message audio enregistré</span>
+                      <Play size={14} className="text-blue-500" />
+                      <span className="text-xs font-bold text-gray-700">Enregistrement audio en direct</span>
                     </div>
                     <audio
                       src={audioUrl}
                       controls
-                      className="w-full sm:w-auto h-9"
+                      className="w-full h-10 outline-none bg-transparent"
                     />
                   </div>
                 </div>
@@ -858,7 +801,7 @@ const VisitDetailPage = () => {
               </p>
             </div>
 
-            {/* ✅ AFFICHAGE DES CHECKPOINTS GPS ENREGISTRÉS */}
+            {/* ✅ CORRECTIF SÉMANTIQUE : "Début et Fin" au lieu de "Départ et Arrivée" [23] */}
             {(visit.location_start || visit.location_end) && (
               <div className="p-3.5 rounded-xl bg-gray-50 border space-y-2.5" style={{ borderColor: colors.primary + '10' }}>
                 <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textLight }}>
@@ -869,7 +812,8 @@ const VisitDetailPage = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" />
                       <span className="text-gray-600">
-                        <strong>Départ enregistré</strong> à {new Date(visit.start_time || visit.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {/* ✅ CORRIGÉ : Sémantique unifiée début/fin */}
+                        <strong>Début de l'accompagnement</strong> à {new Date(visit.start_time || visit.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   )}
@@ -877,7 +821,8 @@ const VisitDetailPage = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
                       <span className="text-gray-600">
-                        <strong>Arrivée enregistrée</strong> à {new Date(visit.end_time || visit.updated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {/* ✅ CORRIGÉ : Sémantique unifiée début/fin */}
+                        <strong>Fin de l'accompagnement</strong> à {new Date(visit.end_time || visit.updated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   )}
@@ -896,24 +841,6 @@ const VisitDetailPage = () => {
                   <Phone size={13} />
                   {visit.patient.phone}
                 </a>
-              </div>
-            )}
-
-            {isAidant && visit.aidant_id && (
-              <div className="pt-2 border-t" style={{ borderColor: colors.primary + '10' }}>
-                <p className="text-[10px] uppercase tracking-wider font-bold mb-1" style={{ color: colors.textLight }}>Informations</p>
-                <div className="space-y-1 text-xs" style={{ color: colors.text + '80' }}>
-                  <p className="flex items-center gap-1.5">
-                    <Clock size={12} className="text-gray-400" />
-                    Visite de {visit.duration_minutes || 60} minutes
-                  </p>
-                  {visit.is_urgent && (
-                    <p className="flex items-center gap-1.5 text-red-500">
-                      <AlertCircle size={12} />
-                      Visite urgente
-                    </p>
-                  )}
-                </div>
               </div>
             )}
           </div>
@@ -983,30 +910,5 @@ const InfoCard = ({ icon, label, value, sub, color }: InfoCardProps) => (
     )}
   </div>
 );
-
-interface StatCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  sub?: string;
-  color: string;
-}
-
-const StatCard = ({ icon, label, value, sub, color }: StatCardProps) => {
-  return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border" style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '12', color }}>
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-bold" style={{ color }}>{value}</p>
-          <p className="text-[9px] truncate" style={{ color: '#6b7280' }}>{label}</p>
-          {sub && <p className="text-[8px] truncate" style={{ color: '#6b7280' }}>{sub}</p>}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default VisitDetailPage;
