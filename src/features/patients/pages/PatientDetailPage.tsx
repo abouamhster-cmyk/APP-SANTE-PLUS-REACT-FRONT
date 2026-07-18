@@ -1,5 +1,6 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
- 
+// ✅ PAGE DÉTAIL DU PROCHE : SOLDE RÉEL D'ABONNEMENT DU PROCHE ET SUPPRESSION DU BOUTON DÉMARRER
+
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -24,8 +25,6 @@ import {
   FileText,
   ShieldAlert,
   Zap,
-  Stethoscope,
-  Pill,
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
@@ -47,7 +46,7 @@ import toast from 'react-hot-toast';
 const PatientDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
 
@@ -87,11 +86,14 @@ const PatientDetailPage = () => {
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [activeVisitId, setActiveVisitId] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [visitModalMode, setVisitModalMode] = useState<'create' | 'edit'>('create');
   const [patientVisits, setPatientVisits] = useState<any[]>([]);
 
   const [patientSubscription, setPatientSubscription] = useState<any | null>(null);
   const [isLoadingPatientSub, setIsLoadingPatientSub] = useState(false);
+
+  const isActionPending = useRef(false);
 
   const isAidantRole = role === 'aidant';
   const isFamilyRole = role === 'family';
@@ -99,7 +101,7 @@ const PatientDetailPage = () => {
 
   const canManage = canManagePatients();
 
-  useRefreshableData({
+  const { refreshAll, isRefreshing } = useRefreshableData({
     onRefresh: async () => {
       if (id) {
         await fetchPatientById(id);
@@ -125,8 +127,6 @@ const PatientDetailPage = () => {
       setPatientVisits(filtered);
     }
   }, [visits, id]);
-
-  const person = currentPatient;
 
   useEffect(() => {
     const fetchPatientSubscription = async () => {
@@ -175,10 +175,10 @@ const PatientDetailPage = () => {
       }
     };
 
-    if (person) {
+    if (currentPatient) {
       fetchPatientSubscription();
     }
-  }, [id, person]);
+  }, [id, currentPatient]);
 
   const realRemainingVisits = useMemo(() => {
     if (isFamilyRole) {
@@ -351,7 +351,7 @@ const PatientDetailPage = () => {
     );
   }
 
-  const isPersonalAccount = person.last_name === '(Compte Personnel)';
+  const person = currentPatient;
   const activeVisits = patientVisits.filter((v) => v.status === 'en_cours');
   const pendingVisits = patientVisits.filter((v) => v.status === 'planifiee' && !v.approved_at && !v.refused_at);
 
@@ -372,8 +372,7 @@ const PatientDetailPage = () => {
             </h1>
             <p className="text-sm flex items-center gap-1.5" style={{ color: colors.textLight }}>
               <User size={14} />
-              {/* ✅ COHÉRENCE SÉMANTIQUE : Afficher "Compte Personnel" s'il s'agit de l'abonné, sinon la catégorie clinique [23] */}
-              {isPersonalAccount ? '👤 Compte Personnel' : getCategoryLabel(person.category)}
+              {getCategoryLabel(person.category)}
               {isAidant && <span className="text-xs ml-2" style={{ color: colors.gold || '#c9a84c' }}>(Assigné)</span>}
             </p>
           </div>
@@ -583,16 +582,6 @@ const PatientDetailPage = () => {
                 <div>
                   <p className="text-xs font-bold" style={{ color: colors.primary }}>Traitements</p>
                   <p className="text-xs font-medium mt-0.5 leading-relaxed" style={{ color: colors.primary }}>{person.treatments}</p>
-                </div>
-              </div>
-            )}
-            {/* ✅ DIAGNOSTICS RÉELS COMPTE / PROCHE SANS PLACEHOLDERS */}
-            {person.conditions && (
-              <div className="p-3.5 rounded-xl flex items-start gap-3" style={{ background: '#E0F2FE' }}>
-                <Stethoscope size={18} className="text-sky-600 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-sky-700">Diagnostics & Pathologies</p>
-                  <p className="text-xs font-medium mt-0.5 leading-relaxed text-sky-600">{person.conditions}</p>
                 </div>
               </div>
             )}
