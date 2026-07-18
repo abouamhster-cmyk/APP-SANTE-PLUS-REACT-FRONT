@@ -34,7 +34,7 @@ interface OrderCardProps {
   onDeliver?: () => void;
   onCancel?: () => void;
   onView?: () => void;
-  onShowAssignAidantModal?: () => void;
+  onShowAssignAidantModal?: (order: Order) => void;  
   showActions?: boolean;
   compact?: boolean;
   colors?: any;
@@ -159,8 +159,15 @@ export const OrderCard = memo(({
             </button>
           )}
           {isAdminOrCoordinator && isAvailable && onShowAssignAidantModal && (
-            <button onClick={(e) => handleAction(e, onShowAssignAidantModal)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs bg-orange-600">
-              Assigner
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onShowAssignAidantModal(order); 
+              }}
+              className="p-2 rounded-xl bg-orange-100 text-orange-600 hover:bg-orange-200 transition"
+              title="Assigner un aidant"
+            >
+              <UserPlus size={16} />
             </button>
           )}
           {(isAdminOrCoordinator || isFamily) && !isCompleted && (
