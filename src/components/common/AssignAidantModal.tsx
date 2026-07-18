@@ -1,11 +1,12 @@
 // 📁 src/components/common/AssignAidantModal.tsx
+// ✅ ENVELOPPE DE MODALE ASSIGNATION COMMUN : DEUX STATUTS ET TÉLÉPORTATION PORTAIL SANS DÉCALAGES MOBILES
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';  
 import { Modal } from '@/components/ui/Modal';
 import { supabase } from '@/lib/supabase';
-import { assignmentAPI } from '@/lib/api';
 import { useBranding } from '@/hooks/useBranding';
-import { UserPlus, Loader2, CheckCircle, XCircle, User, Users, AlertCircle } from 'lucide-react';
+import { UserPlus, Loader2, CheckCircle, XCircle, User, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AssignAidantModalProps {
@@ -36,10 +37,10 @@ interface Aidant {
   current_assignments: number;
 }
 
+// ✅ SÉLECTION SIMPLIFIÉE À DEUX ÉLÉMENTS (Temporaire retiré) [23]
 const ASSIGNMENT_TYPES = [
-  { value: 'primary', label: '📌 Permanente', color: '#10B981' },
-  { value: 'temporary', label: '⏳ Temporaire', color: '#F59E0B' },
   { value: 'secondary', label: '⚡ Ponctuelle', color: '#3B82F6' },
+  { value: 'primary', label: '📌 Permanente', color: '#10B981' },
 ];
 
 export const AssignAidantModal = ({
@@ -58,7 +59,7 @@ export const AssignAidantModal = ({
   const [selectedAidant, setSelectedAidant] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [assignmentType, setAssignmentType] = useState('primary');
+  const [assignmentType, setAssignmentType] = useState('secondary'); // Ponctuel par défaut pour les courses
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -149,11 +150,12 @@ export const AssignAidantModal = ({
 
       if (updateError) throw updateError;
 
+      // Envoyer la notification enrichie
       await supabase.from('notifications').insert({
         user_id: selectedAidant,
         title: targetType === 'order' ? '📦 Nouvelle commande assignée' : '📅 Nouvelle visite assignée',
         body: `Vous avez été assigné à ${targetName} par l'administrateur.`,
-        type: targetType === 'order' ? 'commande' : 'visite',
+        type: targetType === 'order' ? 'commande' : 'visit',
         data: {
           [targetType === 'order' ? 'order_id' : 'visit_id']: targetId,
           action: targetType === 'order' ? 'take' : 'approve',
@@ -190,7 +192,10 @@ export const AssignAidantModal = ({
     }
   };
 
-  return (
+  if (!isOpen) return null;
+
+  // ✅ TÉLÉPORTATION PORTAIL : Injection directe à la racine de document.body pour pulvériser tout décalage visuel ! [23]
+  return createPortal(
     <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -232,7 +237,7 @@ export const AssignAidantModal = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher un aidant par nom ou spécialité..."
-            className="w-full px-3.5 py-2 rounded-xl border outline-none text-sm focus:ring-1"
+            className="w-full h-11 px-3.5 border rounded-xl outline-none text-xs font-bold bg-gray-50/50"
             style={{ borderColor: colors.primary + '25', color: colors.text }}
           />
         </div>
@@ -261,7 +266,7 @@ export const AssignAidantModal = ({
                     onClick={() => setSelectedAidant(aidant.user_id)}
                     className={`w-full px-3.5 py-2.5 rounded-xl border text-left transition-all ${
                       isSelected
-                        ? 'border-[--color-primary] bg-[--color-primary]05 shadow-sm'
+                        ? 'border-[--color-primary] bg-[--color-primary]05 shadow-sm font-bold'
                         : 'border-gray-200 hover:border-gray-300'
                     } ${isCurrent ? 'opacity-50' : ''}`}
                     style={{
@@ -271,58 +276,47 @@ export const AssignAidantModal = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0"
                           style={{ background: colors.primary }}
                         >
                           {aidant.user?.full_name?.charAt(0) || 'A'}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate" style={{ color: colors.text }}>
+                          <p className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
                             {aidant.user?.full_name || 'Aidant'}
                             {isCurrent && (
                               <span className="ml-2 text-xs" style={{ color: colors.textLight }}>(actuel)</span>
                             )}
                           </p>
                           <div className="flex items-center gap-2 text-xs" style={{ color: colors.textLight }}>
-                            <span>⭐ {aidant.rating || 0}</span>
+                            <span className="flex items-center gap-0.5"><Star size={11} className="text-yellow-400 fill-yellow-400" /> {aidant.rating || 0}</span>
                             <span>•</span>
                             <span>📋 {aidant.total_missions || 0} missions</span>
                             <span>•</span>
-                            <span>{aidant.current_assignments || 0}/{aidant.max_assignments || 4}</span>
-                            {aidant.specialties?.length > 0 && (
-                              <>
-                                <span>•</span>
-                                <span className="truncate max-w-[100px]">
-                                  {aidant.specialties.slice(0, 2).join(', ')}
-                                </span>
-                              </>
-                            )}
+                            <span className="font-bold">{aidant.current_assignments || 0}/{aidant.max_assignments || 4}</span>
                           </div>
                         </div>
                       </div>
-                      {isSelected && (
-                        <CheckCircle size={16} style={{ color: colors.primary }} />
-                      )}
                     </div>
                   </button>
                 );
               })}
             </div>
 
-            {/* Type d'assignation */}
+            {/* Type d'assignation SIMPLIFIÉ À DEUX OPTIONS */}
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
                 Type d'assignation
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {ASSIGNMENT_TYPES.map((type) => (
                   <button
                     key={type.value}
                     type="button"
                     onClick={() => setAssignmentType(type.value)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold transition ${
+                    className={`px-3 h-10 rounded-xl text-xs font-bold transition ${
                       assignmentType === type.value
-                        ? 'text-white shadow-sm'
+                        ? 'text-white shadow-sm font-extrabold'
                         : 'border text-gray-600 hover:bg-gray-50'
                     }`}
                     style={{
@@ -335,20 +329,11 @@ export const AssignAidantModal = ({
                 ))}
               </div>
             </div>
-
-            {/* Information */}
-            {currentAidantId && (
-              <div className="p-3 rounded-xl border" style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B30' }}>
-                <p className="text-xs flex items-center gap-1.5" style={{ color: '#92400E' }}>
-                  <AlertCircle size={14} />
-                  ℹ️ Un aidant est déjà assigné. Le remplacer par un autre.
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>
-    </Modal>
+    </Modal>,
+    document.body
   );
 };
 
