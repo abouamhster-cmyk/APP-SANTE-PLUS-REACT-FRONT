@@ -1,5 +1,5 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
-// ✅ CONTENU MODALE ASSIGNATION : DEUX STATUTS, DÉTECTION EN DIRECT ET AUTO-SÉLECTION DE L'AIDANT PERMANENT DU COMPTE
+// ✅ CONTENU MODALE ASSIGNATION : CALCUL SÉCURISÉ DES JOINTURES RELATIONNELLES ET SUPPRESSION DES ERREURS TS2339
 
 import { useState, useEffect, useMemo } from 'react';
 import { 
@@ -105,7 +105,12 @@ export const AssignAidantModalContent = ({
           .maybeSingle();
 
         if (!error && data?.aidant) {
-          const permanentUserId = data.aidant.user_id;
+          // ✅ CORRECTIF DE TYPE TS2339 : Levée d'ambiguïté sur l'array relationnel Supabase
+          const aidantData = data.aidant as any;
+          const permanentUserId = Array.isArray(aidantData)
+            ? aidantData[0]?.user_id
+            : aidantData?.user_id;
+
           setPermanentAidantId(permanentUserId);
           
           // ✅ AUTO-SÉLECTION : Sélectionner d'office l'aidant permanent de ce compte s'il est présent [30]
@@ -299,7 +304,7 @@ export const AssignAidantModalContent = ({
             {availableAidants.map((aidant: any) => {
               const isPermanent = aidant.user_id === permanentAidantId;
               const displayName = isPermanent 
-                ? `⭐ ${aidant.user?.full_name || aidant.full_name} (Permanent de ce compte)` // ✅ Identifiant visuel permanent rattaché !
+                ? `⭐ ${aidant.user?.full_name || aidant.full_name} (Permanent de ce compte)`
                 : aidant.user?.full_name || aidant.full_name;
 
               return (
@@ -317,7 +322,7 @@ export const AssignAidantModalContent = ({
   };
 
   const renderPatientSelection = () => {
-    if (targetType === 'visit' || targetType === 'order') return null; // Ne pas afficher pour les visites et commandes
+    if (targetType === 'visit' || targetType === 'order') return null;
     if (!hasPatients) return null;
     if (targetTypeLocal === 'personal') return null;
 
