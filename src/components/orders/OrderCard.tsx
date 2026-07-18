@@ -154,11 +154,6 @@ export const OrderCard = memo(({
               Livrer
             </button>
           )}
-          {isAdminOrCoordinator && isAvailable && onShowAssignAidantModal && (
-            <button onClick={(e) => handleAction(e, onShowAssignAidantModal)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs bg-orange-600 hover:opacity-80 transition">
-              Assigner
-            </button>
-          )}
         </div>
       )}
     </div>
