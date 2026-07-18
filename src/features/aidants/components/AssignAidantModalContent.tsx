@@ -1,6 +1,5 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
-// ✅ CONTENU MODALE ASSIGNATION : CALCUL SÉCURISÉ DES JOINTURES RELATIONNELLES ET SUPPRESSION DES ERREURS TS2339
-
+ 
 import { useState, useEffect, useMemo } from 'react';
 import { 
   AlertCircle, 
@@ -18,8 +17,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
-// ✅ SIMPLIFIÉ À DEUX OPTIONS UNIQUEMENT (Temporaire retiré)
-const ASSIGNMENT_TYPES_UI = [
+ const ASSIGNMENT_TYPES_UI = [
   { 
     value: 'secondary', 
     icon: '', 
@@ -67,7 +65,7 @@ export const AssignAidantModalContent = ({
   
   const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [assignmentType, setAssignmentType] = useState('secondary'); // Par défaut ponctuelle pour une course/mission unitaire [23]
+  const [assignmentType, setAssignmentType] = useState('secondary'); 
   
   const hasPatients = patients.length > 0;
   const [targetTypeLocal, setTargetTypeLocal] = useState<'personal' | 'patient'>(
@@ -105,16 +103,14 @@ export const AssignAidantModalContent = ({
           .maybeSingle();
 
         if (!error && data?.aidant) {
-          // ✅ CORRECTIF DE TYPE TS2339 : Levée d'ambiguïté sur l'array relationnel Supabase
-          const aidantData = data.aidant as any;
+           const aidantData = data.aidant as any;
           const permanentUserId = Array.isArray(aidantData)
             ? aidantData[0]?.user_id
             : aidantData?.user_id;
 
           setPermanentAidantId(permanentUserId);
           
-          // ✅ AUTO-SÉLECTION : Sélectionner d'office l'aidant permanent de ce compte s'il est présent [30]
-          if (permanentUserId) {
+           if (permanentUserId) {
             setSelectedAidantId(permanentUserId);
           }
         }
@@ -210,12 +206,13 @@ export const AssignAidantModalContent = ({
         }
       }
 
-      const result = await assignAidantStore({
+       const result = await assignAidantStore({
         aidantUserId: aidantUserId,
         targetType: finalTargetType,
         targetId: finalTargetId,
         assignmentType: assignmentType === 'primary' ? 'primary' : 'secondary',
         familyId: user.id,
+        force: forceMode, 
       });
 
       if (!result.success) {
@@ -297,19 +294,26 @@ export const AssignAidantModalContent = ({
           <select
             value={selectedAidantId}
             onChange={(e) => setSelectedAidantId(e.target.value)}
-            className="w-full px-3 h-10 rounded-xl border outline-none text-xs font-bold transition bg-white"
+            className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold transition bg-white"
             style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             <option value="">Sélectionner un aidant...</option>
             {availableAidants.map((aidant: any) => {
               const isPermanent = aidant.user_id === permanentAidantId;
+              
+              // ✅ Résoudre dynamiquement le badge "Permanent de ce compte"
               const displayName = isPermanent 
                 ? `⭐ ${aidant.user?.full_name || aidant.full_name} (Permanent de ce compte)`
                 : aidant.user?.full_name || aidant.full_name;
 
+              // ✅ Résoudre dynamiquement les statistiques de charge (Ex : Charge (4/4)) [30]
+              const currentLoad = aidant.current_assignments || 0;
+              const maxLoad = aidant.max_assignments || 4;
+              const loadLabel = ` — Charge (${currentLoad}/${maxLoad})`; // ✅ CORRECTIF : Charge d'assignations visible [30]
+
               return (
                 <option key={aidant.id} value={aidant.user_id || aidant.id}>
-                  {displayName}
+                  {displayName}{loadLabel}
                 </option>
               );
             })}
@@ -419,7 +423,7 @@ export const AssignAidantModalContent = ({
                 }`}
                 style={{
                   background: assignmentType === type.value ? colors.primary : 'transparent',
-                  borderColor: assignmentType === type.value ? colors.primary : colors.primary + '20',
+                  borderColor: assignmentType === type.value ? colors.primary : colors.primary + '25',
                 }}
               >
                 <span>{type.icon} {type.label}</span>
@@ -441,7 +445,7 @@ export const AssignAidantModalContent = ({
               />
               <span className="text-xs font-bold text-orange-700 flex items-center gap-1">
                 <Shield size={14} />
-                👔 Mode Force (ignore le quota)
+                👔 Forcer le rattachement
               </span>
             </label>
           </div>
@@ -488,11 +492,11 @@ export const AssignAidantModalContent = ({
           style={{ background: colors.primary }}
         >
           {isLoading ? (
-            <Loader2 size={15} className="animate-spin" />
+            <Loader2 size={15} className="animate-spin animate-spin text-white" />
           ) : (
             <>
               <CheckCircle size={14} />
-              Assigner la mission
+              Confirmer
             </>
           )}
         </button>
