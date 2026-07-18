@@ -1,5 +1,5 @@
-// 📁 src/features/patients/pages/PatientDetailPage.tsx
-// ✅ PAGE DÉTAIL DU PROCHE : SOLDE RÉEL D'ABONNEMENT DU PROCHE ET SUPPRESSION DU BOUTON DÉMARRER
+// 📁 frontend/src/features/patients/pages/PatientDetailPage.tsx
+// ✅ PAGE DÉTAIL DU PROCHE : SOLDE RÉEL D'ABONNEMENT ET COMPATIBILITÉ DOSSIER CLINIQUE RÉEL COMPTE / PROCHE
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -875,3 +875,4 @@ const VisitCardCompact = ({
 };
 
 export default PatientDetailPage;
+mets à jour ce fichier de detail pour que ça gere aussi en coherence
