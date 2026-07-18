@@ -1,6 +1,5 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
-// ✅ PAGE HUB DE L'INTERVENANT : SYNCHRONISATION DES ACTIONS GPS, DES DOSSIERS PATIENTS ET DU PLANNING
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -38,6 +37,7 @@ import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
+import { usePatientStore } from '@/stores/patientStore'; // ✅ Importé pour charger les dossiers cliniques
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, formatCurrency, cn } from '@/utils/helpers';
@@ -57,6 +57,7 @@ const MissionsPage = () => {
   const { visits, fetchVisits, startVisit, startAdHocVisit, completeVisit, isLoading } = useVisitStore();
   const { orders, fetchOrders, takeOrder, completeDelivery, isLoading: ordersLoading } = useOrderStore();
   const { assignments, fetchMyAssignments, isLoading: isAssignmentsLoading } = useAidantCatalogStore();
+  const { patients, fetchPatients } = usePatientStore(); // ✅ Utilisation du store de dossiers cliniques
 
   const { isAidant, getCategoryLabel } = useTerminology();
 
@@ -76,7 +77,7 @@ const MissionsPage = () => {
   // Modals de rapports
   const [showVisitReportModal, setShowVisitReportModal] = useState(false);
   const [showDeliveryReportModal, setShowDeliveryReportModal] = useState(false);
-  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState<any | null>(null); // ✅ CORRIGÉ : Nom de setter corrigé
+  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState<any | null>(null);
 
   // Formulaires de rapports
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
@@ -133,6 +134,24 @@ const MissionsPage = () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [activeIntervention]);
+
+  // ✅ RÉSOUDEUR DE DOSSIER CLINIQUE EN DIRECT (SÉCURITÉ DE SECOURS ET DE COHÉRENCE)
+  const realPatientData = useMemo(() => {
+    if (!selectedBeneficiary) return null;
+
+    // Cas A : Il s'agit d'un proche (Patient) [24]
+    if (selectedBeneficiary.target_type === 'patient' && selectedBeneficiary.patient_id) {
+      return patients.find(p => p.id === selectedBeneficiary.patient_id) || selectedBeneficiary.patient;
+    }
+
+    // Cas B : Il s'agit d'un compte personnel (S'accompagne lui-même) [24]
+    const accountId = selectedBeneficiary.family_id || selectedBeneficiary.family?.id;
+    if (accountId) {
+      return patients.find(p => p.id === accountId || p.created_by === accountId);
+    }
+
+    return null;
+  }, [selectedBeneficiary, patients]);
 
   const stats = useMemo(() => {
     const pendingMissionsCount = myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente').length;
@@ -242,6 +261,7 @@ const MissionsPage = () => {
       fetchVisits();
       fetchOrders();
       fetchMyAssignments();
+      fetchPatients(); // ✅ Charger tous les dossiers cliniques en même temps [24]
     }
   }, [isVerified, fetchVisits, fetchOrders, fetchMyAssignments]);
 
@@ -268,7 +288,7 @@ const MissionsPage = () => {
     setIsPulling(false);
     if (pullY >= 50) {
       toast.promise(
-        Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments()]),
+        Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments(), fetchPatients()]),
         {
           loading: 'Actualisation des plannings...',
           success: 'Missions à jour !',
@@ -305,7 +325,7 @@ const MissionsPage = () => {
     return [];
   };
 
-  const filteredItems = getFilteredItems(); // ✅ UNIQUE DÉCLARATION RETENUE (Doublon supprimé !)
+  const filteredItems = getFilteredItems();
 
   // ✅ ACTIONS DE DÉMARRAGE AD-HOC (À LA VOLÉE)
   const handleStartAdHocIntervention = async (beneficiary: any) => {
@@ -592,7 +612,7 @@ const MissionsPage = () => {
         <button
           onClick={async () => {
             setIsRefreshing(true);
-            await Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments()]);
+            await Promise.all([fetchVisits(), fetchOrders(), fetchMyAssignments(), fetchPatients()]);
             setIsRefreshing(false);
           }}
           disabled={isRefreshing || isLoading_}
@@ -818,7 +838,7 @@ const MissionsPage = () => {
               onStart={() => handleStartPlannedIntervention(item.id)}
               onTakeOrder={() => handleTakeOrder(item.id)}
               onDeliver={() => {
-                setSelectedOrderForDelivery(item); // ✅ CORRIGÉ : Nom du setter correct associé à l'état
+                setSelectedOrderForDelivery(item);
                 setShowDeliveryReportModal(true);
               }}
               onView={() => {
@@ -898,23 +918,22 @@ const MissionsPage = () => {
                   <div>
                     <span className="text-[10px] text-gray-400 block font-bold">Âge</span>
                     <span className="font-extrabold text-gray-700">
-                      {selectedBeneficiary.target_type === 'patient' 
-                        ? (selectedBeneficiary.patient?.age ? `${selectedBeneficiary.patient.age} ans` : 'Non renseigné') 
-                        : 'Compte majeur'}
+                      {/* ✅ CORRECTIF DYNAMIQUE : Charger l'âge réel du dossier unifié résolu de manière structurée ! */}
+                      {realPatientData?.age ? `${realPatientData.age} ans` : (realPatientData ? 'Majeur (Non précisé)' : 'Compte majeur')}
                     </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-gray-400 block font-bold">Sexe</span>
-                    <span className="font-extrabold text-gray-700 uppercase">
-                      {selectedBeneficiary.target_type === 'patient' 
-                        ? (selectedBeneficiary.patient?.gender === 'male' ? 'Homme' : 'Femme') 
-                        : 'Non spécifié'}
+                    <span className="font-extrabold text-gray-750 uppercase">
+                      {/* ✅ CORRECTIF DYNAMIQUE : Charger le genre réel du dossier unifié résolu ! */}
+                      {realPatientData?.gender === 'male' ? 'Homme' : (realPatientData?.gender === 'female' ? 'Femme' : 'Non précisé')}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {selectedBeneficiary.target_type === 'patient' && selectedBeneficiary.patient && (
+              {/* ✅ SÉCURISÉ : Les informations cliniques s'affichent d'office si le dossier réel existe */}
+              {realPatientData && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-1.5">
@@ -922,7 +941,7 @@ const MissionsPage = () => {
                     </h4>
                     <div className="p-3 bg-red-50/20 border border-red-100 rounded-xl min-h-[58px]">
                       <p className="font-semibold text-red-900 leading-normal">
-                        {selectedBeneficiary.patient.conditions || "Aucune pathologie chronique signalée."}
+                        {realPatientData.conditions || "Aucune pathologie chronique signalée."}
                       </p>
                     </div>
                   </div>
@@ -933,7 +952,7 @@ const MissionsPage = () => {
                     </h4>
                     <div className="p-3 bg-blue-50/20 border border-blue-100 rounded-xl min-h-[58px]">
                       <p className="font-semibold text-blue-900 leading-normal">
-                        {selectedBeneficiary.patient.treatments || "Pas de traitement médical en cours."}
+                        {realPatientData.treatments || "Pas de traitement médical en cours."}
                       </p>
                     </div>
                   </div>
@@ -945,18 +964,16 @@ const MissionsPage = () => {
                   <FileText size={14} style={{ color: colors.primary }} /> Notes d'aide
                 </h4>
                 <div className="p-4 bg-gray-50/50 rounded-2xl border space-y-3">
-                  {selectedBeneficiary.target_type === 'patient' && selectedBeneficiary.patient?.allergies && (
+                  {realPatientData?.allergies && (
                     <div>
                       <span className="text-[10px] text-red-600 font-extrabold block uppercase tracking-wider">⚠️ Allergies signalées</span>
-                      <p className="font-bold text-red-700 mt-0.5">{selectedBeneficiary.patient.allergies}</p>
+                      <p className="font-bold text-red-700 mt-0.5">{realPatientData.allergies}</p>
                     </div>
                   )}
                   <div>
                     <span className="text-[10px] text-gray-400 font-extrabold block uppercase tracking-wider">📝 Confort</span>
                     <p className="font-medium text-gray-600 mt-1 leading-relaxed">
-                      {selectedBeneficiary.target_type === 'patient' 
-                        ? (selectedBeneficiary.patient?.notes || "Pas de note spécifiée.") 
-                        : "Accompagnement de confort personnel."}
+                      {realPatientData?.notes || "Accompagnement de confort personnel."}
                     </p>
                   </div>
                 </div>
@@ -1017,10 +1034,10 @@ const MissionsPage = () => {
                     <button
                       key={action.id}
                       type="button"
-                      onClick={() => toggleActionSelection(action.label)} // ✅ CORRIGÉ : Portée lexicale restaurée !
+                      onClick={() => toggleActionSelection(action.label)}
                       className={cn(
                         "p-3 rounded-xl border text-left flex items-center justify-between transition-all text-xs font-semibold",
-                        isChecked ? "border-emerald-500 bg-emerald-50/30 text-emerald-900" : "bg-white hover:bg-gray-50 text-gray-600"
+                        isChecked ? "border-emerald-500 bg-emerald-50/30 text-emerald-950" : "bg-white hover:bg-gray-50 text-gray-600"
                       )}
                     >
                       <span className="truncate">{action.icon} {action.label}</span>
