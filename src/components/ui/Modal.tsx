@@ -1,5 +1,5 @@
 // 📁 src/components/ui/Modal.tsx
-
+ 
 import { ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
@@ -83,28 +83,30 @@ export const Modal = ({
   // Sécurité SSR
   if (typeof window === 'undefined') return null;
 
-  // 💡 createPortal détache le modal du DOM d'origine pour l'injecter sous document.body
+  // 💡 createPortal détache la modale de l'arborescence parente pour l'injecter directement sous document.body [23]
   return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-md overflow-hidden pointer-events-auto"
+          /* ✅ CORRECTIF DU CALQUE MOBILE : items-end sur mobile pour agir en Bottom Sheet et items-center sur bureau [23] */
+          className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-md overflow-hidden pointer-events-auto animate-fadeIn"
           onClick={closeOnOverlayClick ? onClose : undefined}
         >
           <motion.div
             ref={modalRef}
+            /* ✅ CORRECTIF D'ARROUNDI MOBILE : rounded-t-[2rem] pour épouser le bas de l'écran mobile, arrondi complet sur bureau [23] */
             className={cn(
-              'relative w-full bg-white dark:bg-[#17231d] rounded-[2rem] shadow-2xl flex flex-col overflow-hidden border max-h-[90vh]',
+              'relative w-full bg-white dark:bg-[#17231d] rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border max-h-[92vh] sm:max-h-[90vh]',
               MAX_WIDTH_CLASSES[maxWidth],
               className
             )}
             style={{
               borderColor: colors.primary + '20',
             }}
-            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            initial={{ opacity: 0, y: 32, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.96 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* INDICATION DE GLISSEMENT MOBILE */}
