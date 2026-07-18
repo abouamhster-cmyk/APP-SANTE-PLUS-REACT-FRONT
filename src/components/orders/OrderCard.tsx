@@ -28,10 +28,12 @@ interface ExtendedOrder extends Order {
 interface OrderCardProps {
   order: Order;
   onClick?: () => void;
+  onStatusChange?: (status: string) => void; 
   onTakeOrder?: () => void;
   onDeliver?: () => void;
   onCancel?: () => void;
   onView?: () => void;
+  onShowAssignAidantModal?: () => void;
   showActions?: boolean;
   compact?: boolean;
   colors?: any;
