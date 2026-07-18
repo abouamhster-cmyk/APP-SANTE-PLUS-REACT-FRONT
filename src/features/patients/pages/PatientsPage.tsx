@@ -1,6 +1,5 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
-// ✅ PAGE MEMBRES & ATTRIBUTIONS : NETTOYAGE RESPONSIVE MOBILE SANS DOUBLONS NI CHEVAUCHEMENTS
-
+ 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -37,6 +36,9 @@ import { supabase } from '@/lib/supabase';
 import { assignmentAPI } from '@/lib/api';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
+
+// ✅ IMPORTATION DE LA MODALE UNIFIÉE (Résout définitivement le décalage de calque à la racine sur mobile !) [23]
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 
 // ============================================================
 // TYPES & LOGIQUES
@@ -101,12 +103,6 @@ interface ExpandedState {
   [key: string]: boolean;
 }
 
-const ASSIGNMENT_TYPES = [
-  { value: 'primary', label: '📌 Permanente', color: '#10B981' },
-  { value: 'temporary', label: '⏳ Temporaire', color: '#F59E0B' },
-  { value: 'secondary', label: '⚡ Ponctuelle', color: '#3B82F6' },
-];
-
 const getCategoryColor = (category: string): string => {
   if (category === 'maman_bebe') return '#db4a6d';
   if (category === 'senior') return '#10b981';
@@ -120,18 +116,15 @@ const getCategoryColor = (category: string): string => {
 
 export const PatientsPage = () => {
   const navigate = useNavigate();
-  const { profile, role, user } = useAuthStore();
+  const { profile, role } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
-  const { fetchAssignments } = useAssignmentStore();
 
   const {
     singular,
     add,
-    list,
     empty,
     emptyAction,
-    isFamily,
     isAidant,
     isAdminOrCoordinator,
   } = useTerminology();
@@ -160,11 +153,9 @@ export const PatientsPage = () => {
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
 
+  // États d'assignation
   const [showRowAssignModal, setShowRowAssignModal] = useState(false);
   const [selectedItemToAssign, setSelectedItemToAssign] = useState<AssignmentItem | null>(null);
-  const [modalAidant, setModalAidant] = useState('');
-  const [modalType, setModalType] = useState('primary');
-  const [modalForce, setModalForce] = useState(false);
 
   // ÉTATS DE PULL-TO-REFRESH MOBILE
   const [pullY, setPullY] = useState(0);
@@ -174,7 +165,7 @@ export const PatientsPage = () => {
   const canManage = canManagePatients();
   const isAdmin = isAdminOrCoordinator;
 
-  const fetchAllData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!isAdmin) {
       await fetchPatients(true);
       return;
@@ -248,6 +239,10 @@ export const PatientsPage = () => {
       setIsLoadingAssignments(false);
     }
   }, [isAdmin, fetchPatients]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const assignmentItems = useMemo(() => {
     if (!isAdmin) return [];
@@ -336,6 +331,13 @@ export const PatientsPage = () => {
     return items;
   }, [isAdmin, assignmentItems, searchTerm, categoryFilter]);
 
+  const getCategoryLabel = (category: string): string => {
+    if (category === 'maman_bebe') return '👶 Maman & Bébé';
+    if (category === 'senior') return '👴 Senior';
+    if (category === 'personal') return '👤 Personnel';
+    return 'Non spécifié';
+  };
+
   const grouped = useMemo(() => {
     if (!isAdmin) return {};
 
@@ -396,10 +398,6 @@ export const PatientsPage = () => {
     });
   }, [isAdmin, patients, searchTerm, categoryFilter]);
 
-  const toggleExpand = (familyId: string) => {
-    setExpanded(prev => ({ ...prev, [familyId]: !prev[familyId] }));
-  };
-
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -442,47 +440,13 @@ export const PatientsPage = () => {
 
   const handleOpenRowAssignModal = (item: AssignmentItem) => {
     setSelectedItemToAssign(item);
-    setModalAidant('');
-    setModalType('primary');
-    setModalForce(false);
     setShowRowAssignModal(true);
   };
 
-  const handleConfirmRowAssign = async () => {
-    if (!selectedItemToAssign) return;
-    if (!modalAidant) {
-      toast.error('Veuillez sélectionner un aidant dans la liste');
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      await assignmentAPI.adminForceAssign({
-        aidantUserId: modalAidant,
-        targetType: selectedItemToAssign.targetType,
-        targetId: selectedItemToAssign.targetId,
-        familyId: selectedItemToAssign.familyId,
-        assignmentType: modalType,
-        reason: `Rattachement administratif contextuel par ${profile?.full_name}`,
-        expiresAt: null,
-        force: modalForce,
-      });
-
-      toast.success(`Intervenant rattaché à ${selectedItemToAssign.targetName} avec succès !`);
-      setShowRowAssignModal(false);
-      setSelectedItemToAssign(null);
-      await fetchAllData();
-    } catch (error: any) {
-      console.error('❌ Erreur assignation:', error);
-      if (error.message?.includes('AIDANT_FULL') || error.message?.includes('quota')) {
-        toast.error('Cet aidant a atteint son quota. Activez "Forcer l\'assignation" pour continuer.');
-      } else {
-        toast.error(error.message || 'Erreur lors de l\'attribution');
-      }
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleAssignSuccess = () => {
+    setShowRowAssignModal(false);
+    setSelectedItemToAssign(null);
+    fetchAllData();
   };
 
   const handleRevoke = async (item: AssignmentItem) => {
@@ -556,25 +520,16 @@ export const PatientsPage = () => {
     setIsModalOpen(false);
   };
 
-  const { refreshAll, isRefreshing } = useRefreshableData({
-    onRefresh: async () => {
-      if (isAidant) {
-        await syncAidantPatients();
-      } else {
-        await fetchAllData();
-      }
-    },
-    onError: () => {
-      toast.error('Mise à jour impossible. Réseau instable.');
-    },
-  });
+  const fetchAllDataMemo = useCallback(async () => {
+    await fetchAllData();
+  }, [fetchAllData]);
 
   useEffect(() => {
     const loadData = async () => {
       if (isAidant) {
         await syncAidantPatients();
       } else {
-        await fetchAllData();
+        await fetchAllDataMemo();
       }
     };
     loadData();
@@ -594,9 +549,6 @@ export const PatientsPage = () => {
       </div>
     );
   }
-
-  const modalSelectedAidantObj = aidants.find(a => a.user_id === modalAidant);
-  const isSelectedAidantFull = modalSelectedAidantObj && (modalSelectedAidantObj.current_assignments >= modalSelectedAidantObj.max_assignments);
 
   return (
     <div 
@@ -906,125 +858,36 @@ export const PatientsPage = () => {
         </button>
       )}
 
-      {/* ASSIGNATION CONTEXTUELLE INDIVIDUELLE */}
+      {/* ✅ ASSIGNATION CONTEXTUELLE INDIVIDUELLE SÉCURISÉE (Plus d'inline modal piégeux, on passe par la modale portail unifiée !) [23, 24] */}
       {showRowAssignModal && selectedItemToAssign && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowRowAssignModal(false); }}
-        >
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
-            <div className="flex items-start justify-between border-b pb-4" style={{ borderColor: colors.primary + '10' }}>
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Rattachement administratif</span>
-                <h3 className="text-sm font-extrabold" style={{ color: colors.text }}>Intervenant d'accompagnement</h3>
-                <p className="text-xs mt-1" style={{ color: colors.textLight }}>Dossier : <strong className="font-bold" style={{ color: colors.text }}>{selectedItemToAssign.targetName}</strong></p>
-              </div>
-              <button 
-                onClick={() => setShowRowAssignModal(false)}
-                className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-all border"
-                style={{ borderColor: colors.primary + '15' }}
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Sélectionner un aidant qualifié</label>
-                <select
-                  value={modalAidant}
-                  onChange={(e) => setModalAidant(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50/50"
-                  style={{ borderColor: colors.primary + '20', color: colors.text }}
-                >
-                  <option value="">Sélectionner un aidant</option>
-                  {aidants.map(a => {
-                    const isFull = a.current_assignments >= a.max_assignments;
-                    return (
-                      <option key={a.id} value={a.user_id}>
-                        {isFull ? '🔴 ' : '🟢 '} {a.user?.full_name || 'Aidant'} — Charge ({a.current_assignments}/{a.max_assignments})
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {modalSelectedAidantObj && (
-                <div 
-                  className={cn(
-                    "p-3 rounded-xl flex items-center justify-between border text-[11px] font-semibold transition-all",
-                    isSelectedAidantFull ? "bg-red-50/50 border-red-200/50 text-red-700" : "bg-emerald-50/50 border-emerald-200/50 text-emerald-700"
-                  )}
-                >
-                  <span>Quota de l'intervenant : {modalSelectedAidantObj.current_assignments}/{modalSelectedAidantObj.max_assignments}</span>
-                  <span>{isSelectedAidantFull ? 'Quota max atteint' : 'Disponible'}</span>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Type de contrat d'accompagnement</label>
-                <select
-                  value={modalType}
-                  onChange={(e) => setModalType(e.target.value)}
-                  className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-semibold bg-gray-50/50"
-                  style={{ borderColor: colors.primary + '20', color: colors.text }}
-                >
-                  {ASSIGNMENT_TYPES.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {isSelectedAidantFull && (
-                <div className="p-4 bg-amber-50/40 rounded-xl border border-amber-100/50 space-y-3">
-                  <div className="flex items-start gap-2.5">
-                    <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                      Cet aidant est au maximum de sa charge d'accompagnements (4/4). Souhaitez-vous forcer l'assignation ?
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 pt-2 border-t border-amber-100/50">
-                    <input
-                      type="checkbox"
-                      id="force_checkbox"
-                      checked={modalForce}
-                      onChange={(e) => setModalForce(e.target.checked)}
-                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-white border-gray-100"
-                    />
-                    <label htmlFor="force_checkbox" className="text-xs font-bold text-amber-950 cursor-pointer select-none">
-                      Forcer le rattachement
-                    </label>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-4 border-t" style={{ borderColor: colors.primary + '10' }}>
-              <button
-                type="button"
-                onClick={() => setShowRowAssignModal(false)}
-                className="h-11 rounded-xl font-bold border bg-white hover:bg-gray-50 transition-all text-xs sm:text-sm text-center"
-                style={{ borderColor: colors.primary + '20', color: colors.text }}
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmRowAssign}
-                disabled={isProcessing || (!modalForce && isSelectedAidantFull)}
-                className="h-11 rounded-xl text-white font-bold transition-all hover:opacity-90 flex items-center justify-center gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-                style={{ background: colors.primary }}
-              >
-                {isProcessing ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <CheckCircle size={14} />
-                )}
-                Confirmer
-              </button>
-            </div>
-          </div>
-        </div>
+        <AssignAidantModal
+          isOpen={showRowAssignModal}
+          onClose={() => {
+            setShowRowAssignModal(false);
+            setSelectedItemToAssign(null);
+          }}
+          targetType={selectedItemToAssign.targetType === 'personal_account' ? 'personal_account' : 'patient'}
+          targetId={selectedItemToAssign.targetId}
+          targetName={selectedItemToAssign.targetName}
+          onSuccess={handleAssignSuccess}
+          currentAidantId={selectedItemToAssign.assignedAidantUserId}
+          colors={colors}
+          allowForce={true}
+          onAssignAidant={async (aidantUserId, assignmentType, force) => {
+            // Appeler l'API de force assignation administrative [30]
+            await assignmentAPI.adminForceAssign({
+              aidantUserId,
+              targetType: selectedItemToAssign.targetType,
+              targetId: selectedItemToAssign.targetId,
+              familyId: selectedItemToAssign.familyId,
+              assignmentType,
+              reason: `Rattachement administratif contextuel par ${profile?.full_name}`,
+              expiresAt: null,
+              force: force || false,
+            });
+          }}
+          isAdmin={true}
+        />
       )}
 
       {/* MODAL AJOUT / ÉDITION DE PATIENT */}
