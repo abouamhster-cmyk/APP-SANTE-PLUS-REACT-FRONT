@@ -1,5 +1,6 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
- 
+// ✅ PAGE MEMBRES & ATTRIBUTIONS : NETTOYAGE RESPONSIVE MOBILE SANS DOUBLONS ET RESOLUTION DES ERREURS TS2552 ET TS2304
+
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -116,9 +117,11 @@ const getCategoryColor = (category: string): string => {
 
 export const PatientsPage = () => {
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  // ✅ CORRIGÉ (TS2304) : Ajout de la variable "user" détruite du store d'authentification [24]
+  const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
+  const { fetchAssignments } = useAssignmentStore();
 
   const {
     singular,
@@ -165,7 +168,7 @@ export const PatientsPage = () => {
   const canManage = canManagePatients();
   const isAdmin = isAdminOrCoordinator;
 
-  const fetchData = useCallback(async () => {
+   const fetchAllData = useCallback(async () => {
     if (!isAdmin) {
       await fetchPatients(true);
       return;
@@ -240,9 +243,9 @@ export const PatientsPage = () => {
     }
   }, [isAdmin, fetchPatients]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+   useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
 
   const assignmentItems = useMemo(() => {
     if (!isAdmin) return [];
@@ -839,7 +842,7 @@ export const PatientsPage = () => {
       {/* FOOTER DISCRET */}
       {isAdmin && Object.keys(grouped).length > 0 && (
         <div className="text-[10px] font-bold text-center pt-4 tracking-wide uppercase" style={{ color: colors.textLight }}>
-          🟢 Système d'attributions d'intervenants Santé Plus Services — Synchronisé
+          🟢 Système d'attributions d'intervenants Santé Plus Services
         </div>
       )}
 
@@ -858,14 +861,10 @@ export const PatientsPage = () => {
         </button>
       )}
 
-      {/* ✅ ASSIGNATION CONTEXTUELLE INDIVIDUELLE SÉCURISÉE (Plus d'inline modal piégeux, on passe par la modale portail unifiée !) [23, 24] */}
-      {showRowAssignModal && selectedItemToAssign && (
+       {showRowAssignModal && selectedItemToAssign && (
         <AssignAidantModal
           isOpen={showRowAssignModal}
-          onClose={() => {
-            setShowRowAssignModal(false);
-            setSelectedItemToAssign(null);
-          }}
+          onClose={handleAssignSuccess}
           targetType={selectedItemToAssign.targetType === 'personal_account' ? 'personal_account' : 'patient'}
           targetId={selectedItemToAssign.targetId}
           targetName={selectedItemToAssign.targetName}
