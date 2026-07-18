@@ -650,9 +650,11 @@ const OrderDetailPage = () => {
           </div>
         </div>
 
-        {/* ACTIONS STATUTS */}
+       {/* ACTIONS STATUTS - FILTRÉES PAR RÔLE */}
         <div className="mt-4 flex flex-wrap gap-2">
-          {canTake && (
+          
+          {/* 1. AIDANT : Action terrain (Prendre la commande) */}
+          {isAidant && canTake && (
             <button 
               onClick={handleTakeOrder} 
               disabled={isUpdating} 
@@ -662,17 +664,7 @@ const OrderDetailPage = () => {
             </button>
           )}
 
-          {canAccept && (
-            <button
-              onClick={() => handleStatusChange('en_cours')}
-              disabled={isUpdating}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center bg-emerald-500"
-            >
-              {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Play size={17} />}
-              <span>Accepter</span>
-            </button>
-          )}
-
+          {/* 2. AIDANT : Action terrain (Livrer) */}
           {isMyActiveDelivery && (
             <button 
               onClick={() => setShowProofModal(true)} 
@@ -683,36 +675,37 @@ const OrderDetailPage = () => {
             </button>
           )}
 
-          {/* ✅ ASSIGNER UN AIDANT (ÉCRAN ADMIN) : Dispo s'il n'y a pas d'aidant rattaché et que l'ordre est actif */}
+          {/* 3. ADMIN : Assignation directe (S'il n'y a pas d'aidant et que la commande est en attente) */}
           {isAdminOrCoordinator && !order.aidant_id && ['creee', 'en_attente', 'disponible'].includes(order.status) && (
             <button 
               onClick={() => setShowAssignModal(true)} 
               className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99]"
             >
-              <UserPlus size={14} /> Assigner un aidant (Admin)
+              <UserPlus size={14} /> Assigner un aidant
             </button>
           )}
 
-          {canCancel && (
+          {/* 4. ADMIN & FAMILLE : Annulation */}
+          {(isAdminOrCoordinator || isFamily) && !isCompleted && (
             <button
               onClick={() => handleStatusChange('annulee')}
               disabled={isUpdating}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold transition hover:opacity-80 disabled:opacity-50 text-center bg-red-500"
+              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
             >
-              {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={17} />}
-              <span>Annuler</span>
+              {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+              Annuler
             </button>
           )}
 
+          {/* 5. État final */}
           {order.status === 'validee' && (
             <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-green-600 font-bold text-sm bg-green-50 border-green-200">
               <CheckCircle size={17} />
-              Validée automatiquement
+              Validée
             </span>
           )}
         </div>
-      </div>
-
+        
       {/* ✅ BLOC SÉCURITÉ CASH (ÉCRAN CLIENT SÉCURISÉ) */}
       {isPendingCashConfirmation && isFamily && ( 
         <div className="p-5 rounded-3xl bg-amber-50/50 border border-amber-200 space-y-4 animate-fadeIn">
