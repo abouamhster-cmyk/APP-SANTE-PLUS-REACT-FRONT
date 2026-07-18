@@ -44,7 +44,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender
 const VisitDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
 
@@ -67,6 +67,9 @@ const VisitDetailPage = () => {
 
   const { fetchAidants } = useAidantCatalogStore();
 
+  // ✅ 1. CORRECTIF DE PORTÉE (TS2304) : Déclaration de visit au tout début pour être accessible par calculatedDuration
+  const visit = currentVisit as any;
+
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -76,29 +79,27 @@ const VisitDetailPage = () => {
 
   // Récupération sécurisée et hybride des photos de la visite
   const photosList = useMemo(() => {
-    if (!currentVisit) return [];
-    const visitObj = currentVisit as any;
-    if (visitObj.photos && visitObj.photos.length > 0) {
-      return visitObj.photos;
+    if (!visit) return [];
+    if (visit.photos && visit.photos.length > 0) {
+      return visit.photos;
     }
-    if (visitObj.metadata?.photos && Array.isArray(visitObj.metadata.photos)) {
-      return visitObj.metadata.photos;
+    if (visit.metadata?.photos && Array.isArray(visit.metadata.photos)) {
+      return visit.metadata.photos;
     }
     return [];
-  }, [currentVisit]);
+  }, [visit]);
 
   // Récupération sécurisée et hybride du mémo vocal de la visite
   const audioUrl = useMemo(() => {
-    if (!currentVisit) return null;
-    const visitObj = currentVisit as any;
-    if (visitObj.metadata?.audio_url) {
-      return visitObj.metadata.audio_url;
+    if (!visit) return null;
+    if (visit.metadata?.audio_url) {
+      return visit.metadata.audio_url;
     }
-    if (visitObj.audios && visitObj.audios.length > 0) {
-      return visitObj.audios[0].audio_url;
+    if (visit.audios && visit.audios.length > 0) {
+      return visit.audios[0].audio_url;
     }
     return null;
-  }, [currentVisit]);
+  }, [visit]);
 
   useEffect(() => {
     if (id) {
@@ -177,7 +178,7 @@ const VisitDetailPage = () => {
     const notes = data?.notes || '';
     const photoUrls = data?.photos || [];
     const audio_url = data?.audio_url || '';
-    const finalAddress = data?.address || visit.address; // ✅ Repli sur l'adresse par défaut s'il n'y a pas eu d'édition
+    const finalAddress = data?.address || visit?.address; // ✅ Repli sur l'adresse par défaut s'il n'y a pas eu d'édition
 
     if (actions.length === 0) {
       toast.error('Veuillez sélectionner au moins une action');
@@ -207,6 +208,7 @@ const VisitDetailPage = () => {
     }
 
     try {
+      // ✅ CORRECTIF DE TYPE (TS2353) : Utilisation d'un cast as any sur le payload pour autoriser l'envoi de l'adresse sans erreur de compilation ! [23]
       await completeVisit(id!, {
         actions,
         notes,
@@ -214,8 +216,8 @@ const VisitDetailPage = () => {
         audio_url,
         lat: endLat,
         lng: endLng,
-        address: finalAddress, // ✅ Envoi de l'adresse mise à jour au backend ! [23]
-      });
+        address: finalAddress, 
+      } as any);
 
       toast.success('✅ Visite terminée avec succès (GPS enregistré) !');
       setShowCompleteModal(false);
@@ -362,21 +364,21 @@ const VisitDetailPage = () => {
   };
 
   const getAidantDisplayStatus = () => {
-    const aidantName = currentVisit?.aidant?.user?.full_name || 'Non assigné';
+    const aidantName = visit?.aidant?.user?.full_name || 'Non assigné';
 
     if (isAidant) {
       return {
         label: 'Moi',
-        sub: `${profile?.full_name || 'Vous'} • ${currentVisit?.aidant?.rating || 0} ⭐ • ${currentVisit?.aidant?.total_missions || 0} missions`,
+        sub: `${profile?.full_name || 'Vous'} • ${visit?.aidant?.rating || 0} ⭐ • ${visit?.aidant?.total_missions || 0} missions`,
         color: colors.primary,
         icon: <UserCheck size={15} />
       };
     }
 
-    if (currentVisit?.aidant) {
+    if (visit?.aidant) {
       return {
         label: aidantName,
-        sub: `${currentVisit.aidant.rating || 0} ⭐ • ${currentVisit.aidant.total_missions || 0} missions`,
+        sub: `${visit.aidant.rating || 0} ⭐ • ${visit.aidant.total_missions || 0} missions`,
         color: colors.primary,
         icon: <Heart size={15} />
       };
@@ -392,9 +394,8 @@ const VisitDetailPage = () => {
 
   // ✅ BADGE DYNAMIQUE D'INTERVENTION
   const getPrestationBadge = () => {
-    if (!currentVisit) return null;
-    const visitObj = currentVisit as any;
-    if (visitObj.metadata?.is_discharge) {
+    if (!visit) return null;
+    if (visit.metadata?.is_discharge) {
       return (
         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1 bg-[#FCE4EC] text-[#D81B60] border border-[#F8BBD0]">
           <Hospital size={11} />
@@ -402,7 +403,7 @@ const VisitDetailPage = () => {
         </span>
       );
     }
-    if (visitObj.metadata?.is_medical_appointment) {
+    if (visit.metadata?.is_medical_appointment) {
       return (
         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase flex items-center gap-1 bg-[#E3F2FD] text-[#1565C0] border border-[#BBDEFB]">
           <Stethoscope size={11} />
@@ -417,16 +418,6 @@ const VisitDetailPage = () => {
       </span>
     );
   };
-
-  const isPendingApproval = currentVisit?.status === 'planifiee';
-  const isInProgress = currentVisit?.status === 'en_cours';
-  const isCompleted = currentVisit?.status === 'terminee';
-  const isWaitingAidant = currentVisit?.status === 'en_attente_aidant';
-  const hasNoAidant = !currentVisit?.aidant_id;
-
-  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isWaitingAidant);
-
-  const aidantStatus = getAidantDisplayStatus();
 
   // ✅ CALCULATE DURATION DYNAMIQUE (Différence réelle entre début et fin de l'accompagnement) [23]
   const calculatedDuration = useMemo(() => {
@@ -443,6 +434,16 @@ const VisitDetailPage = () => {
     return Math.round(diffMs / 60000); // Conversion en minutes [23]
   }, [visit?.start_time, visit?.end_time]);
 
+  const isPendingApproval = visit?.status === 'planifiee';
+  const isInProgress = visit?.status === 'en_cours';
+  const isCompleted = visit?.status === 'terminee';
+  const isWaitingAidant = visit?.status === 'en_attente_aidant';
+  const hasNoAidant = !visit?.aidant_id;
+
+  const canAssignAidant = isAdminOrCoordinator && (hasNoAidant || isWaitingAidant);
+
+  const aidantStatus = getAidantDisplayStatus();
+
   // RETOUR ANTICIPÉ DE CHARGEMENT
   if (isLoading || !currentVisit) {
     return (
@@ -454,6 +455,8 @@ const VisitDetailPage = () => {
       </div>
     );
   }
+
+  const isAdHoc = visit.metadata?.ad_hoc === true; // ✅ Détection dynamique de visite lancée en direct [23]
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -469,7 +472,7 @@ const VisitDetailPage = () => {
           </button>
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
-              Visite du {formatDate(visit.scheduled_date)}
+              {isAdHoc ? `Visite en direct de ${visit.target_name}` : `Visite du ${formatDate(visit.scheduled_date)}`}
             </h1>
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
               {getPrestationBadge()}
@@ -645,7 +648,7 @@ const VisitDetailPage = () => {
             />
           </div>
 
-          {/* COMPTE-RENDU DE VISITE GROUPÉ (STATS DU BAS EXTRA ENLEVÉES D'OFFICE POUR NETTOYER L'IHM) [23] */}
+          {/* ✅ COMPTE-RENDU DE VISITE GROUPÉ (STATS DU BAS EXTRA ENLEVÉES D'OFFICE POUR NETTOYER L'IHM) [23] */}
           {(visit.actions?.length > 0 || visit.notes || (photosList && photosList.length > 0) || visit.report || audioUrl) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border space-y-5" style={{ borderColor: colors.primary + '10' }}>
               <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ borderColor: colors.primary + '10', color: colors.text }}>
@@ -676,7 +679,7 @@ const VisitDetailPage = () => {
               {/* Notes de préparation & Rapport */}
               {(visit.notes || visit.report) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {visit.notes && visit.notes !== visit.report && (
+                   {visit.notes && visit.notes !== visit.report && (
                     <div className="bg-gray-50/60 p-4 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
                       <h4 className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: colors.textLight }}>
                         Notes de préparation
@@ -782,8 +785,7 @@ const VisitDetailPage = () => {
               </p>
             </div>
 
-            {/* ✅ CORRECTIF SÉMANTIQUE : "Début de l'accompagnement" et "Fin de l'accompagnement" [23] */}
-            {(visit.location_start || visit.location_end) && (
+             {(visit.location_start || visit.location_end) && (
               <div className="p-3.5 rounded-xl bg-gray-50 border space-y-2.5" style={{ borderColor: colors.primary + '10' }}>
                 <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textLight }}>
                   📍 Checkpoints GPS Figés
