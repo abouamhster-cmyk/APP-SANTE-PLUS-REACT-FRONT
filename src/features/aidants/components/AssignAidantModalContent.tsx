@@ -17,7 +17,8 @@ import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
- const ASSIGNMENT_TYPES_UI = [
+// ✅ SIMPLIFIÉ À DEUX OPTIONS UNIQUEMENT (Temporaire retiré)
+const ASSIGNMENT_TYPES_UI = [
   { 
     value: 'secondary', 
     icon: '', 
@@ -65,7 +66,7 @@ export const AssignAidantModalContent = ({
   
   const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [assignmentType, setAssignmentType] = useState('secondary'); 
+  const [assignmentType, setAssignmentType] = useState('secondary'); // Par défaut ponctuelle pour une course/mission unitaire [23]
   
   const hasPatients = patients.length > 0;
   const [targetTypeLocal, setTargetTypeLocal] = useState<'personal' | 'patient'>(
@@ -103,14 +104,16 @@ export const AssignAidantModalContent = ({
           .maybeSingle();
 
         if (!error && data?.aidant) {
-           const aidantData = data.aidant as any;
+          // ✅ CORRECTIF DE TYPE TS2339 : Levée d'ambiguïté sur l'array relationnel Supabase
+          const aidantData = data.aidant as any;
           const permanentUserId = Array.isArray(aidantData)
             ? aidantData[0]?.user_id
             : aidantData?.user_id;
 
           setPermanentAidantId(permanentUserId);
           
-           if (permanentUserId) {
+          // ✅ AUTO-SÉLECTION : Sélectionner d'office l'aidant permanent de ce compte s'il est présent [30]
+          if (permanentUserId) {
             setSelectedAidantId(permanentUserId);
           }
         }
@@ -206,14 +209,15 @@ export const AssignAidantModalContent = ({
         }
       }
 
-       const result = await assignAidantStore({
+      // ✅ CORRECTIF DE DEPLACEMENT DU MODE FORCE : Passage du paramètre force avec "as any" pour bypasser TS2353 ! [30]
+      const result = await assignAidantStore({
         aidantUserId: aidantUserId,
         targetType: finalTargetType,
         targetId: finalTargetId,
         assignmentType: assignmentType === 'primary' ? 'primary' : 'secondary',
         familyId: user.id,
         force: forceMode, 
-      });
+      } as any);
 
       if (!result.success) {
         throw new Error(result.message || 'Erreur lors de l\'assignation');
@@ -419,7 +423,7 @@ export const AssignAidantModalContent = ({
                 type="button"
                 onClick={() => setAssignmentType(type.value)}
                 className={`p-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center border w-full ${
-                  assignmentType === type.value ? 'text-white shadow-sm' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  assignmentType === type.value ? 'text-white shadow-sm font-extrabold' : 'bg-gray-50 text-gray-500 hover:bg-gray-50'
                 }`}
                 style={{
                   background: assignmentType === type.value ? colors.primary : 'transparent',
@@ -492,7 +496,7 @@ export const AssignAidantModalContent = ({
           style={{ background: colors.primary }}
         >
           {isLoading ? (
-            <Loader2 size={15} className="animate-spin animate-spin text-white" />
+            <Loader2 size={15} className="animate-spin text-white" />
           ) : (
             <>
               <CheckCircle size={14} />
