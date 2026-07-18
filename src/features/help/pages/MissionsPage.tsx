@@ -54,7 +54,7 @@ type TabType = 'missions' | 'deliveries' | 'available';
 const getBeneficiaryBadgeInfo = (link: any, patientData: any) => {
   const isPersonal = link.target_type === 'personal_account' || link.is_personal;
   
-  // Récupérer la vraie catégorie clinique unifiée (senior, maman_bebe, etc.)
+  // Récupérer la vraie catégorie clinique unifiée (senior, maman_bebe, etc.) [24]
   const category = patientData?.category || (isPersonal ? (link.family?.patient_category || 'senior') : 'senior');
   
   const isMaman = category === 'maman_bebe';
@@ -63,14 +63,14 @@ const getBeneficiaryBadgeInfo = (link: any, patientData: any) => {
   
   if (isPersonal) {
     return {
-      text: `👤 Compte Personnel (${emoji} ${categoryLabel})`,
+      text: `👤 Compte Personnel (${emoji} ${categoryLabel})`, // ✅ Bleu pour l'abonné principal
       bg: '#3B82F615',
       color: '#3B82F6',
     };
   }
   
   return {
-    text: `👵 Proche (${emoji} ${categoryLabel})`,
+    text: `👵 Proche (${emoji} ${categoryLabel})`, // ✅ Émeraude pour le proche / patient
     bg: '#10B98115',
     color: '#10B981',
   };
@@ -258,7 +258,7 @@ const MissionsPage = () => {
           return;
         }
 
-        const { data: aidant, error: aidantError } = await supabase
+        const { data: !aidant, error: aidantError } = await supabase
           .from('aidants')
           .select('is_verified, status')
           .eq('user_id', user.id)
@@ -807,7 +807,7 @@ const MissionsPage = () => {
       )}
 
       {activeTab === 'deliveries' && (
-        <section className="w-full overflow-x-auto scrollbar-none py-1">
+        <section className="w-full overflow-x-auto scrollbar-none py-1 font-bold">
           <div className="inline-flex p-0.5 bg-gray-100/40 rounded-xl border gap-1" style={{ borderColor: colors.primary + '5' }}>
             {deliverySubFilters.map((sub) => {
               const isActive = filterStatus === sub.key;
@@ -985,14 +985,14 @@ const MissionsPage = () => {
                   <div>
                     <span className="text-[10px] text-gray-400 block font-bold">Âge</span>
                     <span className="font-extrabold text-gray-700">
-                      {/* ✅ CORRECTIF CLINIQUE : Résolution de l'âge réel du compte ou proche ! [23, 24] */}
+                      {/*  Résolution de l'âge réel du compte ou proche ! [23, 24] */}
                       {realPatientData?.age ? `${realPatientData.age} ans` : (realPatientData ? 'Majeur (Non renseigné)' : 'Compte majeur')}
                     </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-gray-400 block font-bold">Sexe / Genre</span>
                     <span className="font-extrabold text-gray-700 uppercase">
-                      {/* ✅ CORRECTIF CLINIQUE : Résolution du genre réel de la fiche unifiée ! [23, 24] */}
+                      {/*  Résolution du genre réel de la fiche unifiée ! [23, 24] */}
                       {realPatientData?.gender === 'male' ? 'Homme' : (realPatientData?.gender === 'female' ? 'Femme' : 'Non précisé')}
                     </span>
                   </div>
@@ -1217,7 +1217,7 @@ const MissionsPage = () => {
               </div>
             ) : (
               <p className="text-xs font-bold text-emerald-600 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-                ✅ Livraison gratuite (couverte par abonnement).
+                ✅ Livraison  : couverte par abonnement.
               </p>
             )}
 
@@ -1369,3 +1369,4 @@ const MissionItemCompact = ({
 };
 
 export default MissionsPage;
+mety à jour
