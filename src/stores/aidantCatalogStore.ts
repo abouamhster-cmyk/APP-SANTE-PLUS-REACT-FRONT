@@ -1,5 +1,5 @@
 // 📁 src/stores/aidantCatalogStore.ts
-// ✅ CATALOGUE AIDANTS : HARMONISATION DE L'ENDPOINT D'ASSIGNATION DYNAMIQUE POUR L'AIDANT
+// ✅ CATALOGUE AIDANTS : FILTRAGE STRICT DES INTERVENANTS PERMANENTS ET DÉDOUBLONNAGE DES PROFILES ASSIGNÉS
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -336,7 +336,7 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
   },
 
   // ============================================================
-  // ENVOI DU BON ENDPOINT SELON LE RÔLE DE L'UTILISATEUR SÉLECTIONNÉ
+  // ✅ ENPOINT D'ASSIGNATION DYNAMIQUE AVEC FILTRE ET DÉDOUBLONNAGE
   // ============================================================
   fetchMyAssignments: async () => {
     try {
@@ -350,11 +350,10 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       const { profile } = useAuthStore.getState();
       let endpoint = '/assignments';
       
-      // ✅ Aiguillage dynamique de l'endpoint d'assignation
       if (profile?.role === 'family') {
         endpoint = '/assignments/my';
       } else if (profile?.role === 'aidant') {
-        endpoint = `/assignments/aidant/${profile.id}`; // ✅ CORRIGÉ : Interroge les bénéficiaires propres de Dominique
+        endpoint = `/assignments/aidant/${profile.id}`; 
       }
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -367,12 +366,31 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
       }
 
       const result = await response.json();
+      const rawAssignments = result.data || [];
 
-      const formattedAssignments = (result.data || []).map((assignment: any) => ({
+      // ✅ FILTRAGE ET DÉDOUBLONNAGE : Ne garder que les assignations primaires (permanentes) [24, 30]
+      // et s'assurer que chaque bénéficiaire unique (target_id) n'apparaît qu'une seule et unique fois dans la liste [24]
+      const seenTargets = new Set<string>();
+      const uniquePrimaryAssignments: any[] = [];
+
+      for (const assignment of rawAssignments) {
+        // Filtrer : Uniquement l'aidant permanent ('primary') [24, 30]
+        if (assignment.assignment_type !== 'primary') {
+          continue;
+        }
+
+        const targetId = assignment.target_id;
+        if (targetId && !seenTargets.has(targetId)) {
+          seenTargets.add(targetId);
+          uniquePrimaryAssignments.push(assignment);
+        }
+      }
+
+      const formattedAssignments = uniquePrimaryAssignments.map((assignment: any) => ({
         id: assignment.id,
         patient_id: assignment.target_type === 'patient' ? assignment.target_id : null,
         family_id: assignment.target_id,
-        is_primary: assignment.assignment_type === 'primary',
+        is_primary: true,
         relationship: assignment.assignment_type,
         created_at: assignment.created_at,
         target_type: assignment.target_type,
