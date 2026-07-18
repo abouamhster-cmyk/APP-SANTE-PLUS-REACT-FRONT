@@ -63,14 +63,14 @@ const getBeneficiaryBadgeInfo = (link: any, patientData: any) => {
   
   if (isPersonal) {
     return {
-      text: `👤 Compte Personnel (${emoji} ${categoryLabel})`, // ✅ Bleu pour l'abonné principal
+      text: `👤 Compte Personnel (${emoji} ${categoryLabel})`, // ✅ Bleu pour l'abonné principal [23, 24]
       bg: '#3B82F615',
       color: '#3B82F6',
     };
   }
   
   return {
-    text: `👵 Proche (${emoji} ${categoryLabel})`, // ✅ Émeraude pour le proche / patient
+    text: `👵 Proche (${emoji} ${categoryLabel})`, // ✅ Émeraude pour le proche / patient [23, 24]
     bg: '#10B98115',
     color: '#10B981',
   };
@@ -258,7 +258,8 @@ const MissionsPage = () => {
           return;
         }
 
-        const { data: !aidant, error: aidantError } = await supabase
+        // ✅ CORRIGÉ : Typage "!aidant" remplacé par "aidant" pour résoudre TS1003 et TS1005
+        const { data: aidant, error: aidantError } = await supabase
           .from('aidants')
           .select('is_verified, status')
           .eq('user_id', user.id)
@@ -528,7 +529,7 @@ const MissionsPage = () => {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
-            timeout: 8000,
+            timeout: 8500,
           });
         });
         endLat = position.coords.latitude;
@@ -985,14 +986,14 @@ const MissionsPage = () => {
                   <div>
                     <span className="text-[10px] text-gray-400 block font-bold">Âge</span>
                     <span className="font-extrabold text-gray-700">
-                      {/*  Résolution de l'âge réel du compte ou proche ! [23, 24] */}
+                      {/* ✅ CORRECTIF CLINIQUE : Résolution de l'âge réel du compte ou proche ! [23, 24] */}
                       {realPatientData?.age ? `${realPatientData.age} ans` : (realPatientData ? 'Majeur (Non renseigné)' : 'Compte majeur')}
                     </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-gray-400 block font-bold">Sexe / Genre</span>
                     <span className="font-extrabold text-gray-700 uppercase">
-                      {/*  Résolution du genre réel de la fiche unifiée ! [23, 24] */}
+                      {/* ✅ CORRECTIF CLINIQUE : Résolution du genre réel de la fiche unifiée ! [23, 24] */}
                       {realPatientData?.gender === 'male' ? 'Homme' : (realPatientData?.gender === 'female' ? 'Femme' : 'Non précisé')}
                     </span>
                   </div>
@@ -1217,7 +1218,7 @@ const MissionsPage = () => {
               </div>
             ) : (
               <p className="text-xs font-bold text-emerald-600 bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-                ✅ Livraison  : couverte par abonnement.
+                ✅ Livraison gratuite (couverte par abonnement).
               </p>
             )}
 
@@ -1369,4 +1370,3 @@ const MissionItemCompact = ({
 };
 
 export default MissionsPage;
-mety à jour
