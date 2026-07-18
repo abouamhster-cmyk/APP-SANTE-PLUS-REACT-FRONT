@@ -1,6 +1,7 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
- 
-import { useState, useEffect } from 'react';
+// ✅ CONTENU MODALE ASSIGNATION : DEUX STATUTS, DÉTECTION EN DIRECT ET AUTO-SÉLECTION DE L'AIDANT PERMANENT DU COMPTE
+
+import { useState, useEffect, useMemo } from 'react';
 import { 
   AlertCircle, 
   User, 
@@ -17,24 +18,19 @@ import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
+// ✅ SIMPLIFIÉ À DEUX OPTIONS UNIQUEMENT (Temporaire retiré)
 const ASSIGNMENT_TYPES_UI = [
   { 
-    value: 'primary', 
-    icon: '📌', 
-    label: 'Permanente',
-    description: 'Suivi sur le long terme',
-  },
-  { 
-    value: 'temporary', 
-    icon: '⏳', 
-    label: 'Temporaire',
-    description: 'Période définie',
-  },
-  { 
     value: 'secondary', 
-    icon: '⚡', 
+    icon: '', 
     label: 'Ponctuelle',
     description: 'Intervention unique',
+  },
+  { 
+    value: 'primary', 
+    icon: '', 
+    label: 'Permanente',
+    description: 'Suivi sur le long terme',
   },
 ];
 
@@ -44,7 +40,7 @@ interface AssignAidantModalContentProps {
   onSuccess: () => void;
   onCancel: () => void;
   colors?: any;
-  targetType?: 'visit' | 'patient' | 'personal_account' | 'order'; // ✅ AJOUTÉ : 'order' supporté
+  targetType?: 'visit' | 'patient' | 'personal_account' | 'order';
   targetId?: string;
   targetName?: string;
   currentAidantId?: string | null;
@@ -69,11 +65,9 @@ export const AssignAidantModalContent = ({
   const brand = useBranding();
   const colors = propColors || brand.colors;
   
-  const [selectedAidantId, setSelectedAidantId] = useState<string>(
-    initialAidant?.id || initialAidant?.user_id || ''
-  );
+  const [selectedAidantId, setSelectedAidantId] = useState<string>('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [assignmentType, setAssignmentType] = useState('primary');
+  const [assignmentType, setAssignmentType] = useState('secondary'); // Par défaut ponctuelle pour une course/mission unitaire [23]
   
   const hasPatients = patients.length > 0;
   const [targetTypeLocal, setTargetTypeLocal] = useState<'personal' | 'patient'>(
@@ -84,14 +78,48 @@ export const AssignAidantModalContent = ({
   const [isLoadingAidants, setIsLoadingAidants] = useState(false);
   const [forceMode, setForceMode] = useState(false);
 
+  // ✅ ÉTAT DE RECHERCHE DE L'AIDANT PERMANENT DU COMPTE
+  const [permanentAidantId, setPermanentAidantId] = useState<string | null>(null);
+
   const { fetchMyAssignments, fetchAidants } = useAidantCatalogStore();
   const { assignAidant: assignAidantStore } = useAssignmentStore();
 
+  // 1. Charger la liste des aidants disponibles
   useEffect(() => {
     if (isAdmin && !initialAidant) {
       loadAvailableAidants();
     }
   }, [isAdmin, initialAidant]);
+
+  // 2. Détecter si ce bénéficiaire (targetId) a déjà un aidant permanent (primary) [30]
+  useEffect(() => {
+    const detectPermanentAidant = async () => {
+      if (!targetId || !isAdmin) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('aidant_assignments')
+          .select('aidant_id, aidant:aidants(user_id)')
+          .eq('target_id', targetId)
+          .eq('assignment_type', 'primary')
+          .maybeSingle();
+
+        if (!error && data?.aidant) {
+          const permanentUserId = data.aidant.user_id;
+          setPermanentAidantId(permanentUserId);
+          
+          // ✅ AUTO-SÉLECTION : Sélectionner d'office l'aidant permanent de ce compte s'il est présent [30]
+          if (permanentUserId) {
+            setSelectedAidantId(permanentUserId);
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Impossible de charger l’intervenant permanent de ce compte');
+      }
+    };
+
+    detectPermanentAidant();
+  }, [targetId, isAdmin]);
 
   useEffect(() => {
     if (hasPatients && patients.length > 0) {
@@ -153,8 +181,7 @@ export const AssignAidantModalContent = ({
       if ((targetType === 'visit' || targetType === 'order') && targetId && onAssignAidant) {
         await onAssignAidant(
           aidantUserId, 
-          assignmentType === 'primary' ? 'permanente' : 
-          assignmentType === 'temporary' ? 'temporaire' : 'ponctuelle',
+          assignmentType === 'primary' ? 'permanente' : 'ponctuelle', 
           forceMode
         );
         toast.success(`Aidant assigné à la mission ${targetName || ''}`);
@@ -182,8 +209,7 @@ export const AssignAidantModalContent = ({
         aidantUserId: aidantUserId,
         targetType: finalTargetType,
         targetId: finalTargetId,
-        assignmentType: assignmentType === 'primary' ? 'primary' : 
-                        assignmentType === 'temporary' ? 'temporary' : 'secondary',
+        assignmentType: assignmentType === 'primary' ? 'primary' : 'secondary',
         familyId: user.id,
       });
 
@@ -270,11 +296,18 @@ export const AssignAidantModalContent = ({
             style={{ borderColor: colors.primary + '20', color: colors.text }}
           >
             <option value="">Sélectionner un aidant...</option>
-            {availableAidants.map((aidant: any) => (
-              <option key={aidant.id} value={aidant.user_id || aidant.id}>
-                {aidant.user?.full_name || aidant.full_name}
-              </option>
-            ))}
+            {availableAidants.map((aidant: any) => {
+              const isPermanent = aidant.user_id === permanentAidantId;
+              const displayName = isPermanent 
+                ? `⭐ ${aidant.user?.full_name || aidant.full_name} (Permanent de ce compte)` // ✅ Identifiant visuel permanent rattaché !
+                : aidant.user?.full_name || aidant.full_name;
+
+              return (
+                <option key={aidant.id} value={aidant.user_id || aidant.id}>
+                  {displayName}
+                </option>
+              );
+            })}
           </select>
         </div>
       );
@@ -284,7 +317,7 @@ export const AssignAidantModalContent = ({
   };
 
   const renderPatientSelection = () => {
-    if (targetType === 'visit' || targetType === 'order') return null; // ✅ Ne pas afficher pour les visites et commandes
+    if (targetType === 'visit' || targetType === 'order') return null; // Ne pas afficher pour les visites et commandes
     if (!hasPatients) return null;
     if (targetTypeLocal === 'personal') return null;
 
@@ -362,12 +395,12 @@ export const AssignAidantModalContent = ({
 
       {renderPatientSelection()}
 
-      {/* TYPE D'ASSIGNATION */}
+      {/* TYPE D'ASSIGNATION SIMPLIFIÉ À DEUX ÉLÉMENTS (📌 Permanente ou ⚡ Ponctuelle) */}
       <div className="space-y-1.5">
         <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500">
           Type d'assignation
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {ASSIGNMENT_TYPES_UI.map((type) => {
             if ((targetType === 'visit' || targetType === 'order') && !isAdmin && type.value === 'secondary') return null;
 
