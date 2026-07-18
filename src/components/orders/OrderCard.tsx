@@ -1,10 +1,10 @@
 // 📁 src/components/orders/OrderCard.tsx
- 
+// ✅ ORDER CARD : VERSION ÉPURÉE, BOUTONS D'ACTION ESSENTIELS UNIQUEMENT (PRISE EN CHARGE ET LIVRAISON)
+
 import { memo, useMemo, useCallback } from 'react';
 import { 
   Package, MapPin, Clock, User, CheckCircle, XCircle, Eye, AlertCircle, 
-  ShoppingBag, Truck, CreditCard, UserCheck, Calendar, DollarSign, Play, 
-  Users, UserPlus 
+  ShoppingBag, Truck, CreditCard, DollarSign, Play, UserCheck 
 } from 'lucide-react';
 import { Order } from '@/types';
 import { useBranding } from '@/hooks/useBranding';
@@ -28,12 +28,10 @@ interface ExtendedOrder extends Order {
 interface OrderCardProps {
   order: Order;
   onClick?: () => void;
-  onStatusChange?: (status: string) => void;
   onTakeOrder?: () => void;
   onDeliver?: () => void;
   onCancel?: () => void;
   onView?: () => void;
-  onShowAssignAidantModal?: () => void;
   showActions?: boolean;
   compact?: boolean;
   colors?: any;
@@ -57,14 +55,15 @@ export const OrderCard = memo(({
   onClick,
   onTakeOrder,
   onDeliver,
-  onShowAssignAidantModal,
+  onCancel,
+  onView,
   showActions = false,
   compact = false,
   colors: propColors,
 }: OrderCardProps) => {
   const brand = useBranding();
   const colors = propColors || brand.colors;
-  const { isAidant, isAdminOrCoordinator } = useTerminology();
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
   const order = orderProp as ExtendedOrder;
   const statusConfig = useMemo(() => getStatusConfig(order.status), [order.status]);
@@ -141,11 +140,11 @@ export const OrderCard = memo(({
         </div>
       )}
 
-      {/* Actions (Épurées) */}
+      {/* Actions */}
       {showActions && (
         <div className="flex items-center gap-2 mt-4 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
           {isAvailable && isAidant && (
-            <button onClick={(e) => handleAction(e, onTakeOrder)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-80" style={{ background: isUrgent ? '#EF4444' : '#F59E0B' }}>
+            <button onClick={(e) => handleAction(e, onTakeOrder)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs" style={{ background: isUrgent ? '#EF4444' : '#F59E0B' }}>
               {isUrgent ? 'Prendre (Urgent)' : 'Prendre'}
             </button>
           )}
@@ -154,11 +153,14 @@ export const OrderCard = memo(({
               Livrer
             </button>
           )}
-          {isAdminOrCoordinator && isAvailable && onShowAssignAidantModal && (
-            <button onClick={(e) => handleAction(e, onShowAssignAidantModal)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs bg-orange-600 hover:opacity-80 transition">
-              Assigner
+          {(isAdminOrCoordinator || isFamily) && !isCompleted && (
+            <button onClick={(e) => handleAction(e, onCancel)} className="py-2 px-4 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-100">
+              Annuler
             </button>
           )}
+          <button onClick={(e) => handleAction(e, onView)} className="p-2 rounded-xl border border-gray-100 hover:bg-gray-50 text-gray-400">
+            <Eye size={16} />
+          </button>
         </div>
       )}
     </div>
