@@ -1,89 +1,337 @@
-// 📁 src/features/aidants/components/AssignAidantModal.tsx
-// ✅ ENVELOPPE DE MODALE ASSIGNATION : TÉLÉPORTATION PAR PORTAIL POUR UN RECOUVREMENT PLEIN ÉCRAN OPAQUE SANS GAP (z-100)
-
-import { createPortal } from 'react-dom'; 
-import { X } from 'lucide-react';
-import { AssignAidantModalContent } from './AssignAidantModalContent';
+// 📁 src/components/common/AssignAidantModal.tsx
+ 
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';  
+import { Modal } from '@/components/ui/Modal';
+import { supabase } from '@/lib/supabase';
+import { useBranding } from '@/hooks/useBranding';
+import { UserPlus, Loader2, CheckCircle, XCircle, User, Star } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface AssignAidantModalProps {
   isOpen: boolean;
   onClose: () => void;
-  aidant?: any;
-  patients?: any[];
+  targetType: 'order' | 'visit';
+  targetId: string;
+  targetName: string;
   onSuccess: () => void;
-  colors: any;
-  targetType?: 'visit' | 'patient' | 'personal_account' | 'order';
-  targetId?: string;
-  targetName?: string;
   currentAidantId?: string | null;
-  allowForce?: boolean;
-  onAssignAidant?: (aidantId: string, assignmentType: string, force?: boolean) => Promise<void>;
-  isAdmin?: boolean;
 }
+
+interface Aidant {
+  id: string;
+  user_id: string;
+  user: {
+    id: string;
+    full_name: string;
+    email: string;
+  } | null;
+  available: boolean;
+  is_verified: boolean;
+  status: string;
+  rating: number;
+  specialties: string[];
+  total_missions: number;
+  max_assignments: number;
+  current_assignments: number;
+}
+
+ const ASSIGNMENT_TYPES = [
+  { value: 'secondary', label: '⚡ Ponctuelle', color: '#3B82F6' },
+  { value: 'primary', label: '📌 Permanente', color: '#10B981' },
+];
 
 export const AssignAidantModal = ({
   isOpen,
   onClose,
-  aidant,
-  patients = [],
-  onSuccess,
-  colors,
-  targetType = 'patient',
+  targetType,
   targetId,
   targetName,
+  onSuccess,
   currentAidantId,
-  allowForce = false,
-  onAssignAidant,
-  isAdmin = false,
 }: AssignAidantModalProps) => {
+  const brand = useBranding();
+  const colors = brand.colors;
+  
+  const [aidants, setAidants] = useState<Aidant[]>([]);
+  const [selectedAidant, setSelectedAidant] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [assignmentType, setAssignmentType] = useState('secondary');  
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchAvailableAidants();
+    }
+  }, [isOpen]);
+
+  const fetchAvailableAidants = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('aidants')
+        .select(`
+          *,
+          user:profiles!aidants_user_id_fkey (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq('available', true)
+        .eq('is_verified', true)
+        .eq('status', 'approved')
+        .order('rating', { ascending: false });
+
+      if (error) throw error;
+      setAidants(data || []);
+    } catch (error) {
+      console.error('❌ Fetch aidants error:', error);
+      toast.error('Erreur lors du chargement des aidants');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredAidants = aidants.filter(aidant => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      aidant.user?.full_name?.toLowerCase().includes(term) ||
+      aidant.specialties?.some(s => s.toLowerCase().includes(term))
+    );
+  });
+
+  const handleAssign = async () => {
+    if (!selectedAidant) {
+      toast.error('Veuillez sélectionner un aidant');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data: aidantData, error: aidantError } = await supabase
+        .from('aidants')
+        .select('id')
+        .eq('user_id', selectedAidant)
+        .single();
+
+      if (aidantError || !aidantData) {
+        throw new Error('Aidant non trouvé');
+      }
+
+      const table = targetType === 'order' ? 'commandes' : 'visites';
+      const updateData: any = {
+        aidant_id: aidantData.id,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (targetType === 'order') {
+        updateData.status = 'en_cours';
+      } else if (targetType === 'visit') {
+        const { data: visit } = await supabase
+          .from('visites')
+          .select('status')
+          .eq('id', targetId)
+          .single();
+
+        if (visit && ['expire', 'refusee', 'annulee'].includes(visit.status)) {
+          updateData.status = 'planifiee';
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq('id', targetId);
+
+      if (updateError) throw updateError;
+
+      // Envoyer la notification enrichie
+      await supabase.from('notifications').insert({
+        user_id: selectedAidant,
+        title: targetType === 'order' ? '📦 Nouvelle commande assignée' : '📅 Nouvelle visite assignée',
+        body: `Vous avez été assigné à ${targetName} par l'administrateur.`,
+        type: targetType === 'order' ? 'commande' : 'visit',
+        data: {
+          [targetType === 'order' ? 'order_id' : 'visit_id']: targetId,
+          action: targetType === 'order' ? 'take' : 'approve',
+          assigned_by: 'admin',
+        },
+      });
+
+      if (targetType === 'visit') {
+        const { data: visit } = await supabase
+          .from('visites')
+          .select('user_id')
+          .eq('id', targetId)
+          .single();
+
+        if (visit?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: visit.user_id,
+            title: '✅ Aidant assigné à la visite',
+            body: `Un aidant a été assigné à votre visite pour ${targetName}.`,
+            type: 'visite',
+            data: { visit_id: targetId, action: 'info' },
+          });
+        }
+      }
+
+      toast.success(`Aidant assigné avec succès à ${targetName}`);
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error('❌ Assign error:', error);
+      toast.error(error.message || 'Erreur lors de l\'assignation');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
-  // ✅ CONSTITUTION DE L'IHM MODALE ÉPURÉE ET PARFAITEMENT CENTRÉE SANS ENCOMBREMENT
-  const modalHTML = (
-    <div 
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-[2rem] w-full max-w-md p-6 shadow-2xl relative space-y-4 animate-slideUp sm:animate-scaleIn"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* En-tête de la modale */}
-        <div className="flex items-center justify-between border-b pb-3.5">
-          <h2 className="text-sm sm:text-base font-black text-gray-800">
-            {isAdmin ? '👔 Assigner un aidant' : '🦸 Choisir un aidant'}
-          </h2>
-          <button 
-            onClick={onClose} 
-            className="p-1.5 hover:bg-gray-100 rounded-xl transition text-gray-400 hover:text-gray-600"
+   return createPortal(
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`👤 Assigner un aidant - ${targetName}`}
+      maxWidth="md"
+      description={`Assigner un aidant à cette ${targetType === 'order' ? 'commande' : 'visite'}`}
+      actions={
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold border hover:bg-gray-50 transition"
+            style={{ borderColor: colors.primary + '25', color: colors.text }}
           >
-            <X size={18} />
+            Annuler
+          </button>
+          <button
+            onClick={handleAssign}
+            disabled={!selectedAidant || isSubmitting}
+            className="flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: colors.primary }}
+          >
+            {isSubmitting ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <>
+                <UserPlus size={18} />
+                Assigner
+              </>
+            )}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        {/* Recherche */}
+        <div className="relative">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Rechercher un aidant par nom ou spécialité..."
+            className="w-full h-11 px-3.5 border rounded-xl outline-none text-xs font-bold bg-gray-50/50"
+            style={{ borderColor: colors.primary + '25', color: colors.text }}
+          />
+        </div>
 
-        {/* Contenu */}
-        <AssignAidantModalContent
-          aidant={aidant}
-          patients={patients}
-          onSuccess={() => {
-            onSuccess();
-            onClose();
-          }}
-          onCancel={onClose}
-          colors={colors}
-          targetType={targetType}
-          targetId={targetId}
-          targetName={targetName}
-          currentAidantId={currentAidantId}
-          allowForce={allowForce}
-          onAssignAidant={onAssignAidant}
-          isAdmin={isAdmin}
-        />
+        {isLoading ? (
+          <div className="flex justify-center py-6">
+            <Loader2 size={24} className="animate-spin" style={{ color: colors.textLight }} />
+          </div>
+        ) : filteredAidants.length === 0 ? (
+          <div className="text-center py-6" style={{ color: colors.textLight }}>
+            <User size={32} className="mx-auto mb-2 opacity-30" />
+            <p>Aucun aidant disponible</p>
+            <p className="text-xs mt-1">Vérifiez qu'il y a des aidants approuvés et disponibles</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Sélection de l'aidant */}
+            <div className="max-h-48 overflow-y-auto space-y-1.5">
+              {filteredAidants.map((aidant) => {
+                const isSelected = selectedAidant === aidant.user_id;
+                const isCurrent = currentAidantId === aidant.id;
+
+                return (
+                  <button
+                    key={aidant.id}
+                    onClick={() => setSelectedAidant(aidant.user_id)}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-left transition-all ${
+                      isSelected
+                        ? 'border-[--color-primary] bg-[--color-primary]05 shadow-sm font-bold'
+                        : 'border-gray-200 hover:border-gray-300'
+                    } ${isCurrent ? 'opacity-50' : ''}`}
+                    style={{
+                      borderColor: isSelected ? colors.primary : undefined,
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shrink-0"
+                          style={{ background: colors.primary }}
+                        >
+                          {aidant.user?.full_name?.charAt(0) || 'A'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-sm truncate" style={{ color: colors.text }}>
+                            {aidant.user?.full_name || 'Aidant'}
+                            {isCurrent && (
+                              <span className="ml-2 text-xs" style={{ color: colors.textLight }}>(actuel)</span>
+                            )}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs" style={{ color: colors.textLight }}>
+                            <span className="flex items-center gap-0.5"><Star size={11} className="text-yellow-400 fill-yellow-400" /> {aidant.rating || 0}</span>
+                            <span>•</span>
+                            <span>📋 {aidant.total_missions || 0} missions</span>
+                            <span>•</span>
+                            <span className="font-bold">{aidant.current_assignments || 0}/{aidant.max_assignments || 4}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Type d'assignation SIMPLIFIÉ À DEUX OPTIONS */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: colors.text }}>
+                Type d'assignation
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {ASSIGNMENT_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setAssignmentType(type.value)}
+                    className={`px-3 h-10 rounded-xl text-xs font-bold transition ${
+                      assignmentType === type.value
+                        ? 'text-white shadow-sm font-extrabold'
+                        : 'border text-gray-600 hover:bg-gray-50'
+                    }`}
+                    style={{
+                      background: assignmentType === type.value ? colors.primary : 'transparent',
+                      borderColor: assignmentType === type.value ? colors.primary : colors.primary + '25',
+                    }}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>,
+    document.body
   );
-
-   return createPortal(modalHTML, document.body);
 };
 
 export default AssignAidantModal;
