@@ -1,5 +1,6 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
- 
+// ✅ PAGE HUB DE L'INTERVENANT : CLASSIFICATION RÉELLE ET ADAPTATIVE DES BÉNÉFICIAIRES EN DIRECT SANS DOUBLONS
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -37,7 +38,7 @@ import { useVisitStore } from '@/stores/visitStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
-import { usePatientStore } from '@/stores/patientStore'; // ✅ Importé pour charger les dossiers cliniques
+import { usePatientStore } from '@/stores/patientStore'; // ✅ Chargement des dossiers cliniques
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDate, formatTime, formatCurrency, cn } from '@/utils/helpers';
@@ -46,6 +47,39 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 type TabType = 'missions' | 'deliveries' | 'available';
+
+// ============================================================
+// ✅ DÉCODEUR SÉMANTIQUE DE ROLES ET CATÉGORIES REELLES BÉNIN
+// ============================================================
+
+const getBeneficiaryBadgeInfo = (link: any, patientData: any) => {
+  const isPersonal = link.target_type === 'personal_account' || link.is_personal;
+  
+  // Récupérer la vraie catégorie clinique unifiée (senior, maman_bebe, etc.)
+  const category = patientData?.category || (isPersonal ? (link.family?.patient_category || 'senior') : 'senior');
+  
+  const isMaman = category === 'maman_bebe';
+  const categoryLabel = isMaman ? 'Maman & Bébé' : 'Senior';
+  const emoji = isMaman ? '👶' : '👴';
+  
+  if (isPersonal) {
+    return {
+      text: `👤 Compte Personnel (${emoji} ${categoryLabel})`,
+      bg: '#3B82F615',
+      color: '#3B82F6',
+    };
+  }
+  
+  return {
+    text: `👵 Proche (${emoji} ${categoryLabel})`,
+    bg: '#10B98115',
+    color: '#10B981',
+  };
+};
+
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
 
 const MissionsPage = () => {
   const navigate = useNavigate();
@@ -391,7 +425,7 @@ const MissionsPage = () => {
         startLng = position.coords.longitude;
       }
     } catch (e) {
-      console.warn("⚠️ Géolocalisation non capturée.");
+      console.warn("⚠️ Pas de GPS");
     }
 
     try {
@@ -793,8 +827,15 @@ const MissionsPage = () => {
             assignments.map((link: any) => {
               const isPersonal = link.target_type === 'personal_account' || link.is_personal;
               const name = link.target_name || 'Bénéficiaire';
-              const address = isPersonal ? link.family?.address : link.patient?.address;
-              const category = isPersonal ? 'senior' : link.patient?.category;
+              
+              // ✅ RESOLVEUR D'UNICATION DIRECTE DANS LA LISTE POUR L'IHM [24]
+              const accountId = link.family_id || link.family?.id;
+              const patientData = link.target_type === 'patient' && link.patient_id
+                ? (patients.find(p => p.id === link.patient_id) || link.patient)
+                : (accountId ? patients.find(p => p.id === accountId || p.created_by === accountId) : null);
+                
+              const badgeInfo = getBeneficiaryBadgeInfo(link, patientData); // ✅ Résolution de l'IHM réelle en direct ! [23, 24]
+              const address = patientData?.address || (isPersonal ? link.family?.address : link.patient?.address) || 'Adresse non renseignée';
 
               return (
                 <div
@@ -803,15 +844,22 @@ const MissionsPage = () => {
                   className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition duration-200 cursor-pointer flex items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-sm font-black shrink-0 shadow-sm" style={{ background: colors.primary }}>
+                    <div 
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-sm font-black shrink-0 shadow-sm" 
+                      style={{ background: badgeInfo.color }}
+                    >
                       {name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ backgroundColor: colors.primary + '10', color: colors.primary }}>
-                        {isPersonal ? '👤 Compte direct' : `👵 Proche (${getCategoryLabel(category || 'senior')})`}
+                      {/* ✅ BADGE DIFFÉRENCIÉ DYNAMIQUE SANS DOUBLONS NI FORÇAGE DE CLASSE ! [23, 24] */}
+                      <span 
+                        className="text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full" 
+                        style={{ backgroundColor: badgeInfo.bg, color: badgeInfo.color }}
+                      >
+                        {badgeInfo.text}
                       </span>
                       <h3 className="font-extrabold text-sm sm:text-base text-gray-800 truncate mt-1">{name}</h3>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">📍 {address || 'Adresse non renseignée'}</p>
+                      <p className="text-xs text-gray-400 truncate mt-0.5">📍 {address}</p>
                     </div>
                   </div>
                   <ChevronRight size={18} className="text-gray-400 shrink-0" />
@@ -895,14 +943,21 @@ const MissionsPage = () => {
                 {selectedBeneficiary.target_name?.charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                  📁 DOSSIER PATIENT
+                {/* ✅ BADGE COMPTE RENDU ADAPTATIF INTELLIGENT DU BÉNÉFICIAIRE SÉLECTIONNÉ ! [23, 24] */}
+                <span 
+                  className="text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full"
+                  style={{ 
+                    backgroundColor: getBeneficiaryBadgeInfo(selectedBeneficiary, realPatientData).bg, 
+                    color: getBeneficiaryBadgeInfo(selectedBeneficiary, realPatientData).color 
+                  }}
+                >
+                  {getBeneficiaryBadgeInfo(selectedBeneficiary, realPatientData).text}
                 </span>
                 <h2 className="text-lg md:text-xl font-black text-gray-800 truncate mt-1">
                   {selectedBeneficiary.target_name}
                 </h2>
                 <p className="text-xs text-gray-400 truncate mt-0.5">
-                  📍 {selectedBeneficiary.target_type === 'patient' ? selectedBeneficiary.patient?.address : selectedBeneficiary.family?.address}
+                  📍 {realPatientData?.address || (selectedBeneficiary.target_type === 'patient' ? selectedBeneficiary.patient?.address : selectedBeneficiary.family?.address) || "Adresse non spécifiée"}
                 </p>
               </div>
             </div>
@@ -918,21 +973,21 @@ const MissionsPage = () => {
                   <div>
                     <span className="text-[10px] text-gray-400 block font-bold">Âge</span>
                     <span className="font-extrabold text-gray-700">
-                      {/* ✅ CORRECTIF DYNAMIQUE : Charger l'âge réel du dossier unifié résolu de manière structurée ! */}
-                      {realPatientData?.age ? `${realPatientData.age} ans` : (realPatientData ? 'Majeur (Non précisé)' : 'Compte majeur')}
+                      {/* ✅ CORRECTIF CLINIQUE : Résolution de l'âge réel du compte ou proche ! [23, 24] */}
+                      {realPatientData?.age ? `${realPatientData.age} ans` : (realPatientData ? 'Majeur (Non renseigné)' : 'Compte majeur')}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-gray-400 block font-bold">Sexe</span>
-                    <span className="font-extrabold text-gray-750 uppercase">
-                      {/* ✅ CORRECTIF DYNAMIQUE : Charger le genre réel du dossier unifié résolu ! */}
+                    <span className="text-[10px] text-gray-400 block font-bold">Sexe / Genre</span>
+                    <span className="font-extrabold text-gray-700 uppercase">
+                      {/* ✅ CORRECTIF CLINIQUE : Résolution du genre réel de la fiche unifiée ! [23, 24] */}
                       {realPatientData?.gender === 'male' ? 'Homme' : (realPatientData?.gender === 'female' ? 'Femme' : 'Non précisé')}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* ✅ SÉCURISÉ : Les informations cliniques s'affichent d'office si le dossier réel existe */}
+              {/* ✅ SÉCURISÉ : Les informations cliniques réelles d'intervention s'affichent d'office si le dossier réel existe */}
               {realPatientData && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -940,7 +995,7 @@ const MissionsPage = () => {
                       <Stethoscope size={14} className="text-red-500" /> Diagnostics & Pathologies
                     </h4>
                     <div className="p-3 bg-red-50/20 border border-red-100 rounded-xl min-h-[58px]">
-                      <p className="font-semibold text-red-900 leading-normal">
+                      <p className="font-semibold text-red-900 leading-normal text-xs">
                         {realPatientData.conditions || "Aucune pathologie chronique signalée."}
                       </p>
                     </div>
@@ -951,7 +1006,7 @@ const MissionsPage = () => {
                       <Pill size={14} className="text-blue-500" /> Traitements
                     </h4>
                     <div className="p-3 bg-blue-50/20 border border-blue-100 rounded-xl min-h-[58px]">
-                      <p className="font-semibold text-blue-900 leading-normal">
+                      <p className="font-semibold text-blue-900 leading-normal text-xs">
                         {realPatientData.treatments || "Pas de traitement médical en cours."}
                       </p>
                     </div>
