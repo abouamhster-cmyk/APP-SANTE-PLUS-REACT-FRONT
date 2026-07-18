@@ -1,4 +1,5 @@
 // 📁 src/stores/aidantCatalogStore.ts
+// ✅ CATALOGUE AIDANTS : HARMONISATION DE L'ENDPOINT D'ASSIGNATION DYNAMIQUE POUR L'AIDANT
 
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
@@ -334,6 +335,9 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
     }
   },
 
+  // ============================================================
+  // ENVOI DU BON ENDPOINT SELON LE RÔLE DE L'UTILISATEUR SÉLECTIONNÉ
+  // ============================================================
   fetchMyAssignments: async () => {
     try {
       set({ isLoading: true, error: null });
@@ -345,8 +349,12 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       const { profile } = useAuthStore.getState();
       let endpoint = '/assignments';
+      
+      // ✅ Aiguillage dynamique de l'endpoint d'assignation
       if (profile?.role === 'family') {
         endpoint = '/assignments/my';
+      } else if (profile?.role === 'aidant') {
+        endpoint = `/assignments/aidant/${profile.id}`; // ✅ CORRIGÉ : Interroge les bénéficiaires propres de Dominique
       }
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -393,7 +401,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       const { profile } = useAuthStore.getState();
       
-      // 🔒 Bloquer les tentatives des familles
       if (profile?.role === 'family') {
         throw new Error("L'attribution d'un aidant est gérée par l'administration de Santé Plus. Veuillez les contacter.");
       }
@@ -461,7 +468,6 @@ export const useAidantCatalogStore = create<AidantCatalogStore>((set, get) => ({
 
       const { profile } = useAuthStore.getState();
       
-      // 🔒 Bloquer les tentatives des familles
       if (profile?.role === 'family') {
         throw new Error("Seule l'administration de Santé Plus peut révoquer ou modifier une assignation.");
       }
