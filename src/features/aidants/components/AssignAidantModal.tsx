@@ -1,5 +1,7 @@
 // 📁 src/features/aidants/components/AssignAidantModal.tsx
- 
+// ✅ ENVELOPPE DE MODALE ASSIGNATION : TÉLÉPORTATION PAR PORTAIL POUR UN RECOUVREMENT PLEIN ÉCRAN OPAQUE SANS GAP (z-100)
+
+import { createPortal } from 'react-dom'; 
 import { X } from 'lucide-react';
 import { AssignAidantModalContent } from './AssignAidantModalContent';
 
@@ -36,10 +38,10 @@ export const AssignAidantModal = ({
 }: AssignAidantModalProps) => {
   if (!isOpen) return null;
 
-  return (
-    /* ✅ FIX GAP SUR MOBILE : z-[100] pour passer devant l'en-tête, fixed inset-0 pour couvrir 100% de l'écran tactile [23] */
+  // ✅ CONSTITUTION DE L'IHM MODALE ÉPURÉE ET PARFAITEMENT CENTRÉE SANS ENCOMBREMENT
+  const modalHTML = (
     <div 
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
       onClick={onClose}
     >
       <div 
@@ -80,6 +82,8 @@ export const AssignAidantModal = ({
       </div>
     </div>
   );
+
+   return createPortal(modalHTML, document.body);
 };
 
 export default AssignAidantModal;
