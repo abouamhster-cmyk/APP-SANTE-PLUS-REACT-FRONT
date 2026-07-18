@@ -1,4 +1,4 @@
-// 📁 src/components/layout/MainLayout.tsx
+// 📁 src/features/layout/MainLayout.tsx
  
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
@@ -354,9 +354,10 @@ const MainLayout = () => {
           </div>
         </header>
 
-        {/* CONTENU PRINCIPAL */}
-        <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-24 md:pb-8 animate-fadeIn">
-          <div className="max-w-7xl mx-auto">
+        {/* CONTENU PRINCIPAL SANS CLASSE ANIMATE-FADEIN PIEGEUSE */}
+        <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-24 md:pb-8">
+          {/* ✅ CORRECTIF STRUCTUREL DE DEPLACEMENT DE LA TRANSFORMATION ANIMÉE */}
+          <div className="max-w-7xl mx-auto animate-fadeIn">
             <ReminderBanner />
             <Outlet />
           </div>
