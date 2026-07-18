@@ -1,6 +1,5 @@
 // 📁 src/features/help/pages/MissionsPage.tsx
-// ✅ PAGE HUB DE L'INTERVENANT : CLASSIFICATION RÉELLE ET ADAPTATIVE DES BÉNÉFICIAIRES EN DIRECT SANS DOUBLONS
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -186,6 +185,19 @@ const MissionsPage = () => {
 
     return null;
   }, [selectedBeneficiary, patients]);
+
+  // ✅ VERROU DYNAMIQUE DE VISITE EN COURS POUR CE BÉNÉFICIAIRE SPÉCIFIQUE (PRÉVIENT LES SESSIONS DOUBLES) [23]
+  const isVisitInProgressForThisTarget = useMemo(() => {
+    if (!selectedBeneficiary) return false;
+
+    const isPatient = selectedBeneficiary.target_type === 'patient';
+    const targetId = isPatient ? selectedBeneficiary.patient_id : selectedBeneficiary.family_id;
+
+    return visits.some(v => 
+      v.status === 'en_cours' && 
+      (isPatient ? v.patient_id === targetId : (v.user_id === targetId && !v.patient_id))
+    );
+  }, [selectedBeneficiary, visits]);
 
   const stats = useMemo(() => {
     const pendingMissionsCount = myMissions.filter(v => v.status === 'planifiee' || v.status === 'en_attente').length;
@@ -1034,6 +1046,7 @@ const MissionsPage = () => {
                 </div>
               </div>
 
+              {/* ✅ BOUTON SÉCURISÉ : Contrôle et verrouillage dynamique de double session d'intervention [23] */}
               <div className="pt-4 border-t flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
@@ -1042,14 +1055,29 @@ const MissionsPage = () => {
                 >
                   Fermer
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleStartAdHocIntervention(selectedBeneficiary)}
-                  className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black transition flex items-center justify-center gap-2"
-                >
-                  <Play size={16} fill="white" />
-                  Démarrer l'accompagnement
-                </button>
+                
+                {isVisitInProgressForThisTarget ? (
+                  /* ✅ CAS : Accompagnement de cette personne déjà actif -> bouton verrouillé en ambre [23] */
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 h-12 bg-amber-500 text-white rounded-2xl font-black flex items-center justify-center gap-2 cursor-not-allowed shadow-inner"
+                  >
+                    <Clock size={16} className="animate-spin" />
+                    <span>Accompagnement en cours...</span>
+                  </button>
+                ) : (
+                  /* ✅ CAS NOMINAL : Libre de démarrer [23] */
+                  <button
+                    type="button"
+                    onClick={() => handleStartAdHocIntervention(selectedBeneficiary)}
+                    disabled={isActionPending}
+                    className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black transition flex items-center justify-center gap-2"
+                  >
+                    {isActionPending ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} fill="white" />}
+                    Démarrer l'accompagnement
+                  </button>
+                )}
               </div>
 
             </div>
