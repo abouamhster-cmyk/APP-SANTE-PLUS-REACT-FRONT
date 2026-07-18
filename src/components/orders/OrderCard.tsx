@@ -1,10 +1,10 @@
 // 📁 src/components/orders/OrderCard.tsx
-// ✅ ORDER CARD : VERSION ÉPURÉE, SANS BOUTON D'ASSIGNATION REDONDANT
-
+ 
 import { memo, useMemo, useCallback } from 'react';
 import { 
   Package, MapPin, Clock, User, CheckCircle, XCircle, Eye, AlertCircle, 
-  ShoppingBag, Truck, CreditCard, Calendar, DollarSign, Play, X, UserCheck 
+  ShoppingBag, Truck, CreditCard, UserCheck, Calendar, DollarSign, Play, 
+  Users, UserPlus 
 } from 'lucide-react';
 import { Order } from '@/types';
 import { useBranding } from '@/hooks/useBranding';
@@ -28,7 +28,7 @@ interface ExtendedOrder extends Order {
 interface OrderCardProps {
   order: Order;
   onClick?: () => void;
-  onStatusChange?: (status: string) => void; 
+  onStatusChange?: (status: string) => void;
   onTakeOrder?: () => void;
   onDeliver?: () => void;
   onCancel?: () => void;
@@ -57,15 +57,14 @@ export const OrderCard = memo(({
   onClick,
   onTakeOrder,
   onDeliver,
-  onCancel,
-  onView,
+  onShowAssignAidantModal,
   showActions = false,
   compact = false,
   colors: propColors,
 }: OrderCardProps) => {
   const brand = useBranding();
   const colors = propColors || brand.colors;
-  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
+  const { isAidant, isAdminOrCoordinator } = useTerminology();
 
   const order = orderProp as ExtendedOrder;
   const statusConfig = useMemo(() => getStatusConfig(order.status), [order.status]);
@@ -75,7 +74,6 @@ export const OrderCard = memo(({
   const isInProgress = useMemo(() => order.status === 'en_cours', [order.status]);
   const isAvailable = useMemo(() => ['creee', 'en_attente', 'disponible'].includes(order.status), [order.status]);
   const isCompleted = useMemo(() => ['validee', 'annulee'].includes(order.status), [order.status]);
-  const isPendingPayment = useMemo(() => order.status === 'attente_paiement', [order.status]);
 
   const patientName = useMemo(() => {
     if (order.patient) return `${order.patient.first_name} ${order.patient.last_name}`;
@@ -103,47 +101,64 @@ export const OrderCard = memo(({
       style={{ borderColor: colors.primary + '15' }}
     >
       <div className="flex justify-between items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-black text-sm truncate" style={{ color: colors.text }}>{order.description || 'Commande'}</h3>
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-medium flex items-center gap-1 shrink-0 uppercase tracking-wider" style={{ background: statusConfig.bg, color: statusConfig.color }}>
-              {statusConfig.icon} {statusConfig.label}
-            </span>
+        {/* En-tête avec Icone */}
+        <div className="flex items-start gap-3 min-w-0">
+          <div 
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" 
+            style={{ background: statusConfig.bg, color: statusConfig.color }}
+          >
+            {isPonctual ? <ShoppingBag size={20} /> : <Package size={20} />}
           </div>
-          <p className="text-xs text-gray-500 flex items-center gap-1.5"><User size={12}/> {patientName}</p>
-          <div className="flex items-center gap-3 text-xs mt-2 text-gray-400">
-            <span className="flex items-center gap-1"><DollarSign size={12} /> {formatCurrency(amount)}</span>
-            {order.aidant_id && <span className="flex items-center gap-1"><UserCheck size={12} /> {aidantName}</span>}
+          <div className="min-w-0">
+            <h3 className="font-black text-sm truncate" style={{ color: colors.text }}>
+              {order.description || 'Commande'}
+            </h3>
+            <p className="text-xs mt-0.5" style={{ color: colors.textLight }}>
+              {patientName} • {formatCurrency(amount)}
+            </p>
           </div>
+        </div>
+
+        {/* Badges de statut */}
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shrink-0 uppercase tracking-wider" style={{ background: statusConfig.bg, color: statusConfig.color }}>
+            {statusConfig.icon} {statusConfig.label}
+          </span>
+          {isUrgent && <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600 uppercase">Urgent</span>}
         </div>
       </div>
 
+      {/* Détails supplémentaires */}
+      <div className="mt-4 flex flex-wrap gap-3 text-xs" style={{ color: colors.textLight }}>
+        <span className="flex items-center gap-1.5"><MapPin size={14} /> {order.address || 'Adresse non spécifiée'}</span>
+        <span className="flex items-center gap-1.5"><UserCheck size={14} /> {aidantName}</span>
+      </div>
+
+      {/* Barre de progression */}
       {!isCompleted && (
-        <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="mt-4 h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div className="h-full transition-all duration-500" style={{ width: `${Math.min(progress, 100)}%`, background: statusConfig.color }} />
         </div>
       )}
 
+      {/* Actions (Épurées) */}
       {showActions && (
         <div className="flex items-center gap-2 mt-4 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
           {isAvailable && isAidant && (
-            <button onClick={(e) => handleAction(e, onTakeOrder)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs" style={{ background: isUrgent ? '#EF4444' : '#F59E0B' }}>
+            <button onClick={(e) => handleAction(e, onTakeOrder)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs transition hover:opacity-80" style={{ background: isUrgent ? '#EF4444' : '#F59E0B' }}>
               {isUrgent ? 'Prendre (Urgent)' : 'Prendre'}
             </button>
           )}
           {isInProgress && isAidant && (
-            <button onClick={(e) => handleAction(e, onDeliver)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs bg-blue-500">
+            <button onClick={(e) => handleAction(e, onDeliver)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs bg-blue-500 hover:opacity-80 transition">
               Livrer
             </button>
           )}
-          {(isAdminOrCoordinator || isFamily) && !isCompleted && (
-            <button onClick={(e) => handleAction(e, onCancel)} className="py-2 px-4 rounded-xl text-xs font-bold bg-red-50 text-red-600 border border-red-100">
-              Annuler
+          {isAdminOrCoordinator && isAvailable && onShowAssignAidantModal && (
+            <button onClick={(e) => handleAction(e, onShowAssignAidantModal)} className="flex-1 py-2 rounded-xl text-white font-bold text-xs bg-orange-600 hover:opacity-80 transition">
+              Assigner
             </button>
           )}
-          <button onClick={(e) => handleAction(e, onView)} className="p-2 rounded-xl border border-gray-100 hover:bg-gray-50 text-gray-400">
-            <Eye size={16} />
-          </button>
         </div>
       )}
     </div>
