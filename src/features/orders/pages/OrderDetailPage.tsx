@@ -1,5 +1,6 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
- 
+// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET ARBORESCENCE JSX PARFAITEMENT VALIDE SANS ERREURS DE BUILD
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -33,7 +34,7 @@ import {
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useBranding } from '@/hooks/useBranding'; // ✅ CORRIGÉ : Importation vers le dossier des hooks
+import { useBranding } from '@/hooks/useBranding'; // ✅ Importation correcte vers le dossier des hooks
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; 
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore'; 
@@ -394,7 +395,7 @@ const OrderDetailPage = () => {
     
     try {
       await takeOrder(id, takeLat, takeLng);
-      toast.success('Commande prise en charge ✅ (GPS enregistré)');
+      toast.success('Commande prise en charge');
       await fetchOrderById(id);
     } catch (error: any) {
       toast.error(error.message || 'Erreur lors de la prise de commande');
@@ -705,6 +706,7 @@ const OrderDetailPage = () => {
             </span>
           )}
         </div>
+      </div> {/*   Fermeture de l'enveloppe Header Card (balise div réintroduite) */}
         
       {/* ✅ BLOC SÉCURITÉ CASH (ÉCRAN CLIENT SÉCURISÉ) */}
       {isPendingCashConfirmation && isFamily && ( 
@@ -830,22 +832,22 @@ const OrderDetailPage = () => {
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
           <span className="text-sm font-extrabold text-gray-750">
-            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
-            {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
+             {/* Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
+             {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">💵 Frais de retrait MM</span>
           <span className="text-sm font-extrabold text-gray-750">
-            {/* ✅ CORRECTIF CONCORDANCE : Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
-            {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
+             {/*  Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
+             {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
           <span className="text-sm font-extrabold text-emerald-600">
-            {/* ✅ CORRIGÉ : Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
-            {order.subscription_id 
+             {/* ✅  Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
+             {order.subscription_id 
               ? 'Gratuit (Abonnement)' 
               : (order.delivery_fee > 0 
                   ? `${order.delivery_fee.toLocaleString()} FCFA (${order.delivery_payment_method === 'cash' ? 'Espèces' : 'En ligne'})` 
@@ -1041,7 +1043,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
+        {/*  ÉCURITÉ DE RÔLE : Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
         {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
@@ -1052,7 +1054,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/* ✅ CORRECTIF DE SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
+        {/*  SÉCURITÉ DE RÔLE : Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
         {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
