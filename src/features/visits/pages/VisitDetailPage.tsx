@@ -1,6 +1,5 @@
 // 📁 frontend/src/features/visits/pages/VisitDetailPage.tsx
-// ✅ PAGE DÉTAIL VISITE : AGENDA ÉPURÉ (SANS DOUBLONS SÉMANTIQUES), ACCOMPAGNEMENT DIRECT ET TERMINOLOGIE "DÉBUT / FIN"
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -164,12 +163,13 @@ const VisitDetailPage = () => {
     }
   };
 
-  // ✅ CAPTURE DU POINT D'ARRIVÉE DE MISSION EN DIRECT (CHECKPOINT)
+  // ✅ CAPTURE DU POINT D'ARRIVÉE DE MISSION EN DIRECT (CHECKPOINT ET MISE À JOUR ADRESSE REELLE) [23]
   const handleComplete = async (data: {
     actions: string[];
     notes: string;
     audio_url?: string;
     photos: string[];
+    address?: string; // ✅ Capture de l'adresse modifiée en direct [23]
   }) => {
     if (isActionPending.current) return;
 
@@ -177,6 +177,7 @@ const VisitDetailPage = () => {
     const notes = data?.notes || '';
     const photoUrls = data?.photos || [];
     const audio_url = data?.audio_url || '';
+    const finalAddress = data?.address || visit.address; // ✅ Repli sur l'adresse par défaut s'il n'y a pas eu d'édition
 
     if (actions.length === 0) {
       toast.error('Veuillez sélectionner au moins une action');
@@ -213,6 +214,7 @@ const VisitDetailPage = () => {
         audio_url,
         lat: endLat,
         lng: endLng,
+        address: finalAddress, // ✅ Envoi de l'adresse mise à jour au backend ! [23]
       });
 
       toast.success('✅ Visite terminée avec succès (GPS enregistré) !');
@@ -426,6 +428,21 @@ const VisitDetailPage = () => {
 
   const aidantStatus = getAidantDisplayStatus();
 
+  // ✅ CALCULATE DURATION DYNAMIQUE (Différence réelle entre début et fin de l'accompagnement) [23]
+  const calculatedDuration = useMemo(() => {
+    if (!visit || !visit.start_time) return null;
+
+    const start = new Date(visit.start_time).getTime();
+    const end = visit.end_time 
+      ? new Date(visit.end_time).getTime() 
+      : Date.now(); // Utilise le timestamp actuel si la visite est toujours active [23]
+
+    const diffMs = end - start;
+    if (diffMs <= 0) return 0;
+
+    return Math.round(diffMs / 60000); // Conversion en minutes [23]
+  }, [visit?.start_time, visit?.end_time]);
+
   // RETOUR ANTICIPÉ DE CHARGEMENT
   if (isLoading || !currentVisit) {
     return (
@@ -437,9 +454,6 @@ const VisitDetailPage = () => {
       </div>
     );
   }
-
-  const visit = currentVisit as any;
-  const isAdHoc = visit.metadata?.ad_hoc === true; // ✅ Détection dynamique de visite lancée en direct [23]
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 pb-12 px-4 sm:px-6">
@@ -455,7 +469,7 @@ const VisitDetailPage = () => {
           </button>
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg font-bold truncate" style={{ color: colors.text }}>
-              {isAdHoc ? `Visite en direct de ${visit.target_name}` : `Visite du ${formatDate(visit.scheduled_date)}`}
+              Visite du {formatDate(visit.scheduled_date)}
             </h1>
             <div className="flex flex-wrap items-center gap-1.5 mt-1">
               {getPrestationBadge()}
@@ -563,26 +577,7 @@ const VisitDetailPage = () => {
         </div>
       </div>
 
-      {/* BANDEAU D'INFORMATION AIDANT */}
-      {isAidant && visit.aidant_id && (
-        <div className="p-4 rounded-xl shadow-sm border border-blue-100" style={{ backgroundColor: '#E3F2FD', borderLeft: '4px solid #3B82F6' }}>
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full" style={{ backgroundColor: '#BBDEFB' }}>
-              <UserCheck size={20} className="text-blue-600" />
-            </div>
-            <div>
-              <p className="font-bold text-blue-800 text-xs sm:text-sm">✅ Vous êtes assigné à cette visite</p>
-              <p className="text-xs text-blue-600 mt-0.5">
-                {visit.status === 'planifiee'
-                  ? '👆 Appuyez sur démarrer lors de votre arrivée sur place.'
-                  : visit.status === 'en_cours'
-                    ? '🔄 Vous êtes actuellement en intervention.'
-                    : '📋 Visite terminée.'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ✅ BANDEAU D'INFORMATION ASSIGNÉ RETIRÉ (Inutile et encombrant comme demandé) [23] */}
 
       {/* NAVIGATION GPS */}
       {visit.status === 'en_cours' && (
@@ -633,37 +628,24 @@ const VisitDetailPage = () => {
               sub={visit.patient_id ? getCategoryLabel(visit.patient?.category || 'senior') : 'Compte Personnel'}
               color={colors.text}
             />
-            
-            {/*   Afficher le démarrage live si visite en direct, sinon planification standard [23] */}
-            {isAdHoc ? (
-              <InfoCard
-                icon={<Clock size={15} />}
-                label="Démarrage en direct"
-                value={visit.start_time ? `Débuté à ${new Date(visit.start_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'En direct'}
-                sub={formatDate(visit.scheduled_date)}
-                color={colors.primary}
-              />
-            ) : (
-              <InfoCard
-                icon={<Calendar size={15} />}
-                label="Planification"
-                value={formatDate(visit.scheduled_date)}
-                sub={`${visit.scheduled_time} (${visit.duration_minutes} min)`}
-                color={colors.text}
-              />
-            )}
-
-            {/*  Afficher la durée réelle si ad-hoc, sinon l'id aidant (Boutons superflus du bas supprimés !) [23] */}
+            <InfoCard
+              icon={<Calendar size={15} />}
+              label="Planification"
+              value={formatDate(visit.scheduled_date)}
+              sub={`${visit.scheduled_time} (${visit.duration_minutes} min)`}
+              color={colors.text}
+            />
+            {/* ✅ DURÉE CALCULÉE EN DIRECT : Résolution en direct à partir du Début et de la Fin réels [23] */}
             <InfoCard
               icon={<Clock size={15} />}
               label="Durée d'accompagnement"
-              value={visit.actual_duration_minutes ? `${visit.actual_duration_minutes} minutes` : `${visit.duration_minutes || 60} minutes`}
-              sub={isAdHoc ? 'Session à la volée' : 'Planifiée'}
+              value={calculatedDuration !== null ? `${calculatedDuration} minutes` : `${visit.duration_minutes || 60} minutes`}
+              sub={visit.start_time ? 'Calculée sur le temps réel' : 'Durée estimée'}
               color={colors.primary}
             />
           </div>
 
-          {/* ✅ COMPTE-RENDU DE VISITE GROUPÉ (TOUS LES CHAMPS SUPERFLUS DE GAUCHE ONT ÉTÉ ENLEVÉS !) [23] */}
+          {/* COMPTE-RENDU DE VISITE GROUPÉ (STATS DU BAS EXTRA ENLEVÉES D'OFFICE POUR NETTOYER L'IHM) [23] */}
           {(visit.actions?.length > 0 || visit.notes || (photosList && photosList.length > 0) || visit.report || audioUrl) ? (
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border space-y-5" style={{ borderColor: colors.primary + '10' }}>
               <h3 className="font-bold text-sm sm:text-base border-b pb-2.5" style={{ borderColor: colors.primary + '10', color: colors.text }}>
@@ -694,7 +676,6 @@ const VisitDetailPage = () => {
               {/* Notes de préparation & Rapport */}
               {(visit.notes || visit.report) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Ne pas dupliquer si les notes et le rapport sont identiques (cas ad-hoc) [23] */}
                   {visit.notes && visit.notes !== visit.report && (
                     <div className="bg-gray-50/60 p-4 rounded-xl border" style={{ borderColor: colors.primary + '10' }}>
                       <h4 className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: colors.textLight }}>
@@ -720,12 +701,12 @@ const VisitDetailPage = () => {
 
               {/* COMPTE-RENDU AUDIO */}
               {audioUrl && (
-                <div className="pt-3 border-t animate-fadeIn" style={{ borderColor: colors.primary + '10' }}>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: colors.textLight }}>
+                <div className="pt-3 border-t" style={{ borderColor: colors.primary + '10' }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: colors.textLight }}>
                     <Mic size={14} className="text-blue-500 animate-pulse" />
                     Note vocale de l'intervenant
                   </h4>
-                  {/*  Lecteur audio responsive 100% étirable sans débordement sur mobiles [23] */}
+                  {/* ✅ LECTEUR AUDIO AJUSTABLE MOBILE SANS PLACELHOLDERS */}
                   <div className="bg-gray-50/80 p-4 rounded-2xl border space-y-2.5" style={{ borderColor: colors.primary + '10' }}>
                     <div className="flex items-center gap-2">
                       <Play size={14} className="text-blue-500" />
@@ -801,7 +782,7 @@ const VisitDetailPage = () => {
               </p>
             </div>
 
-            {/* ✅ CORRECTIF SÉMANTIQUE : "Début et Fin" au lieu de "Départ et Arrivée" [23] */}
+            {/* ✅ CORRECTIF SÉMANTIQUE : "Début de l'accompagnement" et "Fin de l'accompagnement" [23] */}
             {(visit.location_start || visit.location_end) && (
               <div className="p-3.5 rounded-xl bg-gray-50 border space-y-2.5" style={{ borderColor: colors.primary + '10' }}>
                 <p className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.textLight }}>
@@ -812,7 +793,7 @@ const VisitDetailPage = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" />
                       <span className="text-gray-600">
-                        {/* ✅ CORRIGÉ : Sémantique unifiée début/fin */}
+                        {/* ✅ "Départ" renommé en "Début" */}
                         <strong>Début de l'accompagnement</strong> à {new Date(visit.start_time || visit.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -821,7 +802,7 @@ const VisitDetailPage = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
                       <span className="text-gray-600">
-                        {/* ✅ CORRIGÉ : Sémantique unifiée début/fin */}
+                        {/* ✅ "Arrivée" renommé en "Fin" */}
                         <strong>Fin de l'accompagnement</strong> à {new Date(visit.end_time || visit.updated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -852,7 +833,7 @@ const VisitDetailPage = () => {
         <CompleteVisitModal
           isOpen={true}
           onClose={() => setShowCompleteModal(false)}
-          visit={{ patient: visit.patient }}
+          visit={visit} // ✅ Passe la visite entière pour que l'adresse par défaut puisse être éditée dans le rapport ! [23]
           visitId={visit.id}
           patientCategory={visit.patient?.category || 'senior'}
           onSubmit={handleComplete}
