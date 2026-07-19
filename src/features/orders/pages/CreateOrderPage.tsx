@@ -1,33 +1,22 @@
-// 📁 src/features/orders/pages/CreateOrderPage.tsx
-// ✅ PAGE CRÉATION COMMANDE : FORMULAIRE ÉPURÉ AVEC CALCUL DE PROVISION EN LOCAL (BÉNIN) SANS ERREURS TS
+// 📁 frontend/src/features/orders/pages/CreateOrderPage.tsx
+// ✅ PAGE CRÉATION COMMANDE : FORMULAIRE ÉPURÉ ET SÉCURISÉ EN MODE PONCTUEL AUTONOME SANS BANDEAU D'ABONNEMENT
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft,
-  ShoppingBag,
-  MapPin,
-  Camera,
-  X,
-  ArrowRight,
-  CheckCircle,
-  Loader2,
-  Sparkles
-} from 'lucide-react';
+import { ArrowLeft, ShoppingBag, MapPin, Camera, X, ArrowRight, CheckCircle, Loader2, Sparkles } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
-import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { usePonctualPayment } from '@/hooks/usePonctualPayment';
 import { supabase } from '@/lib/supabase';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
-import { cn } from '@/utils/helpers'; 
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
-// ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ ET AUTONOME
+// ✅ ALGORITHME DE CALCUL DES FRAIS DE RETRAIT LOCAL (BÉNIN) SÉCURISÉ
 const calculateWithdrawalFee = (amount: number, operator: 'mtn_moov' | 'celtiis'): number => {
   if (amount <= 0) return 0;
   const amt = Math.round(amount);
@@ -73,10 +62,7 @@ const CreateOrderPage = () => {
   const { createOrder, isLoading } = useOrderStore();
   const { patients, fetchPatients } = usePatientStore();
 
-  const { getCategoryLabel, isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-  
-  // ✅ CORRIGÉ : subLoading a été retiré de la déstructuration car il n'existe pas dans le hook
-  const { hasActiveSubscription, remainingOrders } = useSubscriptionGuard();
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
   const {
     isPaymentModalOpen,
@@ -100,16 +86,16 @@ const CreateOrderPage = () => {
   const isSubmittingRef = useRef(false);
 
   const [targetType, setTargetType] = useState<'personal' | 'patient'>('personal');
-  const [targetPatientId, setTargetPatientId] = useState<string>('');
+  const [targetPatientId, setTargetPatientId] = useState('');
 
   // Nouveaux états de provision
-  const [needsPurchase, setNeedsPurchase] = useState<boolean>(false);
-  const [purchaseAmount, setPurchaseAmount] = useState<number>(0);
+  const [needsPurchase, setNeedsPurchase] = useState(false);
+  const [purchaseAmount, setPurchaseAmount] = useState(0);
   const [operator, setOperator] = useState<'mtn_moov' | 'celtiis'>('mtn_moov');
 
   const [formData, setFormData] = useState({
     patient_id: '',
-    type: 'autre', // ✅ Type par défaut unifié sur 'autre' pour la compatibilité base de données
+    type: 'autre', 
     description: '',
     address: '',
     latitude: null as number | null,
@@ -120,10 +106,6 @@ const CreateOrderPage = () => {
   const [prescriptionFile, setPrescriptionFile] = useState<File | null>(null);
   const [prescriptionPreview, setPrescriptionPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-
-  const canUseSubscription = (): boolean => {
-    return hasActiveSubscription && remainingOrders > 0;
-  };
 
   const [aidantQuota, setAidantQuota] = useState<{
     current: number;
@@ -154,25 +136,17 @@ const CreateOrderPage = () => {
 
   const totalAdvanceAmount = purchaseAmount + withdrawalFee;
 
-  const subscriptionInfo = (() => {
+  // ✅ CORRIGÉ : Bandeau d'explication unifié en Mode Ponctuel obligatoire sans forfait (car pas de commandes incluses) [1, 14]
+  const subscriptionInfo = useMemo(() => {
     if (isAidant || isAdminOrCoordinator) return null;
-    
-    if (canUseSubscription()) {
-      return {
-        type: 'success',
-        icon: <CheckCircle size={18} />,
-        title: `✅ ${remainingOrders} commande${remainingOrders > 1 ? 's' : ''} disponible${remainingOrders > 1 ? 's' : ''}`,
-        description: 'Votre abonnement couvre les frais de livraison de cette course.',
-      };
-    }
-    
+
     return {
       type: 'info',
-      icon: <Sparkles size={18} />,
-      title: '💡 Mode ponctuel',
-      description: 'Prestation à la carte. Les frais de transport seront payables à la livraison.',
+      icon: <Sparkles size={18} className="text-blue-500 animate-pulse" />,
+      title: '💡 Prestation payable à la livraison',
+      description: 'Paiement de transport à l\'arrivée. L\'intervenant saisira les frais de livraison lors du dépôt, et vous réglerez directement en ligne ou en espèces.',
     };
-  })();
+  }, [isAidant, isAdminOrCoordinator]);
 
   const canTakeOrder = (): boolean => {
     if (!isAidant) return true;
@@ -286,7 +260,6 @@ const CreateOrderPage = () => {
     }
 
     try {
-      // ✅ SÉCURITÉ TRANSMISSION PROVISION : Passage des paramètres requis pour le Webhook
       await payOrderPonctual({
         description: orderData.description,
         orderType: orderData.type,
@@ -323,12 +296,13 @@ const CreateOrderPage = () => {
       return;
     }
 
-    // Simple course de récupération
+    // Simple course de récupération à l'acte
     isSubmittingRef.current = true;
-    await createOrderWithSubscription();
+    await createOrderDirectly();
   };
 
-  const createOrderWithSubscription = async () => {
+  // ✅ CRÉATION DIRECTE EN MODE ACTE PONCTUEL SANS ABONNEMENTS
+  const createOrderDirectly = async () => {
     const orderData = await prepareOrderData();
     if (!orderData) {
       isSubmittingRef.current = false;
@@ -337,11 +311,10 @@ const CreateOrderPage = () => {
 
     setIsUploading(true);
     try {
-      const isSubUsed = canUseSubscription();
       const result = await createOrder({
         ...orderData,
-        order_type: isSubUsed ? 'subscription' : 'ponctual',
-        is_paid: true, // Pas de provision attendue
+        order_type: 'ponctual',
+        is_paid: true, // Pas d'avance d'achats attendue
       });
 
       toast.success('Commande créée avec succès !');
@@ -361,39 +334,33 @@ const CreateOrderPage = () => {
     }
   };
 
-  const isLoading_ = isLoading || isUploading || isPaymentLoading; // ✅ subLoading retiré
+  const isLoading_ = isLoading || isUploading || isPaymentLoading;
   const hasPatients = patients.length > 0;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 max-w-5xl mx-auto pb-10">
       {/* HEADER */}
-      <section className="bg-white rounded-[1.75rem] p-4 sm:p-5 md:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-3">
-            <button
-              onClick={() => navigate('/app/orders')}
-              className="w-11 h-11 rounded-2xl flex items-center justify-center border hover:bg-gray-50 transition shrink-0"
-              style={{ borderColor: colors.primary + '20', color: colors.text }}
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black leading-tight" style={{ color: colors.text }}>
-                Créer une commande ou course
-              </h1>
-              <p className="text-xs text-gray-500 mt-1">Saisissez les informations de livraison et de provision d'achats.</p>
-            </div>
-          </div>
+      <section className="bg-white rounded-[1.75rem] p-4 sm:p-5 md:p-6 shadow-sm border flex items-center gap-4" style={{ borderColor: colors.primary + '15' }}>
+        <button onClick={() => navigate('/app/orders')} className="w-11 h-11 rounded-2xl flex items-center justify-center border hover:bg-gray-50 transition shrink-0" style={{ borderColor: colors.primary + '20', color: colors.text }} >
+          <ArrowLeft size={18} />
+        </button>
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black leading-tight" style={{ color: colors.text }}>
+            Créer une commande ou course
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Saisissez les informations de livraison et de provision d'achats.
+          </p>
         </div>
       </section>
 
       {/* BANDEAU FORFAIT */}
       {isFamily && subscriptionInfo && (
-        <div className={`rounded-xl p-4 border flex items-start gap-3 ${subscriptionInfo.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200'}`}>
+        <div className="rounded-xl p-4 border flex items-start gap-3 bg-blue-50 border-blue-200">
           <div className="mt-0.5">{subscriptionInfo.icon}</div>
           <div>
-            <p className="text-sm font-bold">{subscriptionInfo.title}</p>
-            <p className="text-xs">{subscriptionInfo.description}</p>
+            <p className="text-sm font-bold text-blue-700">{subscriptionInfo.title}</p>
+            <p className="text-xs text-blue-600 leading-relaxed">{subscriptionInfo.description}</p>
           </div>
         </div>
       )}
@@ -508,7 +475,7 @@ const CreateOrderPage = () => {
           <div className="bg-white rounded-3xl p-5 border shadow-sm space-y-4">
             <h2 className="text-base font-black">Résumé</h2>
             <SummaryLine label="Opération" value={needsPurchase ? '🛒 Achat' : '📦 Récupération'} />
-            <SummaryLine label="Facturation" value={needsPurchase ? 'Provision d\'avance' : (canUseSubscription() ? 'Abonnement' : 'Ponctuel')} />
+            <SummaryLine label="Facturation" value={needsPurchase ? "Provision d'avance" : 'À la livraison'} />
             
             <div className="rounded-2xl p-4 bg-gray-50 text-center">
               <span className="text-[10px] text-gray-400 block font-bold">Total provision d'avance</span>
@@ -517,7 +484,7 @@ const CreateOrderPage = () => {
               </span>
             </div>
 
-            <button type="submit" disabled={isLoading_} className="w-full h-11 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-1" style={{ background: colors.primary }}>
+            <button type="submit" disabled={isLoading_} className="w-full h-11 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-1.5" style={{ background: colors.primary }}>
               {isLoading_ ? <Loader2 size={16} className="animate-spin" /> : needsPurchase ? `Payer ${totalAdvanceAmount.toLocaleString()} FCFA` : 'Créer la commande'}
               <ArrowRight size={13} />
             </button>
@@ -538,9 +505,9 @@ const CreateOrderPage = () => {
 // =============================================
 
 const SummaryLine = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex justify-between border-b pb-2 text-xs">
-    <span className="text-gray-400">{label}</span>
-    <span className="font-bold">{value}</span>
+  <div className="flex justify-between items-center text-xs border-b pb-2 last:border-0 last:pb-0">
+    <span className="text-gray-400 font-bold uppercase">{label}</span>
+    <span className="font-extrabold text-gray-800">{value}</span>
   </div>
 );
 
