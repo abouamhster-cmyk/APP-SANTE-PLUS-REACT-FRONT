@@ -10,6 +10,7 @@ import {
   User,
   ArrowRight,
   CreditCard,
+ DollarSign,
   MapPin,
   BookOpen,
   History,
