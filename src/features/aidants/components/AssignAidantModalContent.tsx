@@ -1,5 +1,6 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
- 
+// ✅ CONTENU MODALE ASSIGNATION : SÉCURISÉ AVEC IDENTIFICATION DE L'AIDANT PERMANENT ET AFFICHAGE DE LA CHARGE COMPLÈTE (4/4)
+
 import { useState, useEffect, useMemo } from 'react';
 import { 
   AlertCircle, 
