@@ -1,6 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-// ✅ PAGE FACTURATION CLIENT : AFFICHAGE CONDITIONNEL DES CRÉDITS DE COMMANDES UNIQUEMENT SI EXISTANTS EN BASE [23]
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
@@ -86,6 +85,7 @@ const BillingPage = () => {
   const showMaman = hasMamanPatient || isMamanProfile;
   const showAll = !showSenior && !showMaman;
 
+  // Filtrer les offres actives de type abonnement (mensuelle, trimestrielle, etc.)
   const allowedOffers = useMemo(() => {
     const activeSubscriptionOffers = offers.filter((o: Offer) => o.type !== 'ponctuelle' && o.is_active === true);
 
@@ -438,7 +438,8 @@ const BillingPage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            {/* ✅ JAUGE DE VISITES UNIQUEMENT (La jauge de commandes incluses a été complètement et définitivement supprimée !) [23] */}
+            <div className="grid grid-cols-1 gap-3 pt-2">
               <div className="bg-white/10 rounded-xl p-3 border border-white/10 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] text-gray-300 font-semibold uppercase">Crédit de Visites</p>
@@ -451,22 +452,6 @@ const BillingPage = () => {
                   activeSubscription.remaining_visits <= 0 ? "bg-red-400" : "bg-emerald-400 animate-pulse"
                 )} />
               </div>
-
-              {/* ✅ DÉCOUPAGE CONDITIONNEL : Afficher "Commandes incluses" uniquement s'il y en a dans l'offre ! [1, 23] */}
-              {activeSubscription.total_orders > 0 && (
-                <div className="bg-white/10 rounded-xl p-3 border border-white/10 flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] text-gray-300 font-semibold uppercase">Commandes incluses</p>
-                    <p className="text-lg font-black mt-0.5">
-                      {activeSubscription.remaining_orders} / {activeSubscription.total_orders} restantes
-                    </p>
-                  </div>
-                  <span className={cn(
-                    "w-2 h-2 rounded-full",
-                    activeSubscription.remaining_orders <= 0 ? "bg-red-400" : "bg-emerald-400 animate-pulse"
-                  )} />
-                </div>
-              )}
             </div>
 
             {isSubscriptionDepleted && (
