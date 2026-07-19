@@ -27,7 +27,7 @@ interface CreatePaymentData {
   orderId?: string | null;        
   order_id?: string | null;   
   type?: 'visit' | 'order' | 'subscription'; 
-  duration_months?: number; // ✅ Ajout du champ pour la durée personnalisée
+  duration_months?: number;  
   metadata?: {
     type?: 'visit' | 'order' | 'subscription';
     is_ponctual?: boolean;
@@ -343,7 +343,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // ✅ CREATE PAYMENT - TRANSMISSION DU MULTIPLICATEUR DE DURÉE
+  // ✅ CREATE PAYMENT - TRANSMISSION DU MULTIPLICATEUR DE DURÉE ET ENVOI DE L'ORDER_ID
   // =============================================
   createPayment: async (data: CreatePaymentData) => {
     try {
@@ -376,7 +376,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       const patientId = data.patient_id || null;
       const targetType = data.target_type || (patientId ? 'patient' : 'personal');
       const targetName = data.target_name || profile?.full_name || user.email || 'Client';
-      const durationMonths = data.duration_months || 1; // ✅ Valeur par défaut : 1 mois
+      const durationMonths = data.duration_months || 1;  
 
       let type: 'visit' | 'order' | 'subscription' = 'subscription';
       if (isVisit) {
@@ -412,7 +412,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           target_type: targetType,
           target_name: targetName,
           type: type,
-          duration_months: durationMonths,  
+          duration_months: durationMonths, 
         }),
       });
 
@@ -452,7 +452,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
             target_type: targetType,
             target_name: targetName,
             type: type,
-            duration_months: durationMonths, // ✅ Enregistrement local
+            duration_months: durationMonths, 
           },
         })
         .select()
