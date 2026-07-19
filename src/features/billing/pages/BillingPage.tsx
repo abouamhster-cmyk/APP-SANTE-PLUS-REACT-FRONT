@@ -1,5 +1,6 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
- 
+// ✅ PAGE FACTURATION CLIENT : AFFICHAGE CONDITIONNEL DES CRÉDITS DE COMMANDES UNIQUEMENT SI EXISTANTS EN BASE [23]
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
@@ -184,7 +185,7 @@ const BillingPage = () => {
     const patientId = activePatient?.id || null;
 
     if (hasActiveSub) {
-      toast.error("Vous disposez déjà d'un forfait actif avec des visites disponibles.");
+      toast.error("Vous disposez déjà d'un forfait d'accompagnement actif.");
       return;
     }
 
@@ -245,7 +246,6 @@ const BillingPage = () => {
 
     subscriptions.forEach(sub => {
       if (!addedSubIds.has(sub.id) && sub.offre) {
-        // Calcul du multiplicateur de durée à partir du quota total par rapport au quota de base
         let multiplier = 1;
         if (sub.offre.total_visits && sub.offre.total_visits > 0 && sub.total_visits) {
           multiplier = Math.max(1, Math.round(sub.total_visits / sub.offre.total_visits));
@@ -385,7 +385,7 @@ const BillingPage = () => {
 
       {/* ABONNEMENT EN COURS D'UTILISATION */}
       {activeSubscription && (
-        <section className="relative overflow-hidden rounded-2xl text-white p-6 shadow-md" style={{ background: colors.gradient || colors.primary }}>
+        <section className="relative overflow-hidden rounded-2xl text-white p-6 shadow-md animate-fadeIn" style={{ background: colors.gradient || colors.primary }}>
           <div className="relative z-10 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/10 pb-3">
               <div>
@@ -452,18 +452,21 @@ const BillingPage = () => {
                 )} />
               </div>
 
-              <div className="bg-white/10 rounded-xl p-3 border border-white/10 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-gray-300 font-semibold uppercase">Commandes incluses</p>
-                  <p className="text-lg font-black mt-0.5">
-                    {activeSubscription.remaining_orders} / {activeSubscription.total_orders} restantes
-                  </p>
+              {/* ✅ DÉCOUPAGE CONDITIONNEL : Afficher "Commandes incluses" uniquement s'il y en a dans l'offre ! [1, 23] */}
+              {activeSubscription.total_orders > 0 && (
+                <div className="bg-white/10 rounded-xl p-3 border border-white/10 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-gray-300 font-semibold uppercase">Commandes incluses</p>
+                    <p className="text-lg font-black mt-0.5">
+                      {activeSubscription.remaining_orders} / {activeSubscription.total_orders} restantes
+                    </p>
+                  </div>
+                  <span className={cn(
+                    "w-2 h-2 rounded-full",
+                    activeSubscription.remaining_orders <= 0 ? "bg-red-400" : "bg-emerald-400 animate-pulse"
+                  )} />
                 </div>
-                <span className={cn(
-                  "w-2 h-2 rounded-full",
-                  activeSubscription.remaining_orders <= 0 ? "bg-red-400" : "bg-emerald-400 animate-pulse"
-                )} />
-              </div>
+              )}
             </div>
 
             {isSubscriptionDepleted && (
