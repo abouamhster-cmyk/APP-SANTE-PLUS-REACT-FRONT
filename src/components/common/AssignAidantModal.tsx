@@ -1,6 +1,5 @@
 // 📁 src/components/common/AssignAidantModal.tsx
-// ✅ ENVELOPPE DE MODALE ASSIGNATION COMMUN : DEUX STATUTS ET TÉLÉPORTATION PORTAIL SANS DÉCALAGES MOBILES
-
+ 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';  
 import { Modal } from '@/components/ui/Modal';
@@ -59,7 +58,7 @@ export const AssignAidantModal = ({
   const [selectedAidant, setSelectedAidant] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [assignmentType, setAssignmentType] = useState('secondary'); // Ponctuel par défaut pour les courses
+  const [assignmentType, setAssignmentType] = useState('secondary'); // Ponctuel par défaut pour les courses [23]
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -71,23 +70,20 @@ export const AssignAidantModal = ({
   const fetchAvailableAidants = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('aidants')
-        .select(`
-          *,
-          user:profiles!aidants_user_id_fkey (
-            id,
-            full_name,
-            email
-          )
-        `)
-        .eq('available', true)
-        .eq('is_verified', true)
-        .eq('status', 'approved')
-        .order('rating', { ascending: false });
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Token manquant');
 
-      if (error) throw error;
-      setAidants(data || []);
+      const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+      
+      // ✅ CHARGEMENT COHÉRENT : Appel à l'API unifiée pour récupérer les aidants avec quotas réels [30]
+      const response = await fetch(`${API_URL}/visits/available-aidants`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error('Erreur lors du chargement des aidants');
+      const result = await response.json();
+      setAidants(result.data || []);
     } catch (error) {
       console.error('❌ Fetch aidants error:', error);
       toast.error('Erreur lors du chargement des aidants');
@@ -113,72 +109,46 @@ export const AssignAidantModal = ({
 
     setIsSubmitting(true);
     try {
-      const { data: aidantData, error: aidantError } = await supabase
-        .from('aidants')
-        .select('id')
-        .eq('user_id', selectedAidant)
-        .single();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('Token de session manquant');
 
-      if (aidantError || !aidantData) {
-        throw new Error('Aidant non trouvé');
-      }
+      const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
 
-      const table = targetType === 'order' ? 'commandes' : 'visites';
-      const updateData: any = {
-        aidant_id: aidantData.id,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (targetType === 'order') {
-        updateData.status = 'en_cours';
-      } else if (targetType === 'visit') {
-        const { data: visit } = await supabase
-          .from('visites')
-          .select('status')
-          .eq('id', targetId)
-          .single();
-
-        if (visit && ['expire', 'refusee', 'annulee'].includes(visit.status)) {
-          updateData.status = 'planifiee';
-        }
-      }
-
-      const { error: updateError } = await supabase
-        .from(table)
-        .update(updateData)
-        .eq('id', targetId);
-
-      if (updateError) throw updateError;
-
-      // Envoyer la notification enrichie
-      await supabase.from('notifications').insert({
-        user_id: selectedAidant,
-        title: targetType === 'order' ? '📦 Nouvelle commande assignée' : '📅 Nouvelle visite assignée',
-        body: `Vous avez été assigné à ${targetName} par l'administrateur.`,
-        type: targetType === 'order' ? 'commande' : 'visit',
-        data: {
-          [targetType === 'order' ? 'order_id' : 'visit_id']: targetId,
-          action: targetType === 'order' ? 'take' : 'approve',
-          assigned_by: 'admin',
-        },
-      });
-
+      // ✅ APPEL APIS ADMINISTRATIVES SÉCURISÉES (Fini les écritures Supabase directes et incomplètes !) [30]
       if (targetType === 'visit') {
-        const { data: visit } = await supabase
-          .from('visites')
-          .select('user_id')
-          .eq('id', targetId)
-          .single();
+        const response = await fetch(`${API_URL}/assignments/admin/assign-to-visit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            visitId: targetId,
+            aidantId: selectedAidant, // ID de l'utilisateur de l'aidant
+            assignmentType: assignmentType === 'primary' ? 'permanente' : 'ponctuelle',
+            force: true, // Forcer l'assignation si l'admin le souhaite
+          }),
+        });
 
-        if (visit?.user_id) {
-          await supabase.from('notifications').insert({
-            user_id: visit.user_id,
-            title: '✅ Aidant assigné à la visite',
-            body: `Un aidant a été assigné à votre visite pour ${targetName}.`,
-            type: 'visite',
-            data: { visit_id: targetId, action: 'info' },
-          });
-        }
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Erreur lors de l’assignation');
+
+      } else if (targetType === 'order') {
+        // Pour les commandes, appel à notre routeur d'ordre dédié
+        const response = await fetch(`${API_URL}/orders/${targetId}/assign`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            aidantUserId: selectedAidant,
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Erreur lors de l’assignation');
       }
 
       toast.success(`Aidant assigné avec succès à ${targetName}`);
@@ -194,7 +164,7 @@ export const AssignAidantModal = ({
 
   if (!isOpen) return null;
 
-  // ✅ TÉLÉPORTATION PORTAIL : Injection directe à la racine de document.body pour pulvériser tout décalage visuel ! [23]
+  // ✅ TÉLÉPORTATION PORTAIL : Rendu direct sur document.body pour supprimer tout décalage d'en-tête [23]
   return createPortal(
     <Modal
       isOpen={isOpen}
@@ -260,6 +230,9 @@ export const AssignAidantModal = ({
                 const isSelected = selectedAidant === aidant.user_id;
                 const isCurrent = currentAidantId === aidant.id;
 
+                const currentLoad = aidant.current_assignments || 0;
+                const maxLoad = aidant.max_assignments || 4;
+
                 return (
                   <button
                     key={aidant.id}
@@ -293,7 +266,7 @@ export const AssignAidantModal = ({
                             <span>•</span>
                             <span>📋 {aidant.total_missions || 0} missions</span>
                             <span>•</span>
-                            <span className="font-bold">{aidant.current_assignments || 0}/{aidant.max_assignments || 4}</span>
+                            <span className="font-bold">Charge ({currentLoad}/{maxLoad})</span> {/* ✅ Cohérence d'IHM de Charge [30] */}
                           </div>
                         </div>
                       </div>
