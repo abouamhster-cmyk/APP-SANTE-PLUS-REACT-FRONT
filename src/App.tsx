@@ -1,5 +1,5 @@
 // 📁 src/App.tsx
- 
+
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -50,6 +50,9 @@ import EducationPage from '@/features/education/pages/EducationPage';
 import JournalPage from '@/features/journal/pages/JournalPage';
 import DischargePage from '@/features/discharge/pages/DischargePage';
 
+// ✅ AJOUT DE L'IMPORT DE LA PAGE DE CONFIRMATION DE PAIEMENT
+import PaymentConfirmPage from '@/features/billing/pages/PaymentConfirmPage';
+
 // ============================================================
 // AIDANT / HELP PAGES
 // ============================================================
@@ -94,9 +97,6 @@ function App() {
   const hasInitialized = useRef(false);
   const hasLoadedOffers = useRef(false);
 
-  // ============================================================
-  // EFFETS - OPTIMISATION DE LA VISIBILITÉ ET DES CAS DE RELOAD
-  // ============================================================
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
@@ -120,9 +120,6 @@ function App() {
     };
   }, []);
 
-  // ============================================================
-  // ✅ TEMPS RÉEL - AUTO-REFRESH DEBOUNCÉ DES VISITES ET COMMANDES
-  // ============================================================
   useEffect(() => {
     if (!isAuthenticated || !isAuthInitialized) return;
 
@@ -180,9 +177,6 @@ function App() {
     };
   }, [isAuthenticated, isAuthInitialized]);
 
-  // ============================================================
-  // EFFETS - NOTIFICATIONS TEMPS RÉEL (COMPTEUR)
-  // ============================================================
   const isSubscribedNotification = useRef(false);
 
   useEffect(() => {
@@ -201,9 +195,6 @@ function App() {
     };
   }, [isAuthenticated, isAuthInitialized, profile, fetchNotifications, subscribe, unsubscribe]);
 
-  // ============================================================
-  // EFFET - MISE À JOUR DU BADGE DU NAVIGATEUR
-  // ============================================================
   useEffect(() => {
     if (unreadCount > 0) {
       document.title = `(${unreadCount}) ${import.meta.env.VITE_APP_NAME || 'Santé Plus Services'}`;
@@ -212,9 +203,6 @@ function App() {
     }
   }, [unreadCount]);
 
-  // ============================================================
-  // EFFETS - INITIALISATION DE L'AUTH
-  // ============================================================
   useEffect(() => {
     let mounted = true;
 
@@ -234,9 +222,6 @@ function App() {
     };
   }, [initialize]);
 
-  // ============================================================
-  // EFFETS - CHARGEMENT DES OFFRES & CONTRATS
-  // ============================================================
   useEffect(() => {
     if (isAuthInitialized && !isOffersInitialized && !hasLoadedOffers.current) {
       hasLoadedOffers.current = true;
@@ -262,7 +247,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          {/* ROUTES PUBLIQUES */}
+          {/* ROUTES PUBLIQUES D'AUTHENTIFICATION */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -271,7 +256,10 @@ function App() {
             <Route path="/admin-setup" element={<AdminSetupPage />} />
           </Route>
 
-          {/* ROUTES PROTÉGÉES */}
+          {/* ✅ LA ROUTE DE REDIRECTION DE PAIEMENT FEDAPAY UNIQUE (HORS LAYOUT AVEC EN-TÊTE) */}
+          <Route path="/payment/confirm" element={<PaymentConfirmPage />} />
+
+          {/* ROUTES PROTÉGÉES SÉCURISÉES */}
           <Route
             element={
               <ProtectedRoute>
@@ -385,7 +373,7 @@ function App() {
               element={
                 <RoleGuard allowedRoles={['admin', 'coordinator']}>
                   <UsersPage />
-                </RoleGuard>
+                </Route>
               } 
             />
             <Route 
