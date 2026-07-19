@@ -292,7 +292,7 @@ const BillingPage = () => {
 
   const getSubTitleText = () => {
     if (isPersonalAccount) {
-      return "Sélectionnez une formule d'accompagnement pour organiser vos propres visites de soutien, de convalescence après hospitalisation ou de livraison.";
+      return "Sélectionnez une formule d'accompagnement pour organiser vos propres visites de soutien, de convalescence après hospitalisation ou de livraison d'achats.";
     }
     return "Consultez votre crédit d'accompagnement mensuel, vos formules de visites et l'historique complet de vos règlements.";
   };
@@ -510,7 +510,7 @@ const BillingPage = () => {
 
       {/* GRILLE D'OFFRES D'ABONNEMENTS */}
       {displayedOffers.length > 0 ? (
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fadeIn">
           {displayedOffers.map((offer: Offer) => (
             <OfferCardCompact
               key={offer.id}
@@ -536,7 +536,7 @@ const BillingPage = () => {
       )}
 
       {!hasActiveSub && (
-        <div className="bg-white/40 rounded-xl p-4 border flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto" style={{ borderColor: colors.primary + '15' }}>
+        <div className="bg-white/40 rounded-xl p-4 border flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
           <Sparkles size={16} className="text-emerald-600 shrink-0 mt-0.5 animate-pulse" />
           <div className="space-y-0.5">
             <p className="text-[11px] font-bold" style={{ color: colors.text }}>
@@ -688,6 +688,13 @@ const OfferCardCompact = ({
           </div>
         </div>
 
+        {/* ✅ RENDU DESCRIPTIF DE L'OFFRE (Fiche d'aide à la décision) */}
+        {offer.description && (
+          <p className="text-[11px] text-gray-500 mt-2.5 leading-relaxed">
+            {offer.description}
+          </p>
+        )}
+
         <div className="mt-4 flex items-baseline gap-1">
           <span className="text-xl font-black" style={{ color: textColor }}>
             {offer.price.toLocaleString()}
@@ -698,15 +705,12 @@ const OfferCardCompact = ({
 
         {offer.features && offer.features.length > 0 && (
           <div className="mt-4 pt-3 border-t space-y-1.5" style={{ borderColor: color + '15' }}>
-            {offer.features.slice(0, 2).map((feature: string, index: number) => (
+            {offer.features.map((feature: string, index: number) => (
               <div key={index} className="flex items-start gap-2 text-xs">
                 <CheckCircle size={12} style={{ color: badgeColor }} className="shrink-0 mt-0.5" />
-                <span className="truncate leading-tight font-medium" style={{ color: color + '80' }}>{feature}</span>
+                <span className="leading-tight font-medium" style={{ color: color + '80' }}>{feature}</span>
               </div>
             ))}
-            {offer.features.length > 2 && (
-              <span className="text-[9px] font-bold block pt-1" style={{ color: color + '50' }}>+{offer.features.length - 2} prestations incluses</span>
-            )}
           </div>
         )}
       </div>
