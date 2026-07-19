@@ -105,7 +105,7 @@ export const AssignAidantModalContent = ({
           .maybeSingle();
 
         if (!error && data?.aidant) {
-          // ✅ CORRECTIF DE TYPE TS2339 : Levée d'ambiguïté sur l'array relationnel Supabase
+          //   Levée d'ambiguïté sur l'array relationnel Supabase
           const aidantData = data.aidant as any;
           const permanentUserId = Array.isArray(aidantData)
             ? aidantData[0]?.user_id
@@ -311,7 +311,7 @@ export const AssignAidantModalContent = ({
                 ? `⭐ ${aidant.user?.full_name || aidant.full_name} (Permanent de ce compte)`
                 : aidant.user?.full_name || aidant.full_name;
 
-              // ✅ Résoudre dynamiquement les statistiques de charge (Ex : Charge (4/4)) [30]
+              // ✅ Résoudre dynamiquement les statistiques de charge 
               const currentLoad = aidant.current_assignments || 0;
               const maxLoad = aidant.max_assignments || 4;
               const loadLabel = ` — Charge (${currentLoad}/${maxLoad})`; // ✅ CORRECTIF : Charge d'assignations visible [30]
