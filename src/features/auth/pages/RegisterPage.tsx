@@ -35,6 +35,7 @@ import { FAQContent } from '../components/FAQContent';
 import { CGUContent } from '../components/CGUContent';
 import { useBranding } from '@/hooks/useBranding';
 import { useOfferStore } from '@/stores/offerStore';
+import { cn } from '@/utils/helpers'; // ✅ CORRECTIF (TS2304) : Importation correcte de l'utilitaire cn
 import toast from 'react-hot-toast';
 
 type AccountChoice = 'family_with_patient' | 'personal' | 'aidant';
@@ -667,7 +668,7 @@ const RegisterPage = () => {
                        pageSubtitle}
                     </p>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0" style={{ background: `${primaryColor}12`, color: primaryColor }}>
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0">
                     Étape {step}/{totalSteps}
                   </span>
                 </div>
@@ -792,7 +793,7 @@ const RegisterPage = () => {
                         <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: textColor }}>Lieu précis de prise en charge (Adresse) *</label><div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.textLight }} /><input name="patient.address" value={formData.patientData.address} onChange={handleChange} placeholder="Quartier, Ville ou repères de livraison" className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1" style={{ borderColor: colors.border, background: colors.background, color: textColor }} required /></div></div>
                         <div><label className="block text-xs font-semibold mb-1" style={{ color: textColor }}>Téléphone du proche (optionnel)</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.textLight }} /><input name="patient.phone" value={formData.patientData.phone} onChange={handleChange} placeholder="Ex: 90 00 00 00" className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1" style={{ borderColor: colors.border, background: colors.background, color: textColor }} /></div></div>
                         <div><label className="block text-xs font-semibold mb-1" style={{ color: textColor }}>Téléphone d'urgence (Garant)</label><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4" style={{ color: colors.textLight }} /><input name="patient.emergency_contact" value={formData.patientData.emergency_contact} onChange={handleChange} placeholder="Ex: 97 00 00 00" className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1" style={{ borderColor: colors.border, background: colors.background, color: textColor }} /></div></div>
-                        <div className="sm:col-span-2"><div><label className="block text-xs font-semibold mb-1" style={{ color: colors.textColor }}>Nom complet du contact d'urgence</label><input name="patient.emergency_contact_name" value={formData.patientData.emergency_contact_name} onChange={handleChange} placeholder="Lien de parenté ou nom complet" className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1" style={{ borderColor: colors.border, background: colors.background, color: colors.text }} /></div></div>
+                        <div className="sm:col-span-2"><div><label className="block text-xs font-semibold mb-1" style={{ color: colors.text }}>Nom complet du contact d'urgence</label><input name="patient.emergency_contact_name" value={formData.patientData.emergency_contact_name} onChange={handleChange} placeholder="Lien de parenté ou nom complet" className="w-full px-3.5 py-2.5 rounded-2xl border outline-none text-xs focus:ring-1" style={{ borderColor: colors.border, background: colors.background, color: colors.text }} /></div></div>
                         <div className="sm:col-span-2"><label className="block text-xs font-semibold mb-1" style={{ color: textColor }}>Consignes et notes d'accompagnement utiles</label><textarea name="patient.notes" value={formData.patientData.notes} onChange={handleChange} rows={2} placeholder="Saisissez ici ses habitudes, restrictions alimentaires ou besoins..." className="w-full px-3.5 py-2 rounded-2xl border outline-none text-xs resize-none focus:ring-1" style={{ borderColor: colors.border, background: colors.background, color: textColor }} /></div>
                       </div>
                     </div>
