@@ -368,12 +368,12 @@ function App() {
                 </RoleGuard>
               } 
             />
-            <Route 
+             <Route 
               path="/app/users" 
               element={
                 <RoleGuard allowedRoles={['admin', 'coordinator']}>
                   <UsersPage />
-                </Route>
+                </RoleGuard>
               } 
             />
             <Route 
