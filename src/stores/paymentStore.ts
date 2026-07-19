@@ -1,5 +1,5 @@
 // 📁 src/stores/paymentStore.ts
- 
+
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import { Subscription, Payment } from '@/types';
@@ -27,6 +27,7 @@ interface CreatePaymentData {
   orderId?: string | null;        
   order_id?: string | null;   
   type?: 'visit' | 'order' | 'subscription'; 
+  duration_months?: number; // ✅ Ajout du champ pour la durée personnalisée
   metadata?: {
     type?: 'visit' | 'order' | 'subscription';
     is_ponctual?: boolean;
@@ -34,6 +35,7 @@ interface CreatePaymentData {
     visit_id?: string | null;
     order_id?: string | null;   
     order_data?: any;
+    duration_months?: number;
   };
 }
 
@@ -341,7 +343,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
   },
 
   // =============================================
-  // ✅ CREATE PAYMENT - ENVOI EXPLICITE DE L'ORDER_ID AU BACKEND
+  // ✅ CREATE PAYMENT - TRANSMISSION DU MULTIPLICATEUR DE DURÉE
   // =============================================
   createPayment: async (data: CreatePaymentData) => {
     try {
@@ -369,11 +371,12 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
       const isPonctual = data.is_ponctual || false;
       const isVisit = data.is_visit || false;
       const visitId = data.visit_id || null;
-      const finalOrderId = data.orderId || data.order_id || null; // ✅ Capture de l'orderId
+      const finalOrderId = data.orderId || data.order_id || null;
 
       const patientId = data.patient_id || null;
       const targetType = data.target_type || (patientId ? 'patient' : 'personal');
       const targetName = data.target_name || profile?.full_name || user.email || 'Client';
+      const durationMonths = data.duration_months || 1; // ✅ Valeur par défaut : 1 mois
 
       let type: 'visit' | 'order' | 'subscription' = 'subscription';
       if (isVisit) {
@@ -382,7 +385,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         type = 'order';
       }
 
-      console.log('📤 Envoi paiement avec order_id :', finalOrderId);
+      console.log('📤 Envoi paiement avec duration_months :', durationMonths);
 
       const response = await fetch(`${API_BASE_URL}/billing/generate-payment`, {
         method: 'POST',
@@ -409,6 +412,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
           target_type: targetType,
           target_name: targetName,
           type: type,
+          duration_months: durationMonths,  
         }),
       });
 
@@ -448,6 +452,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
             target_type: targetType,
             target_name: targetName,
             type: type,
+            duration_months: durationMonths, // ✅ Enregistrement local
           },
         })
         .select()
@@ -540,7 +545,7 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
         status: 'en_attente',
         start_date: startDate.toISOString().split('T')[0],
         end_date: endDate.toISOString().split('T')[0],
-        auto_renew: true,
+        auto_renew: false,  
         total_visits: offre.total_visits || offre.visits_per_month || 0,
         remaining_visits: offre.total_visits || offre.visits_per_month || 0,
         total_orders: offre.total_orders || 0,
