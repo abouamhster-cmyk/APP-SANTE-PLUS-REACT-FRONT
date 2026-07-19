@@ -1,5 +1,4 @@
 // 📁 src/features/billing/components/PaymentModalContent.tsx
-// ✅ CONTENU CONFIRMATION PAIEMENT : COHÉRENCE DU BÉNÉFICIAIRE (SÉLECTEUR DYNAMIQUE SÉCURISÉ)
 
 import { useState, useEffect, useMemo } from 'react';
 import {
@@ -7,8 +6,7 @@ import {
   Loader2,
   ExternalLink,
   AlertCircle,
-  Users,
-  CheckCircle,
+  Calendar,
 } from 'lucide-react';
 
 import { usePaymentStore } from '@/stores/paymentStore';
@@ -19,7 +17,6 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { Offer } from '@/types';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
-import { getPonctualOrderPriceByType } from '@/lib/constants';
 
 interface PaymentModalContentProps {
   offer?: Offer | null;
@@ -45,14 +42,10 @@ export const PaymentModalContent = ({
   const brand = useBranding();
   const colors = brand.colors;
   const { createPayment } = usePaymentStore();
-  const { profile, role } = useAuthStore();
+  const { profile } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
 
-  const {
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
-  } = useTerminology();
+  const { isFamily } = useTerminology();
 
   const selectedOffer = offer || plan;
   const period = selectedOffer?.period || selectedOffer?.type || 'mois';
@@ -65,9 +58,9 @@ export const PaymentModalContent = ({
     selectedOffer?.name?.toLowerCase().includes('ponctuel') ||
     selectedOffer?.name?.toLowerCase().includes('intervention');
 
-  const amount = selectedOffer?.price || 50000;
+  const baseAmount = selectedOffer?.price || 50000;
   const planName = selectedOffer?.name || 'Abonnement Santé Plus';
-  const visitsPerWeek = selectedOffer?.visitsPerWeek || selectedOffer?.visits_per_week || null;
+  const baseVisits = selectedOffer?.total_visits || selectedOffer?.visits_per_month || 0;
 
   const isVisit = isPonctual && !!orderData?.visit_id;
   const isOrder = isPonctual && !!orderData?.description && !orderData?.visit_id;
@@ -78,19 +71,19 @@ export const PaymentModalContent = ({
     (propPatientId || orderData?.patient_id) ? 'patient' : 'personal'
   );
   const [selectedTargetName, setSelectedTargetName] = useState<string>('');
+  
+  // Sélecteur dynamique de mois d'abonnement (uniquement pour les forfaits récurrents)
+  const [durationMonths, setDurationMonths] = useState<number>(1);
 
-  // Charger les proches de l'utilisateur
   useEffect(() => {
     fetchPatients();
   }, [fetchPatients]);
 
-  // ✅ FILTRAGE COHÉRENT DES PROCHES
   const compatiblePatients = useMemo(() => {
     if (!selectedOffer || isPonctual) return [];
     return patients.filter((p) => p.category === selectedOffer.category);
   }, [patients, selectedOffer, isPonctual]);
 
-  // Ajuster le ciblage par défaut
   useEffect(() => {
     if (compatiblePatients.length > 0 && !isPonctual && !selectedPatientId) {
       setSelectedTargetType('patient');
@@ -116,6 +109,10 @@ export const PaymentModalContent = ({
     }
   };
 
+  // Calcul du montant et des prestations proportionnels
+  const currentAmount = isPonctual ? baseAmount : baseAmount * durationMonths;
+  const currentVisits = isPonctual ? 0 : baseVisits * durationMonths;
+
   const getSubscriptionLabel = () => {
     if (isPonctual) return 'ponctuel';
     if (selectedTargetType === 'patient') return `pour votre proche (/${period})`;
@@ -129,27 +126,7 @@ export const PaymentModalContent = ({
     if (isOrder) {
       return 'Vous allez payer cette commande ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement. Une fois le paiement effectué, la commande sera créée.';
     }
-    if (isPonctual) {
-      return 'Vous allez payer ce service ponctuellement. FedaPay ouvrira son formulaire sécurisé pour finaliser le paiement.';
-    }
-    return 'FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement. Après confirmation, l\'abonnement sera immédiatement activé.';
-  };
-
-  const getTitle = () => {
-    if (isVisit) return 'Visite ponctuelle';
-    if (isOrder) return 'Commande ponctuelle';
-    if (isPonctual) return 'Service ponctuel';
-    return planName;
-  };
-
-  const getDescription = () => {
-    if (isVisit) {
-      return `Visite le ${orderData?.scheduled_date || 'prochainement'} à ${orderData?.scheduled_time || '---'}`;
-    }
-    if (isOrder) {
-      return orderData?.description || 'Commande ponctuelle';
-    }
-    return `Abonnement ${getSubscriptionLabel()}`;
+    return `FedaPay ouvrira son propre formulaire sécurisé pour finaliser le paiement. Après confirmation, l'abonnement d'une durée de ${durationMonths} mois sera immédiatement activé.`;
   };
 
   const handlePayment = async () => {
@@ -182,14 +159,11 @@ export const PaymentModalContent = ({
       const subscriptionId = isPonctual ? null : offerId;
       const finalPatientId = selectedPatientId || orderData?.patient_id || null;
 
-      console.log('📤 Envoi paiement avec patient_id:', finalPatientId);
-      console.log('📤 Envoi paiement avec cible:', selectedTargetType, selectedTargetName);
-
       const result = await createPayment({
         plan_id: offerId,
         abonnement_id: subscriptionId,
-        amount,
-        description: planName,
+        amount: currentAmount,
+        description: `${planName} (${durationMonths} mois)`,
         email: profile?.email,
         is_ponctual: isPonctual,
         is_visit: isVisit,
@@ -198,12 +172,14 @@ export const PaymentModalContent = ({
         patient_id: finalPatientId,
         target_type: selectedTargetType,
         target_name: selectedTargetName || profile?.full_name || 'Client',
+        duration_months: durationMonths,
         metadata: {
           type: isVisit ? 'visit' : (isOrder ? 'order' : 'subscription'),
           is_ponctual: isPonctual,
           is_visit: isVisit,
           visit_id: orderData?.visit_id || null,
           order_data: orderDataForBackend,
+          duration_months: durationMonths,
         },
       });
 
@@ -245,22 +221,16 @@ export const PaymentModalContent = ({
 
           <div className="min-w-0 flex-1">
             <p className="font-black" style={{ color: colors.text }}>
-              {getTitle()}
+              {isVisit ? 'Visite ponctuelle' : isOrder ? 'Commande ponctuelle' : planName}
             </p>
 
             <p className="text-sm mt-0.5" style={{ color: colors.textLight }}>
-              {getDescription()}
+              {isPonctual ? (orderData?.description || 'Service ponctuel') : `Abonnement ${getSubscriptionLabel()}`}
             </p>
 
-            {visitsPerWeek && !isPonctual && (
-              <p className="text-xs mt-1" style={{ color: colors.textLight }}>
-                📅 {visitsPerWeek} visite{visitsPerWeek > 1 ? 's' : ''} par semaine
-              </p>
-            )}
-
-            {isPonctual && (
-              <p className="text-xs mt-1 font-medium" style={{ color: colors.gold || '#c9a84c' }}>
-                ⚡ Service ponctuel - Paiement unique
+            {!isPonctual && currentVisits > 0 && (
+              <p className="text-xs mt-1 font-bold text-emerald-600">
+                📅 Contient {currentVisits} visites au total
               </p>
             )}
           </div>
@@ -268,15 +238,45 @@ export const PaymentModalContent = ({
 
         <div className="mt-5">
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.textLight }}>
-            {isPonctual ? 'Montant à payer' : 'Montant'}
+            Montant à payer
           </p>
           <p className="text-3xl font-black mt-1" style={{ color: colors.primary }}>
-            {amount.toLocaleString()} FCFA
+            {currentAmount.toLocaleString()} FCFA
           </p>
         </div>
       </div>
 
-      {/* SÉLECTEUR DE BÉNÉFICIAIRE COHÉRENT */}
+      {/* SÉLECTEUR PERSONNALISÉ DE DURÉE (Uniquement si ce n'est pas un service ponctuel) */}
+      {!isPonctual && (
+        <div className="space-y-2">
+          <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
+            Durée de l'engagement souhaitée
+          </label>
+          <div className="grid grid-cols-5 gap-2">
+            {[1, 2, 3, 6, 12].map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setDurationMonths(m)}
+                className={cn(
+                  "py-2.5 rounded-xl border text-xs font-extrabold transition-all",
+                  durationMonths === m
+                    ? "text-white"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                )}
+                style={{
+                  backgroundColor: durationMonths === m ? colors.primary : 'transparent',
+                  borderColor: durationMonths === m ? colors.primary : colors.primary + '20',
+                }}
+              >
+                {m} {m === 1 ? 'Mois' : 'Mois'}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SÉLECTEUR DE BÉNÉFICIAIRE */}
       {compatiblePatients.length > 0 && !isPonctual && (
         <div className="space-y-2.5">
           <label className="block text-xs font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
@@ -322,12 +322,12 @@ export const PaymentModalContent = ({
                 borderColor: selectedTargetType === 'patient' ? colors.primary : colors.primary + '20',
               }}
             >
-              👨‍👩‍👦 Un proche ({compatiblePatients.length})
+              Un proche ({compatiblePatients.length})
             </button>
           </div>
 
           {selectedTargetType === 'patient' && (
-            <div className="animate-fadeIn space-y-1">
+            <div className="space-y-1">
               <label className="block text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>
                 Sélectionner le proche
               </label>
@@ -385,12 +385,12 @@ export const PaymentModalContent = ({
         >
           {isLoading ? (
             <>
-              <Loader2 size={18} className="animate-spin" />
+              <Loader2 size={18} className="animate-spin animate-spin" />
               Traitement...
             </>
           ) : (
             <>
-              Payer {amount.toLocaleString()} FCFA
+              Payer {currentAmount.toLocaleString()} FCFA
               <ExternalLink size={18} />
             </>
           )}
