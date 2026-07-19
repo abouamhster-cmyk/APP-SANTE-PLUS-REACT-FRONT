@@ -9,6 +9,7 @@ import {
   RefreshCw, 
   Calendar, 
   ShoppingBag, 
+  BellRing,
   CreditCard, 
   AlertCircle, 
   Loader2,
