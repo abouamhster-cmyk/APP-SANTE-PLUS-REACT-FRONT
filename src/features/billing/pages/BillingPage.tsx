@@ -1,5 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
@@ -253,7 +253,9 @@ const BillingPage = () => {
           const start = new Date(sub.start_date);
           const end = new Date(sub.end_date);
           const diffDays = Math.round(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-          const baseDays = sub.offre.duration_days || 30;
+          
+          // ✅ CORRECTIF DE FORMAT : Utilisation de la propriété CamelCase "durationDays" à la place de "duration_days" [23]
+          const baseDays = sub.offre.durationDays || (sub.offre as any).duration_days || 30;
           multiplier = Math.max(1, Math.round(diffDays / baseDays));
         }
 
