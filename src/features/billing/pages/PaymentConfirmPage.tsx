@@ -1,8 +1,8 @@
 // 📁 src/features/billing/pages/PaymentConfirmPage.tsx
- 
+
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader2, Calendar, User, ShoppingBag, ArrowRight } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Calendar, ShoppingBag, ArrowRight } from 'lucide-react';
 import { getThemeColors } from '@/lib/permissions';
 import { useVisitStore } from '@/stores/visitStore';
 import { usePatientStore } from '@/stores/patientStore';
@@ -22,7 +22,6 @@ const PaymentConfirmPage = () => {
 
   const colors = getThemeColors('senior');
 
-  // ✅ Rafraîchir les stores locaux
   const refreshData = async () => {
     try {
       await Promise.all([
@@ -39,9 +38,11 @@ const PaymentConfirmPage = () => {
   useEffect(() => {
     const checkPaymentStatus = async () => {
       const paymentStatus = searchParams.get('status');
-      const transactionId = searchParams.get('transaction_id');
+      // ✅ Fallback : FedaPay utilise 'id' comme clé de référence de transaction
+      const transactionId = searchParams.get('transaction_id') || searchParams.get('id');
       const reference = searchParams.get('reference');
       const visitIdParam = searchParams.get('visit_id');
+      const orderIdParam = searchParams.get('order_id');
       const type = searchParams.get('type');
 
       console.log('🔍 ===== PAYMENT CONFIRM =====');
@@ -49,6 +50,7 @@ const PaymentConfirmPage = () => {
       console.log('🔍 transactionId:', transactionId);
       console.log('🔍 reference:', reference);
       console.log('🔍 visit_id:', visitIdParam);
+      console.log('🔍 order_id:', orderIdParam);
       console.log('🔍 type:', type);
       console.log('🔍 searchParams:', searchParams.toString());
       console.log('🔍 ===========================');
@@ -70,9 +72,9 @@ const PaymentConfirmPage = () => {
           setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est planifiée.');
           redirectUrl = `/app/visits/${visitIdParam}`;
         } else {
-          // Rechercher l'ID de commande créé par le webhook avec transactionId
-          let orderId = null;
-          if (transactionId) {
+          let orderId = orderIdParam;
+          
+          if (!orderId && transactionId) {
             const { data: orderData } = await supabase
               .from('commandes')
               .select('id')
@@ -89,7 +91,7 @@ const PaymentConfirmPage = () => {
             redirectUrl = `/app/orders/${orderId}`;
             setTargetId(orderId);
           } else {
-            setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est en cours de création.');
+            setMessage('✅ Votre paiement a été confirmé avec succès ! Votre commande est validée.');
             redirectUrl = '/app/orders';
           }
         }
@@ -148,9 +150,8 @@ const PaymentConfirmPage = () => {
                   setMessage('✅ Votre paiement a été confirmé avec succès ! Votre visite est planifiée.');
                   redirectUrl = visitIdParam ? `/app/visits/${visitIdParam}` : '/app/visits';
                 } else {
-                  // Chercher l'ID de la commande
-                  let orderId = null;
-                  if (transactionId) {
+                  let orderId = orderIdParam;
+                  if (!orderId && transactionId) {
                     const { data: orderData } = await supabase
                       .from('commandes')
                       .select('id')
@@ -199,7 +200,7 @@ const PaymentConfirmPage = () => {
         return;
       }
 
-      // ⚠️ CAS 4 : AUCUN PARAMÈTRE MAIS OBJETS EN ATTENTE (RESTOCKAGE SANS SIGNAL)
+      // ⚠️ CAS 4 : AUCUN PARAMÈTRE MAIS OBJETS EN ATTENTE
       const savedVisit = sessionStorage.getItem('pending_visit_payment');
       const savedOrder = sessionStorage.getItem('pending_ponctual_order') || localStorage.getItem('pending_ponctual_order');
       
@@ -250,7 +251,6 @@ const PaymentConfirmPage = () => {
               console.log('✅ Paiement vérifié avec succès !');
               setStatus('success');
               
-              // Chercher ID de commande
               let orderId = null;
               const { data: ord } = await supabase
                 .from('commandes')
