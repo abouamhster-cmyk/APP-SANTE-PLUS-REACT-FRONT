@@ -1,54 +1,23 @@
 // 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE COMPLETE : CLOTURE SÉCURISÉE CASH, REDIRECTION DIRECTE, ACCÈS CONCORDANT ET SÉCURITÉ DE RÔLES SANS ERREURS TS
+// ✅ PAGE DÉTAIL COMMANDE : CLÔTURE ET FACTURATION À L'ACTE SANS RÉFÉRENCE AUX ABONNEMENTS
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Package,
-  MapPin,
-  User,
-  Users,
-  Truck,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Eye,
-  Camera,
-  Image as ImageIcon,
-  Banknote,
-  Play,
-  ShoppingBag,
-  FileText,
-  Calendar,
-  Phone,
-  Mail,
-  Star,
-  AlertCircle,
-  Loader2,
-  CreditCard,
-  UserPlus, 
-  Navigation as NavIcon,
-  Info,
-} from 'lucide-react';
+import { ArrowLeft, Package, MapPin, User, Users, Truck, CheckCircle, XCircle, Clock, Eye, Camera, Image as ImageIcon, Banknote, Play, ShoppingBag, FileText, Calendar, Phone, Mail, Star, AlertCircle, Loader2, CreditCard, UserPlus, Navigation as NavIcon, Info } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useBranding } from '@/hooks/useBranding'; // ✅ Importation correcte vers le dossier des hooks
+import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
-import { formatCurrency, formatDateTime, cn } from '@/utils/helpers'; 
-import { useAidantCatalogStore } from '@/stores/aidantCatalogStore'; 
+import { formatCurrency, formatDateTime, cn } from '@/utils/helpers';
+import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 
-import {
-  isOrderPendingPayment,
-  isOrderPonctual,
-  requiresOrderPayment,
-} from '@/utils/helpers';
+import { isOrderPendingPayment, isOrderPonctual, requiresOrderPayment } from '@/utils/helpers';
 
 import { supabase } from '@/lib/supabase';
-import { usePonctualPayment } from '@/hooks/usePonctualPayment'; 
+import { usePonctualPayment } from '@/hooks/usePonctualPayment';
 import { PonctualPaymentModal } from '@/components/common/PonctualPaymentModal';
-import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal'; 
+import { AssignAidantModal } from '@/features/aidants/components/AssignAidantModal';
 import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
@@ -94,12 +63,7 @@ const calculateWithdrawalFeeLocal = (amount: number, operator: 'mtn_moov' | 'cel
   }
 };
 
-interface MiniCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: string;
-}
+interface MiniCardProps { icon: React.ReactNode; label: string; value: string; color: string; }
 
 const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
   const brand = useBranding();
@@ -107,10 +71,7 @@ const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
 
   return (
     <div className="bg-white rounded-[1.5rem] p-4 shadow-sm border min-w-0" style={{ borderColor: colors.primary + '15' }}>
-      <div
-        className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3"
-        style={{ background: color + '14', color }}
-      >
+      <div className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3" style={{ background: color + '14', color }}>
         {icon}
       </div>
       <p className="text-xs" style={{ color: colors.textLight }}>{label}</p>
@@ -121,13 +82,7 @@ const MiniCard = ({ icon, label, value, color }: MiniCardProps) => {
   );
 };
 
-interface PersonBoxProps {
-  icon: React.ReactNode;
-  title: string;
-  name: string;
-  detail: string;
-  detailIcon?: React.ReactNode;
-}
+interface PersonBoxProps { icon: React.ReactNode; title: string; name: string; detail: string; detailIcon?: React.ReactNode; }
 
 const PersonBox = ({ icon, title, name, detail, detailIcon }: PersonBoxProps) => {
   const brand = useBranding();
@@ -148,39 +103,27 @@ const PersonBox = ({ icon, title, name, detail, detailIcon }: PersonBoxProps) =>
   );
 };
 
-interface DocButtonProps {
-  icon: React.ReactNode;
-  title: string;
-  color: string;
-  onClick: () => void;
-}
+interface DocButtonProps { icon: React.ReactNode; title: string; color: string; onClick: () => void; }
 
 const DocButton = ({ icon, title, color, onClick }: DocButtonProps) => {
   const brand = useBranding();
   const colors = brand.colors;
 
   return (
-    <button
-      onClick={onClick}
-      className="rounded-2xl bg-gray-50 p-4 border text-left hover:bg-gray-100 transition group" style={{ borderColor: colors.primary + '15' }}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-105 transition"
-            style={{ background: color + '14', color }}
-          >
+    <button onClick={onClick} className="rounded-2xl bg-gray-50 p-4 border text-left hover:bg-gray-100 transition group w-full" style={{ borderColor: colors.primary + '15' }} >
+      <div className="flex items-center justify-between gap-3 w-full">
+        <div className="min-w-0 flex-1">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center mb-3 group-hover:scale-105 transition" style={{ background: color + '14', color }}>
             {icon}
           </div>
-          <p className="font-bold" style={{ color: colors.text }}>{title}</p>
+          <p className="font-bold text-xs truncate" style={{ color: colors.text }}>{title}</p>
         </div>
-        <Eye size={20} style={{ color }} className="opacity-50 group-hover:opacity-100 transition" />
+        <Eye size={20} style={{ color }} className="opacity-50 group-hover:opacity-100 transition shrink-0" />
       </div>
     </button>
   );
 };
 
-// ✅ OBTENIR LE LIBELLÉ DU STATUT
 const getStatusLabel = (status: string): string => {
   const map: Record<string, string> = {
     creee: 'Créée',
@@ -195,7 +138,6 @@ const getStatusLabel = (status: string): string => {
   return map[status] || status;
 };
 
-// ✅ OBTENIR LA COULEUR DU STATUT
 const getStatusColor = (status: string): string => {
   const colors: Record<string, string> = {
     creee: '#9E9E9E',
@@ -210,12 +152,8 @@ const getStatusColor = (status: string): string => {
   return colors[status] || '#9E9E9E';
 };
 
-interface StatusBadgeProps {
-  status: string;
-  colors: any;
-}
+interface StatusBadgeProps { status: string; colors: any; }
 
-// ✅ LE COMPOSANT DE BADGE DE STATUT REQUIS
 const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
   const getStatusConfig = (status: string) => {
     const map: Record<string, { icon: React.ReactNode; color: string; bg: string; label: string }> = {
@@ -234,12 +172,8 @@ const StatusBadge = ({ status, colors }: StatusBadgeProps) => {
   const config = getStatusConfig(status);
 
   return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ background: config.bg, color: config.color }}
-    >
-      {config.icon}
-      {config.label}
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: config.bg, color: config.color }}>
+      {config.icon} {config.label}
     </span>
   );
 };
@@ -257,12 +191,7 @@ const OrderDetailPage = () => {
   const colors = brand.colors;
   const { currentOrder, fetchOrderById, updateOrderStatus, takeOrder, completeDelivery, confirmCashPayment, isLoading } = useOrderStore();
 
-  const {
-    isFamily,
-    isAidant,
-    isAdminOrCoordinator,
-  } = useTerminology();
-
+  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
   const { fetchAidants } = useAidantCatalogStore();
 
   const order = currentOrder as any;
@@ -273,17 +202,16 @@ const OrderDetailPage = () => {
   const [proofPreview, setProofPreview] = useState<string | null>(null);
 
   // Formulaire final livreur
-  const [deliveryFeeInput, setDeliveryFeeInput] = useState<number>(0);
+  const [deliveryFeeInput, setDeliveryFeeInput] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>('online');
-  const [cashReceivedInput, setCashReceivedInput] = useState<number>(0);
+  const [cashReceivedInput, setCashReceivedInput] = useState(0);
 
-  const modalRef = useRef<HTMLDivElement>(null); 
+  const modalRef = useRef<HTMLDivElement>(null);
   const isActionPending = useRef(false);
-  const beneficiaryLabel = isFamily ? 'Proche' : 'Destinataire';
 
   const [showAssignModal, setShowAssignModal] = useState(false);
 
-  const openUrl = (url: string | null) => { 
+  const openUrl = (url: string | null) => {
     if (!url) {
       toast.error('URL non disponible');
       return;
@@ -291,7 +219,6 @@ const OrderDetailPage = () => {
     window.open(url, '_blank');
   };
 
-  // ✅ REDIRECTION DIRECTE SANS ETAPE INTERMEDIAIRE (MODAL SHUNTE !)
   const {
     executePayment,
     isPaymentModalOpen,
@@ -328,7 +255,6 @@ const OrderDetailPage = () => {
     }
   }, [showAssignModal, fetchAidants]);
 
-  // ✅ CONCORDANCE ET CALCUL DE PROVISIONS SÉCURISÉES DE SECOURS (DÉTECTION DE FLUX)
   const financialData = useMemo(() => {
     if (!order) return { purchaseAmount: 0, withdrawalFee: 0 };
 
@@ -336,14 +262,12 @@ const OrderDetailPage = () => {
     const dbPurchase = Number(order.purchase_amount || 0);
     const dbFee = Number(order.withdrawal_fee || 0);
 
-    // Si colonnes DB déjà renseignées, les utiliser d'office (Cas nominal de notre V2)
     if (dbPurchase > 0) {
       return { purchaseAmount: dbPurchase, withdrawalFee: dbFee };
     }
 
-    // Fallback dynamique s'il y a eu un paiement de provision global mais que les colonnes individuelles sont à 0 (Données de test)
     if (estimated > 0) {
-      const baseServicePrice = 500; // Tarif de base de l'acte unifié
+      const baseServicePrice = 500;
       const estimatedPurchase = Math.max(0, estimated - baseServicePrice);
       const calculatedFee = calculateWithdrawalFeeLocal(estimatedPurchase, order.withdrawal_operator || 'mtn_moov');
       
@@ -371,7 +295,7 @@ const OrderDetailPage = () => {
   const handleTakeOrder = async () => {
     if (!id) return;
     if (isActionPending.current) return;
-    
+
     isActionPending.current = true;
     setIsUpdating(true);
 
@@ -392,7 +316,7 @@ const OrderDetailPage = () => {
     } catch (e) {
       console.warn("⚠️ Pas de GPS");
     }
-    
+
     try {
       await takeOrder(id, takeLat, takeLng);
       toast.success('Commande prise en charge ✅ (GPS enregistré)');
@@ -407,7 +331,6 @@ const OrderDetailPage = () => {
 
   const handleProofSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
@@ -431,7 +354,7 @@ const OrderDetailPage = () => {
 
   const handleCompleteDelivery = async () => {
     if (!id) return;
-    if (deliveryFeeInput <= 0 && !order.subscription_id) {
+    if (deliveryFeeInput <= 0) {
       toast.error('Veuillez renseigner les frais de transport');
       return;
     }
@@ -473,7 +396,7 @@ const OrderDetailPage = () => {
 
       await completeDelivery(id, {
         proof_url: proofUrl,
-        delivery_fee: order.subscription_id ? 0 : Number(deliveryFeeInput || 0),
+        delivery_fee: Number(deliveryFeeInput || 0),
         payment_method: paymentMethod,
         cash_amount_received: paymentMethod === 'cash' ? Number(cashReceivedInput || 0) : 0,
         lat,
@@ -518,7 +441,7 @@ const OrderDetailPage = () => {
         description: `Frais de transport - Commande #${order.id.slice(0, 8)}`,
         orderId: order.id,
         orderType: 'delivery',
-        items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee, total: order.delivery_fee }], 
+        items: [{ name: 'Prestation de livraison', quantity: 1, price: order.delivery_fee, total: order.delivery_fee }],
         address: order.address,
         targetType: order.target_type,
         targetName: order.target_name || 'Personnel',
@@ -529,7 +452,6 @@ const OrderDetailPage = () => {
     }
   };
 
-  // ✅ ADMIN ASSIGNATION : Communication directe avec notre nouvel endpoint backend
   const handleAdminAssignAidant = async (aidantUserId: string, type: string, force: boolean = false) => {
     isActionPending.current = true;
     setIsUpdating(true);
@@ -570,14 +492,9 @@ const OrderDetailPage = () => {
 
   if (isLoading || !currentOrder) {
     return (
-      <div className="min-h-[420px] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2
-            className="w-12 h-12 animate-spin mx-auto mb-4"
-            style={{ color: colors.primary }}
-          />
-          <p style={{ color: colors.text }}>Chargement...</p>
-        </div>
+      <div className="min-h-[300px] flex items-center justify-center flex-col gap-3">
+        <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" style={{ color: colors.primary }} />
+        <p style={{ color: colors.text }}>Chargement...</p>
       </div>
     );
   }
@@ -585,18 +502,12 @@ const OrderDetailPage = () => {
   const isPendingPayment = order.status === 'attente_paiement';
   const isPonctual = order.order_type === 'ponctual' || order.is_ponctual === true;
   const isPaid = order.is_paid === true;
-  const isCompleted = ['validee', 'annulee', 'livree'].includes(order.status);  
+  const isCompleted = ['validee', 'annulee', 'livree'].includes(order.status);
 
   const canTake = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'disponible') && (isAidant || isAdminOrCoordinator);
-  const canAccept = order.status === 'creee' && isAdminOrCoordinator;
-  
   const isMyActiveDelivery = isAidant && order.status === 'en_cours' && (order.taken_by === user?.id);
-
-  const canDeliver = order.status === 'en_cours' && (isAidant || isAdminOrCoordinator);
-  const canCancel = (order.status === 'creee' || order.status === 'en_attente' || order.status === 'en_cours') && isAdminOrCoordinator;
   const isUrgent = order.status === 'disponible' || order.status === 'en_attente';
 
-  // Sécurité cash : En attente d'approbation espèces par la famille
   const isPendingCashConfirmation = order.status === 'livree' && order.delivery_payment_method === 'cash' && order.cash_confirmation_status === 'pending';
 
   return (
@@ -608,37 +519,13 @@ const OrderDetailPage = () => {
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <StatusBadge status={order.status} colors={colors} />
-              {isUrgent && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-600">
-                  <AlertCircle size={14} />
-                  Urgent
-                </span>
-              )}
-              {isPonctual && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-600">
-                  <ShoppingBag size={14} />
-                  Ponctuelle
-                </span>
-              )}
-              {/* ✅ SÉCURISÉ : N'afficher "Provision payée" que s'il s'agit d'un achat réel pour éviter la confusion sur les courses simples ! */}
-              {isPaid && financialData.purchaseAmount > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-600">
-                  <CheckCircle size={14} />
-                  Provision Payée
-                </span>
-              )}
-              {isPendingPayment && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-600">
-                  <CreditCard size={14} />
-                  En attente paiement
-                </span>
-              )}
+              {isUrgent && <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-600 uppercase">Urgent</span>}
+              {isPonctual && <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-600 uppercase">Ponctuelle</span>}
+              {isPaid && financialData.purchaseAmount > 0 && <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-600 uppercase">Provision Payée</span>}
+              {isPendingPayment && <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-600 uppercase">En attente paiement</span>}
             </div>
 
-            <h1
-              className="text-xl md:text-2xl font-black leading-tight break-words mt-1"
-              style={{ color: colors.text }}
-            >
+            <h1 className="text-xl md:text-2xl font-black leading-tight break-words mt-1" style={{ color: colors.text }}>
               {order.target_name}
             </h1>
 
@@ -653,7 +540,7 @@ const OrderDetailPage = () => {
           </div>
         </div>
 
-       {/* ACTIONS STATUTS - FILTRÉES PAR RÔLE */}
+        {/* ACTIONS STATUTS - FILTRÉES PAR RÔLE */}
         <div className="mt-4 flex flex-wrap gap-2">
           
           {/* 1. AIDANT : Action terrain (Prendre la commande) */}
@@ -708,7 +595,7 @@ const OrderDetailPage = () => {
             </span>
           )}
         </div>
-      </div> {/* ✅ RE-FERME LA CARTE HEADER ICI (résout TS17008) */}
+      </div>
         
       {/* ✅ BLOC SÉCURITÉ CASH (ÉCRAN CLIENT SÉCURISÉ) */}
       {isPendingCashConfirmation && isFamily && ( 
@@ -806,9 +693,8 @@ const OrderDetailPage = () => {
         <p className="text-xs sm:text-sm font-semibold text-gray-800 leading-relaxed whitespace-pre-wrap">{order.description || "Aucun détail complémentaire."}</p>
       </div>
 
-      {/* RÉSUMÉ - ✅ FILTRÉ À 3 COLONNES DÉSORMAIS (CARTE TYPE ÉLIMINÉE !) */}
+      {/* RÉSUMÉ */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* ✅ Affiche désormais estimated_amount si payé d'avance, ou purchase_amount + MM */}
         <MiniCard
           icon={<Banknote size={20} />}
           label="Provision Totale Payée"
@@ -834,26 +720,21 @@ const OrderDetailPage = () => {
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🛒 Provision Articles</span>
           <span className="text-sm font-extrabold text-gray-750">
-             {/*   Remplacement de order.purchase_amount par la valeur déduite financialData.purchaseAmount pour éviter "Aucun achat" sur les commandes d'avance réelles ! */}
              {financialData.purchaseAmount > 0 ? `${financialData.purchaseAmount.toLocaleString()} FCFA` : 'Aucun achat'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">💵 Frais de retrait MM</span>
           <span className="text-sm font-extrabold text-gray-750">
-             {/*  Remplacement de order.withdrawal_fee par la valeur calculée financialData.withdrawalFee pour la cohérence ! */}
              {financialData.withdrawalFee > 0 ? `${financialData.withdrawalFee.toLocaleString()} FCFA (${(order.withdrawal_operator || 'mtn_moov').toUpperCase()})` : '0 FCFA'}
           </span>
         </div>
         <div className="p-3 bg-gray-50 rounded-2xl">
           <span className="text-[10px] text-gray-400 font-bold block">🚚 Frais de livraison (Transport)</span>
           <span className="text-sm font-extrabold text-emerald-600">
-             {/*  Ajustement dynamique de l'affichage du transport selon l'abonnement et l'état de facturation à l'arrivée ! */}
-             {order.subscription_id 
-              ? 'Gratuit (Abonnement)' 
-              : (order.delivery_fee > 0 
-                  ? `${order.delivery_fee.toLocaleString()} FCFA (${order.delivery_payment_method === 'cash' ? 'Espèces' : 'En ligne'})` 
-                  : 'À payer à la livraison')}
+             {order.delivery_fee > 0 
+                ? `${order.delivery_fee.toLocaleString()} FCFA (${order.delivery_payment_method === 'cash' ? 'Espèces' : 'En ligne'})` 
+                : 'À payer à la livraison'}
           </span>
         </div>
       </div>
@@ -865,9 +746,8 @@ const OrderDetailPage = () => {
           Personnes concernées
         </h2>
 
-        {/* ✅ Si target_type === 'personal' ou qu'il n'y a pas de patient_id associé, on masque la redondance destinataire/famille */}
         {order.target_type === 'personal' || !order.patient_id ? (
-          /* ✅ CAS A : Compte personnel (Course pour soi-même) -> Grid à 2 colonnes épurée */
+          /* ✅ CAS A : Compte personnel (Course pour soi-même) */
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PersonBox
               icon={<User size={18} />}
@@ -890,7 +770,7 @@ const OrderDetailPage = () => {
             />
           </div>
         ) : (
-          /* ✅ CAS B : Pour un proche (Patient) -> Grid à 3 colonnes d'origine */
+          /* ✅ CAS B : Pour un proche (Patient) */
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <PersonBox
               icon={<User size={18} />}
@@ -923,8 +803,6 @@ const OrderDetailPage = () => {
         )}
       </div>
 
-    
-
       {/* DOCUMENTS */}
       {(order.prescription_url || order.proof_url) && (
         <div className="bg-white rounded-[1.75rem] p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
@@ -937,7 +815,7 @@ const OrderDetailPage = () => {
             {order.prescription_url && (
               <DocButton
                 icon={<ImageIcon size={19} />}
-                title={order.type === 'medicaments' ? "Ordonnance médicale" : "Photo de l'article / objet"} // ✅ Label dynamique intelligent
+                title={order.type === 'medicaments' ? "Ordonnance médicale" : "Photo de l'article / objet"}
                 color={colors.primary}
                 onClick={() => openUrl(order.prescription_url)}
               />
@@ -1045,8 +923,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/*  Masquer les bannières d'instructions de paiement client sur la fiche de l'aidant/livreur ! */}
-        {isPonctual && isPaid && order.purchase_amount > 0 && isFamily && (
+        {isPaid && order.purchase_amount > 0 && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 flex items-start gap-2">
             <CheckCircle size={18} style={{ color: '#4CAF50' }} className="mt-0.5" />
             <div>
@@ -1056,8 +933,7 @@ const OrderDetailPage = () => {
           </div>
         )}
 
-        {/*  Masquer le rappel de paiement à la livraison sur l'écran du livreur ! */}
-        {isPonctual && !order.subscription_id && order.purchase_amount === 0 && order.status !== 'validee' && isFamily && (
+        {order.status !== 'validee' && isFamily && (
           <div className="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-start gap-2 animate-fadeIn">
             <Info size={18} style={{ color: colors.primary }} className="mt-0.5" />
             <div>
@@ -1088,42 +964,23 @@ const OrderDetailPage = () => {
             if (e.target === e.currentTarget) setShowProofModal(false);
           }}
         >
-          <div 
-            className="bg-white rounded-[2rem] w-full max-w-md p-5 shadow-2xl my-8 space-y-4"
-            ref={modalRef} 
-          >
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-5 shadow-2xl my-8 space-y-4" ref={modalRef} >
             <div className="flex items-center justify-between mb-4 border-b pb-3">
               <h2 className="text-base sm:text-lg font-black" style={{ color: colors.text }}>
                 Confirmer la livraison
               </h2>
-              <button
-                onClick={() => setShowProofModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-xl transition"
-              >
+              <button onClick={() => setShowProofModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition">
                 <XCircle size={18} />
               </button>
             </div>
 
-            <p className="text-xs text-gray-500">
-              Ajoutez une photo comme preuve de livraison.
-            </p>
+            <p className="text-xs text-gray-500">Ajoutez une photo comme preuve de livraison.</p>
 
             <div className="relative min-h-[140px] border-2 border-dashed rounded-[1.5rem] p-4 flex items-center justify-center bg-gray-50 overflow-hidden" style={{ borderColor: colors.primary + '30' }}>
               {proofPreview ? (
                 <>
-                  <img
-                    src={proofPreview}
-                    alt="Preuve"
-                    className="max-h-[280px] w-full object-cover rounded-2xl"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProofFile(null);
-                      setProofPreview(null);
-                    }}
-                    className="absolute top-3 right-3 w-8 h-8 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition"
-                  >
+                  <img src={proofPreview} alt="Preuve" className="max-h-[280px] w-full object-cover rounded-2xl" />
+                  <button type="button" onClick={() => { setProofFile(null); setProofPreview(null); }} className="absolute top-3 right-3 w-8 h-8 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition" >
                     <XCircle size={18} />
                   </button>
                 </>
@@ -1133,78 +990,41 @@ const OrderDetailPage = () => {
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2" style={{ background: colors.primary + '10' }}>
                       <Camera size={24} style={{ color: colors.primary }} />
                     </div>
-                    <p className="font-semibold text-xs" style={{ color: colors.text }}>
-                      Sélectionner une photo
-                    </p>
-                    <p className="text-[10px] mt-0.5 text-gray-400">
-                      PNG, JPG, JPEG — Max 5MB
-                    </p>
+                    <p className="font-semibold text-xs" style={{ color: colors.text }}>Sélectionner une photo</p>
+                    <p className="text-[10px] mt-0.5 text-gray-400">PNG, JPG, JPEG — Max 5MB</p>
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleProofSelect}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
+                  <input type="file" accept="image/*" onChange={handleProofSelect} className="hidden" />
                 </>
               )}
             </div>
 
-            {/* Saisie des frais de transport et du mode de règlement s'il n'y a pas d'abonnement */}
-            {!order.subscription_id && (
-              <div className="space-y-3 pt-3 border-t">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase">Frais de livraison réels (FCFA)</label>
-                  <input
-                    type="number"
-                    value={deliveryFeeInput || ''}
-                    onChange={(e) => setDeliveryFeeInput(Number(e.target.value))}
-                    className="w-full h-10 px-3.5 border rounded-xl text-xs font-bold bg-white mt-1 outline-none"
-                    placeholder="Ex: 1500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-gray-500 uppercase">Règlement client</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setPaymentMethod('online')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'online' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💳 En ligne (Momo)</button>
-                    <button type="button" onClick={() => setPaymentMethod('cash')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💵 En Espèces (Main)</button>
-                  </div>
-                </div>
-
-                {paymentMethod === 'cash' && (
-                  <div className="animate-fadeIn">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase">Montant exact reçu (FCFA)</label>
-                    <input
-                      type="number"
-                      value={cashReceivedInput || ''}
-                      onChange={(e) => setCashReceivedInput(Number(e.target.value))}
-                      className="w-full h-10 px-3.5 border rounded-xl text-xs font-bold bg-white mt-1 outline-none"
-                      placeholder="Ex: 1500"
-                    />
-                  </div>
-                )}
+            <div className="space-y-3 pt-3 border-t">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase">Frais de livraison réels (FCFA)</label>
+                <input type="number" value={deliveryFeeInput || ''} onChange={(e) => setDeliveryFeeInput(Number(e.target.value))} className="w-full h-10 px-3.5 border rounded-xl text-xs font-bold bg-white mt-1 outline-none" placeholder="Ex: 1500" />
               </div>
-            )}
+
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase">Règlement client</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setPaymentMethod('online')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'online' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💳 En ligne (Momo)</button>
+                  <button type="button" onClick={() => setPaymentMethod('cash')} className={cn("p-2 rounded-xl text-[10px] font-black uppercase border", paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-50/10 text-emerald-950' : 'bg-white')}>💵 En Espèces (Main)</button>
+                </div>
+              </div>
+
+              {paymentMethod === 'cash' && (
+                <div className="animate-fadeIn">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase">Montant exact reçu (FCFA)</label>
+                  <input type="number" value={cashReceivedInput || ''} onChange={(e) => setCashReceivedInput(Number(e.target.value))} className="w-full h-10 px-3.5 border rounded-xl text-xs font-bold bg-white mt-1 outline-none" placeholder="Ex: 1500" />
+                </div>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3 mt-5">
-              <button
-                onClick={() => setShowProofModal(false)}
-                className="py-2.5 rounded-2xl font-semibold border hover:bg-gray-50 transition text-xs"
-                style={{
-                  borderColor: colors.primary + '20',
-                  color: colors.text,
-                }}
-              >
+              <button onClick={() => setShowProofModal(false)} className="py-2.5 rounded-2xl font-semibold border hover:bg-gray-50 transition text-xs" style={{ borderColor: colors.primary + '20', color: colors.text }} >
                 Annuler
               </button>
-
-              <button
-                onClick={handleCompleteDelivery}
-                disabled={isUpdating}
-                className="py-2.5 rounded-2xl text-white font-bold transition hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2 text-xs"
-                style={{ background: colors.primary }}
-              >
+              <button onClick={handleCompleteDelivery} disabled={isUpdating} className="py-2.5 rounded-2xl text-white font-bold transition hover:opacity-80 disabled:opacity-50 flex items-center justify-center gap-2 text-xs" style={{ background: colors.primary }} >
                 {isUpdating ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
                 {isUpdating ? 'Envoi...' : 'Confirmer'}
               </button>
@@ -1213,7 +1033,7 @@ const OrderDetailPage = () => {
         </div>
       )}
 
-      {/* ✅ MODAL D'ASSIGNATION D'AIDANT PREMIUM HARMONISÉ (Mis à jour pour cibler dynamiquement l'objet order !) */}
+      {/* ✅ MODAL D'ASSIGNATION D'AIDANT PREMIUM HARMONISÉ */}
       {showAssignModal && (
         <AssignAidantModal
           isOpen={showAssignModal}
@@ -1234,3 +1054,4 @@ const OrderDetailPage = () => {
 };
 
 export default OrderDetailPage;
+
