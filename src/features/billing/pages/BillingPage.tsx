@@ -72,9 +72,10 @@ const BillingPage = () => {
     }
   }, [offersInitialized, fetchOffers]);
 
+  // ✅ Force le rechargement direct depuis Supabase sans passer par le cache local
   useEffect(() => {
-    fetchSubscriptions();
-    fetchPayments();
+    fetchSubscriptions(true);
+    fetchPayments(true);
   }, []);
 
   const hasSeniorPatient = useMemo(() => patients.some(p => p.category === 'senior'), [patients]);
@@ -114,8 +115,10 @@ const BillingPage = () => {
 
   const displayedOffers = useMemo(() => {
     if (activeTab === 'all') return allowedOffers;
-    return allowedOffers.filter(o => o.category === activeTab);
+    return allowedOffers.filter(o => o.category === opacityTabFilter(activeTab));
   }, [allowedOffers, activeTab]);
+
+  const opacityTabFilter = (tab: TabType) => tab;
 
   useEffect(() => {
     if (activeTab !== 'all' && !visibleTabs.includes(activeTab)) {
@@ -146,7 +149,7 @@ const BillingPage = () => {
     setIsPulling(false);
     if (pullY >= 50) {
       toast.promise(
-        Promise.all([fetchSubscriptions(), fetchPayments(), fetchOffers()]),
+        Promise.all([fetchSubscriptions(true), fetchPayments(true), fetchOffers()]),
         {
           loading: 'Actualisation de votre dossier...',
           success: 'Abonnements à jour !',
@@ -167,7 +170,6 @@ const BillingPage = () => {
 
   const visibleTabsList = getVisibleTabs();
 
-  // COHÉRENCE : Un abonnement n'est bloquant que s'il est actif, non expiré et possède encore des visites.
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
   const isSubscriptionDepleted = useMemo(() => {
     if (!activeSubscription) return true;
@@ -175,7 +177,7 @@ const BillingPage = () => {
     return activeSubscription.remaining_visits <= 0 || isExpired;
   }, [activeSubscription]);
 
-  const hasActiveSub = !!(activeSubscription && !isSubscriptionDepleted);
+  const hasActiveSub = activeSubscription && !isSubscriptionDepleted;
 
   const isOfferSubscribed = (offerId: string) => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif' && sub.remaining_visits > 0);
@@ -196,21 +198,64 @@ const BillingPage = () => {
   };
 
   const handlePaymentSuccess = async () => {
-    await fetchSubscriptions();
-    await fetchPayments();
+    await fetchSubscriptions(true);
+    await fetchPayments(true);
     await fetchOffers();
     setIsPaymentOpen(false);
     toast.success('Paiement effectué avec succès !');
   };
 
-  const stats = useMemo(() => {
-    return {
-      total: allowedOffers.length,
-      senior: allowedOffers.filter((o: Offer) => o.category === 'senior').length,
-      maman: allowedOffers.filter((o: Offer) => o.category === 'maman_bebe').length,
-      pack: allowedOffers.filter((o: Offer) => o.category === 'pack_confort').length,
-    };
-  }, [allowedOffers]);
+  // ✅ CALCUL DE LA DURÉE DU CONTRAT EN SEMAINES OU EN MOIS
+  const getSubscriptionDurationText = (sub: any) => {
+    if (!sub?.start_date || !sub?.end_date) return '';
+    const start = new Date(sub.start_date);
+    const end = new Date(sub.end_date);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (sub.offre?.category === 'maman_bebe') {
+      const weeks = Math.round(diffDays / 7);
+      return `${weeks} semaine${weeks > 1 ? 's' : ''}`;
+    } else {
+      const months = Math.round(diffDays / 30);
+      if (months >= 1) {
+        return `${months} mois`;
+      }
+      return `${diffDays} jours`;
+    }
+  };
+
+  // ✅ CRÉATION D'UN HISTORIQUE ROBUSTE UNIFIÉ (Paiements + Souscriptions Validées)
+  const unifiedHistory = useMemo(() => {
+    const historyList: any[] = [];
+    
+    // 1. Ajoute les paiements réels présents en base
+    payments.forEach(p => {
+      historyList.push({
+        id: p.id,
+        amount: p.amount,
+        status: p.status,
+        date: p.created_at || p.paid_at,
+        description: p.metadata?.description || 'Paiement forfait',
+      });
+    });
+
+    // 2. Si aucun paiement n'apparait (ou problème RLS), ajoute l'abonnement actif comme transaction validée
+    subscriptions.forEach(sub => {
+      const hasMatchingPayment = payments.some(p => p.abonnement_id === sub.id || p.metadata?.abonnement_id === sub.id);
+      if (!hasMatchingPayment && sub.offre && sub.status === 'actif') {
+        historyList.push({
+          id: `sub-${sub.id}`,
+          amount: sub.offre.price,
+          status: 'valide',
+          date: sub.created_at || sub.start_date,
+          description: `Souscription Forfait ${sub.offre.name}`,
+        });
+      }
+    });
+
+    return historyList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [payments, subscriptions]);
 
   const isLoading = storeLoading || offersLoading;
 
@@ -304,7 +349,7 @@ const BillingPage = () => {
         <button
           onClick={async () => {
             toast.promise(
-              Promise.all([fetchSubscriptions(), fetchPayments(), fetchOffers()]),
+              Promise.all([fetchSubscriptions(true), fetchPayments(true), fetchOffers()]),
               {
                 loading: 'Mise à jour...',
                 success: 'Crédits et dossiers synchronisés !',
@@ -320,44 +365,101 @@ const BillingPage = () => {
         </button>
       </section>
 
-      {/* ABONNEMENT EN COURS D'UTILISATION */}
+      {/* ABONNEMENT EN COURS D'UTILISATION - CARTE STRUCTURÉE ET LISIBLE */}
       {activeSubscription && (
         <section className="relative overflow-hidden rounded-2xl text-white p-6 shadow-md" style={{ background: colors.gradient || colors.primary }}>
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-1">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                {isSubscriptionDepleted ? 'Formule consommée' : 'Formule active'}
-              </span>
-              <h2 className="text-base font-black tracking-tight">
-                {activeSubscription.offre?.name || 'Abonnement actif'}
-              </h2>
-              <p className="text-xs text-gray-300 font-medium leading-relaxed">
-                Fin d'engagement le {new Date(activeSubscription.end_date).toLocaleDateString('fr-FR')} • Renouvellement manuel
-              </p>
+          <div className="relative z-10 space-y-5">
+            {/* Header de la carte */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/10 pb-3">
+              <div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-white/10 text-white border border-white/20">
+                  {isSubscriptionDepleted ? 'Formule consommée / Terminée' : 'Abonnement en cours'}
+                </span>
+                <h2 className="text-lg font-black tracking-tight mt-1">
+                  Forfait {activeSubscription.offre?.name || 'Abonnement'}
+                </h2>
+                <p className="text-[11px] text-gray-200 font-medium">
+                  {activeSubscription.offre?.category === 'maman_bebe' ? '👶 Univers Maman & Bébé' : '👴 Univers Accompagnement Seniors'}
+                </p>
+              </div>
+              <div className="sm:text-right shrink-0">
+                <p className="text-xl font-black">
+                  {Number(activeSubscription.offre?.price || 0).toLocaleString()} FCFA
+                </p>
+                <p className="text-[9px] text-gray-300">Règlement Unique</p>
+              </div>
             </div>
-            <div className="sm:text-right shrink-0 space-y-1">
-              <p className="text-lg font-black tracking-tight">
-                {(activeSubscription.offre?.price || 0).toLocaleString()} FCFA
-              </p>
-              <span className={cn(
-                "inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full font-bold",
-                isSubscriptionDepleted ? "bg-red-500/20 text-red-200" : "bg-white/10"
-              )}>
-                <span className={cn("w-1.5 h-1.5 rounded-full", isSubscriptionDepleted ? "bg-red-400" : "bg-emerald-400 animate-pulse")} />
-                {activeSubscription.remaining_visits} visite(s) restantes
-              </span>
+
+            {/* Grille d'informations requises sans surcharge */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div>
+                <p className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Date de souscription</p>
+                <p className="font-bold mt-0.5">
+                  {new Date(activeSubscription.created_at || activeSubscription.start_date).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Engagement contractuel</p>
+                <p className="font-bold mt-0.5">
+                  Durée de {getSubscriptionDurationText(activeSubscription)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Date de début</p>
+                <p className="font-bold mt-0.5">
+                  {new Date(activeSubscription.start_date).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+              <div>
+                <p className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Date de fin</p>
+                <p className="font-bold mt-0.5">
+                  {new Date(activeSubscription.end_date).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
             </div>
+
+            {/* Quotas restants */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="bg-white/10 rounded-xl p-3 border border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-gray-300 font-semibold uppercase">Crédit de Visites</p>
+                  <p className="text-lg font-black mt-0.5">
+                    {activeSubscription.remaining_visits} / {activeSubscription.total_visits} restantes
+                  </p>
+                </div>
+                <span className={cn(
+                  "w-2 h-2 rounded-full",
+                  activeSubscription.remaining_visits <= 0 ? "bg-red-400" : "bg-emerald-400 animate-pulse"
+                )} />
+              </div>
+
+              <div className="bg-white/10 rounded-xl p-3 border border-white/10 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-gray-300 font-semibold uppercase">Commandes incluses</p>
+                  <p className="text-lg font-black mt-0.5">
+                    {activeSubscription.remaining_orders} / {activeSubscription.total_orders} restantes
+                  </p>
+                </div>
+                <span className={cn(
+                  "w-2 h-2 rounded-full",
+                  activeSubscription.remaining_orders <= 0 ? "bg-red-400" : "bg-emerald-400 animate-pulse"
+                )} />
+              </div>
+            </div>
+
+            {isSubscriptionDepleted && (
+              <div className="p-3 bg-red-500/15 rounded-xl border border-red-500/25">
+                <p className="text-xs font-bold text-red-200">⚠️ Votre forfait est entièrement consommé ou arrivé à échéance</p>
+                <p className="text-[10px] text-gray-200 mt-0.5">
+                  Vous pouvez à présent sélectionner une autre formule parmi la grille tarifaire ci-dessous.
+                </p>
+              </div>
+            )}
           </div>
-          
-          {/* Alerte et bouton de renouvellement si le quota de visites est à 0 */}
-          {isSubscriptionDepleted && (
-            <div className="mt-4 p-3 bg-white/10 rounded-xl border border-white/15 relative z-10">
-              <p className="text-xs font-bold text-white">⚠️ Votre crédit de visites est épuisé</p>
-              <p className="text-[10px] text-gray-200 mt-0.5">
-                Vous pouvez souscrire à une nouvelle offre ou réactiver manuellement la formule ci-dessous.
-              </p>
-            </div>
-          )}
           <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
         </section>
       )}
@@ -391,21 +493,32 @@ const BillingPage = () => {
         </section>
       )}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {displayedOffers.map((offer: Offer) => (
-          <OfferCardCompact
-            key={offer.id}
-            offer={offer}
-            color={colors.primary}
-            textColor={colors.text}
-            isSubscribed={isOfferSubscribed(offer.id)}
-            hasActiveSubscription={hasActiveSub}
-            onChoose={() => openPayment(offer)}
-            isPersonalAccount={isPersonalAccount}
-            hasSeniorPatient={hasSeniorPatient}
-          />
-        ))}
-      </section>
+      {/* GRILLE D'OFFRES D'ABONNEMENTS */}
+      {displayedOffers.length > 0 ? (
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {displayedOffers.map((offer: Offer) => (
+            <OfferCardCompact
+              key={offer.id}
+              offer={offer}
+              color={colors.primary}
+              textColor={colors.text}
+              isSubscribed={isOfferSubscribed(offer.id)}
+              hasActiveSubscription={hasActiveSub}
+              onChoose={() => openPayment(offer)}
+              isPersonalAccount={isPersonalAccount}
+              hasSeniorPatient={hasSeniorPatient}
+            />
+          ))}
+        </section>
+      ) : (
+        <div className="col-span-full bg-white rounded-2xl py-12 px-4 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-3" style={{ borderColor: colors.primary + '15' }}>
+          <Package size={24} style={{ color: colors.textLight }} />
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold" style={{ color: colors.text }}>Aucun forfait disponible</h3>
+            <p className="text-xs" style={{ color: colors.textLight }}>Aucune offre active n'est disponible pour vos critères actuels.</p>
+          </div>
+        </div>
+      )}
 
       {!hasActiveSub && (
         <div className="bg-white/40 rounded-xl p-4 border flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto" style={{ borderColor: colors.primary + '15' }}>
@@ -423,18 +536,19 @@ const BillingPage = () => {
         </div>
       )}
 
+      {/* HISTORIQUE DE TRANSACTIONS SÉCURISÉ */}
       <section className="bg-white rounded-2xl p-5 border shadow-sm" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: colors.primary + '10' }}>
           <h2 className="text-xs font-black tracking-wider uppercase" style={{ color: colors.textLight }}>
             Historique des paiements
           </h2>
-          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gray-50" style={{ color: colors.textLight }}>{payments.length} txn</span>
+          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gray-50" style={{ color: colors.textLight }}>{unifiedHistory.length} txn</span>
         </div>
 
-        {payments.length > 0 ? (
+        {unifiedHistory.length > 0 ? (
           <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-            {payments.slice(0, 5).map((payment: any) => (
-              <PaymentItem key={payment.id} payment={payment} colors={colors} />
+            {unifiedHistory.slice(0, 5).map((item: any) => (
+              <PaymentItem key={item.id} payment={item} colors={colors} />
             ))}
           </div>
         ) : (
@@ -445,6 +559,7 @@ const BillingPage = () => {
         )}
       </section>
 
+      {/* MODALS */}
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => {
@@ -600,8 +715,9 @@ interface PaymentItemProps {
   colors: any;
 }
 
+// ✅ AFFICHAGE ÉPURÉ DE L'HISTORIQUE UNI-FLUX
 const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
-  const isValid = payment.status === 'valide';
+  const isValid = payment.status === 'valide' || payment.status === 'completed';
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50/50 p-3 transition-colors hover:bg-gray-50">
@@ -620,7 +736,7 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
             {Number(payment.amount || 0).toLocaleString()} FCFA
           </p>
           <p className="text-[10px] font-medium" style={{ color: colors.textLight }}>
-            Le {new Date(payment.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {payment.description} • le {new Date(payment.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         </div>
       </div>
@@ -631,7 +747,7 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
           color: isValid ? '#10b981' : '#f59e0b',
         }}
       >
-        {isValid ? 'Payé' : payment.status === 'en_attente' ? 'En cours' : payment.status}
+        {isValid ? 'Validé' : 'En attente'}
       </span>
     </div>
   );
