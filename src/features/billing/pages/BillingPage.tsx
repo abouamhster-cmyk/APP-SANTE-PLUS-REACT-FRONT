@@ -494,23 +494,23 @@ const BillingPage = () => {
       )}
 
       {/* GRILLE D'OFFRES D'ABONNEMENTS */}
-      {displayedOffers.length > 0 ? (
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {displayedOffers.map((offer: Offer) => (
-            <OfferCardCompact
-              key={offer.id}
-              offer={offer}
-              color={colors.primary}
-              textColor={colors.text}
-              isSubscribed={isOfferSubscribed(offer.id)}
-              hasActiveSubscription={hasActiveSub}
-              onChoose={() => openPayment(offer)}
-              isPersonalAccount={isPersonalAccount}
-              hasSeniorPatient={hasSeniorPatient}
-            />
-          ))}
-        </section>
-      ) : (
+        {displayedOffers.length > 0 ? (
+          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {displayedOffers.map((offer: Offer) => (
+              <OfferCardCompact
+                key={offer.id}
+                offer={offer}
+                color={colors.primary}
+                textColor={colors.text}
+                isSubscribed={!!isOfferSubscribed(offer.id)}
+                hasActiveSubscription={!!hasActiveSub}
+                onChoose={() => openPayment(offer)}
+                isPersonalAccount={!!isPersonalAccount} 
+                hasSeniorPatient={!!hasSeniorPatient}    
+              />
+            ))}
+          </section>
+        ) : (
         <div className="col-span-full bg-white rounded-2xl py-12 px-4 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-3" style={{ borderColor: colors.primary + '15' }}>
           <Package size={24} style={{ color: colors.textLight }} />
           <div className="space-y-1">
