@@ -1,25 +1,9 @@
 // 📁 frontend/src/features/orders/pages/OrdersPage.tsx
-// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA SÉCURITÉ DE QUOTA ILLIMITÉ ET DU VERROU SYNCHRONE CONTRE LES DOUBLES CLICS
+// ✅ PAGE DES COMMANDES COMPLETE : INTÉGRATION DE LA SÉCURITÉ DE QUOTA DE LIVRAISON SANS COUPLAGE D'ABONNEMENTS
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Plus,
-  ShoppingBag,
-  Search,
-  Package,
-  Clock,
-  CheckCircle,
-  Truck,
-  X,
-  Filter,
-  List,
-  AlertCircle,
-  CreditCard,
-  Sparkles,
-  UserCheck,
-  RefreshCw,
-} from 'lucide-react';
+import { Plus, ShoppingBag, Search, Package, Clock, CheckCircle, Truck, X, Filter, List, AlertCircle, CreditCard, Sparkles, UserCheck, RefreshCw } from 'lucide-react';
 
 import { useOrderStore } from '@/stores/orderStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -34,24 +18,18 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 const statusFilters = [
-  { key: 'all', label: 'Toutes', icon: <List size={12} /> },
-  { key: 'creee', label: '📝 Créées', icon: <Package size={12} /> },
-  { key: 'en_attente', label: '⏳ En attente', icon: <Clock size={12} /> },
-  { key: 'disponible', label: '🚨 Disponibles', icon: <AlertCircle size={12} /> },
-  { key: 'en_cours', label: '🔄 En cours', icon: <Clock size={12} /> },
-  { key: 'livree', label: '📦 Livrées', icon: <Truck size={12} /> },
-  { key: 'validee', label: '✅ Validées', icon: <CheckCircle size={12} /> },
-  { key: 'annulee', label: '❌ Annulées', icon: <X size={12} /> },
-  { key: 'attente_paiement', label: '💳 En attente', icon: <CreditCard size={12} /> },
-  { key: 'ponctual', label: '⚡ Ponctuelles', icon: <Sparkles size={12} /> },
+  { key: 'all', label: 'Toutes', icon: null },
+  { key: 'creee', label: '📝 Créées', icon: null },
+  { key: 'en_attente', label: '⏳ En attente', icon: null },
+  { key: 'disponible', label: '🚨 Disponibles', icon: null },
+  { key: 'en_cours', label: '🔄 En cours', icon: null },
+  { key: 'livree', label: '📦 Livrées', icon: null },
+  { key: 'validee', label: '✅ Validées', icon: null },
+  { key: 'annulee', label: '❌ Annulées', icon: null },
+  { key: 'attente_paiement', label: '💳 En attente', icon: null },
 ];
 
-interface AidantQuota {
-  current: number;
-  max: number;
-  available: number;
-  canTake: boolean;
-}
+interface AidantQuota { current: number; max: number; available: number; canTake: boolean; }
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -61,7 +39,6 @@ const OrdersPage = () => {
   const { orders, isLoading, fetchOrders, updateOrderStatus, takeOrder } = useOrderStore();
 
   const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
-  const { hasActiveSubscription, remainingOrders } = useSubscriptionGuard();
 
   const [search, setSearch] = useState('');
   const [activeStatus, setActiveStatus] = useState('all');
@@ -77,7 +54,6 @@ const OrdersPage = () => {
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
 
-  // ✅ VERROU DE SÉCURITÉ CONTRE LES CLICS CONSECUTIFS RAPIDES
   const isActionPending = useRef(false);
 
   useEffect(() => {
@@ -107,9 +83,7 @@ const OrdersPage = () => {
     completed: orders.filter((order) => order.status === 'validee').length,
     pendingPayment: orders.filter((order) => order.status === 'attente_paiement').length,
     ponctual: orders.filter((order) => isOrderPonctual(order)).length,
-    canTakeCount: orders.filter((order) => 
-      ['creee', 'en_attente', 'disponible'].includes(order.status)
-    ).length,
+    canTakeCount: orders.filter((order) => ['creee', 'en_attente', 'disponible'].includes(order.status)).length,
   }), [orders]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -142,7 +116,7 @@ const OrdersPage = () => {
         {
           loading: 'Actualisation des commandes...',
           success: 'Commandes à jour !',
-          error: 'Échec de synchronisation.',
+          error: 'Échec de la synchronisation.',
         }
       );
     }
@@ -151,14 +125,6 @@ const OrdersPage = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
-
-  useEffect(() => {
-    const saved = sessionStorage.getItem('pending_ponctual_order');
-    if (saved) {
-      sessionStorage.removeItem('pending_ponctual_order');
-      localStorage.removeItem('pending_ponctual_order');
-    }
   }, []);
 
   const handleShowAssignAidantModal = (order: any) => {
@@ -177,18 +143,12 @@ const OrdersPage = () => {
       let matchStatus = true;
       const isMyActiveOrder = isAidant && order.aidant?.user_id === user?.id;
 
-      if (activeStatus === 'ponctual') {
-        matchStatus = isOrderPonctual(order);
-      } else if (activeStatus !== 'all') {
+      if (activeStatus !== 'all') {
         matchStatus = order.status === activeStatus;
-      } else {
-        matchStatus = true;
       }
 
-      if (isMyActiveOrder && ['all', 'ponctual', 'en_cours', 'livree'].includes(activeStatus)) {
-        if (activeStatus === 'ponctual') {
-          matchStatus = isOrderPonctual(order);
-        } else if (activeStatus === 'en_cours') {
+      if (isMyActiveOrder && ['all', 'en_cours', 'livree'].includes(activeStatus)) {
+        if (activeStatus === 'en_cours') {
           matchStatus = order.status === 'en_cours';
         } else if (activeStatus === 'livree') {
           matchStatus = order.status === 'livree';
@@ -212,7 +172,7 @@ const OrdersPage = () => {
 
   const handleStatusChange = async (id: string, status: string) => {
     if (isProcessing || isActionPending.current) return;
-    
+
     isActionPending.current = true;
     setIsProcessing(true);
 
@@ -251,7 +211,7 @@ const OrdersPage = () => {
 
   const handleTakeOrder = async (id: string) => {
     if (isProcessing || isActionPending.current) return;
-    
+
     isActionPending.current = true;
     setIsProcessing(true);
 
@@ -287,16 +247,11 @@ const OrdersPage = () => {
 
   if (isLoading && orders.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-28 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
-          ))}
-        </div>
-        <div className="space-y-2">
-          {[1, 2].map((item) => (
-            <div key={item} className="h-20 bg-gray-100 dark:bg-gray-850 rounded-2xl animate-pulse" />
+      <div className="space-y-6 max-w-5xl mx-auto pb-6">
+        <div className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       </div>
@@ -305,7 +260,7 @@ const OrdersPage = () => {
 
   return (
     <div 
-      className="space-y-6 pb-6 animate-fadeIn"
+      className="space-y-6 max-w-5xl mx-auto pb-6"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -317,7 +272,7 @@ const OrdersPage = () => {
           opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
         }}
       >
-        <div className="flex items-center gap-1.5 py-1 text-emerald-600 dark:text-emerald-400">
+        <div className="flex items-center gap-1.5 py-1 text-emerald-600">
           <RefreshCw 
             size={13} 
             className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
@@ -547,12 +502,11 @@ const OrdersPage = () => {
             setShowAssignModal(false);
             setSelectedOrderForAssign(null);
           }}
-          targetType="patient"
+          targetType="order"
           targetId={selectedOrderForAssign.id}
           targetName={selectedOrderForAssign.target_name || `Commande ${selectedOrderForAssign.id.slice(0, 8)}`}
           onSuccess={handleAssignAidantSuccess}
           currentAidantId={selectedOrderForAssign.aidant_id}
-          allowForce={isAdminOrCoordinator}
           colors={colors} 
         />
       )}
