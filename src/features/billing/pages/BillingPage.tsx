@@ -175,7 +175,7 @@ const BillingPage = () => {
     return activeSubscription.remaining_visits <= 0 || isExpired;
   }, [activeSubscription]);
 
-  const hasActiveSub = activeSubscription && !isSubscriptionDepleted;
+  const hasActiveSub = !!(activeSubscription && !isSubscriptionDepleted);
 
   const isOfferSubscribed = (offerId: string) => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif' && sub.remaining_visits > 0);
