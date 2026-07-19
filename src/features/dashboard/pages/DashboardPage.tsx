@@ -1,13 +1,11 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
-// ✅ PAGE DASHBOARD OPTIMISÉE : MENU RAPIDE À TUILES COLORÉES INDIVIDUELLES ET CARTE APRAISANTE DE BAS DE PAGE
-
-import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+ 
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Users,
   Calendar,
   ShoppingBag,
-  MessageCircle,
   CheckCircle,
   User,
   ArrowRight,
@@ -24,15 +22,16 @@ import {
   LayoutDashboard,
   FileCheck,
   UserPlus,
-  Rocket,
-  DollarSign,
   Clock,
   AlertCircle,
   ChevronRight,
   ChevronLeft,
   TrendingUp,
-  Compass,
   Lightbulb,
+  Mic,
+  Heart,
+  Hospital,
+  Stethoscope,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -75,18 +74,17 @@ interface HeroSlide {
 }
 
 // =============================================
-// DÉFINITION DES TUILES PAR RÔLE
+// DÉFINITION DES TUILES PAR RÔLE (MESSAGES RETIRÉ DE TOUTES LES GRILLES) [24]
 // =============================================
 const getTilesForRole = (role: string | null, colors: any, stats: any, patientsCount: number): Tile[] => {
   const tiles: Tile[] = [];
 
   if (role === 'family') {
     tiles.push(
-      { icon: <Users size={20} />, label: 'Proches', color: colors.primary, path: '/app/patients', badge: patientsCount },
+      { icon: <Users size={20} />, label: 'Mes Proches', color: colors.primary, path: '/app/patients', badge: patientsCount },
       { icon: <Calendar size={20} />, label: 'Visites', color: colors.gold || '#c9a84c', path: '/app/visits', badge: stats.upcomingVisits },
       { icon: <ShoppingBag size={20} />, label: 'Commandes', color: colors.primaryLight || '#2a6a4a', path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
-      { icon: <CreditCard size={20} />, label: 'Abonnement', color: colors.gold || '#c9a84c', path: '/app/billing' },
+      { icon: <CreditCard size={20} />, label: 'Mon Forfait', color: colors.gold || '#c9a84c', path: '/app/billing' },
       { icon: <BookOpen size={20} />, label: 'Journal', color: colors.primaryLight || '#2a6a4a', path: '/app/journal' },
       { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
       { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
@@ -101,7 +99,6 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
       { icon: <Clock size={20} />, label: 'Missions', color: colors.primaryLight || '#2a6a4a', path: '/app/missions', badge: stats.pendingVisits },
       { icon: <History size={20} />, label: 'Historique', color: '#78350f', path: '/app/history' },
       { icon: <ShoppingBag size={20} />, label: 'Commandes', color: '#f59e0b', path: '/app/orders', badge: stats.pendingOrders },
-      { icon: <MessageCircle size={20} />, label: 'Messages', color: '#3b82f6', path: '/app/messages' },
       { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
       { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
@@ -141,7 +138,7 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
 
 const DashboardPage = () => {
   const navigate = useNavigate();
-  const { profile, role } = useAuthStore();
+  const { profile, role, user } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
 
@@ -197,7 +194,7 @@ const DashboardPage = () => {
   const canConvertDrafts = hasDrafts && hasActiveSubscription && remainingVisits > 0;
 
   // ============================================================
-  // SLIDES DU CARROUSEL AVEC COULEURS DU BRANDING
+  // SLIDES DU CARROUSEL AVEC COULEURS DU BRANDING (MESSAGERIES SUPPRIMÉES) [24]
   // ============================================================
   const slides: HeroSlide[] = useMemo(() => {
     const seniorImg = '/assets/images/banners/senior-banner.png';
@@ -246,7 +243,7 @@ const DashboardPage = () => {
       ];
     }
 
-    // 🦸 AIDANT (5 SLIDES)
+    // 🦸 AIDANT (5 SLIDES SÉCURISÉES SANS MESSAGERIE) [24]
     if (isAidant) {
       return [
         {
@@ -271,11 +268,12 @@ const DashboardPage = () => {
           actionPath: '/app/orders',
         },
         {
-          title: '💬 Messagerie et coordination',
-          description: 'Discutez en temps réel avec le coordinateur ou le proche du bénéficiaire pour coordonner l\'aide.',
+          // ✅ ENRICHI SANS MESSAGERIE : Valorise les mémos vocaux et photos de fin de visite [24]
+          title: '🎤 Comptes-rendus immersifs',
+          description: 'Ajoutez des mémos vocaux en direct et des photos d’intervention pour justifier l’excellence de vos visites à la coordination.',
           image: aidantImg,
-          actionText: 'Mes discussions',
-          actionPath: '/app/messages',
+          actionText: 'Mon historique',
+          actionPath: '/app/history',
         },
         {
           title: '📋 Historique de vos rapports',
@@ -287,7 +285,7 @@ const DashboardPage = () => {
       ];
     }
 
-    // 👶 MAMAN & BÉBÉ (5 SLIDES)
+    // 👶 MAMAN & BÉBÉ (5 SLIDES SÉCURISÉES SANS MESSAGERIE) [24]
     if (isFamily && isMaman) {
       return [
         {
@@ -312,11 +310,12 @@ const DashboardPage = () => {
           actionPath: '/app/journal',
         },
         {
-          title: '💬 Messagerie mère-intervenante',
-          description: 'Gardez un lien constant et rassurant avec l\'auxiliaire de vie attitrée à l\'accompagnement de votre enfant.',
+          // ✅ ENRICHI SANS MESSAGERIE : Valorise le remplissage et l'édition du dossier clinique du proche [24]
+          title: '🌸 Soins personnalisés',
+          description: 'Renseignez avec précision les habitudes de vie, allergies ou consignes de confort pour guider parfaitement nos intervenants.',
           image: mamanImg,
-          actionText: 'Ouvrir mes messages',
-          actionPath: '/app/messages',
+          actionText: 'Mes Proches',
+          actionPath: '/app/patients',
         },
         {
           title: '💳 Formules Maternité Confort et Sérénité',
@@ -328,7 +327,7 @@ const DashboardPage = () => {
       ];
     }
 
-    // 👴 FAMILLE / SERVICES SENIORS (5 SLIDES)
+    // 👴 FAMILLE / SERVICES SENIORS (5 SLIDES SANS MESSAGERIE SÉCURISÉES) [24]
     return [
       {
         title: '👴 Aide et présence aux seniors',
@@ -673,6 +672,9 @@ const DashboardPage = () => {
       <section 
         className="relative overflow-hidden rounded-[2.5rem] border shadow-sm animate-fadeIn"
         style={{ backgroundColor: colors.primary, borderColor: colors.primary + '20' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <div 
           className="flex transition-transform duration-500 ease-out h-[210px] sm:h-[185px] w-full"
@@ -850,7 +852,7 @@ const DashboardPage = () => {
         )}
       </section>
 
-      {/* 🟢 GRILLE DE NAVIGATION PRINCIPALE (Redynamisée avec fonds colorés individuels pour chaque tuile) */}
+      {/* 🟢 GRILLE DE NAVIGATION PRINCIPALE */}
       <section className="bg-white rounded-3xl p-5 shadow-sm border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-center justify-between mb-4 px-1">
           <h2 className="text-xs font-black tracking-wider uppercase" style={{ color: colors.textLight }}>
@@ -861,7 +863,6 @@ const DashboardPage = () => {
           </span>
         </div>
 
-        {/* 🟢 Chaque tuile est maintenant une carte flottante individuelle dotée d'une fine bordure et de fonds riches (1a soit 10% d'opacité) */}
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {tiles.map((tile, index) => (
             <button
@@ -870,7 +871,6 @@ const DashboardPage = () => {
               className="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white border border-gray-100 shadow-[0_4px_12px_rgba(0,0,0,0.015)] transition-all duration-300 hover:bg-gray-50/70 hover:shadow-md hover:-translate-y-0.5 active:scale-95 group relative overflow-hidden"
               style={{ borderColor: colors.primary + '12' }}
             >
-              {/* Fond coloré individuel riche (10% d'opacité avec '1a') pour faire rayonner l'icône */}
               <div
                 className="w-11 h-11 rounded-2xl flex items-center justify-center mb-2.5 transition-all duration-300 group-hover:scale-105 shadow-inner"
                 style={{ background: tile.color + '1a', color: tile.color }}
@@ -1046,7 +1046,6 @@ const DashboardPage = () => {
         </section>
       )}
  
-
     </div>
   );
 };
