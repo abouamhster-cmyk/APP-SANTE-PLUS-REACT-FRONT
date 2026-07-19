@@ -1,5 +1,5 @@
 // 📁 src/features/patients/pages/PatientDetailPage.tsx
-// ✅ PAGE DÉTAIL DU PROCHE : SOLDE RÉEL D'ABONNEMENT DU PROCHE ET SUPPRESSION DU BOUTON DÉMARRER
+// ✅ PAGE DÉTAIL DU PROCHE : SOLDE RÉEL D'ABONNEMENT ET VERROUILLAGE SÉCURISÉ DE LA PLANIFICATION DES VISITES (ADMIN SEULEMENT)
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -356,7 +356,7 @@ const PatientDetailPage = () => {
   const pendingVisits = patientVisits.filter((v) => v.status === 'planifiee' && !v.approved_at && !v.refused_at);
 
   return (
-    <div className="space-y-6 pb-24 sm:pb-10">
+    <div className="space-y-6 pb-24 sm:pb-10 animate-fadeIn">
       {/* EN-TÊTE AVEC BOUTON DE RAFRAÎCHISSEMENT */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-center space-x-4">
@@ -436,8 +436,8 @@ const PatientDetailPage = () => {
         />
       </div>
 
-      {/* ACTIONS RAPIDES */}
-      {(isAidantRole || isFamilyRole || isAdminRole) && (
+      {/* ACTIONS RAPIDES (CORRIGÉ : Réservé exclusivement à l'Admin et à l'Aidant, bouton masqué à 100% pour la Famille !) [30] */}
+      {(isAidantRole || isAdminRole) && (
         <div className="bg-white rounded-2xl p-5 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -453,28 +453,12 @@ const PatientDetailPage = () => {
                       : 'Aucune visite disponible'}
                   </>
                 )}
-                {isFamilyRole && 'Planifiez une visite pour votre proche'}
-                {isAdminRole && 'Gérez les visites du patient'}
+                {isAdminRole && 'Gérez les visites et assignations du patient'}
               </p>
               <div className="mt-2">{renderSubscriptionStatus()}</div>
             </div>
             
             <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
-              {isFamilyRole && (
-                <button
-                  onClick={() => {
-                    setSelectedVisit(null);
-                    setVisitModalMode('create');
-                    setShowVisitModal(true);
-                  }}
-                  className="w-full sm:w-auto h-11 px-5 rounded-xl text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition hover:opacity-90 shadow-sm"
-                  style={{ background: colors.primary }}
-                >
-                  <Calendar size={15} />
-                  Planifier une visite
-                </button>
-              )}
-
               {isAdminRole && (
                 <button
                   onClick={() => {
@@ -486,7 +470,7 @@ const PatientDetailPage = () => {
                   style={{ background: colors.primary }}
                 >
                   <Plus size={15} />
-                  Assigner un aidant
+                  Planifier une visite / Assigner un aidant
                 </button>
               )}
             </div>
@@ -588,6 +572,7 @@ const PatientDetailPage = () => {
           </div>
         )}
 
+        {/* ONGLETS DES VISITES (CORRIGÉ : Aucun bouton de planification pour la famille !) [30] */}
         {activeTab === 'visits' && (
           <div>
             {patientVisits.length > 0 ? (
@@ -617,7 +602,7 @@ const PatientDetailPage = () => {
               <div className="text-center py-12" style={{ color: colors.textLight }}>
                 <Illustration type="calendar" size="lg" className="mx-auto mb-4 opacity-40" />
                 <p className="font-bold text-xs" style={{ color: colors.text }}>{noVisits}</p>
-                {(isFamilyRole || isAdminRole) && (
+                {isAdminRole && (
                   <button
                     onClick={() => {
                       setSelectedVisit(null);
@@ -697,14 +682,14 @@ const PatientDetailPage = () => {
 // SOUS-COMPOSANTS
 // ============================================================
 
-interface StatCardProps {
+interface BoxProps {
   label: string;
   value: string | number;
   color: string;
   className?: string;
 }
 
-const StatCard = ({ label, value, color, className = '' }: StatCardProps) => (
+const StatCard = ({ label, value, color, className = '' }: BoxProps) => (
   <div className={cn("bg-white rounded-2xl p-4 shadow-sm border", className)} style={{ borderColor: 'var(--color-border, #e5e7eb)' }}>
     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
     <p className="text-sm sm:text-base font-black mt-1" style={{ color }}>{value}</p>
@@ -771,7 +756,9 @@ const VisitCardCompact = ({
 
   const getAidantName = () => {
     if (visit.aidant?.user?.full_name) {
-      return visit.aidant.user.full_name;
+      return Math.round(visit.aidant.rating || 0) > 0 
+        ? `${visit.aidant.user.full_name} (${visit.aidant.rating} ⭐)`
+        : visit.aidant.user.full_name;
     }
     return 'Non assigné';
   };
