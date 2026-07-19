@@ -115,51 +115,51 @@ const MainLayout = () => {
   // =============================================
   const navItems = useMemo(() => {
     const base = [
-      { icon: <LayoutDashboard size={20} />, label: 'Tableau de bord', path: '/app' },
+      { icon: <Home size={20} />, label: "Mon Espace d'Accueil", path: '/app' },
     ];
 
     if (role === 'family') {
       return [
         ...base,
-        { icon: <Users size={20} />, label: 'Proches', path: '/app/patients' },
-        { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
-        { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <CreditCard size={20} />, label: 'Abonnement', path: '/app/billing' },
-        { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal' },
-        { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
-        { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
+        { icon: <Users size={20} />, label: 'Mes Proches', path: '/app/patients' },
+        { icon: <Calendar size={20} />, label: "Visites d'Accompagnement", path: '/app/visits' },
+        { icon: <ShoppingBag size={20} />, label: 'Livraisons & Courses', path: '/app/orders' },
+        { icon: <CreditCard size={20} />, label: 'Mon Forfait', path: '/app/billing' },
+        { icon: <BookOpen size={20} />, label: 'Journal de Bord', path: '/app/journal' },
+        { icon: <MapPin size={20} />, label: 'Carte en Direct', path: '/app/map' },
+        { icon: <User size={20} />, label: 'Mon Profil', path: '/app/profile' },
       ];
     }
 
     if (role === 'aidant') {
       return [
         ...base,
-        { icon: <Briefcase size={20} />, label: 'Missions', path: '/app/missions' },
-        { icon: <Calendar size={20} />, label: 'Planning', path: '/app/planning' },
-        { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history' },
-        { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
-        { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
+        { icon: <Briefcase size={20} />, label: "Missions d'Accompagnement", path: '/app/missions' },
+        { icon: <Calendar size={20} />, label: 'Calendrier des Interventions', path: '/app/planning' },
+        { icon: <HistoryIcon size={20} />, label: 'Historique des Visites', path: '/app/history' },
+        { icon: <ShoppingBag size={20} />, label: 'Livraisons & Courses', path: '/app/orders' },
+        { icon: <MapPin size={20} />, label: 'Carte de Localisation', path: '/app/map' },
+        { icon: <User size={20} />, label: 'Mon Profil', path: '/app/profile' },
       ];
     }
 
     if (role === 'admin' || role === 'coordinator') {
       return [
         ...base,
-        { icon: <LayoutDashboard size={20} />, label: 'Dashboard Admin', path: '/app/admin' },
-        { icon: <ClipboardList size={20} />, label: 'Inscriptions', path: '/app/registrations' },
-        { icon: <UserCheck size={20} />, label: 'Candidatures Aidants', path: '/app/aidant-candidates' },
-        { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients' },
-        { icon: <Calendar size={20} />, label: 'Visites', path: '/app/visits' },
-        { icon: <FileCheck size={20} />, label: 'Valider visites', path: '/app/admin/visits/validation' },
-        { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' },
-        { icon: <CreditCard size={20} />, label: 'Paiements', path: '/app/admin-payments' },
-        { icon: <Award size={20} />, label: 'Abonnements', path: '/app/admin-subscriptions' },
-        { icon: <Package size={20} />, label: 'Offres', path: '/app/offers' },
-        { icon: <Settings size={20} />, label: 'Paramètres', path: '/app/settings' },
-        { icon: <Bell size={20} />, label: 'Notifications Admin', path: '/app/admin-notifications' },
-        { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' },
-        { icon: <User size={20} />, label: 'Profil', path: '/app/profile' },
+        { icon: <LayoutDashboard size={20} />, label: "Console d'Administration", path: '/app/admin' },
+        { icon: <ClipboardList size={20} />, label: "Demandes d'Inscription", path: '/app/registrations' },
+        { icon: <UserCheck size={20} />, label: 'Candidatures Intervenants', path: '/app/aidant-candidates' },
+        { icon: <Users size={20} />, label: 'Dossiers Bénéficiaires', path: '/app/patients' },
+        { icon: <Calendar size={20} />, label: 'Suivi des Interventions', path: '/app/visits' },
+        { icon: <FileCheck size={20} />, label: 'Validation des Rapports', path: '/app/admin/visits/validation' },
+        { icon: <ShoppingBag size={20} />, label: 'Livraisons & Courses', path: '/app/orders' },
+        { icon: <CreditCard size={20} />, label: 'Suivi Financier', path: '/app/admin-payments' },
+        { icon: <Award size={20} />, label: 'Forfaits Actifs', path: '/app/admin-subscriptions' },
+        { icon: <Package size={20} />, label: "Catalogue d'Offres", path: '/app/offers' },
+        { icon: <Settings size={20} />, label: 'Configuration Système', path: '/app/settings' },
+        { icon: <Bell size={20} />, label: 'Alertes Administration', path: '/app/admin-notifications' },
+        { icon: <MapPin size={20} />, label: 'Carte en Direct', path: '/app/map' },
+        { icon: <User size={20} />, label: 'Mon Profil', path: '/app/profile' },
       ];
     }
 
@@ -173,30 +173,30 @@ const MainLayout = () => {
     const path = location.pathname;
 
     const exactTitles: Record<string, string> = {
-      '/app': 'Tableau de bord',
-      '/app/dashboard': 'Tableau de bord',
-      '/app/orders': 'Commandes',
-      '/app/patients': 'Bénéficiaires',
-      '/app/visits': 'Visites',
-      '/app/billing': 'Abonnement',
-      '/app/profile': 'Profil',
-      '/app/notifications': 'Notifications',
-      '/app/missions': 'Missions',
-      '/app/planning': 'Planning',
-      '/app/history': 'Historique',
-      '/app/map': 'Carte',
-      '/app/journal': 'Journal',
-      '/app/admin': 'Administration',
-      '/app/registrations': 'Inscriptions',
-      '/app/aidants': 'Aidants',
-      '/app/aidant-candidates': 'Candidatures Aidants',
-      '/app/users': 'Utilisateurs',
-      '/app/offers': 'Offres',
-      '/app/settings': 'Paramètres',
-      '/app/admin-payments': 'Paiements',
-      '/app/admin-subscriptions': 'Abonnements',
-      '/app/admin-notifications': 'Notifications Admin',
-      '/app/admin/visits/validation': 'Validation visites',
+      '/app': "Mon Espace d'Accueil",
+      '/app/dashboard': "Mon Espace d'Accueil",
+      '/app/orders': 'Livraisons & Courses',
+      '/app/patients': role === 'family' ? 'Mes Proches' : 'Dossiers Bénéficiaires',
+      '/app/visits': role === 'family' ? "Visites d'Accompagnement" : 'Suivi des Interventions',
+      '/app/billing': 'Mon Forfait',
+      '/app/profile': 'Mon Profil',
+      '/app/notifications': 'Notifications & Alertes',
+      '/app/missions': "Missions d'Accompagnement",
+      '/app/planning': 'Calendrier des Interventions',
+      '/app/history': 'Historique des Visites',
+      '/app/map': 'Carte en Direct',
+      '/app/journal': 'Journal de Bord',
+      '/app/admin': "Console d'Administration",
+      '/app/registrations': "Demandes d'Inscription",
+      '/app/aidants': 'Réseau Intervenants',
+      '/app/aidant-candidates': 'Candidatures Intervenants',
+      '/app/users': 'Utilisateurs du Système',
+      '/app/offers': "Catalogue d'Offres",
+      '/app/settings': 'Configuration Système',
+      '/app/admin-payments': 'Suivi Financier',
+      '/app/admin-subscriptions': 'Forfaits Actifs',
+      '/app/admin-notifications': 'Alertes Administration',
+      '/app/admin/visits/validation': 'Validation des Rapports',
     };
 
     if (exactTitles[path]) return exactTitles[path];
@@ -206,8 +206,8 @@ const MainLayout = () => {
     }
 
     if (role === 'aidant') return 'Missions';
-    if (role === 'family') return 'Tableau de bord';
-    if (role === 'admin' || role === 'coordinator') return 'Administration';
+    if (role === 'family') return "Mon Espace d'Accueil";
+    if (role === 'admin' || role === 'coordinator') return "Console d'Administration";
 
     return 'Santé Plus Services';
   }, [location.pathname, role]);
@@ -321,7 +321,7 @@ const MainLayout = () => {
                   {role === 'family' && <Users size={12} />}
                   {role === 'coordinator' && <UserCog size={12} />}
                   {role === 'admin' && <Shield size={12} />}
-                  {role === 'aidant' ? ' Aidant' :
+                  {role === 'aidant' ? ' Intervenant' :
                    role === 'family' ? ' Famille' :
                    role === 'coordinator' ? ' Coord' :
                    role === 'admin' ? ' Admin' : ''}
@@ -354,9 +354,8 @@ const MainLayout = () => {
           </div>
         </header>
 
-        {/* CONTENU PRINCIPAL SANS CLASSE ANIMATE-FADEIN PIEGEUSE */}
+        {/* CONTENU PRINCIPAL */}
         <main className="w-full max-w-full overflow-x-hidden pt-16 md:pt-24 p-3 sm:p-4 md:p-6 pb-24 md:pb-8">
-          {/* ✅ CORRECTIF STRUCTUREL DE DEPLACEMENT DE LA TRANSFORMATION ANIMÉE */}
           <div className="max-w-7xl mx-auto animate-fadeIn">
             <ReminderBanner />
             <Outlet />
@@ -404,7 +403,7 @@ const SidebarContent = ({
   };
 
   const getRoleLabel = () => {
-    if (role === 'aidant') return 'Aidant';
+    if (role === 'aidant') return 'Intervenant';
     if (role === 'family') return 'Famille';
     if (role === 'coordinator') return 'Coordinateur';
     if (role === 'admin') return 'Administrateur';
