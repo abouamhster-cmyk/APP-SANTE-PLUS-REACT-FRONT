@@ -1,5 +1,5 @@
 // 📁 src/features/notifications/pages/NotificationsPage.tsx
-
+ 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -7,13 +7,13 @@ import {
   Check, 
   X, 
   RefreshCw, 
-  BellRing, 
   Calendar, 
   ShoppingBag, 
   CreditCard, 
   AlertCircle, 
   Loader2,
-  Trash2
+  Trash2,
+  Zap
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -22,6 +22,132 @@ import { useTerminology } from '@/hooks/useTerminology';
 import { formatDateTime, cn } from '@/utils/helpers';
 import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
+
+// ============================================================
+// 🧠 MOTEUR DE TRADUCTION ET DE PERSONNALISATION DYNAMIQUE SÉCURISÉ [23]
+// ============================================================
+const formatNotificationContext = (notification: any, currentUser: any) => {
+  const title = notification.title || '';
+  const body = notification.body || '';
+  const data = notification.data || {};
+  const role = currentUser?.role;
+  const currentUserId = currentUser?.id;
+
+  // 1️⃣ CAS : NOTIFICATIONS D'ASSIGNATIONS ET RATTACHEMENTS D'AIDANTS [30]
+  if (
+    notification.type === 'system' || 
+    notification.type === 'visite' || 
+    notification.type === 'alert' || 
+    title.includes('assignation') || 
+    title.includes('assigné') || 
+    body.includes('assigné')
+  ) {
+    const aidantName = data.aidant_name || 'L\'aidant';
+    const targetName = data.target_name || 'Bénéficiaire';
+    const creatorName = data.creator_name || 'L\'administration';
+    
+    // UUIDs de comparaison
+    const creatorId = data.creator_id || data.created_by;
+    const targetId = data.target_id;
+    const isPermanent = data.assignment_type === 'primary' || data.assignment_type === 'secondary' || data.is_permanent === true;
+    const typeLabel = isPermanent ? 'Permanente' : 'Ponctuelle';
+
+    // 👔 SCÉNARIO A : C'est l'Administrateur / Coordinateur connecté qui lit [23]
+    if (role === 'admin' || role === 'coordinator') {
+      const isCreatorMe = creatorId === currentUserId;
+      
+      if (isCreatorMe) {
+        // L'admin connecté a fait l'action lui-même ! [23]
+        return {
+          title: '💼 Mon assignation d’aidant',
+          body: `Vous avez assigné ${aidantName} à ${targetName} (${typeLabel})` // ✅ Écrit "Vous avez" au lieu de son propre nom [23]
+        };
+      } else {
+        // Un autre admin a fait l'action
+        return {
+          title: '📋 Nouvelle assignation créée',
+          body: `${creatorName} a assigné ${aidantName} à ${targetName} (${typeLabel})`
+        };
+      }
+    }
+
+    // 👨‍👩‍👦 SCÉNARIO B : C'est la Famille (Client) connectée qui lit [23]
+    if (role === 'family') {
+      const isTargetMe = targetId === currentUserId;
+      
+      if (isTargetMe) {
+        // L'assignation est pour mon PROPRE compte en direct [23]
+        return {
+          title: isPermanent ? '📌 Votre aidant permanent est prêt' : '⚡ Visite d’appoint programmée',
+          body: isPermanent 
+            ? `${aidantName} est désormais rattaché de manière permanente à votre compte personnel.` // ✅ Humain et direct [23]
+            : `${aidantName} est assigné pour votre prochaine visite ponctuelle.`
+        };
+      } else {
+        // L'assignation est pour l'un de mes proches patients
+        return {
+          title: isPermanent ? `📌 Intervenant permanent pour ${targetName}` : `⚡ Visite programmée pour ${targetName}`,
+          body: isPermanent 
+            ? `${aidantName} est désormais l’intervenant permanent de ${targetName}.` // ✅ Humain et direct [23]
+            : `${aidantName} effectuera la prochaine visite d’appoint pour ${targetName}.`
+        };
+      }
+    }
+
+    // 🦸 SCÉNARIO C : C'est l'Aidant connecté qui lit [23]
+    if (role === 'aidant') {
+      return {
+        title: '📅 Nouvelle intervention rattachée',
+        body: isPermanent 
+          ? `Vous êtes assigné en tant que soignant référent permanent pour ${targetName}.`
+          : `Vous êtes assigné pour la visite ponctuelle de ${targetName}.`
+      };
+    }
+  }
+
+  // 2️⃣ CAS : NOTIFICATIONS DE FORFAITS / ABONNEMENTS
+  if (title.includes('Abonnement') || title.includes('forfait') || title.includes('abonnement')) {
+    if (role === 'family') {
+      if (title.includes('activé') || title.includes('confirm') || body.includes('actif')) {
+        return {
+          title: '🎉 Votre forfait est désormais actif !',
+          body: `Votre abonnement a été activé avec succès. Vous pouvez maintenant planifier vos visites et commandes gratuites.`
+        };
+      }
+      if (title.includes('attente')) {
+        return {
+          title: '💳 Validation de votre forfait en attente',
+          body: `Votre souscription est en attente de paiement. Veuillez finaliser votre règlement en ligne.`
+        };
+      }
+    }
+  }
+
+  // 3️⃣ CAS : NOTIFICATIONS DE COMMANDES / COURSES
+  if (notification.type === 'commande' || title.includes('commande') || title.includes('livr')) {
+    const description = data.description || 'votre commande';
+    if (role === 'family') {
+      if (title.includes('prise en charge') || title.includes('take')) {
+        return {
+          title: '🚚 Votre colis est en route !',
+          body: `L'intervenant a pris en charge votre commande de courses/médicaments.`
+        };
+      }
+      if (title.includes('livrée') || title.includes('deliver')) {
+        return {
+          title: '📦 Colis déposé à votre adresse !',
+          body: `Votre commande a été livrée. Veuillez valider la bonne réception en ligne ou en espèces.`
+        };
+      }
+    }
+  }
+
+  // Fallback de sécurité (retourne les valeurs stockées brut en DB si aucun filtre ne correspond)
+  return {
+    title,
+    body
+  };
+};
 
 // ============================================================
 // DÉCORATEUR D'ICÔNE THÉMATIQUE COLORÉE (BRANDING & VISUEL)
@@ -64,6 +190,10 @@ const getNotificationIcon = (type: string, colors: any) => {
       );
   }
 };
+
+// ============================================================
+// COMPOSANT PRINCIPAL
+// ============================================================
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
@@ -249,7 +379,7 @@ const NotificationsPage = () => {
             }}
             title={notificationsEnabled ? 'Alertes actives' : 'Alertes muettes'}
           >
-            <Bell size={15} className={cn(notificationsEnabled ? "animate-swing origin-top" : "")} />
+            <BellRing size={15} className={cn(notificationsEnabled ? "animate-swing origin-top" : "")} />
           </button>
 
           {unreadCount > 0 && (
@@ -296,6 +426,9 @@ const NotificationsPage = () => {
           {visibleNotifications.map((notification) => {
             const isUnread = !notification.is_read;
 
+            // ✅ APPLICATION DU FILTRE ET FORMULATEUR DE CONTEXTE DYNAMIQUE NOMINATIF ! [23, 30]
+            const formatted = formatNotificationContext(notification, profile);
+
             return (
               <div
                 key={notification.id}
@@ -324,7 +457,7 @@ const NotificationsPage = () => {
                       "text-xs sm:text-sm leading-snug",
                       isUnread ? "font-extrabold" : "font-semibold"
                     )} style={{ color: colors.text }}>
-                      {notification.title}
+                      {formatted.title} {/* ✅ Affichage du titre traduit contextuel [23] */}
                     </h4>
 
                     {isUnread && (
@@ -339,7 +472,7 @@ const NotificationsPage = () => {
                   </div>
 
                   <p className="text-xs sm:text-sm leading-relaxed font-medium" style={{ color: colors.textLight }}>
-                    {notification.body}
+                    {formatted.body} {/* ✅ Affichage du corps traduit contextuel [23] */}
                   </p>
 
                   <div className="flex items-center gap-3 pt-1">
