@@ -1,5 +1,6 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
- 
+// ✅ PAGE FACTURATION CLIENT : FILTRAGE DYNAMIQUE STRICT SELON LE PROFIL CLINIQUE DU FOYER SANS COUPLAGE DE COMMANDES
+
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
@@ -76,52 +77,68 @@ const BillingPage = () => {
     fetchPayments(true);
   }, []);
 
-  const hasSeniorPatient = useMemo(() => patients.some(p => p.category === 'senior'), [patients]);
-  const hasMamanPatient = useMemo(() => patients.some(p => p.category === 'maman_bebe'), [patients]);
-  const isSeniorProfile = profile?.patient_category === 'senior' || profile?.proche_category === 'senior';
-  const isMamanProfile = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
+  // ✅ VÉRIFICATEURS CLINIQUES DE FOYER (Détecte la présence de chaque catégorie)
+  const hasSeniorPatient = useMemo(() => patients.some(p => p.category === 'senior') || profile?.patient_category === 'senior', [patients, profile]);
+  const hasMamanPatient = useMemo(() => patients.some(p => p.category === 'maman_bebe') || profile?.patient_category === 'maman_bebe', [patients, profile]);
 
-  const showSenior = hasSeniorPatient || isSeniorProfile;
-  const showMaman = hasMamanPatient || isMamanProfile;
-  const showAll = !showSenior && !showMaman;
-
-  // Filtrer les offres actives de type abonnement (mensuelle, trimestrielle, etc.)
+  // ✅ FILTRAGE DYNAMIQUE EXPLICITE DES 4 RÈGLES DE SOUSCRIPTION [30]
   const allowedOffers = useMemo(() => {
     const activeSubscriptionOffers = offers.filter((o: Offer) => o.type !== 'ponctuelle' && o.is_active === true);
 
-    if (showAll) {
+    // Règle 1 : Compte personnel seul -> Peut tout voir [30]
+    if (isPersonalAccount) {
       return activeSubscriptionOffers;
     }
 
-    return activeSubscriptionOffers.filter((o: Offer) => {
-      if (o.category === 'senior') return showSenior;
-      if (o.category === 'maman_bebe') return showMaman;
-      return true;
-    });
-  }, [offers, showAll, showSenior, showMaman]);
+    // Règle 4 : Le foyer possède les deux types de proches -> Voit les deux catégories d'abonnements [30]
+    if (hasSeniorPatient && hasMamanPatient) {
+      return activeSubscriptionOffers;
+    }
 
-  const visibleTabs = useMemo(() => {
+    // Règle 2 : Le foyer possède uniquement un proche maman -> Voit uniquement maman & bébé [1, 30]
+    if (hasMamanPatient && !hasSeniorPatient) {
+      return activeSubscriptionOffers.filter((o: Offer) => o.category === 'maman_bebe');
+    }
+
+    // Règle 3 : Le foyer possède uniquement un proche senior -> Voit uniquement seniors [1, 30]
+    if (hasSeniorPatient && !hasMamanPatient) {
+      return activeSubscriptionOffers.filter((o: Offer) => o.category === 'senior');
+    }
+
+    // Sécurité : Rendu par défaut complet
+    return activeSubscriptionOffers;
+  }, [offers, isPersonalAccount, hasSeniorPatient, hasMamanPatient]);
+
+  // ✅ FILTRAGE D'ONGLETS SÉCURISÉ (Masque les catégories non concernées du menu rapide) [30]
+  const getVisibleTabs = (): TabType[] => {
     if (isAidantRole) return [];
-    const tabs: TabType[] = ['all'];
-    const hasSeniorAllowed = allowedOffers.some(o => o.category === 'senior');
-    const hasMamanAllowed = allowedOffers.some(o => o.category === 'maman_bebe');
+    if (isPersonalAccount) return ['all'];
 
-    if (hasSeniorAllowed) tabs.push('senior');
-    if (hasMamanAllowed) tabs.push('maman_bebe');
+    if (hasSeniorPatient && hasMamanPatient) {
+      return ['all', 'senior', 'maman_bebe']; // Accès aux deux de manière fluide [30]
+    }
+    if (hasMamanPatient && !hasSeniorPatient) {
+      return ['all', 'maman_bebe']; // Filtre uniquement maman [1, 30]
+    }
+    if (hasSeniorPatient && !hasMamanPatient) {
+      return ['all', 'senior']; // Filtre uniquement senior [1, 30]
+    }
+    return ['all'];
+  };
 
-    return tabs;
-  }, [allowedOffers, isAidantRole]);
+  const visibleTabsList = getVisibleTabs();
+
+  // Ajustement de l'onglet actif si changement de filtre
+  useEffect(() => {
+    if (activeTab !== 'all' && !visibleTabsList.includes(activeTab)) {
+      setActiveTab('all');
+    }
+  }, [visibleTabsList, activeTab]);
 
   const displayedOffers = useMemo(() => {
     if (activeTab === 'all') return allowedOffers;
     return allowedOffers.filter(o => o.category === activeTab);
   }, [allowedOffers, activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== 'all' && !visibleTabs.includes(activeTab)) {
-      setActiveTab('all');
-    }
-  }, [visibleTabs, activeTab]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
@@ -150,22 +167,12 @@ const BillingPage = () => {
         {
           loading: 'Actualisation de votre dossier...',
           success: 'Abonnements à jour !',
-          error: 'Échec de synchronisation.',
+          error: 'Échec de la synchronisation.',
         }
       );
     }
     setPullY(0);
   };
-
-  const getVisibleTabs = (): TabType[] => {
-    if (isAidantRole) return [];
-    if (isPersonalAccount) return ['all'];
-    if (patientCategory === 'senior') return ['all', 'senior'];
-    if (patientCategory === 'maman_bebe') return ['all', 'maman_bebe'];
-    return ['all', 'senior', 'maman_bebe'];
-  };
-
-  const visibleTabsList = getVisibleTabs();
 
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
   const isSubscriptionDepleted = useMemo(() => {
@@ -254,7 +261,6 @@ const BillingPage = () => {
           const end = new Date(sub.end_date);
           const diffDays = Math.round(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
           
-          // ✅ CORRECTIF DE FORMAT : Utilisation de la propriété CamelCase "durationDays" à la place de "duration_days" [23]
           const baseDays = sub.offre.durationDays || (sub.offre as any).duration_days || 30;
           multiplier = Math.max(1, Math.round(diffDays / baseDays));
         }
@@ -330,7 +336,7 @@ const BillingPage = () => {
 
   return (
     <div 
-      className="space-y-6 max-w-5xl mx-auto pb-6"
+      className="space-y-6 max-w-5xl mx-auto pb-6 animate-fadeIn"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
