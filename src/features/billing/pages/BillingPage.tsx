@@ -17,7 +17,6 @@ import { useOfferStore } from '@/stores/offerStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
-import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { PaymentModal } from '../components/PaymentModal';
 import { VisitDaysPicker } from '@/components/subscriptions/VisitDaysPicker';
 import { Offer } from '@/types';
@@ -72,7 +71,6 @@ const BillingPage = () => {
     }
   }, [offersInitialized, fetchOffers]);
 
-  // ✅ Force le rechargement direct depuis Supabase sans passer par le cache local
   useEffect(() => {
     fetchSubscriptions(true);
     fetchPayments(true);
@@ -115,10 +113,8 @@ const BillingPage = () => {
 
   const displayedOffers = useMemo(() => {
     if (activeTab === 'all') return allowedOffers;
-    return allowedOffers.filter(o => o.category === opacityTabFilter(activeTab));
+    return allowedOffers.filter(o => o.category === activeTab);
   }, [allowedOffers, activeTab]);
-
-  const opacityTabFilter = (tab: TabType) => tab;
 
   useEffect(() => {
     if (activeTab !== 'all' && !visibleTabs.includes(activeTab)) {
@@ -177,7 +173,7 @@ const BillingPage = () => {
     return activeSubscription.remaining_visits <= 0 || isExpired;
   }, [activeSubscription]);
 
-  const hasActiveSub = activeSubscription && !isSubscriptionDepleted;
+  const hasActiveSub = !!(activeSubscription && !isSubscriptionDepleted);
 
   const isOfferSubscribed = (offerId: string) => {
     return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif' && sub.remaining_visits > 0);
@@ -205,7 +201,6 @@ const BillingPage = () => {
     toast.success('Paiement effectué avec succès !');
   };
 
-  // ✅ CALCUL DE LA DURÉE DU CONTRAT EN SEMAINES OU EN MOIS
   const getSubscriptionDurationText = (sub: any) => {
     if (!sub?.start_date || !sub?.end_date) return '';
     const start = new Date(sub.start_date);
@@ -225,31 +220,52 @@ const BillingPage = () => {
     }
   };
 
-  // ✅ CRÉATION D'UN HISTORIQUE ROBUSTE UNIFIÉ (Paiements + Souscriptions Validées)
+  // ✅ HISTORIQUE UNIFIÉ AVEC CALCUL DYNAMIQUE DU MULTIPLICATEUR DE DURÉE DE MOIS/QUOTA
   const unifiedHistory = useMemo(() => {
     const historyList: any[] = [];
-    
-    // 1. Ajoute les paiements réels présents en base
+    const addedSubIds = new Set<string>();
+
     payments.forEach(p => {
+      const metadata = p.metadata || {};
+      const subId = p.abonnement_id || metadata.abonnement_id || metadata.subscription_id;
+      if (subId) addedSubIds.add(subId);
+
+      const durationText = metadata.duration_months && metadata.duration_months > 1 
+        ? ` (${metadata.duration_months} mois)` 
+        : '';
+
       historyList.push({
         id: p.id,
-        amount: p.amount,
+        amount: Number(p.amount || 0),
         status: p.status,
         date: p.created_at || p.paid_at,
-        description: p.metadata?.description || 'Paiement forfait',
+        description: (metadata.description || 'Paiement forfait') + durationText,
       });
     });
 
-    // 2. Si aucun paiement n'apparait (ou problème RLS), ajoute l'abonnement actif comme transaction validée
     subscriptions.forEach(sub => {
-      const hasMatchingPayment = payments.some(p => p.abonnement_id === sub.id || p.metadata?.abonnement_id === sub.id);
-      if (!hasMatchingPayment && sub.offre && sub.status === 'actif') {
+      if (!addedSubIds.has(sub.id) && sub.offre) {
+        // Calcul du multiplicateur de durée à partir du quota total par rapport au quota de base
+        let multiplier = 1;
+        if (sub.offre.total_visits && sub.offre.total_visits > 0 && sub.total_visits) {
+          multiplier = Math.max(1, Math.round(sub.total_visits / sub.offre.total_visits));
+        } else if (sub.start_date && sub.end_date) {
+          const start = new Date(sub.start_date);
+          const end = new Date(sub.end_date);
+          const diffDays = Math.round(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          const baseDays = sub.offre.duration_days || 30;
+          multiplier = Math.max(1, Math.round(diffDays / baseDays));
+        }
+
+        const calculatedAmount = Number(sub.offre.price || 0) * multiplier;
+        const durationText = multiplier > 1 ? ` (${multiplier} mois)` : '';
+
         historyList.push({
           id: `sub-${sub.id}`,
-          amount: sub.offre.price,
-          status: 'valide',
+          amount: calculatedAmount,
+          status: sub.status === 'actif' ? 'valide' : sub.status,
           date: sub.created_at || sub.start_date,
-          description: `Souscription Forfait ${sub.offre.name}`,
+          description: `Souscription Forfait ${sub.offre.name}${durationText}`,
         });
       }
     });
@@ -365,11 +381,10 @@ const BillingPage = () => {
         </button>
       </section>
 
-      {/* ABONNEMENT EN COURS D'UTILISATION - CARTE STRUCTURÉE ET LISIBLE */}
+      {/* ABONNEMENT EN COURS D'UTILISATION */}
       {activeSubscription && (
         <section className="relative overflow-hidden rounded-2xl text-white p-6 shadow-md" style={{ background: colors.gradient || colors.primary }}>
           <div className="relative z-10 space-y-5">
-            {/* Header de la carte */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/10 pb-3">
               <div>
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-white/10 text-white border border-white/20">
@@ -390,7 +405,6 @@ const BillingPage = () => {
               </div>
             </div>
 
-            {/* Grille d'informations requises sans surcharge */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               <div>
                 <p className="text-[9px] text-gray-300 font-bold uppercase tracking-wider">Date de souscription</p>
@@ -422,7 +436,6 @@ const BillingPage = () => {
               </div>
             </div>
 
-            {/* Quotas restants */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <div className="bg-white/10 rounded-xl p-3 border border-white/10 flex items-center justify-between">
                 <div>
@@ -494,23 +507,23 @@ const BillingPage = () => {
       )}
 
       {/* GRILLE D'OFFRES D'ABONNEMENTS */}
-        {displayedOffers.length > 0 ? (
-          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {displayedOffers.map((offer: Offer) => (
-              <OfferCardCompact
-                key={offer.id}
-                offer={offer}
-                color={colors.primary}
-                textColor={colors.text}
-                isSubscribed={!!isOfferSubscribed(offer.id)}
-                hasActiveSubscription={!!hasActiveSub}
-                onChoose={() => openPayment(offer)}
-                isPersonalAccount={!!isPersonalAccount} 
-                hasSeniorPatient={!!hasSeniorPatient}    
-              />
-            ))}
-          </section>
-        ) : (
+      {displayedOffers.length > 0 ? (
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {displayedOffers.map((offer: Offer) => (
+            <OfferCardCompact
+              key={offer.id}
+              offer={offer}
+              color={colors.primary}
+              textColor={colors.text}
+              isSubscribed={!!isOfferSubscribed(offer.id)}
+              hasActiveSubscription={!!hasActiveSub}
+              onChoose={() => openPayment(offer)}
+              isPersonalAccount={!!isPersonalAccount}
+              hasSeniorPatient={!!hasSeniorPatient}
+            />
+          ))}
+        </section>
+      ) : (
         <div className="col-span-full bg-white rounded-2xl py-12 px-4 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-3" style={{ borderColor: colors.primary + '15' }}>
           <Package size={24} style={{ color: colors.textLight }} />
           <div className="space-y-1">
@@ -536,7 +549,7 @@ const BillingPage = () => {
         </div>
       )}
 
-      {/* HISTORIQUE DE TRANSACTIONS SÉCURISÉ */}
+      {/* HISTORIQUE DE TRANSACTIONS AVEC MONTANT RÉEL DU MULTIPLICATEUR */}
       <section className="bg-white rounded-2xl p-5 border shadow-sm" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: colors.primary + '10' }}>
           <h2 className="text-xs font-black tracking-wider uppercase" style={{ color: colors.textLight }}>
@@ -715,9 +728,8 @@ interface PaymentItemProps {
   colors: any;
 }
 
-// ✅ AFFICHAGE ÉPURÉ DE L'HISTORIQUE UNI-FLUX
 const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
-  const isValid = payment.status === 'valide' || payment.status === 'completed';
+  const isValid = payment.status === 'valide' || payment.status === 'completed' || payment.status === 'actif';
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50/50 p-3 transition-colors hover:bg-gray-50">
