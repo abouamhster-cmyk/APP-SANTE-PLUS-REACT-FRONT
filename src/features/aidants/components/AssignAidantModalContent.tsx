@@ -181,14 +181,14 @@ export const AssignAidantModalContent = ({
       
       if (!user) throw new Error('Utilisateur non connecté');
 
-      // ✅ CLÔTURE ASSIGNATION SÉCURISÉE : Délègue l'appel d'assignation s'il s'agit d'une visite ou d'une commande
-      if ((targetType === 'visit' || targetType === 'order') && targetId && onAssignAidant) {
+      // ✅ DELEGATION ADMIN COMPLÈTE : Si un callback d'assignation personnalisé onAssignAidant est fourni (comme sur PatientsPage ou OrderDetailPage), 
+      // l'IHM doit déléguer l'affectation à 100% à cette méthode sans jamais utiliser l'ID de l'administrateur ! [30]
+      if (onAssignAidant && targetId) {
         await onAssignAidant(
           aidantUserId, 
           assignmentType === 'primary' ? 'permanente' : 'ponctuelle', 
           forceMode
         );
-        toast.success(`Aidant assigné à la mission ${targetName || ''}`);
         onSuccess();
         return;
       }
