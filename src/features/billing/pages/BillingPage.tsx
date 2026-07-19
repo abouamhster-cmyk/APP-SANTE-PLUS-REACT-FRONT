@@ -24,26 +24,13 @@ import { Offer } from '@/types';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
-// =============================================
-// TYPES
-// =============================================
-
 type TabType = 'all' | 'senior' | 'maman_bebe';
-
-// =============================================
-// COMPOSANT PRINCIPAL
-// =============================================
 
 const BillingPage = () => {
   const { profile, role } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
   const { patients, fetchPatients } = usePatientStore();
-  const { hasActiveSubscription } = useSubscriptionGuard();
-
-  const {
-    isFamily,
-  } = useTerminology();
 
   const {
     subscriptions,
@@ -67,7 +54,6 @@ const BillingPage = () => {
   const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
-  // ÉTATS DE PULL-TO-REFRESH MOBILE
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
@@ -75,10 +61,6 @@ const BillingPage = () => {
   const patientCategory = profile?.patient_category;
   const isPersonalAccount = role === 'family' && !patientCategory && patients.length === 0;
   const isAidantRole = role === 'aidant';
-
-  // =============================================
-  // EFFETS : CHARGEMENT DES DONNÉES
-  // =============================================
 
   useEffect(() => {
     fetchPatients();
@@ -95,10 +77,6 @@ const BillingPage = () => {
     fetchPayments();
   }, []);
 
-  // ============================================================
-  // ✅ LOGIQUE DE COHÉRENCE VERTICALE DYNAMIQUE
-  // ============================================================
-  
   const hasSeniorPatient = useMemo(() => patients.some(p => p.category === 'senior'), [patients]);
   const hasMamanPatient = useMemo(() => patients.some(p => p.category === 'maman_bebe'), [patients]);
   const isSeniorProfile = profile?.patient_category === 'senior' || profile?.proche_category === 'senior';
@@ -106,8 +84,6 @@ const BillingPage = () => {
 
   const showSenior = hasSeniorPatient || isSeniorProfile;
   const showMaman = hasMamanPatient || isMamanProfile;
-  
-  // Compte personnel sans proche enregistré : on affiche tout l'univers pour lui laisser le choix de souscription
   const showAll = !showSenior && !showMaman;
 
   const allowedOffers = useMemo(() => {
@@ -124,10 +100,8 @@ const BillingPage = () => {
     });
   }, [offers, showAll, showSenior, showMaman]);
 
-  // Définir dynamiquement les onglets visibles
   const visibleTabs = useMemo(() => {
     if (isAidantRole) return [];
-    
     const tabs: TabType[] = ['all'];
     const hasSeniorAllowed = allowedOffers.some(o => o.category === 'senior');
     const hasMamanAllowed = allowedOffers.some(o => o.category === 'maman_bebe');
@@ -138,7 +112,6 @@ const BillingPage = () => {
     return tabs;
   }, [allowedOffers, isAidantRole]);
 
-  // Offres finalement affichées selon l'onglet actif
   const displayedOffers = useMemo(() => {
     if (activeTab === 'all') return allowedOffers;
     return allowedOffers.filter(o => o.category === activeTab);
@@ -150,7 +123,6 @@ const BillingPage = () => {
     }
   }, [visibleTabs, activeTab]);
 
-  // GESTION DU RAFAICHISSEMENT EN COULISSES
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -195,11 +167,18 @@ const BillingPage = () => {
 
   const visibleTabsList = getVisibleTabs();
 
+  // COHÉRENCE : Un abonnement n'est bloquant que s'il est actif, non expiré et possède encore des visites.
   const activeSubscription = subscriptions.find((sub) => sub.status === 'actif');
-  const hasActiveSub = subscriptions.some((sub) => sub.status === 'actif');
+  const isSubscriptionDepleted = useMemo(() => {
+    if (!activeSubscription) return true;
+    const isExpired = new Date(activeSubscription.end_date) < new Date();
+    return activeSubscription.remaining_visits <= 0 || isExpired;
+  }, [activeSubscription]);
+
+  const hasActiveSub = activeSubscription && !isSubscriptionDepleted;
 
   const isOfferSubscribed = (offerId: string) => {
-    return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif');
+    return subscriptions.some((sub) => sub.offre_id === offerId && sub.status === 'actif' && sub.remaining_visits > 0);
   };
 
   const openPayment = (offer: Offer) => {
@@ -207,7 +186,7 @@ const BillingPage = () => {
     const patientId = activePatient?.id || null;
 
     if (hasActiveSub) {
-      toast.error('Vous disposez déjà d\'un forfait actif');
+      toast.error("Vous disposez déjà d'un forfait actif avec des visites disponibles.");
       return;
     }
 
@@ -224,7 +203,6 @@ const BillingPage = () => {
     toast.success('Paiement effectué avec succès !');
   };
 
-  // ✅ CORRIGÉ : Remplacement de filteredOffers par allowedOffers pour l'analyse des métriques
   const stats = useMemo(() => {
     return {
       total: allowedOffers.length,
@@ -236,7 +214,6 @@ const BillingPage = () => {
 
   const isLoading = storeLoading || offersLoading;
 
-  // Libellés de catégories intelligents selon le type de compte
   const getTabLabel = (tabId: TabType) => {
     if (tabId === 'all') return 'Toutes les formules';
     if (tabId === 'senior') {
@@ -270,7 +247,6 @@ const BillingPage = () => {
     );
   }
 
-  // 🦸 VUE AIDANT ÉPURÉE
   if (isAidantRole) {
     return (
       <div className="max-w-5xl mx-auto pb-6">
@@ -296,8 +272,6 @@ const BillingPage = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      
-      {/* INDICATEUR REFRESH */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -317,7 +291,6 @@ const BillingPage = () => {
         </div>
       </div>
 
-      {/* HEADER ÉDITORIAL */}
       <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 text-center shadow-sm backdrop-blur-md" style={{ borderColor: colors.primary + '15' }}>
         <div className="space-y-1.5 relative z-10">
           <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
@@ -347,37 +320,48 @@ const BillingPage = () => {
         </button>
       </section>
 
-      {/* ABONNEMENT ACTIF */}
+      {/* ABONNEMENT EN COURS D'UTILISATION */}
       {activeSubscription && (
         <section className="relative overflow-hidden rounded-2xl text-white p-6 shadow-md" style={{ background: colors.gradient || colors.primary }}>
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                Formule active
+                {isSubscriptionDepleted ? 'Formule consommée' : 'Formule active'}
               </span>
               <h2 className="text-base font-black tracking-tight">
                 {activeSubscription.offre?.name || 'Abonnement actif'}
               </h2>
               <p className="text-xs text-gray-300 font-medium leading-relaxed">
-                Renouvellement le {new Date(activeSubscription.end_date).toLocaleDateString('fr-FR')}
-                {activeSubscription.auto_renew && ' • Reconduction automatique active'}
+                Fin d'engagement le {new Date(activeSubscription.end_date).toLocaleDateString('fr-FR')} • Renouvellement manuel
               </p>
             </div>
             <div className="sm:text-right shrink-0 space-y-1">
               <p className="text-lg font-black tracking-tight">
                 {(activeSubscription.offre?.price || 0).toLocaleString()} FCFA
               </p>
-              <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full bg-white/10 font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className={cn(
+                "inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full font-bold",
+                isSubscriptionDepleted ? "bg-red-500/20 text-red-200" : "bg-white/10"
+              )}>
+                <span className={cn("w-1.5 h-1.5 rounded-full", isSubscriptionDepleted ? "bg-red-400" : "bg-emerald-400 animate-pulse")} />
                 {activeSubscription.remaining_visits} visite(s) restantes
               </span>
             </div>
           </div>
+          
+          {/* Alerte et bouton de renouvellement si le quota de visites est à 0 */}
+          {isSubscriptionDepleted && (
+            <div className="mt-4 p-3 bg-white/10 rounded-xl border border-white/15 relative z-10">
+              <p className="text-xs font-bold text-white">⚠️ Votre crédit de visites est épuisé</p>
+              <p className="text-[10px] text-gray-200 mt-0.5">
+                Vous pouvez souscrire à une nouvelle offre ou réactiver manuellement la formule ci-dessous.
+              </p>
+            </div>
+          )}
           <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
         </section>
       )}
 
-      {/* ONGLETS COHÉRENTS */}
       {visibleTabsList.length > 1 && (
         <section className="w-full overflow-x-auto scrollbar-none py-1">
           <div className="inline-flex p-1 bg-gray-100/80 rounded-2xl border gap-1" style={{ borderColor: colors.primary + '10' }}>
@@ -407,34 +391,22 @@ const BillingPage = () => {
         </section>
       )}
 
-      {/* GRILLE D'OFFRES D'ABONNEMENTS */}
-      {displayedOffers.length > 0 ? (
-        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {displayedOffers.map((offer: Offer) => (
-            <OfferCardCompact
-              key={offer.id}
-              offer={offer}
-              color={colors.primary}
-              textColor={colors.text}
-              isSubscribed={isOfferSubscribed(offer.id)}
-              hasActiveSubscription={hasActiveSub}
-              onChoose={() => openPayment(offer)}
-              isPersonalAccount={isPersonalAccount}
-              hasSeniorPatient={hasSeniorPatient}
-            />
-          ))}
-        </section>
-      ) : (
-        <div className="col-span-full bg-white rounded-2xl py-12 px-4 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-3" style={{ borderColor: colors.primary + '15' }}>
-          <Package size={24} style={{ color: colors.textLight }} />
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold" style={{ color: colors.text }}>Aucun forfait disponible</h3>
-            <p className="text-xs" style={{ color: colors.textLight }}>Aucune offre active n'est disponible pour vos critères actuels.</p>
-          </div>
-        </div>
-      )}
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {displayedOffers.map((offer: Offer) => (
+          <OfferCardCompact
+            key={offer.id}
+            offer={offer}
+            color={colors.primary}
+            textColor={colors.text}
+            isSubscribed={isOfferSubscribed(offer.id)}
+            hasActiveSubscription={hasActiveSub}
+            onChoose={() => openPayment(offer)}
+            isPersonalAccount={isPersonalAccount}
+            hasSeniorPatient={hasSeniorPatient}
+          />
+        ))}
+      </section>
 
-      {/* RAPPEL DISCRET : MODE PONCTUEL DISPONIBLE */}
       {!hasActiveSub && (
         <div className="bg-white/40 rounded-xl p-4 border flex items-start gap-3 backdrop-blur-sm max-w-md mx-auto" style={{ borderColor: colors.primary + '15' }}>
           <Sparkles size={16} className="text-emerald-600 shrink-0 mt-0.5 animate-pulse" />
@@ -451,7 +423,6 @@ const BillingPage = () => {
         </div>
       )}
 
-      {/* HISTORIQUE DE TRANSACTIONS */}
       <section className="bg-white rounded-2xl p-5 border shadow-sm" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: colors.primary + '10' }}>
           <h2 className="text-xs font-black tracking-wider uppercase" style={{ color: colors.textLight }}>
@@ -474,7 +445,6 @@ const BillingPage = () => {
         )}
       </section>
 
-      {/* MODALS */}
       <PaymentModal
         isOpen={isPaymentOpen}
         onClose={() => {
@@ -510,10 +480,6 @@ const BillingPage = () => {
     </div>
   );
 };
-
-// =============================================
-// COMPOSANT COMPACT CARTE OFFRES
-// =============================================
 
 interface OfferCardCompactProps {
   offer: Offer;
@@ -629,10 +595,6 @@ const OfferCardCompact = ({
   );
 };
 
-// =============================================
-// COMPOSANT COMPACT TRANSACTIONS
-// =============================================
-
 interface PaymentItemProps {
   payment: any;
   colors: any;
@@ -645,7 +607,7 @@ const PaymentItem = ({ payment, colors }: PaymentItemProps) => {
     <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50/50 p-3 transition-colors hover:bg-gray-50">
       <div className="flex items-center gap-3 min-w-0">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 animate-fadeIn"
+          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
           style={{
             background: isValid ? '#10b9810a' : '#f59e0b0a',
             color: isValid ? '#10b981' : '#f59e0b',
