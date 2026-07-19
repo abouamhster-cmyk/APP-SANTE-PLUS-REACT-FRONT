@@ -1,5 +1,5 @@
 // 📁 src/components/subscriptions/SubscriptionCard.tsx
- 
+
 import { useState } from 'react';
 import { Calendar, CheckCircle, Clock, Calendar as CalendarIcon, User, XCircle } from 'lucide-react';
 import { Subscription } from '@/types';
@@ -107,9 +107,8 @@ export const SubscriptionCard = ({
           <Calendar size={14} />
           {formatDate(subscription.start_date)} → {formatDate(subscription.end_date)}
         </span>
-        {subscription.auto_renew && (
-          <span className="text-xs" style={{ color: colors.primary }}>🔄 Renouvellement auto</span>
-        )}
+        {/* Retrait de la mention auto_renew non-fonctionnelle */}
+        <span className="text-xs text-gray-400 font-medium">✏️ Renouvellement manuel</span>
       </div>
 
       {/* Visites restantes */}
@@ -239,7 +238,6 @@ export const SubscriptionCard = ({
         )}
       </div>
 
-      {/* Bouton "Gérer les jours" */}
       {isActive && onManageDays && (
         <button
           onClick={onManageDays}
@@ -251,7 +249,6 @@ export const SubscriptionCard = ({
         </button>
       )}
 
-      {/* Date d'expiration */}
       {isActive && (
         <p className="text-xs text-center mt-3" style={{ color: colors.textLight }}>
           Expire le {formatDate(subscription.end_date)}
