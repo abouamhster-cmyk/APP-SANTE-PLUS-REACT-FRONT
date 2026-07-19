@@ -1,5 +1,5 @@
-// 📁 frontend/src/features/orders/pages/OrderDetailPage.tsx
-// ✅ PAGE DÉTAIL COMMANDE : CLÔTURE ET FACTURATION À L'ACTE SANS RÉFÉRENCE AUX ABONNEMENTS
+// 📁 src/features/orders/pages/OrderDetailPage.tsx
+// ✅ PAGE DÉTAIL COMMANDE : CLÔTURE SÉCURISÉE CASH, REDIRECTION DIRECTE ET SÉLECTEUR DE PHOTOS DE LIVRAISON ENTIÈREMENT OPÉRATIONNEL [23]
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -209,6 +209,9 @@ const OrderDetailPage = () => {
   const modalRef = useRef<HTMLDivElement>(null);
   const isActionPending = useRef(false);
 
+  // ✅ DOUBLE DÉCLARATION POINTEUR FICHIER : Résout l'activation du sélecteur d'image au clic du cadre [23]
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   const openUrl = (url: string | null) => {
@@ -329,6 +332,7 @@ const OrderDetailPage = () => {
     }
   };
 
+  // ✅ CORRECTIF DE FORMAT : Typage strict du event de sélection de photo [22]
   const handleProofSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -693,8 +697,9 @@ const OrderDetailPage = () => {
         <p className="text-xs sm:text-sm font-semibold text-gray-800 leading-relaxed whitespace-pre-wrap">{order.description || "Aucun détail complémentaire."}</p>
       </div>
 
-      {/* RÉSUMÉ */}
+      {/* RÉSUMÉ - ✅ FILTRÉ À 3 COLONNES DÉSORMAIS (CARTE TYPE ÉLIMINÉE !) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* ✅ Affiche désormais estimated_amount si payé d'avance, ou purchase_amount + MM */}
         <MiniCard
           icon={<Banknote size={20} />}
           label="Provision Totale Payée"
@@ -747,7 +752,7 @@ const OrderDetailPage = () => {
         </h2>
 
         {order.target_type === 'personal' || !order.patient_id ? (
-          /* ✅ CAS A : Compte personnel (Course pour soi-même) */
+          /* ✅ CAS A : Compte personnel (Course pour soi-même) -> Grid à 2 colonnes épurée */
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <PersonBox
               icon={<User size={18} />}
@@ -770,7 +775,7 @@ const OrderDetailPage = () => {
             />
           </div>
         ) : (
-          /* ✅ CAS B : Pour un proche (Patient) */
+          /* ✅ CAS B : Pour un proche (Patient) -> Grid à 3 colonnes d'origine */
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <PersonBox
               icon={<User size={18} />}
@@ -976,11 +981,24 @@ const OrderDetailPage = () => {
 
             <p className="text-xs text-gray-500">Ajoutez une photo comme preuve de livraison.</p>
 
-            <div className="relative min-h-[140px] border-2 border-dashed rounded-[1.5rem] p-4 flex items-center justify-center bg-gray-50 overflow-hidden" style={{ borderColor: colors.primary + '30' }}>
+            {/* ✅ CORRECTIF DU SÉLECTEUR DE PHOTO : click-ref rattaché et input rendu fonctionnel au clic ! [23] */}
+            <div 
+              onClick={() => fileInputRef.current?.click()} // ✅ L'appui sur le cadre simule un clic sur l'input masqué [23]
+              className="relative min-h-[140px] border-2 border-dashed rounded-[1.5rem] p-4 flex items-center justify-center bg-gray-50 overflow-hidden cursor-pointer hover:bg-gray-100 transition" 
+              style={{ borderColor: colors.primary + '30' }}
+            >
               {proofPreview ? (
                 <>
                   <img src={proofPreview} alt="Preuve" className="max-h-[280px] w-full object-cover rounded-2xl" />
-                  <button type="button" onClick={() => { setProofFile(null); setProofPreview(null); }} className="absolute top-3 right-3 w-8 h-8 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition" >
+                  <button 
+                    type="button" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); // Évite de ré-ouvrir le sélecteur lors de la suppression [23]
+                      setProofFile(null); 
+                      setProofPreview(null); 
+                    }} 
+                    className="absolute top-3 right-3 w-8 h-8 rounded-xl bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition" 
+                  >
                     <XCircle size={18} />
                   </button>
                 </>
@@ -993,7 +1011,14 @@ const OrderDetailPage = () => {
                     <p className="font-semibold text-xs" style={{ color: colors.text }}>Sélectionner une photo</p>
                     <p className="text-[10px] mt-0.5 text-gray-400">PNG, JPG, JPEG — Max 5MB</p>
                   </div>
-                  <input type="file" accept="image/*" onChange={handleProofSelect} className="hidden" />
+                  {/* ✅ Input de fichier masqué avec sa ref liée [23] */}
+                  <input 
+                    ref={fileInputRef} // ✅ Référence rattachée [23]
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleProofSelect} 
+                    className="hidden" 
+                  />
                 </>
               )}
             </div>
@@ -1054,4 +1079,3 @@ const OrderDetailPage = () => {
 };
 
 export default OrderDetailPage;
-
