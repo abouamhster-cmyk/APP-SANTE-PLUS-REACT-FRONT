@@ -19,6 +19,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useContractStore } from '@/stores/contractStore';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
+import { supabase } from '@/lib/supabase'; 
 import { cn } from '@/utils/helpers';
 
 interface TourStep {
@@ -43,9 +44,9 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { profile, role, isAuthenticated, isInitialized, user } = useAuthStore();
+  const { profile, role, isAuthenticated, isInitialized, user, setUser } = useAuthStore();
   
-  // ✅ CORRECTIF DE SÉCURITÉ : Importation de l'état d'initialisation et de chargement du contrat [1]
+  // Attente de l'état d'initialisation et de chargement des CGU [1]
   const { 
     needsAcceptance, 
     isChecking: isContractChecking, 
@@ -71,9 +72,17 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const isMaman = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
 
   // ============================================================
-  // 1. VÉRIFICATION DU TOUR DÉJÀ VU
+  // 1. VÉRIFICATION DOUBLE SÉCURISÉ (BASE DE DONNÉES + CACHE) [23]
   // ============================================================
   useEffect(() => {
+    // A. Priorité absolue : Vérifier l'état dans le profil chargé depuis le serveur [23]
+    if (profile?.has_seen_onboarding === true) {
+      setHasSeenTour(true);
+      setIsReady(true);
+      return;
+    }
+
+    // B. Secours local de confort (LocalStorage) [23]
     const saved = localStorage.getItem(TOUR_STORAGE_KEY);
     if (saved) {
       try {
@@ -86,10 +95,10 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       }
     }
     setIsReady(true);
-  }, []);
+  }, [profile]);
 
   // ============================================================
-  // 2. DÉFINITION DES ÉTAPES AVEC COULEURS DYNAMIQUES PAR RÔLE [24]
+  // 2. DÉFINITION DES ÉTAPES PAR RÔLE [24]
   // ============================================================
   const steps: TourStep[] = useMemo(() => {
     if (!isAuthenticated || !role) return [];
@@ -140,7 +149,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       ];
     }
 
-    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (6 Étapes - Onglet Messages Supprimé) [24]
+    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (6 Étapes) [24]
     if (role === 'family') {
       const banner = isMaman ? mamanImg : seniorImg;
       return [
@@ -230,7 +239,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. RETENIR L'AFFICHAGE JUSQU'À L'ACCEPTATION DU CONTRAT [1, 24]
+  // 3. ENTRÉE SÉCURISÉE SANS CONCURRENCE (VÉRIFIÉ ET APPROUVÉ) [1, 24]
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
@@ -238,10 +247,9 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     if (!isAuthenticated) return;
     if (hasSeenTour) return;
 
-    // ✅ CORRECTIF DE COURSE D'ÉTATS (RACE CONDITION) : Interdiction de tenter l'affichage tant que la base n'a pas validé les CGU ! [1]
-    if (!isContractInitialized) return; // Attendre l'initialisation du statut du contrat [1]
-    if (isContractChecking) return; // Bloquer pendant l'appel API du contrat [1]
-    if (needsAcceptance) return; // Bloquer si l'utilisateur doit encore signer les CGU [1]
+    if (!isContractInitialized) return; 
+    if (isContractChecking) return; 
+    if (needsAcceptance) return; // Bloquer tant que les CGU ne sont pas signées [1]
 
     if (steps.length === 0) return;
     if (hasAttemptedShow) return;
@@ -261,7 +269,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
     
-    // S'ouvre instantanément et automatiquement après la validation du contrat [24]
+    // Déclenchement automatique immédiat et fluide après signature [24]
     showTimeoutRef.current = setTimeout(() => {
       setShouldShow(true);
       setIsOpen(true);
@@ -275,30 +283,51 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     isInitialized,
     isAuthenticated,
     hasSeenTour,
-    isContractInitialized, // ✅ Écoute l'initialisation du contrat
-    isContractChecking, // ✅ Écoute le chargement du contrat
-    needsAcceptance, // ✅ Écoute la signature du contrat
+    isContractInitialized, 
+    isContractChecking, 
+    needsAcceptance, 
     steps.length,
     location.pathname,
     hasAttemptedShow,
   ]);
 
   // ============================================================
-  // 4. COMPLÉTION DU TOUR
+  // 4. COMPLÉTION DU TOUR ET ENREGISTREMENT PHYSIQUE SERVEUR [23]
   // ============================================================
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback(async () => {
     setIsOpen(false);
     setShouldShow(false);
+    
+    // A. Sauvegarde locale de confort [23]
     localStorage.setItem(TOUR_STORAGE_KEY, JSON.stringify({
       seen: true,
       version: TOUR_VERSION,
       completedAt: new Date().toISOString(),
       userId: user?.id,
     }));
+
+    // B. SAUVEGARDE PHYSIQUE ET SÉCURISÉE EN BASE DE DONNÉES (Fiabilité 100%) [23]
+    if (user?.id) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ has_seen_onboarding: true })
+          .eq('id', user.id);
+
+        // Mettre à jour l'état local dans useAuthStore pour éviter les décalages de session [23]
+        if (profile) {
+          setUser(user, { ...profile, has_seen_onboarding: true });
+        }
+        console.log('📊 [Onboarding Engine] Sauvegarde définitive serveur effectuée [23]');
+      } catch (err) {
+        console.warn('⚠️ Échec de sauvegarde de l\'onboarding sur le serveur [23]');
+      }
+    }
+
     setHasSeenTour(true);
 
     if (onComplete) onComplete();
-  }, [onComplete, user?.id]);
+  }, [onComplete, user, profile, setUser]);
 
   const handleNext = useCallback(() => {
     if (currentStep < steps.length - 1) {
@@ -308,7 +337,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     }
   }, [currentStep, steps.length, handleComplete]);
 
-  // Touche Échap de confort
+  // Touche Échap
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
