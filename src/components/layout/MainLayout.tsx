@@ -36,6 +36,7 @@ import { useBranding } from '@/hooks/useBranding';
 import { cn, getGreeting } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
+import { OnboardingTour } from '@/components/onboarding/OnboardingTour'; // ✅ Importation de l'Onboarding [24]
 
 // =============================================
 // COMPOSANT PRINCIPAL
@@ -365,6 +366,8 @@ const MainLayout = () => {
 
       {/* TABS MOBILE */}
       {isMobile && <MobileTabBar colors={colors} />}
+
+        <OnboardingTour />
     </div>
   );
 };
