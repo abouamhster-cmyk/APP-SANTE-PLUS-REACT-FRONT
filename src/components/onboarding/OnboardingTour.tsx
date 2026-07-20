@@ -12,8 +12,10 @@ import {
   Calendar,
   ShoppingBag,
   Briefcase,
-  MessageCircle,
-  CreditCard,
+  UserCheck,
+  LayoutDashboard,
+  FileCheck,
+  ClipboardList,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -51,8 +53,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
   const {
     singular,
-    plural,
-    add,
   } = useTerminology();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -85,7 +85,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, []);
 
   // ============================================================
-  // 2. DÉFINITION DES ÉTAPES AVEC COULEURS DYNAMIQUES
+  // 2. DÉFINITION DES ÉTAPES AVEC COULEURS DYNAMIQUES PAR RÔLE [24]
   // ============================================================
   const steps: TourStep[] = useMemo(() => {
     if (!isAuthenticated || !role) return [];
@@ -136,7 +136,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       ];
     }
 
-    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (7 Étapes)
+    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (6 Étapes - Onglet Messages Supprimé) [24]
     if (role === 'family') {
       const banner = isMaman ? mamanImg : seniorImg;
       return [
@@ -150,35 +150,28 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         {
           id: 'patients',
           title: `👨‍👩‍👦 Fiches des ${isMaman ? 'Mamans / Bébés' : 'Seniors'}`,
-          description: `Renseignez le profil d'identité, les allergies et les habitudes de vie du ${singular} pour un suivi personnalisé.`,
+          description: `Renseignez le profil d'identité, les allergies et les habitudes de vie de votre proche pour un suivi personnalisé.`,
           icon: <Users size={28} />,
           image: banner,
         },
         {
           id: 'visits',
           title: '📅 Planification des Visites',
-          description: 'Programmez des visites d’accompagnement de confort et de présence pour veiller sur la sécurité de votre parent.',
+          description: 'L\'administration planifie pour vous des visites d’accompagnement de confort et de présence pour veiller sur la sécurité de votre parent.',
           icon: <Calendar size={28} />,
           image: banner,
         },
         {
           id: 'orders',
-          title: '🛒 Commandes & Fournitures',
+          title: '🛒 Livraisons de courses à l\'acte',
           description: 'Faites livrer en urgence des médicaments sur ordonnance, des produits d’hygiène bébé ou des courses de première nécessité.',
           icon: <ShoppingBag size={28} />,
           image: banner,
         },
         {
-          id: 'messages',
-          title: '💬 Messagerie de Coordination',
-          description: 'Échangez en direct avec votre intervenant de confiance ou notre équipe d’administration dans des fils de discussions sécurisés.',
-          icon: <MessageCircle size={28} />,
-          image: banner,
-        },
-        {
           id: 'billing',
           title: '💳 Formules d\'Abonnement',
-          description: 'Gérez vos forfaits Confort, Sérénité ou Privilège et suivez le solde de vos visites restantes de manière transparente.',
+          description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes de manière transparente.',
           icon: <CreditCard size={28} />,
           image: banner,
         },
@@ -192,7 +185,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       ];
     }
 
-    // 👑 RÔLE : ADMIN (4 Étapes)
+    // 👑 RÔLE : ADMIN (5 Étapes) [24]
     return [
       {
         id: 'welcome-admin',
@@ -205,14 +198,21 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         id: 'registrations',
         title: '📋 Inscriptions d’Abonnés',
         description: 'Passez en revue et validez les nouvelles fiches d’inscriptions des familles pour leur ouvrir l’accès aux services.',
-        icon: <Users size={28} />,
+        icon: <ClipboardList size={28} />,
         image: coordImg,
       },
       {
         id: 'aidants',
         title: '🦸 Recrutement des Aidants',
         description: 'Gérez les candidatures opérationnelles, vérifiez les casiers judiciaires et homologuez les nouveaux aidants.',
-        icon: <Briefcase size={28} />,
+        icon: <UserCheck size={28} />,
+        image: coordImg,
+      },
+      {
+        id: 'validations',
+        title: '✓ Validation des Interventions',
+        description: 'Examinez les comptes-rendus, photos et mémos vocaux soumis par les aidants pour valider la qualité finale des visites.',
+        icon: <FileCheck size={28} />,
         image: coordImg,
       },
       {
@@ -226,14 +226,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. RETENIR L'AFFICHAGE JUSQU'À L'ACCEPTATION DU CONTRAT
+  // 3. RETENIR L'AFFICHAGE JUSQU'À L'ACCEPTATION DU CONTRAT [1, 24]
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
     if (!isInitialized) return;
     if (!isAuthenticated) return;
     if (hasSeenTour) return;
-    if (needsAcceptance) return;
+    if (needsAcceptance) return; // ✅ IMPORTANT : Ne s'affiche jamais si le contrat est en attente d'acceptation [1]
     if (steps.length === 0) return;
     if (hasAttemptedShow) return;
 
@@ -252,10 +252,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
     
+    // S'ouvre instantanément et automatiquement après la validation du contrat [24]
     showTimeoutRef.current = setTimeout(() => {
       setShouldShow(true);
       setIsOpen(true);
-    }, 1200);
+    }, 600);
 
     return () => {
       if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
@@ -296,7 +297,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     }
   }, [currentStep, steps.length, handleComplete]);
 
-  // Touche Échap
+  // Touche Échap de confort
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -333,7 +334,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         )}
         style={{ borderColor: colors.primary + '15' }}
       >
-        {/* Progress bar line supérieure */}
+        {/* Progress bar line supérieure de progression */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-20" style={{ backgroundColor: colors.primary + '15' }}>
           <div
             className="h-full transition-all duration-500 ease-out"
