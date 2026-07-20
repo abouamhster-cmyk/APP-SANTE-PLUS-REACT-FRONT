@@ -1,5 +1,5 @@
 // 📁 src/components/ui/InfoModal.tsx
-// 📌 Wrapper pour compatibilité
+// ✅ WRAPPER INFOMODAL : DÉDOUBLONNAGE ET HARMONISATION DES COMPOSANTS PAR RÔLE
 
 import { ReactNode } from 'react';
 import { ModalFullScreen } from './ModalFullScreen';
@@ -22,9 +22,9 @@ export const InfoModal = ({
   title,
   children,
   icon,
-  maxWidth = 'lg',
   className,
 }: InfoModalProps) => {
+  // Récupérer la couleur de thème standard (Seniors)
   const colors = getThemeColors('senior');
 
   return (
@@ -32,15 +32,13 @@ export const InfoModal = ({
       isOpen={isOpen}
       onClose={onClose}
       onBack={onClose}
-      title={title}
+      title={title} 
       className={className}
     >
       <InfoModalContent
-        title={title}
         children={children}
-        icon={icon}
         onClose={onClose}
-        colors={colors}
+        colors={colors}  
       />
     </ModalFullScreen>
   );
