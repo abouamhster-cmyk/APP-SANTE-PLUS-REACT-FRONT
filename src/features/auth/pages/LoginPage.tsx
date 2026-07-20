@@ -1,6 +1,6 @@
 // 📁 src/features/auth/pages/LoginPage.tsx
-
-import { useState, useEffect } from 'react';
+ 
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
@@ -20,7 +20,6 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isMaman = brand.theme === 'maman';
   const primaryColor = colors.primary;
   const textColor = colors.text;
 
@@ -60,6 +59,7 @@ const LoginPage = () => {
 
       console.log('✅ Utilisateur connecté:', data.user.id);
 
+      // Récupérer le profil utilisateur associé
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -73,15 +73,9 @@ const LoginPage = () => {
         return;
       }
 
-      if (profile?.role === 'aidant' && !profile?.is_active) {
-        toast.error('⏳ Votre compte aidant est en attente de validation.');
-        await supabase.auth.signOut();
-        setIsLoading(false);
-        return;
-      }
-
+      // Si le profil n'existe pas encore, on le crée automatiquement en tant que Famille [24]
       if (!profile) {
-        console.log('📝 Création du profil...');
+        console.log('📝 Création automatique du profil...');
 
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
@@ -103,21 +97,39 @@ const LoginPage = () => {
           return;
         }
 
-        console.log('✅ Profil créé:', newProfile);
+        console.log('✅ Profil créé automatiquement:', newProfile);
+        
+        // Mettre en cache le thème vert par défaut
+        localStorage.setItem('sante_plus_theme', 'senior');
+
         setUser(data.user, newProfile);
         toast.success('Bienvenue !');
         navigate('/app', { replace: true });
         return;
       }
 
+      // 🛑 Sécurité Aidant : Bloquer d'office la connexion si le compte intervenant n'est pas encore validé
       if (profile.role === 'aidant' && !profile.is_active) {
-        toast.error('⏳ Votre compte aidant est en attente de validation.');
+        toast.error('⏳ Votre compte aidant est en attente de validation par l\'administration.');
         await supabase.auth.signOut();
         setIsLoading(false);
         return;
       }
 
-      console.log('✅ Profil récupéré:', profile);
+      // ============================================================
+      // 🧠 ENREGISTREMENT STRATÉGIQUE DU THÈME EN MÉMOIRE PERSISTANTE [24]
+      // ============================================================
+      if (profile.role === 'family') {
+        if (profile.patient_category === 'maman_bebe') {
+          localStorage.setItem('sante_plus_theme', 'maman'); // Mémorise le Rose pour les prochaines connexions [24]
+        } else {
+          localStorage.setItem('sante_plus_theme', 'senior'); // Mémorise le Vert pour les seniors [24]
+        }
+      } else {
+        localStorage.setItem('sante_plus_theme', 'senior'); // Les aidants et admins se connectent en Vert par défaut [23, 24]
+      }
+
+      console.log('✅ Profil récupéré avec succès:', profile);
       setUser(data.user, profile);
       toast.success('Bienvenue !');
       navigate('/app', { replace: true });
@@ -132,7 +144,7 @@ const LoginPage = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center p-3"
+      className="min-h-screen w-full flex items-center justify-center p-3 animate-fadeIn"
       style={{ background: colors.background }}
     >
       <div className="w-full max-w-md">
@@ -140,7 +152,7 @@ const LoginPage = () => {
           className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border relative"
           style={{ borderColor: colors.primary + '20' }}
         >
-          {/* Logo */}
+          {/* Logo flottant unifié */}
           <div className="absolute -top-8 left-1/2 -translate-x-1/2">
             <div
               className="w-14 h-14 rounded-xl bg-white shadow-sm border flex items-center justify-center"
@@ -191,7 +203,7 @@ const LoginPage = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 rounded-xl border outline-none text-xs"
+                  className="w-full pl-8 pr-3 h-10 rounded-xl border outline-none text-xs"
                   style={{
                     borderColor: colors.primary + '25',
                     background: colors.background,
@@ -219,7 +231,7 @@ const LoginPage = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-8 pr-8 py-2 rounded-xl border outline-none text-xs"
+                  className="w-full pl-8 pr-8 h-10 rounded-xl border outline-none text-xs"
                   style={{
                     borderColor: colors.primary + '25',
                     background: colors.background,
@@ -252,7 +264,7 @@ const LoginPage = () => {
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75"
+              className="w-full h-11 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75"
               style={{ background: primaryColor }}
               disabled={isLoading}
             >
