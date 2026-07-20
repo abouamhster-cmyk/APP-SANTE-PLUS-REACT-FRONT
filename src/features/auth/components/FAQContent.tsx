@@ -1,4 +1,5 @@
 // 📁 src/features/auth/components/FAQContent.tsx
+// ✅ CONTENU FAQ : ALIGNEMENT COMPLET AVEC LA CHARTE OPÉRATIONNELLE ET LES TARIFS DE L'ENTREPRISE
 
 import React, { useState } from "react";
 
@@ -12,22 +13,22 @@ const FAQItem = ({ question, answer, icon = "❓" }: FAQItemProps) => {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="border rounded-2xl overflow-hidden bg-white/60 backdrop-blur-sm shadow-sm transition hover:shadow-md">
+    <div className="border rounded-2xl overflow-hidden bg-[#FCFAF6] dark:bg-[#1a231f] shadow-sm transition hover:shadow-md">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full text-left p-4 flex justify-between items-center gap-4"
+        className="w-full text-left p-4 flex justify-between items-center gap-4 outline-none"
       >
-        <span className="flex items-center gap-2 font-medium text-[var(--color-text,#1f2937)]">
+        <span className="flex items-center gap-2 font-bold text-xs sm:text-sm text-gray-800 dark:text-gray-100">
           <span className="text-lg">{icon}</span>
           <span>{question}</span>
         </span>
-        <span className="text-xl font-bold text-gray-400 flex-shrink-0">
+        <span className="text-base font-black text-gray-400 shrink-0">
           {open ? "−" : "+"}
         </span>
       </button>
 
       {open && (
-        <div className="px-4 pb-4 text-sm text-[var(--color-text-light,#6b7280)] leading-relaxed">
+        <div className="px-4 pb-4 text-xs sm:text-sm text-gray-500 dark:text-gray-300 leading-relaxed font-semibold animate-fadeIn">
           {answer}
         </div>
       )}
@@ -37,28 +38,20 @@ const FAQItem = ({ question, answer, icon = "❓" }: FAQItemProps) => {
 
 export const FAQContent = () => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
 
       {/* ============================================================
-      HEADER
-      ============================================================ */}
-      <div className="text-center space-y-2 border-b pb-4">
- 
-        <p className="text-xs text-gray-500">
-          Tout ce que vous devez savoir sur Santé Plus Service
-        </p>
-        <p className="text-[10px] text-gray-400">
-          Dernière mise à jour : {new Date().toLocaleDateString("fr-FR", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
+          HEADER (DÉDOUBLONNÉ)
+          ============================================================ */}
+      <div className="text-center space-y-1.5 border-b pb-3.5">
+        <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
+          Tout ce que vous devez savoir sur le fonctionnement de Santé Plus Service
         </p>
       </div>
 
       {/* ============================================================
-      FAQ LIST
-      ============================================================ */}
+          QUESTIONS / RÉPONSES [1]
+          ============================================================ */}
       <div className="space-y-3">
 
         {/* 1. Qu'est-ce que Santé Plus Services ? */}
@@ -66,18 +59,15 @@ export const FAQContent = () => {
           icon="🏥"
           question="Qu'est-ce que Santé Plus Services ?"
           answer={
-            <div className="space-y-2">
+            <div className="space-y-2 font-medium">
               <p>
-                <strong>Santé Plus Services</strong> est une plateforme numérique d'accompagnement 
-                non médical à domicile.
+                <strong>Santé Plus Services</strong> est une plateforme d'intermédiation, de coordination et de suivi de prestations d'accompagnement à domicile non médicales (Seniors & Maternité) [1].
               </p>
               <p>
-                Nous mettons en relation des familles avec des aidants qualifiés pour un 
-                accompagnement personnalisé, et nous assurons la coordination des prestations.
+                Nous permettons aux familles d'organiser des visites de veille pour leurs proches âgés ou de planifier du soutien d'éveil et de confort pour les mamans et les nouveau-nés [1].
               </p>
-              <p className="text-xs text-amber-600">
-                ⚠️ Santé Plus Services n'est pas un établissement médical et ne remplace 
-                ni un médecin ni une structure hospitalière.
+              <p className="text-xs text-red-600 font-bold">
+                ⚠️ Attention : la plateforme n'est pas un service d'urgence médicale ni un hôpital clinique.
               </p>
             </div>
           }
@@ -86,265 +76,116 @@ export const FAQContent = () => {
         {/* 2. Qui sont les aidants ? */}
         <FAQItem
           icon="🦸"
-          question="Qui sont les aidants ?"
+          question="Qui sont les aidants et comment sont-ils recrutés ?"
           answer={
-            <div className="space-y-2">
+            <div className="space-y-2 font-medium">
               <p>
-                Les aidants sont des personnes <strong>formées et sélectionnées</strong> par 
-                Santé Plus Services.
+                Les aidants sont des intervenants à domicile (auxiliaires de vie sociale, gardes-malades ou puéricultrices) rigoureusement sélectionnés par notre direction [1].
               </p>
               <p>
-                Ils apportent un soutien quotidien : présence, organisation, 
-                coordination — <strong>sans actes médicaux</strong>.
-              </p>
-              <p className="text-xs text-gray-500">
-                ✅ Tous les aidants sont vérifiés et approuvés par l'équipe Santé Plus.
+                Chaque candidature fait l'objet d'une enquête d'antécédents, d'une vérification de diplômes ou d'expériences, et d'une formation interne continue avant d'obtenir son habilitation sur la plateforme [1].
               </p>
             </div>
           }
         />
 
-        {/* 3. Comment se passe l'inscription ? */}
+        {/* 3. Comment s'organisent les visites ? */}
         <FAQItem
-          icon="📝"
-          question="Comment se passe l'inscription ?"
+          icon="📅"
+          question="Comment s'organisent les visites d'accompagnement ?"
           answer={
-            <div className="space-y-2">
+            <div className="space-y-2 font-medium">
               <p>
-                L'inscription est <strong>simple et rapide</strong> en 5 étapes :
+                L'administration planifie les visites d'accompagnement selon le rythme de votre forfait [30]. Un aidant d'appoint est affecté en priorité selon le besoin [30].
               </p>
-              <ol className="list-decimal pl-5 space-y-1">
-                <li>Choix du profil (famille ou aidant)</li>
-                <li>Choix du service (Senior ou Maman & Bébé)</li>
-                <li>Création des identifiants</li>
-                <li>Renseignement des informations</li>
-                <li>Validation et acceptation des CGU</li>
-              </ol>
-              <p className="mt-2 text-amber-600 text-xs">
-                ⏳ Votre compte est validé sous <strong>48h</strong> par l'équipe Santé Plus.
+              <p>
+                Lors de l'intervention, l'aidant enregistre son heure d'arrivée et de départ par GPS [30]. À la clôture, il rédige un compte rendu détaillé avec photos et mémos vocaux consultables par la famille depuis l'application [23, 30].
               </p>
             </div>
           }
         />
 
-        {/* 4. Quels sont les tarifs ? */}
+        {/* 4. Quels sont les forfaits Seniors ? */}
         <FAQItem
-          icon="💰"
-          question="Quels sont les tarifs ?"
+          icon="👴"
+          question="Quels sont les tarifs des forfaits Seniors ?"
           answer={
-            <div className="space-y-2">
-              <p>
-                Nos offres sont disponibles sur la page <strong>Abonnements</strong>.
-              </p>
-              <p>
-                Plusieurs formules existent selon vos besoins :
-              </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Essentiel</strong> — 55 000 FCFA / 2 semaines</li>
-                <li><strong>Accompagnement</strong> — 120 000 FCFA / mois (sortie d'hospitalisation)</li>
-                <li><strong>Sérénité Seniors</strong> — 160 000 FCFA / mois</li>
-                <li><strong>Privilège Famille</strong> — 220 000 FCFA / mois</li>
+            <div className="space-y-2 font-medium">
+              <p>Nous disposons de 4 offres contractuelles mensuelles adaptées au suivi des personnes âgées [1] :</p>
+              <ul className="list-disc pl-5 space-y-1 text-gray-700">
+                <li><strong>Essentiel</strong> (45 000 FCFA/mois) : 4 visites mensuelles pour un suivi léger [1].</li>
+                <li><strong>Accompagnement</strong> (80 000 FCFA/mois) : 8 visites mensuelles, idéal pour le retour d'hôpital ou la convalescence [1].</li>
+                <li><strong>SérénitéSeniors</strong> (100 000 FCFA/mois) : 12 visites mensuelles pour un suivi régulier complet [1].</li>
+                <li><strong>PrivilègeFamille</strong> (200 000 FCFA/mois) : Suivi illimité et coordination familiale totale pour les familles de la diaspora [1].</li>
               </ul>
-              <p className="text-xs text-gray-500 mt-1">
-                💳 Paiements acceptés : Mobile Money, Carte bancaire, WorldRemit, Wise, Sendwave.
-              </p>
             </div>
           }
         />
 
-        {/* 5. Forfaits Maman & Bébé */}
+        {/* 5. Quels sont les forfaits Maman & Bébé ? */}
         <FAQItem
           icon="👶"
-          question="Quels sont les forfaits Maman & Bébé ?"
+          question="Quels sont les tarifs des forfaits Maman & Bébé ?"
           answer={
-            <div className="space-y-2">
+            <div className="space-y-2 font-medium">
+              <p>Des forfaits de soutien post-partum et d'éveil pour accompagner la maman et son nouveau-né [1] :</p>
+              <ul className="list-disc pl-5 space-y-1 text-gray-700">
+                <li><strong>Essentiel</strong> (65 000 FCFA / 2 semaines) : Découverte post-partum de base [1].</li>
+                <li><strong>Confort</strong> (100 000 FCFA / 3 semaines) : Accompagnement standard du postpartum [1].</li>
+                <li><strong>Sérénité</strong> (140 000 FCFA / 4 semaines) : Suivi rapproché premium à domicile [1].</li>
+                <li><strong>Privilège</strong> (200 000 FCFA / 5 semaines) : Coaching complet à long terme [1].</li>
+              </ul>
+            </div>
+          }
+        />
+
+        {/* 6. Comment fonctionnent les courses (Commandes) ? */}
+        <FAQItem
+          icon="🛒"
+          question="Comment fonctionnent les courses et livraisons ?"
+          answer={
+            <div className="space-y-2 font-medium">
               <p>
-                Des forfaits spécifiques pour l'accompagnement post-partum :
+                Les livraisons et les courses ne sont pas intégrées dans les forfaits d'abonnements [1]. Elles fonctionnent exclusivement en mode ponctuel (à l'acte) [14].
               </p>
               <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Essentiel</strong> — 65 000 FCFA / 2 semaines</li>
-                <li><strong>Confort</strong> — 95 000 FCFA / 2 semaines</li>
-                <li><strong>Sérénité</strong> — 140 000 FCFA / mois</li>
-                <li><strong>Privilège</strong> — 200 000 FCFA / mois</li>
+                <li><strong>Avec provision d'achats</strong> : Vous versez le montant d'achat estimé + les frais de retrait Mobile Money d'avance en ligne. À la livraison, vous réglez les frais de transport (espèces ou Momo) [14].</li>
+                <li><strong>Sans provision d'achats (récupération simple)</strong> : Commande gratuite à l'envoi. Vous réglez uniquement le transport à l'arrivée [14].</li>
               </ul>
-              <p className="text-xs text-amber-600">
-                ⚠️ Ces forfaits n'incluent aucun acte médical. Ils apportent un soutien 
-                organisationnel et de confort à domicile.
-              </p>
             </div>
           }
         />
 
-        {/* 6. Puis-je annuler mon abonnement ? */}
-        <FAQItem
-          icon="🔄"
-          question="Puis-je annuler mon abonnement ?"
-          answer={
-            <div className="space-y-2">
-              <p>
-                <strong>Oui</strong>, vous pouvez annuler à tout moment avec un préavis de 7 jours.
-              </p>
-              <p>
-                L'annulation se fait directement depuis votre <strong>espace client</strong>.
-              </p>
-              <p className="text-xs text-gray-500">
-                📧 Vous pouvez également nous contacter par email : contact@santeplus.bj
-              </p>
-            </div>
-          }
-        />
-
-        {/* 7. Y a-t-il des remboursements ? */}
-        <FAQItem
-          icon="💳"
-          question="Y a-t-il des remboursements ?"
-          answer={
-            <div className="space-y-2">
-              <p>
-                <strong>Sauf cas exceptionnel</strong>, aucun remboursement automatique n'est effectué.
-              </p>
-              <p>
-                Toute contestation est étudiée au cas par cas par l'équipe Santé Plus.
-              </p>
-              <p className="text-xs text-amber-600">
-                ⚠️ Les prestations déjà réservées, engagées ou commencées restent dues.
-              </p>
-            </div>
-          }
-        />
-
-        {/* 8. Mes données sont-elles sécurisées ? */}
+        {/* 7. Mes données médicales sont-elles sécurisées ? */}
         <FAQItem
           icon="🔒"
-          question="Mes données sont-elles sécurisées ?"
+          question="Mes données cliniques sont-elles confidentielles ?"
           answer={
-            <div className="space-y-2">
+            <div className="space-y-2 font-medium">
               <p>
-                <strong>Oui</strong>, toutes vos données sont strictement confidentielles.
+                <strong>Oui, de manière absolue.</strong> Santé Plus Service SARL met en œuvre des mesures de chiffrement SSL avancées. 
               </p>
               <p>
-                Nous respectons les normes de sécurité les plus strictes :
-              </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li>Chiffrement des données</li>
-                <li>Authentification sécurisée</li>
-                <li>Contrôle d'accès par rôle</li>
-              </ul>
-              <p className="text-xs text-gray-500">
-                📋 Consultez notre Politique de Confidentialité pour plus de détails.
+                L'accès aux notes de confort, antécédents et traitements est strictement limité par profil [30] : les aidants de terrain ne voient que ce qui est nécessaire à leur mission quotidienne [30].
               </p>
             </div>
           }
         />
-
-        {/* 9. Quelles sont les zones couvertes ? */}
-        <FAQItem
-          icon="📍"
-          question="Quelles sont les zones couvertes ?"
-          answer={
-            <div className="space-y-2">
-              <p>
-                Les prestations sont prioritairement organisées sur :
-              </p>
-              <ul className="list-disc pl-5 space-y-1">
-                <li><strong>Cotonou</strong></li>
-                <li><strong>Abomey-Calavi</strong></li>
-                <li><strong>Porto-Novo</strong></li>
-              </ul>
-              <p className="text-xs text-amber-600">
-                ⚠️ Toute demande hors zone reste soumise à validation de faisabilité 
-                et disponibilité des équipes.
-              </p>
-            </div>
-          }
-        />
-
-        {/* 10. Comment contacter l'équipe ? */}
-        <FAQItem
-          icon="📧"
-          question="Comment contacter l'équipe ?"
-          answer={
-            <div className="space-y-2">
-              <p>
-                Vous pouvez nous contacter via :
-              </p>
-              <div className="mt-2 space-y-1 text-sm">
-                <p><strong>📧 Email :</strong> contact@santeplus.bj</p>
-                <p><strong>📞 Téléphone :</strong> +229 01 91 34 34 58</p>
-                <p><strong>📍 Adresse :</strong> Cotonou, Bénin</p>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                ⏰ Disponible du lundi au vendredi, de 8h à 18h.
-              </p>
-            </div>
-          }
-        />
-
-        {/* 11. Qu'est-ce qui est inclus dans un forfait ? */}
-        <FAQItem
-          icon="📦"
-          question="Qu'est-ce qui est inclus dans un forfait ?"
-          answer={
-            <div className="space-y-2">
-              <p>
-                Chaque forfait inclut uniquement les prestations <strong>expressément mentionnées</strong> 
-                dans sa fiche détaillée.
-              </p>
-              <p>
-                <strong>Ne sont pas inclus :</strong>
-              </p>
-              <ul className="list-disc pl-5 space-y-1 text-red-600">
-                <li>Médicaments et produits pharmaceutiques</li>
-                <li>Analyses et examens médicaux</li>
-                <li>Hospitalisation et transport médicalisé</li>
-                <li>Actes médicaux invasifs</li>
-                <li>Urgences et disponibilité 24h/24</li>
-              </ul>
-              <p className="text-xs text-gray-500 mt-1">
-                💡 Consultez la fiche détaillée du forfait avant tout paiement.
-              </p>
-            </div>
-          }
-        />
-
-        {/* 12. Qui est responsable en cas de problème ? */}
-        <FAQItem
-          icon="⚖️"
-          question="Qui est responsable en cas de problème ?"
-          answer={
-            <div className="space-y-2">
-              <p>
-                <strong>Santé Plus Service</strong> agit comme intermédiaire technique et organisationnel.
-              </p>
-              <p>
-                La responsabilité est limitée aux prestations effectivement souscrites et payées.
-              </p>
-              <p className="text-xs text-gray-500">
-                📋 Les CGU complètes détaillent les limites de responsabilité.
-              </p>
-            </div>
-          }
-        />
-
       </div>
 
       {/* ============================================================
-      FOOTER
-      ============================================================ */}
+          FOOTER FAQ
+          ============================================================ */}
       <div className="text-center text-xs text-gray-400 pt-4 border-t">
         <p>
-          Vous n'avez pas trouvé votre réponse ?
+          Besoin d'une assistance complémentaire ?
           <br />
-          <a 
-            href="mailto:contact@santeplus.bj" 
-            className="font-medium hover:underline"
-            style={{ color: 'var(--color-primary, #1a4a3a)' }}
-          >
-            📧 Contactez-nous directement
+          <a href="mailto:contact@santeplus.bj" className="font-bold hover:underline" style={{ color: 'var(--color-primary, #1a4a3a)' }}>
+            📧 contact@santeplus.bj
           </a>
         </p>
         <p className="mt-2 text-[10px]">
-          © {new Date().getFullYear()} Santé Plus Service — Tous droits réservés.
+          © {new Date().getFullYear()} Santé Plus Service SARL — Tous droits réservés.
         </p>
       </div>
 
