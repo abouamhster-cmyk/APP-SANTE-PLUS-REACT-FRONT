@@ -1,5 +1,5 @@
 // 📁 src/features/auth/pages/ForgotPasswordPage.tsx
-
+ 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -56,7 +56,7 @@ const ForgotPasswordPage = () => {
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center p-3"
+      className="min-h-screen w-full flex items-center justify-center p-3 animate-fadeIn"
       style={{ background: colors.background }}
     >
       <div className="w-full max-w-md">
@@ -64,13 +64,12 @@ const ForgotPasswordPage = () => {
           className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border"
           style={{ borderColor: colors.primary + '20' }}
         >
-          {/* Logo */}
+          {/* Logo dynamique unifié */}
           <div className="flex justify-center mb-4">
             <div
-              className="w-14 h-14 rounded-xl border flex items-center justify-center"
+              className="w-14 h-14 rounded-xl border flex items-center justify-center bg-white shadow-sm"
               style={{ 
                 borderColor: primaryColor,
-                background: colors.background
               }}
             >
               <Logo
@@ -117,7 +116,7 @@ const ForgotPasswordPage = () => {
 
               <Link
                 to="/login"
-                className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
+                className="w-full h-11 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
                 style={{ background: primaryColor }}
               >
                 Retour à la connexion
@@ -161,7 +160,7 @@ const ForgotPasswordPage = () => {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 rounded-xl border outline-none text-xs"
+                      className="w-full pl-8 pr-3 h-10 rounded-xl border outline-none text-xs"
                       style={{
                         borderColor: colors.primary + '25',
                         background: colors.background,
@@ -177,7 +176,7 @@ const ForgotPasswordPage = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-2.5 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75"
+                  className="w-full h-11 rounded-xl text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 disabled:opacity-75"
                   style={{ background: primaryColor }}
                 >
                   {isLoading ? (
@@ -200,7 +199,6 @@ const ForgotPasswordPage = () => {
                   className="text-[11px] font-semibold hover:underline inline-flex items-center gap-1"
                   style={{ color: primaryColor }}
                 >
-                  <ArrowLeft size={12} />
                   Retour à la connexion
                 </Link>
               </div>
