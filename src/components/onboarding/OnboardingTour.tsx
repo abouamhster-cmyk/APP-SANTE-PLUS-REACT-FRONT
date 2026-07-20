@@ -11,6 +11,7 @@ import {
   Users,
   Calendar,
   ShoppingBag,
+  CreditCard,
   Briefcase,
   UserCheck,
   LayoutDashboard,
