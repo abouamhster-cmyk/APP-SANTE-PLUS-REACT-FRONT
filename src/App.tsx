@@ -21,18 +21,14 @@ import { useAuthStore } from '@/stores/authStore';
 import { useOfferStore } from '@/stores/offerStore';
 import { useContractStore } from '@/stores/contractStore';
 
-// ============================================================
 // AUTH PAGES
-// ============================================================
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
 import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '@/features/auth/pages/ResetPasswordPage';
 import AdminSetupPage from '@/features/admin/pages/AdminSetupPage';
 
-// ============================================================
 // DASHBOARD & MAIN PAGES
-// ============================================================
 import DashboardPage from '@/features/dashboard/pages/DashboardPage';
 import PatientsPage from '@/features/patients/pages/PatientsPage';
 import PatientDetailPage from '@/features/patients/pages/PatientDetailPage';
@@ -49,19 +45,15 @@ import EducationPage from '@/features/education/pages/EducationPage';
 import JournalPage from '@/features/journal/pages/JournalPage';
 import DischargePage from '@/features/discharge/pages/DischargePage';
 
-// ✅ AJOUT DE L'IMPORT DE LA PAGE DE CONFIRMATION DE PAIEMENT
+// REDIRECTION DE PAIEMENT
 import PaymentConfirmPage from '@/features/billing/pages/PaymentConfirmPage';
 
-// ============================================================
 // AIDANT / HELP PAGES
-// ============================================================
 import MissionsPage from '@/features/help/pages/MissionsPage'; 
 import PlanningPage from '@/features/help/pages/PlanningPage';
 import HistoryPage from '@/features/help/pages/HistoryPage';
 
-// ============================================================
-// ADMIN PAGES - AVEC ROLE GUARD
-// ============================================================
+// ADMIN PAGES
 import AdminDashboardPage from '@/features/admin/pages/AdminDashboardPage';
 import AdminPaymentsPage from '@/features/admin/pages/AdminPaymentsPage';
 import AdminSubscriptionsPage from '@/features/admin/pages/AdminSubscriptionsPage';
