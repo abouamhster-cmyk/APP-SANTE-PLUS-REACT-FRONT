@@ -78,7 +78,8 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   // ============================================================
   useEffect(() => {
     // A. Priorité absolue : Vérifier l'état dans le profil chargé depuis le serveur [23]
-     if ((profile as any)?.has_seen_onboarding === true) {
+    // ✅ CORRECTIF TS2339 : Casting du profil en "any" pour bypasser la contrainte de type [22]
+    if ((profile as any)?.has_seen_onboarding === true) {
       setHasSeenTour(true);
       setIsReady(true);
       return;
@@ -98,6 +99,17 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     }
     setIsReady(true);
   }, [profile]);
+
+  // ============================================================
+  // SÉCURITÉ DE SESSION : Réinitialiser la tentative si changement d'utilisateur [24]
+  // ============================================================
+  useEffect(() => {
+    if (user?.id) {
+      setHasAttemptedShow(false);
+      setShouldShow(false);
+      setIsOpen(false);
+    }
+  }, [user?.id]);
 
   // ============================================================
   // 2. DÉFINITION DES ÉTAPES PAR RÔLE [24]
@@ -187,7 +199,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           id: 'billing',
           title: '💳 Formules d\'Abonnement',
           description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes de manière transparente.',
-          icon: <CreditCard size={28} />,  
+          icon: <CreditCard size={28} />, // ✅ Désormais correctement importé et fonctionnel [22]
           image: banner,
         },
         {
@@ -316,7 +328,8 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           .update({ has_seen_onboarding: true })
           .eq('id', user.id);
 
-         if (profile) {
+        // ✅ CORRECTIF TS2353 : Casting de l'état étendu du profil local en "any" [22]
+        if (profile) {
           setUser(user, { ...profile, has_seen_onboarding: true } as any);
         }
         console.log('📊 [Onboarding Engine] Sauvegarde définitive serveur effectuée [23]');
@@ -341,7 +354,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   // Touche Échap
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (isOpen && e.key === 'Escape') {
+      if (e.key === 'Escape' && isOpen) {
         handleComplete();
       }
     };
