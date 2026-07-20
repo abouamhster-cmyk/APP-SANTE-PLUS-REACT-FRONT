@@ -1,22 +1,18 @@
 // 📁 src/components/onboarding/OnboardingTour.tsx
-// ✅ ONBOARDING TOUR COMPLET : DESIGN FLOTTANT IMMERSIF PAR RÔLE AVEC OUVERTURE INSTANTANÉE APRÈS LES CGU
-
+ 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  X,
   ArrowRight,
   Check,
   Sparkles,
   Users,
   Calendar,
   ShoppingBag,
-  CreditCard,
   Briefcase,
   UserCheck,
-  LayoutDashboard,
-  FileCheck,
   ClipboardList,
+  FileCheck,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -48,7 +44,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const location = useLocation();
 
   const { profile, role, isAuthenticated, isInitialized, user } = useAuthStore();
-  const { needsAcceptance } = useContractStore();
+  
+  // ✅ CORRECTIF DE SÉCURITÉ : Importation de l'état d'initialisation et de chargement du contrat [1]
+  const { 
+    needsAcceptance, 
+    isChecking: isContractChecking, 
+    isInitialized: isContractInitialized 
+  } = useContractStore();
+
   const brand = useBranding();
   const colors = brand.colors;
 
@@ -234,7 +237,12 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     if (!isInitialized) return;
     if (!isAuthenticated) return;
     if (hasSeenTour) return;
-    if (needsAcceptance) return; // ✅ IMPORTANT : Ne s'affiche jamais si le contrat est en attente d'acceptation [1]
+
+    // ✅ CORRECTIF DE COURSE D'ÉTATS (RACE CONDITION) : Interdiction de tenter l'affichage tant que la base n'a pas validé les CGU ! [1]
+    if (!isContractInitialized) return; // Attendre l'initialisation du statut du contrat [1]
+    if (isContractChecking) return; // Bloquer pendant l'appel API du contrat [1]
+    if (needsAcceptance) return; // Bloquer si l'utilisateur doit encore signer les CGU [1]
+
     if (steps.length === 0) return;
     if (hasAttemptedShow) return;
 
@@ -267,7 +275,9 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     isInitialized,
     isAuthenticated,
     hasSeenTour,
-    needsAcceptance,
+    isContractInitialized, // ✅ Écoute l'initialisation du contrat
+    isContractChecking, // ✅ Écoute le chargement du contrat
+    needsAcceptance, // ✅ Écoute la signature du contrat
     steps.length,
     location.pathname,
     hasAttemptedShow,
