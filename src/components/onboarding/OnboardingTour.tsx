@@ -1,8 +1,9 @@
 // 📁 src/components/onboarding/OnboardingTour.tsx
  
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
+  X,
   ArrowRight,
   Check,
   Sparkles,
@@ -35,6 +36,8 @@ interface OnboardingTourProps {
   onComplete?: () => void;
 }
 
+type TimerType = ReturnType<typeof setTimeout> | null;
+
 // Clés localStorage unifiées
 const TOUR_STORAGE_KEY = 'sante_plus_tour_seen';
 const TOUR_VERSION = '2.0.0';
@@ -64,6 +67,9 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const [hasSeenTour, setHasSeenTour] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
+  const [hasAttemptedShow, setHasAttemptedShow] = useState(false);
+
+  const showTimeoutRef = useRef<TimerType>(null);
 
   const isMaman = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
 
@@ -71,12 +77,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   // 1. VÉRIFICATION DOUBLE SÉCURISÉ (BASE DE DONNÉES + CACHE COHÉRENT) [23]
   // ============================================================
   useEffect(() => {
+    // A. Priorité absolue : Vérifier l'état dans le profil chargé depuis le serveur [23]
     if ((profile as any)?.has_seen_onboarding === true) {
       setHasSeenTour(true);
       setIsReady(true);
       return;
     }
 
+    // B. Secours local de confort (LocalStorage lié à l'ID utilisateur) [23]
     const saved = localStorage.getItem(TOUR_STORAGE_KEY);
     if (saved && profile?.id) {
       try {
@@ -98,6 +106,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   // Réinitialiser la tentative si changement de compte [24]
   useEffect(() => {
     if (user?.id) {
+      setHasAttemptedShow(false);
       setShouldShow(false);
       setIsOpen(false);
     }
@@ -114,46 +123,48 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     const aidantImg = '/assets/images/banners/aidant-banner.png';
     const coordImg = '/assets/images/banners/coord-banner.png';
 
+    // 🦸 RÔLE : AIDANT (5 Étapes)
     if (role === 'aidant') {
       return [
         {
           id: 'welcome-aidant',
           title: '👋 Bienvenue dans l’équipe',
           description: 'Vous êtes maintenant aidant certifié chez Santé Plus Services. Voici un rapide tour de votre espace professionnel.',
-          icon: <Sparkles size={24} />,
+          icon: <Sparkles size={28} />,
           image: aidantImg,
         },
         {
           id: 'missions',
           title: '📋 Vos Missions d\'Aide',
           description: 'Consultez et acceptez en un clic les demandes de visites d\'accompagnements ou d\'achats urgents dans votre zone.',
-          icon: <Briefcase size={24} />,
+          icon: <Briefcase size={28} />,
           image: aidantImg,
         },
         {
           id: 'planning',
           title: '📅 Votre Planning de Visites',
           description: 'Visualisez toutes vos interventions acceptées et préparez vos itinéraires sur une interface de calendrier claire.',
-          icon: <Calendar size={24} />,
+          icon: <Calendar size={28} />,
           image: aidantImg,
         },
         {
           id: 'orders-aidant',
           title: '🛒 Achats & Livraisons d\'Urgence',
           description: 'Aidez les familles à proximité en effectuant et en livrant leurs besoins (médicaments en pharmacie, courses de confort).',
-          icon: <ShoppingBag size={24} />,
+          icon: <ShoppingBag size={28} />,
           image: aidantImg,
         },
         {
           id: 'complete-aidant',
           title: '🚀 Prêt à Accompagner',
           description: 'Votre profil est validé. Vous pouvez dès maintenant commencer à assister vos premiers bénéficiaires.',
-          icon: <Check size={24} />,
+          icon: <Check size={28} />,
           image: aidantImg,
         },
       ];
     }
 
+    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (6 Étapes) [24]
     if (role === 'family') {
       const banner = isMaman ? mamanImg : seniorImg;
       return [
@@ -202,6 +213,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       ];
     }
 
+    // 👑 RÔLE : ADMIN (5 Étapes) [24]
     return [
       {
         id: 'welcome-admin',
@@ -242,7 +254,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. ENTRÉE ULTRA-STABLE SANS TIMEOUT NI CONCURRENCES DE RENDER [24]
+  // 3. ENTRÉE SÉCURISÉE SANS CONCURRENCE (VÉRIFIÉ ET APPROUVÉ)  
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
@@ -252,12 +264,24 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     if (!isContractInitialized) return; 
     if (isContractChecking) return; 
-    if (needsAcceptance) return; 
+    if (needsAcceptance) return;  
 
     if (steps.length === 0) return;
+    if (hasAttemptedShow) return;
 
-    setShouldShow(true);
-    setIsOpen(true);
+    setHasAttemptedShow(true);
+
+    if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
+    
+    // Déclenchement automatique immédiat et fluide après signature [24]
+    showTimeoutRef.current = setTimeout(() => {
+      setShouldShow(true);
+      setIsOpen(true);
+    }, 600);
+
+    return () => {
+      if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
+    };
   }, [
     isReady,
     isInitialized,
@@ -268,6 +292,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     needsAcceptance, 
     steps.length,
     location.pathname,
+    hasAttemptedShow,
   ]);
 
   // ============================================================
@@ -277,6 +302,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     setIsOpen(false);
     setShouldShow(false);
     
+    // A. Sauvegarde locale de confort [23]
     localStorage.setItem(TOUR_STORAGE_KEY, JSON.stringify({
       seen: true,
       version: TOUR_VERSION,
@@ -284,22 +310,24 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       userId: profile?.id,
     }));
 
-    if (user?.id) {
+     if (user?.id) {
       try {
         await supabase
           .from('profiles')
           .update({ has_seen_onboarding: true })
           .eq('id', user.id);
 
-        if (profile) {
+         if (profile) {
           setUser(user, { ...profile, has_seen_onboarding: true } as any);
         }
+        console.log('📊 [Onboarding Engine] Sauvegarde définitive serveur effectuée [23]');
       } catch (err) {
         console.warn('⚠️ Échec de sauvegarde de l\'onboarding sur le serveur [23]');
       }
     }
 
     setHasSeenTour(true);
+
     if (onComplete) onComplete();
   }, [onComplete, user, profile, setUser]);
 
@@ -310,6 +338,10 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       handleComplete();
     }
   }, [currentStep, steps.length, handleComplete]);
+
+   const handleDotClick = (index: number) => {
+    setCurrentStep(index);
+  };
 
   // Touche Échap
   useEffect(() => {
@@ -344,14 +376,13 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       
       {/* CARD CONTENEUR DE PRESENTATION STYLE PREMIUM MOBILE [23, 24] */}
       <div 
-        className="relative w-full h-full sm:h-[640px] sm:max-w-md bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn"
+        className="relative w-full h-full sm:h-[620px] sm:max-w-lg bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn"
         style={{ 
           borderColor: colors.primary + '15',
-          /* ✅ DÉGRADÉ PASTEL DE MARQUE IMMERSIF (S'accorde de manière ultra-fluide au rôle) [24, 30] */
-          background: `linear-gradient(180deg, ${colors.background} 0%, #FCFAF6 100%)`
+           background: `linear-gradient(180deg, ${colors.background} 0%, #FCFAF6 100%)`
         }}
       >
-        {/* Progress bar supérieure de progression */}
+        {/* Progress bar line supérieure de progression */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-20" style={{ backgroundColor: colors.primary + '15' }}>
           <div
             className="h-full transition-all duration-500 ease-out"
@@ -363,7 +394,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         </div>
 
         {/* ============================================================
-            📦 ÉTAPE VISUELLE PRINCIPALE : MASQUE ORGANIQUE FLUIDE (BLOB STYLE) [24]
+            📦 ÉTAPE VISUELLE PRINCIPALE  
             ============================================================ */}
         <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 pb-0">
           
@@ -391,7 +422,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         </div>
 
         {/* ============================================================
-            📦 CARTE "BOTTOM SHEET" INFÉRIEURE : TEXTES ET CONTRÔLES ÉPURÉS [24]
+            📦 CARTE "BOTTOM SHEET" INFÉRIEURE  
             ============================================================ */}
         <div className="bg-white rounded-t-[2.5rem] p-6 sm:p-8 pb-8 flex flex-col justify-between h-[280px] shrink-0 border-t" style={{ borderColor: colors.primary + '08' }}>
           
@@ -405,20 +436,18 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
             </p>
           </div>
 
-          {/* ÉLÉMENTS DE CONTRÔLES : DOTS ET BOUTONS ALIGNÉS */}
-          <div className="space-y-6 pt-4">
+           <div className="space-y-6 pt-4">
             
-            {/* Ligne de petits points modernes : Le point actif s'étire (Elongated Dot) [24] */}
-            <div className="flex justify-center gap-1.5 shrink-0">
+             <div className="flex justify-center gap-1.5 shrink-0">
               {steps.map((_, index) => {
                 const isCurrent = index === currentStep;
                 return (
                   <button
                     key={index}
-                    onClick={() => handleDotClick(index)}
+                    onClick={() => handleDotClick(index)}  
                     className="h-1.5 rounded-full transition-all duration-300 outline-none"
                     style={{
-                      width: isCurrent ? '20px' : '6px', // ✅ Élongation dynamique du point actif [24]
+                      width: isCurrent ? '20px' : '6px',  
                       background: isCurrent ? colors.primary : colors.primary + '25',
                     }}
                   />
