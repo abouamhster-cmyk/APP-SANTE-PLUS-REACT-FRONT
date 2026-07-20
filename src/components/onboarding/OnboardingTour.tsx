@@ -1,9 +1,8 @@
 // 📁 src/components/onboarding/OnboardingTour.tsx
  
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  X,
   ArrowRight,
   Check,
   Sparkles,
@@ -36,8 +35,6 @@ interface OnboardingTourProps {
   onComplete?: () => void;
 }
 
-type TimerType = ReturnType<typeof setTimeout> | null;
-
 // Clés localStorage unifiées
 const TOUR_STORAGE_KEY = 'sante_plus_tour_seen';
 const TOUR_VERSION = '2.0.0';
@@ -67,9 +64,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const [hasSeenTour, setHasSeenTour] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
-  const [hasAttemptedShow, setHasAttemptedShow] = useState(false);
-
-  const showTimeoutRef = useRef<TimerType>(null);
 
   const isMaman = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
 
@@ -89,6 +83,8 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     if (saved && profile?.id) {
       try {
         const data = JSON.parse(saved);
+        
+        // Ségrégation stricte inter-comptes [23]
         if (data.version === TOUR_VERSION && data.seen === true && data.userId === profile.id) {
           setHasSeenTour(true);
         } else {
@@ -103,17 +99,18 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     setIsReady(true);
   }, [profile]);
 
-  // Réinitialiser la tentative si changement de compte [24]
+  // ============================================================
+  // SÉCURITÉ DE SESSION : Réinitialiser l'état d'onboarding dès la déconnexion/reconnexion [24]
+  // ============================================================
   useEffect(() => {
     if (user?.id) {
-      setHasAttemptedShow(false);
       setShouldShow(false);
       setIsOpen(false);
     }
   }, [user?.id]);
 
   // ============================================================
-  // 2. ÉTAPES DE PRÉSENTATION PAR RÔLE [24]
+  // 2. DÉFINITION DES ÉTAPES PAR RÔLE [24]
   // ============================================================
   const steps: TourStep[] = useMemo(() => {
     if (!isAuthenticated || !role) return [];
@@ -172,42 +169,42 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           id: 'welcome-family',
           title: '👋 Bienvenue sur Santé Plus',
           description: `Accompagnez vos proches et gérez leur confort au quotidien en toute sérénité depuis chez vous ou la diaspora.`,
-          icon: <Sparkles size={24} />,
+          icon: <Sparkles size={28} />,
           image: banner,
         },
         {
           id: 'patients',
           title: `👨‍👩‍👦 Fiches des ${isMaman ? 'Mamans / Bébés' : 'Seniors'}`,
           description: `Renseignez le profil d'identité, les allergies et les habitudes de vie de votre proche pour un suivi personnalisé.`,
-          icon: <Users size={24} />,
+          icon: <Users size={28} />,
           image: banner,
         },
         {
           id: 'visits',
           title: '📅 Planification des Visites',
           description: 'L\'administration planifie pour vous des visites d’accompagnement de confort et de présence pour veiller sur la sécurité de votre parent.',
-          icon: <Calendar size={24} />,
+          icon: <Calendar size={28} />,
           image: banner,
         },
         {
           id: 'orders',
           title: '🛒 Livraisons de courses à l\'acte',
           description: 'Faites livrer en urgence des médicaments sur ordonnance, des produits d’hygiène bébé ou des courses de première nécessité.',
-          icon: <ShoppingBag size={24} />,
+          icon: <ShoppingBag size={28} />,
           image: banner,
         },
         {
           id: 'billing',
           title: '💳 Formules d\'Abonnement',
           description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes de manière de manière transparente.',
-          icon: <CreditCard size={24} />,
+          icon: <CreditCard size={28} />,
           image: banner,
         },
         {
           id: 'complete-family',
           title: '🚀 Prêt à Commencer',
-          description: `Le parcours d'onboarding est terminé. Vous pouvez dès à présent enregistrer votre premier l'accompagnement de votre proche.`,
-          icon: <Check size={24} />,
+          description: `Le parcours d'onboarding est terminé. Vous pouvez dès à présent enregistrer votre premier ${singular}.`,
+          icon: <Check size={28} />,
           image: banner,
         },
       ];
@@ -219,42 +216,42 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         id: 'welcome-admin',
         title: '👋 Espace de Supervision',
         description: 'Bienvenue dans la console de gestion administrative globale de la plateforme de coordination Santé Plus.',
-        icon: <Sparkles size={24} />,
+        icon: <Sparkles size={28} />,
         image: coordImg,
       },
       {
         id: 'registrations',
         title: '📋 Inscriptions d’Abonnés',
         description: 'Passez en revue et validez les nouvelles fiches d’inscriptions des familles pour leur ouvrir l’accès aux services.',
-        icon: <ClipboardList size={24} />,
+        icon: <ClipboardList size={28} />,
         image: coordImg,
       },
       {
         id: 'aidants',
         title: '🦸 Recrutement des Aidants',
         description: 'Gérez les candidatures opérationnelles, vérifiez les casiers judiciaires et homologuez les nouveaux aidants.',
-        icon: <UserCheck size={24} />,
+        icon: <UserCheck size={28} />,
         image: coordImg,
       },
       {
         id: 'validations',
         title: '✓ Validation des Interventions',
         description: 'Examinez les comptes-rendus, photos et mémos vocaux soumis par les aidants pour valider la qualité finale des visites.',
-        icon: <FileCheck size={24} />,
+        icon: <FileCheck size={28} />,
         image: coordImg,
       },
       {
         id: 'complete-admin',
         title: '🚀 Prêt à Piloter',
         description: 'La console administrative est prête. Vous avez le contrôle total sur la modération et la gestion des flux.',
-        icon: <Check size={24} />,
+        icon: <Check size={28} />,
         image: coordImg,
       },
     ];
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. ENTRÉE SÉCURISÉE SANS CONCURRENCE (VÉRIFIÉ ET APPROUVÉ)  
+  // 3. ENTRÉE ULTRA-STABLE SANS TIMEOUT NI CONCURRENCES DE RENDER [24]
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
@@ -264,24 +261,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     if (!isContractInitialized) return; 
     if (isContractChecking) return; 
-    if (needsAcceptance) return;  
+    if (needsAcceptance) return; // Bloquer tant que les CGU ne sont pas signées [1]
 
     if (steps.length === 0) return;
-    if (hasAttemptedShow) return;
 
-    setHasAttemptedShow(true);
-
-    if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
-    
-    // Déclenchement automatique immédiat et fluide après signature [24]
-    showTimeoutRef.current = setTimeout(() => {
-      setShouldShow(true);
-      setIsOpen(true);
-    }, 600);
-
-    return () => {
-      if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
-    };
+    // ✅ DÉCLENCHEMENT DIRECT SANS TIMEOUT NI VERROU ANNUILÉ PAR LE CLEANUP [24]
+    // L'onboarding s'affiche à l'instant même où la route est validée et s'y fige proprement [24]
+    setShouldShow(true);
+    setIsOpen(true);
   }, [
     isReady,
     isInitialized,
@@ -292,7 +279,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     needsAcceptance, 
     steps.length,
     location.pathname,
-    hasAttemptedShow,
   ]);
 
   // ============================================================
@@ -310,14 +296,15 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       userId: profile?.id,
     }));
 
-     if (user?.id) {
+    // B. SAUVEGARDE PHYSIQUE ET SÉCURISÉE EN BASE DE DONNÉES (Fiabilité 100%) [23]
+    if (user?.id) {
       try {
         await supabase
           .from('profiles')
           .update({ has_seen_onboarding: true })
           .eq('id', user.id);
 
-         if (profile) {
+        if (profile) {
           setUser(user, { ...profile, has_seen_onboarding: true } as any);
         }
         console.log('📊 [Onboarding Engine] Sauvegarde définitive serveur effectuée [23]');
@@ -338,10 +325,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       handleComplete();
     }
   }, [currentStep, steps.length, handleComplete]);
-
-   const handleDotClick = (index: number) => {
-    setCurrentStep(index);
-  };
 
   // Touche Échap
   useEffect(() => {
@@ -372,15 +355,13 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const totalSteps = steps.length;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/30 backdrop-blur-md">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm">
       
-      {/* CARD CONTENEUR DE PRESENTATION STYLE PREMIUM MOBILE [23, 24] */}
       <div 
-        className="relative w-full h-full sm:h-[620px] sm:max-w-lg bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn"
-        style={{ 
-          borderColor: colors.primary + '15',
-           background: `linear-gradient(180deg, ${colors.background} 0%, #FCFAF6 100%)`
-        }}
+        className={cn(
+          "relative w-full h-full sm:h-[620px] sm:max-w-lg bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn",
+        )}
+        style={{ borderColor: colors.primary + '15' }}
       >
         {/* Progress bar line supérieure de progression */}
         <div className="absolute top-0 left-0 right-0 h-[3px] z-20" style={{ backgroundColor: colors.primary + '15' }}>
@@ -393,88 +374,70 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           />
         </div>
 
-        {/* ============================================================
-            📦 ÉTAPE VISUELLE PRINCIPALE  
-            ============================================================ */}
-        <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-8 pb-0">
-          
-          {/* ✅ CADRE PHOTO ORGANIQUE FLUIDE TRÈS HAUT DE GAMME (Morphed Border Radius) [24] */}
-          <div 
-            className="w-48 h-48 sm:w-52 sm:h-52 rounded-[40%_60%_70%_30%_/_40%_50%_65%_55%] overflow-hidden border-2 shadow-md relative transition-all duration-500 ease-in-out shrink-0 bg-white"
-            style={{ borderColor: colors.primary + '20' }}
-          >
-            <img 
-              src={step.image} 
-              alt={step.title} 
-              className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-            />
-            {/* Voilage d'ombrage discret */}
-            <div className="absolute inset-0 bg-black/[0.04]" />
-          </div>
-
-          {/* Badge icone flottant sous le blob */}
-          <div 
-            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md -mt-5 z-10 transition-transform duration-300"
-            style={{ background: colors.primary }}
-          >
-            {step.icon}
-          </div>
+        {/* IMAGE FLOTTANTE BRANDING SUPÉRIEURE */}
+        <div 
+          className="w-full h-56 sm:h-64 relative overflow-hidden shrink-0 border-b"
+          style={{ borderColor: colors.primary + '15' }}
+        >
+          <img 
+            src={step.image} 
+            alt={step.title} 
+            className="w-full h-full object-cover opacity-85"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         </div>
 
-        {/* ============================================================
-            📦 CARTE "BOTTOM SHEET" INFÉRIEURE  
-            ============================================================ */}
-        <div className="bg-white rounded-t-[2.5rem] p-6 sm:p-8 pb-8 flex flex-col justify-between h-[280px] shrink-0 border-t" style={{ borderColor: colors.primary + '08' }}>
-          
-          {/* Titre & Description centrés épurés */}
-          <div className="text-center space-y-3 my-auto">
-            <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight" style={{ color: colors.text }}>
+        {/* CONTENU TEXTUEL CENTRAL AÉRÉ */}
+        <div className="flex-1 flex flex-col justify-between p-6 sm:p-8 text-center min-h-0 bg-white">
+          <div className="space-y-3.5 my-auto">
+            <div className="flex justify-center text-4xl mb-1">
+              {step.icon}
+            </div>
+            
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight leading-tight" style={{ color: colors.text }}>
               {step.title}
             </h2>
-            <p className="text-[11px] sm:text-xs leading-relaxed max-w-xs mx-auto font-bold text-gray-500 dark:text-gray-300">
+            
+            <p className="text-xs sm:text-sm leading-relaxed max-w-sm mx-auto font-medium" style={{ color: colors.textLight }}>
               {step.description}
             </p>
           </div>
 
-           <div className="space-y-6 pt-4">
-            
-             <div className="flex justify-center gap-1.5 shrink-0">
-              {steps.map((_, index) => {
-                const isCurrent = index === currentStep;
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleDotClick(index)}  
-                    className="h-1.5 rounded-full transition-all duration-300 outline-none"
-                    style={{
-                      width: isCurrent ? '20px' : '6px',  
-                      background: isCurrent ? colors.primary : colors.primary + '25',
-                    }}
-                  />
-                );
-              })}
-            </div>
-
-            <div className="flex items-center justify-between gap-4 pt-1">
-              <button
-                type="button"
-                onClick={handleComplete}
-                className="text-[11px] font-black uppercase tracking-wider text-gray-400 hover:text-gray-600 transition"
-              >
-                Ignorer
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNext}
-                className="px-6 py-2.5 rounded-2xl text-white font-black text-xs sm:text-sm transition-all hover:opacity-95 shadow-md flex items-center gap-1.5 hover:scale-[1.01] active:scale-[0.99]"
-                style={{ background: colors.primary }}
-              >
-                {isLastStep ? 'Commencer' : 'Suivant'}
-                <ArrowRight size={13} strokeWidth={3} />
-              </button>
-            </div>
+          {/* Indicateur de petits points de navigation (Dots) */}
+          <div className="flex justify-center gap-1.5 pt-4 shrink-0">
+            {steps.map((_, index) => (
+              <div
+                key={index}
+                className="h-1.5 rounded-full transition-all duration-300"
+                style={{
+                  width: index === currentStep ? '24px' : '8px',
+                  background: index === currentStep ? colors.primary : colors.primary + '25',
+                }}
+              />
+            ))}
           </div>
+        </div>
+
+        {/* PIED DE PAGE MINIMALISTE */}
+        <div className="p-5 sm:p-6 border-t flex items-center justify-between shrink-0" style={{ borderColor: colors.primary + '10', backgroundColor: colors.primary + '04' }}>
+          <button
+            type="button"
+            onClick={handleComplete}
+            className="text-xs font-bold uppercase tracking-wider select-none px-2 py-1 transition-colors"
+            style={{ color: colors.textLight }}
+          >
+            Ignorer
+          </button>
+
+          <button
+            type="button"
+            onClick={handleNext}
+            className="px-6 py-2.5 rounded-2xl text-white font-extrabold text-xs sm:text-sm transition-all hover:opacity-95 shadow-md flex items-center gap-1.5 shrink-0"
+            style={{ background: colors.primary }}
+          >
+            {isLastStep ? 'Commencer' : 'Suivant'}
+            <ArrowRight size={14} />
+          </button>
         </div>
       </div>
     </div>
