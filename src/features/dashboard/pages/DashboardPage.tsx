@@ -10,7 +10,7 @@ import {
   User,
   ArrowRight,
   CreditCard,
- DollarSign,
+  DollarSign,
   MapPin,
   BookOpen,
   History,
@@ -29,10 +29,6 @@ import {
   ChevronLeft,
   TrendingUp,
   Lightbulb,
-  Mic,
-  Heart,
-  Hospital,
-  Stethoscope,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -119,7 +115,7 @@ const getTilesForRole = (role: string | null, colors: any, stats: any, patientsC
       { icon: <Award size={20} />, label: 'Abonnements', color: '#78350f', path: '/app/admin-subscriptions', badge: stats.totalSubscriptions },
       { icon: <Package size={20} />, label: 'Offres', color: '#64748b', path: '/app/offers' },
       { icon: <Settings size={20} />, label: 'Paramètres', color: '#475569', path: '/app/settings' },
-      { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications' },
+      { icon: <Bell size={20} />, label: 'Notifications', color: '#ef4444', path: '/app/admin-notifications', badge: stats.unreadCount },
       { icon: <MapPin size={20} />, label: 'Carte', color: '#ef4444', path: '/app/map' },
       { icon: <User size={20} />, label: 'Profil', color: '#64748b', path: '/app/profile' },
     );
@@ -269,7 +265,6 @@ const DashboardPage = () => {
           actionPath: '/app/orders',
         },
         {
-          // ✅ ENRICHI SANS MESSAGERIE : Valorise les mémos vocaux et photos de fin de visite [24]
           title: '🎤 Comptes-rendus immersifs',
           description: 'Ajoutez des mémos vocaux en direct et des photos d’intervention pour justifier l’excellence de vos visites à la coordination.',
           image: aidantImg,
@@ -291,10 +286,10 @@ const DashboardPage = () => {
       return [
         {
           title: '👶 Votre univers Maman & Bébé',
-          description: 'Planifiez l\'intervention de votre aidant pour un soutien précieux et non médical pendant la grossesse ou le postpartum.',
+          description: 'Consultez vos fiches de présences, de suivis et d\'éveil du nouveau-né directement en temps réel.',
           image: mamanImg,
-          actionText: 'Planifier une visite',
-          actionPath: '/app/visits',
+          actionText: 'Mes Proches', // ✅ CORRECTIF : Pas de planification de visites pour la famille ! [30]
+          actionPath: '/app/patients',
         },
         {
           title: '🛒 Achats & soins pour le nouveau-né',
@@ -311,7 +306,6 @@ const DashboardPage = () => {
           actionPath: '/app/journal',
         },
         {
-          // ✅ ENRICHI SANS MESSAGERIE : Valorise le remplissage et l'édition du dossier clinique du proche [24]
           title: '🌸 Soins personnalisés',
           description: 'Renseignez avec précision les habitudes de vie, allergies ou consignes de confort pour guider parfaitement nos intervenants.',
           image: mamanImg,
@@ -332,10 +326,10 @@ const DashboardPage = () => {
     return [
       {
         title: '👴 Aide et présence aux seniors',
-        description: 'Planifiez une visite d\'accompagnement pour veiller au confort, à l\'alimentation et à la sécurité de votre parent âgé.',
+        description: 'Assurez un suivi continu et complet de nos accompagnements de confort pour votre parent âgé.',
         image: seniorImg,
-        actionText: 'Planifier une visite',
-        actionPath: '/app/visits',
+        actionText: 'Mes Proches', // ✅ CORRECTIF : Pas de planification de visites pour la famille ! [30]
+        actionPath: '/app/patients',
       },
       {
         title: '🛒 Courses simples & ordonnances livrées',
@@ -362,8 +356,8 @@ const DashboardPage = () => {
         title: '🏠 Convalescence après hospitalisation',
         description: 'Organisez sereinement la logistique et l\'installation de confort de votre proche pour son retour à la maison.',
         image: seniorImg,
-        actionText: 'Préparer un retour',
-        actionPath: '/app/discharge',
+        actionText: 'Mes Proches', // ✅ CORRECTIF : Pas de planification de visites pour la famille ! [30]
+        actionPath: '/app/patients',
       }
     ];
   }, [isAdminOrCoordinator, isAidant, isFamily, isMaman]);
@@ -606,6 +600,7 @@ const DashboardPage = () => {
       pendingValidations: adminStats.pendingValidations,
       revenue: adminStats.revenue,
       draftCount: drafts.length,
+      unreadCount: useNotificationStore.getState().unreadCount,
     };
   }, [patients, visits, orders, aidants, subscriptions, payments, adminStats, beneficiairesStats, drafts.length, isAdminOrCoordinator]);
 
@@ -1014,7 +1009,7 @@ const DashboardPage = () => {
         </section>
       )}
 
-      {/* EMPTY STATE PROACTIF */}
+      {/* EMPTY STATE PROACTIF (CORRIGÉ : Bouton de planification masqué pour la famille !) [30] */}
       {isFamily && hasProches && stats.upcomingVisits === 0 && stats.pendingOrders === 0 && (
         <section className="bg-white rounded-3xl p-6 text-center border animate-fadeIn" style={{ borderColor: colors.primary + '15' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: colors.primary + '08' }}>
@@ -1024,21 +1019,13 @@ const DashboardPage = () => {
             Commencez à utiliser Santé Plus
           </h3>
           <p className="text-xs mt-1 text-gray-400 max-w-sm mx-auto leading-relaxed">
-            Planifiez votre première visite ou passez une commande de fournitures de santé pour découvrir nos services.
+            Passez votre première commande de livraison de première nécessité pour découvrir nos services. {/* ✅ CORRECTIF : Pas de mention de planification de visite ! [30] */}
           </p>
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <button
-              onClick={() => navigate('/app/visits')}
-              className="px-4 py-2 rounded-xl text-white font-bold text-xs transition-all hover:opacity-90 flex items-center gap-1.5 shadow-sm"
-              style={{ background: colors.primary }}
-            >
-              <Calendar size={13} />
-              Planifier une visite
-            </button>
-            <button
               onClick={() => navigate('/app/orders/create')}
-              className="px-4 py-2 rounded-xl font-bold text-xs border transition-all hover:bg-gray-50 flex items-center gap-1.5"
-              style={{ borderColor: colors.primary + '25', color: colors.text }}
+              className="px-6 py-2.5 rounded-xl text-white font-bold text-xs transition-all hover:opacity-95 flex items-center gap-1.5 shadow-sm"
+              style={{ background: colors.primary }}
             >
               <ShoppingBag size={13} />
               Nouvelle commande
