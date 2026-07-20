@@ -1,5 +1,5 @@
 // 📁 src/features/auth/components/CGUContent.tsx
-
+ 
 import React from "react";
 import { useBranding } from '@/hooks/useBranding';
 
@@ -13,11 +13,12 @@ const Section = ({ title, children }: SectionProps) => {
   const colors = brand.colors;
 
   return (
-    <div className="p-5 rounded-2xl border shadow-sm bg-white/60 backdrop-blur-sm transition hover:shadow-md" style={{ borderColor: colors.primary + '15' }}>
-      <h4 className="font-semibold text-base mb-2" style={{ color: colors.text }}>
+    /* Fond beige/crème constant #FCFAF6 harmonisé avec la barre d'outils mobile [24] */
+    <div className="p-5 rounded-2xl border shadow-sm bg-[#FCFAF6] dark:bg-[#1a231f] transition hover:shadow-md" style={{ borderColor: colors.primary + '15' }}>
+      <h4 className="font-bold text-sm sm:text-base mb-2" style={{ color: colors.text }}>
         {title}
       </h4>
-      <div className="text-sm leading-relaxed" style={{ color: colors.textLight }}>
+      <div className="text-xs sm:text-sm leading-relaxed font-semibold text-gray-600 dark:text-gray-300">
         {children}
       </div>
     </div>
@@ -25,20 +26,9 @@ const Section = ({ title, children }: SectionProps) => {
 };
 
 const WarningBox = ({ children }: { children: React.ReactNode }) => {
-  const brand = useBranding();
-  const colors = brand.colors;
-
   return (
-    <div className="border-l-4 p-4 rounded-r-xl my-3" style={{ backgroundColor: '#FFFBEB', borderColor: '#F59E0B' }}>
-      <p className="text-sm" style={{ color: '#92400E' }}>{children}</p>
-    </div>
-  );
-};
-
-const MedicalAlert = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <div className="border-l-4 p-4 rounded-r-xl my-3" style={{ backgroundColor: '#FEF2F2', borderColor: '#EF4444' }}>
-      <p className="text-sm font-medium" style={{ color: '#991B1B' }}>{children}</p>
+    <div className="border-l-4 p-4 rounded-r-xl my-3 bg-amber-50/50 border-amber-500">
+      <p className="text-xs sm:text-sm font-semibold text-amber-800 leading-relaxed">{children}</p>
     </div>
   );
 };
@@ -54,336 +44,153 @@ export const CGUContent = () => {
   });
 
   return (
-    <div className="space-y-6 text-sm" style={{ color: colors.text }}>
+    <div className="space-y-6 text-sm animate-fadeIn" style={{ color: colors.text }}>
 
       {/* ============================================================
-      HEADER
-      ============================================================ */}
-      <div className="text-center space-y-2 border-b pb-4" style={{ borderColor: colors.primary + '15' }}>
-        <p className="text-xs" style={{ color: colors.textLight }}>
-          Version 1.0.0 — Dernière mise à jour : {today}
+          HEADER (DÉDOUBLONNÉ)
+          ============================================================ */}
+      <div className="text-center space-y-1 border-b pb-3.5" style={{ borderColor: colors.primary + '15' }}>
+        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+          Version officielle 1.0.0 — Dernière mise à jour : {today}
         </p>
       </div>
 
       {/* ============================================================
-      CONTENU COMPLET
-      ============================================================ */}
+          CONTENU DES SECTIONS OFFICIELLES [1]
+          ============================================================ */}
       <div className="space-y-4">
 
-        {/* 1. IDENTIFICATION DE LA PLATEFORME */}
-        <Section title="1. Identification de la plateforme">
+        {/* 1. RÉSUMÉ EXÉCUTIF */}
+        <Section title="1. Résumé exécutif">
           <p>
-            L'application <strong>SANTÉ PLUS SERVICE</strong> est une plateforme numérique 
-            permettant la mise en relation, la coordination et le suivi de services 
-            d'assistance, de santé et de bien-être entre plusieurs types d'utilisateurs.
+            L’application Santé Plus accessible via <strong>https://app.mysanteplus.com</strong> permet la gestion opérationnelle de prestations d’accompagnement et de suivi à domicile. Selon les cas, elle est utilisée par des familles, des proches installés dans la diaspora, des aidants, des coordonnateurs, des managers et des responsables administratifs.
           </p>
-          <p className="mt-2 text-xs" style={{ color: colors.textLight }}>
-            Accessible via : <strong>https://app.mysanteplus.com</strong>
+          <p className="mt-2 text-xs text-amber-600 leading-normal">
+            ⚠️ L’achat d’un forfait n’ouvre pas un droit général à tous les services de Santé Plus. Il ouvre uniquement l’accès aux prestations expressément comprises dans le forfait sélectionné, payées et activées.
           </p>
         </Section>
 
-        {/* 2. OBJET DES CGU */}
-        <Section title="2. Objet des CGU">
-          <p>Les présentes CGU définissent :</p>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>les conditions d'accès à la plateforme</li>
-            <li>les règles d'utilisation des services</li>
-            <li>les responsabilités des utilisateurs</li>
-            <li>les conditions financières</li>
-            <li>les règles de confidentialité</li>
-          </ul>
-          <p className="mt-2 font-medium">
-            Toute utilisation de l'application implique une acceptation 
-            <strong> expresse, libre et éclairée</strong> des présentes CGU.
-          </p>
-        </Section>
-
-        {/* 3. ACCEPTATION ET OPPOSABILITÉ */}
-        <Section title="3. Acceptation et opposabilité">
-          <p>Lors de l'inscription, l'utilisateur :</p>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>coche une case d'acceptation</li>
-            <li>reconnaît avoir lu et compris les CGU</li>
-            <li>accepte d'être juridiquement lié</li>
-          </ul>
-          <p className="mt-2 font-medium">
-            Les CGU sont opposables dès la première utilisation.
-          </p>
-        </Section>
-
-        {/* 4. CRÉATION DE COMPTE */}
-        <Section title="4. Création de compte">
-          <h5 className="font-semibold mt-2">4.1 Conditions</h5>
-          <p>Pour créer un compte, l'utilisateur doit :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>fournir des informations exactes, complètes et à jour</li>
-            <li>être juridiquement capable (ou sous responsabilité légale)</li>
-          </ul>
-
-          <h5 className="font-semibold mt-3">4.2 Sécurité du compte</h5>
-          <p>L'utilisateur est seul responsable :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>de son mot de passe</li>
-            <li>de l'accès à son compte</li>
-            <li>des actions effectuées</li>
-          </ul>
-          <p className="mt-2" style={{ color: colors.textLight }}>
-            Toute connexion est réputée effectuée par le titulaire du compte.
-          </p>
-        </Section>
-
-        {/* 5. TYPOLOGIE DES UTILISATEURS */}
-        <Section title="5. Typologie des utilisateurs et obligations spécifiques">
-          
-          <h5 className="font-semibold mt-2">🔹 5.1 Bénéficiaire / Patient / Famille</h5>
-          <p>S'engage à :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>fournir des informations médicales et personnelles exactes</li>
-            <li>respecter les intervenants</li>
-            <li>ne pas détourner les services</li>
-          </ul>
-          <p className="mt-1 text-xs" style={{ color: '#92400E' }}>
-            ⚠️ Responsabilité : toute mauvaise information peut entraîner un risque et engage sa responsabilité.
-          </p>
-
-          <h5 className="font-semibold mt-3">🔹 5.2 Aidant / Intervenant</h5>
-          <p>S'engage à :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>fournir des prestations conformes aux standards professionnels</li>
-            <li>respecter strictement la confidentialité</li>
-            <li>signaler toute situation critique</li>
-          </ul>
-          <p className="mt-1 font-medium text-xs" style={{ color: '#991B1B' }}>
-            🚫 Interdictions : abus de confiance, exploitation financière ou morale.
-          </p>
-
-          <h5 className="font-semibold mt-3">🔹 5.3 Coordinateur / Manager</h5>
-          <p>Responsable de :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>la supervision des services</li>
-            <li>la qualité des prestations</li>
-            <li>la coordination entre acteurs</li>
-          </ul>
-          <p className="mt-1 text-sm">
-            Il agit comme <strong>intermédiaire opérationnel</strong>, sans être garant médical.
-          </p>
-
-          <h5 className="font-semibold mt-3">🔹 5.4 Administrateur</h5>
-          <p>Responsable de :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>la gestion technique</li>
-            <li>la sécurité</li>
-            <li>la régulation des accès</li>
-          </ul>
-          <p className="mt-1 text-sm">
-            Peut : suspendre un compte, modifier les accès, contrôler les activités.
-          </p>
-
-          <h5 className="font-semibold mt-3">🔹 5.5 Payeur (Diaspora ou tiers)</h5>
-          <p>S'engage à :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>financer les services choisis</li>
-            <li>vérifier les prestations</li>
-            <li>effectuer les paiements dans les délais</li>
-          </ul>
-          <p className="mt-1 text-xs" style={{ color: '#92400E' }}>
-            ⚠️ Le payeur n'est pas nécessairement bénéficiaire direct.
-          </p>
-        </Section>
-
-        {/* 6. DESCRIPTION DES SERVICES */}
-        <Section title="6. Description des services">
-          <p>SANTÉ PLUS SERVICE propose notamment :</p>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>coordination des soins et assistance</li>
-            <li>suivi des bénéficiaires</li>
-            <li>communication entre parties</li>
-            <li>gestion des prestations</li>
-            <li>système de paiement</li>
-          </ul>
-          <WarningBox>
-            ⚠️ <strong>La plateforme n'est pas un établissement médical</strong>
-            <br />
-            Elle ne remplace ni un médecin ni une structure hospitalière.
-          </WarningBox>
-        </Section>
-
-        {/* 7. CONDITIONS FINANCIÈRES */}
-        <Section title="7. Conditions financières">
-          <h5 className="font-semibold mt-2">7.1 Tarification</h5>
-          <p>Les services peuvent être :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>forfaitaires</li>
-            <li>à l'acte</li>
-            <li>par abonnement</li>
-          </ul>
-          <p className="mt-1">Les prix sont clairement indiqués avant validation.</p>
-
-          <h5 className="font-semibold mt-3">7.2 Paiement</h5>
-          <p>Les paiements peuvent être effectués via :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>mobile money (MTN, Moov)</li>
-            <li>carte bancaire</li>
-            <li>WorldRemit, Wise, Sendwave</li>
-            <li>autres solutions disponibles</li>
-          </ul>
-
-          <h5 className="font-semibold mt-3">7.3 Défaut de paiement</h5>
-          <p>En cas de non-paiement :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>suspension immédiate des services</li>
-            <li>blocage du compte</li>
-            <li>recouvrement possible</li>
-          </ul>
-
-          <h5 className="font-semibold mt-3">7.4 Absence de remboursement</h5>
-          <p>Sauf cas exceptionnel :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>aucun remboursement automatique</li>
-            <li>toute contestation est étudiée au cas par cas</li>
-          </ul>
-        </Section>
-
-        {/* 8. RESPONSABILITÉ */}
-        <Section title="8. Responsabilité">
-          <h5 className="font-semibold mt-2">8.1 Limitation de responsabilité</h5>
+        {/* 2. RESPONSABLE DU TRAITEMENT */}
+        <Section title="2. Responsable du traitement">
           <p>
-            SANTÉ PLUS SERVICE agit comme <strong>intermédiaire technique et organisationnel</strong>.
-            Elle ne peut être tenue responsable :
+            Le responsable du traitement des données mises en œuvre dans le cadre de l’application Santé Plus est <strong>Santé Plus Service SARL</strong>, agissant en qualité d’opérateur de la plateforme et d’organisateur des prestations associées. La société détermine les finalités principales de collecte, d’utilisation, de conservation et de communication des données.
           </p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>des actes médicaux</li>
-            <li>des décisions des intervenants</li>
-            <li>des dommages indirects</li>
-          </ul>
-
-          <h5 className="font-semibold mt-3">8.2 Responsabilité des utilisateurs</h5>
-          <p>Chaque utilisateur est responsable :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>de ses actions</li>
-            <li>de ses décisions</li>
-            <li>des informations fournies</li>
-          </ul>
-
-          <h5 className="font-semibold mt-3">8.3 Cas de force majeure</h5>
-          <p>La responsabilité ne peut être engagée en cas de :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>panne réseau</li>
-            <li>catastrophe</li>
-            <li>événement imprévisible</li>
-          </ul>
         </Section>
 
-        {/* 9. CONFIDENTIALITÉ */}
-        <Section title="9. Confidentialité">
-          <p>Les données sont :</p>
+        {/* 3. CATÉGORIES DE DONNÉES COLLECTÉES */}
+        <Section title="3. Catégories de données collectées">
+          <p>Selon le rôle de l'utilisateur, l'application peut collecter :</p>
           <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>strictement confidentielles</li>
-            <li>accessibles uniquement aux personnes autorisées</li>
+            <li><strong>Données d’identification</strong> : nom, prénom, sexe, date de naissance, lien familial.</li>
+            <li><strong>Données de contact</strong> : numéro de téléphone, adresse e-mail, adresse physique (Bénin / Diaspora), contact d’urgence.</li>
+            <li><strong>Dossier du bénéficiaire</strong> : informations de confort, niveau de dépendance, observations non diagnostiques.</li>
+            <li><strong>Suivi de maternité</strong> : stade de grossesse déclaré, observations postpartum, éléments de suivi non médical du nouveau-né.</li>
+            <li><strong>Données de géolocalisation</strong> : position enregistrée des aidants lors du début et de la fin de l'accompagnement pour le contrôle de la présence sur le terrain.</li>
           </ul>
-          <p className="mt-2 font-medium" style={{ color: '#991B1B' }}>
-            Toute violation peut entraîner : suspension ou poursuites.
-          </p>
-          <p className="mt-2 text-xs" style={{ color: colors.textLight }}>
-            📋 Une politique de confidentialité complète est disponible séparément.
-          </p>
         </Section>
 
-        {/* 10. SÉCURITÉ */}
-        <Section title="10. Sécurité">
-          <p>La plateforme met en œuvre :</p>
+        {/* 4. FINALITÉS DU TRAITEMENT */}
+        <Section title="4. Finalités du traitement">
+          <p>Les données sont collectées pour :</p>
           <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>chiffrement des données</li>
-            <li>systèmes d'authentification</li>
-            <li>contrôle d'accès</li>
+            <li>L'administration et la sécurisation des comptes utilisateurs.</li>
+            <li>La coordination, la traçabilité et le suivi des visites à domicile.</li>
+            <li>La transmission d'informations en temps réel à la famille et à la diaspora.</li>
+            <li>La facturation, la confirmation de paiement des provisions d'achats et l'émission des reçus.</li>
+            <li>Le respect des obligations légales, comptables et réglementaires.</li>
           </ul>
-          <p className="mt-2" style={{ color: '#92400E' }}>
-            ⚠️ L'utilisateur reste responsable de ses accès.
-          </p>
         </Section>
 
-        {/* 11. SUSPENSION / RÉSILIATION */}
-        <Section title="11. Suspension / Résiliation">
-          <p>Peut intervenir en cas de :</p>
+        {/* 5. DESTINATAIRES DES DONNÉES ET ACCÈS PAR RÔLE */}
+        <Section title="5. Destinataires des données et accès par rôle">
+          <p>L'accès aux informations est strictement limité selon le profil de l'utilisateur :</p>
           <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>violation des CGU</li>
-            <li>fraude</li>
-            <li>comportement abusif</li>
-          </ul>
-          <p className="mt-2 font-medium" style={{ color: '#991B1B' }}>
-            Sans préavis si nécessaire.
-          </p>
-        </Section>
-
-        {/* 12. PROPRIÉTÉ INTELLECTUELLE */}
-        <Section title="12. Propriété intellectuelle">
-          <p>Tous les éléments de l'application sont protégés.</p>
-          <p className="mt-2">
-            Toute reproduction est interdite sans autorisation.
-          </p>
-        </Section>
-
-        {/* 13. MODIFICATION DES CGU */}
-        <Section title="13. Modification des CGU">
-          <p>SANTÉ PLUS SERVICE peut modifier les CGU à tout moment.</p>
-          <p className="mt-2">Les utilisateurs seront informés via :</p>
-          <ul className="list-disc pl-5 mt-1 space-y-1">
-            <li>notification</li>
-            <li>email</li>
-            <li>message dans l'app</li>
+            <li><strong>Admin & Coordination</strong> : Gestion technique, planification des visites, validation des rapports d'interventions.</li>
+            <li><strong>Aidant / Intervenant</strong> : Accès limité aux seules informations de confort nécessaires à l'accomplissement de sa mission terrain.</li>
+            <li><strong>Famille / Payeur</strong> : Accès aux rapports de visites, cahier de liaison et historiques de paiement de son foyer.</li>
           </ul>
         </Section>
 
-        {/* 14. DROIT APPLICABLE ET LITIGES */}
-        <Section title="14. Droit applicable et litiges">
+        {/* 6. GÉOLOCALISATION ET SUIVI DES INTERVENTIONS */}
+        <Section title="6. Géolocalisation et suivi des interventions">
+          <p>
+            L’application enregistre la position géographique des intervenants lors du démarrage et de la clôture des visites. Ce suivi a pour but exclusif de contrôler la réalité de la présence à domicile, d'assurer la sécurité des équipes de terrain, d'évaluer les retards et de garantir la continuité de service pour les familles abonnées.
+          </p>
+        </Section>
+
+        {/* 7. PHOTOS, VIDÉOS ET COMPTES RENDUS */}
+        <Section title="7. Photos, vidéos et comptes rendus">
+          <p>
+            Les photos, mémos vocaux et rapports transmis par l'aidant ne sont partagés que dans le cadre exclusif du dossier familial autorisé. Tout usage promotionnel, publicitaire ou externe à la réalisation de la mission d'accompagnement de Santé Plus Service SARL est strictement interdit sans un accord écrit et signé séparément.
+          </p>
+        </Section>
+
+        {/* 8. DURÉE DE CONSERVATION DES DONNÉES */}
+        <Section title="8. Durée de conservation des données">
           <ul className="list-disc pl-5 space-y-1">
-            <li>Droit applicable : pays d'exploitation</li>
-            <li>Priorité à une résolution amiable</li>
-            <li>À défaut : juridictions compétentes</li>
+            <li><strong>Données de compte</strong> : Conservées pendant toute la durée d'activité du compte utilisateur.</li>
+            <li><strong>Données de facturation et de paiement</strong> : Conservées selon les durées légales de conservation comptables applicables.</li>
+            <li><strong>Rapports et historiques d'interventions</strong> : Conservés pendant la durée nécessaire à la continuité des soins et au suivi qualité.</li>
           </ul>
         </Section>
 
-        {/* 15. AVERTISSEMENT MÉDICAL */}
-        <div className="p-5 rounded-2xl border-2" style={{ borderColor: '#EF444430', backgroundColor: '#FEF2F2' }}>
-          <h4 className="font-bold text-base mb-2" style={{ color: '#991B1B' }}>
-            🚨 AVERTISSEMENT MÉDICAL IMPORTANT
+        {/* 9. EXACTITUDE DES INFORMATIONS ET RESPONSABILITÉ CLIENT */}
+        <Section title="9. Sincérité des informations et responsabilité du client">
+          <p>
+            Le client s’engage à fournir des informations rigoureusement sincères concernant le bénéficiaire, son état général, son adresse, sa disponibilité et son contact d'urgence. Toute omission, dissimulation ou erreur relative à l’état de santé ou de dépendance du proche peut limiter la responsabilité de Santé Plus Service SARL et compromettre la bonne exécution des prestations à domicile.
+          </p>
+        </Section>
+
+        {/* 10. CONDITIONS FINANCIÈRES, PAIEMENT ET ABSENCE DE REMBOURSEMENT */}
+        <Section title="10. Conditions financières, forfaits et politique de paiement">
+          <p>
+            Les abonnements mensuels, forfaits de maternité ou prestations à l'acte sont payables d'avance par Mobile Money (MTN, Moov, Celtiis), transfert de fonds international ou carte bancaire. Sauf cas de force majeure ou faute lourde imputable à l'entreprise :
+          </p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li><strong>Absence de remboursement</strong> : Les forfaits déjà activés, engagés ou commencés restent entièrement dus et ne font l'objet d'aucun remboursement automatique.</li>
+            <li><strong>Défaut de paiement</strong> : Entraîne la suspension immédiate de l'accès à l'application et l'arrêt des visites d'accompagnement planifiées.</li>
+          </ul>
+        </Section>
+
+        {/* 11. FACULTÉ DE REFUS, DE SUSPENSION OU DE RÉORIENTATION */}
+        <Section title="11. Faculté de refus ou de réorientation de l'entreprise">
+          <p>
+            Santé Plus Service SARL se réserve le droit de refuser, suspendre ou réorienter une prestation si le niveau de dépendance ou le besoin médical réel du bénéficiaire dépasse le cadre non médical du forfait souscrit, ou s'il présente un risque grave pour la sécurité de l'intervenant à domicile.
+          </p>
+        </Section>
+
+        {/* 12. AVERTISSEMENT MÉDICAL D'URGENCE IMPORTANT */}
+        <div className="p-5 rounded-2xl border-2 bg-red-50/50 border-red-200">
+          <h4 className="font-bold text-xs sm:text-sm mb-2 text-red-800 uppercase">
+            🚨 AVERTISSEMENT MÉDICAL D'URGENCE IMPORTANT
           </h4>
-          <div className="text-sm leading-relaxed" style={{ color: '#991B1B' }}>
+          <div className="text-xs sm:text-sm leading-relaxed font-semibold text-red-700 space-y-2">
             <p>
-              <strong>Les services Santé Plus sont des services d'accompagnement, 
-              de coordination et de soutien à domicile.</strong> Ils ne remplacent ni un médecin, 
-              ni une sage-femme, ni un service d'urgence, ni une hospitalisation.
+              <strong>La plateforme Santé Plus et ses intervenants (aidants) ne sont pas un établissement médical, un service d'ambulance, ou un outil de diagnostic.</strong> Ils n'effectuent aucun acte médical, injection, pansement complexe ou prescription de traitement.
             </p>
-            <p className="font-medium mt-2">
-              En cas de douleur intense, saignement, difficulté respiratoire, 
-              baisse des mouvements fœtaux, fièvre importante, convulsions, 
-              perte de connaissance, aggravation brutale de l'état général, 
-              les proches doivent immédiatement contacter un service médical d'urgence.
+            <p className="font-bold">
+              En cas de douleur aiguë brutale, malaise, convulsion, perte de connaissance, saignement important ou détresse respiratoire chez votre proche, ne planifiez pas de visite ! Vous devez contacter immédiatement les services de secours ou orienter sans délai le malade vers la clinique ou l'hôpital le plus proche.
             </p>
           </div>
         </div>
 
-        {/* 16. CONTACT */}
-        <Section title="15. Contact">
-          <p>Pour toute question relative aux CGU :</p>
-          <div className="mt-3 space-y-1 text-sm">
+        {/* 13. CONTACT ET SUPPORT */}
+        <Section title="12. Coordonnées de contact officiel">
+          <p>Pour toute question relative aux présentes conditions, à l'exercice de vos droits ou à la facturation :</p>
+          <div className="mt-3 space-y-1 text-xs">
             <p><strong>📧 Email :</strong> contact@santeplus.bj</p>
             <p><strong>📞 Téléphone :</strong> +229 01 91 34 34 58</p>
-            <p><strong>📍 Adresse :</strong> Cotonou, Bénin</p>
+            <p><strong>📍 Adresse administrative :</strong> Cotonou, République du Bénin</p>
           </div>
         </Section>
 
       </div>
 
       {/* ============================================================
-      FOOTER
-      ============================================================ */}
+          FOOTER
+          ============================================================ */}
       <div className="text-center text-xs pt-4 border-t" style={{ borderColor: colors.primary + '15', color: colors.textLight }}>
-        Version 1.0.0 — Dernière mise à jour : {today}
-        <br />
-        <span className="text-[10px]">
-          © {new Date().getFullYear()} Santé Plus Service — Tous droits réservés.
-        </span>
+        © {new Date().getFullYear()} Santé Plus Service SARL — Tous droits réservés.
       </div>
 
     </div>
