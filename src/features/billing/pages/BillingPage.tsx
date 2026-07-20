@@ -1,6 +1,5 @@
 // 📁 src/features/billing/pages/BillingPage.tsx
-// ✅ PAGE FACTURATION CLIENT : FILTRAGE DYNAMIQUE STRICT SELON LE PROFIL CLINIQUE DU FOYER SANS COUPLAGE DE COMMANDES
-
+ 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import {
   CreditCard,
@@ -281,7 +280,24 @@ const BillingPage = () => {
     return historyList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [payments, subscriptions]);
 
-  const isLoading = storeLoading || offersLoading;
+  const rawLoading = storeLoading || offersLoading;
+
+  // ============================================================
+  // 🧠 STABILISATEUR SÉCURISÉ CONTRE LE CLIGNOTEMENT ASYNCHRONE [23]
+  // ============================================================
+  const [stabilizedLoading, setStabilizedLoading] = useState(true);
+
+  useEffect(() => {
+    if (rawLoading) {
+      setStabilizedLoading(true);
+    } else {
+      // Un buffer de sécurité de 250ms pour stabiliser le chargement [23]
+      const timer = setTimeout(() => {
+        setStabilizedLoading(false);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [rawLoading]);
 
   const getTabLabel = (tabId: TabType) => {
     if (tabId === 'all') return 'Toutes les formules';
@@ -303,7 +319,8 @@ const BillingPage = () => {
     return "Consultez votre crédit d'accompagnement mensuel, vos formules de visites et l'historique complet de vos règlements.";
   };
 
-  if (isLoading) {
+  // Rendu stabilisé de transition (Plus aucun effet de flicker !) [23]
+  if (stabilizedLoading) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto pb-6">
         <div className="h-28 bg-gray-100 dark:bg-gray-800/50 rounded-2xl animate-pulse" />
@@ -381,11 +398,11 @@ const BillingPage = () => {
               }
             );
           }}
-          disabled={isLoading}
+          disabled={rawLoading}
           className="absolute top-4 right-4 w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
           title="Actualiser"
         >
-          <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+          <RefreshCw size={13} className={rawLoading ? 'animate-spin' : ''} />
         </button>
       </section>
 
