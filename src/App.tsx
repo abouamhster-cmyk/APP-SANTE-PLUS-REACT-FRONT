@@ -1,5 +1,5 @@
 // 📁 src/App.tsx
-
+ 
 import { useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -9,7 +9,6 @@ import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { InstallPrompt } from '@/components/PWA/InstallPrompt';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { RoleGuard } from '@/components/auth/RoleGuard';
-import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import MainLayout from '@/components/layout/MainLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout'; 
@@ -400,55 +399,7 @@ function App() {
         </Routes>
 
         <InstallPrompt />
-        <OnboardingTour />
-
-        <Toaster
-          position="top-center"
-          reverseOrder={false}
-          gutter={8}
-          containerStyle={{ top: 76, zIndex: 999999 }}
-          toastOptions={{
-            duration: 3800,
-            style: {
-              width: 'min(420px, calc(100vw - 28px))',
-              maxWidth: '420px',
-              minHeight: '62px',
-              background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
-              color: '#fff4dc',
-              border: '1px solid rgba(255,255,255,.12)',
-              borderRadius: '22px',
-              padding: '14px 16px',
-              boxShadow: '0 18px 40px rgba(15,31,25,.28), 0 4px 12px rgba(16,185,129,.08)',
-              backdropFilter: 'blur(18px)',
-              fontSize: '13px',
-              fontWeight: 700,
-              lineHeight: 1.35,
-            },
-            success: {
-              style: {
-                border: '1px solid rgba(16,185,129,.38)',
-                background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
-                color: '#fff4dc',
-              },
-            },
-            error: {
-              duration: 4800,
-              style: {
-                border: '1px solid rgba(239,68,68,.42)',
-                background: 'linear-gradient(135deg, rgba(79,18,18,.98), rgba(127,29,29,.98))',
-                color: '#fff4dc',
-              },
-            },
-            loading: {
-              style: {
-                border: '1px solid rgba(245,158,11,.38)',
-                background: 'linear-gradient(135deg, rgba(17,43,34,.98), rgba(21,54,43,.98))',
-                color: '#fff4dc',
-              },
-            },
-          }}
-        />
-      </BrowserRouter>
+       </BrowserRouter>
     </QueryClientProvider>
   );
 }
