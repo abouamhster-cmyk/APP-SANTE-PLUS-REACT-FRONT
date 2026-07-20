@@ -35,7 +35,7 @@ import { FAQContent } from '../components/FAQContent';
 import { CGUContent } from '../components/CGUContent';
 import { useBranding } from '@/hooks/useBranding';
 import { useOfferStore } from '@/stores/offerStore';
-import { cn } from '@/utils/helpers'; // ✅ CORRECTIF (TS2304) : Importation correcte de l'utilitaire cn
+import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
 type AccountChoice = 'family_with_patient' | 'personal' | 'aidant';
@@ -445,7 +445,7 @@ const RegisterPage = () => {
               >
                 {/* Badge sélectionné en haut à droite [1] */}
                 {isSelected && (
-                  <span className="absolute top-3 right-3 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full text-white" style={{ background: primaryColor }}>
+                  <span className="absolute top-3 right-3 text-[10px] font-black uppercase tracking-wider text-white" style={{ background: primaryColor }}>
                     Sélectionné
                   </span>
                 )}
@@ -578,7 +578,7 @@ const RegisterPage = () => {
                     <Users size={16} />
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Identité du proche</p>
+                    <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Identity du proche</p>
                     <p className="text-xs font-semibold break-words mt-0.5" style={{ color: textColor }}>
                       {formData.patientData.first_name} {formData.patientData.last_name}
                       {formData.patientData.address && ` • Adresse: ${formData.patientData.address}`}
