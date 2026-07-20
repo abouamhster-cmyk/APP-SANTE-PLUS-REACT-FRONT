@@ -367,7 +367,8 @@ const MainLayout = () => {
       {/* TABS MOBILE */}
       {isMobile && <MobileTabBar colors={colors} />}
 
-        <OnboardingTour />
+       {/* Il se déclenchera à la microseconde exacte où l''écran de garde sera validé [24] */}
+      <OnboardingTour />
     </div>
   );
 };
