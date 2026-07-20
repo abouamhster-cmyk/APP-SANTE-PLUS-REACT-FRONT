@@ -34,10 +34,10 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { usePatientStore } from '@/stores/patientStore';
 import { useVisitStore } from '@/stores/visitStore';
-import { useNotificationStore } from '@/stores/notificationStore';
 import { useOrderStore } from '@/stores/orderStore';
 import { useAidantCatalogStore } from '@/stores/aidantCatalogStore';
 import { usePaymentStore } from '@/stores/paymentStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
 import { useBranding } from '@/hooks/useBranding';
 import { getGreeting } from '@/utils/helpers';
@@ -72,7 +72,7 @@ interface HeroSlide {
 }
 
 // =============================================
-// DÉFINITION DES TUILES PAR RÔLE (MESSAGES RETIRÉ DE TOUTES LES GRILLES) [24]
+// DÉFINITION DES TUILES PAR RÔLE
 // =============================================
 const getTilesForRole = (role: string | null, colors: any, stats: any, patientsCount: number): Tile[] => {
   const tiles: Tile[] = [];
@@ -266,6 +266,7 @@ const DashboardPage = () => {
           actionPath: '/app/orders',
         },
         {
+          // ✅ ENRICHI SANS MESSAGERIE : Valorise les mémos vocaux et photos de fin de visite 
           title: '🎤 Comptes-rendus immersifs',
           description: 'Ajoutez des mémos vocaux en direct et des photos d’intervention pour justifier l’excellence de vos visites à la coordination.',
           image: aidantImg,
@@ -289,7 +290,7 @@ const DashboardPage = () => {
           title: '👶 Votre univers Maman & Bébé',
           description: 'Consultez vos fiches de présences, de suivis et d\'éveil du nouveau-né directement en temps réel.',
           image: mamanImg,
-          actionText: 'Mes Proches', // ✅ CORRECTIF : Pas de planification de visites pour la famille ! [30]
+          actionText: 'Mes Proches',  
           actionPath: '/app/patients',
         },
         {
@@ -329,7 +330,7 @@ const DashboardPage = () => {
         title: '👴 Aide et présence aux seniors',
         description: 'Assurez un suivi continu et complet de nos accompagnements de confort pour votre parent âgé.',
         image: seniorImg,
-        actionText: 'Mes Proches', // ✅ CORRECTIF : Pas de planification de visites pour la famille ! [30]
+        actionText: 'Mes Proches', 
         actionPath: '/app/patients',
       },
       {
@@ -357,7 +358,7 @@ const DashboardPage = () => {
         title: '🏠 Convalescence après hospitalisation',
         description: 'Organisez sereinement la logistique et l\'installation de confort de votre proche pour son retour à la maison.',
         image: seniorImg,
-        actionText: 'Mes Proches', // ✅ CORRECTIF : Pas de planification de visites pour la famille ! [30]
+        actionText: 'Mes Proches', 
         actionPath: '/app/patients',
       }
     ];
@@ -572,7 +573,24 @@ const DashboardPage = () => {
   }, [isAdminOrCoordinator, isFamily, isAidant, profile?.patient_category]);
 
   const hasInMemoryData = patients.length > 0 || visits.length > 0 || orders.length > 0;
-  const isLoading = (patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires) && !hasInMemoryData;
+  const rawLoading = (patientsLoading || visitsLoading || ordersLoading || aidantsLoading || paymentsLoading || isLoadingAdminStats || isLoadingBeneficiaires) && !hasInMemoryData;
+
+  // ============================================================
+  // 🧠 STABILISATEUR SÉCURISÉ CONTRE LE CLIGNOTEMENT ASYNCHRONE [23]
+  // ============================================================
+  const [stabilizedLoading, setStabilizedLoading] = useState(true);
+
+  useEffect(() => {
+    if (rawLoading) {
+      setStabilizedLoading(true);
+    } else {
+      // Un buffer de sécurité de 250ms pour stabiliser le chargement [23]
+      const timer = setTimeout(() => {
+        setStabilizedLoading(false);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [rawLoading]);
 
   const stats = useMemo(() => {
     const pendingVisits = visits.filter((v) => v.status === 'planifiee' || v.status === 'en_attente').length;
@@ -616,7 +634,8 @@ const DashboardPage = () => {
 
   const hasProches = stats.proches > 0;
 
-  if (isLoading) {
+  // Utiliser stabilizedLoading au lieu de rawLoading pour la transition d'IHM [23]
+  if (stabilizedLoading) {
     return (
       <div className="space-y-6 max-w-5xl mx-auto animate-pulse">
         <div className="h-44 rounded-3xl bg-white shadow-sm" />
@@ -1025,7 +1044,7 @@ const DashboardPage = () => {
           <div className="flex flex-wrap justify-center gap-3 mt-4">
             <button
               onClick={() => navigate('/app/orders/create')}
-              className="px-6 py-2.5 rounded-xl text-white font-bold text-xs transition-all hover:opacity-95 flex items-center gap-1.5 shadow-sm"
+              className="px-6 py-2.5 rounded-xl text-white font-bold text-xs transition-all hover:opacity-95 shadow-sm flex items-center gap-1.5"
               style={{ background: colors.primary }}
             >
               <ShoppingBag size={13} />
