@@ -1,5 +1,5 @@
 // 📁 src/components/contract/ContractModalContent.tsx
-// ✅ CONTENU CONTRAT : DESIGN PREMIUM ÉPURÉ, SANS BANDEAU CLIGNOTANT ET AVEC BAS DE PAGE SANS CASSURE
+// ✅ CONTENU CONTRAT : INTÉGRATION DU PORTAIL BEIGE ET DÉDOUBLONNAGE PARFAIT
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -58,7 +58,6 @@ export const ContractModalContent = ({
 
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Détection du bas de page avec une tolérance de confort de 50px
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
     
@@ -75,7 +74,6 @@ export const ContractModalContent = ({
     }
   }, []);
 
-  // Déblocage automatique si le contrat est court et ne nécessite pas de scroll
   useEffect(() => {
     if (!contract) return;
     
@@ -100,7 +98,7 @@ export const ContractModalContent = ({
 
   if (!contract) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 w-full">
+      <div className="flex flex-col items-center justify-center py-12 w-full bg-[#FCFAF6] dark:bg-[#151c18]">
         <AlertTriangle size={32} className="text-gray-300 mb-2" />
         <p className="text-xs font-medium" style={{ color: colors.textLight }}>Contrat non disponible</p>
       </div>
@@ -110,14 +108,13 @@ export const ContractModalContent = ({
   const progress = scrolledToBottom ? 100 : Math.min((readTime / 15) * 100, 95);
 
   return (
-    <div className="flex flex-col h-full max-w-full overflow-hidden">
+    /* ✅ CORRECTIF D'ARRIÈRE-PLAN : Fond beige/crème constant FCFAF6 (avec support dark mode) au lieu de blanc [23] */
+    <div className="flex flex-col h-full max-w-full overflow-hidden bg-[#FCFAF6] dark:bg-[#151c18]">
       
-      {/* BARRE DE PROGRESSION DE LECTURE MINIMALISTE */}
       <div className="flex-shrink-0">
         <ProgressBar progress={progress} />
       </div>
 
-      {/* ZONE DE LECTURE FLUIDE */}
       <div
         ref={contentRef}
         onScroll={handleScroll}
@@ -128,19 +125,19 @@ export const ContractModalContent = ({
           <div className="p-3.5 rounded-2xl border flex gap-2.5 items-start" style={{ borderColor: colors.primary + '10', backgroundColor: colors.primary + '04' }}>
             <FileText size={15} className="shrink-0 mt-0.5" style={{ color: colors.primary }} />
             <div className="space-y-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Résumé</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.textLight }}>Résumé du document</p>
               <p className="text-xs leading-relaxed font-semibold" style={{ color: colors.text }}>{contract.summary}</p>
             </div>
           </div>
         )}
 
+        {/* ✅ CORRECTIF SÉMANTIQUE : Titre interne redundante du contenu CMS de base masqué pour éviter toute duplication visuelle [23] */}
         <div
           className="prose prose-sm max-w-none text-xs sm:text-sm leading-relaxed font-semibold"
           style={{ color: colors.text }}
           dangerouslySetInnerHTML={{ __html: contract.content }}
         />
 
-        {/* GUIDE DE DÉFILEMENT SOBRE */}
         {!scrolledToBottom && (
           <div className="text-center py-2">
             <div className="inline-flex items-center gap-1.5 text-[9px] font-black px-3.5 py-1.5 rounded-full bg-black/5" style={{ color: colors.textLight }}>
@@ -151,7 +148,6 @@ export const ContractModalContent = ({
         )}
       </div>
 
-      {/* FOOTER ÉPURÉ TRANSPARENT */}
       <div className="flex-shrink-0 pt-3 border-t bg-transparent" style={{ borderColor: colors.primary + '10' }}>
         <div className="flex flex-col gap-3">
           
@@ -189,7 +185,7 @@ export const ContractModalContent = ({
               style={{
                 background: (!isChecked || !scrolledToBottom || isLoading)
                   ? '#E5E7EB'
-                  : colors.primary,
+                  : colors.primary, // L'intervenant actif bénéficie de son hover et bouton dynamique [23]
               }}
             >
               {isLoading ? (
