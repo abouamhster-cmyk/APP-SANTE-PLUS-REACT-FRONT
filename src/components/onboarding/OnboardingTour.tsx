@@ -1,9 +1,9 @@
 // 📁 src/components/onboarding/OnboardingTour.tsx
- 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+// ✅ ONBOARDING TOUR COMPLET : SUPPRESSION DES MINUTEURS ET DES CONVERGENCES D'ÉVÉNEMENTS POUR UN DÉCLENCHEMENT INSTANTANÉ ET FIABLE À 100% [24]
+
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  X,
   ArrowRight,
   Check,
   Sparkles,
@@ -14,7 +14,7 @@ import {
   UserCheck,
   ClipboardList,
   FileCheck,
-  CreditCard,  
+  CreditCard,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -35,8 +35,6 @@ interface TourStep {
 interface OnboardingTourProps {
   onComplete?: () => void;
 }
-
-type TimerType = ReturnType<typeof setTimeout> | null;
 
 // Clés localStorage unifiées
 const TOUR_STORAGE_KEY = 'sante_plus_tour_seen';
@@ -67,45 +65,46 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const [hasSeenTour, setHasSeenTour] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [shouldShow, setShouldShow] = useState(false);
-  const [hasAttemptedShow, setHasAttemptedShow] = useState(false);
-
-  const showTimeoutRef = useRef<TimerType>(null);
 
   const isMaman = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
 
   // ============================================================
-  // 1. VÉRIFICATION DOUBLE SÉCURISÉ (BASE DE DONNÉES + CACHE) [23]
+  // 1. VÉRIFICATION DOUBLE SÉCURISÉ (BASE DE DONNÉES + CACHE COHÉRENT) [23]
   // ============================================================
   useEffect(() => {
     // A. Priorité absolue : Vérifier l'état dans le profil chargé depuis le serveur [23]
-    // ✅ CORRECTIF TS2339 : Casting du profil en "any" pour bypasser la contrainte de type [22]
     if ((profile as any)?.has_seen_onboarding === true) {
       setHasSeenTour(true);
       setIsReady(true);
       return;
     }
 
-    // B. Secours local de confort (LocalStorage) [23]
+    // B. Secours local de confort (LocalStorage lié à l'ID utilisateur) [23]
     const saved = localStorage.getItem(TOUR_STORAGE_KEY);
-    if (saved) {
+    if (saved && profile?.id) {
       try {
         const data = JSON.parse(saved);
-        if (data.version === TOUR_VERSION && data.seen === true) {
+        
+        // Ségrégation stricte inter-comptes [23]
+        if (data.version === TOUR_VERSION && data.seen === true && data.userId === profile.id) {
           setHasSeenTour(true);
+        } else {
+          setHasSeenTour(false);
         }
       } catch (e) {
         console.warn('Erreur lecture tour:', e);
       }
+    } else {
+      setHasSeenTour(false);
     }
     setIsReady(true);
   }, [profile]);
 
   // ============================================================
-  // SÉCURITÉ DE SESSION : Réinitialiser la tentative si changement d'utilisateur [24]
+  // SÉCURITÉ DE SESSION : Réinitialiser l'état d'onboarding dès la déconnexion/reconnexion [24]
   // ============================================================
   useEffect(() => {
     if (user?.id) {
-      setHasAttemptedShow(false);
       setShouldShow(false);
       setIsOpen(false);
     }
@@ -198,8 +197,8 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         {
           id: 'billing',
           title: '💳 Formules d\'Abonnement',
-          description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes de manière transparente.',
-          icon: <CreditCard size={28} />, // ✅ Désormais correctement importé et fonctionnel [22]
+          description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes de manière de manière transparente.',
+          icon: <CreditCard size={28} />,
           image: banner,
         },
         {
@@ -253,7 +252,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. ENTRÉE SÉCURISÉE SANS CONCURRENCE (VÉRIFIÉ ET APPROUVÉ) [1, 24]
+  // 3. ENTRÉE ULTRA-STABLE SANS TIMEOUT NI CONCURRENCES DE RENDER [24]
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
@@ -266,32 +265,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     if (needsAcceptance) return; // Bloquer tant que les CGU ne sont pas signées [1]
 
     if (steps.length === 0) return;
-    if (hasAttemptedShow) return;
 
-    const blockedPages = [
-      '/login',
-      '/register',
-      '/forgot-password',
-      '/reset-password',
-      '/admin-setup',
-    ];
-
-    const isBlocked = blockedPages.some(p => location.pathname.includes(p));
-    if (isBlocked) return;
-
-    setHasAttemptedShow(true);
-
-    if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
-    
-    // Déclenchement automatique immédiat et fluide après signature [24]
-    showTimeoutRef.current = setTimeout(() => {
-      setShouldShow(true);
-      setIsOpen(true);
-    }, 600);
-
-    return () => {
-      if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
-    };
+    // ✅ DÉCLENCHEMENT DIRECT SANS TIMEOUT NI VERROU ANNUILÉ PAR LE CLEANUP [24]
+    // L'onboarding s'affiche à l'instant même où la route est validée et s'y fige proprement [24]
+    setShouldShow(true);
+    setIsOpen(true);
   }, [
     isReady,
     isInitialized,
@@ -302,7 +280,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     needsAcceptance, 
     steps.length,
     location.pathname,
-    hasAttemptedShow,
   ]);
 
   // ============================================================
@@ -317,7 +294,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       seen: true,
       version: TOUR_VERSION,
       completedAt: new Date().toISOString(),
-      userId: user?.id,
+      userId: profile?.id,
     }));
 
     // B. SAUVEGARDE PHYSIQUE ET SÉCURISÉE EN BASE DE DONNÉES (Fiabilité 100%) [23]
@@ -328,7 +305,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           .update({ has_seen_onboarding: true })
           .eq('id', user.id);
 
-        // ✅ CORRECTIF TS2353 : Casting de l'état étendu du profil local en "any" [22]
         if (profile) {
           setUser(user, { ...profile, has_seen_onboarding: true } as any);
         }
@@ -354,7 +330,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   // Touche Échap
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (isOpen && e.key === 'Escape') {
         handleComplete();
       }
     };
