@@ -1,5 +1,6 @@
 // 📁 src/lib/branding.ts
- 
+
+
 export type BrandTheme = 'senior' | 'maman' | 'aidant' | 'coordinator' | 'admin' | 'general';
 
 export interface BrandColors {
@@ -40,7 +41,7 @@ export interface BrandConfig {
 }
 
 // ============================================================
-// LOGOS PAR THEME
+// LOGOS PAR THEME (Vert Forêt Général par défaut, Rose pour maman uniquement) [24]
 // ============================================================
 
 const LOGOS = {
@@ -77,7 +78,7 @@ const LOGOS = {
 };
 
 // ============================================================
-// COULEURS PAR THEME (Ajustées pour le contraste et le soulagement oculaire)
+// COULEURS UNIFIÉES (Or supprimé, Général mappé sur le Vert Forêt) [24]
 // ============================================================
 
 const COLORS: Record<BrandTheme, BrandColors> = {
@@ -88,7 +89,7 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#3a8a72',
     secondary: '#e8f0ed',
     secondaryLight: '#f0f5f2',
-    background: '#dbede4', // Fond sauge doux pour le confort visuel des seniors
+    background: '#dbede4',  
     surface: '#ffffff',
     surfaceSoft: '#eaf4f0',
     text: '#1a3a2e',
@@ -105,7 +106,7 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     banner: '/assets/images/banners/senior-banner.png',
     visitImage: '/assets/images/banners/senior-visit.png',
   },
-  // 🟢 COMPTE MAMAN : Rose-argile apaisant (Conservé à l'identique)
+  // 🟢 COMPTE MAMAN : Rose-argile apaisant (Unique exception de couleur) 
   maman: {
     primary: '#db4a6d',
     primaryDark: '#c62850',
@@ -129,31 +130,31 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     banner: '/assets/images/banners/maman-banner.png',
     visitImage: '/assets/images/banners/maman-visit.png',
   },
-  // 🟢 COMPTE PERSONNEL / GENERAL : Or / Sable chaud protecteur et élégant
+  // 🟢 COMPTE PERSONNEL / GENERAL : Mappé d'office sur le Vert Forêt officiel (Suppression de l'Or) [24]
   general: {
-    primary: '#a08233',
-    primaryDark: '#735e1d',
-    primaryLight: '#c9a84c',
-    secondary: '#1a4a3a',
-    secondaryLight: '#2a6a4a',
-    background: '#eedebb', // Fond or/sable chaud
+    primary: '#1a4a3a', // Vert forêt
+    primaryDark: '#0d2a22',
+    primaryLight: '#2a6a4a',
+    secondary: '#c9a84c',
+    secondaryLight: '#dcc07a',
+    background: '#f5f0e8', // Sable crème doux sans effet clignotant
     surface: '#ffffff',
-    surfaceSoft: '#faf4e6',
-    text: '#332615',
-    textLight: '#736551',
-    border: '#ded2bf',
+    surfaceSoft: '#faf7f1',
+    text: '#2d2d2d',
+    textLight: '#6b7280',
+    border: '#e5e0d8',
     accent: '#c9a84c',
     gold: '#c9a84c',
-    shadow: '0 4px 16px rgba(160, 130, 51, 0.08)',
-    shadowHover: '0 8px 32px rgba(160, 130, 51, 0.12)',
-    gradient: 'linear-gradient(135deg, #a08233 0%, #735e1d 100%)',
+    shadow: '0 4px 16px rgba(26, 74, 58, 0.08)',
+    shadowHover: '0 8px 32px rgba(26, 74, 58, 0.12)',
+    gradient: 'linear-gradient(135deg, #1a4a3a 0%, #0d2a22 100%)',
     logo: LOGOS.general.icon,
     logoText: LOGOS.general.text,
     logoWhiteBg: LOGOS.general.whiteBg,
     banner: '/assets/images/banners/senior-banner.png',
     visitImage: '/assets/images/banners/senior-visit.png',
   },
-  // 🟢 COMPTE AIDANT (Rôle Intervenant) : Bleu ardoise professionnel
+  // 🟢 COMPTE AIDANT (Rôle Intervenant) : Bleu ardoise professionnel (Uniquement visible connecté) [24]
   aidant: {
     primary: '#1f485c',
     primaryDark: '#112b3a',
