@@ -1,5 +1,5 @@
 // 📁 src/components/layout/MobileTabBar.tsx
-
+ 
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
@@ -180,7 +180,8 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
           ============================================================ */}
       <div
         className={cn(
-          "fixed left-4 right-4 z-[48] bg-white/95 backdrop-blur-xl rounded-[2.5rem] border shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
+          /* ✅ CORRECTIF D'ARRIÈRE-PLAN : Fond beige/crème constant FCFAF6 (avec support dark mode) au lieu de transparent/dynamique [24] */
+          "fixed left-4 right-4 z-[48] bg-[#FCFAF6] dark:bg-[#151c18] rounded-[2.5rem] border shadow-2xl transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] p-6 bottom-24 origin-bottom",
           showMore 
             ? "scale-100 opacity-100 translate-y-0 blur-none pointer-events-auto" 
             : "scale-90 opacity-0 translate-y-4 blur-sm pointer-events-none"
@@ -216,13 +217,14 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                   "flex flex-col items-center justify-center text-center p-4 rounded-3xl transition-all border",
                   active
                     ? "bg-white shadow-md font-bold"
-                    : "bg-gray-50/50 border-transparent hover:bg-gray-50"
+                    : "bg-white/40 border-transparent hover:bg-gray-50/50"
                 )}
                 style={{
                   borderColor: active ? colors.primary : 'transparent',
                   color: active ? colors.text : colors.textLight,
                 }}
               >
+                {/* L'icône de l'outil et son fond restent magnifiquement dynamiques [24] */}
                 <div
                   className="w-10 h-10 rounded-2xl flex items-center justify-center mb-2 transition-transform duration-200"
                   style={{ 
@@ -252,7 +254,8 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
           ============================================================ */}
       <div className="fixed bottom-4 left-4 right-4 z-50 pointer-events-none flex justify-center">
         <div
-          className="w-full max-w-lg bg-white/80 backdrop-blur-xl border shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
+          /* ✅ CORRECTIF D'ARRIÈRE-PLAN : Fond beige/crème constant FCFAF6 (avec support dark mode) au lieu de transparent/dynamique [24] */
+          className="w-full max-w-lg bg-[#FCFAF6]/95 dark:bg-[#151c18]/95 border shadow-[0_12px_40px_-8px_rgba(0,0,0,0.12)] rounded-[2rem] flex justify-around items-center py-2 px-3 pointer-events-auto"
           style={{
             borderColor: colors.primary + '20',
             boxShadow: '0 20px 40px -15px rgba(15,31,25,0.15), 0 0 1px 1px rgba(255,255,255,0.15) inset',
@@ -271,6 +274,7 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                 onMouseLeave={() => setHoveredPath(null)}
                 className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
               >
+                {/* L'icône de l'outil actif et son fond de surbrillance au survol (Hover) restent magnifiquement dynamiques [24, 30] */}
                 <div
                   className={cn(
                     "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
@@ -280,8 +284,8 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                   )}
                   style={{
                     backgroundColor: active 
-                      ? colors.primary 
-                      : (isHovered ? colors.primary + '08' : 'transparent'),
+                      ? colors.primary // ✅ S'accorde dynamiquement sur la couleur primaire du rôle [30]
+                      : (isHovered ? colors.primary + '15' : 'transparent'), // ✅ S'accorde dynamiquement sur le hover du rôle [30]
                     color: active ? '#ffffff' : colors.textLight,
                   }}
                 >
@@ -318,12 +322,13 @@ export const MobileTabBar = ({ colors: propColors }: MobileTabBarProps) => {
                 onClick={() => setShowMore(!showMore)}
                 className="flex flex-col items-center justify-center min-w-[62px] transition-all relative py-1"
               >
+                {/* L'icône de l'outil d'ouverture "Plus" et son fond d'activation restent 100% dynamiques [24, 30] */}
                 <div 
                   className={cn(
                     "w-11 h-11 rounded-full flex items-center justify-center transition-all duration-300 ease-out",
                     showMore || isMoreActive
                       ? "text-white scale-105 shadow-md shadow-black/10"
-                      : "hover:bg-gray-100/50"
+                      : ""
                   )}
                   style={{
                     backgroundColor: showMore || isMoreActive ? colors.primary : 'transparent',
