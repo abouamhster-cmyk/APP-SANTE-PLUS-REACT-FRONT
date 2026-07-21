@@ -1,6 +1,4 @@
 // 📁 src/features/admin/pages/OffersPage.tsx
-// ✅ PAGE CATALOGUE DES OFFRES : GRILLES FORMULAIRES ADAPTATIVES ET BOUTONS ACTIONS FLUIDES SUR MOBILE
-
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -101,7 +99,6 @@ const OffersPage = () => {
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
-      {/* Header */}
       <section 
         className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5"
         style={{ background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}12 100%)` }}
@@ -135,7 +132,6 @@ const OffersPage = () => {
         </div>
       </section>
 
-      {/* Barre de Recherche et Filtres */}
       <section className="bg-white rounded-2xl p-3 shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -160,7 +156,6 @@ const OffersPage = () => {
         </select>
       </section>
 
-      {/* Grille de cartes d'offres épurée */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredOffers.length === 0 ? (
           <div className="col-span-full py-12 text-center text-gray-400 text-xs font-medium">Aucune formule trouvée</div>
@@ -180,28 +175,8 @@ const OffersPage = () => {
         )}
       </section>
 
-      {/* Modals Formulaires */}
-      {showCreateModal && (
-        <OfferFormModal
-          mode="create"
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={fetchOffers}
-          colors={colors}
-        />
-      )}
-
-      {showEditModal && selectedOffer && (
-        <OfferFormModal
-          mode="edit"
-          offer={selectedOffer}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedOffer(null);
-          }}
-          onSuccess={fetchOffers}
-          colors={colors}
-        />
-      )}
+      {showCreateModal && <OfferFormModal mode="create" onClose={() => setShowCreateModal(false)} onSuccess={fetchOffers} colors={colors} />}
+      {showEditModal && selectedOffer && <OfferFormModal mode="edit" offer={selectedOffer} onClose={() => { setShowEditModal(false); setSelectedOffer(null); }} onSuccess={fetchOffers} colors={colors} />}
     </div>
   );
 };
@@ -229,6 +204,9 @@ const OfferCard = ({ offer, colors, onDelete, onEdit }: { offer: Offer, colors: 
   );
 };
 
+// =============================================
+// MODAL AMÉLIORÉ (GESTION RÉELLE DES DONNÉES)
+// =============================================
 interface OfferFormModalProps {
   mode: 'create' | 'edit';
   offer?: Offer;
@@ -239,61 +217,55 @@ interface OfferFormModalProps {
 
 const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: OfferFormModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
-
   const [formData, setFormData] = useState({
     name: offer?.name || '',
-    category: (offer?.category || 'senior') as Offer['category'],
-    type: (offer?.type || 'mensuelle') as Offer['type'],
+    category: (offer?.category || 'senior') as any,
+    type: (offer?.type || 'mensuelle') as any,
     description: offer?.description || '',
-    price: offer?.price !== null && offer?.price !== undefined ? String(offer.price) : '',
-    features: offer?.features?.join(', ') || '',
-    visits_per_week: offer?.visitsPerWeek !== null && offer?.visitsPerWeek !== undefined ? String(offer.visitsPerWeek) : '',
-    duration_days: offer?.durationDays !== null && offer?.durationDays !== undefined ? String(offer.durationDays) : '',
+    price: offer?.price ? String(offer.price) : '',
+    features: offer?.features?.join('\n') || '', // Utilisation de \n pour le textarea
+    visits_per_week: offer?.visitsPerWeek ? String(offer.visitsPerWeek) : '',
+    duration_days: offer?.durationDays ? String(offer.durationDays) : '',
     badge: offer?.badge || '',
     is_active: offer?.is_active ?? true,
-    is_public: offer?.is_public ?? true,
-    display_order: offer?.display_order !== undefined ? String(offer.display_order) : '0',
-    total_visits: offer?.total_visits !== null && offer?.total_visits !== undefined ? String(offer.total_visits) : '',
-    total_orders: offer?.total_orders !== null && offer?.total_orders !== undefined ? String(offer.total_orders) : '',
+    display_order: offer?.display_order ? String(offer.display_order) : '0',
+    total_visits: offer?.total_visits ? String(offer.total_visits) : '',
+    total_orders: offer?.total_orders ? String(offer.total_orders) : '0',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
       const data = {
         name: formData.name,
         category: formData.category,
         type: formData.type,
         description: formData.description || null,
-        price: formData.price ? parseFloat(String(formData.price)) : null,
-        visits_per_week: formData.visits_per_week ? parseInt(String(formData.visits_per_week)) : null,
-        duration_days: formData.duration_days ? parseInt(String(formData.duration_days)) : null,
-        features: formData.features ? formData.features.split(',').map((f: string) => f.trim()) : [],
+        price: parseFloat(formData.price) || 0,
+        features: formData.features.split('\n').filter(Boolean),
+        visits_per_week: formData.visits_per_week ? parseInt(formData.visits_per_week) : null,
+        duration_days: formData.duration_days ? parseInt(formData.duration_days) : null,
+        total_visits: formData.total_visits ? parseInt(formData.total_visits) : null,
+        total_orders: formData.total_orders ? parseInt(formData.total_orders) : 0,
         badge: formData.badge || null,
         is_active: formData.is_active,
-        is_public: formData.is_public,
-        display_order: parseInt(String(formData.display_order)) || 0,
-        total_visits: formData.total_visits ? parseInt(String(formData.total_visits)) : null,
-        total_orders: formData.total_orders ? parseInt(String(formData.total_orders)) : null,
+        display_order: parseInt(formData.display_order) || 0,
       };
 
       if (mode === 'edit' && offer) {
         const { error } = await supabase.from('offres').update(data).eq('id', offer.id);
         if (error) throw error;
-        toast.success('Offre mise à jour');
+        toast.success('Mise à jour réussie');
       } else {
         const { error } = await supabase.from('offres').insert(data);
         if (error) throw error;
-        toast.success('Offre créée');
+        toast.success('Création réussie');
       }
-
       onSuccess();
       onClose();
     } catch (error: any) {
-      console.error('Save offer error:', error);
-      toast.error(error.message || 'Erreur lors de l\'enregistrement');
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -304,46 +276,40 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: OfferFormMo
       isOpen={true}
       onClose={onClose}
       onSubmit={handleSubmit}
-      title={mode === 'edit' ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
+      title={mode === 'edit' ? 'Modifier l\'offre' : 'Nouvelle offre'}
       icon={<Package size={20} />}
       maxWidth="2xl"
-      confirmLabel={mode === 'edit' ? 'Mettre à jour' : 'Créer'}
-      cancelLabel="Annuler"
+      confirmLabel="Enregistrer"
       isLoading={isLoading}
     >
       <div className="space-y-4">
-        {/* ✅ CORRECTIF RESPONSIVE : Remplacement de grid-cols-2 par grid-cols-1 sm:grid-cols-2 pour l'affichage mobile */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Nom *</label>
-            <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50" style={{ borderColor: colors.border }} required />
+            <label className="block text-xs font-bold mb-1">Nom</label>
+            <input className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
           </div>
           <div>
-            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Badge</label>
-            <input type="text" value={formData.badge} onChange={(e) => setFormData({ ...formData, badge: e.target.value })} placeholder="⭐ Populaire" className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50" style={{ borderColor: colors.border }} />
+            <label className="block text-xs font-bold mb-1">Prix (FCFA)</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1">Total Visites</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.total_visits} onChange={e => setFormData({...formData, total_visits: e.target.value})} />
+          </div>
+          <div>
+            <label className="block text-xs font-bold mb-1">Total Commandes</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.total_orders} onChange={e => setFormData({...formData, total_orders: e.target.value})} />
           </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div>
-            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Catégorie *</label>
-            <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as any })} className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50 cursor-pointer" style={{ borderColor: colors.border }}>
-              <option value="senior">Senior 👴</option>
-              <option value="maman_bebe">Maman & Bébé 👶</option>
-            </select>
-          </div>
-          <div>
-            <label className="block font-bold mb-1.5" style={{ color: colors.text }}>Périodicité *</label>
-            <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as any })} className="w-full h-11 px-4 rounded-xl border outline-none font-semibold bg-gray-50/50 cursor-pointer" style={{ borderColor: colors.border }}>
-              <option value="mensuelle">Mensuelle 📅</option>
-              <option value="ponctuelle">Ponctuelle ⚡</option>
-            </select>
-          </div>
+        
+        <div>
+          <label className="block text-xs font-bold mb-1">Description</label>
+          <textarea className="w-full p-4 rounded-xl border bg-gray-50 text-sm h-20" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
         </div>
 
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">Tarif (FCFA) *</label>
-          <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="w-full h-11 px-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50" style={{ borderColor: colors.border }} required />
+          <label className="block text-xs font-bold mb-1">Fonctionnalités (une par ligne)</label>
+          <textarea className="w-full p-4 rounded-xl border bg-gray-50 text-sm h-24" value={formData.features} onChange={e => setFormData({...formData, features: e.target.value})} />
         </div>
       </div>
     </ModalWithForm>
