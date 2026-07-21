@@ -119,7 +119,7 @@ const MainLayout = () => {
           </header>
         )}
 
-        <main className={cn('w-full max-w-full p-2', isMobile ? 'pt-3' : 'pt-20')}>
+        <main className={cn('w-full max-w-full pt-20 p-2', isMobile ? 'pb-28' : 'pb-8')}>
           <ReminderBanner />
           <Outlet />
         </main>
