@@ -96,13 +96,26 @@ const MainLayout = () => {
 
       <div className="min-h-screen w-full md:pl-60">
         <header className={cn("fixed top-0 left-0 right-0 z-30 transition-all duration-300", isMobile ? "bg-transparent px-4 py-3" : "bg-white/95 backdrop-blur-lg border-b px-6 py-4", showHeader ? "translate-y-0" : "-translate-y-full")}>
-           <div className="flex items-center justify-between">
-              <h2 className="text-sm font-black truncate" style={{ color: colors.text }}>{isMobile ? getGreeting() : "Santé Plus Services"}</h2>
-              <Link to="/app/notifications" className="relative p-2 rounded-xl border" style={{ borderColor: colors.primary + '20' }}>
-                <Bell size={18} />
-                {unreadCount > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[8px] flex items-center justify-center rounded-full font-bold">{unreadCount}</span>}
-              </Link>
-           </div>
+              <div className="flex items-center">
+                 {/* Titre desktop uniquement : sur mobile, le dashboard porte déjà l'en-tête complet (avatar + salutation + date) */}
+                 {!isMobile && (
+                   <h2 className="text-sm font-black truncate" style={{ color: colors.text }}>
+                     Santé Plus Services
+                   </h2>
+                 )}
+                 <Link
+                   to="/app/notifications"
+                   className="relative p-2 rounded-xl border ml-auto bg-white/80 backdrop-blur-sm"
+                   style={{ borderColor: colors.primary + '20' }}
+                 >
+                   <Bell size={18} />
+                   {unreadCount > 0 && (
+                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[8px] flex items-center justify-center rounded-full font-bold">
+                       {unreadCount}
+                     </span>
+                   )}
+                 </Link>
+              </div>
         </header>
 
         <main className="w-full max-w-full pt-20 p-2">
