@@ -110,17 +110,23 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [user?.id]);
 
   // ============================================================
-  // 2. DÉFINITION DES ÉTAPES PAR RÔLE [24]
+  // 2. DÉFINITION DES ÉTAPES PAR RÔLE AVEC DESIGNS ET IMAGES DYNAMIQUES RÉELS [24]
   // ============================================================
   const steps: TourStep[] = useMemo(() => {
     if (!isAuthenticated || !role) return [];
 
+    // Référentiels des bannières réelles et thématiques de votre application [24]
     const seniorImg = '/assets/images/banners/senior-banner.png';
     const mamanImg = '/assets/images/banners/maman-banner.png';
     const aidantImg = '/assets/images/banners/aidant-banner.png';
     const coordImg = '/assets/images/banners/coord-banner.png';
 
-    // 🦸 RÔLE : AIDANT (5 Étapes)
+    // Photos de visites d'accompagnement réelles à domicile
+    const seniorVisitImg = '/assets/images/banners/senior-visit.png';
+    const mamanVisitImg = '/assets/images/banners/maman-visit.png';
+    const coordVisitImg = '/assets/images/banners/coord-visit.png';
+
+    // 🦸 RÔLE : AIDANT (5 Étapes d'Onboarding dédiées)
     if (role === 'aidant') {
       return [
         {
@@ -135,7 +141,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           title: '📋 Vos Missions d\'Aide',
           description: 'Consultez et acceptez en un clic les demandes de visites d\'accompagnements ou d\'achats urgents dans votre zone.',
           icon: <Briefcase size={24} />,
-          image: aidantImg,
+          image: seniorVisitImg, // ✅ Image alternée d'activité réelle [24]
         },
         {
           id: 'planning',
@@ -149,7 +155,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           title: '🛒 Achats & Livraisons d\'Urgence',
           description: 'Aidez les familles à proximité en effectuant et en livrant leurs besoins (médicaments en pharmacie, courses de confort).',
           icon: <ShoppingBag size={24} />,
-          image: aidantImg,
+          image: seniorVisitImg, 
         },
         {
           id: 'complete-aidant',
@@ -161,44 +167,46 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       ];
     }
 
-    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (6 Étapes) [24]
+    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (6 Étapes avec alternances de photos d'univers d'origines !) [24]
     if (role === 'family') {
       const banner = isMaman ? mamanImg : seniorImg;
+      const visitBanner = isMaman ? mamanVisitImg : seniorVisitImg;
+
       return [
         {
           id: 'welcome-family',
           title: '👋 Bienvenue sur Santé Plus',
           description: `Accompagnez vos proches et gérez leur confort au quotidien en toute sérénité depuis chez vous ou la diaspora.`,
           icon: <Sparkles size={24} />,
-          image: banner,
+          image: banner, // ✅ Photo d'accueil de l'univers [24]
         },
         {
           id: 'patients',
           title: `👨‍👩‍👦 Fiches des ${isMaman ? 'Mamans / Bébés' : 'Seniors'}`,
           description: `Renseignez le profil d'identité, les allergies et les habitudes de vie de votre proche pour un suivi personnalisé.`,
           icon: <Users size={24} />,
-          image: banner,
+          image: visitBanner, // ✅ Changement d'image pour le dossier patient [24]
         },
         {
           id: 'visits',
           title: '📅 Planification des Visites',
           description: 'L\'administration planifie pour vous des visites d’accompagnement de confort et de présence pour veiller sur la sécurité de votre parent.',
           icon: <Calendar size={24} />,
-          image: banner,
+          image: visitBanner, // ✅ Changement d'image pour la planification [24]
         },
         {
           id: 'orders',
           title: '🛒 Livraisons de courses à l\'acte',
           description: 'Faites livrer en urgence des médicaments sur ordonnance, des produits d’hygiène bébé ou des courses de première nécessité.',
           icon: <ShoppingBag size={24} />,
-          image: banner,
+          image: aidantImg, // ✅ Changement d'image pour l'activité de livraison de l'aidant [24]
         },
         {
           id: 'billing',
           title: '💳 Formules d\'Abonnement',
           description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes de manière de manière transparente.',
           icon: <CreditCard size={24} />,
-          image: banner,
+          image: banner, // ✅ Retour à la photo d'origine pour les abonnements [24]
         },
         {
           id: 'complete-family',
@@ -231,14 +239,14 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         title: '🦸 Recrutement des Aidants',
         description: 'Gérez les candidatures opérationnelles, vérifiez les casiers judiciaires et homologuez les nouveaux aidants.',
         icon: <UserCheck size={24} />,
-        image: coordImg,
+        image: aidantImg, // ✅ Image d'aidants réels [24]
       },
       {
         id: 'validations',
         title: '✓ Validation des Interventions',
         description: 'Examinez les comptes-rendus, photos et mémos vocaux soumis par les aidants pour valider la qualité finale des visites.',
         icon: <FileCheck size={24} />,
-        image: coordImg,
+        image: coordVisitImg, // ✅ Image de validation d'interventions [24]
       },
       {
         id: 'complete-admin',
@@ -358,7 +366,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       {/* BOÎTE FLOATING CARD PREMIUM RESPONSIVE ET COMPACTE (Coins très arrondis, pas de padding extérieur) [23, 24] */}
       <div 
         className={cn(
-          /* ✅ CORRECTIF : Suppression complète du padding 'p-6' extérieur pour laisser l'image aller bord-à-bord (Full-Bleed) ! [23, 24] */
           "relative w-full h-full sm:h-[550px] sm:max-w-sm bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn p-0",
         )}
         style={{ borderColor: colors.primary + '15' }}
@@ -378,12 +385,12 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
             1. BLOC ILLUSTRATIF IMMERSIF PLEIN-ÉCRAN (PREMIER TIERS DU COMPOSANT - BORD À BORD) [23]
             ============================================================ */}
         <div className="w-full h-[45%] relative overflow-hidden shrink-0">
-          {/* L'image prend désormais 100% de la surface supérieure gauche/droite/haut, sans marges [23] */}
+          {/* L'image prend désormais 100% de la surface supérieure, s'adaptant à l'étape ! [23, 24] */}
           <img 
-            key={currentStep} // Force la transition de fondu enchaîné de l'image à chaque étape ! [23]
+            key={currentStep} // ✅ FORCE la transition de fondu enchaîné de l'image au clic du bouton ! [23]
             src={step.image} 
             alt={step.title} 
-            className="absolute inset-0 w-full h-full object-cover animate-fadeIn"  
+            className="absolute inset-0 w-full h-full object-cover animate-fadeIn" // ✅ Remplissage complet [23]
           />
           {/* Voile d'ombrage dégradé supérieur doux [24] */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/30" />
@@ -396,7 +403,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
             2. CONTENU TEXTUEL HARMONIEUSEMENT CENTRÉ (Paddé à px-6 sm:px-8) [23, 24]
             ============================================================ */}
         <div 
-          key={step.id} // Force la ré-animation douce à chaque étape !
+          key={step.id} // ✅ FORCE la ré-animation douce du texte de l'étape au clic du bouton ! [23]
           className="flex-1 flex flex-col items-center justify-center text-center px-6 sm:px-8 space-y-3.5 min-h-0 bg-[#FCFAF6] dark:bg-[#151c18] animate-fadeIn"
         >
           {/* Petit badge d'icône d'étape */}
