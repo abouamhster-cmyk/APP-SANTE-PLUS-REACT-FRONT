@@ -1,5 +1,5 @@
 // 📁 src/components/onboarding/OnboardingTour.tsx
- 
+
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -44,20 +44,18 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const location = useLocation();
 
   const { profile, role, isAuthenticated, isInitialized, user, setUser } = useAuthStore();
-  
-  // Attente de l'état d'initialisation et de chargement des CGU [1]
-  const { 
-    needsAcceptance, 
-    isChecking: isContractChecking, 
-    isInitialized: isContractInitialized 
+
+  // Attente de l'état d'initialisation et de chargement des CGU
+  const {
+    needsAcceptance,
+    isChecking: isContractChecking,
+    isInitialized: isContractInitialized,
   } = useContractStore();
 
   const brand = useBranding();
   const colors = brand.colors;
 
-  const {
-    singular,
-  } = useTerminology();
+  const { singular } = useTerminology();
 
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -68,23 +66,19 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const isMaman = profile?.patient_category === 'maman_bebe' || profile?.proche_category === 'maman_bebe';
 
   // ============================================================
-  // 1. VÉRIFICATION DOUBLE SÉCURISÉ (BASE DE DONNÉES + CACHE COHÉRENT) [23]
+  // 1. VÉRIFICATION DOUBLE SÉCURISÉ (BASE DE DONNÉES + CACHE COHÉRENT)
   // ============================================================
   useEffect(() => {
-    // A. Priorité absolue : Vérifier l'état dans le profil chargé depuis le serveur [23]
     if ((profile as any)?.has_seen_onboarding === true) {
       setHasSeenTour(true);
       setIsReady(true);
       return;
     }
 
-    // B. Secours local de confort (LocalStorage lié à l'ID utilisateur) [23]
     const saved = localStorage.getItem(TOUR_STORAGE_KEY);
     if (saved && profile?.id) {
       try {
         const data = JSON.parse(saved);
-        
-        // Ségrégation stricte inter-comptes [23]
         if (data.version === TOUR_VERSION && data.seen === true && data.userId === profile.id) {
           setHasSeenTour(true);
         } else {
@@ -100,7 +94,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [profile]);
 
   // ============================================================
-  // SÉCURITÉ DE SESSION : Réinitialiser l'état d'onboarding dès la déconnexion/reconnexion [24]
+  // SÉCURITÉ DE SESSION : Réinitialiser l'état d'onboarding dès la déconnexion/reconnexion
   // ============================================================
   useEffect(() => {
     if (user?.id) {
@@ -110,64 +104,62 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [user?.id]);
 
   // ============================================================
-  // 2. DÉFINITION DES ÉTAPES PAR RÔLE AVEC DESIGNS ET IMAGES DYNAMIQUES RÉELS [24]
+  // 2. DÉFINITION DES ÉTAPES PAR RÔLE AVEC DESIGNS ET IMAGES DYNAMIQUES RÉELS
   // ============================================================
   const steps: TourStep[] = useMemo(() => {
     if (!isAuthenticated || !role) return [];
 
-    // Référentiels des bannières réelles et thématiques de votre application [24]
     const seniorImg = '/assets/images/banners/senior-banner.png';
     const mamanImg = '/assets/images/banners/maman-banner.png';
     const aidantImg = '/assets/images/banners/aidant-banner.png';
     const coordImg = '/assets/images/banners/coord-banner.png';
 
-    // Photos de visites d'accompagnement réelles à domicile
     const seniorVisitImg = '/assets/images/banners/senior-visit.png';
     const mamanVisitImg = '/assets/images/banners/maman-visit.png';
     const coordVisitImg = '/assets/images/banners/coord-visit.png';
 
-    // 🦸 RÔLE : AIDANT (5 Étapes d'Onboarding dédiées)
+    // 🦸 RÔLE : AIDANT
     if (role === 'aidant') {
       return [
         {
           id: 'welcome-aidant',
-          title: '👋 Bienvenue dans l’équipe',
+          title: 'Bienvenue dans l\u2019équipe',
           description: 'Vous êtes maintenant aidant certifié chez Santé Plus Services. Voici un rapide tour de votre espace professionnel.',
-          icon: <Sparkles size={24} />,
+          icon: <Sparkles size={22} />,
           image: aidantImg,
         },
         {
           id: 'missions',
-          title: '📋 Vos Missions d\'Aide',
-          description: 'Consultez et acceptez en un clic les demandes de visites d\'accompagnements ou d\'achats urgents dans votre zone.',
-          icon: <Briefcase size={24} />,
-          image: seniorVisitImg, // ✅ Image alternée d'activité réelle [24]
+          title: 'Vos missions d\'aide',
+          description: 'Consultez et acceptez en un clic les demandes de visites d\'accompagnement ou d\'achats urgents dans votre zone.',
+          icon: <Briefcase size={22} />,
+          image: seniorVisitImg,
         },
         {
           id: 'planning',
-          title: '📅 Votre Planning de Visites',
+          title: 'Votre planning de visites',
           description: 'Visualisez toutes vos interventions acceptées et préparez vos itinéraires sur une interface de calendrier claire.',
-          icon: <Calendar size={24} />,
+          icon: <Calendar size={22} />,
           image: aidantImg,
         },
         {
           id: 'orders-aidant',
-          title: '🛒 Achats & Livraisons d\'Urgence',
-          description: 'Aidez les familles à proximité en effectuant et en livrant leurs besoins (médicaments en pharmacie, courses de confort).',
-          icon: <ShoppingBag size={24} />,
-          image: seniorVisitImg, 
+          title: 'Achats & livraisons d\'urgence',
+          description: 'Aidez les familles à proximité en effectuant et en livrant leurs besoins : médicaments en pharmacie, courses de confort.',
+          icon: <ShoppingBag size={22} />,
+          image: seniorVisitImg,
         },
         {
           id: 'complete-aidant',
-          title: '🚀 Prêt à Accompagner',
+          title: 'Prêt à accompagner',
           description: 'Votre profil est validé. Vous pouvez dès maintenant commencer à assister vos premiers bénéficiaires.',
-          icon: <Check size={24} />,
+          icon: <Check size={22} />,
           image: aidantImg,
         },
       ];
     }
 
-    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS (6 Étapes avec alternances de photos d'univers d'origines !) [24]
+    // 👨‍👩‍👦 RÔLE : FAMILLE / CLIENTS
     if (role === 'family') {
       const banner = isMaman ? mamanImg : seniorImg;
       const visitBanner = isMaman ? mamanVisitImg : seniorVisitImg;
@@ -175,102 +167,100 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       return [
         {
           id: 'welcome-family',
-          title: '👋 Bienvenue sur Santé Plus',
-          description: `Accompagnez vos proches et gérez leur confort au quotidien en toute sérénité depuis chez vous ou la diaspora.`,
-          icon: <Sparkles size={24} />,
-          image: banner, // ✅ Photo d'accueil de l'univers [24]
+          title: 'Bienvenue sur Santé Plus',
+          description: 'Accompagnez vos proches et gérez leur confort au quotidien, en toute sérénité, depuis chez vous ou la diaspora.',
+          icon: <Sparkles size={22} />,
+          image: banner,
         },
         {
           id: 'patients',
-          title: `👨‍👩‍👦 Fiches des ${isMaman ? 'Mamans / Bébés' : 'Seniors'}`,
-          description: `Renseignez le profil d'identité, les allergies et les habitudes de vie de votre proche pour un suivi personnalisé.`,
-          icon: <Users size={24} />,
-          image: visitBanner, // ✅ Changement d'image pour le dossier patient [24]
+          title: `Fiches des ${isMaman ? 'mamans / bébés' : 'seniors'}`,
+          description: 'Renseignez le profil, les allergies et les habitudes de vie de votre proche pour un suivi personnalisé.',
+          icon: <Users size={22} />,
+          image: visitBanner,
         },
         {
           id: 'visits',
-          title: '📅 Planification des Visites',
-          description: 'L\'administration planifie pour vous des visites d’accompagnement de confort et de présence pour veiller sur la sécurité de votre parent.',
-          icon: <Calendar size={24} />,
-          image: visitBanner, // ✅ Changement d'image pour la planification [24]
+          title: 'Planification des visites',
+          description: 'L\'administration planifie pour vous des visites d\'accompagnement et de présence pour veiller sur votre parent.',
+          icon: <Calendar size={22} />,
+          image: visitBanner,
         },
         {
           id: 'orders',
-          title: '🛒 Livraisons de courses à l\'acte',
-          description: 'Faites livrer en urgence des médicaments sur ordonnance, des produits d’hygiène bébé ou des courses de première nécessité.',
-          icon: <ShoppingBag size={24} />,
-          image: aidantImg, // ✅ Changement d'image pour l'activité de livraison de l'aidant [24]
+          title: 'Livraisons de courses à l\'acte',
+          description: 'Faites livrer en urgence des médicaments sur ordonnance, des produits d\'hygiène bébé ou des courses de première nécessité.',
+          icon: <ShoppingBag size={22} />,
+          image: aidantImg,
         },
         {
           id: 'billing',
-          title: '💳 Formules d\'Abonnement',
-          description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes de manière de manière transparente.',
-          icon: <CreditCard size={24} />,
-          image: banner, // ✅ Retour à la photo d'origine pour les abonnements [24]
+          title: 'Formules d\'abonnement',
+          description: 'Gérez vos forfaits Seniors ou Maternité et suivez le solde de vos visites restantes en toute transparence.',
+          icon: <CreditCard size={22} />,
+          image: banner,
         },
         {
           id: 'complete-family',
-          title: '🚀 Prêt à Commencer',
+          title: 'Prêt à commencer',
           description: `Le parcours d'onboarding est terminé. Vous pouvez dès à présent enregistrer votre premier ${singular}.`,
-          icon: <Check size={24} />,
+          icon: <Check size={22} />,
           image: banner,
         },
       ];
     }
 
-    // 👑 RÔLE : ADMIN (5 Étapes) [24]
+    // 👑 RÔLE : ADMIN
     return [
       {
         id: 'welcome-admin',
-        title: '👋 Espace de Supervision',
+        title: 'Espace de supervision',
         description: 'Bienvenue dans la console de gestion administrative globale de la plateforme de coordination Santé Plus.',
-        icon: <Sparkles size={24} />,
+        icon: <Sparkles size={22} />,
         image: coordImg,
       },
       {
         id: 'registrations',
-        title: '📋 Inscriptions d’Abonnés',
-        description: 'Passez en revue et validez les nouvelles fiches d’inscriptions des familles pour leur ouvrir l’accès aux services.',
-        icon: <ClipboardList size={24} />,
+        title: 'Inscriptions d\u2019abonnés',
+        description: 'Passez en revue et validez les nouvelles fiches d\'inscription des familles pour leur ouvrir l\'accès aux services.',
+        icon: <ClipboardList size={22} />,
         image: coordImg,
       },
       {
         id: 'aidants',
-        title: '🦸 Recrutement des Aidants',
-        description: 'Gérez les candidatures opérationnelles, vérifiez les casiers judiciaires et homologuez les nouveaux aidants.',
-        icon: <UserCheck size={24} />,
-        image: aidantImg, // ✅ Image d'aidants réels [24]
+        title: 'Recrutement des aidants',
+        description: 'Gérez les candidatures, vérifiez les casiers judiciaires et homologuez les nouveaux aidants.',
+        icon: <UserCheck size={22} />,
+        image: aidantImg,
       },
       {
         id: 'validations',
-        title: '✓ Validation des Interventions',
-        description: 'Examinez les comptes-rendus, photos et mémos vocaux soumis par les aidants pour valider la qualité finale des visites.',
-        icon: <FileCheck size={24} />,
-        image: coordVisitImg, // ✅ Image de validation d'interventions [24]
+        title: 'Validation des interventions',
+        description: 'Examinez les comptes-rendus, photos et mémos vocaux soumis par les aidants pour valider la qualité des visites.',
+        icon: <FileCheck size={22} />,
+        image: coordVisitImg,
       },
       {
         id: 'complete-admin',
-        title: '🚀 Prêt à Piloter',
+        title: 'Prêt à piloter',
         description: 'La console administrative est prête. Vous avez le contrôle total sur la modération et la gestion des flux.',
-        icon: <Check size={24} />,
+        icon: <Check size={22} />,
         image: coordImg,
       },
     ];
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. ENTRÉE SÉCURISÉE DE RACK (SANS CONCURRENCE DE RENDER) [1, 24]
+  // 3. ENTRÉE SÉCURISÉE (SANS CONCURRENCE DE RENDER)
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
     if (!isInitialized) return;
     if (!isAuthenticated) return;
     if (hasSeenTour) return;
-
-    if (!isContractInitialized) return; 
-    if (isContractChecking) return; 
-    if (needsAcceptance) return; // Bloquer tant que les CGU ne sont pas signées [1]
-
+    if (!isContractInitialized) return;
+    if (isContractChecking) return;
+    if (needsAcceptance) return;
     if (steps.length === 0) return;
 
     setShouldShow(true);
@@ -280,21 +270,20 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     isInitialized,
     isAuthenticated,
     hasSeenTour,
-    isContractInitialized, 
-    isContractChecking, 
-    needsAcceptance, 
+    isContractInitialized,
+    isContractChecking,
+    needsAcceptance,
     steps.length,
     location.pathname,
   ]);
 
   // ============================================================
-  // 4. COMPLÉTION DU TOUR ET ENREGISTREMENT PHYSIQUE SERVEUR [23]
+  // 4. COMPLÉTION DU TOUR ET ENREGISTREMENT SERVEUR
   // ============================================================
   const handleComplete = useCallback(async () => {
     setIsOpen(false);
     setShouldShow(false);
-    
-    // A. Sauvegarde locale de confort [23]
+
     localStorage.setItem(TOUR_STORAGE_KEY, JSON.stringify({
       seen: true,
       version: TOUR_VERSION,
@@ -302,7 +291,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       userId: profile?.id,
     }));
 
-    // B. SAUVEGARDE PHYSIQUE ET SÉCURISÉE EN BASE DE DONNÉES (Fiabilité 100%) [23]
     if (user?.id) {
       try {
         await supabase
@@ -313,14 +301,13 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         if (profile) {
           setUser(user, { ...profile, has_seen_onboarding: true } as any);
         }
-        console.log('📊 [Onboarding Engine] Sauvegarde définitive serveur effectuée [23]');
+        console.log('📊 [Onboarding Engine] Sauvegarde définitive serveur effectuée');
       } catch (err) {
-        console.warn('⚠️ Échec de sauvegarde de l\'onboarding sur le serveur [23]');
+        console.warn('⚠️ Échec de sauvegarde de l\'onboarding sur le serveur');
       }
     }
 
     setHasSeenTour(true);
-
     if (onComplete) onComplete();
   }, [onComplete, user, profile, setUser]);
 
@@ -332,7 +319,6 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
     }
   }, [currentStep, steps.length, handleComplete]);
 
-  // Touche Échap
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (isOpen && e.key === 'Escape') {
@@ -361,17 +347,15 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const totalSteps = steps.length;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm animate-fadeIn">
-      
-      {/* BOÎTE FLOATING CARD PREMIUM RESPONSIVE ET COMPACTE (Coins très arrondis, pas de padding extérieur) [23, 24] */}
-      <div 
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/25 backdrop-blur-sm animate-fadeIn">
+
+      <div
         className={cn(
-          "relative w-full h-full sm:h-[550px] sm:max-w-sm bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn p-0",
+          'relative w-full h-full sm:h-[580px] sm:max-w-sm bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col animate-fadeIn',
         )}
-        style={{ borderColor: colors.primary + '15' }}
       >
-        {/* Progress bar line supérieure de progression */}
-        <div className="absolute top-0 left-0 right-0 h-[3px] z-20" style={{ backgroundColor: colors.primary + '15' }}>
+        {/* Barre de progression fine, en haut, sans encadré ni bordure superflue */}
+        <div className="absolute top-0 left-0 right-0 h-[3px] z-20 bg-black/5 dark:bg-white/10">
           <div
             className="h-full transition-all duration-500 ease-out"
             style={{
@@ -381,81 +365,83 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           />
         </div>
 
+        {/* Bouton Ignorer, discret, en surimpression de l'image (gagne de la place en bas) */}
+        <button
+          type="button"
+          onClick={handleComplete}
+          className="absolute top-5 right-5 z-20 text-[11px] font-semibold uppercase tracking-wider text-white/90 bg-black/25 backdrop-blur-md px-3 py-1.5 rounded-full hover:bg-black/40 transition-colors"
+        >
+          Ignorer
+        </button>
+
         {/* ============================================================
-            1. BLOC ILLUSTRATIF IMMERSIF PLEIN-ÉCRAN (PREMIER TIERS DU COMPOSANT - BORD À BORD) [23]
+            BLOC ILLUSTRATIF — image généreuse, un seul fondu, pas de double voile
             ============================================================ */}
-        <div className="w-full h-[45%] relative overflow-hidden shrink-0">
-          {/* L'image prend désormais 100% de la surface supérieure, s'adaptant à l'étape ! [23, 24] */}
-          <img 
-            key={currentStep} // ✅ FORCE la transition de fondu enchaîné de l'image au clic du bouton ! [23]
-            src={step.image} 
-            alt={step.title} 
-            className="absolute inset-0 w-full h-full object-cover animate-fadeIn" // ✅ Remplissage complet [23]
+        <div className="w-full h-[52%] relative overflow-hidden shrink-0">
+          <img
+            key={currentStep}
+            src={step.image}
+            alt={step.title}
+            className="absolute inset-0 w-full h-full object-cover animate-fadeIn"
           />
-          {/* Voile d'ombrage dégradé supérieur doux [24] */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/30" />
-          
-          {/* Courbe organique basse (Wave) qui se fond de manière invisible avec la carte blanche du bas */}
-          <div className="absolute bottom-0 left-0 right-0 h-6 bg-[#FCFAF6] dark:bg-[#151c18] rounded-t-[2rem]" />
+          {/* Un seul dégradé bas, juste ce qu'il faut pour la lisibilité du badge */}
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#FCFAF6] dark:from-[#151c18] to-transparent" />
         </div>
 
         {/* ============================================================
-            2. CONTENU TEXTUEL HARMONIEUSEMENT CENTRÉ (Paddé à px-6 sm:px-8) [23, 24]
+            BADGE D'ICÔNE "SIGNATURE" — à cheval entre l'image et le texte
             ============================================================ */}
-        <div 
-          key={step.id} // ✅ FORCE la ré-animation douce du texte de l'étape au clic du bouton ! [23]
-          className="flex-1 flex flex-col items-center justify-center text-center px-6 sm:px-8 space-y-3.5 min-h-0 bg-[#FCFAF6] dark:bg-[#151c18] animate-fadeIn"
-        >
-          {/* Petit badge d'icône d'étape */}
-          <div 
-            className="w-10 h-10 rounded-2xl mx-auto flex items-center justify-center text-2xl shrink-0 bg-white border shadow-inner"
-            style={{ borderColor: colors.primary + '12' }}
+        <div className="relative flex justify-center -mt-7 shrink-0 z-10">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg bg-white dark:bg-[#1f2a23] ring-4 ring-[#FCFAF6] dark:ring-[#151c18]"
+            style={{ color: colors.primary }}
           >
             {step.icon}
           </div>
-          
-          <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight" style={{ color: colors.text }}>
+        </div>
+
+        {/* ============================================================
+            CONTENU TEXTUEL — plus grand, plus aéré, plus lisible
+            ============================================================ */}
+        <div
+          key={step.id}
+          className="flex-1 flex flex-col items-center justify-center text-center px-7 sm:px-9 pt-3 pb-1 space-y-3 min-h-0 animate-fadeIn"
+        >
+          <h2 className="text-xl sm:text-[22px] font-extrabold tracking-tight leading-snug" style={{ color: colors.text }}>
             {step.title}
           </h2>
-          
-          <p className="text-xs sm:text-xs leading-relaxed max-w-[280px] font-bold text-gray-500 dark:text-gray-300">
+
+          <p className="text-[13.5px] sm:text-sm leading-relaxed max-w-[290px] text-gray-500 dark:text-gray-300">
             {step.description}
           </p>
 
-          {/* Indicateur de petits points de navigation (Dots sous l'écrit pour la cohésion) [24] */}
-          <div className="flex justify-center gap-1.5 pt-1 shrink-0">
+          {/* Points de progression */}
+          <div className="flex justify-center gap-1.5 pt-2 shrink-0">
             {steps.map((_, index) => (
               <div
                 key={index}
                 className="h-1.5 rounded-full transition-all duration-300 ease-out"
                 style={{
-                  width: index === currentStep ? '20px' : '6px', // Forme pilule dynamique [24]
-                  background: index === currentStep ? colors.primary : colors.primary + '25',
+                  width: index === currentStep ? '22px' : '6px',
+                  background: index === currentStep ? colors.primary : colors.primary + '22',
                 }}
               />
             ))}
           </div>
         </div>
 
-        {/* PIED DE PAGE DISCRET (Paddé à px-6 pb-6) [23] */}
-        <div className="px-6 pb-6 pt-4 flex items-center justify-between shrink-0 w-full bg-[#FCFAF6] dark:bg-[#151c18]" style={{ borderColor: colors.primary + '10' }}>
-          <button
-            type="button"
-            onClick={handleComplete}
-            className="text-[10px] sm:text-xs font-black uppercase tracking-wider select-none px-4 py-2 hover:bg-black/5 rounded-xl transition-all"
-            style={{ color: colors.textLight }}
-          >
-            Ignorer
-          </button>
-
+        {/* ============================================================
+            PIED DE PAGE — un seul CTA plein largeur, plus confortable au tap
+            ============================================================ */}
+        <div className="px-7 pb-7 pt-4 shrink-0 w-full">
           <button
             type="button"
             onClick={handleNext}
-            className="px-5 py-2.5 rounded-xl text-white font-black text-xs sm:text-sm transition-all active:scale-[0.97] hover:opacity-95 shadow-sm flex items-center gap-1 shrink-0"
+            className="w-full py-3.5 rounded-2xl text-white font-bold text-sm transition-all active:scale-[0.98] hover:opacity-95 shadow-sm flex items-center justify-center gap-2"
             style={{ background: colors.primary }}
           >
             {isLastStep ? 'Commencer' : 'Suivant'}
-            <ArrowRight size={13} strokeWidth={2.5} />
+            <ArrowRight size={16} strokeWidth={2.5} />
           </button>
         </div>
       </div>
