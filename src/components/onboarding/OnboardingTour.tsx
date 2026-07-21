@@ -251,7 +251,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. ENTRÉE SÉCURISÉE SANS CONCURRENCE (VÉRIFIÉ ET APPROUVÉ) [1, 24]
+  // 3. ENTRÉE SÉCURISÉE DE RACK (SANS CONCURRENCE DE RENDER) [1, 24]
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
@@ -352,18 +352,13 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const isLastStep = currentStep === steps.length - 1;
   const totalSteps = steps.length;
 
-  // Calcul du dégradé de couleur dynamique selon l'univers (Rose pour maman, Vert forêt pour les autres) [24, 30]
-  const gradientClass = isMaman
-    ? 'from-[#c62850] to-[#db4a6d]'
-    : 'from-[#1a4a3a] to-[#2c6e5c]';
-
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm">
       
-      {/* BOÎTE FLOATING CARD PREMIUM RESPONSIVE (Style simulateur de téléphone haut de gamme) [24] */}
+      {/* BOÎTE FLOATING CARD PREMIUM RESPONSIVE ET COMPACTE (Coins très arrondis) [24] */}
       <div 
         className={cn(
-          "relative w-full h-full sm:h-[600px] sm:max-w-md bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn",
+          "relative w-full h-full sm:h-[550px] sm:max-w-sm bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn p-6 sm:p-7",
         )}
         style={{ borderColor: colors.primary + '15' }}
       >
@@ -379,52 +374,48 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         </div>
 
         {/* ============================================================
-            1. BLOC EN DÉGRADÉ IMMERSIF (PREMIER TIERS DU COMPOSANT) [24]
+            1. BLOC ILLUSTRATIF IMMERSIF PLEIN-ÉCRAN (PREMIER TIERS DU COMPOSANT) [1, 23, 24]
             ============================================================ */}
-        <div 
-          className={cn("w-full h-[45%] flex items-center justify-center relative bg-gradient-to-br shrink-0", gradientClass)}
-        >
-          {/* Illustration flottante au centre en transparence ou fondu [23, 24] */}
-          <div className="relative w-40 h-40 rounded-full border-4 border-white/20 overflow-hidden shadow-2xl animate-float">
-            <img 
-              key={currentStep} // Force le fondu enchaîné d'image
-              src={step.image} 
-              alt={step.title} 
-              className="w-full h-full object-cover animate-fadeIn"
-            />
-          </div>
+        <div className="w-full h-[42%] relative overflow-hidden shrink-0">
+          {/* L'image prend 100% de la surface supérieure, sans cadre ni cercle ! [23] */}
+          <img 
+            key={currentStep} // Force la transition de fondu enchaîné de l'image à chaque étape ! [23]
+            src={step.image} 
+            alt={step.title} 
+            className="absolute inset-0 w-full h-full object-cover animate-fadeIn" // ✅ Remplissage complet sans cercles [23]
+          />
+          {/* Voile d'ombrage dégradé supérieur doux [24] */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/30" />
           
-          {/* Courbe organique basse (Wave) qui se fond avec la carte blanche [24] */}
-          <div className="absolute bottom-0 left-0 right-0 h-8 bg-white dark:bg-[#17231d] rounded-t-[2.5rem]" />
+          {/* Courbe organique basse (Wave) qui se fond de manière invisible avec la carte blanche du bas */}
+          <div className="absolute bottom-0 left-0 right-0 h-6 bg-[#FCFAF6] dark:bg-[#151c18] rounded-t-[2rem]" />
         </div>
 
         {/* ============================================================
-            2. CARTE BLANCHE DE BAS DE PAGE COULISSANTE (CONTENU AÉRÉ) [24]
+            2. CONTENU TEXTUEL HARMONIEUSEMENT CENTRÉ SANS VIDE ARTIFICIEL [24]
             ============================================================ */}
         <div 
-          key={step.id} // Force l'animation fluide de l'ensemble du texte à chaque étape !
-          className="flex-1 bg-white dark:bg-[#17231d] px-6 sm:px-8 pb-5 flex flex-col justify-between items-center text-center animate-fadeIn min-h-0"
+          key={step.id} // Force la ré-animation douce à chaque étape !
+          className="flex-1 flex flex-col items-center justify-center text-center px-1 space-y-3.5 min-h-0 bg-[#FCFAF6] dark:bg-[#151c18] animate-fadeIn"
         >
-          <div className="space-y-3.5 my-auto">
-            {/* Petit badge d'icône d'étape */}
-            <div 
-              className="w-10 h-10 rounded-2xl mx-auto flex items-center justify-center text-2xl shrink-0 bg-gray-50 border shadow-inner"
-              style={{ borderColor: colors.primary + '12' }}
-            >
-              {step.icon}
-            </div>
-            
-            <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight" style={{ color: colors.text }}>
-              {step.title}
-            </h2>
-            
-            <p className="text-xs sm:text-xs leading-relaxed max-w-[280px] font-bold text-gray-500 dark:text-gray-300">
-              {step.description}
-            </p>
+          {/* Petit badge d'icône d'étape */}
+          <div 
+            className="w-10 h-10 rounded-2xl mx-auto flex items-center justify-center text-2xl shrink-0 bg-white border shadow-inner"
+            style={{ borderColor: colors.primary + '12' }}
+          >
+            {step.icon}
           </div>
+          
+          <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight" style={{ color: colors.text }}>
+            {step.title}
+          </h2>
+          
+          <p className="text-xs sm:text-xs leading-relaxed max-w-[280px] font-bold text-gray-500 dark:text-gray-300">
+            {step.description}
+          </p>
 
-          {/* Indicateur de petits points de navigation (Dots sous forme de pilules d'IHM) */}
-          <div className="flex justify-center gap-1.5 pt-2 shrink-0">
+          {/* Indicateur de petits points de navigation (Dots sous l'écrit pour la cohésion) [24] */}
+          <div className="flex justify-center gap-1.5 pt-1 shrink-0">
             {steps.map((_, index) => (
               <div
                 key={index}
@@ -438,10 +429,8 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           </div>
         </div>
 
-        {/* ============================================================
-            3. PIED DE PAGE DISCRET (SKIP / NEXT) [24]
-            ============================================================ */}
-        <div className="p-4 sm:p-5 border-t flex items-center justify-between shrink-0 bg-gray-50/50 dark:bg-black/10" style={{ borderColor: colors.primary + '10' }}>
+        {/* PIED DE PAGE DISCRET (SKIP / NEXT) [24] */}
+        <div className="pt-4 border-t flex items-center justify-between shrink-0 w-full" style={{ borderColor: colors.primary + '10' }}>
           <button
             type="button"
             onClick={handleComplete}
