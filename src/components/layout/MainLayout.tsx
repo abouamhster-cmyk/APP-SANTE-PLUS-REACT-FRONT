@@ -1,6 +1,6 @@
 // 📁 src/features/layout/MainLayout.tsx
- 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
   Bell,
@@ -14,17 +14,12 @@ import {
   Briefcase,
   MapPin,
   ClipboardList,
-  UserCheck,
   CreditCard,
-  Award,
   History as HistoryIcon,
   BookOpen,
-  FileCheck,
-  Package,
   Home,
   Shield,
   UserCog,
-  AlertCircle,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -87,7 +82,7 @@ const MainLayout = () => {
   }, [role]);
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }}> 
+    <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }}>
       {!isMobile && (
         <aside className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col" style={{ borderColor: colors.primary + '20' }}>
           <SidebarContent navItems={navItems} locationPath={location.pathname} colors={colors} profile={profile} role={role} logoConfig={brand.logo} onLogout={() => { logout(); navigate('/login'); }} />
@@ -95,30 +90,36 @@ const MainLayout = () => {
       )}
 
       <div className="min-h-screen w-full md:pl-60">
-        <header className={cn("fixed top-0 left-0 right-0 z-30 transition-all duration-300", isMobile ? "bg-transparent px-4 py-3" : "bg-white/95 backdrop-blur-lg border-b px-6 py-4", showHeader ? "translate-y-0" : "-translate-y-full")}>
-              <div className="flex items-center">
-                 {/* Titre desktop uniquement : sur mobile, le dashboard porte déjà l'en-tête complet (avatar + salutation + date) */}
-                 {!isMobile && (
-                   <h2 className="text-sm font-black truncate" style={{ color: colors.text }}>
-                     Santé Plus Services
-                   </h2>
-                 )}
-                 <Link
-                   to="/app/notifications"
-                   className="relative p-2 rounded-xl border ml-auto bg-white/80 backdrop-blur-sm"
-                   style={{ borderColor: colors.primary + '20' }}
-                 >
-                   <Bell size={18} />
-                   {unreadCount > 0 && (
-                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[8px] flex items-center justify-center rounded-full font-bold">
-                       {unreadCount}
-                     </span>
-                   )}
-                 </Link>
-              </div>
-        </header>
+        {/* Header : DESKTOP uniquement. Sur mobile, la cloche est portée par l'en-tête du dashboard. */}
+        {!isMobile && (
+          <header
+            className={cn(
+              'fixed top-0 left-0 right-0 z-30 transition-all duration-300',
+              'bg-white/95 backdrop-blur-lg border-b px-6 py-4',
+              showHeader ? 'translate-y-0' : '-translate-y-full'
+            )}
+          >
+            <div className="flex items-center">
+              <h2 className="text-sm font-black truncate" style={{ color: colors.text }}>
+                Santé Plus Services
+              </h2>
+              <Link
+                to="/app/notifications"
+                className="relative p-2 rounded-xl border ml-auto"
+                style={{ borderColor: colors.primary + '20' }}
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[8px] flex items-center justify-center rounded-full font-bold">
+                    {unreadCount}
+                  </span>
+                )}
+              </Link>
+            </div>
+          </header>
+        )}
 
-        <main className="w-full max-w-full pt-20 p-2">
+        <main className={cn('w-full max-w-full p-2', isMobile ? 'pt-3' : 'pt-20')}>
           <ReminderBanner />
           <Outlet />
         </main>
@@ -160,7 +161,7 @@ const SidebarContent = ({ navItems, locationPath, colors, profile, role, logoCon
           </Link>
         ))}
       </div>
-      
+
       {/* Bloc Profil Réintégré */}
       <div className="p-4 border-t space-y-3">
         <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition">
