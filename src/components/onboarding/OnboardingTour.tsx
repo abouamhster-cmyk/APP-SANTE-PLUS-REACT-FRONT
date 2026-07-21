@@ -353,12 +353,13 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const totalSteps = steps.length;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm animate-fadeIn">
       
-      {/* BOÎTE FLOATING CARD PREMIUM RESPONSIVE ET COMPACTE (Coins très arrondis) [24] */}
+      {/* BOÎTE FLOATING CARD PREMIUM RESPONSIVE ET COMPACTE (Coins très arrondis, pas de padding extérieur) [23, 24] */}
       <div 
         className={cn(
-          "relative w-full h-full sm:h-[550px] sm:max-w-sm bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn p-6 sm:p-7",
+          /* ✅ CORRECTIF : Suppression complète du padding 'p-6' extérieur pour laisser l'image aller bord-à-bord (Full-Bleed) ! [23, 24] */
+          "relative w-full h-full sm:h-[550px] sm:max-w-sm bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn p-0",
         )}
         style={{ borderColor: colors.primary + '15' }}
       >
@@ -374,15 +375,15 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         </div>
 
         {/* ============================================================
-            1. BLOC ILLUSTRATIF IMMERSIF PLEIN-ÉCRAN (PREMIER TIERS DU COMPOSANT) [1, 23, 24]
+            1. BLOC ILLUSTRATIF IMMERSIF PLEIN-ÉCRAN (PREMIER TIERS DU COMPOSANT - BORD À BORD) [23]
             ============================================================ */}
-        <div className="w-full h-[42%] relative overflow-hidden shrink-0">
-          {/* L'image prend 100% de la surface supérieure, sans cadre ni cercle ! [23] */}
+        <div className="w-full h-[45%] relative overflow-hidden shrink-0">
+          {/* L'image prend désormais 100% de la surface supérieure gauche/droite/haut, sans marges [23] */}
           <img 
             key={currentStep} // Force la transition de fondu enchaîné de l'image à chaque étape ! [23]
             src={step.image} 
             alt={step.title} 
-            className="absolute inset-0 w-full h-full object-cover animate-fadeIn" // ✅ Remplissage complet sans cercles [23]
+            className="absolute inset-0 w-full h-full object-cover animate-fadeIn"  
           />
           {/* Voile d'ombrage dégradé supérieur doux [24] */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/30" />
@@ -392,11 +393,11 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
         </div>
 
         {/* ============================================================
-            2. CONTENU TEXTUEL HARMONIEUSEMENT CENTRÉ SANS VIDE ARTIFICIEL [24]
+            2. CONTENU TEXTUEL HARMONIEUSEMENT CENTRÉ (Paddé à px-6 sm:px-8) [23, 24]
             ============================================================ */}
         <div 
           key={step.id} // Force la ré-animation douce à chaque étape !
-          className="flex-1 flex flex-col items-center justify-center text-center px-1 space-y-3.5 min-h-0 bg-[#FCFAF6] dark:bg-[#151c18] animate-fadeIn"
+          className="flex-1 flex flex-col items-center justify-center text-center px-6 sm:px-8 space-y-3.5 min-h-0 bg-[#FCFAF6] dark:bg-[#151c18] animate-fadeIn"
         >
           {/* Petit badge d'icône d'étape */}
           <div 
@@ -429,8 +430,8 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           </div>
         </div>
 
-        {/* PIED DE PAGE DISCRET (SKIP / NEXT) [24] */}
-        <div className="pt-4 border-t flex items-center justify-between shrink-0 w-full" style={{ borderColor: colors.primary + '10' }}>
+        {/* PIED DE PAGE DISCRET (Paddé à px-6 pb-6) [23] */}
+        <div className="px-6 pb-6 pt-4 flex items-center justify-between shrink-0 w-full bg-[#FCFAF6] dark:bg-[#151c18]" style={{ borderColor: colors.primary + '10' }}>
           <button
             type="button"
             onClick={handleComplete}
