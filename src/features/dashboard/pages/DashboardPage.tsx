@@ -649,7 +649,7 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-8 px-4 sm:px-0">
+    <div className="space-y-6 max-w-5xl mx-auto pb-8 px-2 sm:px-0">
       
       {/* BANNIÈRE BROUILLONS */}
       {isFamily && canConvertDrafts && (
@@ -767,7 +767,7 @@ const DashboardPage = () => {
       </section>
 
       {/* METRIQUES DE SYNTHÈSE */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {isFamily && (
           <>
             <StatCard
