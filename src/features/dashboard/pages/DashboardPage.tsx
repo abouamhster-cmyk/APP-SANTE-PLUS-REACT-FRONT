@@ -357,7 +357,7 @@ const DashboardPage = () => {
 
   if (stabilizedLoading) {
     return (
-      <div className="space-y-5 max-w-5xl mx-auto px-3 sm:px-0 animate-pulse">
+      <div className="space-y-5 max-w-5xl mx-auto px-3 sm:px-0 pb-32 md:pb-10 animate-pulse">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-black/5" />
           <div className="flex-1 space-y-2">
@@ -375,10 +375,10 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto pb-10 px-3 sm:px-0">
+    <div className="space-y-5 max-w-5xl mx-auto px-3 sm:px-0 pb-32 md:pb-10">
 
-      {/* EN-TÊTE PERSONNEL */}
-      <header className="flex items-center justify-between pt-1">
+      {/* EN-TÊTE PERSONNEL (avatar + salutation + date + cloche) */}
+      <header className="flex items-center justify-between pt-1 gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/app/profile')}
@@ -397,9 +397,28 @@ const DashboardPage = () => {
             </p>
           </div>
         </div>
-        <span className="text-[10px] font-bold px-3 py-1.5 rounded-full shrink-0" style={{ background: colors.primary + '12', color: colors.primary }}>
-          {roleLabel}
-        </span>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className="hidden xs:inline-flex text-[10px] font-bold px-3 py-1.5 rounded-full"
+            style={{ background: colors.primary + '12', color: colors.primary }}
+          >
+            {roleLabel}
+          </span>
+          <button
+            onClick={() => navigate('/app/notifications')}
+            className="relative w-10 h-10 rounded-2xl flex items-center justify-center border bg-white/70 transition-transform active:scale-95"
+            style={{ borderColor: colors.primary + '20', color: colors.text }}
+            aria-label="Notifications"
+          >
+            <Bell size={18} />
+            {stats.unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[9px] font-black flex items-center justify-center rounded-full">
+                {stats.unreadCount > 99 ? '99+' : stats.unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
       </header>
 
       {/* BANNIÈRE BROUILLONS */}
@@ -431,19 +450,23 @@ const DashboardPage = () => {
         <div className="flex transition-transform duration-500 ease-out h-[200px] sm:h-[190px] w-full" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
           {slides.map((slide, index) => (
             <div key={index} className="w-full shrink-0 h-full relative" style={{ backgroundImage: `linear-gradient(100deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.15) 100%), url('${slide.image}')`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-              <div className="relative z-10 flex flex-col justify-between h-full p-6 pb-10">
+              <div className="relative z-10 flex flex-col h-full p-6 pb-14">
                 <div className="space-y-2 min-w-0 max-w-md">
                   <h1 className="text-lg sm:text-xl font-black text-white tracking-tight leading-snug">{slide.title}</h1>
                   <p className="text-white/80 text-xs sm:text-[13px] font-medium leading-relaxed line-clamp-3">{slide.description}</p>
                 </div>
-                <button onClick={() => navigate(slide.actionPath)} className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-2xl w-fit transition-all shadow-lg active:scale-95 hover:opacity-90" style={{ background: colors.gold || '#c9a84c' }}>
+                <button
+                  onClick={() => navigate(slide.actionPath)}
+                  className="inline-flex items-center gap-1.5 text-white text-xs font-bold px-4 py-2.5 rounded-2xl w-fit transition-all shadow-lg active:scale-95 hover:opacity-90 mt-4"
+                  style={{ background: colors.gold || '#c9a84c' }}
+                >
                   {slide.actionText}<ArrowRight size={13} />
                 </button>
               </div>
             </div>
           ))}
         </div>
-        <div className="absolute bottom-4 left-0 right-0 z-20 flex items-center justify-between px-6 pointer-events-none">
+        <div className="absolute bottom-3 left-0 right-0 z-20 flex items-center justify-between px-6 pointer-events-none">
           <div className="flex gap-1.5 pointer-events-auto">
             {slides.map((_, index) => (
               <button key={index} onClick={() => handleDotClick(index)} className={cn('h-1.5 rounded-full transition-all duration-300', currentSlide === index ? 'w-6 bg-white' : 'w-1.5 bg-white/40')} aria-label={`Slide ${index + 1}`} />
