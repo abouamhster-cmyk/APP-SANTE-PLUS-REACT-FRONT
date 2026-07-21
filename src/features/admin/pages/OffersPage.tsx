@@ -1,4 +1,6 @@
 // 📁 src/features/admin/pages/OffersPage.tsx
+// ✅ PAGE CATALOGUE DES OFFRES : MISE À JOUR POUR GESTION COMPLÈTE
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
@@ -205,7 +207,7 @@ const OfferCard = ({ offer, colors, onDelete, onEdit }: { offer: Offer, colors: 
 };
 
 // =============================================
-// MODAL AMÉLIORÉ (GESTION RÉELLE DES DONNÉES)
+// MODAL FORMULAIRE AMÉLIORÉ
 // =============================================
 interface OfferFormModalProps {
   mode: 'create' | 'edit';
@@ -217,13 +219,15 @@ interface OfferFormModalProps {
 
 const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: OfferFormModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
+
+  // Initialisation complète des données
   const [formData, setFormData] = useState({
     name: offer?.name || '',
     category: (offer?.category || 'senior') as any,
     type: (offer?.type || 'mensuelle') as any,
     description: offer?.description || '',
     price: offer?.price ? String(offer.price) : '',
-    features: offer?.features?.join('\n') || '', // Utilisation de \n pour le textarea
+    features: offer?.features?.join('\n') || '', 
     visits_per_week: offer?.visitsPerWeek ? String(offer.visitsPerWeek) : '',
     duration_days: offer?.durationDays ? String(offer.durationDays) : '',
     badge: offer?.badge || '',
@@ -276,40 +280,48 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: OfferFormMo
       isOpen={true}
       onClose={onClose}
       onSubmit={handleSubmit}
-      title={mode === 'edit' ? 'Modifier l\'offre' : 'Nouvelle offre'}
+      title={mode === 'edit' ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
       icon={<Package size={20} />}
       maxWidth="2xl"
       confirmLabel="Enregistrer"
       isLoading={isLoading}
     >
-      <div className="space-y-4">
+      <div className="space-y-4 text-sm">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold mb-1">Nom</label>
-            <input className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+            <label className="block font-bold mb-1">Nom *</label>
+            <input className="w-full h-11 px-4 rounded-xl border bg-gray-50" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
           </div>
           <div>
-            <label className="block text-xs font-bold mb-1">Prix (FCFA)</label>
-            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+            <label className="block font-bold mb-1">Prix (FCFA)</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
           </div>
           <div>
-            <label className="block text-xs font-bold mb-1">Total Visites</label>
-            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.total_visits} onChange={e => setFormData({...formData, total_visits: e.target.value})} />
+            <label className="block font-bold mb-1">Total Visites</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50" value={formData.total_visits} onChange={e => setFormData({...formData, total_visits: e.target.value})} />
           </div>
           <div>
-            <label className="block text-xs font-bold mb-1">Total Commandes</label>
-            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50 text-sm" value={formData.total_orders} onChange={e => setFormData({...formData, total_orders: e.target.value})} />
+            <label className="block font-bold mb-1">Total Commandes</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50" value={formData.total_orders} onChange={e => setFormData({...formData, total_orders: e.target.value})} />
+          </div>
+          <div>
+            <label className="block font-bold mb-1">Jours de validité</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50" value={formData.duration_days} onChange={e => setFormData({...formData, duration_days: e.target.value})} />
+          </div>
+          <div>
+            <label className="block font-bold mb-1">Ordre affichage</label>
+            <input type="number" className="w-full h-11 px-4 rounded-xl border bg-gray-50" value={formData.display_order} onChange={e => setFormData({...formData, display_order: e.target.value})} />
           </div>
         </div>
         
         <div>
-          <label className="block text-xs font-bold mb-1">Description</label>
-          <textarea className="w-full p-4 rounded-xl border bg-gray-50 text-sm h-20" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+          <label className="block font-bold mb-1">Description</label>
+          <textarea className="w-full p-4 rounded-xl border bg-gray-50 h-20" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
         </div>
 
         <div>
-          <label className="block text-xs font-bold mb-1">Fonctionnalités (une par ligne)</label>
-          <textarea className="w-full p-4 rounded-xl border bg-gray-50 text-sm h-24" value={formData.features} onChange={e => setFormData({...formData, features: e.target.value})} />
+          <label className="block font-bold mb-1">Fonctionnalités (une par ligne)</label>
+          <textarea className="w-full p-4 rounded-xl border bg-gray-50 h-24" value={formData.features} onChange={e => setFormData({...formData, features: e.target.value})} />
         </div>
       </div>
     </ModalWithForm>
