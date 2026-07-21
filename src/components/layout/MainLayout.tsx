@@ -94,7 +94,7 @@ const MainLayout = () => {
         </aside>
       )}
 
-      <div className="min-h-screen w-full md:pl-72">
+      <div className="min-h-screen w-full md:pl-60">
         <header className={cn("fixed top-0 left-0 right-0 z-30 transition-all duration-300", isMobile ? "bg-transparent px-4 py-3" : "bg-white/95 backdrop-blur-lg border-b px-6 py-4", showHeader ? "translate-y-0" : "-translate-y-full")}>
            <div className="flex items-center justify-between">
               <h2 className="text-sm font-black truncate" style={{ color: colors.text }}>{isMobile ? getGreeting() : "Santé Plus Services"}</h2>
@@ -105,7 +105,7 @@ const MainLayout = () => {
            </div>
         </header>
 
-        <main className="w-full max-w-full pt-20 p-4">
+        <main className="w-full max-w-full pt-20 p-2">
           <ReminderBanner />
           <Outlet />
         </main>
