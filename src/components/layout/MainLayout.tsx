@@ -118,9 +118,25 @@ const MainLayout = () => {
 };
 
 // =============================================
-// SIDEBAR CONTENT 
+// SIDEBAR CONTENT AVEC RÉINTÉGRATION PROFIL
 // =============================================
 const SidebarContent = ({ navItems, locationPath, colors, profile, role, logoConfig, onLogout }: any) => {
+  const getRoleIcon = () => {
+    if (role === 'aidant') return <Briefcase size={14} />;
+    if (role === 'family') return <Users size={14} />;
+    if (role === 'coordinator') return <UserCog size={14} />;
+    if (role === 'admin') return <Shield size={14} />;
+    return <User size={14} />;
+  };
+
+  const getRoleLabel = () => {
+    if (role === 'aidant') return 'Intervenant';
+    if (role === 'family') return 'Famille';
+    if (role === 'coordinator') return 'Coordinateur';
+    if (role === 'admin') return 'Administrateur';
+    return 'Utilisateur';
+  };
+
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="p-5 font-black text-lg" style={{ color: colors.primary }}>Santé Plus</div>
@@ -131,8 +147,19 @@ const SidebarContent = ({ navItems, locationPath, colors, profile, role, logoCon
           </Link>
         ))}
       </div>
-      <div className="p-4 border-t">
-        <button onClick={onLogout} className="flex items-center gap-2 text-red-500 font-bold text-sm"><LogOut size={16} /> Déconnexion</button>
+      
+      {/* Bloc Profil Réintégré */}
+      <div className="p-4 border-t space-y-3">
+        <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: colors.primary }}>
+            {profile?.full_name?.charAt(0) || 'U'}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] font-black uppercase text-gray-400">{getGreeting()}</p>
+            <p className="text-xs font-bold truncate" style={{ color: colors.text }}>{profile?.full_name || 'Utilisateur'}</p>
+          </div>
+        </Link>
+        <button onClick={onLogout} className="flex items-center gap-2 text-red-500 font-bold text-sm px-3"><LogOut size={16} /> Déconnexion</button>
       </div>
     </div>
   );
