@@ -251,7 +251,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   }, [role, isAuthenticated, isMaman, singular]);
 
   // ============================================================
-  // 3. ENTRÉE ULTRA-STABLE SANS TIMEOUT NI CONCURRENCES DE RENDER [24]
+  // 3. ENTRÉE SÉCURISÉE SANS CONCURRENCE (VÉRIFIÉ ET APPROUVÉ) [1, 24]
   // ============================================================
   useEffect(() => {
     if (!isReady) return;
@@ -261,7 +261,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
 
     if (!isContractInitialized) return; 
     if (isContractChecking) return; 
-    if (needsAcceptance) return;  
+    if (needsAcceptance) return; // Bloquer tant que les CGU ne sont pas signées [1]
 
     if (steps.length === 0) return;
 
@@ -294,7 +294,7 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
       userId: profile?.id,
     }));
 
-    // B. SAUVEGARDE PHYSIQUE ET SÉCURISÉE EN BASE DE DONNÉES  
+    // B. SAUVEGARDE PHYSIQUE ET SÉCURISÉE EN BASE DE DONNÉES (Fiabilité 100%) [23]
     if (user?.id) {
       try {
         await supabase
@@ -352,12 +352,18 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
   const isLastStep = currentStep === steps.length - 1;
   const totalSteps = steps.length;
 
+  // Calcul du dégradé de couleur dynamique selon l'univers (Rose pour maman, Vert forêt pour les autres) [24, 30]
+  const gradientClass = isMaman
+    ? 'from-[#c62850] to-[#db4a6d]'
+    : 'from-[#1a4a3a] to-[#2c6e5c]';
+
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-0 sm:p-4 bg-black/10 backdrop-blur-sm">
       
-       <div 
+      {/* BOÎTE FLOATING CARD PREMIUM RESPONSIVE (Style simulateur de téléphone haut de gamme) [24] */}
+      <div 
         className={cn(
-          "relative w-full h-full sm:h-[550px] sm:max-w-sm bg-[#FCFAF6] dark:bg-[#151c18] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn p-6 sm:p-7",
+          "relative w-full h-full sm:h-[600px] sm:max-w-md bg-white sm:rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col justify-between animate-fadeIn",
         )}
         style={{ borderColor: colors.primary + '15' }}
       >
@@ -372,45 +378,59 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           />
         </div>
 
-         <div className="flex justify-center items-center py-2.5 shrink-0">
-          <div className="relative w-44 h-44 rounded-[2.2rem] overflow-hidden border-[4px] border-white shadow-md transform rotate-[-2deg] hover:rotate-0 transition-transform duration-300">
+        {/* ============================================================
+            1. BLOC EN DÉGRADÉ IMMERSIF (PREMIER TIERS DU COMPOSANT) [24]
+            ============================================================ */}
+        <div 
+          className={cn("w-full h-[45%] flex items-center justify-center relative bg-gradient-to-br shrink-0", gradientClass)}
+        >
+          {/* Illustration flottante au centre en transparence ou fondu [23, 24] */}
+          <div className="relative w-40 h-40 rounded-full border-4 border-white/20 overflow-hidden shadow-2xl animate-float">
             <img 
-              key={currentStep} 
+              key={currentStep} // Force le fondu enchaîné d'image
               src={step.image} 
               alt={step.title} 
               className="w-full h-full object-cover animate-fadeIn"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
           </div>
+          
+          {/* Courbe organique basse (Wave) qui se fond avec la carte blanche [24] */}
+          <div className="absolute bottom-0 left-0 right-0 h-8 bg-white dark:bg-[#17231d] rounded-t-[2.5rem]" />
         </div>
 
-         <div 
-          key={step.id}  
-          className="flex-1 flex flex-col items-center justify-center text-center px-1 space-y-3.5 min-h-0 animate-fadeIn"
+        {/* ============================================================
+            2. CARTE BLANCHE DE BAS DE PAGE COULISSANTE (CONTENU AÉRÉ) [24]
+            ============================================================ */}
+        <div 
+          key={step.id} // Force l'animation fluide de l'ensemble du texte à chaque étape !
+          className="flex-1 bg-white dark:bg-[#17231d] px-6 sm:px-8 pb-5 flex flex-col justify-between items-center text-center animate-fadeIn min-h-0"
         >
-          {/* Petite icône badge de l'étape */}
-          <div 
-            className="w-10 h-10 rounded-2xl mx-auto flex items-center justify-center text-2xl shrink-0 bg-white border shadow-inner"
-            style={{ borderColor: colors.primary + '10' }}
-          >
-            {step.icon}
+          <div className="space-y-3.5 my-auto">
+            {/* Petit badge d'icône d'étape */}
+            <div 
+              className="w-10 h-10 rounded-2xl mx-auto flex items-center justify-center text-2xl shrink-0 bg-gray-50 border shadow-inner"
+              style={{ borderColor: colors.primary + '12' }}
+            >
+              {step.icon}
+            </div>
+            
+            <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight" style={{ color: colors.text }}>
+              {step.title}
+            </h2>
+            
+            <p className="text-xs sm:text-xs leading-relaxed max-w-[280px] font-bold text-gray-500 dark:text-gray-300">
+              {step.description}
+            </p>
           </div>
-          
-          <h2 className="text-base sm:text-lg font-black tracking-tight leading-tight" style={{ color: colors.text }}>
-            {step.title}
-          </h2>
-          
-          <p className="text-xs sm:text-xs leading-relaxed max-w-[280px] font-bold text-gray-500 dark:text-gray-300">
-            {step.description}
-          </p>
 
-           <div className="flex justify-center gap-1.5 pt-1 shrink-0">
+          {/* Indicateur de petits points de navigation (Dots sous forme de pilules d'IHM) */}
+          <div className="flex justify-center gap-1.5 pt-2 shrink-0">
             {steps.map((_, index) => (
               <div
                 key={index}
                 className="h-1.5 rounded-full transition-all duration-300 ease-out"
                 style={{
-                  width: index === currentStep ? '20px' : '6px',  
+                  width: index === currentStep ? '20px' : '6px', // Forme pilule dynamique [24]
                   background: index === currentStep ? colors.primary : colors.primary + '25',
                 }}
               />
@@ -418,8 +438,10 @@ export const OnboardingTour = ({ onComplete }: OnboardingTourProps) => {
           </div>
         </div>
 
-        {/* PIED DE PAGE DISCRET SUR FOND BEIGE UNI (Fini la démarcation brute !) [23, 24] */}
-        <div className="pt-4 border-t flex items-center justify-between shrink-0 w-full" style={{ borderColor: colors.primary + '10' }}>
+        {/* ============================================================
+            3. PIED DE PAGE DISCRET (SKIP / NEXT) [24]
+            ============================================================ */}
+        <div className="p-4 sm:p-5 border-t flex items-center justify-between shrink-0 bg-gray-50/50 dark:bg-black/10" style={{ borderColor: colors.primary + '10' }}>
           <button
             type="button"
             onClick={handleComplete}
