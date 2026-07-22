@@ -588,13 +588,6 @@ const AdminDashboardPage = () => {
           </div>
         </div>
       )}
-
-      <footer className="text-center py-4">
-        <p className="text-[10px] flex items-center justify-center gap-1 font-medium" style={{ color: colors.textLight }}>
-          <Shield size={10} className="text-green-400" />
-          Santé Plus Services — Administration
-        </p>
-      </footer>
     </div>
   );
 };
