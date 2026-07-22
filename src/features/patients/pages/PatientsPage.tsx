@@ -1,12 +1,11 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
-// ✅ PAGE MEMBRES & ÉQUIPE : MODALE 360° ENRICHIE AVEC DONNÉES SQL COMPLÈTES
-
+ 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Plus, Search, RefreshCw, Users, UserCheck, Home, Eye, Loader2,
-  UserMinus, UserPlus, Shield, X, MapPin, Phone, Mail,
-  AlertCircle, Briefcase, UserCog, Star, Calendar, FileText, Pill, CheckCircle, CreditCard
+  Plus, Search, RefreshCw, Users, UserCheck, Eye, Loader2,
+  UserMinus, UserPlus, MapPin, Phone, Mail,
+  AlertCircle, Briefcase, UserCog, Calendar, FileText, Pill, CreditCard, Shield, HeartHandshake, Award
 } from 'lucide-react';
 
 import { usePatientStore } from '@/stores/patientStore';
@@ -40,6 +39,10 @@ interface AidantStaff {
   activeAssignmentsCount?: number;
   assignedTargets?: Array<{ name: string; type: string }>;
   created_at?: string;
+  birth_date?: string;
+  address?: string;
+  bio?: string;
+  total_missions?: number;
 }
 
 interface StaffMember {
@@ -109,7 +112,7 @@ export const PatientsPage = () => {
   const [showRowAssignModal, setShowRowAssignModal] = useState(false);
   const [selectedItemToAssign, setSelectedItemToAssign] = useState<AssignmentItem | null>(null);
 
-  // Modal de consultation de dossier (ŒIL ENRICHIE)
+  // Modal de consultation de dossier (360° ENRICHIE)
   const [showDetailDossierModal, setShowDetailDossierModal] = useState(false);
   const [selectedDossier, setSelectedDossier] = useState<{ type: 'beneficiary' | 'aidant' | 'staff'; data: any } | null>(null);
 
@@ -126,7 +129,7 @@ export const PatientsPage = () => {
     try {
       await fetchPatients(true);
       
-      // 1. Charger tous les foyers/familles (données complètes de profiles)
+      // 1. Charger tous les foyers/familles (données complètes)
       const { data: familiesData } = await supabase
         .from('profiles')
         .select('id, full_name, email, phone, address, patient_category, is_active, created_at, role')
@@ -135,7 +138,7 @@ export const PatientsPage = () => {
 
       setFamilyAccounts(familiesData || []);
 
-      // 2. Charger les patients/proches
+      // 2. Charger les patients/proches avec leurs détails complets
       const { data: patientsData } = await supabase
         .from('patients')
         .select('*, patient_family_links(family_id)');
@@ -159,7 +162,7 @@ export const PatientsPage = () => {
       });
       setAssignmentsMap(mapAssign);
 
-      // 4. Charger la liste des Aidants
+      // 4. Charger la liste des Aidants avec tous les champs du RegisterPage (Bio, Adresse, Zones, etc.)
       const { data: aidantsDb } = await supabase
         .from('aidants')
         .select('*, user:profiles(id, full_name, email, phone, role, created_at)')
@@ -191,6 +194,10 @@ export const PatientsPage = () => {
             zones: a.zones || [],
             experience_years: a.experience_years || 0,
             rating: a.rating || 0,
+            birth_date: a.birth_date || null,
+            address: a.address || null,
+            bio: a.bio || null,
+            total_missions: a.total_missions || 0,
             activeAssignmentsCount: assignedTargets.length,
             assignedTargets,
             created_at: a.user?.created_at || a.created_at,
@@ -367,7 +374,7 @@ export const PatientsPage = () => {
             {isAdmin ? 'Gestion des Bénéficiaires & Équipe' : 'Mes proches'}
           </h1>
           <p className="text-xs text-gray-500 font-semibold mt-1">
-            {isAdmin ? 'Consultation des dossiers 360° et attributions des intervenants' : 'Suivi de vos proches accompagnés'}
+            {isAdmin ? 'Consultation 360° des dossiers administratifs & cliniques' : 'Suivi de vos proches accompagnés'}
           </p>
         </div>
         <button onClick={fetchAllData} className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-gray-50 hover:bg-gray-100 flex items-center gap-1.5">
@@ -435,12 +442,12 @@ export const PatientsPage = () => {
                           </div>
                         </div>
 
-                        {/* ✅ BOUTON ŒIL + BOUTON ATTRIBUTION */}
+                        {/* ✅ BOUTON ŒIL DE CONSULTATION 360° + ATTRIRUBUTION */}
                         <div className="flex items-center gap-2 shrink-0">
                           <button
                             onClick={() => handleViewDossier('beneficiary', item.rawDetails)}
                             className="p-2 rounded-xl border bg-gray-50 hover:bg-gray-100 text-gray-600 transition"
-                            title="Voir le dossier complet"
+                            title="Consulter la fiche complète 360°"
                           >
                             <Eye size={14} />
                           </button>
@@ -480,11 +487,11 @@ export const PatientsPage = () => {
         </div>
       )}
 
-      {/* SECTION 2 : ÉQUIPE & INTERVENANTS (AIDANTS, COORDINATEURS & ADMINS) */}
+      {/* SECTION 2 : ÉQUIPE & INTERVENANTS */}
       {isAdmin && (
         <div className="space-y-4 pt-6 border-t">
           <h2 className="text-xs font-black uppercase tracking-wider text-gray-400 px-1">
-            🛡️ Équipe & Intervenants (Employés & Staff)
+            🛡️ Équipe & Intervenants (Staff & Auxiliaires)
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -533,7 +540,7 @@ export const PatientsPage = () => {
         </div>
       )}
 
-      {/* MODALE CONSULTATION COMPLÈTE (Dossier 360°) */}
+      {/* MODALE CONSULTATION DOSSIER 360° ENRICHIE */}
       {showDetailDossierModal && selectedDossier && (
         <DossierDetailModal
           dossier={selectedDossier}
@@ -560,150 +567,241 @@ export const PatientsPage = () => {
 };
 
 // ============================================================
-// ✅ MODALE D'EXPLOITATION DOSSIER 360° ENRICHIE
+// ✅ MODALE DOSSIER 360° ULTRA COMPLÈTE
 // ============================================================
 const DossierDetailModal = ({ dossier, onClose }: { dossier: any; onClose: () => void; colors: any }) => {
   const { type, data } = dossier;
-  const [extraInfo, setExtraInfo] = useState<any>(null);
+  const [fullData, setFullData] = useState<any>(data);
   const [loadingExtra, setLoadingExtra] = useState(false);
 
   useEffect(() => {
-    const loadExtra = async () => {
+    const fetchExtraDetails = async () => {
       setLoadingExtra(true);
       try {
         if (type === 'beneficiary') {
-          const targetId = data.id;
+          // Si c'est un patient (proche)
+          if (data.first_name && !data.email) {
+            const { data: patientFull } = await supabase
+              .from('patients')
+              .select('*, patient_family_links(family:profiles(*))')
+              .eq('id', data.id)
+              .single();
 
-          // Si c'est un compte personnel, chercher l'abonnement actif
-          if (data.email) {
+            if (patientFull) {
+              setFullData((prev: any) => ({
+                ...prev,
+                ...patientFull,
+                familyOwner: patientFull.patient_family_links?.[0]?.family || null,
+              }));
+            }
+          } 
+          // Si c'est un compte personnel (profil famille)
+          else if (data.email) {
             const { data: sub } = await supabase
               .from('abonnements')
               .select('*, offre:offres(*)')
-              .eq('user_id', targetId)
+              .eq('user_id', data.id)
               .eq('status', 'actif')
               .maybeSingle();
 
             const { data: links } = await supabase
               .from('patient_family_links')
               .select('patient:patients(*)')
-              .eq('family_id', targetId);
+              .eq('family_id', data.id);
 
-            setExtraInfo({
+            setFullData((prev: any) => ({
+              ...prev,
               subscription: sub,
               linkedPatients: links?.map((l: any) => l.patient).filter(Boolean) || [],
-            });
+            }));
           }
         }
       } catch (err) {
-        console.error('Erreur chargement extra dossier:', err);
+        console.error('Erreur chargement détails dossier:', err);
       } finally {
         setLoadingExtra(false);
       }
     };
 
-    loadExtra();
+    fetchExtraDetails();
   }, [dossier, type, data]);
 
-  const isPatientObject = !data.email && data.first_name;
+  const isPatientObject = !fullData.email && fullData.first_name;
 
   return (
-    <Modal isOpen={true} onClose={onClose} title={`📋 Dossier : ${data.full_name || `${data.first_name} ${data.last_name || ''}`}`} maxWidth="md">
+    <Modal 
+      isOpen={true} 
+      onClose={onClose} 
+      title={`📋 Dossier Administratif & Clinique : ${fullData.full_name || `${fullData.first_name || ''} ${fullData.last_name || ''}`}`} 
+      maxWidth="lg"
+    >
       <div className="space-y-4 text-xs pt-1">
         
         {/* CAS BÉNÉFICIAIRE (PATIENT OU COMPTE PERSONNEL) */}
         {type === 'beneficiary' && (
           <div className="space-y-3">
-            {/* Entête Fiche */}
-            <div className="p-3 bg-gray-50 rounded-2xl flex justify-between items-center">
+            
+            {/* Identité principale */}
+            <div className="p-3.5 bg-gray-50 rounded-2xl flex justify-between items-center">
               <div>
                 <p className="font-bold text-gray-400 text-[9px] uppercase">Titulaire du dossier</p>
-                <p className="text-sm font-black text-gray-800">{data.full_name || `${data.first_name} ${data.last_name || ''}`}</p>
+                <p className="text-sm font-black text-gray-900">{fullData.full_name || `${fullData.first_name} ${fullData.last_name || ''}`}</p>
+                {fullData.familyOwner && (
+                  <p className="text-[10px] text-gray-500 font-bold mt-0.5">Rattaché au foyer de : {fullData.familyOwner.full_name}</p>
+                )}
               </div>
-              <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800">
+              <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800">
                 {isPatientObject ? 'Proche Accompagné' : 'Compte Personnel'}
               </span>
             </div>
 
-            {/* Coordonnées */}
+            {/* Coordonnées de contact */}
             <div className="grid grid-cols-2 gap-2">
               <div className="p-3 bg-gray-50 rounded-2xl">
-                <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><Mail size={11} /> Email</p>
-                <p className="font-bold text-gray-800 truncate">{data.email || 'Non spécifié'}</p>
+                <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><Mail size={11} /> E-mail</p>
+                <p className="font-bold text-gray-800 truncate">{fullData.email || 'Non renseigné'}</p>
               </div>
               <div className="p-3 bg-gray-50 rounded-2xl">
-                <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><Phone size={11} /> Téléphone</p>
-                <p className="font-bold text-gray-800">{data.phone || 'Non renseigné'}</p>
+                <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><Phone size={11} /> Téléphone direct</p>
+                <p className="font-bold text-gray-800">{fullData.phone || 'Non renseigné'}</p>
               </div>
             </div>
 
-            {/* Adresse */}
+            {/* Adresse physique */}
             <div className="p-3 bg-gray-50 rounded-2xl">
-              <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><MapPin size={11} /> Adresse de prise en charge</p>
-              <p className="font-bold text-gray-800">{data.address || 'Non spécifiée'}</p>
+              <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><MapPin size={11} /> Lieu précis de prise en charge</p>
+              <p className="font-bold text-gray-800">{fullData.address || 'Adresse non spécifiée'}</p>
             </div>
 
-            {/* Inscription */}
-            <div className="p-3 bg-gray-50 rounded-2xl flex justify-between items-center">
-              <span className="text-gray-400 font-bold text-[9px] uppercase">Membre depuis</span>
-              <span className="font-extrabold text-gray-800">{formatDate(data.created_at)}</span>
-            </div>
+            {/* Contact d'urgence / Garant (Si Patient) */}
+            {isPatientObject && (fullData.emergency_contact || fullData.emergency_contact_name) && (
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-0.5">
+                <p className="text-amber-900 font-black text-[10px] uppercase flex items-center gap-1"><AlertCircle size={11} /> Contact d'urgence & Garant</p>
+                <p className="font-bold text-amber-950">{fullData.emergency_contact_name || 'Garant familial'} : {fullData.emergency_contact || 'Pas de numéro'}</p>
+              </div>
+            )}
 
-            {/* Informations Cliniques si Patient */}
+            {/* Bilan Clinique (Si Patient) */}
             {isPatientObject && (
-              <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-2">
-                <p className="font-black text-blue-900 text-xs flex items-center gap-1"><FileText size={13} /> Profil Clinique & Suivi</p>
+              <div className="p-3.5 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-2.5">
+                <p className="font-black text-blue-900 text-xs flex items-center gap-1"><FileText size={13} /> Bilan Médical & Informations Utiles</p>
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <p><span className="text-gray-500">Sexe / Âge :</span> <b>{data.gender || '-'} • {data.age ? `${data.age} ans` : '-'}</b></p>
-                  <p><span className="text-gray-500">Urgence :</span> <b>{data.emergency_contact || '-'}</b></p>
+                  <p><span className="text-gray-500">Sexe / Âge :</span> <b>{fullData.gender || '-'} • {fullData.age ? `${fullData.age} ans` : '-'}</b></p>
+                  <p><span className="text-gray-500">Catégorie :</span> <b>{fullData.category || 'Senior'}</b></p>
                 </div>
-                {data.allergies && <p className="text-red-600 font-bold text-[11px]"><AlertCircle size={11} className="inline mr-1" /> Allergies: {data.allergies}</p>}
-                {data.treatments && <p className="text-emerald-700 font-bold text-[11px]"><Pill size={11} className="inline mr-1" /> Traitements: {data.treatments}</p>}
+
+                {fullData.allergies && (
+                  <div className="p-2 bg-red-100/70 text-red-900 rounded-xl font-bold">
+                    ⚠️ Allergies : {fullData.allergies}
+                  </div>
+                )}
+                {fullData.treatments && (
+                  <div className="p-2 bg-emerald-100/70 text-emerald-900 rounded-xl font-bold">
+                    💊 Traitements réguliers : {fullData.treatments}
+                  </div>
+                )}
+                {fullData.conditions && (
+                  <div className="p-2 bg-amber-100/70 text-amber-900 rounded-xl font-bold">
+                    🩺 Pathologies connues : {fullData.conditions}
+                  </div>
+                )}
+                {fullData.notes && (
+                  <div className="p-2 bg-white rounded-xl border text-gray-700 italic">
+                    📝 Notes d'accompagnement : "{fullData.notes}"
+                  </div>
+                )}
               </div>
             )}
 
             {/* Abonnement Actif si Compte Personnel */}
-            {extraInfo?.subscription && (
+            {fullData.subscription && (
               <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
                 <p className="font-extrabold text-emerald-900 flex items-center gap-1 mb-1">
-                  <CreditCard size={13} /> Forfait Actif : {extraInfo.subscription.offre?.name || 'Abonnement'}
+                  <CreditCard size={13} /> Forfait Actif : {fullData.subscription.offre?.name || 'Abonnement'}
                 </p>
                 <p className="text-emerald-700 text-[11px]">
-                  Crédit visites restantes : <b>{extraInfo.subscription.remaining_visits} / {extraInfo.subscription.total_visits}</b>
+                  Visites restantes : <b>{fullData.subscription.remaining_visits} / {fullData.subscription.total_visits}</b>
                 </p>
               </div>
             )}
 
             {/* Proches rattachés sous ce compte */}
-            {extraInfo?.linkedPatients?.length > 0 && (
+            {fullData.linkedPatients?.length > 0 && (
               <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
-                <p className="font-bold text-gray-400 text-[9px] uppercase">Proches sous ce foyer ({extraInfo.linkedPatients.length})</p>
-                {extraInfo.linkedPatients.map((p: any) => (
+                <p className="font-bold text-gray-400 text-[9px] uppercase">Proches sous ce foyer ({fullData.linkedPatients.length})</p>
+                {fullData.linkedPatients.map((p: any) => (
                   <p key={p.id} className="font-bold text-gray-800 text-[11px]">• {p.first_name} {p.last_name}</p>
                 ))}
               </div>
             )}
+
+            <div className="p-3 bg-gray-50 rounded-2xl flex justify-between items-center">
+              <span className="text-gray-400 font-bold text-[9px] uppercase">Création du dossier</span>
+              <span className="font-extrabold text-gray-800">{formatDate(fullData.created_at)}</span>
+            </div>
           </div>
         )}
 
         {/* CAS AIDANT STAFF */}
         {type === 'aidant' && (
           <div className="space-y-3">
-            <div className="p-3 bg-gray-50 rounded-2xl">
+            <div className="p-3.5 bg-gray-50 rounded-2xl">
               <p className="text-gray-400 text-[9px] font-bold uppercase">Fiche Intervenant Homologué</p>
-              <p className="text-sm font-black text-gray-800">{data.full_name}</p>
-              <p className="text-gray-500 font-semibold">{data.email} • {data.phone || 'Sans tel'}</p>
+              <p className="text-sm font-black text-gray-900">{fullData.full_name}</p>
+              <p className="text-gray-500 font-semibold">{fullData.email} • {fullData.phone || 'Sans tel'}</p>
             </div>
             
             <div className="grid grid-cols-2 gap-2">
-              <div className="p-3 bg-gray-50 rounded-2xl"><p className="text-gray-400 text-[9px] font-bold uppercase">Expérience</p><p className="font-bold text-gray-800">{data.experience_years || 0} an(s)</p></div>
-              <div className="p-3 bg-gray-50 rounded-2xl"><p className="text-gray-400 text-[9px] font-bold uppercase">Évaluation</p><p className="font-bold text-amber-500">⭐ {data.rating || 5}/5</p></div>
+              <div className="p-3 bg-gray-50 rounded-2xl"><p className="text-gray-400 text-[9px] font-bold uppercase">Expérience</p><p className="font-bold text-gray-800">{fullData.experience_years || 0} an(s)</p></div>
+              <div className="p-3 bg-gray-50 rounded-2xl">
+                <p className="text-gray-400 text-[9px] font-bold uppercase">Note globale</p>
+                <p className="font-bold text-amber-600">
+                  {fullData.rating && Number(fullData.rating) > 0 ? `⭐ ${Number(fullData.rating).toFixed(1)}/5` : 'Nouveau (pas encore noté)'}
+                </p>
+              </div>
             </div>
 
+            {fullData.address && (
+              <div className="p-3 bg-gray-50 rounded-2xl">
+                <p className="text-gray-400 text-[9px] font-bold uppercase flex items-center gap-1"><MapPin size={11} /> Adresse de résidence</p>
+                <p className="font-bold text-gray-800">{fullData.address}</p>
+              </div>
+            )}
+
+            {fullData.zones?.length > 0 && (
+              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
+                <p className="text-gray-400 text-[9px] font-bold uppercase">Zones couvertes</p>
+                <div className="flex flex-wrap gap-1">
+                  {fullData.zones.map((z: string, i: number) => (
+                    <span key={i} className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 font-bold text-[10px] border border-blue-100">📍 {z}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {fullData.specialties?.length > 0 && (
+              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
+                <p className="text-gray-400 text-[9px] font-bold uppercase">Spécialités</p>
+                <div className="flex flex-wrap gap-1">
+                  {fullData.specialties.map((s: string, i: number) => (
+                    <span key={i} className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-100">✨ {s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {fullData.bio && (
+              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
+                <p className="text-gray-400 text-[9px] font-bold uppercase">Présentation / Bio</p>
+                <p className="text-gray-700 italic leading-relaxed text-[11px] bg-white p-2.5 rounded-xl border whitespace-pre-line">"{fullData.bio}"</p>
+              </div>
+            )}
+
             <div className="p-3 bg-blue-50/70 rounded-2xl border border-blue-100">
-              <p className="font-extrabold text-blue-900 mb-1.5 flex items-center gap-1"><Users size={13} /> Bénéficiaires actuellement pris en charge ({data.activeAssignmentsCount}) :</p>
-              {data.assignedTargets?.length > 0 ? (
+              <p className="font-extrabold text-blue-900 mb-1.5 flex items-center gap-1"><Users size={13} /> Bénéficiaires pris en charge ({fullData.activeAssignmentsCount}) :</p>
+              {fullData.assignedTargets?.length > 0 ? (
                 <div className="space-y-1">
-                  {data.assignedTargets.map((t: any, i: number) => (
+                  {fullData.assignedTargets.map((t: any, i: number) => (
                     <p key={i} className="text-blue-900 font-bold text-[11px]">• {t.name} <span className="text-blue-500 font-normal">({t.type})</span></p>
                   ))}
                 </div>
@@ -717,22 +815,22 @@ const DossierDetailModal = ({ dossier, onClose }: { dossier: any; onClose: () =>
         {/* CAS STAFF / ADMIN / COORD */}
         {type === 'staff' && (
           <div className="space-y-3">
-            <div className="p-3 bg-gray-50 rounded-2xl">
-              <p className="text-gray-400 text-[9px] font-bold uppercase">Compte Administrateur / Coordinateur</p>
-              <p className="text-sm font-black text-gray-800">{data.full_name}</p>
-              <p className="text-gray-500 font-semibold">{data.email}</p>
+            <div className="p-3.5 bg-gray-50 rounded-2xl">
+              <p className="text-gray-400 text-[9px] font-bold uppercase">Profil Direction / Coordination</p>
+              <p className="text-sm font-black text-gray-800">{fullData.full_name}</p>
+              <p className="text-gray-500 font-semibold">{fullData.email}</p>
             </div>
             <div className="p-3 bg-gray-50 rounded-2xl flex justify-between items-center">
               <span className="text-gray-400 font-bold text-[9px] uppercase">Téléphone</span>
-              <span className="font-bold text-gray-800">{data.phone || 'Non renseigné'}</span>
+              <span className="font-bold text-gray-800">{fullData.phone || 'Non renseigné'}</span>
             </div>
-            <div className="p-3 bg-emerald-50 text-emerald-800 rounded-2xl flex justify-between items-center">
+            <div className="p-3 bg-emerald-50 text-emerald-800 rounded-2xl flex justify-between items-center border border-emerald-200">
               <span className="font-bold">Privilèges & Accès :</span>
-              <span className="font-black uppercase px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px]">{data.role}</span>
+              <span className="font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px]">{fullData.role}</span>
             </div>
             <div className="p-3 bg-gray-50 rounded-2xl flex justify-between items-center">
-              <span className="text-gray-400 font-bold text-[9px] uppercase">Membre du staff depuis</span>
-              <span className="font-bold text-gray-800">{formatDate(data.created_at)}</span>
+              <span className="text-gray-400 font-bold text-[9px] uppercase">Membre de l'équipe depuis</span>
+              <span className="font-bold text-gray-800">{formatDate(fullData.created_at)}</span>
             </div>
           </div>
         )}
