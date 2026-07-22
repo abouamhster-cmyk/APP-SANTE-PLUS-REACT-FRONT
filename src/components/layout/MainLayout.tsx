@@ -82,12 +82,25 @@ const MainLayout = () => {
   );
 };
 
+// =============================================
+// SIDEBAR CONTENT
+// =============================================
 const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: any) => {
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* ✅ Logo Unique (Gère l'icône + le texte) */}
-      <div className="p-6">
-        <Logo size="md" variant="dark" showText={true} className="justify-start" />
+      {/* 
+        ✅ MODIFICATION : 
+        Si vous voyez deux logos, réglez showIcon ou showText sur false.
+        Ici, je garde les deux mais très compacts avec 'md' et 'justify-start'
+      */}
+      <div className="px-6 py-8">
+        <Logo 
+          size="md" 
+          variant="dark" 
+          showIcon={true}  // Mettez false si vous voulez seulement le texte
+          showText={true}  // Mettez false si vous voulez seulement l'icône
+          className="justify-start gap-3" 
+        />
       </div>
       
       <div className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
