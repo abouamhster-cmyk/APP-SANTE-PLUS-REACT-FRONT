@@ -1,6 +1,5 @@
 // 📁 src/features/notifications/pages/NotificationsPage.tsx
-// ✅ CENTRE DE NOTIFICATIONS ÉPURÉ : DESIGN MINIMALISTE ET ESSENTIEL
-
+ 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -8,10 +7,6 @@ import {
   Check, 
   X, 
   RefreshCw, 
-  Calendar, 
-  ShoppingBag, 
-  CreditCard, 
-  AlertCircle, 
   Loader2,
   Trash2
 } from 'lucide-react';
@@ -20,6 +15,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDateTime, cn } from '@/utils/helpers';
+import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // ============================================================
@@ -101,7 +97,7 @@ const formatNotificationContext = (notification: any, currentUser: any) => {
 // ============================================================
 
 const NotificationsPage = () => {
-  const { profile, role } = useAuthStore();
+  const { profile } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
   
@@ -115,12 +111,12 @@ const NotificationsPage = () => {
     isLoading,
   } = useNotificationStore();
 
-  const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isClearingAll, setIsClearingAll] = useState(false);
+
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
-
-  const { isFamily, isAidant, isAdminOrCoordinator } = useTerminology();
 
   useEffect(() => {
     fetchNotifications(true);
@@ -163,18 +159,54 @@ const NotificationsPage = () => {
     toast.success('Tout est lu');
   };
 
-  const handleDelete = async (id: string) => {
-    setDeletedIds(prev => [...prev, id]);
+  // ✅ SUPPRESSION INDIVIDUELLE RÉELLE DANS SUPABASE
+  const handleDeleteSingle = async (id: string) => {
+    if (!profile?.id) return;
+    setDeletingId(id);
+
     try {
-      await markAsRead(id);
-    } catch (e) {
-      console.error('Erreur:', e);
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      toast.success('Notification supprimée');
+      await fetchNotifications(true);
+    } catch (e: any) {
+      console.error('Erreur suppression:', e);
+      toast.error('Erreur lors de la suppression');
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  const visibleNotifications = useMemo(() => {
-    return notifications.filter(n => !deletedIds.includes(n.id));
-  }, [notifications, deletedIds]);
+  // ✅ SUPPRESSION TOTALE ET DÉFINITIVE DANS SUPABASE
+  const handleClearAll = async () => {
+    if (!profile?.id) return;
+    if (!window.confirm('Voulez-vous vider définitivement tout votre historique de notifications ?')) return;
+
+    setIsClearingAll(true);
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', profile.id);
+
+      if (error) throw error;
+
+      clearNotifications();
+      toast.success('Historique définitivement supprimé');
+      await fetchNotifications(true);
+    } catch (e: any) {
+      console.error('Erreur vider notifications:', e);
+      toast.error('Échec de la suppression');
+    } finally {
+      setIsClearingAll(false);
+    }
+  };
 
   return (
     <div 
@@ -198,7 +230,7 @@ const NotificationsPage = () => {
         </div>
       </div>
 
-      {/* HEADER SIMPLE */}
+      {/* HEADER */}
       <div className="flex items-center justify-between bg-white dark:bg-[#17231d] p-4 rounded-2xl border shadow-sm" style={{ borderColor: colors.primary + '15' }}>
         <div>
           <h1 className="text-sm font-black tracking-tight" style={{ color: colors.text }}>
@@ -232,14 +264,14 @@ const NotificationsPage = () => {
         </div>
       </div>
 
-      {/* LISTE DES NOTIFICATIONS (ÉPURÉE) */}
+      {/* LISTE DES NOTIFICATIONS */}
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin" style={{ color: colors.primary }} />
         </div>
-      ) : visibleNotifications.length > 0 ? (
+      ) : notifications.length > 0 ? (
         <div className="space-y-2.5">
-          {visibleNotifications.map((notification) => {
+          {notifications.map((notification) => {
             const isUnread = !notification.is_read;
             const formatted = formatNotificationContext(notification, profile);
 
@@ -277,12 +309,17 @@ const NotificationsPage = () => {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDelete(notification.id);
+                    handleDeleteSingle(notification.id);
                   }}
-                  className="p-1.5 rounded-xl hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors shrink-0"
-                  title="Supprimer"
+                  disabled={deletingId === notification.id}
+                  className="p-1.5 rounded-xl hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors shrink-0 disabled:opacity-50"
+                  title="Supprimer définitivement"
                 >
-                  <X size={14} />
+                  {deletingId === notification.id ? (
+                    <Loader2 size={14} className="animate-spin text-red-500" />
+                  ) : (
+                    <X size={14} />
+                  )}
                 </button>
               </div>
             );
@@ -295,21 +332,20 @@ const NotificationsPage = () => {
         </div>
       )}
 
-      {/* FOOTER NETTOYÉ */}
-      {visibleNotifications.length > 0 && (
+      {/* FOOTER */}
+      {notifications.length > 0 && (
         <div className="flex items-center justify-between text-[11px] pt-2 px-1 text-gray-400">
-          <span>{visibleNotifications.length} alerte(s)</span>
+          <span>{notifications.length} alerte(s)</span>
           <button
-            onClick={() => {
-              if (window.confirm('Voulez-vous vider tout l\'historique ?')) {
-                clearNotifications();
-                setDeletedIds([]);
-                toast.success('Historique vidé');
-              }
-            }}
-            className="text-red-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors"
+            onClick={handleClearAll}
+            disabled={isClearingAll}
+            className="text-red-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors disabled:opacity-50"
           >
-            <Trash2 size={12} />
+            {isClearingAll ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Trash2 size={12} />
+            )}
             Tout effacer
           </button>
         </div>
