@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Mail, Phone, Camera, LogOut, CheckCircle, Lock, Bell, Moon, Sun,
-  Trash2, X, AlertCircle, ShieldCheck, User, Settings, Key, Loader2, Users, Calendar, ShoppingBag
+  Mail, Phone, Camera, LogOut, Lock, Bell, Moon, Sun,
+  Trash2, X, AlertCircle, ShieldCheck, User, Settings, Key, Loader2
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -90,7 +90,6 @@ const ProfilePage = () => {
     setImageError(false);
   }, [profile]);
 
-  // ✅ SAUVEGARDE DU PROFIL & TÉLÉVERSEMENT AVATAR SUR SUPABASE STORAGE
   const handleSaveProfile = async () => {
     if (!formData.full_name.trim()) return toast.error('Le nom est obligatoire');
     if (!profile?.id) return toast.error('Profil introuvable');
@@ -142,7 +141,6 @@ const ProfilePage = () => {
     reader.readAsDataURL(file);
   };
 
-  // ✅ CHANGEMENT DE MOT DE PASSE REEL SUPABASE
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     if (!passwordData.currentPassword) return toast.error('Mot de passe actuel requis');
@@ -173,7 +171,6 @@ const ProfilePage = () => {
     }
   };
 
-  // ✅ BASCULEEMENT THÈME SOMBRE
   const handleToggleDarkMode = () => {
     const nextDark = !formData.darkMode;
     setFormData((prev) => ({ ...prev, darkMode: nextDark }));
@@ -182,7 +179,6 @@ const ProfilePage = () => {
     toast.success(nextDark ? 'Mode sombre activé' : 'Mode clair activé');
   };
 
-  // ✅ TOGGLE NOTIFICATIONS
   const handleToggleNotifications = () => {
     const nextNotif = !formData.notifications;
     setFormData((prev) => ({ ...prev, notifications: nextNotif }));
@@ -190,7 +186,6 @@ const ProfilePage = () => {
     toast.success(nextNotif ? 'Notifications activées' : 'Notifications désactivées');
   };
 
-  // ✅ SUPPRESSION DEFINITIVE DU COMPTE SUR SUPABASE
   const handleDeleteAccount = async () => {
     setIsLoading(true);
     try {
@@ -327,7 +322,7 @@ const ProfilePage = () => {
           <div className="space-y-3">
             <button onClick={() => setShowPasswordModal(true)} className="w-full flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50 text-xs font-bold">
               <div className="flex items-center gap-3"><Key size={16} /><span>Changer le mot de passe</span></div>
-              <span>Modifer ➔</span>
+              <span>Modifier ➔</span>
             </button>
             <button onClick={() => setShowDeleteModal(true)} className="w-full flex items-center justify-between p-3.5 border border-red-200 bg-red-50 text-red-600 rounded-2xl text-xs font-bold">
               <div className="flex items-center gap-3"><Trash2 size={16} /><span>Supprimer définitivement le compte</span></div>
@@ -341,11 +336,14 @@ const ProfilePage = () => {
         <LogOut size={16} /> Se déconnecter
       </button>
 
-      {/* MODALE REELLE MOT DE PASSE */}
+      {/* MODALE MOT DE PASSE */}
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <form onSubmit={handleChangePassword} className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-sm">Mot de passe</h3><button type="button" onClick={() => setShowPasswordModal(false)}><X size={16} /></button></div>
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-sm">Mot de passe</h3>
+              <button type="button" onClick={() => setShowPasswordModal(false)}><X size={16} /></button>
+            </div>
             <input type="password" placeholder="Mot de passe actuel" value={passwordData.currentPassword} onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required />
             <input type="password" placeholder="Nouveau mot de passe" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required minLength={6} />
             <input type="password" placeholder="Confirmer le mot de passe" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required />
@@ -357,7 +355,7 @@ const ProfilePage = () => {
         </div>
       )}
 
-      {/* MODALE REELLE SUPPRESSION */}
+      {/* MODALE SUPPRESSION */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 text-center shadow-2xl">
