@@ -1,5 +1,6 @@
 // 📁 src/lib/branding.ts
- 
+// ✅ BRANDING OFFICIEL : MODE CLAIR NORMAL INTACT + MODE SOMBRE HAUT CONTRASTE (BLANC, BEIGE, JAUNE, VIOLET)
+
 export type BrandTheme = 'senior' | 'maman' | 'aidant' | 'coordinator' | 'admin' | 'general';
 
 export interface BrandColors {
@@ -241,8 +242,31 @@ export const getBrandTheme = (
 
 export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
   const isDark = isDarkModeActive();
-  const colors = COLORS[theme] || COLORS.general;
+  const baseColors = COLORS[theme] || COLORS.general;
   const logo = LOGOS[theme] || LOGOS.general;
+
+  // ✅ EN MODE SOMBRE : Textes en BLANC PUR, BEIGE CLAIR, JAUNE OR et VIOLET (Zéro gris sombre illisible)
+  const colors: BrandColors = isDark
+    ? {
+        ...baseColors,
+        primary: '#34d399',        // Vert Menthe éclatant pour les boutons et liens actifs
+        primaryDark: '#10b981',
+        primaryLight: '#6ee7b7',
+        secondary: '#fbbf24',      // Jaune Or
+        secondaryLight: '#fde047',
+        background: '#0a120e',     // Fond sombre profond
+        surface: '#14221b',        // Cartes en vert très sombre contrasté
+        surfaceSoft: '#1e2e26',    // Éléments secondaires
+        text: '#ffffff',           // TEXTE EN BLANC PUR (0% gris terne)
+        textLight: '#f5f0e8',      // TEXTE SECONDAIRE EN BEIGE CLAIR (Sable)
+        border: '#2c4639',         // Bordure visible
+        accent: '#c084fc',         // Violet lumineux pour les accents
+        gold: '#fbbf24',           // Jaune Or
+        shadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
+        shadowHover: '0 8px 32px rgba(0, 0, 0, 0.7)',
+        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      }
+    : baseColors; // ✅ EN MODE CLAIR : Couleurs d'origine intactes (Sable crème, vert forêt, etc.)
 
   return {
     theme,
@@ -256,12 +280,12 @@ export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
       '--color-primary-light': colors.primaryLight,
       '--color-secondary': colors.secondary,
       '--color-secondary-light': colors.secondaryLight,
-      '--color-background': isDark ? '#0f1713' : colors.background,
-      '--color-surface': isDark ? '#17231d' : colors.surface,
-      '--color-surface-soft': isDark ? '#1d2d25' : colors.surfaceSoft,
-      '--color-text': isDark ? '#f4f7f5' : colors.text,
-      '--color-text-light': isDark ? '#a8b6b0' : colors.textLight,
-      '--color-border': isDark ? '#2c3f35' : colors.border,
+      '--color-background': colors.background,
+      '--color-surface': colors.surface,
+      '--color-surface-soft': colors.surfaceSoft,
+      '--color-text': colors.text,
+      '--color-text-light': colors.textLight,
+      '--color-border': colors.border,
       '--color-accent': colors.accent,
       '--color-gold': colors.gold,
     },
