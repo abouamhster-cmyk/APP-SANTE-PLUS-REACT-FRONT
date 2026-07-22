@@ -39,7 +39,6 @@ const MainLayout = () => {
     return () => unsubscribe();
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
-  // ✅ Menu complet dynamique basé sur le rôle
   const navItems = useMemo(() => {
     const allItems = [
       { icon: <Home size={20} />, label: "Mon Espace d'Accueil", path: '/app', roles: ['family', 'aidant', 'admin', 'coordinator'] },
@@ -88,18 +87,14 @@ const MainLayout = () => {
 const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: any) => {
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* 
-        ✅ MODIFICATION : 
-        Si vous voyez deux logos, réglez showIcon ou showText sur false.
-        Ici, je garde les deux mais très compacts avec 'md' et 'justify-start'
-      */}
+      {/* ✅ CORRECTIF : Désactivation de l'icône pour éviter le doublon visuel (Icone + Texte) */}
       <div className="px-6 py-8">
         <Logo 
           size="md" 
           variant="dark" 
-          showIcon={true}  // Mettez false si vous voulez seulement le texte
-          showText={true}  // Mettez false si vous voulez seulement l'icône
-          className="justify-start gap-3" 
+          showIcon={false} // Désactivé pour éviter le doublon, car le logo texte contient déjà l'info
+          showText={true} 
+          className="justify-start" 
         />
       </div>
       
