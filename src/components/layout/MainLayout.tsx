@@ -1,41 +1,25 @@
 // 📁 src/features/layout/MainLayout.tsx
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
-  User,
-  LogOut,
-  Settings,
-  Users,
-  Calendar,
-  ShoppingBag,
-  LayoutDashboard,
-  Briefcase,
-  MapPin,
-  ClipboardList,
-  CreditCard,
-  History as HistoryIcon,
-  BookOpen,
-  Home,
-  Shield,
-  UserCog,
+  User, LogOut, Settings, Users, Calendar, ShoppingBag, LayoutDashboard,
+  Briefcase, MapPin, ClipboardList, CreditCard, History as HistoryIcon,
+  BookOpen, Home, Shield, UserCog, Package,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { useVisitStore } from '@/stores/visitStore';
-import { useSubscriptionGuard } from '@/hooks/useSubscriptionGuard';
-import { useTerminology } from '@/hooks/useTerminology';
 import { useBranding } from '@/hooks/useBranding';
 import { cn, getGreeting } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
+import { Logo } from '@/components/ui/Logo';  
 
 const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-
   const { profile, role, logout } = useAuthStore();
   const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
   const brand = useBranding();
@@ -56,12 +40,26 @@ const MainLayout = () => {
     return () => unsubscribe();
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
+  // ✅ LOGIQUE CENTRALE : Menu complet par rôle
   const navItems = useMemo(() => {
-    const base = [{ icon: <Home size={20} />, label: "Mon Espace d'Accueil", path: '/app' }];
-    if (role === 'family') return [...base, { icon: <Users size={20} />, label: 'Mes Proches', path: '/app/patients' }, { icon: <Calendar size={20} />, label: "Visites", path: '/app/visits' }, { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' }, { icon: <CreditCard size={20} />, label: 'Mon Forfait', path: '/app/billing' }, { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal' }, { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' }, { icon: <User size={20} />, label: 'Profil', path: '/app/profile' }];
-    if (role === 'aidant') return [...base, { icon: <Briefcase size={20} />, label: "Missions", path: '/app/missions' }, { icon: <Calendar size={20} />, label: 'Planning', path: '/app/planning' }, { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history' }, { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' }, { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map' }, { icon: <User size={20} />, label: 'Profil', path: '/app/profile' }];
-    if (role === 'admin' || role === 'coordinator') return [...base, { icon: <LayoutDashboard size={20} />, label: "Admin", path: '/app/admin' }, { icon: <ClipboardList size={20} />, label: "Inscriptions", path: '/app/registrations' }, { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients' }, { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders' }, { icon: <Settings size={20} />, label: 'Réglages', path: '/app/settings' }, { icon: <User size={20} />, label: 'Profil', path: '/app/profile' }];
-    return base;
+    const allItems = [
+      { icon: <Home size={20} />, label: "Mon Espace d'Accueil", path: '/app', roles: ['family', 'aidant', 'admin', 'coordinator'] },
+      { icon: <LayoutDashboard size={20} />, label: "Admin", path: '/app/admin', roles: ['admin', 'coordinator'] },
+      { icon: <ClipboardList size={20} />, label: "Inscriptions", path: '/app/registrations', roles: ['admin', 'coordinator'] },
+      { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients', roles: ['family', 'admin', 'coordinator'] },
+      { icon: <Briefcase size={20} />, label: "Missions", path: '/app/missions', roles: ['aidant'] },
+      { icon: <Calendar size={20} />, label: role === 'aidant' ? 'Planning' : "Visites", path: role === 'aidant' ? '/app/planning' : '/app/visits', roles: ['family', 'aidant', 'admin', 'coordinator'] },
+      { icon: <ShoppingBag size={20} />, label: 'Commandes', path: '/app/orders', roles: ['family', 'aidant', 'admin', 'coordinator'] },
+      { icon: <CreditCard size={20} />, label: 'Forfaits', path: '/app/billing', roles: ['family'] },
+      { icon: <Package size={20} />, label: 'Offres', path: '/app/offers', roles: ['admin', 'coordinator'] },
+      { icon: <BookOpen size={20} />, label: 'Journal', path: '/app/journal', roles: ['family'] },
+      { icon: <HistoryIcon size={20} />, label: 'Historique', path: '/app/history', roles: ['aidant'] },
+      { icon: <MapPin size={20} />, label: 'Carte', path: '/app/map', roles: ['family', 'aidant', 'admin', 'coordinator'] },
+      { icon: <Settings size={20} />, label: 'Réglages', path: '/app/settings', roles: ['admin', 'coordinator'] },
+      { icon: <User size={20} />, label: 'Profil', path: '/app/profile', roles: ['family', 'aidant', 'admin', 'coordinator'] },
+    ];
+
+    return allItems.filter(item => item.roles.includes(role || ''));
   }, [role]);
 
   return (
@@ -73,8 +71,6 @@ const MainLayout = () => {
       )}
 
       <div className="min-h-screen w-full md:pl-72">
-        {/* Le Header fixe a été supprimé pour laisser place à la gestion autonome des pages */}
-        
         <main className={cn('w-full max-w-full pt-8 p-2', isMobile ? 'pb-28' : 'pb-8')}>
           <ReminderBanner />
           <Outlet />
@@ -90,20 +86,32 @@ const MainLayout = () => {
 // =============================================
 // SIDEBAR CONTENT
 // =============================================
-const SidebarContent = ({ navItems, locationPath, colors, profile, role, onLogout }: any) => {
+const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: any) => {
   return (
     <div className="flex h-full flex-col bg-white">
-      <div className="p-5 font-black text-lg" style={{ color: colors.primary }}>Santé Plus</div>
-      <div className="flex-1 px-3 py-4 space-y-1">
+      {/* ✅ Utilisation du composant Logo */}
+      <div className="p-5">
+        <Logo size="md" className="justify-start" />
+      </div>
+      
+      <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item: any) => (
-          <Link key={item.path} to={item.path} className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm" style={{ color: locationPath === item.path ? colors.primary : '#6b7280' }}>
+          <Link 
+            key={item.path} 
+            to={item.path} 
+            className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all" 
+            style={{ 
+              color: locationPath === item.path ? colors.primary : '#6b7280', 
+              backgroundColor: locationPath === item.path ? colors.primary + '0a' : 'transparent' 
+            }}
+          >
             {item.icon} {item.label}
           </Link>
         ))}
       </div>
 
-      <div className="p-4 border-t space-y-3">
-        <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition">
+      <div className="p-4 border-t space-y-3 bg-gray-50">
+        <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white transition">
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: colors.primary }}>
             {profile?.full_name?.charAt(0) || 'U'}
           </div>
@@ -112,7 +120,9 @@ const SidebarContent = ({ navItems, locationPath, colors, profile, role, onLogou
             <p className="text-xs font-bold truncate" style={{ color: colors.text }}>{profile?.full_name || 'Utilisateur'}</p>
           </div>
         </Link>
-        <button onClick={onLogout} className="flex items-center gap-2 text-red-500 font-bold text-sm px-3"><LogOut size={16} /> Déconnexion</button>
+        <button onClick={onLogout} className="flex items-center gap-2 text-red-500 font-bold text-sm px-3 w-full">
+          <LogOut size={16} /> Déconnexion
+        </button>
       </div>
     </div>
   );
