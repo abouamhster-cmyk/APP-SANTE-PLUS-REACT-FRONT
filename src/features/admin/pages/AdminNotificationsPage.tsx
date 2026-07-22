@@ -1,6 +1,5 @@
 // 📁 src/features/admin/pages/AdminNotificationsPage.tsx
-// ✅ INTERFACE ADMINISTRATION NOTIFICATIONS AVEC ENVOI CIBLÉ & MODALES CORRIGÉES
-
+ 
 import { useEffect, useState } from 'react';
 import {
   Bell, Send, Users, RefreshCw, Eye, Trash2, X, CheckCircle, Clock, AlertCircle,
@@ -10,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatDate } from '@/utils/helpers';
+import { Modal } from '@/components/ui/Modal';
 import toast from 'react-hot-toast';
 
 interface NotificationItem {
@@ -67,7 +67,7 @@ const AdminNotificationsPage = () => {
   const [isSending, setIsSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [showForm, setShowForm] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showPendingVisits, setShowPendingVisits] = useState(false);
@@ -144,13 +144,19 @@ const AdminNotificationsPage = () => {
     }
   };
 
+  // ✅ CORRECTION CLEF : Suppression du Hint FK 'visites_user_id_fkey' qui causait l'erreur 400
   const fetchPendingVisits = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('visites')
-        .select('id, target_name, scheduled_date, scheduled_time, user_id, created_at, waiting_for_aidant_since, patient:patients(id, first_name, last_name, address), family:profiles!visites_user_id_fkey(id, full_name, email, phone)')
+        .select('id, target_name, scheduled_date, scheduled_time, user_id, created_at, waiting_for_aidant_since, patient:patients(id, first_name, last_name, address), family:profiles(id, full_name, email, phone)')
         .eq('status', 'en_attente_aidant')
         .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('❌ fetchPendingVisits error:', error);
+        return;
+      }
 
       setPendingVisits(
         (data || []).map((item: any) => ({
@@ -166,7 +172,7 @@ const AdminNotificationsPage = () => {
         }))
       );
     } catch (error) {
-      console.error('Fetch pending visits error:', error);
+      console.error('Fetch pending visits catch error:', error);
     }
   };
 
@@ -228,7 +234,7 @@ const AdminNotificationsPage = () => {
         link: '',
         image_url: '',
       });
-      setShowForm(false);
+      setShowFormModal(false);
       fetchNotifications();
     } catch (error: any) {
       toast.error("Erreur d'envoi: " + error.message);
@@ -247,6 +253,34 @@ const AdminNotificationsPage = () => {
     } catch (error: any) {
       toast.error('Erreur lors de la suppression');
     }
+  };
+
+  const addTargetUser = (userId: string) => {
+    if (!formData.targetUsers.includes(userId)) {
+      setFormData({ ...formData, targetUsers: [...formData.targetUsers, userId] });
+    }
+    setUserSearch('');
+    setShowUserDropdown(false);
+  };
+
+  const removeTargetUser = (userId: string) => {
+    setFormData({
+      ...formData,
+      targetUsers: formData.targetUsers.filter((id) => id !== userId),
+    });
+  };
+
+  const filteredUsers = users
+    .filter(
+      (user) =>
+        user.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+        user.email?.toLowerCase().includes(userSearch.toLowerCase())
+    )
+    .slice(0, 10);
+
+  const getUserName = (userId: string) => {
+    const u = users.find((item) => item.id === userId);
+    return u?.full_name || 'Inconnu';
   };
 
   const filteredNotifications = notifications.filter((n) => {
@@ -280,7 +314,7 @@ const AdminNotificationsPage = () => {
             <button onClick={fetchNotifications} className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center gap-1.5">
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Actualiser
             </button>
-            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 shadow-sm" style={{ background: colors.primary }}>
+            <button onClick={() => setShowFormModal(true)} className="px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-opacity hover:opacity-90" style={{ background: colors.primary }}>
               <Send size={14} /> Nouvelle alerte
             </button>
           </div>
@@ -292,7 +326,7 @@ const AdminNotificationsPage = () => {
         <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <UserPlus size={20} className="text-orange-500" />
+              <UserPlus size={20} className="text-orange-500 shrink-0" />
               <div>
                 <p className="font-bold text-xs text-orange-900">{stats.pendingAidant} visite(s) en attente d'aidant</p>
                 <p className="text-[11px] text-orange-700">Toutes les places sont occupées, action requise.</p>
@@ -302,6 +336,22 @@ const AdminNotificationsPage = () => {
               {showPendingVisits ? 'Masquer' : 'Voir'}
             </button>
           </div>
+
+          {showPendingVisits && (
+            <div className="mt-3 pt-3 border-t border-orange-200 space-y-2">
+              {pendingVisits.map((v) => (
+                <div key={v.id} className="bg-white p-3 rounded-xl border border-orange-100 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-gray-800">{v.target_name || 'Patient'}</p>
+                    <p className="text-[10px] text-gray-500">{formatDate(v.scheduled_date)} à {v.scheduled_time}</p>
+                  </div>
+                  <button onClick={() => window.location.href = `/app/visits/${v.id}`} className="px-2.5 py-1 rounded-lg text-white font-bold text-[10px]" style={{ background: colors.primary }}>
+                    Assigner
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -313,78 +363,13 @@ const AdminNotificationsPage = () => {
         <StatCard label="Alertes" value={stats.alerts} color="#ef4444" icon={<AlertCircle size={16} />} />
       </section>
 
-      {/* Formulaire de création */}
-      {showForm && (
-        <section className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h2 className="text-xs font-black uppercase text-gray-400">📝 Rédiger une alerte push</h2>
-            <button onClick={() => setShowForm(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
-          </div>
-
-          <form onSubmit={handleSendNotification} className="space-y-4 text-xs font-bold">
-            <div>
-              <label className="block mb-1">Titre *</label>
-              <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full h-11 px-4 rounded-xl border bg-gray-50 outline-none" required />
-            </div>
-
-            <div>
-              <label className="block mb-1">Corps du message *</label>
-              <textarea value={formData.body} onChange={(e) => setFormData({ ...formData, body: e.target.value })} rows={3} className="w-full p-4 rounded-xl border bg-gray-50 outline-none resize-none" required />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block mb-1.5">Type de notification</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {notificationTypes.map((type) => (
-                    <button
-                      key={type.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, type: type.value as any })}
-                      className="px-3 py-1.5 rounded-lg text-[11px] transition-all"
-                      style={{ background: formData.type === type.value ? type.color : '#f1f5f9', color: formData.type === type.value ? '#ffffff' : '#475569' }}
-                    >
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block mb-1.5">Destinataires</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {targets.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, target: t.value as any, targetUsers: [] })}
-                      className="px-3 py-1.5 rounded-lg text-[11px] transition-all"
-                      style={{ background: formData.target === t.value ? colors.primary : '#f1f5f9', color: formData.target === t.value ? '#ffffff' : '#475569' }}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t">
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl border">Annuler</button>
-              <button type="submit" disabled={isSending} className="px-5 py-2 rounded-xl text-white font-bold" style={{ background: colors.primary }}>
-                {isSending ? <Loader2 size={14} className="animate-spin" /> : 'Envoyer'}
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-
       {/* Filtres et recherche */}
       <section className="bg-white rounded-2xl p-3 border shadow-sm flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Rechercher..." className="w-full h-11 pl-10 pr-4 rounded-xl border bg-gray-50 text-xs font-bold outline-none" />
         </div>
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="h-11 px-4 rounded-xl border bg-gray-50 text-xs font-bold outline-none">
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="h-11 px-4 rounded-xl border bg-gray-50 text-xs font-bold outline-none cursor-pointer">
           <option value="all">Tous les types</option>
           {notificationTypes.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -415,6 +400,141 @@ const AdminNotificationsPage = () => {
         )}
       </section>
 
+      {/* ✅ MODALE DE CRÉATION D'ALERTE EN OVERLAY (AUCUN SCROLL REQUIS) */}
+      {showFormModal && (
+        <Modal
+          isOpen={showFormModal}
+          onClose={() => setShowFormModal(false)}
+          title="📝 Rédiger une alerte push"
+          maxWidth="lg"
+        >
+          <form onSubmit={handleSendNotification} className="space-y-4 text-xs font-bold pt-1">
+            <div>
+              <label className="block text-gray-700 mb-1">Titre *</label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Ex: Information importante Santé Plus"
+                className="w-full h-11 px-4 rounded-xl border bg-gray-50 outline-none"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-700 mb-1">Message *</label>
+              <textarea
+                value={formData.body}
+                onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                rows={3}
+                placeholder="Rédigez votre alerte ici..."
+                className="w-full p-3 rounded-xl border bg-gray-50 outline-none resize-none"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-700 mb-1.5">Type</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {notificationTypes.map((type) => (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, type: type.value as any })}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] transition-all"
+                      style={{
+                        background: formData.type === type.value ? type.color : '#f1f5f9',
+                        color: formData.type === type.value ? '#ffffff' : '#475569',
+                      }}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 mb-1.5">Destinataires</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {targets.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, target: t.value as any, targetUsers: [] })}
+                      className="px-2.5 py-1.5 rounded-lg text-[11px] transition-all"
+                      style={{
+                        background: formData.target === t.value ? colors.primary : '#f1f5f9',
+                        color: formData.target === t.value ? '#ffffff' : '#475569',
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Sélecteur si cible spécifique */}
+            {formData.target === 'specific' && (
+              <div className="relative pt-1">
+                <label className="block text-gray-700 mb-1">Sélectionner les utilisateurs</label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {formData.targetUsers.map((uid) => (
+                    <span key={uid} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                      {getUserName(uid)}
+                      <button type="button" onClick={() => removeTargetUser(uid)} className="text-red-500 hover:text-red-700 ml-1"><X size={12} /></button>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={userSearch}
+                  onChange={(e) => { setUserSearch(e.target.value); setShowUserDropdown(true); }}
+                  placeholder="Rechercher un utilisateur par nom..."
+                  className="w-full h-10 px-3.5 rounded-xl border bg-gray-50 outline-none"
+                />
+                {showUserDropdown && userSearch.length > 0 && filteredUsers.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full bg-white border rounded-xl shadow-xl max-h-36 overflow-y-auto divide-y">
+                    {filteredUsers.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => addTargetUser(u.id)}
+                        className="w-full p-2.5 text-left text-xs hover:bg-gray-50 flex justify-between items-center"
+                      >
+                        <span className="font-bold">{u.full_name}</span>
+                        <span className="text-[10px] text-gray-400">{u.email}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Boutons d'action */}
+            <div className="flex gap-3 pt-4 border-t justify-end">
+              <button
+                type="button"
+                onClick={() => setShowFormModal(false)}
+                className="flex-1 h-11 rounded-xl border text-xs font-bold hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={isSending}
+                className="flex-1 h-11 rounded-xl text-white text-xs font-black flex items-center justify-center gap-2 shadow-sm transition-opacity hover:opacity-90"
+                style={{ background: colors.primary }}
+              >
+                {isSending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                Envoyer l'alerte
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {/* Modale détails */}
       {showDetailsModal && selectedNotification && (
         <NotificationDetailsModal notification={selectedNotification} onClose={() => setShowDetailsModal(false)} colors={colors} />
@@ -424,7 +544,7 @@ const AdminNotificationsPage = () => {
 };
 
 // =============================================
-// SUBCOMPONENTS DÉFINIS COMPLETEMENT
+// SUBCOMPONENTS
 // =============================================
 
 interface StatCardProps {
@@ -453,22 +573,28 @@ interface NotificationDetailsModalProps {
 }
 
 const NotificationDetailsModal = ({ notification, onClose }: NotificationDetailsModalProps) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-    <div className="bg-white rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-      <div className="flex justify-between items-center border-b pb-3">
-        <h3 className="font-black text-sm">Détails de la notification</h3>
-        <button onClick={onClose}><X size={18} /></button>
+  <Modal isOpen={true} onClose={onClose} title="Détails de la notification" maxWidth="md">
+    <div className="space-y-3 text-xs pt-1">
+      <div>
+        <span className="text-gray-400 font-semibold block mb-0.5">Titre :</span>
+        <span className="font-bold text-gray-800 text-sm">{notification.title}</span>
       </div>
-      <div className="space-y-2 text-xs">
-        <div><span className="text-gray-400 font-semibold block">Titre :</span><span className="font-bold text-gray-800">{notification.title}</span></div>
-        <div><span className="text-gray-400 font-semibold block">Message :</span><span className="text-gray-700 leading-relaxed">{notification.body}</span></div>
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-          <div><span className="text-gray-400 font-semibold block">Type :</span><span className="font-bold uppercase text-emerald-600">{notification.type}</span></div>
-          <div><span className="text-gray-400 font-semibold block">Date :</span><span className="font-bold text-gray-800">{formatDate(notification.created_at)}</span></div>
+      <div>
+        <span className="text-gray-400 font-semibold block mb-0.5">Message :</span>
+        <span className="text-gray-700 leading-relaxed block bg-gray-50 p-3 rounded-xl border">{notification.body}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+        <div>
+          <span className="text-gray-400 font-semibold block">Type :</span>
+          <span className="font-bold uppercase text-emerald-600">{notification.type}</span>
+        </div>
+        <div>
+          <span className="text-gray-400 font-semibold block">Date :</span>
+          <span className="font-bold text-gray-800">{formatDate(notification.created_at)}</span>
         </div>
       </div>
     </div>
-  </div>
+  </Modal>
 );
 
 export default AdminNotificationsPage;
