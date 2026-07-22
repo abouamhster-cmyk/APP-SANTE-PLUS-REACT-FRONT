@@ -1,4 +1,5 @@
 // 📁 src/features/layout/MainLayout.tsx
+ 
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -61,10 +62,9 @@ const MainLayout = () => {
   }, [role]);
 
   return (
-    // ✅ Utilisation de var(--color-background) pour respecter le Dark Mode
     <div className="min-h-screen w-full overflow-x-hidden transition-colors duration-200" style={{ backgroundColor: 'var(--color-background)' }}>
       {!isMobile && (
-        <aside className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col dark:bg-[#182620] dark:border-gray-800" style={{ borderColor: colors.primary + '20' }}>
+        <aside className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-[#14221b] shadow-lg border-r border-black/5 dark:border-[#283c32] flex-col">
           <SidebarContent navItems={navItems} locationPath={location.pathname} colors={colors} profile={profile} onLogout={() => { logout(); navigate('/login'); }} />
         </aside>
       )}
@@ -84,44 +84,42 @@ const MainLayout = () => {
 
 const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: any) => {
   return (
-    <div className="flex h-full flex-col bg-white dark:bg-[#182620]">
+    <div className="flex h-full flex-col bg-white dark:bg-[#14221b]">
       <div className="px-6 py-8">
-        <Logo 
-          size="md" 
-          variant="dark" 
-          showIcon={false} 
-          showText={true} 
-          className="justify-start" 
-        />
+        <Logo size="md" variant="dark" showIcon={false} showText={true} className="justify-start" />
       </div>
       
       <div className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
-        {navItems.map((item: any) => (
-          <Link 
-            key={item.path} 
-            to={item.path} 
-            className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all" 
-            style={{ 
-              color: locationPath === item.path ? colors.primary : '#6b7280', 
-              backgroundColor: locationPath === item.path ? colors.primary + '15' : 'transparent' 
-            }}
-          >
-            {item.icon} {item.label}
-          </Link>
-        ))}
+        {navItems.map((item: any) => {
+          const isActive = locationPath === item.path;
+          return (
+            <Link 
+              key={item.path} 
+              to={item.path} 
+              className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all" 
+              style={{ 
+                color: isActive ? colors.primary : colors.textLight, 
+                backgroundColor: isActive ? `${colors.primary}20` : 'transparent' 
+              }}
+            >
+              <span style={{ color: isActive ? colors.primary : colors.textLight }}>{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
       </div>
 
-      <div className="p-4 border-t space-y-3 bg-gray-50 dark:bg-[#22332b]">
-        <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white dark:hover:bg-[#182620] transition">
+      <div className="p-4 border-t border-black/5 dark:border-[#283c32] space-y-3 bg-gray-50 dark:bg-[#1e2e26]">
+        <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white dark:hover:bg-[#14221b] transition">
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: colors.primary }}>
             {profile?.full_name?.charAt(0) || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[9px] font-black uppercase text-gray-400">{getGreeting()}</p>
+            <p className="text-[9px] font-black uppercase text-gray-400 dark:text-gray-300">{getGreeting()}</p>
             <p className="text-xs font-bold truncate" style={{ color: colors.text }}>{profile?.full_name || 'Utilisateur'}</p>
           </div>
         </Link>
-        <button onClick={onLogout} className="flex items-center gap-2 text-red-500 font-bold text-sm px-3 w-full">
+        <button onClick={onLogout} className="flex items-center gap-2 text-red-500 dark:text-red-400 font-bold text-sm px-3 w-full">
           <LogOut size={16} /> Déconnexion
         </button>
       </div>
