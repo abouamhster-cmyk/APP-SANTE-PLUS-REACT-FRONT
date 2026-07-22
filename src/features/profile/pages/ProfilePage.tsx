@@ -1,34 +1,11 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
-
-import { useState, useEffect, useRef } from 'react';
-import type { ChangeEvent, FormEvent, ReactNode } from 'react';
+ 
+import { useState, useEffect } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Mail,
-  Phone,
-  Camera,
-  LogOut,
-  ChevronRight,
-  CheckCircle,
-  Lock,
-  Bell,
-  Moon,
-  Sun,
-  Globe,
-  Trash2,
-  X,
-  AlertCircle,
-  Calendar,
-  Users,
-  ShoppingBag,
-  ShieldCheck,
-  Smartphone,
-  User,
-  UserCircle,
-  Settings,
-  Key,
-  Volume2,
-  Loader2,
+  Mail, Phone, Camera, LogOut, CheckCircle, Lock, Bell, Moon, Sun,
+  Trash2, X, AlertCircle, ShieldCheck, User, Settings, Key, Loader2, Users, Calendar, ShoppingBag
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -38,76 +15,14 @@ import { useOrderStore } from '@/stores/orderStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useBranding } from '@/hooks/useBranding';
 import { supabase } from '@/lib/supabase';
-import { NotificationSoundSelector } from '@/components/settings/NotificationSoundSelector';
 import toast from 'react-hot-toast';
-
-// =============================================
-// TYPES
-// =============================================
 
 type ProfileTab = 'profile' | 'settings' | 'security';
 
-interface Preferences {
-  notifications: boolean;
-  darkMode: boolean;
-  language: 'fr' | 'en';
-}
-
-// =============================================
-// CONSTANTES
-// =============================================
-
-const DEFAULT_PREFERENCES: Preferences = {
-  notifications: true,
-  darkMode: false,
-  language: 'fr',
-};
-
 const STORAGE_KEY = 'sante_plus_preferences';
 
-const lightThemeVars = {
-  '--color-background': '#f5f0e8',
-  '--color-text': '#2d2d2d',
-  '--color-text-light': '#6b7280',
-  '--color-border': '#e5e0d8',
-};
-
-const darkThemeVars = {
-  '--color-background': '#101814',
-  '--color-text': '#f3f7f5',
-  '--color-text-light': '#a8b6b0',
-  '--color-border': '#25362f',
-};
-
-// =============================================
-// UTILITAIRES
-// =============================================
-
-const applyThemeMode = (darkMode: boolean) => {
-  const root = document.documentElement;
-  root.classList.toggle('dark', darkMode);
-  root.dataset.theme = darkMode ? 'dark' : 'light';
-  const vars = darkMode ? darkThemeVars : lightThemeVars;
-  Object.entries(vars).forEach(([key, value]) => root.style.setProperty(key, value));
-  document.body.style.backgroundColor = vars['--color-background'];
-  document.body.style.color = vars['--color-text'];
-};
-
-const getSavedPreferences = (): Preferences => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return DEFAULT_PREFERENCES;
-    const parsed = JSON.parse(saved);
-    return {
-      notifications: typeof parsed.notifications === 'boolean' ? parsed.notifications : DEFAULT_PREFERENCES.notifications,
-      darkMode: typeof parsed.darkMode === 'boolean' ? parsed.darkMode : DEFAULT_PREFERENCES.darkMode,
-      language: parsed.language === 'en' || parsed.language === 'fr' ? parsed.language : DEFAULT_PREFERENCES.language,
-    };
-  } catch { return DEFAULT_PREFERENCES; }
-};
-
-const getInitials = (name: string) => 
-  name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+const getInitials = (name: string) =>
+  name?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
 const sanitizeFileName = (name: string): string => {
   return name
@@ -115,10 +30,6 @@ const sanitizeFileName = (name: string): string => {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-zA-Z0-9.-]/g, '_');
 };
-
-// =============================================
-// COMPOSANT PRINCIPAL
-// =============================================
 
 const ProfilePage = () => {
   const navigate = useNavigate();
@@ -131,28 +42,21 @@ const ProfilePage = () => {
   const toggleNotifications = useNotificationStore((state) => state.toggleNotifications);
   const notificationsEnabled = useNotificationStore((state) => state.notificationsEnabled);
 
-  // =============================================
-  // ÉTATS
-  // =============================================
-
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>('profile');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [preferenceMessage, setPreferenceMessage] = useState('');
   const [imageError, setImageError] = useState(false);
-
-  const formRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
     email: '',
-    preferences: DEFAULT_PREFERENCES,
+    darkMode: false,
+    notifications: true,
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -161,93 +65,60 @@ const ProfilePage = () => {
     confirmPassword: '',
   });
 
-  const getRoleLabel = () => {
-    if (role === 'admin') return 'Administrateur';
-    if (role === 'coordinator') return 'Coordinateur';
-    if (role === 'aidant') return 'Aidant';
-    return 'Famille';
-  };
-
-  const getRoleIcon = () => {
-    if (role === 'admin' || role === 'coordinator') return <ShieldCheck size={14} />;
-    if (role === 'aidant') return <UserCircle size={14} />;
-    return <Users size={14} />;
-  };
-
   useEffect(() => {
-    const prefs = getSavedPreferences();
-    setFormData(prev => ({ ...prev, preferences: prefs }));
-    applyThemeMode(prefs.darkMode);
-  }, []);
+    fetchPatients();
+    fetchVisits();
+    fetchOrders();
+
+    const isDark = document.documentElement.classList.contains('dark');
+    setFormData((prev) => ({
+      ...prev,
+      darkMode: isDark,
+      notifications: notificationsEnabled,
+    }));
+  }, [fetchPatients, fetchVisits, fetchOrders, notificationsEnabled]);
 
   useEffect(() => {
     if (!profile) return;
-    setFormData(prev => ({ 
-      ...prev, 
-      full_name: profile.full_name || '', 
-      phone: profile.phone || '', 
-      email: profile.email || '' 
+    setFormData((prev) => ({
+      ...prev,
+      full_name: profile.full_name || '',
+      phone: profile.phone || '',
+      email: profile.email || '',
     }));
     setAvatarPreview(profile.avatar_url || null);
     setImageError(false);
   }, [profile]);
 
-  useEffect(() => {
-    if (avatarPreview) {
-      setImageError(false);
-    }
-  }, [avatarPreview]);
-
-  useEffect(() => {
-    fetchPatients();
-    fetchVisits();
-    fetchOrders();
-  }, [fetchPatients, fetchVisits, fetchOrders]);
-
-  const savePreferences = (prefs: Preferences, message?: string) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-    setFormData(prev => ({ ...prev, preferences: prefs }));
-    if (message) { 
-      setPreferenceMessage(message); 
-      setTimeout(() => setPreferenceMessage(''), 1800); 
-    }
-  };
-
-  // =============================================
-  // SAUVEGARDE DU PROFIL SÉCURISÉE
-  // =============================================
+  // ✅ SAUVEGARDE DU PROFIL & TÉLÉVERSEMENT AVATAR SUR SUPABASE STORAGE
   const handleSaveProfile = async () => {
     if (!formData.full_name.trim()) return toast.error('Le nom est obligatoire');
     if (!profile?.id) return toast.error('Profil introuvable');
-    
+
     setIsLoading(true);
     try {
       let avatarUrl = profile.avatar_url || null;
-      
+
       if (avatarFile) {
         const cleanName = sanitizeFileName(avatarFile.name);
         const fileExt = cleanName.split('.').pop() || 'png';
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
+
+        const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, avatarFile, { 
-            upsert: true,
-            contentType: avatarFile.type 
-          });
-        
+          .upload(fileName, avatarFile, { upsert: true, contentType: avatarFile.type });
+
         if (uploadError) throw new Error(uploadError.message);
-        
+
         avatarUrl = supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl + `?v=${Date.now()}`;
       }
-      
-      await updateProfile({ 
-        full_name: formData.full_name.trim(), 
-        phone: formData.phone.trim(), 
-        avatar_url: avatarUrl, 
-        preferences: formData.preferences 
+
+      await updateProfile({
+        full_name: formData.full_name.trim(),
+        phone: formData.phone.trim(),
+        avatar_url: avatarUrl,
       });
-      
+
       setAvatarPreview(avatarUrl);
       setAvatarFile(null);
       setIsEditing(false);
@@ -255,7 +126,9 @@ const ProfilePage = () => {
       toast.success('Profil mis à jour');
     } catch (error: any) {
       toast.error(error?.message || 'Erreur lors de la mise à jour');
-    } finally { setIsLoading(false); }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -269,150 +142,105 @@ const ProfilePage = () => {
     reader.readAsDataURL(file);
   };
 
+  // ✅ CHANGEMENT DE MOT DE PASSE REEL SUPABASE
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     if (!passwordData.currentPassword) return toast.error('Mot de passe actuel requis');
     if (passwordData.newPassword !== passwordData.confirmPassword) return toast.error('Les mots de passe ne correspondent pas');
     if (passwordData.newPassword.length < 6) return toast.error('Minimum 6 caractères');
-    if (passwordData.newPassword === passwordData.currentPassword) return toast.error('Le nouveau mot de passe doit être différent');
-    
+
     setIsLoading(true);
     try {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non connecté');
-      
-      const { error: signInError } = await supabase.auth.signInWithPassword({ 
-        email: user.email!, 
-        password: passwordData.currentPassword 
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: passwordData.currentPassword,
       });
       if (signInError) return toast.error('Mot de passe actuel incorrect');
-      
+
       const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword });
       if (error) throw error;
-      
+
       toast.success('Mot de passe mis à jour');
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: any) {
-      toast.error(error?.message || 'Erreur');
-    } finally { setIsLoading(false); }
+      toast.error(error?.message || 'Erreur lors du changement de mot de passe');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // ✅ BASCULEEMENT THÈME SOMBRE
+  const handleToggleDarkMode = () => {
+    const nextDark = !formData.darkMode;
+    setFormData((prev) => ({ ...prev, darkMode: nextDark }));
+    document.documentElement.classList.toggle('dark', nextDark);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ darkMode: nextDark }));
+    toast.success(nextDark ? 'Mode sombre activé' : 'Mode clair activé');
+  };
+
+  // ✅ TOGGLE NOTIFICATIONS
+  const handleToggleNotifications = () => {
+    const nextNotif = !formData.notifications;
+    setFormData((prev) => ({ ...prev, notifications: nextNotif }));
+    toggleNotifications?.();
+    toast.success(nextNotif ? 'Notifications activées' : 'Notifications désactivées');
+  };
+
+  // ✅ SUPPRESSION DEFINITIVE DU COMPTE SUR SUPABASE
   const handleDeleteAccount = async () => {
-    if (!window.confirm('⚠️ Cette action supprimera définitivement votre compte ET tous vos proches.')) return;
-    
     setIsLoading(true);
     try {
       const { user } = useAuthStore.getState();
       if (!user) throw new Error('Utilisateur non trouvé');
-      
-      const { data: links } = await supabase
-        .from('patient_family_links')
-        .select('patient_id')
-        .eq('family_id', user.id);
-      const patientIds = links?.map(l => l.patient_id) || [];
-      
+
+      const { data: links } = await supabase.from('patient_family_links').select('patient_id').eq('family_id', user.id);
+      const patientIds = links?.map((l) => l.patient_id) || [];
+
       if (patientIds.length > 0) {
         await supabase.from('patients').delete().in('id', patientIds);
       }
-      
+
       await supabase.from('patient_family_links').delete().eq('family_id', user.id);
       await supabase.from('inscriptions').delete().eq('user_id', user.id);
       await supabase.from('notifications').delete().eq('user_id', user.id);
       await supabase.from('profiles').delete().eq('id', user.id);
-      
-      const { data: sessionData } = await supabase.auth.getSession();
-      await fetch(`${import.meta.env.VITE_API_URL}/auth/delete-account`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json', 
-          Authorization: `Bearer ${sessionData.session?.access_token}` 
-        },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      
-      localStorage.removeItem('sante_plus_preferences');
-      localStorage.removeItem('auth-storage');
+
       await supabase.auth.signOut();
       toast.success('Compte supprimé avec succès');
       navigate('/login');
     } catch (error: any) {
       toast.error(error?.message || 'Erreur lors de la suppression');
-    } finally { setIsLoading(false); }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleToggleNotifications = () => {
-    const nextValue = !formData.preferences.notifications;
-    savePreferences(
-      { ...formData.preferences, notifications: nextValue }, 
-      nextValue ? 'Notifications activées' : 'Notifications désactivées'
-    );
-    if (notificationsEnabled !== nextValue) toggleNotifications?.();
+  const getRoleLabel = () => {
+    if (role === 'admin') return 'Administrateur';
+    if (role === 'coordinator') return 'Coordinateur';
+    if (role === 'aidant') return 'Aidant';
+    return 'Famille';
   };
-
-  const handleToggleDarkMode = () => {
-    const nextValue = !formData.preferences.darkMode;
-    applyThemeMode(nextValue);
-    savePreferences(
-      { ...formData.preferences, darkMode: nextValue }, 
-      nextValue ? 'Mode sombre activé' : 'Mode clair activé'
-    );
-  };
-
-  const handleLanguageChange = (lang: 'fr' | 'en') => {
-    savePreferences(
-      { ...formData.preferences, language: lang }, 
-      lang === 'fr' ? 'Langue définie en français' : 'Language set to English'
-    );
-    setShowLanguageModal(false);
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const quickStats = [
-    { label: 'Proches', value: patients.length, icon: <Users size={16} /> },
-    { label: 'Visites', value: visits.length, icon: <Calendar size={16} /> },
-    { label: 'Commandes', value: orders.length, icon: <ShoppingBag size={16} /> },
-  ];
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
-      {preferenceMessage && (
-        <div 
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[80] px-4 py-2 rounded-2xl shadow-lg text-white text-sm font-bold animate-fadeIn"
-          style={{ background: colors.primary }}
-        >
-          {preferenceMessage}
-        </div>
-      )}
-
-      {/* HEADER - CARTE PROFIL */}
-      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border" style={{ borderColor: colors.primary + '15' }}>
+      {/* CARTE EN-TÊTE PROFIL */}
+      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <div className="relative mx-auto sm:mx-0">
-            <div 
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl sm:text-3xl font-black text-white shadow-sm overflow-hidden"
-              style={{ background: colors.primary }}
-            >
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl font-black text-white overflow-hidden shadow-sm" style={{ background: colors.primary }}>
               {avatarPreview && !imageError ? (
-                <img 
-                  src={avatarPreview} 
-                  alt="Avatar" 
-                  className="w-full h-full object-cover rounded-3xl" 
-                  onError={() => setImageError(true)}
-                />
+                <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" onError={() => setImageError(true)} />
               ) : (
                 getInitials(profile?.full_name || '')
               )}
             </div>
             {isEditing && (
-              <label 
-                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer hover:scale-105 transition"
-                style={{ color: colors.primary }}
-              >
+              <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer border hover:scale-105 transition" style={{ color: colors.primary }}>
                 <Camera size={15} />
                 <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
               </label>
@@ -423,305 +251,122 @@ const ProfilePage = () => {
             <h1 className="text-xl sm:text-2xl font-extrabold truncate" style={{ color: colors.text }}>
               {profile?.full_name || 'Utilisateur'}
             </h1>
-            <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1" style={{ color: colors.textLight }}>
-                {getRoleIcon()}
-                {getRoleLabel()}
-              </span>
-            </div>
-            <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4 mt-2 text-xs opacity-70">
-              <span className="flex items-center gap-1.5">
-                <Mail size={13} /> {profile?.email || '-'}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Phone size={13} /> {profile?.phone || 'Non renseigné'}
-              </span>
+            <p className="text-xs font-bold uppercase tracking-wider flex items-center justify-center sm:justify-start gap-1 mt-1 text-gray-500">
+              <ShieldCheck size={14} /> {getRoleLabel()}
+            </p>
+            <div className="flex flex-wrap justify-center sm:justify-start gap-3 mt-2 text-xs text-gray-500">
+              <span className="flex items-center gap-1"><Mail size={13} /> {profile?.email || '-'}</span>
+              <span className="flex items-center gap-1"><Phone size={13} /> {profile?.phone || 'Non renseigné'}</span>
             </div>
           </div>
 
-          <button 
-            onClick={() => setIsEditing(!isEditing)} 
-            className="px-4 py-2 rounded-2xl text-xs font-bold transition hover:bg-gray-50 border shrink-0"
-            style={{ borderColor: colors.primary + '20', color: colors.text }}
-          >
+          <button onClick={() => setIsEditing(!isEditing)} className="px-4 py-2 rounded-2xl text-xs font-bold border hover:bg-gray-50 transition shrink-0">
             {isEditing ? 'Annuler' : 'Modifier'}
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t" style={{ borderColor: colors.primary + '15' }}>
-          {quickStats.map((item) => (
-            <div key={item.label} className="text-center">
-              <div className="flex items-center justify-center gap-1.5 text-xs" style={{ color: colors.text + '70' }}>
-                {item.icon}
-                <span className="font-black" style={{ color: colors.primary }}>{item.value}</span>
-              </div>
-              <p className="text-[9px] uppercase tracking-wider mt-0.5" style={{ color: colors.textLight }}>{item.label}</p>
-            </div>
-          ))}
+        {/* METRIQUES RAPIDES */}
+        <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t text-center">
+          <div>
+            <span className="text-xs font-bold text-gray-400 block">Proches</span>
+            <span className="text-base font-black" style={{ color: colors.primary }}>{patients.length}</span>
+          </div>
+          <div>
+            <span className="text-xs font-bold text-gray-400 block">Visites</span>
+            <span className="text-base font-black" style={{ color: colors.primary }}>{visits.length}</span>
+          </div>
+          <div>
+            <span className="text-xs font-bold text-gray-400 block">Commandes</span>
+            <span className="text-base font-black" style={{ color: colors.primary }}>{orders.length}</span>
+          </div>
         </div>
       </section>
 
-      {/* ÉDITION */}
+      {/* EDITEUR PROFIL */}
       {isEditing && (
-        <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border" style={{ borderColor: colors.primary + '15' }}>
-          <h3 className="text-sm font-bold mb-4" style={{ color: colors.text }}>Modifier mes informations</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input 
-              value={formData.full_name} 
-              onChange={e => setFormData({...formData, full_name: e.target.value})} 
-              className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm border"
-              style={{ borderColor: colors.primary + '20', color: colors.text }}
-              placeholder="Nom complet"
-            />
-            <input 
-              value={formData.phone} 
-              onChange={e => setFormData({...formData, phone: e.target.value})} 
-              className="w-full p-3 rounded-2xl bg-gray-50 outline-none text-sm border"
-              style={{ borderColor: colors.primary + '20', color: colors.text }}
-              placeholder="Téléphone"
-            />
-            <div className="sm:col-span-2">
-              <input 
-                value={formData.email} 
-                disabled 
-                className="w-full p-3 rounded-2xl bg-gray-100 outline-none text-sm text-gray-400 cursor-not-allowed border"
-                style={{ borderColor: colors.primary + '20' }}
-                placeholder="Email (non modifiable)"
-              />
-            </div>
-          </div>
-          <button 
-            onClick={handleSaveProfile} 
-            disabled={isLoading}
-            className="w-full mt-4 py-3 rounded-2xl text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2"
-            style={{ background: colors.primary }}
-          >
-            {isLoading && <Loader2 className="animate-spin" size={16} />}
-            {isLoading ? 'Enregistrement...' : 'Enregistrer'}
+        <section className="bg-white rounded-3xl p-5 border shadow-sm space-y-3">
+          <h3 className="text-xs font-bold uppercase text-gray-400">Editer mes coordonnées</h3>
+          <input value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} className="w-full p-3 rounded-2xl border text-xs font-bold bg-gray-50 outline-none" placeholder="Nom complet" />
+          <input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full p-3 rounded-2xl border text-xs font-bold bg-gray-50 outline-none" placeholder="Téléphone" />
+          <button onClick={handleSaveProfile} disabled={isLoading} className="w-full py-3 rounded-2xl text-white font-bold text-xs flex justify-center items-center gap-2" style={{ background: colors.primary }}>
+            {isLoading && <Loader2 className="animate-spin" size={14} />} Enregistrer
           </button>
         </section>
       )}
 
-      {/* TABS */}
-      <div className="flex bg-gray-50 p-1 rounded-2xl w-fit mx-auto sm:mx-0">
-        {(['profile', 'settings', 'security'] as const).map((tab) => (
-          <button 
-            key={tab} 
-            onClick={() => setActiveTab(tab)} 
-            className={`px-4 py-2 rounded-xl text-[10px] font-bold capitalize transition-all flex items-center gap-1.5 ${
-              activeTab === tab ? 'bg-white shadow-sm font-black' : ''
-            }`}
-            style={{ color: activeTab === tab ? colors.primary : colors.textLight }}
-          >
-            {tab === 'profile' && <User size={13} />}
-            {tab === 'settings' && <Settings size={13} />}
-            {tab === 'security' && <Lock size={13} />}
-            {tab === 'profile' && 'Profil'}
-            {tab === 'settings' && 'Préférences'}
-            {tab === 'security' && 'Sécurité'}
-          </button>
-        ))}
+      {/* TAB NAVIGATION */}
+      <div className="flex bg-gray-100 p-1 rounded-2xl w-fit">
+        <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'profile' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>Profil</button>
+        <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'settings' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>Préférences</button>
+        <button onClick={() => setActiveTab('security')} className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'security' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>Sécurité</button>
       </div>
 
-      {/* CONTENU DES TABS */}
-      <section className="bg-white rounded-3xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.02)] border" style={{ borderColor: colors.primary + '15' }}>
+      {/* CONTENU ONGLETS */}
+      <section className="bg-white rounded-3xl p-5 border shadow-sm space-y-3">
         {activeTab === 'profile' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <InfoField label="Nom complet" value={profile?.full_name || '-'} colors={colors} />
-            <InfoField label="Email" value={profile?.email || '-'} colors={colors} />
-            <InfoField label="Téléphone" value={profile?.phone || '-'} colors={colors} />
-            <InfoField label="Rôle" value={getRoleLabel() || '-'} colors={colors} />
-            <InfoField label="Membre depuis" value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'} colors={colors} />
-            <InfoField label="Dernière mise à jour" value={profile?.updated_at ? new Date(profile.updated_at).toLocaleDateString('fr-FR') : '-'} colors={colors} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="p-3 bg-gray-50 rounded-2xl"><span className="text-gray-400 block font-bold">Inscrit le</span><span className="font-bold text-gray-800">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'}</span></div>
+            <div className="p-3 bg-gray-50 rounded-2xl"><span className="text-gray-400 block font-bold">Compte</span><span className="font-bold text-emerald-600">Actif 🟢</span></div>
           </div>
         )}
 
         {activeTab === 'settings' && (
           <div className="space-y-3">
-            <SettingToggle 
-              icon={<Bell size={16} />} 
-              title="Notifications" 
-              description={formData.preferences.notifications ? 'Alertes importantes activées' : 'Alertes désactivées'}
-              active={formData.preferences.notifications} 
-              onClick={handleToggleNotifications} 
-              colors={colors} 
-            />
-            <SettingToggle 
-              icon={formData.preferences.darkMode ? <Moon size={16} /> : <Sun size={16} />} 
-              title="Mode sombre" 
-              description={formData.preferences.darkMode ? 'Affichage sombre' : 'Affichage clair'}
-              active={formData.preferences.darkMode} 
-              onClick={handleToggleDarkMode} 
-              colors={colors} 
-            />
-            
-            <div className="border-t pt-4 mt-2" style={{ borderColor: colors.primary + '15' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Volume2 size={16} style={{ color: colors.primary }} />
-                <span className="text-sm font-bold" style={{ color: colors.text }}>Son de notification</span>
-              </div>
-              <NotificationSoundSelector />
-            </div>
-
-            <button 
-              onClick={() => setShowLanguageModal(true)} 
-              className="w-full flex items-center justify-between p-4 rounded-2xl border hover:bg-gray-50 transition"
-              style={{ borderColor: colors.primary + '20' }}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: colors.primary + '10', color: colors.primary }}>
-                  <Globe size={16} />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-sm" style={{ color: colors.text }}>Langue</p>
-                  <p className="text-xs" style={{ color: colors.textLight }}>{formData.preferences.language === 'fr' ? 'Français' : 'English'}</p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-gray-400" />
+            <button onClick={handleToggleNotifications} className="w-full flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50">
+              <div className="flex items-center gap-3"><Bell size={16} /><span className="text-xs font-bold">Notifications Push</span></div>
+              <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${formData.notifications ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>{formData.notifications ? 'Activées' : 'Désactivées'}</span>
+            </button>
+            <button onClick={handleToggleDarkMode} className="w-full flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50">
+              <div className="flex items-center gap-3">{formData.darkMode ? <Moon size={16} /> : <Sun size={16} /><span className="text-xs font-bold">Mode sombre</span></div>
+              <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100">{formData.darkMode ? 'Oui' : 'Non'}</span>
             </button>
           </div>
         )}
 
         {activeTab === 'security' && (
           <div className="space-y-3">
-            <ActionRow 
-              icon={<Lock size={16} />} 
-              title="Changer le mot de passe" 
-              description="Mettre à jour votre accès"
-              onClick={() => setShowPasswordModal(true)} 
-              colors={colors} 
-            />
-            <div className="flex items-center justify-between p-4 rounded-2xl border" style={{ borderColor: colors.primary + '20' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: colors.primary + '10', color: colors.primary }}>
-                  <Smartphone size={16} />
-                </div>
-                <div className="text-left">
-                  <p className="font-bold text-sm" style={{ color: colors.text }}>Appareil connecté</p>
-                  <p className="text-xs" style={{ color: colors.textLight }}>{navigator.userAgent?.split(' ').slice(-2).join(' ') || 'Navigateur'}</p>
-                </div>
-              </div>
-              <span className="text-[10px] px-2 py-1 rounded-full bg-green-50 text-green-600 font-bold flex items-center gap-1">
-                <CheckCircle size={10} />
-                Actif
-              </span>
-            </div>
-            <button 
-              onClick={() => setShowDeleteModal(true)} 
-              className="w-full p-4 rounded-2xl border-2 text-red-600 font-bold text-left hover:bg-red-100 transition flex items-center gap-3"
-              style={{ borderColor: '#EF444430', background: '#EF444408' }}
-            >
-              <Trash2 size={16} />
-              <div className="text-left">
-                <p className="text-sm">Supprimer mon compte</p>
-                <p className="text-[10px] font-normal text-red-400">⚠️ Supprime définitivement votre compte et tous vos proches</p>
-              </div>
+            <button onClick={() => setShowPasswordModal(true)} className="w-full flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50 text-xs font-bold">
+              <div className="flex items-center gap-3"><Key size={16} /><span>Changer le mot de passe</span></div>
+              <span>Modifer ➔</span>
+            </button>
+            <button onClick={() => setShowDeleteModal(true)} className="w-full flex items-center justify-between p-3.5 border border-red-200 bg-red-50 text-red-600 rounded-2xl text-xs font-bold">
+              <div className="flex items-center gap-3"><Trash2 size={16} /><span>Supprimer définitivement le compte</span></div>
             </button>
           </div>
         )}
       </section>
 
-      <button 
-        onClick={handleLogout} 
-        className="w-full flex items-center justify-center gap-2 text-xs font-bold text-red-500 p-4 rounded-3xl border border-red-100 hover:bg-red-50 transition"
-      >
-        <LogOut size={16} />
-        Se déconnecter
+      {/* BOUTON DÉCONNEXION */}
+      <button onClick={() => { logout(); navigate('/login'); }} className="w-full py-4 rounded-3xl border border-red-100 text-red-500 font-bold text-xs flex justify-center items-center gap-2 hover:bg-red-50">
+        <LogOut size={16} /> Se déconnecter
       </button>
 
-      {/* MODALS */}
+      {/* MODALE REELLE MOT DE PASSE */}
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 my-8 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Key size={20} style={{ color: colors.primary }} />
-                <h3 className="font-black" style={{ color: colors.text }}>Nouveau mot de passe</h3>
-              </div>
-              <button onClick={() => setShowPasswordModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X size={18} />
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <form onSubmit={handleChangePassword} className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center"><h3 className="font-bold text-sm">Mot de passe</h3><button type="button" onClick={() => setShowPasswordModal(false)}><X size={16} /></button></div>
+            <input type="password" placeholder="Mot de passe actuel" value={passwordData.currentPassword} onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required />
+            <input type="password" placeholder="Nouveau mot de passe" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required minLength={6} />
+            <input type="password" placeholder="Confirmer le mot de passe" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required />
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">Annuler</button>
+              <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-xl text-white font-bold text-xs" style={{ background: colors.primary }}>{isLoading ? 'Changement...' : 'Changer'}</button>
             </div>
-            <p className="text-xs" style={{ color: colors.textLight }}>Entrez votre mot de passe actuel puis choisissez-en un nouveau.</p>
-            <input 
-              type="password" 
-              placeholder="Mot de passe actuel" 
-              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
-              style={{ borderColor: colors.primary + '20', color: colors.text }}
-              onChange={e => setPasswordData({...passwordData, currentPassword: e.target.value})} 
-            />
-            <input 
-              type="password" 
-              placeholder="Nouveau mot de passe" 
-              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
-              style={{ borderColor: colors.primary + '20', color: colors.text }}
-              onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})} 
-            />
-            <input 
-              type="password" 
-              placeholder="Confirmer" 
-              className="w-full p-3 rounded-2xl bg-gray-50 text-sm outline-none border"
-              style={{ borderColor: colors.primary + '20', color: colors.text }}
-              onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} 
-            />
-            <div className="flex gap-2 pt-2">
-              <button onClick={() => setShowPasswordModal(false)} className="flex-1 py-2 rounded-xl font-bold text-sm border" style={{ borderColor: colors.primary + '20', color: colors.text }}>Annuler</button>
-              <button onClick={handleChangePassword} disabled={isLoading} className="flex-1 py-2 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-1.5" style={{ background: colors.primary }}>
-                {isLoading && <Loader2 className="animate-spin" size={14} />}
-                Valider
-              </button>
-            </div>
-          </div>
+          </form>
         </div>
       )}
 
-      {showLanguageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Globe size={20} style={{ color: colors.primary }} />
-                <h3 className="font-black" style={{ color: colors.text }}>Choisir la langue</h3>
-              </div>
-              <button onClick={() => setShowLanguageModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-2">
-              <button onClick={() => handleLanguageChange('fr')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'fr' ? colors.primary : colors.primary + '20' }}>
-                <span style={{ color: colors.text }}>Français</span>
-                {formData.preferences.language === 'fr' && <CheckCircle size={16} style={{ color: colors.primary }} />}
-              </button>
-              <button onClick={() => handleLanguageChange('en')} className="w-full p-3 rounded-2xl border flex items-center justify-between" style={{ borderColor: formData.preferences.language === 'en' ? colors.primary : colors.primary + '20' }}>
-                <span style={{ color: colors.text }}>English</span>
-                {formData.preferences.language === 'en' && <CheckCircle size={16} style={{ color: colors.primary }} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* MODALE REELLE SUPPRESSION */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 my-8 shadow-xl">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: '#FEF2F2' }}>
-                <AlertCircle size={28} style={{ color: '#EF4444' }} />
-              </div>
-              <h3 className="font-black text-center" style={{ color: colors.text }}>Supprimer le compte</h3>
-              <p className="text-center text-sm mt-2" style={{ color: colors.textLight }}>
-                Cette action est irréversible. Toutes vos données seront supprimées.
-              </p>
-              <p className="text-center text-sm font-bold text-red-500 mt-2">
-                Êtes-vous sûr de vouloir continuer ?
-              </p>
-            </div>
-            <div className="flex gap-2 mt-6">
-              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-2xl font-bold text-sm border" style={{ borderColor: colors.primary + '20', color: colors.text }}>Annuler</button>
-              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-1.5" style={{ background: '#EF4444' }}>
-                {isLoading && <Loader2 className="animate-spin" size={14} />}
-                Supprimer
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 text-center shadow-2xl">
+            <AlertCircle size={32} className="mx-auto text-red-500" />
+            <h3 className="font-black text-sm text-gray-800">Confirmer la suppression ?</h3>
+            <p className="text-xs text-gray-500">Cette action supprimera irréversiblement votre profil et toutes vos données Supabase.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">Annuler</button>
+              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold">{isLoading ? 'Suppression...' : 'Supprimer'}</button>
             </div>
           </div>
         </div>
@@ -729,102 +374,5 @@ const ProfilePage = () => {
     </div>
   );
 };
-
-// =============================================
-// SOUS-COMPOSANTS
-// =============================================
-
-interface InfoFieldProps {
-  label: string;
-  value: string;
-  colors: any;
-}
-
-const InfoField = ({ label, value, colors }: InfoFieldProps) => (
-  <div className="p-4 rounded-2xl bg-gray-50">
-    <p className="text-[10px] font-bold uppercase" style={{ color: colors.textLight }}>{label}</p>
-    <p className="text-sm font-semibold mt-1" style={{ color: colors.text }}>{value}</p>
-  </div>
-);
-
-interface SettingToggleProps {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  active: boolean;
-  onClick: () => void;
-  colors: any;
-}
-
-const SettingToggle = ({ 
-  icon, title, description, active, onClick, colors 
-}: SettingToggleProps) => (
-  <button 
-    onClick={onClick} 
-    className="w-full flex items-center justify-between p-4 rounded-2xl border hover:bg-gray-50 transition"
-    style={{ borderColor: colors.primary + '20' }}
-  >
-    <div className="flex items-center gap-3">
-      <div 
-        className="w-9 h-9 rounded-xl flex items-center justify-center"
-        style={{ background: colors.primary + '10', color: colors.primary }}
-      >
-        {icon}
-      </div>
-      <div className="text-left">
-        <p className="font-bold text-sm" style={{ color: colors.text }}>{title}</p>
-        <p className="text-xs" style={{ color: colors.textLight }}>{description}</p>
-      </div>
-    </div>
-    <div 
-      className="w-10 h-6 rounded-full transition relative shrink-0"
-      style={{ background: active ? colors.primary : '#d1d5db' }}
-    >
-      <div 
-        className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-        style={{ transform: active ? 'translateX(18px)' : 'translateX(2px)' }}
-      />
-    </div>
-  </button>
-);
-
-interface ActionRowProps {
-  icon: ReactNode;
-  title: string;
-  description?: string;
-  onClick: () => void;
-  colors: any;
-  danger?: boolean;
-}
-
-const ActionRow = ({ 
-  icon, title, description, onClick, colors, danger 
-}: ActionRowProps) => (
-  <button 
-    onClick={onClick} 
-    className="w-full flex items-center justify-between p-4 rounded-2xl border transition hover:bg-gray-50"
-    style={{ 
-      borderColor: danger ? '#FECACA' : colors.primary + '20', 
-      background: danger ? '#FEF2F2' : undefined 
-    }}
-  >
-    <div className="flex items-center gap-3">
-      <div 
-        className="w-9 h-9 rounded-xl flex items-center justify-center"
-        style={{ 
-          background: danger ? '#FEE2E2' : colors.primary + '10', 
-          color: danger ? '#EF4444' : colors.primary 
-        }}
-      >
-        {icon}
-      </div>
-      <div className="text-left">
-        <p className="font-bold text-sm" style={{ color: danger ? '#EF4444' : colors.text }}>{title}</p>
-        {description && <p className="text-xs" style={{ color: colors.textLight }}>{description}</p>}
-      </div>
-    </div>
-    <ChevronRight size={16} className={danger ? 'text-red-400' : 'text-gray-400'} />
-  </button>
-);
 
 export default ProfilePage;
