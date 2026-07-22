@@ -217,11 +217,6 @@ export const isDarkModeActive = (): boolean => {
   try {
     const darkSetting = localStorage.getItem('sante_plus_dark_mode');
     if (darkSetting !== null) return darkSetting === 'true';
-    const prefs = localStorage.getItem('sante_plus_preferences');
-    if (prefs) {
-      const parsed = JSON.parse(prefs);
-      if (typeof parsed.darkMode === 'boolean') return parsed.darkMode;
-    }
     return document.documentElement.classList.contains('dark');
   } catch {
     return false;
@@ -246,31 +241,8 @@ export const getBrandTheme = (
 
 export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
   const isDark = isDarkModeActive();
-  const baseColors = COLORS[theme] || COLORS.general;
+  const colors = COLORS[theme] || COLORS.general;
   const logo = LOGOS[theme] || LOGOS.general;
-
-  // ✅ ADAPTATION DES COULEURS EN MODE SOMBRE (TEXTES BLANCS/BEIGES, MENTHE ÉCLATANTE, JAUNE OR & VIOLET)
-  const colors: BrandColors = isDark
-    ? {
-        ...baseColors,
-        primary: '#34d399',        // Vert Menthe ultra lumineux (ultra lisible sur fond sombre)
-        primaryDark: '#059669',
-        primaryLight: '#6ee7b7',
-        secondary: '#fbbf24',      // Jaune Or lumineux
-        secondaryLight: '#fde047',
-        background: '#0a120e',     // Fond sombre profond
-        surface: '#14221b',        // Surface des cartes sombre
-        surfaceSoft: '#1e2e26',    // Surface secondaire
-        text: '#ffffff',           // BLANC PUR pour tous les titres et textes
-        textLight: '#e5e7eb',      // BEIGE/GRIS CLAIR LISIBLE pour sous-titres
-        border: '#283c32',         // Bordure sombre lisible
-        accent: '#a78bfa',         // Violet lumineux pour les accents
-        gold: '#fbbf24',           // Jaune Or
-        shadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-        shadowHover: '0 8px 32px rgba(0, 0, 0, 0.6)',
-        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-      }
-    : baseColors;
 
   return {
     theme,
@@ -284,12 +256,12 @@ export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
       '--color-primary-light': colors.primaryLight,
       '--color-secondary': colors.secondary,
       '--color-secondary-light': colors.secondaryLight,
-      '--color-background': colors.background,
-      '--color-surface': colors.surface,
-      '--color-surface-soft': colors.surfaceSoft,
-      '--color-text': colors.text,
-      '--color-text-light': colors.textLight,
-      '--color-border': colors.border,
+      '--color-background': isDark ? '#0f1713' : colors.background,
+      '--color-surface': isDark ? '#17231d' : colors.surface,
+      '--color-surface-soft': isDark ? '#1d2d25' : colors.surfaceSoft,
+      '--color-text': isDark ? '#f4f7f5' : colors.text,
+      '--color-text-light': isDark ? '#a8b6b0' : colors.textLight,
+      '--color-border': isDark ? '#2c3f35' : colors.border,
       '--color-accent': colors.accent,
       '--color-gold': colors.gold,
     },
@@ -317,7 +289,7 @@ export const applyBrandTheme = (config: BrandConfig): void => {
 
   const metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {
-    metaTheme.setAttribute('content', config.colors.primary);
+    metaTheme.setAttribute('content', isDark ? '#0f1713' : config.colors.primary);
   }
 
   localStorage.setItem('sante_plus_theme', config.theme);
