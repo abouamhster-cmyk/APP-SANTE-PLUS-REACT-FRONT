@@ -1,6 +1,5 @@
 // 📁 src/lib/branding.ts
-// ✅ BRANDING OFFICIEL : MODE CLAIR NORMAL INTACT + MODE SOMBRE HAUT CONTRASTE (BLANC, BEIGE, JAUNE, VIOLET)
-
+ 
 export type BrandTheme = 'senior' | 'maman' | 'aidant' | 'coordinator' | 'admin' | 'general';
 
 export interface BrandColors {
@@ -126,7 +125,7 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#f5f0e8',
+    background: '#f5f0e8', // ✅ FOND SABLE CRÈME D'ORIGINE POUR LE MODE CLAIR
     surface: '#ffffff',
     surfaceSoft: '#faf7f1',
     text: '#2d2d2d',
@@ -172,7 +171,7 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#e8decb', 
+    background: '#f5f0e8', // ✅ RESTAURÉ À LA COULEUR D'ORIGINE
     surface: '#ffffff',
     surfaceSoft: '#f3eade',
     text: '#2d2d2d',
@@ -195,7 +194,7 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#e8decb', 
+    background: '#f5f0e8', // ✅ RESTAURÉ À LA COULEUR D'ORIGINE
     surface: '#ffffff',
     surfaceSoft: '#f3eade',
     text: '#2d2d2d',
@@ -245,28 +244,29 @@ export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
   const baseColors = COLORS[theme] || COLORS.general;
   const logo = LOGOS[theme] || LOGOS.general;
 
-  // ✅ EN MODE SOMBRE : Textes en BLANC PUR, BEIGE CLAIR, JAUNE OR et VIOLET (Zéro gris sombre illisible)
+  // ✅ SI MODE SOMBRE : On applique la palette sombre contrastée
+  // ✅ SI MODE CLAIR : On garde EXACTEMENT les couleurs d'origine sans aucune modification
   const colors: BrandColors = isDark
     ? {
         ...baseColors,
-        primary: '#34d399',        // Vert Menthe éclatant pour les boutons et liens actifs
+        primary: '#34d399',        
         primaryDark: '#10b981',
         primaryLight: '#6ee7b7',
-        secondary: '#fbbf24',      // Jaune Or
+        secondary: '#fbbf24',      
         secondaryLight: '#fde047',
         background: '#0a120e',     // Fond sombre profond
-        surface: '#14221b',        // Cartes en vert très sombre contrasté
-        surfaceSoft: '#1e2e26',    // Éléments secondaires
-        text: '#ffffff',           // TEXTE EN BLANC PUR (0% gris terne)
-        textLight: '#f5f0e8',      // TEXTE SECONDAIRE EN BEIGE CLAIR (Sable)
-        border: '#2c4639',         // Bordure visible
-        accent: '#c084fc',         // Violet lumineux pour les accents
-        gold: '#fbbf24',           // Jaune Or
+        surface: '#14221b',        // Cartes en vert sombre
+        surfaceSoft: '#1e2e26',    
+        text: '#ffffff',           // Texte blanc pur
+        textLight: '#f5f0e8',      // Texte beige sable
+        border: '#283c32',         
+        accent: '#c084fc',         
+        gold: '#fbbf24',           
         shadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
         shadowHover: '0 8px 32px rgba(0, 0, 0, 0.7)',
         gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
       }
-    : baseColors; // ✅ EN MODE CLAIR : Couleurs d'origine intactes (Sable crème, vert forêt, etc.)
+    : baseColors;
 
   return {
     theme,
