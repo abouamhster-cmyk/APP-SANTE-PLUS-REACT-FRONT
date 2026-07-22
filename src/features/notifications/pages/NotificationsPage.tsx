@@ -1,7 +1,6 @@
 // 📁 src/features/notifications/pages/NotificationsPage.tsx
  
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Bell, 
   Check, 
@@ -13,13 +12,12 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useBranding } from '@/hooks/useBranding';
-import { useTerminology } from '@/hooks/useTerminology';
 import { formatDateTime, cn } from '@/utils/helpers';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// 🧠 MOTEUR DE TRADUCTION ET DE PERSONNALISATION DYNAMIQUE
+// 🧠 MOTEUR DE TRADUCTION DYNAMIQUE
 // ============================================================
 const formatNotificationContext = (notification: any, currentUser: any) => {
   const title = notification.title || '';
@@ -117,9 +115,15 @@ const NotificationsPage = () => {
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
+  const hasFetchedOnMount = useRef(false);
 
+  // ✅ BARRAGE CONTRE LE DOUBLE RECHARGEMENT SUR MONTAGES MULTIPLES
   useEffect(() => {
-    fetchNotifications(true);
+    if (!hasFetchedOnMount.current) {
+      hasFetchedOnMount.current = true;
+      // Utilisation du cache si disponible, mise à jour silencieuse sinon
+      fetchNotifications(false);
+    }
   }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -159,7 +163,7 @@ const NotificationsPage = () => {
     toast.success('Tout est lu');
   };
 
-  // ✅ SUPPRESSION INDIVIDUELLE RÉELLE DANS SUPABASE
+  // ✅ SUPPRESSION INDIVIDUELLE
   const handleDeleteSingle = async (id: string) => {
     if (!profile?.id) return;
     setDeletingId(id);
@@ -183,7 +187,7 @@ const NotificationsPage = () => {
     }
   };
 
-  // ✅ SUPPRESSION TOTALE ET DÉFINITIVE DANS SUPABASE
+  // ✅ SUPPRESSION TOTALE
   const handleClearAll = async () => {
     if (!profile?.id) return;
     if (!window.confirm('Voulez-vous vider définitivement tout votre historique de notifications ?')) return;
@@ -207,6 +211,9 @@ const NotificationsPage = () => {
       setIsClearingAll(false);
     }
   };
+
+  // ✅ NE MONTRER LE SPINNER DE CHARGEMENT QUE SI LA LISTE EST ENCORE TOTALEMENT VIDE
+  const showInitialSpinner = isLoading && notifications.length === 0;
 
   return (
     <div 
@@ -264,8 +271,8 @@ const NotificationsPage = () => {
         </div>
       </div>
 
-      {/* LISTE DES NOTIFICATIONS */}
-      {isLoading ? (
+      {/* LISTE DES NOTIFICATIONS SANS SCINTILLEMENT */}
+      {showInitialSpinner ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin" style={{ color: colors.primary }} />
         </div>
