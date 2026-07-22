@@ -1,12 +1,11 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
-// ✅ BASCULEMENT MODE SOMBRE 100% FONCTIONNEL ET INSTANTANÉ
-
+ 
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Mail, Phone, Camera, LogOut, Lock, Bell, Moon, Sun,
-  Trash2, X, AlertCircle, ShieldCheck, User, Settings, Key, Loader2, ChevronRight
+  Trash2, X, AlertCircle, ShieldCheck, User, Key, Loader2, ChevronRight
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -90,7 +89,6 @@ const ProfilePage = () => {
     setImageError(false);
   }, [profile]);
 
-  // ✅ ACTION INSTANTANÉE MODE SOMBRE
   const handleToggleDarkMode = () => {
     const nextDark = !formData.darkMode;
     setFormData((prev) => ({ ...prev, darkMode: nextDark }));
@@ -303,40 +301,73 @@ const ProfilePage = () => {
       <section className="bg-white dark:bg-[#182620] rounded-3xl p-5 border dark:border-gray-800 shadow-sm space-y-3">
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="p-3 bg-gray-50 dark:bg-[#22332b] rounded-2xl"><span className="text-gray-400 block font-bold">Inscrit le</span><span className="font-bold text-gray-800 dark:text-gray-100">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'}</span></div>
-            <div className="p-3 bg-gray-50 dark:bg-[#22332b] rounded-2xl"><span className="text-gray-400 block font-bold">Compte</span><span className="font-bold text-emerald-600">Actif 🟢</span></div>
+            <div className="p-3 bg-gray-50 dark:bg-[#22332b] rounded-2xl">
+              <span className="text-gray-400 block font-bold">Inscrit le</span>
+              <span className="font-bold text-gray-800 dark:text-gray-100">
+                {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'}
+              </span>
+            </div>
+            <div className="p-3 bg-gray-50 dark:bg-[#22332b] rounded-2xl">
+              <span className="text-gray-400 block font-bold">Compte</span>
+              <span className="font-bold text-emerald-600">Actif 🟢</span>
+            </div>
           </div>
         )}
 
         {activeTab === 'settings' && (
           <div className="space-y-3">
             <button onClick={handleToggleNotifications} className="w-full flex items-center justify-between p-3.5 border dark:border-gray-800 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#22332b]">
-              <div className="flex items-center gap-3"><Bell size={16} /><span className="text-xs font-bold">Notifications Push</span></div>
-              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${formData.notifications ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-gray-200 text-gray-600'}`}>{formData.notifications ? 'Activées' : 'Désactivées'}</span>
+              <div className="flex items-center gap-3">
+                <Bell size={16} />
+                <span className="text-xs font-bold">Notifications Push</span>
+              </div>
+              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${formData.notifications ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-gray-200 text-gray-600'}`}>
+                {formData.notifications ? 'Activées' : 'Désactivées'}
+              </span>
             </button>
 
             <button onClick={handleToggleDarkMode} className="w-full flex items-center justify-between p-3.5 border dark:border-gray-800 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#22332b]">
-              <div className="flex items-center gap-3">{formData.darkMode ? <Moon size={16} /> : <Sun size={16} /><span className="text-xs font-bold">Mode sombre</span></div>
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#22332b]">{formData.darkMode ? 'Oui 🌙' : 'Non ☀️'}</span>
+              <div className="flex items-center gap-3">
+                {formData.darkMode ? <Moon size={16} /> : <Sun size={16} />}
+                <span className="text-xs font-bold">Mode sombre</span>
+              </div>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-[#22332b]">
+                {formData.darkMode ? 'Oui 🌙' : 'Non ☀️'}
+              </span>
             </button>
           </div>
         )}
 
         {activeTab === 'security' && (
           <div className="space-y-3">
-            <button onClick={() => setShowPasswordModal(true)} className="w-full flex items-center justify-between p-3.5 border dark:border-gray-800 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#22332b] text-xs font-bold">
-              <div className="flex items-center gap-3"><Key size={16} /><span>Changer le mot de passe</span></div>
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              className="w-full flex items-center justify-between p-3.5 border dark:border-gray-800 rounded-2xl hover:bg-gray-50 dark:hover:bg-[#22332b] text-xs font-bold"
+            >
+              <div className="flex items-center gap-3">
+                <Key size={16} />
+                <span>Changer le mot de passe</span>
+              </div>
               <ChevronRight size={16} className="text-gray-400" />
             </button>
 
-            <button onClick={() => setShowDeleteModal(true)} className="w-full flex items-center justify-between p-3.5 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 text-red-600 rounded-2xl text-xs font-bold">
-              <div className="flex items-center gap-3"><Trash2 size={16} /><span>Supprimer définitivement le compte</span></div>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="w-full flex items-center justify-between p-3.5 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 text-red-600 rounded-2xl text-xs font-bold"
+            >
+              <div className="flex items-center gap-3">
+                <Trash2 size={16} />
+                <span>Supprimer définitivement le compte</span>
+              </div>
             </button>
           </div>
         )}
       </section>
 
-      <button onClick={() => { logout(); navigate('/login'); }} className="w-full py-4 rounded-3xl border border-red-100 dark:border-red-900/40 text-red-500 font-bold text-xs flex justify-center items-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/20">
+      <button
+        onClick={() => { logout(); navigate('/login'); }}
+        className="w-full py-4 rounded-3xl border border-red-100 dark:border-red-900/40 text-red-500 font-bold text-xs flex justify-center items-center gap-2 hover:bg-red-50 dark:hover:bg-red-950/20"
+      >
         <LogOut size={16} /> Se déconnecter
       </button>
 
@@ -344,13 +375,44 @@ const ProfilePage = () => {
       {showPasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <form onSubmit={handleChangePassword} className="bg-white dark:bg-[#182620] rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl border dark:border-gray-800">
-            <div className="flex justify-between items-center"><h3 className="font-bold text-sm">Mot de passe</h3><button type="button" onClick={() => setShowPasswordModal(false)}><X size={16} /></button></div>
-            <input type="password" placeholder="Mot de passe actuel" value={passwordData.currentPassword} onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 dark:bg-[#22332b] outline-none" required />
-            <input type="password" placeholder="Nouveau mot de passe" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 dark:bg-[#22332b] outline-none" required minLength={6} />
-            <input type="password" placeholder="Confirmer le mot de passe" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 dark:bg-[#22332b] outline-none" required />
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-sm">Mot de passe</h3>
+              <button type="button" onClick={() => setShowPasswordModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            <input
+              type="password"
+              placeholder="Mot de passe actuel"
+              value={passwordData.currentPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+              className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 dark:bg-[#22332b] outline-none"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Nouveau mot de passe"
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+              className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 dark:bg-[#22332b] outline-none"
+              required
+              minLength={6}
+            />
+            <input
+              type="password"
+              placeholder="Confirmer le mot de passe"
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+              className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 dark:bg-[#22332b] outline-none"
+              required
+            />
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">Annuler</button>
-              <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-xl text-white font-bold text-xs" style={{ backgroundColor: colors.primary }}>{isLoading ? 'Changement...' : 'Changer'}</button>
+              <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">
+                Annuler
+              </button>
+              <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-xl text-white font-bold text-xs" style={{ backgroundColor: colors.primary }}>
+                {isLoading ? 'Changement...' : 'Changer'}
+              </button>
             </div>
           </form>
         </div>
@@ -364,8 +426,12 @@ const ProfilePage = () => {
             <h3 className="font-black text-sm text-gray-800 dark:text-gray-100">Confirmer la suppression ?</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">Cette action supprimera irréversiblement votre profil et toutes vos données Supabase.</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">Annuler</button>
-              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold">{isLoading ? 'Suppression...' : 'Supprimer'}</button>
+              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">
+                Annuler
+              </button>
+              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold">
+                {isLoading ? 'Suppression...' : 'Supprimer'}
+              </button>
             </div>
           </div>
         </div>
