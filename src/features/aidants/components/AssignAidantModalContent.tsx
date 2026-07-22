@@ -1,5 +1,6 @@
 // 📁 src/features/aidants/components/AssignAidantModalContent.tsx
- 
+// ✅ CONTENU MODALE ASSIGNATION : CORRECTION TYPESCRIPT TS2367 (UNION TYPE DE TARGETTYPE ÉTENDU)
+
 import { useState, useEffect } from 'react';
 import { 
   AlertCircle, 
@@ -32,13 +33,14 @@ const ASSIGNMENT_TYPES_UI = [
   },
 ];
 
+// ✅ TYPE ÉTENDU : Ajout explicite de 'personal' pour autoriser la comparaison TS2367
 interface AssignAidantModalContentProps {
   aidant?: any;
   patients?: any[];
   onSuccess: () => void;
   onCancel: () => void;
   colors?: any;
-  targetType?: 'visit' | 'patient' | 'personal_account' | 'order' | 'family';
+  targetType?: 'visit' | 'patient' | 'personal_account' | 'order' | 'family' | 'personal';
   targetId?: string;
   targetName?: string;
   currentAidantId?: string | null;
@@ -163,7 +165,6 @@ export const AssignAidantModalContent = ({
       
       if (!currentUser) throw new Error('Utilisateur non connecté');
 
-      // ✅ 1. SI CALLBACK D'ASSIGNATION FOURNI (EX: PATIENTS PAGE)
       if (onAssignAidant && targetId) {
         await onAssignAidant(
           aidantUserId, 
@@ -174,9 +175,11 @@ export const AssignAidantModalContent = ({
         return;
       }
 
-      // ✅ 2. FIX CLEF : Utiliser le targetId transmis (ex: Neville) et NON L'ADMIN !
+      // ✅ COMPARAISON AUTORISÉE SANS ERREUR TS2367
+      const isPersonalAccountTarget = targetType === 'personal_account' || targetType === 'personal';
+
       const finalTargetType = isAdmin
-        ? (targetType === 'personal_account' || targetType === 'personal' ? 'personal_account' : 'patient')
+        ? (isPersonalAccountTarget ? 'personal_account' : 'patient')
         : (targetTypeLocal === 'patient' ? 'patient' : 'personal_account');
 
       const finalTargetId = isAdmin
@@ -188,7 +191,7 @@ export const AssignAidantModalContent = ({
       const result = await assignAidantStore({
         aidantUserId: aidantUserId,
         targetType: finalTargetType as any,
-        targetId: finalTargetId, // ✅ ID de Neville Bouchardyu
+        targetId: finalTargetId,
         assignmentType: assignmentType === 'primary' ? 'primary' : 'secondary',
         familyId: finalFamilyId,
         force: forceMode, 
