@@ -1,486 +1,165 @@
-// 📁 src/features/admin/pages/AdminSetupPage.tsx
-// ✅ PAGE SETUP ADMIN : INPUTS ET BOUTONS H-11 POUR UN ONBOARDING MOBILE ULTRA TACTILE
+// 📁 src/features/admin/pages/SettingsPage.tsx
+// ✅ PAGE PARAMÈTRES ADMIN : MODIFICATION ET PERSISTANCE RÉELLE SUR TABLE 'SETTINGS'
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ShieldCheck,
-  Mail,
-  Lock,
-  User,
-  Phone,
-  ArrowRight,
-  ArrowLeft,
-  CheckCircle,
-  Loader2,
-  Key,
-  Send,
-} from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
+import { useEffect, useState } from 'react';
+import { Settings, Save, RefreshCw, Shield, Bell, Lock, CheckCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { getThemeColors, getThemeByRole } from '@/lib/permissions';
+import { useAuthStore } from '@/stores/authStore';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app-react-back.onrender.com/api';
+interface SettingItem {
+  id: string;
+  key: string;
+  value: any;
+  category: string;
+  description: string;
+  is_public: boolean;
+}
 
-type SetupStep = 'pin' | 'email' | 'otp' | 'create';
-type TimerType = ReturnType<typeof setInterval> | null;
+const SettingsPage = () => {
+  const { profile, role } = useAuthStore();
+  const [settings, setSettings] = useState<SettingItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-const AdminSetupPage = () => {
-  const navigate = useNavigate();
-
-  const [step, setStep] = useState<SetupStep>('pin');
-  const [isLoading, setIsLoading] = useState(false);
-  const [pin, setPin] = useState('');
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpExpiresIn, setOtpExpiresIn] = useState(0);
-  const [timer, setTimer] = useState<TimerType>(null);
-
-  const [formData, setFormData] = useState({
-    full_name: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    role: 'admin' as 'admin' | 'coordinator',
-  });
-
-  const handleVerifyPin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pin.length !== 8) {
-      toast.error('Le PIN doit contenir 8 chiffres');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin-setup/verify-pin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('PIN valide');
-        setStep('email');
-      } else {
-        toast.error(data.error || 'PIN incorrect');
-        setPin('');
-      }
-    } catch (error) {
-      toast.error('Erreur de connexion');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) {
-      toast.error('Email requis');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin-setup/send-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('Code envoyé par email');
-        setStep('otp');
-        setOtpExpiresIn(data.expires_in || 10);
-        startTimer(data.expires_in || 10);
-      } else {
-        toast.error(data.error || 'Erreur lors de l\'envoi');
-      }
-    } catch (error) {
-      toast.error('Erreur de connexion');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const otpCode = typeof otp === 'string' ? otp : String(otp);
-    if (otpCode.length !== 6) {
-      toast.error('Le code doit contenir 6 chiffres');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/admin-setup/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email.trim(), 
-          otp: otpCode.trim()
-        }),
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('Code validé');
-        setStep('create');
-        if (timer) clearInterval(timer);
-      } else {
-        toast.error(data.error || 'Code invalide');
-        setOtp('');
-      }
-    } catch (error) {
-      toast.error('Erreur de connexion');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateAccount = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.password.length < 6) {
-      toast.error('Mot de passe minimum 6 caractères');
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const otpCode = typeof otp === 'string' ? otp.trim() : String(otp).trim();
-      const response = await fetch(`${API_BASE_URL}/admin-setup/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: formData.full_name.trim(),
-          email: email.trim(),
-          phone: formData.phone.trim(),
-          password: formData.password,
-          role: formData.role,
-          otp: otpCode,
-        }),
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('🎉 Compte créé avec succès !');
-        setTimeout(() => navigate('/login'), 1500);
-      } else {
-        toast.error(data.error || 'Erreur lors de la création');
-      }
-    } catch (error) {
-      toast.error('Erreur de connexion');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const startTimer = (minutes: number) => {
-    let timeLeft = minutes * 60;
-    setOtpExpiresIn(timeLeft);
-    if (timer) clearInterval(timer);
-
-    const newTimer = setInterval(() => {
-      timeLeft--;
-      setOtpExpiresIn(timeLeft);
-      if (timeLeft <= 0) {
-        clearInterval(newTimer);
-        toast.error('Le code a expiré, veuillez en demander un nouveau');
-        setStep('email');
-      }
-    }, 1000);
-    setTimer(newTimer);
-  };
+  const colors = getThemeColors(getThemeByRole(role, profile?.patient_category as any));
 
   useEffect(() => {
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [timer]);
+    fetchSettings();
+  }, []);
 
-  const formatTimerTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // ✅ RECUPERATION DES PARAMETRES EN BD
+  const fetchSettings = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .order('category', { ascending: true });
+
+      if (error) throw error;
+
+      // Si la table est vide, nous insérons quelques paramètres par défaut
+      if (!data || data.length === 0) {
+        const defaultSettings = [
+          { key: 'maintenance_mode', value: false, category: 'general', description: 'Activer le mode maintenance du site', type: 'boolean', is_public: true },
+          { key: 'allow_new_registrations', value: true, category: 'general', description: 'Autoriser les nouvelles inscriptions', type: 'boolean', is_public: true },
+          { key: 'auto_assign_aidants', value: true, category: 'general', description: 'Assignation automatique des aidants', type: 'boolean', is_public: false },
+          { key: 'visit_reminder_hours', value: 24, category: 'notifications', description: 'Délai des rappels de visites (heures)', type: 'number', is_public: false },
+        ];
+
+        const { data: inserted } = await supabase.from('settings').insert(defaultSettings).select();
+        setSettings(inserted || []);
+      } else {
+        setSettings(data);
+      }
+    } catch (error: any) {
+      console.error('Fetch settings error:', error);
+      toast.error('Erreur lors du chargement des paramètres');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ✅ MODIFICATION DE VALEUR DANS L'ETAT LOCAL
+  const handleToggleSetting = (key: string) => {
+    setSettings((prev) =>
+      prev.map((s) => (s.key === key ? { ...s, value: !s.value } : s))
+    );
+  };
+
+  const handleTextSettingChange = (key: string, newValue: any) => {
+    setSettings((prev) =>
+      prev.map((s) => (s.key === key ? { ...s, value: newValue } : s))
+    );
+  };
+
+  // ✅ SAUVEGARDE GLOBALE EN BD SUPABASE
+  const handleSaveAllSettings = async () => {
+    setIsSaving(true);
+    try {
+      for (const item of settings) {
+        const { error } = await supabase
+          .from('settings')
+          .update({
+            value: item.value,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('key', item.key);
+
+        if (error) throw error;
+      }
+
+      toast.success('Paramètres sauvegardés avec succès');
+      fetchSettings();
+    } catch (error: any) {
+      console.error('Save settings error:', error);
+      toast.error('Erreur lors de la sauvegarde : ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center p-0 sm:p-6"
-      style={{ background: 'var(--color-background, #faf9f6)' }}
-    >
-      <div className="w-full max-w-md my-0 sm:my-8">
-        <div 
-          className="bg-white rounded-none sm:rounded-2xl p-6 sm:p-8 shadow-none sm:shadow-sm border-0 sm:border overflow-hidden min-h-screen sm:min-h-0 flex flex-col justify-between sm:block"
-          style={{ borderColor: 'var(--color-border, #e5e7eb)' }}
-        >
+    <div className="space-y-5 max-w-4xl mx-auto pb-12 px-4 sm:px-0">
+      {/* Header */}
+      <section className="relative overflow-hidden rounded-3xl p-6 border border-black/5" style={{ background: `${colors.primary}08` }}>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <div className="flex justify-center mb-6 mt-4 sm:mt-0">
-              <div 
-                className="w-16 h-16 rounded-2xl border flex items-center justify-center"
-                style={{ borderColor: 'var(--color-primary, #113f30)', background: 'var(--color-background)' }}
-              >
-                <Logo size="sm" showText={false} whiteBg={false} className="justify-center" />
-              </div>
-            </div>
-
-            <div className="text-center mb-6">
-              <h1 className="text-xl font-extrabold tracking-tight" style={{ color: 'var(--color-text, #1f2937)' }}>
-                Configuration Admin
-              </h1>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-light, #4b5563)' }}>
-                {step === 'pin' && 'Entrez le code d\'accès sécurisé'}
-                {step === 'email' && 'Entrez votre email de travail'}
-                {step === 'otp' && 'Entrez le code reçu par email'}
-                {step === 'create' && 'Créez votre accès administrateur'}
-              </p>
-            </div>
-
-            {/* Stepper */}
-            <div className="flex items-center gap-2 mb-6">
-              {['pin', 'email', 'otp', 'create'].map((s, index) => {
-                const isActive = step === s;
-                const isDone = ['pin', 'email', 'otp', 'create'].indexOf(step) > index;
-                return (
-                  <div key={s} className="flex-1">
-                    <div
-                      className={`h-1.5 rounded-full transition-all ${
-                        isActive ? 'bg-[--color-primary, #113f30]' :
-                        isDone ? 'bg-green-500' : 'bg-gray-100'
-                      }`}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* ÉTAPE 1 : PIN (HAUTEUR UNIFIÉE H-11) */}
-            {step === 'pin' && (
-              <form onSubmit={handleVerifyPin} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Code d'accès</label>
-                  <div className="relative">
-                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="password"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                      placeholder="8 chiffres d'installation"
-                      maxLength={8}
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                      autoFocus
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1 font-semibold">Code temporaire d'installation requis.</p>
-                </div>
-                <button
-                  type="submit"
-                  disabled={pin.length !== 8 || isLoading}
-                  className="w-full h-11 rounded-xl text-white text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95"
-                  style={{ background: 'var(--color-primary, #113f30)' }}
-                >
-                  {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Continuer <ArrowRight size={14} /></>}
-                </button>
-              </form>
-            )}
-
-            {/* ÉTAPE 2 : EMAIL (HAUTEUR UNIFIÉE H-11) */}
-            {step === 'email' && (
-              <form onSubmit={handleSendOTP} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>E-mail professionnel</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@santeplus.bj"
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStep('pin')}
-                    className="flex-1 h-11 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                  >
-                    <ArrowLeft size={14} /> Retour
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!email || isLoading}
-                    className="flex-1 h-11 rounded-xl text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
-                    style={{ background: 'var(--color-primary, #113f30)' }}
-                  >
-                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Envoyer <Send size={14} /></>}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* ÉTAPE 3 : OTP (HAUTEUR UNIFIÉE H-11) */}
-            {step === 'otp' && (
-              <form onSubmit={handleVerifyOTP} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Code de validation</label>
-                  <div className="relative">
-                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="6 chiffres"
-                      maxLength={6}
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-extrabold tracking-widest bg-gray-50/50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="flex justify-between items-center mt-1 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-                    <span>Code envoyé à : {email}</span>
-                    <span className="font-bold text-red-500">⏱️ {formatTimerTime(otpExpiresIn)}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStep('email')}
-                    className="flex-1 h-11 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                  >
-                    <ArrowLeft size={14} /> Retour
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={otp.length !== 6 || isLoading}
-                    className="flex-1 h-11 rounded-xl text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
-                    style={{ background: 'var(--color-primary, #113f30)' }}
-                  >
-                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Vérifier <CheckCircle size={14} /></>}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* ÉTAPE 4 : CRÉATION DU COMPTE (HAUTEUR UNIFIÉE H-11) */}
-            {step === 'create' && (
-              <form onSubmit={handleCreateAccount} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Nom complet *</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      placeholder="Prénom Nom"
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Téléphone</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+229 90 00 00 00"
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Rôle *</label>
-                  <div className="relative">
-                    <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'coordinator' })}
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50 cursor-pointer"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                    >
-                      <option value="admin">👑 Administrateur</option>
-                      <option value="coordinator">👔 Coordinateur</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Mot de passe *</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Minimum 6 caractères"
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text)' }}>Confirmer le mot de passe *</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      placeholder="Confirmez"
-                      className="w-full h-11 pl-9 pr-4 rounded-xl border outline-none text-xs font-bold bg-gray-50/50"
-                      style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setStep('otp')}
-                    className="flex-1 h-11 rounded-xl text-xs font-bold border hover:bg-gray-50 flex items-center justify-center gap-1"
-                    style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
-                  >
-                    <ArrowLeft size={14} /> Retour
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!formData.full_name || !formData.password || isLoading}
-                    className="flex-1 h-11 rounded-xl text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm hover:opacity-95"
-                    style={{ background: 'var(--color-primary, #113f30)' }}
-                  >
-                    {isLoading ? <Loader2 size={14} className="animate-spin" /> : <>Créer mon compte <CheckCircle size={14} /></>}
-                  </button>
-                </div>
-              </form>
-            )}
+            <h1 className="text-xl font-black tracking-tight" style={{ color: colors.text }}>⚙️ Configuration Système</h1>
+            <p className="text-xs font-semibold text-gray-500 mt-1">Gestion des paramètres de la plateforme Santé Plus</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={fetchSettings} className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white flex items-center gap-1.5 hover:bg-gray-50">
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Actualiser
+            </button>
+            <button onClick={handleSaveAllSettings} disabled={isSaving} className="px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-2 shadow-sm" style={{ background: colors.primary }}>
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Enregistrer
+            </button>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Liste des paramètres */}
+      <section className="bg-white rounded-3xl p-6 border shadow-sm space-y-4">
+        {isLoading ? (
+          <div className="p-10 text-center"><Loader2 size={24} className="animate-spin mx-auto text-gray-300" /></div>
+        ) : (
+          <div className="space-y-4 divide-y">
+            {settings.map((item) => (
+              <div key={item.key} className="pt-4 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <p className="font-extrabold text-xs text-gray-800 uppercase tracking-wider">{item.key.replace(/_/g, ' ')}</p>
+                  <p className="text-xs text-gray-500">{item.description}</p>
+                </div>
+
+                <div className="shrink-0">
+                  {typeof item.value === 'boolean' ? (
+                    <button
+                      onClick={() => handleToggleSetting(item.key)}
+                      className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                        item.value ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-gray-100 text-gray-600 border'
+                      }`}
+                    >
+                      {item.value ? 'RÉGLAGE ACTIF 🟢' : 'DÉSACTIVÉ ⚪'}
+                    </button>
+                  ) : (
+                    <input
+                      type={typeof item.value === 'number' ? 'number' : 'text'}
+                      value={item.value}
+                      onChange={(e) => handleTextSettingChange(item.key, typeof item.value === 'number' ? Number(e.target.value) : e.target.value)}
+                      className="h-10 px-3.5 rounded-xl border text-xs font-bold bg-gray-50 outline-none w-36"
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 };
 
-export default AdminSetupPage;
+export default SettingsPage;
