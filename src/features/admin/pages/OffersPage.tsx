@@ -1,13 +1,12 @@
 // 📁 src/features/admin/pages/OffersPage.tsx
-// ✅ PAGE CATALOGUE DES OFFRES : SOUISSION DU FORMULAIRE CORRIGÉE ET GARANTIE
-
+ 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Package, Plus, Search, RefreshCw, X } from 'lucide-react';
+import { Package, Plus, Search, RefreshCw } from 'lucide-react';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
 import { formatCurrency } from '@/utils/helpers';
-import { Modal } from '@/components/ui/Modal';
+import { ModalWithForm } from '@/components/ui/Modal';
 import { Offer } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -168,7 +167,7 @@ const OffersPage = () => {
 };
 
 // =============================================
-// MODAL FORMULAIRE AUTONOME ET GARANTI
+// MODAL FORMULAIRE
 // =============================================
 const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: any) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -181,6 +180,7 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: any) => {
     price: offer?.price ? String(offer.price) : '',
     features: offer?.features?.join('\n') || '',
     total_visits: offer?.total_visits ? String(offer.total_visits) : '',
+    total_orders: offer?.total_orders ? String(offer.total_orders) : '0',
     duration_days: offer?.duration_days ? String(offer.duration_days) : '30',
     display_order: offer?.display_order ? String(offer.display_order) : '0',
     badge: offer?.badge || '',
@@ -188,7 +188,6 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: any) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 Soumission du formulaire déclenchée !', formData);
     setIsLoading(true);
 
     const payload = {
@@ -197,8 +196,10 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: any) => {
       type: formData.type,
       description: formData.description.trim() || null,
       price: parseFloat(formData.price) || 0,
-      features: formData.features.split('\n').map(f => f.trim()).filter(Boolean),
+      // ✅ TYPAGE EXPLICITE DE (f: string) POUR ÉVITER L'ERREUR TS7006
+      features: formData.features.split('\n').map((f: string) => f.trim()).filter(Boolean),
       total_visits: parseInt(formData.total_visits) || 0,
+      total_orders: parseInt(formData.total_orders) || 0,
       duration_days: parseInt(formData.duration_days) || 30,
       display_order: parseInt(formData.display_order) || 0,
       badge: formData.badge.trim() || null,
@@ -208,12 +209,10 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: any) => {
 
     try {
       if (mode === 'edit' && offer) {
-        console.log('📤 Envoi UPDATE vers Supabase:', payload);
         const { error } = await supabase.from('offres').update(payload).eq('id', offer.id);
         if (error) throw error;
         toast.success('Offre mise à jour avec succès');
       } else {
-        console.log('📤 Envoi INSERT vers Supabase:', payload);
         const { error } = await supabase.from('offres').insert(payload);
         if (error) throw error;
         toast.success('Nouvelle offre créée avec succès');
@@ -230,13 +229,16 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: any) => {
   };
 
   return (
-    <Modal
+    <ModalWithForm
       isOpen={true}
       onClose={onClose}
+      onSubmit={handleSubmit}
       title={mode === 'edit' ? '✏️ Modifier l\'offre' : '➕ Nouvelle offre'}
       maxWidth="md"
+      isLoading={isLoading}
+      confirmLabel="Enregistrer"
     >
-      <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+      <div className="space-y-4">
         <div>
           <label className="block text-xs font-bold text-gray-700 mb-1">Nom de l'offre *</label>
           <input
@@ -341,28 +343,8 @@ const OfferFormModal = ({ mode, offer, onClose, onSuccess, colors }: any) => {
             onChange={e => setFormData({ ...formData, features: e.target.value })}
           />
         </div>
-
-        {/* BOUTONS DE VALIDATION DIRECTS */}
-        <div className="flex gap-3 pt-4 border-t mt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1 h-11 rounded-xl border text-xs font-bold bg-white hover:bg-gray-50 transition"
-          >
-            Annuler
-          </button>
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="flex-1 h-11 rounded-xl text-white text-xs font-black transition-opacity hover:opacity-90 flex items-center justify-center gap-2 shadow-sm"
-            style={{ background: colors.primary }}
-          >
-            {isLoading ? 'Enregistrement...' : 'Confirmer'}
-          </button>
-        </div>
-      </form>
-    </Modal>
+      </div>
+    </ModalWithForm>
   );
 };
 
