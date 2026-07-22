@@ -6,10 +6,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================================
-   VARIABLES GLOBALES — MODE CLAIR (PAR DÉFAUT)
-============================================================ */
-
 :root {
   --color-primary: #1a4a3a;
   --color-primary-dark: #0d2a22;
@@ -21,326 +17,95 @@
   --color-surface-soft: #faf7f1;
   --color-text: #2d2d2d;
   --color-text-light: #6b7280;
-  --color-accent: #c9a84c;
   --color-border: #e5e0d8;
   --color-gold: #c9a84c;
-
-  --shadow-soft: 0 4px 16px rgba(26, 74, 58, 0.08);
-  --shadow-strong: 0 8px 32px rgba(26, 74, 58, 0.12);
 }
 
 /* ============================================================
-   VARIABLES — MODE SOMBRE (FORCEES)
+   MODE SOMBRE HAUT CONTRASTE (ZÉRO GRIS ILLISIBLE)
 ============================================================ */
 
 html.dark,
 html[data-theme='dark'] {
-  --color-background: #0f1713 !important;
-  --color-surface: #17231d !important;
-  --color-surface-soft: #1d2d25 !important;
-  --color-text: #f4f7f5 !important;
-  --color-text-light: #a8b6b0 !important;
-  --color-border: #2c3f35 !important;
-
-  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
-  --shadow-strong: 0 14px 40px rgba(0, 0, 0, 0.6) !important;
+  --color-background: #080c0a !important; /* Noir/Vert très profond */
+  --color-surface: #121c16 !important;     /* Cartes bien détachées */
+  --color-surface-soft: #1a2922 !important;/* Éléments secondaires */
+  --color-text: #ffffff !important;        /* TEXTE BLANC PUR */
+  --color-text-light: #d1d5db !important;  /* TEXTE GRIS TRÈS CLAIR (Lisible) */
+  --color-border: #24382e !important;      /* Bordures nettes */
   color-scheme: dark !important;
-}
-
-/* ============================================================
-   BASE
-============================================================ */
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  background-color: var(--color-background);
 }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
   background-color: var(--color-background);
   color: var(--color-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-#root {
-  min-height: 100vh;
-  background-color: var(--color-background);
-}
-
-/* ============================================================
-   🟢 CORRECTIFS DE FORCE POUR LE MODE SOMBRE
-============================================================ */
-
+/* Forçage global des éléments en mode sombre pour éviter les contrastes cassés */
 html.dark body,
-html[data-theme='dark'] body,
 html.dark #root,
-html[data-theme='dark'] #root,
-html.dark main,
-html[data-theme='dark'] main {
-  background-color: #0f1713 !important;
-  color: #f4f7f5 !important;
+html.dark main {
+  background-color: #080c0a !important;
+  color: #ffffff !important;
 }
 
+/* Forçage des cartes et blocs blancs */
 html.dark .bg-white,
 html[data-theme='dark'] .bg-white,
 html.dark .bg-white\/90,
-html[data-theme='dark'] .bg-white\/90,
 html.dark .bg-white\/80,
-html[data-theme='dark'] .bg-white\/80,
-html.dark .bg-white\/70,
-html[data-theme='dark'] .bg-white\/70 {
-  background-color: #17231d !important;
-  color: #f4f7f5 !important;
+html.dark .card {
+  background-color: #121c16 !important;
+  color: #ffffff !important;
+  border-color: #24382e !important;
 }
 
+/* Forçage des blocs gris */
 html.dark .bg-gray-50,
-html[data-theme='dark'] .bg-gray-50,
-html.dark .bg-gray-100,
-html[data-theme='dark'] .bg-gray-100,
-html.dark .bg-gray-50\/50,
-html[data-theme='dark'] .bg-gray-50\/50,
-html.dark .bg-gray-50\/80,
-html[data-theme='dark'] .bg-gray-50\/80 {
-  background-color: #1d2d25 !important;
+html.dark .bg-gray-100 {
+  background-color: #1a2922 !important;
+  color: #ffffff !important;
 }
 
+/* Forçage de tous les textes sombres en Blanc Pur ou Gris clair lumineux */
 html.dark .text-gray-900,
-html[data-theme='dark'] .text-gray-900,
 html.dark .text-gray-800,
-html[data-theme='dark'] .text-gray-800,
 html.dark .text-gray-700,
-html[data-theme='dark'] .text-gray-700 {
-  color: #f4f7f5 !important;
+html.dark h1, html.dark h2, html.dark h3, html.dark h4 {
+  color: #ffffff !important;
 }
 
 html.dark .text-gray-600,
-html[data-theme='dark'] .text-gray-600,
 html.dark .text-gray-500,
-html[data-theme='dark'] .text-gray-500,
-html.dark .text-gray-400,
-html[data-theme='dark'] .text-gray-400 {
-  color: #a8b6b0 !important;
+html.dark .text-gray-400 {
+  color: #d1d5db !important; /* Gris clair très lisible */
 }
 
+/* Forçage des bordures */
 html.dark .border,
-html[data-theme='dark'] .border,
 html.dark .border-gray-100,
-html[data-theme='dark'] .border-gray-100,
 html.dark .border-gray-200,
-html[data-theme='dark'] .border-gray-200,
-html.dark .border-black\/5,
-html[data-theme='dark'] .border-black\/5 {
-  border-color: #2c3f35 !important;
+html.dark .border-black\/5 {
+  border-color: #24382e !important;
 }
 
+/* Champs de formulaires et inputs en mode sombre */
 html.dark input,
 html.dark textarea,
-html.dark select,
-html[data-theme='dark'] input,
-html[data-theme='dark'] textarea,
-html[data-theme='dark'] select {
-  background-color: #1d2d25 !important;
-  color: #f4f7f5 !important;
-  border-color: #2c3f35 !important;
+html.dark select {
+  background-color: #1a2922 !important;
+  color: #ffffff !important;
+  border-color: #284235 !important;
 }
 
 html.dark input::placeholder,
-html.dark textarea::placeholder,
-html[data-theme='dark'] input::placeholder,
-html[data-theme='dark'] textarea::placeholder {
-  color: #a8b6b0 !important;
-  opacity: 0.65;
+html.dark textarea::placeholder {
+  color: #9ca3af !important;
+  opacity: 0.8;
 }
 
-html.dark .hover\:bg-gray-50:hover,
-html[data-theme='dark'] .hover\:bg-gray-50:hover,
-html.dark .hover\:bg-gray-100:hover,
-html[data-theme='dark'] .hover\:bg-gray-100:hover {
-  background-color: #25382e !important;
-}
-
-html.dark .card,
-html[data-theme='dark'] .card {
-  background-color: #17231d !important;
-  color: #f4f7f5 !important;
-  border-color: #2c3f35 !important;
-}
-
-html.dark [class*="shadow"],
-html[data-theme='dark'] [class*="shadow"] {
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45) !important;
-}
-
-/* ============================================================
-   COMPOSANTS & UTILS
-============================================================ */
-
-@layer components {
-  .btn-primary {
-    background-color: var(--color-primary);
-    color: white;
-    padding: 0.75rem 1.5rem;
-    border-radius: 0.75rem;
-    font-weight: 500;
-    transition: all 0.2s;
-  }
-
-  .btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    transform: translateY(-2px);
-  }
-
-  .card {
-    background: var(--color-surface);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: var(--shadow-soft);
-    border: 1px solid var(--color-border);
-    transition: all 0.3s;
-  }
-
-  .card:hover {
-    box-shadow: var(--shadow-strong);
-    transform: translateY(-4px);
-  }
-
-  .input-field {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    border: 2px solid var(--color-border);
-    outline: none;
-    transition: all 0.2s;
-    background: var(--color-surface);
-    color: var(--color-text);
-  }
-
-  .input-field:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 4px rgba(26, 74, 58, 0.1);
-  }
-}
-
-/* ============================================================
-   SCROLLBAR MASQUÉE
-============================================================ */
-
-::-webkit-scrollbar {
-  width: 0px;
-  height: 0px;
-  background: transparent;
-}
-
-* {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-html,
-body {
-  overflow-y: scroll;
-  scrollbar-width: none;
-}
-
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none;
-}
-
-.overflow-y-auto,
-.overflow-x-auto,
-.overflow-auto {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.overflow-y-auto::-webkit-scrollbar,
-.overflow-x-auto::-webkit-scrollbar,
-.overflow-auto::-webkit-scrollbar {
-  display: none;
-  width: 0px;
-  height: 0px;
-}
-
-/* ============================================================
-   ANIMATIONS
-============================================================ */
-
-@keyframes pulse-marker {
-  0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-  70% { box-shadow: 0 0 0 15px rgba(255, 0, 0, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
-}
-
-.animate-pulse-marker {
-  animation: pulse-marker 1.5s ease-in-out infinite;
-}
-
-/* ============================================================
-   MODALES EN MODE SOMBRE
-============================================================ */
-
-html.dark .modal-card,
-html[data-theme='dark'] .modal-card,
-html.dark .modal-header,
-html[data-theme='dark'] .modal-header,
-html.dark .modal-body,
-html[data-theme='dark'] .modal-body,
-html.dark .modal-footer,
-html[data-theme='dark'] .modal-footer {
-  background-color: #17231d !important;
-  color: #f4f7f5 !important;
-  border-color: #2c3f35 !important;
-}
-
-.shimmer {
-  position: relative;
-  overflow: hidden;
-}
-
-.shimmer::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.15),
-    transparent
-  );
-  transform: translateX(-100%);
-  animation: shimmer 1.4s infinite;
-}
-
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.map-container-wrapper {
-  width: 100%;
-  height: 600px;
-  position: relative;
-  background-color: var(--color-background);
-}
-
-.maplibregl-map {
-  width: 100% !important;
-  height: 100% !important;
-  background-color: var(--color-surface) !important;
-}
-
-.maplibregl-canvas {
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 0px; height: 0px; background: transparent; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
