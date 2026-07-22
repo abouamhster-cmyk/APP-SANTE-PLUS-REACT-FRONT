@@ -56,7 +56,7 @@ export const Modal = ({
   const brand = useBranding();
   const colors = brand.colors;
 
-  // 💡 Verrouillage robuste du défilement d'arrière-plan (HTML + Body) contre le scroll sur mobile
+  // Verrouillage du défilement d'arrière-plan
   useEffect(() => {
     if (isOpen) {
       document.documentElement.style.overflow = 'hidden';
@@ -80,21 +80,17 @@ export const Modal = ({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, onClose]);
 
-  // Sécurité SSR
   if (typeof window === 'undefined') return null;
 
-  // 💡 createPortal détache la modale de l'arborescence parente pour l'injecter directement sous document.body [23]
   return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div
-          /* ✅ CORRECTIF DU CALQUE MOBILE : items-end sur mobile pour agir en Bottom Sheet et items-center sur bureau [23] */
           className="fixed inset-0 z-[99999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-md overflow-hidden pointer-events-auto animate-fadeIn"
           onClick={closeOnOverlayClick ? onClose : undefined}
         >
           <motion.div
             ref={modalRef}
-            /* ✅ CORRECTIF D'ARROUNDI MOBILE : rounded-t-[2rem] pour épouser le bas de l'écran mobile, arrondi complet sur bureau [23] */
             className={cn(
               'relative w-full bg-white dark:bg-[#17231d] rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border max-h-[92vh] sm:max-h-[90vh]',
               MAX_WIDTH_CLASSES[maxWidth],
@@ -109,7 +105,7 @@ export const Modal = ({
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* INDICATION DE GLISSEMENT MOBILE */}
+            {/* Indication de glissement mobile */}
             <div 
               className="w-12 h-1 rounded-full mx-auto mt-2.5 sm:hidden shrink-0"
               style={{ backgroundColor: colors.primary + '30' }}
@@ -162,7 +158,7 @@ export const Modal = ({
               )}
             </div>
 
-            {/* BODY (Scrollable avec momentum tactile) */}
+            {/* BODY */}
             <div 
               className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 overscroll-contain"
               style={{ color: colors.text, WebkitOverflowScrolling: 'touch' }}
@@ -209,7 +205,6 @@ export const ModalActions = ({
   confirmLabel = 'Confirmer',
   isLoading = false,
   confirmColor,
-  confirmButtonType = 'button',
   children,
 }: ModalActionsProps) => {
   const brand = useBranding();
@@ -241,9 +236,9 @@ export const ModalActions = ({
 
           {onConfirm && (
             <button
-              type={confirmButtonType}
-              onClick={confirmButtonType === 'button' ? onConfirm : undefined}
-              className="flex-1 text-white font-extrabold flex items-center justify-center gap-2 transition hover:opacity-95 active:scale-[0.98] text-xs sm:text-sm disabled:opacity-55 shadow-md"
+              type="button"
+              onClick={onConfirm}
+              className="flex-1 text-white font-extrabold flex items-center justify-center gap-2 transition hover:opacity-95 active:scale-[0.98] text-xs sm:text-sm disabled:opacity-55 shadow-md rounded-2xl"
               style={{
                 background: isLoading ? colors.textLight : buttonColor,
                 height: '44px',
@@ -338,7 +333,7 @@ export const ModalWithConfirm = ({
 };
 
 // ============================================================
-// 4️⃣ SPECIALISATION : MODAL FORMULAIRE
+// 4️⃣ SPECIALISATION : MODAL FORMULAIRE (CORRIGÉ POUR PROMAL)
 // ============================================================
 
 interface ModalWithFormProps {
@@ -368,10 +363,23 @@ export const ModalWithForm = ({
   isLoading = false,
   className,
 }: ModalWithFormProps) => {
+  const formRef = useRef<HTMLFormElement>(null);
+
   if (!isOpen) return null;
 
+  // ✅ Forçage de la soumission du formulaire et validation des champs HTML5
+  const handleConfirm = () => {
+    if (formRef.current) {
+      if (typeof formRef.current.requestSubmit === 'function') {
+        formRef.current.requestSubmit();
+      } else {
+        formRef.current.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      }
+    }
+  };
+
   return (
-    <form onSubmit={onSubmit} className="contents">
+    <form ref={formRef} onSubmit={onSubmit} className="contents">
       <Modal
         isOpen={isOpen}
         onClose={onClose}
@@ -382,8 +390,7 @@ export const ModalWithForm = ({
         actions={
           <ModalActions
             onCancel={onClose}
-            onConfirm={onSubmit as any}
-            confirmButtonType="submit"
+            onConfirm={handleConfirm}
             confirmLabel={confirmLabel}
             cancelLabel={cancelLabel}
             isLoading={isLoading}
