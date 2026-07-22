@@ -1,6 +1,5 @@
 // 📁 src/lib/branding.ts
-
-
+ 
 export type BrandTheme = 'senior' | 'maman' | 'aidant' | 'coordinator' | 'admin' | 'general';
 
 export interface BrandColors {
@@ -40,10 +39,6 @@ export interface BrandConfig {
   cssVariables: Record<string, string>;
 }
 
-// ============================================================
-// LOGOS PAR THEME (Vert Forêt Général par défaut, Rose pour maman uniquement) [24]
-// ============================================================
-
 const LOGOS = {
   general: {
     icon: '/assets/images/logos/logo-general-icon.png',
@@ -77,12 +72,7 @@ const LOGOS = {
   },
 };
 
-// ============================================================
-// COULEURS UNIFIÉES (Or supprimé, Général mappé sur le Vert Forêt) [24]
-// ============================================================
-
 const COLORS: Record<BrandTheme, BrandColors> = {
-  // 🟢 COMPTE SENIOR : Vert sauge relaxant et protecteur
   senior: {
     primary: '#2c6e5c',
     primaryDark: '#1a4a3a',
@@ -106,7 +96,6 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     banner: '/assets/images/banners/senior-banner.png',
     visitImage: '/assets/images/banners/senior-visit.png',
   },
-  // 🟢 COMPTE MAMAN : Rose-argile apaisant (Unique exception de couleur) 
   maman: {
     primary: '#db4a6d',
     primaryDark: '#c62850',
@@ -130,14 +119,13 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     banner: '/assets/images/banners/maman-banner.png',
     visitImage: '/assets/images/banners/maman-visit.png',
   },
-  // 🟢 COMPTE PERSONNEL / GENERAL : Mappé d'office sur le Vert Forêt officiel (Suppression de l'Or) [24]
   general: {
-    primary: '#1a4a3a', // Vert forêt
+    primary: '#1a4a3a',
     primaryDark: '#0d2a22',
     primaryLight: '#2a6a4a',
     secondary: '#c9a84c',
     secondaryLight: '#dcc07a',
-    background: '#f5f0e8', // Sable crème doux sans effet clignotant
+    background: '#f5f0e8',
     surface: '#ffffff',
     surfaceSoft: '#faf7f1',
     text: '#2d2d2d',
@@ -154,7 +142,6 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     banner: '/assets/images/banners/senior-banner.png',
     visitImage: '/assets/images/banners/senior-visit.png',
   },
-  // 🟢 COMPTE AIDANT (Rôle Intervenant) : Bleu ardoise professionnel (Uniquement visible connecté) [24]
   aidant: {
     primary: '#1f485c',
     primaryDark: '#112b3a',
@@ -178,7 +165,6 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     banner: '/assets/images/banners/aidant-banner.png',
     visitImage: '/assets/images/banners/aidant-visit.png',
   },
-  // 🟢 COMPTE COORDINATOR : Vert forêt institutionnel de confiance
   coordinator: {
     primary: '#1a4a3a',
     primaryDark: '#0d2a22',
@@ -202,7 +188,6 @@ const COLORS: Record<BrandTheme, BrandColors> = {
     banner: '/assets/images/banners/coord-banner.png',
     visitImage: '/assets/images/banners/coord-visit.png',
   },
-  // 🟢 COMPTE ADMIN : Vert forêt institutionnel de confiance
   admin: {
     primary: '#1a4a3a',
     primaryDark: '#0d2a22',
@@ -228,9 +213,20 @@ const COLORS: Record<BrandTheme, BrandColors> = {
   },
 };
 
-// ============================================================
-// FONCTIONS PRINCIPALES
-// ============================================================
+export const isDarkModeActive = (): boolean => {
+  try {
+    const darkSetting = localStorage.getItem('sante_plus_dark_mode');
+    if (darkSetting !== null) return darkSetting === 'true';
+    const prefs = localStorage.getItem('sante_plus_preferences');
+    if (prefs) {
+      const parsed = JSON.parse(prefs);
+      if (typeof parsed.darkMode === 'boolean') return parsed.darkMode;
+    }
+    return document.documentElement.classList.contains('dark');
+  } catch {
+    return false;
+  }
+};
 
 export const getBrandTheme = (
   role: string | null,
@@ -249,9 +245,33 @@ export const getBrandTheme = (
 };
 
 export const getBrandConfig = (theme: BrandTheme): BrandConfig => {
-  const colors = COLORS[theme] || COLORS.general;
+  const isDark = isDarkModeActive();
+  const baseColors = COLORS[theme] || COLORS.general;
   const logo = LOGOS[theme] || LOGOS.general;
-  
+
+  // ✅ ADAPTATION DES COULEURS EN MODE SOMBRE (TEXTES BLANCS/BEIGES, MENTHE ÉCLATANTE, JAUNE OR & VIOLET)
+  const colors: BrandColors = isDark
+    ? {
+        ...baseColors,
+        primary: '#34d399',        // Vert Menthe ultra lumineux (ultra lisible sur fond sombre)
+        primaryDark: '#059669',
+        primaryLight: '#6ee7b7',
+        secondary: '#fbbf24',      // Jaune Or lumineux
+        secondaryLight: '#fde047',
+        background: '#0a120e',     // Fond sombre profond
+        surface: '#14221b',        // Surface des cartes sombre
+        surfaceSoft: '#1e2e26',    // Surface secondaire
+        text: '#ffffff',           // BLANC PUR pour tous les titres et textes
+        textLight: '#e5e7eb',      // BEIGE/GRIS CLAIR LISIBLE pour sous-titres
+        border: '#283c32',         // Bordure sombre lisible
+        accent: '#a78bfa',         // Violet lumineux pour les accents
+        gold: '#fbbf24',           // Jaune Or
+        shadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+        shadowHover: '0 8px 32px rgba(0, 0, 0, 0.6)',
+        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      }
+    : baseColors;
+
   return {
     theme,
     colors,
@@ -286,23 +306,22 @@ export const getBrandConfigByRole = (
 
 export const applyBrandTheme = (config: BrandConfig): void => {
   const root = document.documentElement;
-  
+  const isDark = isDarkModeActive();
+
+  root.classList.toggle('dark', isDark);
+  root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+
   Object.entries(config.cssVariables).forEach(([key, value]) => {
     root.style.setProperty(key, value);
   });
-  
+
   const metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {
     metaTheme.setAttribute('content', config.colors.primary);
   }
-  
-  const favicon = document.querySelector('link[rel="icon"]');
-  if (favicon) {
-    favicon.setAttribute('href', config.favicon);
-  }
-  
-  root.className = `theme-${config.theme}`;
+
   localStorage.setItem('sante_plus_theme', config.theme);
+  localStorage.setItem('sante_plus_dark_mode', String(isDark));
 };
 
 export default {
@@ -310,6 +329,7 @@ export default {
   getBrandConfig,
   getBrandConfigByRole,
   applyBrandTheme,
+  isDarkModeActive,
   COLORS,
   LOGOS,
 };
