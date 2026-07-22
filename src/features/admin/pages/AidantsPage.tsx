@@ -1,6 +1,5 @@
 // 📁 src/features/admin/pages/AidantsPage.tsx
-// ✅ ANNUAIRE AIDANTS : BOUTON ROUGE "DÉSASSIGNER" EN CLAIR POUR CHAQUE ASSIGNATION
-
+ 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { assignmentAPI, authAPI } from '@/lib/api';
@@ -21,7 +20,6 @@ import {
   Phone,
   Mail,
   UserMinus,
-  Trash2
 } from 'lucide-react';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
@@ -230,17 +228,17 @@ const AidantsPage = () => {
     }
   };
 
-  // ✅ ACTION DE DÉSASSIGNATION RÉELLE ET SÉCURISÉE
+  // ✅ DÉSASSIGNATION RÉACTIVE AVEC MISE À JOUR INSTANTANÉE EN DIRECT DANS LA MODALE
   const handleRevokeAssignmentFromModal = async (assignmentId: string, targetName: string) => {
     if (!window.confirm(`Voulez-vous vraiment désassigner cet intervenant de ${targetName} ?`)) return;
 
+    setProcessingId(assignmentId);
     try {
-      // 1. Essayer via l'API
       try {
         await assignmentAPI.revoke(assignmentId, `Désassignation par l'admin (${profile?.full_name})`);
       } catch (apiErr) {
-        // Fallback SQL Supabase direct
-        const { error } = await supabase
+        // Fallback Supabase
+        await supabase
           .from('aidant_assignments')
           .update({ 
             status: 'inactive', 
@@ -249,16 +247,33 @@ const AidantsPage = () => {
             revocation_reason: 'Révocation par l\'administrateur'
           })
           .eq('id', assignmentId);
-
-        if (error) throw error;
       }
 
-      toast.success(`Intervenant désassigné de ${targetName} avec succès !`);
-      setShowDetailsModal(false);
+      toast.success(`Intervenant désassigné de ${targetName} !`);
+
+      // 🪄 MISE À JOUR EN DIRECT DE LA MODALE : La ligne disparaît immédiatement !
+      if (selectedAidant?.user_id) {
+        const uId = selectedAidant.user_id;
+        setAssignmentsMap((prev) => ({
+          ...prev,
+          [uId]: (prev[uId] || []).filter((a) => a.id !== assignmentId),
+        }));
+
+        setSelectedAidant((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            current_assignments: Math.max(0, (prev.current_assignments || 1) - 1),
+          };
+        });
+      }
+
       await fetchAidants();
     } catch (error: any) {
       console.error('❌ Erreur désassignation:', error);
-      toast.error('Erreur lors de la désassignation: ' + (error.message || 'Erreur serveur'));
+      toast.error('Erreur lors de la désassignation');
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -472,7 +487,7 @@ const AidantsPage = () => {
         </div>
       )}
 
-      {/* ✅ MODALE DÉTAILS AVEC BOUTON ROUGE "DÉSASSIGNER" EN CLAIR SUR CHAQUE LIGNE */}
+      {/* ✅ MODALE DÉTAILS AVEC DISPARITION EN DIRECT DE L'ASSIGNATION SUPPRIMÉE */}
       {showDetailsModal && selectedAidant && (
         <Modal isOpen={true} onClose={() => setShowDetailsModal(false)} title="🦸 Dossier d'intervenant (360°)" maxWidth="lg">
           <div className="space-y-4 text-xs pt-1">
@@ -502,52 +517,67 @@ const AidantsPage = () => {
               <InfoRow label="Inscrit le" value={formatDate(selectedAidant.created_at)} />
             </div>
 
-            {/* ✅ SECTION ASSIGNATIONS ACTIVES AVEC BOUTON ROUGE EXPLICITE */}
-            {selectedAidant.user_id && assignmentsMap[selectedAidant.user_id]?.length > 0 && (
+            {/* ✅ SECTION ASSIGNATIONS ACTIVES MISE À JOUR EN DIRECT */}
+            {selectedAidant.user_id && assignmentsMap[selectedAidant.user_id]?.length > 0 ? (
               <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100 space-y-2">
                 <p className="font-extrabold text-blue-900 text-xs flex items-center gap-1">
                   <Users size={13} /> Assignations actives ({assignmentsMap[selectedAidant.user_id].length})
                 </p>
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {assignmentsMap[selectedAidant.user_id].map((assignment) => (
-                    <div
-                      key={assignment.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-blue-100 text-[11px] gap-2"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-black text-gray-800 truncate">
-                          👤 {assignment.target_name}
-                        </p>
-                        <p className="text-[9px] text-gray-400 font-semibold">
-                          {assignment.target_type === 'patient' ? 'Proche accompagné' : 'Compte personnel'}
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span
-                          className="px-2 py-0.5 rounded-full text-[8px] font-black"
-                          style={{
-                            background: getAssignmentTypeColor(assignment.assignment_type) + '15',
-                            color: getAssignmentTypeColor(assignment.assignment_type),
-                          }}
-                        >
-                          {getAssignmentTypeLabel(assignment.assignment_type)}
-                        </span>
+                  {assignmentsMap[selectedAidant.user_id].map((assignment) => {
+                    const isBusyItem = processingId === assignment.id;
 
-                        {/* 🔴 BOUTON DÉSASSIGNER CLAIR ET TRÈS VISIBLE */}
-                        <button
-                          type="button"
-                          onClick={() => handleRevokeAssignmentFromModal(assignment.id, assignment.target_name)}
-                          className="px-2.5 py-1 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-black text-[10px] border border-red-200 transition-all flex items-center gap-1 shadow-sm"
-                          title="Désassigner cet intervenant"
-                        >
-                          <UserMinus size={12} />
-                          <span>Désassigner</span>
-                        </button>
+                    return (
+                      <div
+                        key={assignment.id}
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-blue-100 text-[11px] gap-2 transition-all"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="font-black text-gray-800 truncate">
+                            👤 {assignment.target_name}
+                          </p>
+                          <p className="text-[9px] text-gray-400 font-semibold">
+                            {assignment.target_type === 'patient' ? 'Proche accompagné' : 'Compte personnel'}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className="px-2 py-0.5 rounded-full text-[8px] font-black"
+                            style={{
+                              background: getAssignmentTypeColor(assignment.assignment_type) + '15',
+                              color: getAssignmentTypeColor(assignment.assignment_type),
+                            }}
+                          >
+                            {getAssignmentTypeLabel(assignment.assignment_type)}
+                          </span>
+
+                          {/* 🔴 BOUTON DÉSASSIGNER AVEC INDICATEUR DE CHARGEMENT */}
+                          <button
+                            type="button"
+                            disabled={isBusyItem}
+                            onClick={() => handleRevokeAssignmentFromModal(assignment.id, assignment.target_name)}
+                            className="px-2.5 py-1 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-black text-[10px] border border-red-200 transition-all flex items-center gap-1 shadow-sm disabled:opacity-50"
+                            title="Désassigner cet intervenant"
+                          >
+                            {isBusyItem ? (
+                              <Loader2 size={12} className="animate-spin text-red-600" />
+                            ) : (
+                              <>
+                                <UserMinus size={12} />
+                                <span>Désassigner</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-gray-50 rounded-2xl border text-center text-gray-400 font-semibold">
+                Aucune assignation active pour cet intervenant.
               </div>
             )}
 
