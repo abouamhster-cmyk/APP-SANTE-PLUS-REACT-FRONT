@@ -1,11 +1,27 @@
 // 📁 src/features/profile/pages/ProfilePage.tsx
- 
+// ✅ PAGE PROFIL CORRIGÉE POUR TSC & VERCEL BUILD
+
 import { useState, useEffect } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Mail, Phone, Camera, LogOut, Lock, Bell, Moon, Sun,
-  Trash2, X, AlertCircle, ShieldCheck, User, Settings, Key, Loader2
+  Mail,
+  Phone,
+  Camera,
+  LogOut,
+  Lock,
+  Bell,
+  Moon,
+  Sun,
+  Trash2,
+  X,
+  AlertCircle,
+  ShieldCheck,
+  User,
+  Settings,
+  Key,
+  Loader2,
+  ChevronRight,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -21,8 +37,15 @@ type ProfileTab = 'profile' | 'settings' | 'security';
 
 const STORAGE_KEY = 'sante_plus_preferences';
 
-const getInitials = (name: string) =>
-  name?.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+const getInitials = (name: string): string => {
+  if (!name) return 'U';
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
 
 const sanitizeFileName = (name: string): string => {
   return name
@@ -35,6 +58,7 @@ const ProfilePage = () => {
   const navigate = useNavigate();
   const brand = useBranding();
   const colors = brand.colors;
+
   const { profile, role, logout, updateProfile, refreshProfile } = useAuthStore();
   const { patients, fetchPatients } = usePatientStore();
   const { visits, fetchVisits } = useVisitStore();
@@ -109,7 +133,7 @@ const ProfilePage = () => {
 
         if (uploadError) throw new Error(uploadError.message);
 
-        avatarUrl = supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl + `?v=${Date.now()}`;
+        avatarUrl = `${supabase.storage.from('avatars').getPublicUrl(fileName).data.publicUrl}?v=${Date.now()}`;
       }
 
       await updateProfile({
@@ -224,10 +248,13 @@ const ProfilePage = () => {
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-20 p-3 sm:p-4">
       {/* CARTE EN-TÊTE PROFIL */}
-      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border" style={{ borderColor: colors.primary + '15' }}>
+      <section className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border" style={{ borderColor: `${colors.primary}25` }}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-5">
           <div className="relative mx-auto sm:mx-0">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl font-black text-white overflow-hidden shadow-sm" style={{ background: colors.primary }}>
+            <div
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center text-2xl font-black text-white overflow-hidden shadow-sm"
+              style={{ backgroundColor: colors.primary }}
+            >
               {avatarPreview && !imageError ? (
                 <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" onError={() => setImageError(true)} />
               ) : (
@@ -235,7 +262,10 @@ const ProfilePage = () => {
               )}
             </div>
             {isEditing && (
-              <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer border hover:scale-105 transition" style={{ color: colors.primary }}>
+              <label
+                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-white shadow-md flex items-center justify-center cursor-pointer border hover:scale-105 transition"
+                style={{ color: colors.primary }}
+              >
                 <Camera size={15} />
                 <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
               </label>
@@ -250,8 +280,12 @@ const ProfilePage = () => {
               <ShieldCheck size={14} /> {getRoleLabel()}
             </p>
             <div className="flex flex-wrap justify-center sm:justify-start gap-3 mt-2 text-xs text-gray-500">
-              <span className="flex items-center gap-1"><Mail size={13} /> {profile?.email || '-'}</span>
-              <span className="flex items-center gap-1"><Phone size={13} /> {profile?.phone || 'Non renseigné'}</span>
+              <span className="flex items-center gap-1">
+                <Mail size={13} /> {profile?.email || '-'}
+              </span>
+              <span className="flex items-center gap-1">
+                <Phone size={13} /> {profile?.phone || 'Non renseigné'}
+              </span>
             </div>
           </div>
 
@@ -264,15 +298,21 @@ const ProfilePage = () => {
         <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t text-center">
           <div>
             <span className="text-xs font-bold text-gray-400 block">Proches</span>
-            <span className="text-base font-black" style={{ color: colors.primary }}>{patients.length}</span>
+            <span className="text-base font-black" style={{ color: colors.primary }}>
+              {patients.length}
+            </span>
           </div>
           <div>
             <span className="text-xs font-bold text-gray-400 block">Visites</span>
-            <span className="text-base font-black" style={{ color: colors.primary }}>{visits.length}</span>
+            <span className="text-base font-black" style={{ color: colors.primary }}>
+              {visits.length}
+            </span>
           </div>
           <div>
             <span className="text-xs font-bold text-gray-400 block">Commandes</span>
-            <span className="text-base font-black" style={{ color: colors.primary }}>{orders.length}</span>
+            <span className="text-base font-black" style={{ color: colors.primary }}>
+              {orders.length}
+            </span>
           </div>
         </div>
       </section>
@@ -281,9 +321,24 @@ const ProfilePage = () => {
       {isEditing && (
         <section className="bg-white rounded-3xl p-5 border shadow-sm space-y-3">
           <h3 className="text-xs font-bold uppercase text-gray-400">Editer mes coordonnées</h3>
-          <input value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} className="w-full p-3 rounded-2xl border text-xs font-bold bg-gray-50 outline-none" placeholder="Nom complet" />
-          <input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full p-3 rounded-2xl border text-xs font-bold bg-gray-50 outline-none" placeholder="Téléphone" />
-          <button onClick={handleSaveProfile} disabled={isLoading} className="w-full py-3 rounded-2xl text-white font-bold text-xs flex justify-center items-center gap-2" style={{ background: colors.primary }}>
+          <input
+            value={formData.full_name}
+            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+            className="w-full p-3 rounded-2xl border text-xs font-bold bg-gray-50 outline-none"
+            placeholder="Nom complet"
+          />
+          <input
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            className="w-full p-3 rounded-2xl border text-xs font-bold bg-gray-50 outline-none"
+            placeholder="Téléphone"
+          />
+          <button
+            onClick={handleSaveProfile}
+            disabled={isLoading}
+            className="w-full py-3 rounded-2xl text-white font-bold text-xs flex justify-center items-center gap-2"
+            style={{ backgroundColor: colors.primary }}
+          >
             {isLoading && <Loader2 className="animate-spin" size={14} />} Enregistrer
           </button>
         </section>
@@ -291,28 +346,58 @@ const ProfilePage = () => {
 
       {/* TAB NAVIGATION */}
       <div className="flex bg-gray-100 p-1 rounded-2xl w-fit">
-        <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'profile' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>Profil</button>
-        <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'settings' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>Préférences</button>
-        <button onClick={() => setActiveTab('security')} className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'security' ? 'bg-white shadow-sm' : 'text-gray-500'}`}>Sécurité</button>
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'profile' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+        >
+          Profil
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'settings' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+        >
+          Préférences
+        </button>
+        <button
+          onClick={() => setActiveTab('security')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold ${activeTab === 'security' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+        >
+          Sécurité
+        </button>
       </div>
 
       {/* CONTENU ONGLETS */}
       <section className="bg-white rounded-3xl p-5 border shadow-sm space-y-3">
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="p-3 bg-gray-50 rounded-2xl"><span className="text-gray-400 block font-bold">Inscrit le</span><span className="font-bold text-gray-800">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'}</span></div>
-            <div className="p-3 bg-gray-50 rounded-2xl"><span className="text-gray-400 block font-bold">Compte</span><span className="font-bold text-emerald-600">Actif 🟢</span></div>
+            <div className="p-3 bg-gray-50 rounded-2xl">
+              <span className="text-gray-400 block font-bold">Inscrit le</span>
+              <span className="font-bold text-gray-800">{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : '-'}</span>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-2xl">
+              <span className="text-gray-400 block font-bold">Compte</span>
+              <span className="font-bold text-emerald-600">Actif 🟢</span>
+            </div>
           </div>
         )}
 
         {activeTab === 'settings' && (
           <div className="space-y-3">
             <button onClick={handleToggleNotifications} className="w-full flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50">
-              <div className="flex items-center gap-3"><Bell size={16} /><span className="text-xs font-bold">Notifications Push</span></div>
-              <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${formData.notifications ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>{formData.notifications ? 'Activées' : 'Désactivées'}</span>
+              <div className="flex items-center gap-3">
+                <Bell size={16} />
+                <span className="text-xs font-bold">Notifications Push</span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${formData.notifications ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-600'}`}>
+                {formData.notifications ? 'Activées' : 'Désactivées'}
+              </span>
             </button>
+
             <button onClick={handleToggleDarkMode} className="w-full flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50">
-              <div className="flex items-center gap-3">{formData.darkMode ? <Moon size={16} /> : <Sun size={16} /><span className="text-xs font-bold">Mode sombre</span></div>
+              <div className="flex items-center gap-3">
+                {formData.darkMode ? <Moon size={16} /> : <Sun size={16} />}
+                <span className="text-xs font-bold">Mode sombre</span>
+              </div>
               <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-gray-100">{formData.darkMode ? 'Oui' : 'Non'}</span>
             </button>
           </div>
@@ -321,11 +406,18 @@ const ProfilePage = () => {
         {activeTab === 'security' && (
           <div className="space-y-3">
             <button onClick={() => setShowPasswordModal(true)} className="w-full flex items-center justify-between p-3.5 border rounded-2xl hover:bg-gray-50 text-xs font-bold">
-              <div className="flex items-center gap-3"><Key size={16} /><span>Changer le mot de passe</span></div>
-              <span>Modifier ➔</span>
+              <div className="flex items-center gap-3">
+                <Key size={16} />
+                <span>Changer le mot de passe</span>
+              </div>
+              <ChevronRight size={16} className="text-gray-400" />
             </button>
+
             <button onClick={() => setShowDeleteModal(true)} className="w-full flex items-center justify-between p-3.5 border border-red-200 bg-red-50 text-red-600 rounded-2xl text-xs font-bold">
-              <div className="flex items-center gap-3"><Trash2 size={16} /><span>Supprimer définitivement le compte</span></div>
+              <div className="flex items-center gap-3">
+                <Trash2 size={16} />
+                <span>Supprimer définitivement le compte</span>
+              </div>
             </button>
           </div>
         )}
@@ -342,14 +434,42 @@ const ProfilePage = () => {
           <form onSubmit={handleChangePassword} className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
             <div className="flex justify-between items-center">
               <h3 className="font-bold text-sm">Mot de passe</h3>
-              <button type="button" onClick={() => setShowPasswordModal(false)}><X size={16} /></button>
+              <button type="button" onClick={() => setShowPasswordModal(false)}>
+                <X size={16} />
+              </button>
             </div>
-            <input type="password" placeholder="Mot de passe actuel" value={passwordData.currentPassword} onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required />
-            <input type="password" placeholder="Nouveau mot de passe" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required minLength={6} />
-            <input type="password" placeholder="Confirmer le mot de passe" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none" required />
+            <input
+              type="password"
+              placeholder="Mot de passe actuel"
+              value={passwordData.currentPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+              className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none"
+              required
+            />
+            <input
+              type="password"
+              placeholder="Nouveau mot de passe"
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+              className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none"
+              required
+              minLength={6}
+            />
+            <input
+              type="password"
+              placeholder="Confirmer le mot de passe"
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+              className="w-full p-3 rounded-xl border text-xs font-bold bg-gray-50 outline-none"
+              required
+            />
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">Annuler</button>
-              <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-xl text-white font-bold text-xs" style={{ background: colors.primary }}>{isLoading ? 'Changement...' : 'Changer'}</button>
+              <button type="button" onClick={() => setShowPasswordModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">
+                Annuler
+              </button>
+              <button type="submit" disabled={isLoading} className="flex-1 py-2.5 rounded-xl text-white font-bold text-xs" style={{ backgroundColor: colors.primary }}>
+                {isLoading ? 'Changement...' : 'Changer'}
+              </button>
             </div>
           </form>
         </div>
@@ -363,8 +483,12 @@ const ProfilePage = () => {
             <h3 className="font-black text-sm text-gray-800">Confirmer la suppression ?</h3>
             <p className="text-xs text-gray-500">Cette action supprimera irréversiblement votre profil et toutes vos données Supabase.</p>
             <div className="flex gap-2">
-              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">Annuler</button>
-              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold">{isLoading ? 'Suppression...' : 'Supprimer'}</button>
+              <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 rounded-xl border text-xs font-bold">
+                Annuler
+              </button>
+              <button onClick={handleDeleteAccount} disabled={isLoading} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold">
+                {isLoading ? 'Suppression...' : 'Supprimer'}
+              </button>
             </div>
           </div>
         </div>
