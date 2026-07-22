@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
-  Bell,
   User,
   LogOut,
   Settings,
@@ -38,27 +37,11 @@ const MainLayout = () => {
   const location = useLocation();
 
   const { profile, role, logout } = useAuthStore();
-  const { unreadCount, fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
-  const { visits } = useVisitStore();
-  const { hasActiveSubscription, remainingVisits } = useSubscriptionGuard();
-  const { isFamily } = useTerminology();
+  const { fetchNotifications, subscribe, unsubscribe } = useNotificationStore();
   const brand = useBranding();
   const colors = brand.colors;
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showHeader, setShowHeader] = useState(true);
-
-  const draftCount = visits.filter(v => v.status === 'brouillon').length;
-  const showDraftBadge = isFamily && draftCount > 0 && hasActiveSubscription && remainingVisits > 0;
-
-  const handleScroll = useCallback(() => {
-    setShowHeader(window.scrollY <= 20);
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -85,41 +68,14 @@ const MainLayout = () => {
     <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }}>
       {!isMobile && (
         <aside className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col" style={{ borderColor: colors.primary + '20' }}>
-          <SidebarContent navItems={navItems} locationPath={location.pathname} colors={colors} profile={profile} role={role} logoConfig={brand.logo} onLogout={() => { logout(); navigate('/login'); }} />
+          <SidebarContent navItems={navItems} locationPath={location.pathname} colors={colors} profile={profile} role={role} onLogout={() => { logout(); navigate('/login'); }} />
         </aside>
       )}
 
-      <div className="min-h-screen w-full md:pl-60">
-        {/* Header : DESKTOP uniquement. Sur mobile, la cloche est portée par l'en-tête du dashboard. */}
-        {!isMobile && (
-          <header
-            className={cn(
-              'fixed top-0 left-0 right-0 z-30 transition-all duration-300',
-              'bg-white/95 backdrop-blur-lg border-b px-6 py-4',
-              showHeader ? 'translate-y-0' : '-translate-y-full'
-            )}
-          >
-            <div className="flex items-center">
-              <h2 className="text-sm font-black truncate" style={{ color: colors.text }}>
-                Santé Plus Services
-              </h2>
-              <Link
-                to="/app/notifications"
-                className="relative p-2 rounded-xl border ml-auto"
-                style={{ borderColor: colors.primary + '20' }}
-              >
-                <Bell size={18} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 text-white text-[8px] flex items-center justify-center rounded-full font-bold">
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
-            </div>
-          </header>
-        )}
-
-        <main className={cn('w-full max-w-full pt-20 p-2', isMobile ? 'pb-28' : 'pb-8')}>
+      <div className="min-h-screen w-full md:pl-72">
+        {/* Le Header fixe a été supprimé pour laisser place à la gestion autonome des pages */}
+        
+        <main className={cn('w-full max-w-full pt-8 p-2', isMobile ? 'pb-28' : 'pb-8')}>
           <ReminderBanner />
           <Outlet />
         </main>
@@ -132,25 +88,9 @@ const MainLayout = () => {
 };
 
 // =============================================
-// SIDEBAR CONTENT AVEC RÉINTÉGRATION PROFIL
+// SIDEBAR CONTENT
 // =============================================
-const SidebarContent = ({ navItems, locationPath, colors, profile, role, logoConfig, onLogout }: any) => {
-  const getRoleIcon = () => {
-    if (role === 'aidant') return <Briefcase size={14} />;
-    if (role === 'family') return <Users size={14} />;
-    if (role === 'coordinator') return <UserCog size={14} />;
-    if (role === 'admin') return <Shield size={14} />;
-    return <User size={14} />;
-  };
-
-  const getRoleLabel = () => {
-    if (role === 'aidant') return 'Intervenant';
-    if (role === 'family') return 'Famille';
-    if (role === 'coordinator') return 'Coordinateur';
-    if (role === 'admin') return 'Administrateur';
-    return 'Utilisateur';
-  };
-
+const SidebarContent = ({ navItems, locationPath, colors, profile, role, onLogout }: any) => {
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="p-5 font-black text-lg" style={{ color: colors.primary }}>Santé Plus</div>
@@ -162,7 +102,6 @@ const SidebarContent = ({ navItems, locationPath, colors, profile, role, logoCon
         ))}
       </div>
 
-      {/* Bloc Profil Réintégré */}
       <div className="p-4 border-t space-y-3">
         <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition">
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: colors.primary }}>
