@@ -70,7 +70,8 @@ const MainLayout = () => {
       )}
 
       <div className="min-h-screen w-full md:pl-72">
-        <main className={cn('w-full max-w-full pt-8 p-2', isMobile ? 'pb-28' : 'pb-8')}>
+        {/* ✅ PADDING BAS OPTIMISÉ ET COMPACT (pb-20 mobile / pb-6 desktop) */}
+        <main className={cn('w-full max-w-full pt-4 p-2 sm:p-4', isMobile ? 'pb-20' : 'pb-6')}>
           <ReminderBanner />
           <Outlet />
         </main>
