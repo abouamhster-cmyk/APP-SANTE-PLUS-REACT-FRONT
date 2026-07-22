@@ -1,5 +1,5 @@
 // 📁 src/features/admin/pages/AidantsPage.tsx
-// ✅ PAGE ANNUAIRE DES AIDANTS : ACTIVATION RÉELLE ET SÉCURISÉE VIA L'API BACKEND
+// ✅ PAGE ANNUAIRE DES AIDANTS : CORRECTION TYPE TS2339 & ACTIVATION CÔTÉ SERVER
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -24,6 +24,7 @@ import { InfoRow } from '@/components/ui/InfoRow';
 import { cn } from '@/utils/helpers';
 import toast from 'react-hot-toast';
 
+// ✅ INTERFACE DÉCLARÉE AVEC TOUTES LES PROPRIÉTÉS SQL
 interface Aidant {
   id: string;
   user_id: string;
@@ -46,6 +47,9 @@ interface Aidant {
   created_at: string;
   max_assignments: number;
   current_assignments: number;
+  experience_years?: number | null; // ✅ AJOUTÉ POUR CORRIGER TS2339
+  bio?: string | null;
+  address?: string | null;
 }
 
 interface StatCardProps {
@@ -197,7 +201,7 @@ const AidantsPage = () => {
     }
   };
 
-  // ✅ ACTIVATION RÉELLE DU COMPTE AIDANT (APPROBATION COMPLÈTE)
+  // ✅ ACTIVATION RÉELLE DU COMPTE AIDANT (API BACKEND)
   const handleApproveAidant = async (aidant: Aidant) => {
     if (!window.confirm(`Valider et activer le compte de ${aidant.user?.full_name || 'cet aidant'} ?`)) return;
 
@@ -220,7 +224,7 @@ const AidantsPage = () => {
     }
   };
 
-  // ✅ TOGGLE DISPONIBILITÉ (POUR LES AIDANTS DÉJÀ APPROUVÉS)
+  // ✅ TOGGLE DISPONIBILITÉ
   const handleToggleAvailability = async (id: string, available: boolean) => {
     setProcessingId(id);
     try {
@@ -266,6 +270,24 @@ const AidantsPage = () => {
   const handleViewDetails = (aidant: Aidant) => {
     setSelectedAidant(aidant);
     setShowDetailsModal(true);
+  };
+
+  const getAssignmentTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      primary: '📌 Permanente',
+      temporary: '⏳ Temporaire',
+      secondary: '⚡ Ponctuelle',
+    };
+    return labels[type] || type;
+  };
+
+  const getAssignmentTypeColor = (type: string) => {
+    const colorsMap: Record<string, string> = {
+      primary: '#10B981',
+      temporary: '#F59E0B',
+      secondary: '#3B82F6',
+    };
+    return colorsMap[type] || '#9CA3AF';
   };
 
   if (isLoading) {
@@ -380,13 +402,12 @@ const AidantsPage = () => {
                   </div>
                 </div>
 
-                {/* BOUTONS D'ACTION CORRIGÉS */}
+                {/* BOUTONS D'ACTION */}
                 <div className="flex items-center justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 shrink-0 w-full sm:w-auto">
                   <button onClick={() => handleViewDetails(aidant)} className="p-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 border transition">
                     <Eye size={16} />
                   </button>
 
-                  {/* ✅ SI LE COMPTE EST EN ATTENTE : BOUTON DE VALIDATION DIRECTE DU COMPTE */}
                   {isPending ? (
                     <button
                       onClick={() => handleApproveAidant(aidant)}
@@ -396,7 +417,6 @@ const AidantsPage = () => {
                       {isBusy ? <Loader2 size={14} className="animate-spin" /> : <><CheckCircle size={14} /> Activer le compte</>}
                     </button>
                   ) : (
-                    /* ✅ SI LE COMPTE EST DÉJÀ APPROUVÉ : BASCOULEMENT DE DISPONIBILITÉ AU QUOTIDIEN */
                     <button
                       onClick={() => handleToggleAvailability(aidant.id, !aidant.available)}
                       disabled={isBusy}
@@ -442,9 +462,44 @@ const AidantsPage = () => {
               <InfoRow label="Inscrit le" value={formatDate(selectedAidant.created_at)} />
             </div>
 
+            {/* Liste des assignations */}
+            {selectedAidant.user_id && assignmentsMap[selectedAidant.user_id]?.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
+                  📋 Assignations actives ({assignmentsMap[selectedAidant.user_id].length})
+                </h4>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {assignmentsMap[selectedAidant.user_id].map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-gray-700">
+                          👤 {assignment.target_name}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          ({assignment.target_type === 'patient' ? 'Patient' : 'Compte personnel'})
+                        </span>
+                      </div>
+                      <span
+                        className="px-1.5 py-0.5 rounded-full text-[8px] font-bold"
+                        style={{
+                          background: getAssignmentTypeColor(assignment.assignment_type) + '20',
+                          color: getAssignmentTypeColor(assignment.assignment_type),
+                        }}
+                      >
+                        {getAssignmentTypeLabel(assignment.assignment_type)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Bouton d'activation dans la modale si en attente */}
             {selectedAidant.status === 'pending' && (
-              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2 text-center">
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2 text-center mt-4">
                 <p className="font-bold text-amber-900">⚠️ Ce dossier d'aidant est actuellement en attente de validation.</p>
                 <button
                   onClick={() => handleApproveAidant(selectedAidant)}
