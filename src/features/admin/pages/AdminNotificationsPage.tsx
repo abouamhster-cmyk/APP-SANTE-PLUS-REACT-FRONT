@@ -1,9 +1,10 @@
 // 📁 src/features/admin/pages/AdminNotificationsPage.tsx
- 
+// ✅ PAGE ADMINISTRATION NOTIFICATIONS : CORRECTION JOINTURE SUPABASE (PGRST201) & MODALE
+
 import { useEffect, useState } from 'react';
 import {
   Bell, Send, Users, RefreshCw, Eye, Trash2, X, CheckCircle, Clock, AlertCircle,
-  Info, Tag, User, Loader2, Search, Filter, UserPlus, Shield, Calendar, UserCog, Briefcase
+  Info, Tag, User, Loader2, Search, UserPlus, Shield, Calendar, UserCog, Briefcase
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
@@ -144,12 +145,22 @@ const AdminNotificationsPage = () => {
     }
   };
 
-  // ✅ CORRECTION CLEF : Suppression du Hint FK 'visites_user_id_fkey' qui causait l'erreur 400
+  // ✅ CORRECTION DU DÉSAMBIGUÏSATION PGSRT201 : Spécification de !user_id
   const fetchPendingVisits = async () => {
     try {
       const { data, error } = await supabase
         .from('visites')
-        .select('id, target_name, scheduled_date, scheduled_time, user_id, created_at, waiting_for_aidant_since, patient:patients(id, first_name, last_name, address), family:profiles(id, full_name, email, phone)')
+        .select(`
+          id,
+          target_name,
+          scheduled_date,
+          scheduled_time,
+          user_id,
+          created_at,
+          waiting_for_aidant_since,
+          patient:patients(id, first_name, last_name, address),
+          family:profiles!user_id(id, full_name, email, phone)
+        `)
         .eq('status', 'en_attente_aidant')
         .order('created_at', { ascending: true });
 
@@ -400,7 +411,7 @@ const AdminNotificationsPage = () => {
         )}
       </section>
 
-      {/* ✅ MODALE DE CRÉATION D'ALERTE EN OVERLAY (AUCUN SCROLL REQUIS) */}
+      {/* ✅ MODALE DE CRÉATION D'ALERTE EN OVERLAY */}
       {showFormModal && (
         <Modal
           isOpen={showFormModal}
