@@ -1,6 +1,5 @@
 // 📁 src/features/admin/pages/AdminNotificationsPage.tsx
-// ✅ PAGE ADMINISTRATION NOTIFICATIONS : CORRECTION JOINTURE SUPABASE (PGRST201) & MODALE
-
+ 
 import { useEffect, useState } from 'react';
 import {
   Bell, Send, Users, RefreshCw, Eye, Trash2, X, CheckCircle, Clock, AlertCircle,
@@ -130,6 +129,7 @@ const AdminNotificationsPage = () => {
         }))
       );
     } catch (error: any) {
+      console.error('Fetch notifications error:', error);
       toast.error('Erreur lors du chargement des notifications');
     } finally {
       setIsLoading(false);
@@ -145,22 +145,12 @@ const AdminNotificationsPage = () => {
     }
   };
 
-  // ✅ CORRECTION DU DÉSAMBIGUÏSATION PGSRT201 : Spécification de !user_id
+  // ✅ CORRECTION PGRST201 : Chargement séparé des profils pour éviter le conflit des 5 FK
   const fetchPendingVisits = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: visitsData, error } = await supabase
         .from('visites')
-        .select(`
-          id,
-          target_name,
-          scheduled_date,
-          scheduled_time,
-          user_id,
-          created_at,
-          waiting_for_aidant_since,
-          patient:patients(id, first_name, last_name, address),
-          family:profiles!user_id(id, full_name, email, phone)
-        `)
+        .select('id, target_name, scheduled_date, scheduled_time, user_id, created_at, waiting_for_aidant_since, patient:patients(id, first_name, last_name, address)')
         .eq('status', 'en_attente_aidant')
         .order('created_at', { ascending: true });
 
@@ -169,8 +159,25 @@ const AdminNotificationsPage = () => {
         return;
       }
 
+      const userIds = [...new Set((visitsData || []).map((v) => v.user_id).filter(Boolean))];
+      let familyMap: Record<string, any> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone')
+          .in('id', userIds);
+
+        if (profiles) {
+          familyMap = profiles.reduce((acc, p) => {
+            acc[p.id] = p;
+            return acc;
+          }, {} as Record<string, any>);
+        }
+      }
+
       setPendingVisits(
-        (data || []).map((item: any) => ({
+        (visitsData || []).map((item: any) => ({
           id: item.id,
           target_name: item.target_name,
           scheduled_date: item.scheduled_date,
@@ -179,7 +186,7 @@ const AdminNotificationsPage = () => {
           created_at: item.created_at,
           waiting_for_aidant_since: item.waiting_for_aidant_since,
           patient: Array.isArray(item.patient) ? item.patient[0] : item.patient,
-          family: Array.isArray(item.family) ? item.family[0] : item.family,
+          family: familyMap[item.user_id] || null,
         }))
       );
     } catch (error) {
@@ -411,7 +418,7 @@ const AdminNotificationsPage = () => {
         )}
       </section>
 
-      {/* ✅ MODALE DE CRÉATION D'ALERTE EN OVERLAY */}
+      {/* MODALE DE CRÉATION D'ALERTE */}
       {showFormModal && (
         <Modal
           isOpen={showFormModal}
