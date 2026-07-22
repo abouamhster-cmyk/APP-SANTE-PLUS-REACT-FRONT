@@ -1,5 +1,4 @@
 // 📁 src/features/layout/MainLayout.tsx
-
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
@@ -15,7 +14,7 @@ import { cn, getGreeting } from '@/utils/helpers';
 import { ReminderBanner } from '@/components/reminders/ReminderBanner';
 import { MobileTabBar } from './MobileTabBar';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
-import { Logo } from '@/components/ui/Logo';  
+import { Logo } from '@/components/ui/Logo';
 
 const MainLayout = () => {
   const navigate = useNavigate();
@@ -40,7 +39,7 @@ const MainLayout = () => {
     return () => unsubscribe();
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
-  // ✅ LOGIQUE CENTRALE : Menu complet par rôle
+  // ✅ Menu complet dynamique basé sur le rôle
   const navItems = useMemo(() => {
     const allItems = [
       { icon: <Home size={20} />, label: "Mon Espace d'Accueil", path: '/app', roles: ['family', 'aidant', 'admin', 'coordinator'] },
@@ -66,7 +65,7 @@ const MainLayout = () => {
     <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }}>
       {!isMobile && (
         <aside className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col" style={{ borderColor: colors.primary + '20' }}>
-          <SidebarContent navItems={navItems} locationPath={location.pathname} colors={colors} profile={profile} role={role} onLogout={() => { logout(); navigate('/login'); }} />
+          <SidebarContent navItems={navItems} locationPath={location.pathname} colors={colors} profile={profile} onLogout={() => { logout(); navigate('/login'); }} />
         </aside>
       )}
 
@@ -83,18 +82,15 @@ const MainLayout = () => {
   );
 };
 
-// =============================================
-// SIDEBAR CONTENT
-// =============================================
 const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: any) => {
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* ✅ Utilisation du composant Logo */}
-      <div className="p-5">
-        <Logo size="md" className="justify-start" />
+      {/* ✅ Logo Unique (Gère l'icône + le texte) */}
+      <div className="p-6">
+        <Logo size="md" variant="dark" showText={true} className="justify-start" />
       </div>
       
-      <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <div className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
         {navItems.map((item: any) => (
           <Link 
             key={item.path} 
