@@ -839,13 +839,6 @@ export const PatientsPage = () => {
         )
       )}
 
-      {/* FOOTER DISCRET */}
-      {isAdmin && Object.keys(grouped).length > 0 && (
-        <div className="text-[10px] font-bold text-center pt-4 tracking-wide uppercase" style={{ color: colors.textLight }}>
-          🟢 Système d'attributions d'intervenants Santé Plus Services
-        </div>
-      )}
-
       {/* BOUTON ACCÈS RAPIDE FLOTTANT (MOBILES UNIQUEMENT) */}
       {canManage && !isAdmin && patients.length > 0 && (
         <button
