@@ -1,5 +1,5 @@
 // 📁 src/features/dashboard/pages/DashboardPage.tsx
-
+ 
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -45,7 +45,6 @@ interface HeroSlide {
   actionPath: string;
 }
 
-// Système de style partagé → cohérence des cartes
 const CARD_RADIUS = 'rounded-[28px]';
 const CARD_SHADOW = 'shadow-[0_1px_2px_rgba(16,24,20,0.04),0_8px_24px_-12px_rgba(16,24,20,0.08)]';
 
@@ -357,7 +356,7 @@ const DashboardPage = () => {
 
   if (stabilizedLoading) {
     return (
-      <div className="space-y-5 max-w-5xl mx-auto px-3 sm:px-0 pb-32 md:pb-10 animate-pulse">
+      <div className="space-y-4 max-w-5xl mx-auto px-3 sm:px-0 pb-4 animate-pulse">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-black/5" />
           <div className="flex-1 space-y-2">
@@ -375,9 +374,10 @@ const DashboardPage = () => {
   }
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto px-3 sm:px-0 pb-32 md:pb-10">
+    // ✅ REMBOURRAGE CORRIGÉ : pb-4 au lieu de pb-32 md:pb-10
+    <div className="space-y-4 max-w-5xl mx-auto px-3 sm:px-0 pb-4">
 
-      {/* EN-TÊTE PERSONNEL (avatar + salutation + date + cloche) */}
+      {/* EN-TÊTE PERSONNEL */}
       <header className="flex items-center justify-between pt-1 gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <button
@@ -609,7 +609,7 @@ const DashboardPage = () => {
   );
 };
 
-// STAT CARD (vertical, aéré)
+// STAT CARD
 interface StatCardProps { label: string; value: string | number; icon: React.ReactNode; color: string; onClick: () => void; }
 
 const StatCard = ({ label, value, icon, color, onClick }: StatCardProps) => (
