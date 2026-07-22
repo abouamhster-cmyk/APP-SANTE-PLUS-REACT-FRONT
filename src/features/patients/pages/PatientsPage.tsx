@@ -1,5 +1,6 @@
 // 📁 src/features/patients/pages/PatientsPage.tsx
- 
+// ✅ DOSSIER ADMINISTRATIF 360° : REPRISE ÉXHAUSTIVE DE TOUS LES CHAMPS DU REGISTER PAGE
+
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
