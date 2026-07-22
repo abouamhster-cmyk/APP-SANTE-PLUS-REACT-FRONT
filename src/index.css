@@ -1,5 +1,6 @@
 /* 📁 frontend/src/index.css */
- 
+/* ✅ MODE CLAIR NET ET LISIBLE : TEXTES CONTRASTÉS, ZÉRO GRIS PÂLE */
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
@@ -12,27 +13,27 @@
   --color-primary-light: #2a6a4a;
   --color-secondary: #c9a84c;
   --color-secondary-light: #dcc07a;
-  --color-background: #f5f0e8;
+  --color-background: #f5f0e8; /* Fond sable/crème d'origine */
   --color-surface: #ffffff;
   --color-surface-soft: #faf7f1;
-  --color-text: #2d2d2d;
-  --color-text-light: #6b7280;
+  --color-text: #1f2937;       /* Texte principal bien foncé (presque noir) */
+  --color-text-light: #4b5563; /* Texte secondaire bien lisible (gris foncé au lieu de gris pale) */
   --color-border: #e5e0d8;
   --color-gold: #c9a84c;
 }
 
 /* ============================================================
-   MODE SOMBRE HAUT CONTRASTE (ZÉRO GRIS ILLISIBLE)
+   MODE SOMBRE HAUT CONTRASTE
 ============================================================ */
 
 html.dark,
 html[data-theme='dark'] {
-  --color-background: #080c0a !important; /* Noir/Vert très profond */
-  --color-surface: #121c16 !important;     /* Cartes bien détachées */
-  --color-surface-soft: #1a2922 !important;/* Éléments secondaires */
-  --color-text: #ffffff !important;        /* TEXTE BLANC PUR */
-  --color-text-light: #d1d5db !important;  /* TEXTE GRIS TRÈS CLAIR (Lisible) */
-  --color-border: #24382e !important;      /* Bordures nettes */
+  --color-background: #080c0a !important;
+  --color-surface: #121c16 !important;
+  --color-surface-soft: #1a2922 !important;
+  --color-text: #ffffff !important;
+  --color-text-light: #d1d5db !important;
+  --color-border: #24382e !important;
   color-scheme: dark !important;
 }
 
@@ -40,10 +41,24 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
   background-color: var(--color-background);
   color: var(--color-text);
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Forçage global des éléments en mode sombre pour éviter les contrastes cassés */
+/* Forçage mode clair : Plus aucun texte invisible ou gris pale */
+.text-gray-400, .text-gray-500, .text-gray-600 {
+  color: #4b5563 !important; /* Gris foncé parfaitement lisible sur fond blanc */
+  font-weight: 600 !important;
+}
+
+/* Surtout dans la Sidebar et les menus */
+aside span, aside p, aside a {
+  opacity: 1 !important;
+}
+
+/* ============================================================
+   CORRECTIFS MODE SOMBRE
+============================================================ */
+
 html.dark body,
 html.dark #root,
 html.dark main {
@@ -51,59 +66,40 @@ html.dark main {
   color: #ffffff !important;
 }
 
-/* Forçage des cartes et blocs blancs */
 html.dark .bg-white,
 html[data-theme='dark'] .bg-white,
-html.dark .bg-white\/90,
-html.dark .bg-white\/80,
 html.dark .card {
   background-color: #121c16 !important;
   color: #ffffff !important;
   border-color: #24382e !important;
 }
 
-/* Forçage des blocs gris */
 html.dark .bg-gray-50,
 html.dark .bg-gray-100 {
   background-color: #1a2922 !important;
-  color: #ffffff !important;
 }
 
-/* Forçage de tous les textes sombres en Blanc Pur ou Gris clair lumineux */
 html.dark .text-gray-900,
 html.dark .text-gray-800,
 html.dark .text-gray-700,
-html.dark h1, html.dark h2, html.dark h3, html.dark h4 {
-  color: #ffffff !important;
-}
-
 html.dark .text-gray-600,
 html.dark .text-gray-500,
 html.dark .text-gray-400 {
-  color: #d1d5db !important; /* Gris clair très lisible */
+  color: #f4f7f5 !important;
 }
 
-/* Forçage des bordures */
 html.dark .border,
 html.dark .border-gray-100,
-html.dark .border-gray-200,
-html.dark .border-black\/5 {
+html.dark .border-gray-200 {
   border-color: #24382e !important;
 }
 
-/* Champs de formulaires et inputs en mode sombre */
 html.dark input,
 html.dark textarea,
 html.dark select {
   background-color: #1a2922 !important;
   color: #ffffff !important;
   border-color: #284235 !important;
-}
-
-html.dark input::placeholder,
-html.dark textarea::placeholder {
-  color: #9ca3af !important;
-  opacity: 0.8;
 }
 
 /* Scrollbar */
