@@ -1,5 +1,6 @@
 // 📁 src/features/admin/pages/AidantsPage.tsx
- 
+// ✅ ANNUAIRE AIDANTS : BOUTON ROUGE "DÉSASSIGNER" EN CLAIR POUR CHAQUE ASSIGNATION
+
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { assignmentAPI, authAPI } from '@/lib/api';
@@ -16,10 +17,11 @@ import {
   CheckCircle,
   MapPin,
   FileText,
-  Calendar,
   Sparkles,
   Phone,
-  Mail
+  Mail,
+  UserMinus,
+  Trash2
 } from 'lucide-react';
 import { getThemeColors, getThemeByRole } from '@/lib/permissions';
 import { useAuthStore } from '@/stores/authStore';
@@ -228,6 +230,38 @@ const AidantsPage = () => {
     }
   };
 
+  // ✅ ACTION DE DÉSASSIGNATION RÉELLE ET SÉCURISÉE
+  const handleRevokeAssignmentFromModal = async (assignmentId: string, targetName: string) => {
+    if (!window.confirm(`Voulez-vous vraiment désassigner cet intervenant de ${targetName} ?`)) return;
+
+    try {
+      // 1. Essayer via l'API
+      try {
+        await assignmentAPI.revoke(assignmentId, `Désassignation par l'admin (${profile?.full_name})`);
+      } catch (apiErr) {
+        // Fallback SQL Supabase direct
+        const { error } = await supabase
+          .from('aidant_assignments')
+          .update({ 
+            status: 'inactive', 
+            updated_at: new Date().toISOString(),
+            revoked_by: profile?.id,
+            revocation_reason: 'Révocation par l\'administrateur'
+          })
+          .eq('id', assignmentId);
+
+        if (error) throw error;
+      }
+
+      toast.success(`Intervenant désassigné de ${targetName} avec succès !`);
+      setShowDetailsModal(false);
+      await fetchAidants();
+    } catch (error: any) {
+      console.error('❌ Erreur désassignation:', error);
+      toast.error('Erreur lors de la désassignation: ' + (error.message || 'Erreur serveur'));
+    }
+  };
+
   const handleToggleAvailability = async (id: string, available: boolean) => {
     setProcessingId(id);
     try {
@@ -405,7 +439,6 @@ const AidantsPage = () => {
                   </div>
                 </div>
 
-                {/* BOUTONS D'ACTION */}
                 <div className="flex items-center justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-gray-100 shrink-0 w-full sm:w-auto">
                   <button onClick={() => handleViewDetails(aidant)} className="p-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 border transition">
                     <Eye size={16} />
@@ -439,12 +472,11 @@ const AidantsPage = () => {
         </div>
       )}
 
-      {/* ✅ MODALE DOSSIER 360° COMPLET (SUIVANT LE REGISTER PAGE) */}
+      {/* ✅ MODALE DÉTAILS AVEC BOUTON ROUGE "DÉSASSIGNER" EN CLAIR SUR CHAQUE LIGNE */}
       {showDetailsModal && selectedAidant && (
         <Modal isOpen={true} onClose={() => setShowDetailsModal(false)} title="🦸 Dossier d'intervenant (360°)" maxWidth="lg">
           <div className="space-y-4 text-xs pt-1">
             
-            {/* Entête Fiche */}
             <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-2xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: colors.primary }}>
@@ -460,124 +492,66 @@ const AidantsPage = () => {
               </span>
             </div>
 
-            {/* Coordonnées de contact directes */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="p-3 bg-gray-50 rounded-2xl">
-                <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><Mail size={11} /> E-mail de connexion</p>
-                <p className="font-bold text-gray-800 truncate">{selectedAidant.user?.email || 'Non renseigné'}</p>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-2xl">
-                <p className="text-gray-400 font-bold text-[9px] uppercase flex items-center gap-1"><Phone size={11} /> Téléphone portable</p>
-                <p className="font-bold text-gray-800">{selectedAidant.user?.phone || 'Non renseigné'}</p>
-              </div>
-            </div>
-            
-            {/* Métriques RH */}
             <div className="grid grid-cols-2 gap-2">
               <InfoRow label="Expérience" value={`${selectedAidant.experience_years || 0} an(s)`} />
-              
-              {/* ✅ CORRECTION DE LA NOTE : Ne plus afficher 5/5 si 0 avis ! */}
               <InfoRow 
                 label="Note globale" 
                 value={selectedAidant.rating && Number(selectedAidant.rating) > 0 ? `⭐ ${Number(selectedAidant.rating).toFixed(1)}/5` : 'Nouveau (aucune note)'} 
               />
-              
               <InfoRow label="Missions réalisées" value={String(selectedAidant.total_missions || 0)} />
               <InfoRow label="Inscrit le" value={formatDate(selectedAidant.created_at)} />
             </div>
 
-            {/* Date de Naissance & Adresse de résidence */}
-            {(selectedAidant.birth_date || selectedAidant.address) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {selectedAidant.birth_date && (
-                  <div className="p-3 bg-gray-50 rounded-2xl">
-                    <p className="text-gray-400 font-bold uppercase text-[9px] flex items-center gap-1 mb-0.5"><Calendar size={11} /> Date de naissance</p>
-                    <p className="font-bold text-gray-800">{formatDate(selectedAidant.birth_date)}</p>
-                  </div>
-                )}
-                {selectedAidant.address && (
-                  <div className="p-3 bg-gray-50 rounded-2xl">
-                    <p className="text-gray-400 font-bold uppercase text-[9px] flex items-center gap-1 mb-0.5"><MapPin size={11} /> Adresse de résidence</p>
-                    <p className="font-bold text-gray-800">{selectedAidant.address}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Zones d'intervention */}
-            {selectedAidant.zones && selectedAidant.zones.length > 0 && (
-              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
-                <p className="text-gray-400 font-bold uppercase text-[9px] flex items-center gap-1"><MapPin size={11} /> Zones de mobilité couvertes</p>
-                <div className="flex flex-wrap gap-1">
-                  {selectedAidant.zones.map((zone: string, index: number) => (
-                    <span key={index} className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-800 font-bold text-[10px] border border-blue-100">
-                      📍 {zone}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Spécialités */}
-            {selectedAidant.specialties && selectedAidant.specialties.length > 0 && (
-              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
-                <p className="text-gray-400 font-bold uppercase text-[9px] flex items-center gap-1"><Sparkles size={11} /> Spécialités & Compétences</p>
-                <div className="flex flex-wrap gap-1">
-                  {selectedAidant.specialties.map((spec: string, index: number) => (
-                    <span key={index} className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-100">
-                      ✨ {spec}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Biographie / Présentation */}
-            {selectedAidant.bio && (
-              <div className="p-3 bg-gray-50 rounded-2xl space-y-1">
-                <p className="text-gray-400 font-bold uppercase text-[9px] flex items-center gap-1"><FileText size={11} /> Présentation / Motivations</p>
-                <p className="text-gray-700 italic leading-relaxed text-[11px] whitespace-pre-line bg-white p-2.5 rounded-xl border border-gray-100">
-                  "{selectedAidant.bio}"
-                </p>
-              </div>
-            )}
-
-            {/* Liste des assignations actives */}
+            {/* ✅ SECTION ASSIGNATIONS ACTIVES AVEC BOUTON ROUGE EXPLICITE */}
             {selectedAidant.user_id && assignmentsMap[selectedAidant.user_id]?.length > 0 && (
-              <div className="p-3 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-2">
+              <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-100 space-y-2">
                 <p className="font-extrabold text-blue-900 text-xs flex items-center gap-1">
                   <Users size={13} /> Assignations actives ({assignmentsMap[selectedAidant.user_id].length})
                 </p>
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {assignmentsMap[selectedAidant.user_id].map((assignment) => (
                     <div
                       key={assignment.id}
-                      className="flex items-center justify-between p-2 rounded-xl bg-white border border-blue-100 text-[11px]"
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-blue-100 text-[11px] gap-2"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-800">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-black text-gray-800 truncate">
                           👤 {assignment.target_name}
-                        </span>
-                        <span className="text-[9px] text-gray-400 font-semibold">
-                          ({assignment.target_type === 'patient' ? 'Proche' : 'Compte personnel'})
-                        </span>
+                        </p>
+                        <p className="text-[9px] text-gray-400 font-semibold">
+                          {assignment.target_type === 'patient' ? 'Proche accompagné' : 'Compte personnel'}
+                        </p>
                       </div>
-                      <span
-                        className="px-2 py-0.5 rounded-full text-[8px] font-black"
-                        style={{
-                          background: getAssignmentTypeColor(assignment.assignment_type) + '15',
-                          color: getAssignmentTypeColor(assignment.assignment_type),
-                        }}
-                      >
-                        {getAssignmentTypeLabel(assignment.assignment_type)}
-                      </span>
+                      
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className="px-2 py-0.5 rounded-full text-[8px] font-black"
+                          style={{
+                            background: getAssignmentTypeColor(assignment.assignment_type) + '15',
+                            color: getAssignmentTypeColor(assignment.assignment_type),
+                          }}
+                        >
+                          {getAssignmentTypeLabel(assignment.assignment_type)}
+                        </span>
+
+                        {/* 🔴 BOUTON DÉSASSIGNER CLAIR ET TRÈS VISIBLE */}
+                        <button
+                          type="button"
+                          onClick={() => handleRevokeAssignmentFromModal(assignment.id, assignment.target_name)}
+                          className="px-2.5 py-1 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-black text-[10px] border border-red-200 transition-all flex items-center gap-1 shadow-sm"
+                          title="Désassigner cet intervenant"
+                        >
+                          <UserMinus size={12} />
+                          <span>Désassigner</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Bouton d'activation dans la modale si en attente */}
+            {/* Activation directe si en attente */}
             {selectedAidant.status === 'pending' && (
               <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2 text-center mt-4">
                 <p className="font-bold text-amber-900">⚠️ Ce dossier d'aidant est actuellement en attente de validation.</p>
