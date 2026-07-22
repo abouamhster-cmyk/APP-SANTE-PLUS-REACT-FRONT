@@ -1,5 +1,6 @@
 // 📁 src/features/notifications/pages/NotificationsPage.tsx
- 
+// ✅ CENTRE DE NOTIFICATIONS ÉPURÉ : DESIGN MINIMALISTE ET ESSENTIEL
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -9,23 +10,20 @@ import {
   RefreshCw, 
   Calendar, 
   ShoppingBag, 
-  BellRing,
   CreditCard, 
   AlertCircle, 
   Loader2,
-  Trash2,
-  Zap
+  Trash2
 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useBranding } from '@/hooks/useBranding';
 import { useTerminology } from '@/hooks/useTerminology';
 import { formatDateTime, cn } from '@/utils/helpers';
-import { Illustration } from '@/components/ui/Illustration';
 import toast from 'react-hot-toast';
 
 // ============================================================
-// 🧠 MOTEUR DE TRADUCTION ET DE PERSONNALISATION DYNAMIQUE SÉCURISÉ [23]
+// 🧠 MOTEUR DE TRADUCTION ET DE PERSONNALISATION DYNAMIQUE
 // ============================================================
 const formatNotificationContext = (notification: any, currentUser: any) => {
   const title = notification.title || '';
@@ -34,7 +32,6 @@ const formatNotificationContext = (notification: any, currentUser: any) => {
   const role = currentUser?.role;
   const currentUserId = currentUser?.id;
 
-  // 1️⃣ CAS : NOTIFICATIONS D'ASSIGNATIONS ET RATTACHEMENTS D'AIDANTS [30]
   if (
     notification.type === 'system' || 
     notification.type === 'visite' || 
@@ -47,149 +44,56 @@ const formatNotificationContext = (notification: any, currentUser: any) => {
     const targetName = data.target_name || 'Bénéficiaire';
     const creatorName = data.creator_name || 'L\'administration';
     
-    // UUIDs de comparaison
     const creatorId = data.creator_id || data.created_by;
     const targetId = data.target_id;
     const isPermanent = data.assignment_type === 'primary' || data.assignment_type === 'secondary' || data.is_permanent === true;
     const typeLabel = isPermanent ? 'Permanente' : 'Ponctuelle';
 
-    // 👔 SCÉNARIO A : C'est l'Administrateur / Coordinateur connecté qui lit [23]
     if (role === 'admin' || role === 'coordinator') {
       const isCreatorMe = creatorId === currentUserId;
-      
       if (isCreatorMe) {
-        // L'admin connecté a fait l'action lui-même ! [23]
         return {
-          title: '💼 Mon assignation d’aidant',
-          body: `Vous avez assigné ${aidantName} à ${targetName} (${typeLabel})` // ✅ Écrit "Vous avez" au lieu de son propre nom [23]
+          title: 'Mon assignation d’aidant',
+          body: `Vous avez assigné ${aidantName} à ${targetName} (${typeLabel})`
         };
       } else {
-        // Un autre admin a fait l'action
         return {
-          title: '📋 Nouvelle assignation créée',
+          title: 'Nouvelle assignation créée',
           body: `${creatorName} a assigné ${aidantName} à ${targetName} (${typeLabel})`
         };
       }
     }
 
-    // 👨‍👩‍👦 SCÉNARIO B : C'est la Famille (Client) connectée qui lit [23]
     if (role === 'family') {
       const isTargetMe = targetId === currentUserId;
-      
       if (isTargetMe) {
-        // L'assignation est pour mon PROPRE compte en direct [23]
         return {
-          title: isPermanent ? '📌 Votre aidant permanent est prêt' : '⚡ Visite d’appoint programmée',
+          title: isPermanent ? 'Votre aidant permanent est prêt' : 'Visite d’appoint programmée',
           body: isPermanent 
-            ? `${aidantName} est désormais rattaché de manière permanente à votre compte personnel.` // ✅ Humain et direct [23]
+            ? `${aidantName} est désormais rattaché de manière permanente à votre compte.`
             : `${aidantName} est assigné pour votre prochaine visite ponctuelle.`
         };
       } else {
-        // L'assignation est pour l'un de mes proches patients
         return {
-          title: isPermanent ? `📌 Intervenant permanent pour ${targetName}` : `⚡ Visite programmée pour ${targetName}`,
+          title: isPermanent ? `Intervenant permanent pour ${targetName}` : `Visite programmée pour ${targetName}`,
           body: isPermanent 
-            ? `${aidantName} est désormais l’intervenant permanent de ${targetName}.` // ✅ Humain et direct [23]
-            : `${aidantName} effectuera la prochaine visite d’appoint pour ${targetName}.`
+            ? `${aidantName} est désormais l’intervenant permanent de ${targetName}.`
+            : `${aidantName} effectuera la prochaine visite pour ${targetName}.`
         };
       }
     }
 
-    // 🦸 SCÉNARIO C : C'est l'Aidant connecté qui lit [23]
     if (role === 'aidant') {
       return {
-        title: '📅 Nouvelle intervention rattachée',
+        title: 'Nouvelle intervention rattachée',
         body: isPermanent 
-          ? `Vous êtes assigné en tant que soignant référent permanent pour ${targetName}.`
+          ? `Vous êtes assigné en tant que soignant référent pour ${targetName}.`
           : `Vous êtes assigné pour la visite ponctuelle de ${targetName}.`
       };
     }
   }
 
-  // 2️⃣ CAS : NOTIFICATIONS DE FORFAITS / ABONNEMENTS
-  if (title.includes('Abonnement') || title.includes('forfait') || title.includes('abonnement')) {
-    if (role === 'family') {
-      if (title.includes('activé') || title.includes('confirm') || body.includes('actif')) {
-        return {
-          title: '🎉 Votre forfait est désormais actif !',
-          body: `Votre abonnement a été activé avec succès. Vous pouvez maintenant planifier vos visites et commandes gratuites.`
-        };
-      }
-      if (title.includes('attente')) {
-        return {
-          title: '💳 Validation de votre forfait en attente',
-          body: `Votre souscription est en attente de paiement. Veuillez finaliser votre règlement en ligne.`
-        };
-      }
-    }
-  }
-
-  // 3️⃣ CAS : NOTIFICATIONS DE COMMANDES / COURSES
-  if (notification.type === 'commande' || title.includes('commande') || title.includes('livr')) {
-    const description = data.description || 'votre commande';
-    if (role === 'family') {
-      if (title.includes('prise en charge') || title.includes('take')) {
-        return {
-          title: '🚚 Votre colis est en route !',
-          body: `L'intervenant a pris en charge votre commande de courses/médicaments.`
-        };
-      }
-      if (title.includes('livrée') || title.includes('deliver')) {
-        return {
-          title: '📦 Colis déposé à votre adresse !',
-          body: `Votre commande a été livrée. Veuillez valider la bonne réception en ligne ou en espèces.`
-        };
-      }
-    }
-  }
-
-  // Fallback de sécurité (retourne les valeurs stockées brut en DB si aucun filtre ne correspond)
-  return {
-    title,
-    body
-  };
-};
-
-// ============================================================
-// DÉCORATEUR D'ICÔNE THÉMATIQUE COLORÉE (BRANDING & VISUEL)
-// ============================================================
-const getNotificationIcon = (type: string, colors: any) => {
-  switch (type) {
-    case 'visite':
-      return (
-        <div className="p-2.5 rounded-xl shrink-0" style={{ backgroundColor: colors.primary + '15', color: colors.primary }}>
-          <Calendar size={18} />
-        </div>
-      );
-    case 'commande':
-      return (
-        <div className="p-2.5 rounded-xl shrink-0" style={{ backgroundColor: colors.gold + '20', color: colors.gold }}>
-          <ShoppingBag size={18} />
-        </div>
-      );
-    case 'paiement':
-      return (
-        <div className="p-2.5 rounded-xl shrink-0" style={{ backgroundColor: colors.primary + '12', color: colors.primary }}>
-          <CreditCard size={18} />
-        </div>
-      );
-    case 'system':
-    case 'alert':
-      return (
-        <div className="p-2.5 rounded-xl shrink-0 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 animate-pulse">
-          <AlertCircle size={18} />
-        </div>
-      );
-    default:
-      return (
-        <div 
-          className="p-2.5 rounded-xl shrink-0" 
-          style={{ backgroundColor: colors.primary + '15', color: colors.primary }}
-        >
-          <Bell size={18} />
-        </div>
-      );
-  }
+  return { title, body };
 };
 
 // ============================================================
@@ -197,7 +101,6 @@ const getNotificationIcon = (type: string, colors: any) => {
 // ============================================================
 
 const NotificationsPage = () => {
-  const navigate = useNavigate();
   const { profile, role } = useAuthStore();
   const brand = useBranding();
   const colors = brand.colors;
@@ -209,15 +112,10 @@ const NotificationsPage = () => {
     markAsRead, 
     markAllRead,
     clearNotifications,
-    notificationsEnabled,
-    toggleNotifications,
     isLoading,
   } = useNotificationStore();
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
-
-  // ÉTATS DE PULL-TO-REFRESH MOBILE
   const [pullY, setPullY] = useState(0);
   const [isPulling, setIsPulling] = useState(false);
   const startTouchY = useRef(0);
@@ -228,7 +126,6 @@ const NotificationsPage = () => {
     fetchNotifications(true);
   }, []);
 
-  // GESTION DU RAFAICHISSEMENT EN COULISSES (TACTILE & GLISSANT)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (window.scrollY === 0) {
       startTouchY.current = e.touches[0].clientY;
@@ -251,23 +148,10 @@ const NotificationsPage = () => {
   const handleTouchEnd = async () => {
     setIsPulling(false);
     if (pullY >= 50) {
-      toast.promise(
-        fetchNotifications(true),
-        {
-          loading: 'Actualisation des alertes...',
-          success: 'Flux d\'actualités synchronisé !',
-          error: 'Échec de la mise à jour.',
-        }
-      );
+      await fetchNotifications(true);
+      toast.success('Actualisé !');
     }
     setPullY(0);
-  };
-
-  const handleToggleNotifications = () => {
-    toggleNotifications();
-    toast.success(
-      notificationsEnabled ? 'Alertes de l\'appareil désactivées' : 'Alertes de l\'appareil activées'
-    );
   };
 
   const handleMarkAllRead = async () => {
@@ -276,7 +160,7 @@ const NotificationsPage = () => {
       return;
     }
     await markAllRead();
-    toast.success('Toutes les alertes ont été marquées comme lues');
+    toast.success('Tout est lu');
   };
 
   const handleDelete = async (id: string) => {
@@ -284,52 +168,23 @@ const NotificationsPage = () => {
     try {
       await markAsRead(id);
     } catch (e) {
-      console.error('Erreur synchronisation suppression:', e);
+      console.error('Erreur:', e);
     }
-    toast.success('Alerte retirée');
   };
 
   const visibleNotifications = useMemo(() => {
     return notifications.filter(n => !deletedIds.includes(n.id));
   }, [notifications, deletedIds]);
 
-  const getEmptyMessage = () => {
-    if (isFamily) return "Suivez facilement les activités de vos proches.";
-    if (isAidant) return "Vos missions et interventions apparaîtront ici.";
-    if (isAdminOrCoordinator) return "Suivez les activités et inscriptions en temps réel.";
-    return "Vos notifications apparaîtront ici.";
-  };
-
-  const getEmptyTitle = () => {
-    if (isFamily) return "Aucune notification pour vos proches";
-    if (isAidant) return "Aucune mission en attente";
-    if (isAdminOrCoordinator) return "Aucune alerte administrative";
-    return "Aucune alerte";
-  };
-
-  useEffect(() => {
-    if (notifications.length > 0 && unreadCount > 0) {
-      try {
-        const audio = new Audio('/notification.mp3');
-        audio.volume = 0.25;
-        audio.play().catch(() => {});
-      } catch (e) {
-        // Ignorer le blocage autoplay navigateur
-      }
-    }
-  }, [notifications.length, unreadCount]);
-
   return (
     <div 
-      className="space-y-6 max-w-3xl mx-auto pb-6 animate-fadeIn"
+      className="space-y-4 max-w-2xl mx-auto pb-12 px-3 sm:px-0 animate-fadeIn"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
       
-      {/* ============================================================
-          INDICATEUR DE PULL-TO-REFRESH MOBILE
-          ============================================================ */}
+      {/* PULL TO REFRESH */}
       <div 
         className="w-full flex justify-center overflow-hidden transition-all duration-300 ease-out"
         style={{ 
@@ -337,97 +192,55 @@ const NotificationsPage = () => {
           opacity: pullY > 0 ? Math.min(pullY / 45, 1) : 0
         }}
       >
-        <div className="flex items-center gap-1.5 py-1" style={{ color: colors.primary }}>
-          <RefreshCw 
-            size={13} 
-            className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} 
-            style={{ transform: pullY < 50 ? `rotate(${pullY * 3.6}deg)` : undefined }}
-          />
-          <span className="text-[10px] font-black uppercase tracking-wider">
-            {pullY >= 50 ? 'Relâcher pour actualiser' : 'Tirer pour rafraîchir'}
-          </span>
+        <div className="flex items-center gap-1.5 py-1 text-xs font-bold" style={{ color: colors.primary }}>
+          <RefreshCw size={12} className={cn("transition-all", pullY >= 50 ? "rotate-180 animate-spin" : "")} />
+          <span>Relâcher pour actualiser</span>
         </div>
       </div>
 
-      {/* ============================================================
-          HEADER ÉDITORIAL
-          ============================================================ */}
-      <section className="relative overflow-hidden bg-white/60 border rounded-2xl p-6 text-center shadow-sm backdrop-blur-md flex flex-col items-center gap-4" style={{ borderColor: colors.primary + '15' }}>
-        
-        <div className="space-y-1.5 relative z-10">
-          <h1 className="text-base sm:text-lg font-black tracking-tight" style={{ color: colors.text }}>
-            Centre de notifications
+      {/* HEADER SIMPLE */}
+      <div className="flex items-center justify-between bg-white dark:bg-[#17231d] p-4 rounded-2xl border shadow-sm" style={{ borderColor: colors.primary + '15' }}>
+        <div>
+          <h1 className="text-sm font-black tracking-tight" style={{ color: colors.text }}>
+            Notifications
           </h1>
-          <p className="text-xs max-w-sm mx-auto leading-relaxed" style={{ color: colors.textLight }}>
-            Suivez les rapports d'interventions, validations de plannings et paiements de vos accompagnements.
+          <p className="text-[11px] font-medium text-gray-400 mt-0.5">
+            {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'À jour'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 relative z-10">
-          
-          <button
-            onClick={handleToggleNotifications}
-            className={cn(
-              "w-9 h-9 rounded-xl border flex items-center justify-center transition-all shadow-sm",
-              notificationsEnabled 
-                ? "text-emerald-600" 
-                : "bg-gray-50 border-gray-200 text-gray-400"
-            )}
-            style={{
-              backgroundColor: notificationsEnabled ? colors.primary + '15' : 'transparent',
-              borderColor: notificationsEnabled ? colors.primary + '30' : colors.primary + '15',
-              color: notificationsEnabled ? colors.primary : colors.textLight,
-            }}
-            title={notificationsEnabled ? 'Alertes actives' : 'Alertes muettes'}
-          >
-            <BellRing size={15} className={cn(notificationsEnabled ? "animate-swing origin-top" : "")} />
-          </button>
-
+        <div className="flex items-center gap-2">
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllRead}
-              className="px-4 h-9 rounded-xl text-xs font-black text-white transition hover:opacity-90 shadow-md flex items-center justify-center gap-1"
+              className="px-3 h-8 rounded-xl text-xs font-bold text-white transition hover:opacity-95 flex items-center gap-1 shadow-sm"
               style={{ background: colors.primary }}
             >
-              <Check size={13} strokeWidth={3} />
-              <span>Tout marquer comme lu</span>
+              <Check size={12} strokeWidth={3} />
+              <span>Tout lire</span>
             </button>
           )}
 
           <button
-            onClick={async () => {
-              toast.promise(
-                fetchNotifications(true),
-                {
-                  loading: 'Mise à jour...',
-                  success: 'Alertes synchronisées !',
-                  error: 'Échec de la mise à jour',
-                }
-              );
-            }}
+            onClick={() => fetchNotifications(true)}
             disabled={isLoading}
-            className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-inner"
-            title="Rafraîchir"
+            className="w-8 h-8 rounded-xl bg-gray-50 dark:bg-[#24362d] flex items-center justify-center text-gray-400 hover:text-gray-600 transition"
+            title="Actualiser"
           >
-            <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+            <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
           </button>
         </div>
-      </section>
+      </div>
 
-      {/* ============================================================
-          LISTE DES ALERTES
-          ============================================================ */}
+      {/* LISTE DES NOTIFICATIONS (ÉPURÉE) */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border" style={{ borderColor: colors.primary + '15' }}>
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: colors.primary }} />
-          <p className="text-xs font-bold mt-3" style={{ color: colors.textLight }}>Chargement de votre flux d'actualités...</p>
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin" style={{ color: colors.primary }} />
         </div>
       ) : visibleNotifications.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           {visibleNotifications.map((notification) => {
             const isUnread = !notification.is_read;
-
-            // ✅ APPLICATION DU FILTRE ET FORMULATEUR DE CONTEXTE DYNAMIQUE NOMINATIF ! [23, 30]
             const formatted = formatNotificationContext(notification, profile);
 
             return (
@@ -435,109 +248,66 @@ const NotificationsPage = () => {
                 key={notification.id}
                 onClick={() => isUnread && markAsRead(notification.id)}
                 className={cn(
-                  "group relative rounded-2xl p-5 border flex items-start gap-4 transition-all duration-300 cursor-pointer shadow-sm",
-                  isUnread
-                    ? "bg-white border"
-                    : "bg-white/40 border opacity-80"
+                  "relative rounded-2xl p-4 border transition-all flex items-start justify-between gap-3 shadow-sm",
+                  isUnread ? "bg-white dark:bg-[#17231d]" : "bg-gray-50/50 dark:bg-[#131d18] opacity-75"
                 )}
                 style={{
-                  borderColor: isUnread ? colors.primary + '20' : colors.primary + '10',
+                  borderColor: isUnread ? colors.primary + '25' : colors.primary + '10',
                 }}
               >
-                {isUnread && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.primary }} />
-                )}
-
-                <div className="pl-1">
-                  {getNotificationIcon(notification.type, colors)}
-                </div>
-
-                <div className="flex-1 min-w-0 space-y-1">
+                <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className={cn(
-                      "text-xs sm:text-sm leading-snug",
-                      isUnread ? "font-extrabold" : "font-semibold"
-                    )} style={{ color: colors.text }}>
-                      {formatted.title} {/* ✅ Affichage du titre traduit contextuel [23] */}
+                    <h4 className={cn("text-xs leading-snug truncate", isUnread ? "font-black" : "font-semibold")} style={{ color: colors.text }}>
+                      {formatted.title}
                     </h4>
-
                     {isUnread && (
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500 text-white shrink-0">
-                        Nouveau
-                      </span>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.primary }} />
                     )}
-
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-50 border" style={{ borderColor: colors.primary + '15', color: colors.textLight }}>
-                      {notification.type || 'Système'}
-                    </span>
                   </div>
 
-                  <p className="text-xs sm:text-sm leading-relaxed font-medium" style={{ color: colors.textLight }}>
-                    {formatted.body} {/* ✅ Affichage du corps traduit contextuel [23] */}
+                  <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-300 font-medium">
+                    {formatted.body}
                   </p>
 
-                  <div className="flex items-center gap-3 pt-1">
-                    <p className="text-[10px] font-bold" style={{ color: colors.textLight }}>
-                      {formatDateTime(notification.created_at)}
-                    </p>
-                    {!isUnread && (
-                      <span className="text-[10px] font-extrabold" style={{ color: colors.primary }}>
-                        ✓ Lu
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-[10px] text-gray-400 font-bold pt-0.5">
+                    {formatDateTime(notification.created_at)}
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0 self-center">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(notification.id);
-                    }}
-                    className="p-2 rounded-xl bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-all border"
-                    style={{ borderColor: colors.primary + '15' }}
-                    title="Supprimer définitivement"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(notification.id);
+                  }}
+                  className="p-1.5 rounded-xl hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors shrink-0"
+                  title="Supprimer"
+                >
+                  <X size={14} />
+                </button>
               </div>
             );
           })}
         </div>
       ) : (
-        <section className="bg-white/40 rounded-2xl py-16 px-6 text-center border max-w-sm mx-auto flex flex-col items-center justify-center gap-4 backdrop-blur-sm shadow-sm" style={{ borderColor: colors.primary + '15' }}>
-          <Illustration 
-            type="message" 
-            size="md" 
-            className="mx-auto opacity-35"
-            color={colors.primary}
-          />
-          
-          <div className="space-y-1">
-            <h3 className="font-extrabold text-sm" style={{ color: colors.text }}>
-              {getEmptyTitle()}
-            </h3>
-            <p className="text-xs max-w-xs leading-relaxed" style={{ color: colors.textLight }}>
-              {getEmptyMessage()}
-            </p>
-          </div>
-        </section>
+        <div className="text-center py-12 bg-white dark:bg-[#17231d] rounded-2xl border p-6" style={{ borderColor: colors.primary + '15' }}>
+          <Bell size={24} className="mx-auto mb-2 text-gray-300" />
+          <p className="text-xs font-bold text-gray-500">Aucune notification pour le moment.</p>
+        </div>
       )}
 
-      {/* STATISTIQUES DU FOOTER & ACTIONS GLOBALES */}
+      {/* FOOTER NETTOYÉ */}
       {visibleNotifications.length > 0 && (
-        <div className="flex items-center justify-between text-[11px] pt-4 border-t" style={{ borderColor: colors.primary + '15', color: colors.textLight }}>
-          <span className="font-semibold">{visibleNotifications.length} alerte{visibleNotifications.length > 1 ? 's' : ''} enregistrée{visibleNotifications.length > 1 ? 's' : ''}</span>
+        <div className="flex items-center justify-between text-[11px] pt-2 px-1 text-gray-400">
+          <span>{visibleNotifications.length} alerte(s)</span>
           <button
             onClick={() => {
-              if (window.confirm('Voulez-vous vider définitivement tout votre historique d\'alertes ?')) {
+              if (window.confirm('Voulez-vous vider tout l\'historique ?')) {
                 clearNotifications();
                 setDeletedIds([]);
-                toast.success('Historique de notifications vidé');
+                toast.success('Historique vidé');
               }
             }}
-            className="text-red-400 hover:text-red-500 font-extrabold flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-red-50 transition-all"
+            className="text-red-400 hover:text-red-500 font-bold flex items-center gap-1 transition-colors"
           >
             <Trash2 size={12} />
             Tout effacer
