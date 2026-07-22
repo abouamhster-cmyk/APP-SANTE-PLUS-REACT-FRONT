@@ -230,7 +230,6 @@ const AdminNotificationsPage = () => {
     }
   };
 
-  // ✅ ENVOI AVEC GENERATION D'UN BROADCAST_ID UNIQUE
   const handleSendNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.body.trim()) {
@@ -258,7 +257,6 @@ const AdminNotificationsPage = () => {
         return;
       }
 
-      // Identifiant unique pour regrouper le lot sur le dashboard Admin
       const broadcastId = typeof crypto !== 'undefined' && crypto.randomUUID 
         ? crypto.randomUUID() 
         : `bc_${Date.now()}`;
@@ -306,7 +304,6 @@ const AdminNotificationsPage = () => {
     }
   };
 
-  // ✅ SUPPRESSION GROUPÉE DE TOUTES LES NOTIFICATIONS DU MEME LOT
   const handleDeleteGroup = async (ids: string[]) => {
     if (!window.confirm(`Supprimer cette diffusion (${ids.length} destinataire(s)) ?`)) return;
     try {
@@ -347,7 +344,6 @@ const AdminNotificationsPage = () => {
     return u?.full_name || 'Inconnu';
   };
 
-  // ✅ ALGORITHME DE REGROUPEMENT PAR BROADCAST / BATCH / MINUTE
   const groupedNotifications = useMemo(() => {
     const filtered = notifications.filter((n) => {
       const matchesSearch =
@@ -362,7 +358,6 @@ const AdminNotificationsPage = () => {
 
     filtered.forEach((notif) => {
       const broadcastId = notif.data?.broadcast_id;
-      // Regroupement par broadcast_id ou par minute d'envoi si identique
       const timeKey = notif.created_at ? notif.created_at.substring(0, 16) : '';
       const groupKey = broadcastId 
         ? `bc_${broadcastId}` 
@@ -411,16 +406,16 @@ const AdminNotificationsPage = () => {
   return (
     <div className="space-y-5 max-w-5xl mx-auto pb-12 px-4 sm:px-0">
       {/* Header */}
-      <section className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5" style={{ background: `${colors.primary}08` }}>
+      <section className="relative overflow-hidden rounded-3xl p-5 sm:p-6 transition-all border border-black/5 dark:border-[#283c32]" style={{ background: `${colors.primary}08` }}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight" style={{ color: colors.text }}>🔔 Notifications système</h1>
-            <p className="text-xs font-semibold text-gray-500 mt-1">
-              {stats.groupedCount} diffusion(s) regroupée(s) • {stats.total} message(s) individuels envoyés
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white">🔔 Notifications système</h1>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-1">
+              {stats.groupedCount} diffusion(s) • {stats.total} message(s) envoyés
             </p>
           </div>
           <div className="flex gap-2">
-            <button onClick={fetchNotifications} className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white hover:bg-gray-50 flex items-center gap-1.5">
+            <button onClick={fetchNotifications} className="px-3.5 py-2 rounded-xl text-xs font-bold border bg-white dark:bg-[#14221b] dark:border-[#283c32] hover:bg-gray-50 dark:hover:bg-[#1e2e26] transition flex items-center gap-1.5">
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Actualiser
             </button>
             <button onClick={() => setShowFormModal(true)} className="px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-opacity hover:opacity-90" style={{ background: colors.primary }}>
@@ -432,13 +427,13 @@ const AdminNotificationsPage = () => {
 
       {/* Alerte Visites en attente d'aidants */}
       {stats.pendingAidant > 0 && (
-        <div className="bg-orange-50 border border-orange-200 p-4 rounded-2xl">
+        <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/50 p-4 rounded-2xl">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
               <UserPlus size={20} className="text-orange-500 shrink-0" />
               <div>
-                <p className="font-bold text-xs text-orange-900">{stats.pendingAidant} visite(s) en attente d'aidant</p>
-                <p className="text-[11px] text-orange-700">Toutes les places sont occupées, action requise.</p>
+                <p className="font-bold text-xs text-orange-900 dark:text-orange-300">{stats.pendingAidant} visite(s) en attente d'aidant</p>
+                <p className="text-[11px] text-orange-700 dark:text-orange-400">Toutes les places sont occupées, action requise.</p>
               </div>
             </div>
             <button onClick={() => setShowPendingVisits(!showPendingVisits)} className="px-3 py-1.5 bg-orange-500 text-white rounded-xl text-xs font-bold">
@@ -447,12 +442,12 @@ const AdminNotificationsPage = () => {
           </div>
 
           {showPendingVisits && (
-            <div className="mt-3 pt-3 border-t border-orange-200 space-y-2">
+            <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-900/40 space-y-2">
               {pendingVisits.map((v) => (
-                <div key={v.id} className="bg-white p-3 rounded-xl border border-orange-100 flex items-center justify-between text-xs">
+                <div key={v.id} className="bg-white dark:bg-[#14221b] p-3 rounded-xl border border-orange-100 dark:border-[#283c32] flex items-center justify-between text-xs">
                   <div>
-                    <p className="font-bold text-gray-800">{v.target_name || 'Patient'}</p>
-                    <p className="text-[10px] text-gray-500">{formatDate(v.scheduled_date)} à {v.scheduled_time}</p>
+                    <p className="font-bold text-gray-800 dark:text-gray-100">{v.target_name || 'Patient'}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{formatDate(v.scheduled_date)} à {v.scheduled_time}</p>
                   </div>
                   <button onClick={() => window.location.href = `/app/visits/${v.id}`} className="px-2.5 py-1 rounded-lg text-white font-bold text-[10px]" style={{ background: colors.primary }}>
                     Assigner
@@ -473,12 +468,12 @@ const AdminNotificationsPage = () => {
       </section>
 
       {/* Filtres et recherche */}
-      <section className="bg-white rounded-2xl p-3 border shadow-sm flex flex-col sm:flex-row gap-3">
+      <section className="bg-white dark:bg-[#14221b] rounded-2xl p-3 border dark:border-[#283c32] shadow-sm flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Rechercher par titre, message ou destinataire..." className="w-full h-11 pl-10 pr-4 rounded-xl border bg-gray-50 text-xs font-bold outline-none" />
+          <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Rechercher par titre, message..." className="w-full h-11 pl-10 pr-4 rounded-xl border dark:border-[#283c32] bg-gray-50 dark:bg-[#1e2e26] text-xs font-bold outline-none" />
         </div>
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="h-11 px-4 rounded-xl border bg-gray-50 text-xs font-bold outline-none cursor-pointer">
+        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="h-11 px-4 rounded-xl border dark:border-[#283c32] bg-gray-50 dark:bg-[#1e2e26] text-xs font-bold outline-none cursor-pointer">
           <option value="all">Tous les types</option>
           {notificationTypes.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -486,25 +481,25 @@ const AdminNotificationsPage = () => {
         </select>
       </section>
 
-      {/* Liste des notifications REGROUPÉES */}
-      <section className="bg-white rounded-3xl border shadow-sm divide-y overflow-hidden">
+      {/* Liste des notifications REGROUPÉES (SANS HOVER BLANC GÊNANT) */}
+      <section className="bg-white dark:bg-[#14221b] rounded-3xl border dark:border-[#283c32] shadow-sm divide-y dark:divide-[#283c32] overflow-hidden">
         {isLoading ? (
           <div className="p-10 text-center"><Loader2 size={24} className="animate-spin mx-auto text-gray-300" /></div>
         ) : groupedNotifications.length === 0 ? (
           <div className="p-10 text-center text-xs text-gray-400 font-bold">Aucune notification enregistrée</div>
         ) : (
           groupedNotifications.map((group) => (
-            <div key={group.id} className="p-4 hover:bg-gray-50/80 transition flex items-center justify-between gap-4">
+            <div key={group.id} className="p-4 transition-colors hover:bg-gray-50/80 dark:hover:bg-[#1e2e26] flex items-center justify-between gap-4">
               <div className="min-w-0 space-y-1.5 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-extrabold text-xs text-gray-900">{group.title}</span>
+                  <span className="font-extrabold text-xs text-gray-900 dark:text-gray-100">{group.title}</span>
                   {group.type === 'alert' && (
-                    <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black bg-red-100 text-red-600 uppercase">ALERTE</span>
+                    <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 uppercase">ALERTE</span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 line-clamp-1 leading-relaxed">{group.body}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 leading-relaxed">{group.body}</p>
                 <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                  <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                  <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/50">
                     {getTargetBadgeLabel(group.targetGroup, group.recipientCount, group.recipientNames, group.sampleUser)}
                   </span>
                   <span className="text-gray-400">•</span>
@@ -512,16 +507,16 @@ const AdminNotificationsPage = () => {
                   {group.recipientCount > 1 && (
                     <>
                       <span className="text-gray-400">•</span>
-                      <span className="text-blue-600 font-semibold">{group.isReadCount} / {group.recipientCount} lues</span>
+                      <span className="text-blue-600 dark:text-blue-400 font-semibold">{group.isReadCount} / {group.recipientCount} lues</span>
                     </>
                   )}
                 </div>
               </div>
               <div className="flex gap-1.5 shrink-0">
-                <button onClick={() => { setSelectedGroup(group); setShowDetailsModal(true); }} className="p-2 border rounded-xl hover:bg-gray-100 text-gray-600">
+                <button onClick={() => { setSelectedGroup(group); setShowDetailsModal(true); }} className="p-2 border dark:border-[#283c32] rounded-xl hover:bg-gray-100 dark:hover:bg-[#22332b] text-gray-600 dark:text-gray-300">
                   <Eye size={14} />
                 </button>
-                <button onClick={() => handleDeleteGroup(group.ids)} className="p-2 border border-red-100 text-red-500 rounded-xl hover:bg-red-50">
+                <button onClick={() => handleDeleteGroup(group.ids)} className="p-2 border border-red-100 dark:border-red-950 text-red-500 rounded-xl hover:bg-red-50 dark:hover:bg-red-950/30">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -540,32 +535,32 @@ const AdminNotificationsPage = () => {
         >
           <form onSubmit={handleSendNotification} className="space-y-4 text-xs font-bold pt-1">
             <div>
-              <label className="block text-gray-700 mb-1">Titre *</label>
+              <label className="block text-gray-700 dark:text-gray-300 mb-1">Titre *</label>
               <input
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="Ex: Information importante Santé Plus"
-                className="w-full h-11 px-4 rounded-xl border bg-gray-50 outline-none"
+                className="w-full h-11 px-4 rounded-xl border dark:border-[#283c32] bg-gray-50 dark:bg-[#1e2e26] text-gray-900 dark:text-gray-100 outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-gray-700 mb-1">Message *</label>
+              <label className="block text-gray-700 dark:text-gray-300 mb-1">Message *</label>
               <textarea
                 value={formData.body}
                 onChange={(e) => setFormData({ ...formData, body: e.target.value })}
                 rows={3}
                 placeholder="Rédigez votre alerte ici..."
-                className="w-full p-3 rounded-xl border bg-gray-50 outline-none resize-none"
+                className="w-full p-3 rounded-xl border dark:border-[#283c32] bg-gray-50 dark:bg-[#1e2e26] text-gray-900 dark:text-gray-100 outline-none resize-none"
                 required
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-700 mb-1.5">Type</label>
+                <label className="block text-gray-700 dark:text-gray-300 mb-1.5">Type</label>
                 <div className="flex flex-wrap gap-1.5">
                   {notificationTypes.map((type) => (
                     <button
@@ -585,7 +580,7 @@ const AdminNotificationsPage = () => {
               </div>
 
               <div>
-                <label className="block text-gray-700 mb-1.5">Destinataires</label>
+                <label className="block text-gray-700 dark:text-gray-300 mb-1.5">Destinataires</label>
                 <div className="flex flex-wrap gap-1.5">
                   {targets.map((t) => (
                     <button
@@ -608,10 +603,10 @@ const AdminNotificationsPage = () => {
             {/* Sélecteur si cible spécifique */}
             {formData.target === 'specific' && (
               <div className="relative pt-1">
-                <label className="block text-gray-700 mb-1">Sélectionner les utilisateurs</label>
+                <label className="block text-gray-700 dark:text-gray-300 mb-1">Sélectionner les utilisateurs</label>
                 <div className="flex flex-wrap gap-1 mb-2 max-h-24 overflow-y-auto">
                   {formData.targetUsers.map((uid) => (
-                    <span key={uid} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                    <span key={uid} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold border border-emerald-200">
                       {getUserName(uid)}
                       <button type="button" onClick={() => removeTargetUser(uid)} className="text-red-500 hover:text-red-700 ml-1"><X size={12} /></button>
                     </span>
@@ -622,18 +617,18 @@ const AdminNotificationsPage = () => {
                   value={userSearch}
                   onChange={(e) => { setUserSearch(e.target.value); setShowUserDropdown(true); }}
                   placeholder="Rechercher un utilisateur par nom..."
-                  className="w-full h-10 px-3.5 rounded-xl border bg-gray-50 outline-none"
+                  className="w-full h-10 px-3.5 rounded-xl border dark:border-[#283c32] bg-gray-50 dark:bg-[#1e2e26] text-gray-900 dark:text-gray-100 outline-none"
                 />
                 {showUserDropdown && userSearch.length > 0 && filteredUsers.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border rounded-xl shadow-xl max-h-36 overflow-y-auto divide-y">
+                  <div className="absolute z-20 mt-1 w-full bg-white dark:bg-[#14221b] border dark:border-[#283c32] rounded-xl shadow-xl max-h-36 overflow-y-auto divide-y dark:divide-[#283c32]">
                     {filteredUsers.map((u) => (
                       <button
                         key={u.id}
                         type="button"
                         onClick={() => addTargetUser(u.id)}
-                        className="w-full p-2.5 text-left text-xs hover:bg-gray-50 flex justify-between items-center"
+                        className="w-full p-2.5 text-left text-xs hover:bg-gray-50 dark:hover:bg-[#1e2e26] flex justify-between items-center"
                       >
-                        <span className="font-bold">{u.full_name}</span>
+                        <span className="font-bold text-gray-900 dark:text-gray-100">{u.full_name}</span>
                         <span className="text-[10px] text-gray-400">{u.email}</span>
                       </button>
                     ))}
@@ -643,11 +638,11 @@ const AdminNotificationsPage = () => {
             )}
 
             {/* Boutons d'action */}
-            <div className="flex gap-3 pt-4 border-t justify-end">
+            <div className="flex gap-3 pt-4 border-t dark:border-[#283c32] justify-end">
               <button
                 type="button"
                 onClick={() => setShowFormModal(false)}
-                className="flex-1 h-11 rounded-xl border text-xs font-bold hover:bg-gray-50"
+                className="flex-1 h-11 rounded-xl border dark:border-[#283c32] text-xs font-bold bg-white dark:bg-[#14221b] hover:bg-gray-50 dark:hover:bg-[#1e2e26] transition"
               >
                 Annuler
               </button>
@@ -685,10 +680,10 @@ interface StatCardProps {
 }
 
 const StatCard = ({ label, value, color, icon }: StatCardProps) => (
-  <div className="bg-white rounded-2xl p-4 border shadow-sm flex justify-between items-center">
+  <div className="bg-white dark:bg-[#14221b] rounded-2xl p-4 border dark:border-[#283c32] shadow-sm flex justify-between items-center">
     <div>
       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className="text-lg font-black mt-0.5" style={{ color }}>{value}</p>
+      <p className="text-lg font-black mt-0.5 text-gray-900 dark:text-white" style={{ color }}>{value}</p>
     </div>
     <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}15`, color }}>
       {icon}
@@ -707,28 +702,28 @@ const NotificationDetailsModal = ({ group, onClose }: NotificationDetailsModalPr
     <div className="space-y-3 text-xs pt-1">
       <div>
         <span className="text-gray-400 font-semibold block mb-0.5">Titre :</span>
-        <span className="font-bold text-gray-800 text-sm">{group.title}</span>
+        <span className="font-bold text-gray-800 dark:text-gray-100 text-sm">{group.title}</span>
       </div>
       <div>
         <span className="text-gray-400 font-semibold block mb-0.5">Message :</span>
-        <span className="text-gray-700 leading-relaxed block bg-gray-50 p-3 rounded-xl border">{group.body}</span>
+        <span className="text-gray-700 dark:text-gray-300 leading-relaxed block bg-gray-50 dark:bg-[#1e2e26] p-3 rounded-xl border dark:border-[#283c32]">{group.body}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+      <div className="grid grid-cols-2 gap-2 pt-2 border-t dark:border-[#283c32]">
         <div>
           <span className="text-gray-400 font-semibold block">Type :</span>
-          <span className="font-bold uppercase text-emerald-600">{group.type}</span>
+          <span className="font-bold uppercase text-emerald-600 dark:text-emerald-400">{group.type}</span>
         </div>
         <div>
           <span className="text-gray-400 font-semibold block">Date d'envoi :</span>
-          <span className="font-bold text-gray-800">{formatDate(group.created_at)}</span>
+          <span className="font-bold text-gray-800 dark:text-gray-200">{formatDate(group.created_at)}</span>
         </div>
       </div>
-      <div className="pt-2 border-t space-y-1.5">
+      <div className="pt-2 border-t dark:border-[#283c32] space-y-1.5">
         <span className="text-gray-400 font-semibold block">Audience ({group.recipientCount} destinataires) :</span>
-        <div className="bg-gray-50 p-3 rounded-xl border max-h-32 overflow-y-auto space-y-1">
+        <div className="bg-gray-50 dark:bg-[#1e2e26] p-3 rounded-xl border dark:border-[#283c32] max-h-32 overflow-y-auto space-y-1">
           {group.recipientNames.length > 0 ? (
             group.recipientNames.map((name, i) => (
-              <p key={i} className="text-gray-800 font-bold">• {name}</p>
+              <p key={i} className="text-gray-800 dark:text-gray-200 font-bold">• {name}</p>
             ))
           ) : (
             <p className="text-gray-500 italic">Destinataires généraux ({group.recipientCount})</p>
