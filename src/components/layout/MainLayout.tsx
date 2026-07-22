@@ -61,9 +61,10 @@ const MainLayout = () => {
   }, [role]);
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden" style={{ backgroundColor: colors.background }}>
+    // ✅ Utilisation de var(--color-background) pour respecter le Dark Mode
+    <div className="min-h-screen w-full overflow-x-hidden transition-colors duration-200" style={{ backgroundColor: 'var(--color-background)' }}>
       {!isMobile && (
-        <aside className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col" style={{ borderColor: colors.primary + '20' }}>
+        <aside className="hidden md:flex fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-lg border-r flex-col dark:bg-[#182620] dark:border-gray-800" style={{ borderColor: colors.primary + '20' }}>
           <SidebarContent navItems={navItems} locationPath={location.pathname} colors={colors} profile={profile} onLogout={() => { logout(); navigate('/login'); }} />
         </aside>
       )}
@@ -81,18 +82,14 @@ const MainLayout = () => {
   );
 };
 
-// =============================================
-// SIDEBAR CONTENT
-// =============================================
 const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: any) => {
   return (
-    <div className="flex h-full flex-col bg-white">
-      {/* ✅ CORRECTIF : Désactivation de l'icône pour éviter le doublon visuel (Icone + Texte) */}
+    <div className="flex h-full flex-col bg-white dark:bg-[#182620]">
       <div className="px-6 py-8">
         <Logo 
           size="md" 
           variant="dark" 
-          showIcon={false} // Désactivé pour éviter le doublon, car le logo texte contient déjà l'info
+          showIcon={false} 
           showText={true} 
           className="justify-start" 
         />
@@ -106,7 +103,7 @@ const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: a
             className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all" 
             style={{ 
               color: locationPath === item.path ? colors.primary : '#6b7280', 
-              backgroundColor: locationPath === item.path ? colors.primary + '0a' : 'transparent' 
+              backgroundColor: locationPath === item.path ? colors.primary + '15' : 'transparent' 
             }}
           >
             {item.icon} {item.label}
@@ -114,8 +111,8 @@ const SidebarContent = ({ navItems, locationPath, colors, profile, onLogout }: a
         ))}
       </div>
 
-      <div className="p-4 border-t space-y-3 bg-gray-50">
-        <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white transition">
+      <div className="p-4 border-t space-y-3 bg-gray-50 dark:bg-[#22332b]">
+        <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white dark:hover:bg-[#182620] transition">
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ background: colors.primary }}>
             {profile?.full_name?.charAt(0) || 'U'}
           </div>
