@@ -1,5 +1,4 @@
 // 📁 src/components/ui/Logo.tsx
-
 import { cn } from '@/utils/helpers';
 import { useBranding } from '@/hooks/useBranding';
 
@@ -8,6 +7,7 @@ interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   showText?: boolean;
+  showIcon?: boolean;  
   whiteBg?: boolean;
 }
 
@@ -16,6 +16,7 @@ export const Logo = ({
   size = 'md',
   className,
   showText = true,
+  showIcon = true,  
   whiteBg = false,
 }: LogoProps) => {
   const brand = useBranding();
@@ -39,11 +40,13 @@ export const Logo = ({
 
   return (
     <div className={cn('flex items-center space-x-3', className)}>
-      <img
-        src={logoSrc}
-        alt="Santé Plus"
-        className={cn('object-contain', sizes[size])}
-      />
+      {showIcon && (
+        <img
+          src={logoSrc}
+          alt="Santé Plus"
+          className={cn('object-contain', sizes[size])}
+        />
+      )}
       {showText && (
         <img
           src={textSrc}
