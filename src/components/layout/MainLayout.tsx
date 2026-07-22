@@ -1,11 +1,12 @@
 // 📁 src/features/layout/MainLayout.tsx
- 
+// ✅ MAIN LAYOUT ADMIN : AJOUT DIRECT DE LA PAGE AIDANTS DANS LE MENU LATÉRAL
+
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
   User, LogOut, Settings, Users, Calendar, ShoppingBag, LayoutDashboard,
-  Briefcase, MapPin, ClipboardList, CreditCard, History as HistoryIcon,
-  BookOpen, Home, Shield, UserCog, Package,
+  Briefcase, MapPin, CreditCard, History as HistoryIcon,
+  BookOpen, Home, Package, UserCheck,
 } from 'lucide-react';
 
 import { useAuthStore } from '@/stores/authStore';
@@ -40,11 +41,12 @@ const MainLayout = () => {
     return () => unsubscribe();
   }, [profile, fetchNotifications, subscribe, unsubscribe]);
 
+  // ✅ LOGIQUE CENTRALE : Menu complet par rôle (Aidants remplace Inscriptions pour Admin/Coord)
   const navItems = useMemo(() => {
     const allItems = [
       { icon: <Home size={20} />, label: "Mon Espace d'Accueil", path: '/app', roles: ['family', 'aidant', 'admin', 'coordinator'] },
       { icon: <LayoutDashboard size={20} />, label: "Admin", path: '/app/admin', roles: ['admin', 'coordinator'] },
-      { icon: <ClipboardList size={20} />, label: "Inscriptions", path: '/app/registrations', roles: ['admin', 'coordinator'] },
+      { icon: <UserCheck size={20} />, label: "Aidants", path: '/app/aidants', roles: ['admin', 'coordinator'] }, // ✅ REMPLACÉ POUR L'ADMIN
       { icon: <Users size={20} />, label: 'Bénéficiaires', path: '/app/patients', roles: ['family', 'admin', 'coordinator'] },
       { icon: <Briefcase size={20} />, label: "Missions", path: '/app/missions', roles: ['aidant'] },
       { icon: <Calendar size={20} />, label: role === 'aidant' ? 'Planning' : "Visites", path: role === 'aidant' ? '/app/planning' : '/app/visits', roles: ['family', 'aidant', 'admin', 'coordinator'] },
@@ -70,7 +72,6 @@ const MainLayout = () => {
       )}
 
       <div className="min-h-screen w-full md:pl-72">
-        {/* ✅ PADDING BAS OPTIMISÉ ET COMPACT (pb-20 mobile / pb-6 desktop) */}
         <main className={cn('w-full max-w-full pt-4 p-2 sm:p-4', isMobile ? 'pb-20' : 'pb-6')}>
           <ReminderBanner />
           <Outlet />
